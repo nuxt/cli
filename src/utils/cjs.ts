@@ -42,7 +42,8 @@ export function importModule (id: string, paths?: string | string[]) {
 
 export function getNearestPackage (id: string, paths?: string | string[]) {
   while (dirname(id) !== id) {
-    try { return requireModule(id + '/package.json', paths) } catch { }
+    // eslint-disable-next-line no-empty
+    try { return requireModule(id + '/package.json', paths) } catch {}
     id = dirname(id)
   }
   return null

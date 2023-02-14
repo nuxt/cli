@@ -8,6 +8,7 @@ export default defineNuxtCommand({
     usage: 'nuxt help',
     description: 'Show help'
   },
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   invoke (_args) {
     const sections: string[] = []
 
