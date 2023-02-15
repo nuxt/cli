@@ -67,7 +67,15 @@ async function updateNuxtConfig(rootDir: string, update: (config: any) => void) 
     consola.info('Creating `nuxt.config.ts`')
     _module = parseCode(getDefaultNuxtConfig())
   }
-  update(_module.exports.default.arguments[0])
+  const defaultExport = _module.exports.default
+  if (!defaultExport) {
+    throw new Error('`nuxt.config.ts` does not have a default export!')
+  }
+  if (defaultExport.$type === 'function-call') {
+    update(defaultExport.arguments[0])
+  } else {
+    update(defaultExport)
+  }
   await writeFile(_module as any, nuxtConfigFile)
   consola.success('`nuxt.config.ts` updated')
 }
