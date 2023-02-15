@@ -7,8 +7,9 @@ import type { Command, NuxtCommand } from './commands'
 import { commands } from './commands'
 import { showHelp } from './utils/help'
 import { showBanner } from './utils/banner'
+import { checkForUpdates } from './utils/update'
 
-async function _main () {
+async function _main() {
   const _argv = process.argv.slice(2)
   const args = mri(_argv, {
     boolean: [
@@ -28,7 +29,10 @@ async function _main () {
   }
 
   // Check Node.js version in background
-  setTimeout(() => { checkEngines().catch(() => {}) }, 1000)
+  setTimeout(() => { checkEngines().catch(() => { }) }, 100)
+
+  // Check for CLI updates in the background
+  setTimeout(() => { checkForUpdates().catch(() => { }) }, 100)
 
   // @ts-ignore default.default is hotfix for #621
   const cmd = await commands[command as Command]() as NuxtCommand
@@ -45,8 +49,8 @@ consola.wrapAll()
 
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
-const wrapReporter = (reporter: ConsolaReporter) => <ConsolaReporter> {
-  log (logObj, ctx) {
+const wrapReporter = (reporter: ConsolaReporter) => <ConsolaReporter>{
+  log(logObj, ctx) {
     if (!logObj.args || !logObj.args.length) { return }
     const msg = logObj.args[0]
     if (typeof msg === 'string' && !process.env.DEBUG) {
@@ -68,7 +72,7 @@ consola._reporters = consola._reporters.map(wrapReporter)
 process.on('unhandledRejection', err => consola.error('[unhandledRejection]', err))
 process.on('uncaughtException', err => consola.error('[uncaughtException]', err))
 
-export function main () {
+export function main() {
   _main()
     .then((result) => {
       if (result === 'error') {
