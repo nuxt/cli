@@ -33,7 +33,10 @@ async function addModule(args: Argv) {
 
   // Add npm dependency
   consola.info(`Installing dev dependency \`${npmPackage}\``)
-  await addDependency(npmPackage, { cwd: rootDir, dev: true })
+  await addDependency(npmPackage, { cwd: rootDir, dev: true }).catch(err => {
+    consola.error(err)
+    consola.error(`Please manually install \`${npmPackage}\` as a dev dependency`)
+  })
 
   // Update nuxt.config.ts
   await updateNuxtConfig(rootDir, (config) => {
