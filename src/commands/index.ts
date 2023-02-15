@@ -12,6 +12,7 @@ export const commands = {
   start: () => import('./preview').then(_rDefault),
   analyze: () => import('./analyze').then(_rDefault),
   generate: () => import('./generate').then(_rDefault),
+  module: () => import('./module').then(_rDefault),
   prepare: () => import('./prepare').then(_rDefault),
   typecheck: () => import('./typecheck').then(_rDefault),
   usage: () => import('./usage').then(_rDefault),
