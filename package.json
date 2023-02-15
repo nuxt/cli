@@ -26,8 +26,9 @@
     "lint:fix": "eslint --fix . && prettier --write src",
     "nuxi": "JITI_ESM_RESOLVE=1 jiti ./scripts/nuxi.ts",
     "prepack": "unbuild",
-    "release": "pnpm test && pnpm build && changelogen --release && npm publish && git push --follow-tags",
-    "test": "pnpm lint"
+    "release": "pnpm build && pnpm test && changelogen --release && npm publish && git push --follow-tags",
+    "test": "pnpm lint && test:dist",
+    "test:dist": "node ./bin/nuxi.mjs info"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^0.1.1",
