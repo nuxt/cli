@@ -5,6 +5,9 @@ import boxen from 'boxen'
 import * as semver from 'semver'
 
 export async function checkForUpdates() {
+  if (process.env.SKIP_NUXT_UPDATE_CHECK) {
+    return
+  }
   const { version: latestVersion = '' } = await $fetch(`https://registry.npmjs.org/${pkgName}/latest`)
   if (!latestVersion) {
     return
