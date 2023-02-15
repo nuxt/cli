@@ -8,10 +8,12 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'add',
-    usage: `npx nuxi add [--cwd] [--force] ${Object.keys(templates).join('|')} <name>`,
-    description: 'Create a new template file.'
+    usage: `npx nuxi add [--cwd] [--force] ${Object.keys(templates).join(
+      '|'
+    )} <name>`,
+    description: 'Create a new template file.',
   },
-  async invoke (args) {
+  async invoke(args) {
     const cwd = resolve(args.cwd || '.')
 
     const template = args._[0]
@@ -19,7 +21,11 @@ export default defineNuxtCommand({
 
     // Validate template name
     if (!templates[template]) {
-      consola.error(`Template ${template} is not supported. Possible values: ${Object.keys(templates).join(', ')}`)
+      consola.error(
+        `Template ${template} is not supported. Possible values: ${Object.keys(
+          templates
+        ).join(', ')}`
+      )
       process.exit(1)
     }
 
@@ -41,7 +47,9 @@ export default defineNuxtCommand({
 
     // Ensure not overriding user code
     if (!args.force && existsSync(path)) {
-      consola.error(`File exists: ${path} . Use --force to override or use a different name.`)
+      consola.error(
+        `File exists: ${path} . Use --force to override or use a different name.`
+      )
       process.exit(1)
     }
 
@@ -58,5 +66,5 @@ export default defineNuxtCommand({
     // Write file
     await fsp.writeFile(path, res.contents.trim() + '\n')
     consola.info(`🪄 Generated a new ${template} in ${path}`)
-  }
+  },
 })

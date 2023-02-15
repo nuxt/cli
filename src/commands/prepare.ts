@@ -10,9 +10,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'prepare',
     usage: 'npx nuxi prepare',
-    description: 'Prepare nuxt for development/build'
+    description: 'Prepare nuxt for development/build',
   },
-  async invoke (args) {
+  async invoke(args) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
 
@@ -22,6 +22,9 @@ export default defineNuxtCommand({
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
-    consola.success('Types generated in', relative(process.cwd(), nuxt.options.buildDir))
-  }
+    consola.success(
+      'Types generated in',
+      relative(process.cwd(), nuxt.options.buildDir)
+    )
+  },
 })

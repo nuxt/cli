@@ -22,7 +22,8 @@
   "scripts": {
     "build": "unbuild",
     "dev": "pnpm nuxi dev ./playground",
-    "lint": "eslint .",
+    "lint": "eslint . && prettier --check src",
+    "lint:fix": "eslint --fix . && prettier --write src",
     "nuxi": "JITI_ESM_RESOLVE=1 jiti ./scripts/nuxi.ts",
     "prepack": "unbuild",
     "release": "pnpm test && pnpm build && changelogen --release && npm publish && git push --follow-tags",
@@ -62,6 +63,7 @@
     "pathe": "^1.1.0",
     "perfect-debounce": "^0.1.3",
     "pkg-types": "^1.0.1",
+    "prettier": "^2.8.4",
     "scule": "^1.0.0",
     "semver": "^7.3.8",
     "unbuild": "^1.1.1"

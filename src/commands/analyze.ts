@@ -12,9 +12,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'analyze',
     usage: 'npx nuxi analyze [rootDir]',
-    description: 'Build nuxt and analyze production bundle (experimental)'
+    description: 'Build nuxt and analyze production bundle (experimental)',
   },
-  async invoke (args) {
+  async invoke(args) {
     overrideEnv('production')
 
     const rootDir = resolve(args._[0] || '.')
@@ -26,9 +26,9 @@ export default defineNuxtCommand({
       rootDir,
       config: {
         build: {
-          analyze: true
-        }
-      }
+          analyze: true,
+        },
+      },
     })
 
     await clearDir(nuxt.options.buildDir)
@@ -37,18 +37,25 @@ export default defineNuxtCommand({
 
     const app = createApp()
 
-    const serveFile = (filePath: string) => lazyEventHandler(async () => {
-      const contents = await fsp.readFile(filePath, 'utf-8')
-      return eventHandler((event) => { event.node.res.end(contents) })
-    })
+    const serveFile = (filePath: string) =>
+      lazyEventHandler(async () => {
+        const contents = await fsp.readFile(filePath, 'utf-8')
+        return eventHandler((event) => {
+          event.node.res.end(contents)
+        })
+      })
 
-    console.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
+    console.warn(
+      'Do not deploy analyze results! Use `nuxi build` before deploying.'
+    )
 
     console.info('Starting stats server...')
 
     app.use('/client', serveFile(join(statsDir, 'client.html')))
     app.use('/nitro', serveFile(join(statsDir, 'nitro.html')))
-    app.use(eventHandler(() => `<!DOCTYPE html>
+    app.use(
+      eventHandler(
+        () => `<!DOCTYPE html>
     <html lang="en">
     <head>
     <meta charset="utf-8">
@@ -64,10 +71,12 @@ export default defineNuxtCommand({
         </li>
       </ul>
     </html>
-    `))
+    `
+      )
+    )
 
     await listen(toNodeListener(app))
 
     return 'wait' as const
-  }
+  },
 })

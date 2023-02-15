@@ -9,25 +9,27 @@ export interface NuxtProjectManifest {
   _hash: string | null
   project: {
     rootDir: string
-  },
+  }
   versions: {
     nuxt: string
   }
 }
 
-export async function cleanupNuxtDirs (rootDir: string) {
+export async function cleanupNuxtDirs(rootDir: string) {
   consola.info('Cleaning up generated nuxt files and caches...')
 
-  await rmRecursive([
-    '.nuxt',
-    '.output',
-    'dist',
-    'node_modules/.vite',
-    'node_modules/.cache'
-  ].map(dir => resolve(rootDir, dir)))
+  await rmRecursive(
+    [
+      '.nuxt',
+      '.output',
+      'dist',
+      'node_modules/.vite',
+      'node_modules/.cache',
+    ].map((dir) => resolve(rootDir, dir))
+  )
 }
 
-export function nuxtVersionToGitIdentifier (version: string) {
+export function nuxtVersionToGitIdentifier(version: string) {
   // match the git identifier in the release, for example: 3.0.0-rc.8-27677607.a3a8706
   const id = /\.([0-9a-f]{7,8})$/.exec(version)
   if (id?.[1]) {
@@ -37,21 +39,23 @@ export function nuxtVersionToGitIdentifier (version: string) {
   return `v${version}`
 }
 
-export function resolveNuxtManifest (nuxt: Nuxt): NuxtProjectManifest {
+export function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
   const manifest: NuxtProjectManifest = {
     _hash: null,
     project: {
-      rootDir: nuxt.options.rootDir
+      rootDir: nuxt.options.rootDir,
     },
     versions: {
-      nuxt: nuxt._version
-    }
+      nuxt: nuxt._version,
+    },
   }
   manifest._hash = hash(manifest)
   return manifest
 }
 
-export async function writeNuxtManifest (nuxt: Nuxt): Promise<NuxtProjectManifest> {
+export async function writeNuxtManifest(
+  nuxt: Nuxt
+): Promise<NuxtProjectManifest> {
   const manifest = resolveNuxtManifest(nuxt)
   const manifestPath = resolve(nuxt.options.buildDir, 'nuxt.json')
   await fsp.mkdir(dirname(manifestPath), { recursive: true })
@@ -59,10 +63,13 @@ export async function writeNuxtManifest (nuxt: Nuxt): Promise<NuxtProjectManifes
   return manifest
 }
 
-export async function loadNuxtManifest (buildDir: string): Promise<NuxtProjectManifest | null> {
+export async function loadNuxtManifest(
+  buildDir: string
+): Promise<NuxtProjectManifest | null> {
   const manifestPath = resolve(buildDir, 'nuxt.json')
-  const manifest: NuxtProjectManifest | null = await fsp.readFile(manifestPath, 'utf-8')
-    .then(data => JSON.parse(data) as NuxtProjectManifest)
+  const manifest: NuxtProjectManifest | null = await fsp
+    .readFile(manifestPath, 'utf-8')
+    .then((data) => JSON.parse(data) as NuxtProjectManifest)
     .catch(() => null)
   return manifest
 }

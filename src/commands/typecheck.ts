@@ -10,9 +10,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'typecheck',
     usage: 'npx nuxi typecheck [rootDir]',
-    description: 'Runs `vue-tsc` to check types throughout your app.'
+    description: 'Runs `vue-tsc` to check types throughout your app.',
   },
-  async invoke (args) {
+  async invoke(args) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
 
@@ -25,11 +25,21 @@ export default defineNuxtCommand({
     await nuxt.close()
 
     // Prefer local install if possible
-    const hasLocalInstall = tryResolveModule('typescript', rootDir) && tryResolveModule('vue-tsc/package.json', rootDir)
+    const hasLocalInstall =
+      tryResolveModule('typescript', rootDir) &&
+      tryResolveModule('vue-tsc/package.json', rootDir)
     if (hasLocalInstall) {
-      await execa('vue-tsc', ['--noEmit'], { preferLocal: true, stdio: 'inherit', cwd: rootDir })
+      await execa('vue-tsc', ['--noEmit'], {
+        preferLocal: true,
+        stdio: 'inherit',
+        cwd: rootDir,
+      })
     } else {
-      await execa('npx', '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '), { stdio: 'inherit', cwd: rootDir })
+      await execa(
+        'npx',
+        '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
+        { stdio: 'inherit', cwd: rootDir }
+      )
     }
-  }
+  },
 })

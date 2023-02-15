@@ -6,12 +6,12 @@ import { findup } from './fs'
 export const packageManagerLocks = {
   yarn: 'yarn.lock',
   npm: 'package-lock.json',
-  pnpm: 'pnpm-lock.yaml'
+  pnpm: 'pnpm-lock.yaml',
 }
 
 type PackageManager = keyof typeof packageManagerLocks
 
-export function getPackageManager (rootDir: string) {
+export function getPackageManager(rootDir: string) {
   return findup(rootDir, (dir) => {
     for (const name in packageManagerLocks) {
       const path = packageManagerLocks[name as PackageManager]
@@ -22,6 +22,6 @@ export function getPackageManager (rootDir: string) {
   }) as PackageManager | null
 }
 
-export function getPackageManagerVersion (name: string) {
+export function getPackageManagerVersion(name: string) {
   return execSync(`${name} --version`).toString('utf8').trim()
 }
