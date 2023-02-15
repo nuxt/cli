@@ -7,14 +7,20 @@ import type { Command, NuxtCommand } from './commands'
 import { commands } from './commands'
 import { showHelp } from './utils/help'
 import { showBanner } from './utils/banner'
+import { checkForUpdates } from './utils/update'
 
-async function _main () {
-  const _argv = (process.env.__CLI_ARGV__ ? JSON.parse(process.env.__CLI_ARGV__) : process.argv).slice(2)
+async function _main() {
+  const _argv = (
+    process.env.__CLI_ARGV__
+      ? JSON.parse(process.env.__CLI_ARGV__)
+      : process.argv
+  ).slice(2)
+
   const args = mri(_argv, {
-    boolean: [
-      'no-clear'
-    ]
+    boolean: ['no-clear'],
   })
+
+  // @ts-ignore
   const command = args._.shift() || 'usage'
 
   showBanner(command === 'dev' && args.clear !== false && !args.help)
@@ -22,14 +28,23 @@ async function _main () {
   if (!(command in commands)) {
     console.log('\n' + red('Invalid command ' + command))
 
-    await commands.usage().then(r => r.invoke())
+    await commands.usage().then((r) => r.invoke())
     process.exit(1)
   }
 
   // Check Node.js version in background
-  setTimeout(() => { checkEngines().catch(() => {}) }, 1000)
+  setTimeout(() => {
+    checkEngines().catch(() => {})
+  }, 1000)
 
-  const cmd = await commands[command as Command]() as NuxtCommand
+  // Check for CLI updates in the background
+  setTimeout(() => {
+    checkForUpdates().catch(() => {})
+  }, 100)
+
+  // @ts-ignore default.default is hotfix for #621
+  const cmd = (await commands[command as Command]()) as NuxtCommand
+
   if (args.h || args.help) {
     showHelp(cmd.meta)
   } else {
@@ -43,35 +58,50 @@ consola.wrapAll()
 
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
-const wrapReporter = (reporter: ConsolaReporter) => ({
-  log (logObj, ctx) {
-    if (!logObj.args || !logObj.args.length) { return }
-    const msg = logObj.args[0]
-    if (typeof msg === 'string' && !process.env.DEBUG) {
-      // Hide vue-router 404 warnings
-      if (msg.startsWith('[Vue Router warn]: No match found for location with path')) {
+const wrapReporter = (reporter: ConsolaReporter) =>
+  ({
+    log(logObj, ctx) {
+      if (!logObj.args || !logObj.args.length) {
         return
       }
-      // Suppress warning about native Node.js fetch
-      if (msg.includes('ExperimentalWarning: The Fetch API is an experimental feature')) {
-        return
+      const msg = logObj.args[0]
+      if (typeof msg === 'string' && !process.env.DEBUG) {
+        // Hide vue-router 404 warnings
+        if (
+          msg.startsWith(
+            '[Vue Router warn]: No match found for location with path'
+          )
+        ) {
+          return
+        }
+        // Suppress warning about native Node.js fetch
+        if (
+          msg.includes(
+            'ExperimentalWarning: The Fetch API is an experimental feature'
+          )
+        ) {
+          return
+        }
+        // TODO: resolve upstream in Vite
+        // Hide sourcemap warnings related to node_modules
+        if (msg.startsWith('Sourcemap') && msg.includes('node_modules')) {
+          return
+        }
       }
-      // TODO: resolve upstream in Vite
-      // Hide sourcemap warnings related to node_modules
-      if (msg.startsWith('Sourcemap') && msg.includes('node_modules')) {
-        return
-      }
-    }
-    return reporter.log(logObj, ctx)
-  }
-}) satisfies ConsolaReporter
+      return reporter.log(logObj, ctx)
+    },
+  } satisfies ConsolaReporter)
 
 consola.options.reporters = consola.options.reporters.map(wrapReporter)
 
-process.on('unhandledRejection', err => consola.error('[unhandledRejection]', err))
-process.on('uncaughtException', err => consola.error('[uncaughtException]', err))
+process.on('unhandledRejection', (err) =>
+  consola.error('[unhandledRejection]', err)
+)
+process.on('uncaughtException', (err) =>
+  consola.error('[uncaughtException]', err)
+)
 
-export function main () {
+export function main() {
   _main()
     .then((result) => {
       if (result === 'error') {
