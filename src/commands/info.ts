@@ -13,6 +13,7 @@ import {
 } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
 import { defineNuxtCommand } from './index'
+import { version } from '../../package.json'
 
 export default defineNuxtCommand({
   meta: {
@@ -56,12 +57,12 @@ export default defineNuxtCommand({
     const isNuxt3 = nuxtVersion.startsWith('3')
     const builder = isNuxt3
       ? nuxtConfig.builder /* latest schema */ ||
-        (nuxtConfig.vite !== false ? 'vite' : 'webpack') /* previous schema */
+      (nuxtConfig.vite !== false ? 'vite' : 'webpack') /* previous schema */
       : nuxtConfig.bridge?.vite
-      ? 'vite' /* bridge vite implementation */
-      : nuxtConfig.buildModules?.includes('nuxt-vite')
-      ? 'vite' /* nuxt-vite */
-      : 'webpack'
+        ? 'vite' /* bridge vite implementation */
+        : nuxtConfig.buildModules?.includes('nuxt-vite')
+          ? 'vite' /* nuxt-vite */
+          : 'webpack'
 
     let packageManager = getPackageManager(rootDir)
     if (packageManager) {
@@ -75,6 +76,7 @@ export default defineNuxtCommand({
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
+      CLIVersion: version,
       NitroVersion: getDepVersion('nitropack'),
       PackageManager: packageManager,
       Builder: builder,
@@ -110,8 +112,7 @@ export default defineNuxtCommand({
       .catch(() => false)
     const splitter = '------------------------------'
     console.log(
-      `Nuxt project info: ${
-        copied ? '(copied to clipboard)' : ''
+      `Nuxt project info: ${copied ? '(copied to clipboard)' : ''
       }\n\n${splitter}\n${infoStr}${splitter}\n`
     )
 
@@ -122,8 +123,7 @@ export default defineNuxtCommand({
       [
         '👉 Report an issue: https://github.com/nuxt/nuxt/issues/new',
         '👉 Suggest an improvement: https://github.com/nuxt/nuxt/discussions/new',
-        `👉 Read documentation: ${
-          isNuxt3OrBridge ? 'https://nuxt.com' : 'https://nuxtjs.org'
+        `👉 Read documentation: ${isNuxt3OrBridge ? 'https://nuxt.com' : 'https://nuxtjs.org'
         }`,
       ].join('\n\n') + '\n'
     )
@@ -156,7 +156,7 @@ function normalizeConfigModule(
 
 function getNuxtConfig(rootDir: string) {
   try {
-    ;(globalThis as any).defineNuxtConfig = (c: any) => c
+    ; (globalThis as any).defineNuxtConfig = (c: any) => c
     const result = jiti(rootDir, { interopDefault: true, esmResolve: true })(
       './nuxt.config'
     )
