@@ -12,6 +12,9 @@ export default defineBuildConfig({
     'src/cli',
     'src/index'
   ],
+  alias: {
+    'cli-boxes': 'cli-boxes/boxes.json',
+  },
   externals: [
     '@nuxt/kit',
     '@nuxt/schema',
