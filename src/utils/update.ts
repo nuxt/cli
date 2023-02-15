@@ -12,7 +12,7 @@ export async function checkForUpdates() {
   if (!latestVersion) {
     return
   }
-  if (semver.gt(latestVersion, currentVersion)) {
+  if (semver.gt(latestVersion, currentVersion, { loose: true })) {
     console.log(boxen(`
 A new version of Nuxt CLI is available: ${green(latestVersion)}
 You are currently using ${yellow(currentVersion)}
