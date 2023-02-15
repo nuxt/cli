@@ -7,7 +7,7 @@ export function showBanner(_clear?: boolean) {
   if (_clear) {
     clear()
   }
-  console.log(gray(`Nuxi ${bold(version)}`))
+  console.log(gray(`Nuxt CLI ${bold(version)}`))
 }
 
 export function showVersions(cwd: string) {
@@ -19,7 +19,7 @@ export function showVersions(cwd: string) {
   console.log(
     gray(
       green(`Nuxt ${bold(nuxtVersion)}`) +
-        (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : '')
+      (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : '')
     )
   )
 }
