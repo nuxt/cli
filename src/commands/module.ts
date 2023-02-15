@@ -32,29 +32,33 @@ async function addModule(args: Argv) {
   const npmPackage = moduleName
 
   // Add npm dependency
-  consola.info(`Installing dev dependency \`${npmPackage}\``)
-  await addDependency(npmPackage, { cwd: rootDir, dev: true }).catch(err => {
-    consola.error(err)
-    consola.error(`Please manually install \`${npmPackage}\` as a dev dependency`)
-  })
+  if (!args.skipInstall) {
+    consola.info(`Installing dev dependency \`${npmPackage}\``)
+    await addDependency(npmPackage, { cwd: rootDir, dev: true }).catch(err => {
+      consola.error(err)
+      consola.error(`Please manually install \`${npmPackage}\` as a dev dependency`)
+    })
+  }
 
   // Update nuxt.config.ts
-  await updateNuxtConfig(rootDir, (config) => {
-    if (!config.modules) {
-      config.modules = []
-    }
-    for (let i = 0; i < config.modules.length; i++) {
-      if (config.modules[i] === npmPackage) {
-        consola.info(`\`${npmPackage}\` is already in the \`modules\``)
-        return
+  if (!args.skipConfig) {
+    await updateNuxtConfig(rootDir, (config) => {
+      if (!config.modules) {
+        config.modules = []
       }
-    }
-    consola.info(`Adding \`${npmPackage}\` to the \`modules\``)
-    config.modules.push(npmPackage)
-  }).catch(err => {
-    consola.error(err)
-    consola.error(`Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``)
-  })
+      for (let i = 0; i < config.modules.length; i++) {
+        if (config.modules[i] === npmPackage) {
+          consola.info(`\`${npmPackage}\` is already in the \`modules\``)
+          return
+        }
+      }
+      consola.info(`Adding \`${npmPackage}\` to the \`modules\``)
+      config.modules.push(npmPackage)
+    }).catch(err => {
+      consola.error(err)
+      consola.error(`Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``)
+    })
+  }
 }
 
 
@@ -70,7 +74,15 @@ async function updateNuxtConfig(rootDir: string, update: (config: any) => void) 
     consola.info('Creating `nuxt.config.ts`')
     _module = parseCode(getDefaultNuxtConfig())
   }
-  update(_module.exports.default.arguments[0])
+  const defaultExport = _module.exports.default
+  if (!defaultExport) {
+    throw new Error('`nuxt.config.ts` does not have a default export!')
+  }
+  if (defaultExport.$type === 'function-call') {
+    update(defaultExport.arguments[0])
+  } else {
+    update(defaultExport)
+  }
   await writeFile(_module as any, nuxtConfigFile)
   consola.success('`nuxt.config.ts` updated')
 }
