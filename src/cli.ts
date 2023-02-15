@@ -7,6 +7,7 @@ import type { Command, NuxtCommand } from './commands'
 import { commands } from './commands'
 import { showHelp } from './utils/help'
 import { showBanner } from './utils/banner'
+import { checkForUpdates } from './utils/update'
 
 async function _main() {
   const _argv = (
@@ -14,9 +15,11 @@ async function _main() {
       ? JSON.parse(process.env.__CLI_ARGV__)
       : process.argv
   ).slice(2)
+
   const args = mri(_argv, {
     boolean: ['no-clear'],
   })
+
   // @ts-ignore
   const command = args._.shift() || 'usage'
 
@@ -33,6 +36,11 @@ async function _main() {
   setTimeout(() => {
     checkEngines().catch(() => {})
   }, 1000)
+
+  // Check for CLI updates in the background
+  setTimeout(() => {
+    checkForUpdates().catch(() => {})
+  }, 100)
 
   // @ts-ignore default.default is hotfix for #621
   const cmd = (await commands[command as Command]()) as NuxtCommand
