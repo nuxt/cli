@@ -23,6 +23,7 @@ specifiers:
   execa: ^7.0.0
   flat: ^5.0.2
   fsevents: ~2.3.2
+  fuse.js: ^6.6.2
   giget: ^1.1.0
   h3: ^1.5.0
   jiti: ^1.17.1
@@ -65,6 +66,7 @@ devDependencies:
   eslint: 8.34.0
   execa: 7.0.0
   flat: 5.0.2
+  fuse.js: 6.6.2
   giget: 1.1.0
   h3: 1.5.0
   jiti: 1.17.1
@@ -3010,6 +3012,11 @@ packages:
 
   /function-bind/1.1.1:
     resolution: {integrity: sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==}
+    dev: true
+
+  /fuse.js/6.6.2:
+    resolution: {integrity: sha512-cJaJkxCCxC8qIIcPBF9yGxY0W/tVZS3uEISDxhYIdtk8OL93pe+6Zj7LjCqVV4dzbqcriOZ+kQ/NE4RXZHsIGA==}
+    engines: {node: '>=10'}
     dev: true
 
   /gauge/3.0.2:

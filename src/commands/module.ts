@@ -6,6 +6,10 @@ import type { ModuleNode } from 'magicast'
 import consola from 'consola'
 import type { Argv } from 'mri'
 import { addDependency } from 'nypm'
+import { fetchModules } from '../utils/modules'
+import Fuse from 'fuse.js'
+import { splitByCase } from 'scule'
+import { bold, green, red } from 'colorette'
 
 export default defineNuxtCommand({
   meta: {
@@ -17,6 +21,8 @@ export default defineNuxtCommand({
     const command = args._.shift()
     if (command === 'add') {
       return addModule(args)
+    } else if (command === 'search') {
+      return findModuleByKeywords(args._)
     }
     throw new Error(`Unknown sub-command: module ${command}`)
   },
@@ -64,6 +70,67 @@ async function addModule(args: Argv) {
         `Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``
       )
     })
+  }
+}
+
+async function findModuleByKeywords(keywords: string[]) {
+  const modules = await fetchModules()
+  const fuse = new Fuse(modules, {
+    keys: [
+      'name',
+      'npm',
+      'category',
+      'maintainers.name',
+      'maintainers.github',
+      'description',
+      'repo',
+      'tags',
+    ],
+    threshold: 0.1,
+  })
+  const fuseResults = fuse.search(keywords.join(' '))
+  const foundModules = fuseResults.map((result) => {
+    return {
+      Name: result.item.name,
+      PackageName: result.item.npm,
+      Description: result.item.description,
+      Type: result.item.type,
+      Maintainers: result.item.maintainers
+        .map((maintainer) => maintainer.name)
+        .join(', '),
+      Homepage: result.item.website,
+      Repository: result.item.github,
+    }
+  })
+
+  if (fuseResults.length > 0) {
+    consola.success(
+      `Found ${fuseResults.length} ${
+        fuseResults.length > 1 ? 'modules' : 'module'
+      }:`
+    )
+    for (const foundModule of foundModules) {
+      let maxLength = 0
+      const entries = Object.entries(foundModule).map(([key, val]) => {
+        const label = splitByCase(key).join(' ')
+        if (label.length > maxLength) {
+          maxLength = label.length
+        }
+        return [label, val || '-']
+      })
+      let infoStr = ''
+      for (const [label, value] of entries) {
+        infoStr +=
+          bold('- ') +
+          (green(label) + ': ').padEnd(maxLength + 2) +
+          (value.includes('`') ? value : '`' + value + '`') +
+          '\n'
+      }
+      const splitter = '------------------------------'
+      console.log(`\n${splitter}\n${infoStr}${splitter}\n`)
+    }
+  } else {
+    consola.info(`No modules found with keywords: ${red(keywords.join(' '))}`)
   }
 }
 
