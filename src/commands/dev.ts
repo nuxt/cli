@@ -99,6 +99,10 @@ export default defineNuxtCommand({
 
     startDevProcess()
 
+    process.on('SIGHUP', () => {
+      startDevProcess()
+    })
+
     return 'wait' as const
   },
 })

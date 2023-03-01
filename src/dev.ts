@@ -51,6 +51,15 @@ async function devMain() {
       // Create new nuxt instance
       currentNuxt = await loadNuxt({ rootDir, dev: true, ready: false })
 
+      // Support restart via hooks
+      currentNuxt.hook('restart' as any, (opts: { hard: boolean }) => {
+        if (opts.hard) {
+          process.send!({ type: 'nuxt:restart' })
+        } else {
+          load(true, '`nuxt:restart` hook is called')
+        }
+      })
+
       // Start server for current nuxt instance
       const port = await getRandomPort('localhost')
       const url = `http://localhost:${port}/`
