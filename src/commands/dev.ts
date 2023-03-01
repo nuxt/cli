@@ -1,24 +1,15 @@
-import type { AddressInfo } from 'node:net'
 import type { RequestListener } from 'node:http'
-import { existsSync, readdirSync } from 'node:fs'
-import { resolve, relative, normalize } from 'pathe'
-import chokidar from 'chokidar'
-import { debounce } from 'perfect-debounce'
-import type { Nuxt } from '@nuxt/schema'
-import consola from 'consola'
+import { ChildProcess, fork } from 'node:child_process'
+import { resolve, dirname } from 'pathe'
+import { createProxy } from 'http-proxy'
 import { withTrailingSlash } from 'ufo'
 import { setupDotenv } from 'c12'
-import { showBanner, showVersions } from '../utils/banner'
-import { writeTypes } from '../utils/prepare'
-import { loadKit } from '../utils/kit'
-import { importModule } from '../utils/cjs'
+import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
-import {
-  writeNuxtManifest,
-  loadNuxtManifest,
-  cleanupNuxtDirs,
-} from '../utils/nuxt'
 import { defineNuxtCommand } from './index'
+import { loading as loadingTemplate } from '@nuxt/ui-templates'
+import { listen } from 'listhen'
+import { fileURLToPath } from 'node:url'
 
 export default defineNuxtCommand({
   meta: {
@@ -28,32 +19,30 @@ export default defineNuxtCommand({
     description: 'Run nuxt development server',
   },
   async invoke(args) {
+    const rootDir = resolve(args._[0] || '.')
+    await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
     overrideEnv('development')
 
-    const { listen } = await import('listhen')
-    const { toNodeListener } = await import('h3')
-    let currentHandler: RequestListener | undefined
-    let loadingMessage = 'Nuxt is starting...'
-    const loadingHandler: RequestListener = async (_req, res) => {
-      const { loading: loadingTemplate } = await importModule(
-        '@nuxt/ui-templates'
-      )
-      res.setHeader('Content-Type', 'text/html; charset=UTF-8')
-      res.statusCode = 503 // Service Unavailable
-      res.end(loadingTemplate({ loading: loadingMessage }))
-    }
-    const serverHandler: RequestListener = (req, res) => {
-      return currentHandler
-        ? currentHandler(req, res)
-        : loadingHandler(req, res)
-    }
-
-    const rootDir = resolve(args._[0] || '.')
     showVersions(rootDir)
 
-    await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
+    let loadingStatus = 'initializing...'
+    const loadingHandler: RequestListener = async (_req, res) => {
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8')
+      res.statusCode = 503 // Service Unavailable
+      res.end(loadingTemplate({ loading: loadingStatus }))
+    }
 
-    const listener = await listen(serverHandler, {
+    let url: string
+    const proxy = createProxy({})
+    const requestHandler: RequestListener = async (req, res) => {
+      if (url) {
+        return proxy.web(req, res, { target: url })
+      } else {
+        return loadingHandler(req, res)
+      }
+    }
+
+    const listener = await listen(requestHandler, {
       showURL: false,
       clipboard: args.clipboard,
       open: args.open || args.o,
@@ -65,141 +54,50 @@ export default defineNuxtCommand({
       },
     })
 
-    const { loadNuxt, buildNuxt } = await loadKit(rootDir)
-
-    let currentNuxt: Nuxt
-    const showURL = () => {
-      listener.showURL({
-        // TODO: Normalize URL with trailing slash within schema
-        baseURL: withTrailingSlash(currentNuxt?.options.app.baseURL) || '/',
-      })
-    }
-    const load = async (isRestart: boolean, reason?: string) => {
-      try {
-        loadingMessage = `${reason ? reason + '. ' : ''}${
-          isRestart ? 'Restarting' : 'Starting'
-        } nuxt...`
-        currentHandler = undefined
-        if (isRestart) {
-          consola.info(loadingMessage)
-        }
-        if (currentNuxt) {
-          await currentNuxt.close()
-        }
-        currentNuxt = await loadNuxt({ rootDir, dev: true, ready: false })
-        if (!isRestart) {
-          showURL()
-        }
-
-        // Write manifest and also check if we need cache invalidation
-        if (!isRestart) {
-          const previousManifest = await loadNuxtManifest(
-            currentNuxt.options.buildDir
-          )
-          const newManifest = await writeNuxtManifest(currentNuxt)
-          if (
-            previousManifest &&
-            newManifest &&
-            previousManifest._hash !== newManifest._hash
-          ) {
-            await cleanupNuxtDirs(currentNuxt.options.rootDir)
-          }
-        }
-
-        await currentNuxt.ready()
-
-        await currentNuxt.hooks.callHook('listen', listener.server, listener)
-        const address = listener.server.address() as AddressInfo
-        currentNuxt.options.devServer.url = listener.url
-        currentNuxt.options.devServer.port = address.port
-        currentNuxt.options.devServer.host = address.address
-        currentNuxt.options.devServer.https = listener.https
-
-        await Promise.all([
-          writeTypes(currentNuxt).catch(console.error),
-          buildNuxt(currentNuxt),
-        ])
-        currentHandler = toNodeListener(currentNuxt.server.app)
-        if (isRestart && args.clear !== false) {
-          showBanner()
-          showURL()
-        }
-      } catch (err) {
-        consola.error(`Cannot ${isRestart ? 'restart' : 'start'} nuxt: `, err)
-        currentHandler = undefined
-        loadingMessage =
-          'Error while loading nuxt. Please check console and fix errors.'
-      }
-    }
-
-    // Watch for config changes
-    // TODO: Watcher service, modules, and requireTree
-    const dLoad = debounce(load)
-    const watcher = chokidar.watch([rootDir], { ignoreInitial: true, depth: 1 })
-    watcher.on('all', (event, _file) => {
-      if (!currentNuxt) {
-        return
-      }
-      const file = normalize(_file)
-      const buildDir = withTrailingSlash(
-        normalize(currentNuxt.options.buildDir)
-      )
-      if (file.startsWith(buildDir)) {
-        return
-      }
-      const relativePath = relative(rootDir, file)
-      if (
-        file.match(
-          /(nuxt\.config\.(js|ts|mjs|cjs)|\.nuxtignore|\.env|\.nuxtrc)$/
-        )
-      ) {
-        dLoad(true, `${relativePath} updated`)
-      }
-
-      const isDirChange = ['addDir', 'unlinkDir'].includes(event)
-      const isFileChange = ['add', 'unlink'].includes(event)
-      const pagesDir = resolve(
-        currentNuxt.options.srcDir,
-        currentNuxt.options.dir.pages
-      )
-      const reloadDirs = ['components', 'composables', 'utils'].map((d) =>
-        resolve(currentNuxt.options.srcDir, d)
-      )
-
-      if (isDirChange) {
-        if (reloadDirs.includes(file)) {
-          return dLoad(
-            true,
-            `Directory \`${relativePath}/\` ${
-              event === 'addDir' ? 'created' : 'removed'
-            }`
-          )
-        }
-      }
-
-      if (isFileChange) {
-        if (file.match(/(app|error|app\.config)\.(js|ts|mjs|jsx|tsx|vue)$/)) {
-          return dLoad(
-            true,
-            `\`${relativePath}\` ${event === 'add' ? 'created' : 'removed'}`
-          )
-        }
-      }
-
-      if (file.startsWith(pagesDir)) {
-        const hasPages = existsSync(pagesDir)
-          ? readdirSync(pagesDir).length > 0
-          : false
-        if (currentNuxt && !currentNuxt.options.pages && hasPages) {
-          return dLoad(true, 'Pages enabled')
-        }
-        if (currentNuxt && currentNuxt.options.pages && !hasPages) {
-          return dLoad(true, 'Pages disabled')
-        }
-      }
+    const address = listener.server.address() as any
+    process.env._DEV_SERVER_LISTENER_ = JSON.stringify({
+      url: withTrailingSlash(listener.url),
+      port: address.port,
+      https: listener.https,
     })
 
-    await load(false)
+    listener.showURL({
+      baseURL: withTrailingSlash('/' /* todo: base */),
+    })
+
+    process.env._CLI_ARGS_ = JSON.stringify(args)
+    const childEntry = fileURLToPath(
+      new URL('../dist/dev.mjs', (process as any)._cliEntry)
+    )
+
+    let currentProcess: ChildProcess
+    const startDevProcess = () => {
+      if (currentProcess) {
+        currentProcess.kill(0)
+      }
+      currentProcess = fork(childEntry, {})
+      currentProcess.on('message', (message: any) => {
+        const type = message?.type as string
+        if (!type || !type.startsWith('nuxt:')) {
+          return
+        }
+        if (type === 'nuxt:listen') {
+          url = message.url as string
+        } else if (type === 'nuxt:loading') {
+          loadingStatus = message.status as string
+        } else if (type === 'nuxt:restart') {
+          startDevProcess()
+        }
+      })
+      currentProcess.on('exit', (code) => {
+        console.log(`Dev process exited with code ${code || 0}`)
+        if (code !== 0) {
+          startDevProcess()
+        }
+      })
+    }
+
+    startDevProcess()
 
     return 'wait' as const
   },
