@@ -5,13 +5,10 @@ export default defineBuildConfig({
   rollup: {
     inlineDependencies: true,
     resolve: {
-      exportConditions: ['production', 'node'] as any
-    }
+      exportConditions: ['production', 'node'] as any,
+    },
   },
-  entries: [
-    'src/cli',
-    'src/index'
-  ],
+  entries: ['src/cli', 'src/dev', 'src/index'],
   alias: {
     'cli-boxes': 'cli-boxes/boxes.json',
   },
@@ -27,6 +24,6 @@ export default defineBuildConfig({
     'node:child_process',
     'node:process',
     'node:path',
-    'node:os'
-  ]
+    'node:os',
+  ],
 })

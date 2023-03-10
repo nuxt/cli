@@ -6,6 +6,7 @@ specifiers:
   '@nuxt/schema': 3.2.0
   '@types/clear': ^0
   '@types/flat': ^5.0.2
+  '@types/http-proxy': ^1.17.10
   '@types/mri': ^1.1.1
   '@types/node': ^18.13.0
   '@types/semver': ^7.3.13
@@ -23,8 +24,10 @@ specifiers:
   execa: ^7.0.0
   flat: ^5.0.2
   fsevents: ~2.3.2
+  get-port-please: ^3.0.1
   giget: ^1.1.0
   h3: ^1.5.0
+  http-proxy: ^1.18.1
   jiti: ^1.17.1
   listhen: ^1.0.3
   mlly: ^1.1.1
@@ -49,6 +52,7 @@ devDependencies:
   '@nuxt/schema': 3.2.0
   '@types/clear': 0.1.2
   '@types/flat': 5.0.2
+  '@types/http-proxy': 1.17.10
   '@types/mri': 1.1.1
   '@types/node': 18.13.0
   '@types/semver': 7.3.13
@@ -65,8 +69,10 @@ devDependencies:
   eslint: 8.34.0
   execa: 7.0.0
   flat: 5.0.2
+  get-port-please: 3.0.1
   giget: 1.1.0
   h3: 1.5.0
+  http-proxy: 1.18.1
   jiti: 1.17.1
   listhen: 1.0.3
   mlly: 1.1.1
@@ -1314,6 +1320,12 @@ packages:
 
   /@types/flat/5.0.2:
     resolution: {integrity: sha512-3zsplnP2djeps5P9OyarTxwRpMLoe5Ash8aL9iprw0JxB+FAHjY+ifn4yZUuW4/9hqtnmor6uvjSRzJhiVbrEQ==}
+    dev: true
+
+  /@types/http-proxy/1.17.10:
+    resolution: {integrity: sha512-Qs5aULi+zV1bwKAg5z1PWnDXWmsn+LxIvUGv6E2+OOMYhclZMO+OXd9pYVf2gLykf2I7IV2u7oTHwChPNsvJ7g==}
+    dependencies:
+      '@types/node': 18.13.0
     dev: true
 
   /@types/json-schema/7.0.11:
