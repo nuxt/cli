@@ -8,8 +8,8 @@ import type { Argv } from 'mri'
 import { addDependency } from 'nypm'
 import { fetchModules } from '../utils/modules'
 import Fuse from 'fuse.js'
-import { splitByCase } from 'scule'
-import { bold, green, red } from 'colorette'
+import { upperFirst, kebabCase } from 'scule'
+import { bold, green, magenta, cyan, gray, underline } from 'colorette'
 
 export default defineNuxtCommand({
   meta: {
@@ -22,7 +22,7 @@ export default defineNuxtCommand({
     if (command === 'add') {
       return addModule(args)
     } else if (command === 'search') {
-      return findModuleByKeywords(args._)
+      return findModuleByKeywords(args._.join(' '))
     }
     throw new Error(`Unknown sub-command: module ${command}`)
   },
@@ -73,9 +73,10 @@ async function addModule(args: Argv) {
   }
 }
 
-async function findModuleByKeywords(keywords: string[]) {
+async function findModuleByKeywords(query: string) {
   const modules = await fetchModules()
   const fuse = new Fuse(modules, {
+    threshold: 0.1,
     keys: [
       { name: 'name', weight: 1 },
       { name: 'npm', weight: 1 },
@@ -86,51 +87,54 @@ async function findModuleByKeywords(keywords: string[]) {
       { name: 'maintainers.name', weight: 0.5 },
       { name: 'maintainers.github', weight: 0.5 },
     ],
-    threshold: 0.1,
-  })
-  const fuseResults = fuse.search(keywords.join(' '))
-  const foundModules = fuseResults.map((result) => {
-    return {
-      Name: result.item.name,
-      PackageName: result.item.npm,
-      Description: result.item.description,
-      Type: result.item.type,
-      Maintainers: result.item.maintainers
-        .map((maintainer) => maintainer.name)
-        .join(', '),
-      Homepage: result.item.website,
-      Repository: result.item.github,
-    }
   })
 
-  if (fuseResults.length > 0) {
-    consola.success(
-      `Found ${fuseResults.length} ${
-        fuseResults.length > 1 ? 'modules' : 'module'
-      }:`
-    )
-    for (const foundModule of foundModules) {
-      let maxLength = 0
-      const entries = Object.entries(foundModule).map(([key, val]) => {
-        const label = splitByCase(key).join(' ')
-        if (label.length > maxLength) {
-          maxLength = label.length
-        }
-        return [label, val || '-']
-      })
-      let infoStr = ''
-      for (const [label, value] of entries) {
-        infoStr +=
-          bold('- ') +
-          (green(label) + ': ').padEnd(maxLength + 2) +
-          (value.includes('`') ? value : '`' + value + '`') +
-          '\n'
-      }
-      const splitter = '------------------------------'
-      console.log(`\n${splitter}\n${infoStr}${splitter}\n`)
+  const results = fuse.search(query).map((result) => {
+    const res: Record<string, string> = {
+      name: bold(result.item.name),
+      homepage: cyan(result.item.website),
+      repository: gray(result.item.github),
+      description: gray(result.item.description),
+      package: gray(result.item.npm),
+      install: cyan(`nuxt module add ${result.item.npm}`),
     }
-  } else {
-    consola.info(`No modules found with keywords: ${red(keywords.join(' '))}`)
+    if (result.item.github === result.item.website) {
+      delete res.homepage
+    }
+    if (result.item.name === result.item.npm) {
+      delete res.packageName
+    }
+    return res
+  })
+
+  if (!results.length) {
+    consola.info(`No nuxt modules found matching query ${magenta(query)}`)
+    return
+  }
+
+  consola.success(
+    `Found ${results.length} nuxt ${
+      results.length > 1 ? 'modules' : 'module'
+    } matching ${cyan(query)}:\n`
+  )
+  for (const foundModule of results) {
+    let maxLength = 0
+    const entries = Object.entries(foundModule).map(([key, val]) => {
+      const label = upperFirst(kebabCase(key)).replace(/-/g, ' ')
+      if (label.length > maxLength) {
+        maxLength = label.length
+      }
+      return [label, val || '-']
+    })
+    let infoStr = ''
+    for (const [label, value] of entries) {
+      infoStr +=
+        bold(label === 'Install' ? '→ ' : '- ') +
+        green(label.padEnd(maxLength + 2)) +
+        value +
+        '\n'
+    }
+    console.log(infoStr)
   }
 }
 
