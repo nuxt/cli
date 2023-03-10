@@ -77,14 +77,14 @@ async function findModuleByKeywords(keywords: string[]) {
   const modules = await fetchModules()
   const fuse = new Fuse(modules, {
     keys: [
-      'name',
-      'npm',
-      'category',
-      'maintainers.name',
-      'maintainers.github',
-      'description',
-      'repo',
-      'tags',
+      { name: 'name', weight: 1 },
+      { name: 'npm', weight: 1 },
+      { name: 'repo', weight: 1 },
+      { name: 'tags', weight: 1 },
+      { name: 'category', weight: 1 },
+      { name: 'description', weight: 0.5 },
+      { name: 'maintainers.name', weight: 0.5 },
+      { name: 'maintainers.github', weight: 0.5 },
     ],
     threshold: 0.1,
   })
