@@ -8,13 +8,25 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'add',
-    usage: `npx nuxi add [--cwd] [--force] ${Object.keys(templates).join(
-      '|'
-    )} <name>`,
     description: 'Create a new template file.',
   },
-  async invoke(args) {
-    const cwd = resolve(args.cwd || '.')
+  args: {
+    force: {
+      type: 'boolean',
+    },
+    type: {
+      type: 'positional',
+      description: `Template type (Can be either ${Object.keys(templates).join(
+        ', '
+      )})'`,
+    },
+    name: {
+      type: 'positional',
+      description: 'Template name',
+    },
+  },
+  async run({ args }) {
+    const cwd = resolve((args.cwd as string) || '.')
 
     const template = args._[0]
     const name = args._[1]

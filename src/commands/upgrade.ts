@@ -25,10 +25,16 @@ async function getNuxtVersion(path: string): Promise<string | null> {
 export default defineNuxtCommand({
   meta: {
     name: 'upgrade',
-    usage: 'npx nuxi upgrade [--force|-f]',
     description: 'Upgrade nuxt',
   },
-  async invoke(args) {
+  args: {
+    force: {
+      alias: 'f',
+      type: 'boolean',
+      description: 'Force upgrade',
+    },
+  },
+  async run({ args }) {
     const rootDir = resolve(args._[0] || '.')
 
     // Check package manager

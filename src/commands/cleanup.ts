@@ -5,10 +5,15 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'cleanup',
-    usage: 'npx nuxi clean|cleanup',
     description: 'Cleanup generated nuxt files and caches',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+  },
+  async run({ args }) {
     const rootDir = resolve(args._[0] || '.')
     await cleanupNuxtDirs(rootDir)
   },

@@ -14,6 +14,7 @@ specifiers:
   c12: ^1.2.0
   changelogen: ^0.5.1
   chokidar: ^3.5.3
+  citty: ^0.0.1
   clear: ^0.1.0
   clipboardy: ^3.0.0
   colorette: ^2.0.19
@@ -62,6 +63,7 @@ devDependencies:
   c12: 1.2.0
   changelogen: 0.5.1
   chokidar: 3.5.3
+  citty: 0.0.1
   clear: 0.1.0
   clipboardy: 3.0.0
   colorette: 2.0.19
@@ -2509,6 +2511,10 @@ packages:
   /ci-info/3.8.0:
     resolution: {integrity: sha512-eXTggHWSooYhq49F2opQhuHWgzucfF2YgODK4e1566GQs5BIfP30B0oenwBJHfWxAs2fyPB1s7Mg949zLf61Yw==}
     engines: {node: '>=8'}
+    dev: true
+
+  /citty/0.0.1:
+    resolution: {integrity: sha512-/rV6iJWqUUn4YOBYQzBAUE46sMvnI/evSUhDyCmjB1Jm+xDcUQ36gYq2irGgowLwm8XKMq1BEUvH7pOG7LgUwg==}
     dev: true
 
   /clear/0.1.0:

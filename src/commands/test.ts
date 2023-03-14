@@ -4,10 +4,23 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'test',
-    usage: 'npx nuxi test [--dev] [--watch] [rootDir]',
     description: 'Run tests',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+    dev: {
+      type: 'boolean',
+      description: 'Run tests in dev mode',
+    },
+    watch: {
+      type: 'boolean',
+      description: 'Watch for changes and re-run tests',
+    },
+  },
+  async run({ args }) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'test'
     const rootDir = resolve(args._[0] || '.')
     const { runTests } = await importTestUtils()

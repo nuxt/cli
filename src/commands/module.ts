@@ -14,10 +14,15 @@ import { bold, green, magenta, cyan, gray, underline } from 'colorette'
 export default defineNuxtCommand({
   meta: {
     name: 'module',
-    usage: 'nuxi module add <name>',
     description: 'Manage Nuxt Modules',
   },
-  async invoke(args) {
+  args: {
+    name: {
+      type: 'positional',
+      description: 'Module name',
+    },
+  },
+  async run({ args }) {
     const command = args._.shift()
     if (command === 'add') {
       return addModule(args)

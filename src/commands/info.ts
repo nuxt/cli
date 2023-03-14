@@ -18,10 +18,15 @@ import { version } from '../../package.json'
 export default defineNuxtCommand({
   meta: {
     name: 'info',
-    usage: 'npx nuxi info [rootDir]',
     description: 'Get information about nuxt project',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+  },
+  async run({ args }) {
     // Resolve rootDir
     const rootDir = resolve(args._[0] || '.')
 

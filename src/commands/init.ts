@@ -12,11 +12,36 @@ const DEFAULT_REGISTRY =
 export default defineNuxtCommand({
   meta: {
     name: 'init',
-    usage:
-      'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--shell] [dir]',
     description: 'Initialize a fresh project',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+    template: {
+      type: 'string',
+      alias: 't',
+      description: 'Template to use',
+    },
+    force: {
+      type: 'boolean',
+      description: 'Overwrite existing files',
+    },
+    offline: {
+      type: 'boolean',
+      description: 'Do not use network',
+    },
+    'prefer-offline': {
+      type: 'boolean',
+      description: 'Use network only if local cache is not available',
+    },
+    shell: {
+      type: 'boolean',
+      description: 'Open shell after initialization',
+    },
+  },
+  async run({ args }) {
     // Clone template
     const template = args.template || args.t || 'v3'
 

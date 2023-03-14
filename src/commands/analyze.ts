@@ -11,10 +11,15 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'analyze',
-    usage: 'npx nuxi analyze [rootDir]',
     description: 'Build nuxt and analyze production bundle (experimental)',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of the project',
+    },
+  },
+  async run({ args }) {
     overrideEnv('production')
 
     const rootDir = resolve(args._[0] || '.')

@@ -9,10 +9,19 @@ const MODULE_BUILDER_PKG = '@nuxt/module-builder'
 export default defineNuxtCommand({
   meta: {
     name: 'build-module',
-    usage: 'npx nuxi build-module [--stub] [rootDir]',
     description: `Helper command for using ${MODULE_BUILDER_PKG}`,
   },
-  async invoke(args) {
+  args: {
+    stub: {
+      type: 'boolean',
+      description: 'Generate stub files',
+    },
+    rootDir: {
+      type: 'string',
+      description: 'Root directory of the project',
+    },
+  },
+  async run({ args }) {
     // Find local installed version
     const rootDir = resolve(args._[0] || '.')
     const hasLocal = tryResolveModule(

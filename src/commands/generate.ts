@@ -4,10 +4,19 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'generate',
-    usage: 'npx nuxi generate [rootDir] [--dotenv]',
     description: 'Build Nuxt and prerender static routes',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+    dotenv: {
+      type: 'boolean',
+      description: 'Load dotenv file',
+    },
+  },
+  async run({ args }) {
     args.prerender = true
     await buildCommand.invoke(args)
   },

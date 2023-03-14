@@ -14,11 +14,50 @@ import { fileURLToPath } from 'node:url'
 export default defineNuxtCommand({
   meta: {
     name: 'dev',
-    usage:
-      'npx nuxi dev [rootDir] [--dotenv] [--clipboard] [--open, -o] [--port, -p] [--host, -h] [--https] [--ssl-cert] [--ssl-key]',
     description: 'Run nuxt development server',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+    clipboard: {
+      type: 'boolean',
+      description: 'Copy local URL to clipboard',
+    },
+    open: {
+      type: 'boolean',
+      alias: 'o',
+      description: 'Open local URL in browser',
+    },
+    port: {
+      type: 'string',
+      alias: 'p',
+      description: 'Port to listen on',
+    },
+    host: {
+      type: 'string',
+      alias: 'h',
+      description: 'Host to listen on',
+    },
+    https: {
+      type: 'boolean',
+      description: 'Use HTTPS protocol',
+    },
+    'ssl-cert': {
+      type: 'string',
+      description: 'Path to SSL certificate',
+    },
+    'ssl-key': {
+      type: 'string',
+      description: 'Path to SSL key',
+    },
+  },
+  async run({ args }) {
     const rootDir = resolve(args._[0] || '.')
     await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
     overrideEnv('development')

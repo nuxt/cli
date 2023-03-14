@@ -9,10 +9,15 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'typecheck',
-    usage: 'npx nuxi typecheck [rootDir]',
     description: 'Runs `vue-tsc` to check types throughout your app.',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+  },
+  async run({ args }) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
 

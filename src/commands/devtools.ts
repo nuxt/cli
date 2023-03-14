@@ -6,10 +6,20 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'enable',
-    usage: 'npx nuxi devtools enable|disable [rootDir]',
     description: 'Enable or disable features in a Nuxt project',
   },
-  async invoke(args) {
+  args: {
+    enabled: {
+      type: 'positional',
+      description: 'Enable or disable features',
+      valueHint: 'enable|disable',
+    },
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+  },
+  async run({ args }) {
     const [command, _rootDir = '.'] = args._
     const rootDir = resolve(_rootDir)
 

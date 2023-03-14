@@ -10,10 +10,19 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'preview',
-    usage: 'npx nuxi preview|start [--dotenv] [rootDir]',
     description: 'Launches nitro server for local testing after `nuxi build`.',
   },
-  async invoke(args) {
+  args: {
+    rootDir: {
+      type: 'positional',
+      description: 'Root directory of your Nuxt app',
+    },
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+  },
+  async run({ args }) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
 

@@ -1,4 +1,4 @@
-import type { Argv } from 'mri'
+import { CommandDef } from 'citty'
 
 const _rDefault = (r: any) => r.default || r
 
@@ -15,7 +15,6 @@ export const commands = {
   module: () => import('./module').then(_rDefault),
   prepare: () => import('./prepare').then(_rDefault),
   typecheck: () => import('./typecheck').then(_rDefault),
-  usage: () => import('./usage').then(_rDefault),
   info: () => import('./info').then(_rDefault),
   init: () => import('./init').then(_rDefault),
   create: () => import('./init').then(_rDefault),
@@ -26,22 +25,16 @@ export const commands = {
   new: () => import('./add').then(_rDefault),
 }
 
-export type Command = keyof typeof commands
-
-export interface NuxtCommandMeta {
-  name: string
-  usage: string
-  description: string
-  [key: string]: any
-}
-
 export type CLIInvokeResult = void | 'error' | 'wait'
 
-export interface NuxtCommand {
-  invoke(args: Argv): Promise<CLIInvokeResult> | CLIInvokeResult
-  meta: NuxtCommandMeta
-}
-
-export function defineNuxtCommand(command: NuxtCommand): NuxtCommand {
-  return command
+export function defineNuxtCommand(command: CommandDef): CommandDef {
+  return {
+    ...command,
+    args: {
+      ...command.args,
+      cwd: {
+        type: 'string',
+      },
+    },
+  }
 }
