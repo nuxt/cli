@@ -17,6 +17,7 @@ export default defineBuildConfig({
     '@nuxt/schema',
     '@nuxt/test-utils',
     'fsevents',
+    'citty',
     // TODO: Fix rollup/unbuild issue
     'node:url',
     'node:buffer',
