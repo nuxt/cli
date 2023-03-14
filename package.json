@@ -10,10 +10,10 @@
   },
   "types": "./dist/index.d.ts",
   "bin": {
-    "nuxi-ng": "./bin/nuxi.mjs",
-    "nuxt-cli": "./bin/nuxi.mjs",
     "nuxi": "./bin/nuxi.mjs",
-    "nuxt": "./bin/nuxi.mjs"
+    "nuxi-ng": "./bin/nuxi.mjs",
+    "nuxt": "./bin/nuxi.mjs",
+    "nuxt-cli": "./bin/nuxi.mjs"
   },
   "files": [
     "bin",
@@ -22,9 +22,10 @@
   "scripts": {
     "build": "unbuild",
     "build:stub": "unbuild --stub",
-    "dev": "nuxi-ng dev ./playground",
+    "dev": "nuxi dev ./playground",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
+    "nuxi": "./bin/nuxi.mjs",
     "prepack": "unbuild",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "test": "pnpm build && pnpm test:dist",
