@@ -36,7 +36,7 @@ export default defineNuxtCommand({
   },
 })
 
-async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
+async function importTestUtils(): Promise</*typeof import('@nuxt/test-utils')*/ any> {
   let err
   for (const pkg of ['@nuxt/test-utils-edge', '@nuxt/test-utils']) {
     try {

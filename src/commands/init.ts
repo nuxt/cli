@@ -55,9 +55,9 @@ export default defineNuxtCommand({
     try {
       t = await downloadTemplate(template, {
         dir: args._[0] as string,
-        force: args.force,
-        offline: args.offline,
-        preferOffline: args['prefer-offline'],
+        force: args.force as boolean,
+        offline: args.offline as boolean,
+        preferOffline: args['prefer-offline'] as boolean,
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
     } catch (err) {

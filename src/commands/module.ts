@@ -9,7 +9,7 @@ import { addDependency } from 'nypm'
 import { fetchModules } from '../utils/modules'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
-import { bold, green, magenta, cyan, gray, underline } from 'colorette'
+import { bold, green, magenta, cyan, gray } from 'colorette'
 
 export default defineNuxtCommand({
   meta: {

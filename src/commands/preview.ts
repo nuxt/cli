@@ -50,13 +50,13 @@ export default defineNuxtCommand({
     }
 
     const envExists = args.dotenv
-      ? existsSync(resolve(rootDir, args.dotenv))
+      ? existsSync(resolve(rootDir, args.dotenv as string))
       : existsSync(rootDir)
     if (envExists) {
       consola.info(
         'Loading `.env`. This will not be loaded when running the server in production.'
       )
-      await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
+      await setupDotenv({ cwd: rootDir, fileName: args.dotenv as string })
     }
 
     consola.info('Starting preview command:', nitroJSON.commands.preview)

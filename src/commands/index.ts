@@ -25,16 +25,6 @@ export const commands = {
   new: () => import('./add').then(_rDefault),
 }
 
-export type CLIInvokeResult = void | 'error' | 'wait'
-
 export function defineNuxtCommand(command: CommandDef): CommandDef {
-  return {
-    ...command,
-    args: {
-      ...command.args,
-      cwd: {
-        type: 'string',
-      },
-    },
-  }
+  return command
 }

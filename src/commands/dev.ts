@@ -1,6 +1,6 @@
 import type { RequestListener } from 'node:http'
 import { ChildProcess, fork } from 'node:child_process'
-import { resolve, dirname } from 'pathe'
+import { resolve } from 'pathe'
 import { createProxy } from 'http-proxy'
 import { withTrailingSlash } from 'ufo'
 import { setupDotenv } from 'c12'
@@ -59,7 +59,7 @@ export default defineNuxtCommand({
   },
   async run({ args }) {
     const rootDir = resolve(args._[0] || '.')
-    await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
+    await setupDotenv({ cwd: rootDir, fileName: args.dotenv as string })
     overrideEnv('development')
 
     showVersions(rootDir)
@@ -83,13 +83,13 @@ export default defineNuxtCommand({
 
     const listener = await listen(requestHandler, {
       showURL: false,
-      clipboard: args.clipboard,
-      open: args.open || args.o,
-      port: args.port || args.p || process.env.NUXT_PORT,
-      hostname: args.host || args.h || process.env.NUXT_HOST,
-      https: args.https && {
-        cert: args['ssl-cert'],
-        key: args['ssl-key'],
+      clipboard: args.clipboard as boolean,
+      open: (args.open || args.o) as boolean,
+      port: ((args.port || args.p) as string) || process.env.NUXT_PORT,
+      hostname: ((args.host || args.h) as string) || process.env.NUXT_HOST,
+      https: (args.https as boolean) && {
+        cert: args['ssl-cert'] as string,
+        key: args['ssl-key'] as string,
       },
     })
 

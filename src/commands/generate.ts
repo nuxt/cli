@@ -1,5 +1,6 @@
 import buildCommand from './build'
 import { defineNuxtCommand } from './index'
+import { runCommand } from 'citty'
 
 export default defineNuxtCommand({
   meta: {
@@ -16,8 +17,8 @@ export default defineNuxtCommand({
       description: 'Load dotenv file',
     },
   },
-  async run({ args }) {
-    args.prerender = true
-    await buildCommand.invoke(args)
+  async run({ rawArgs }) {
+    rawArgs.push('--prerender')
+    await runCommand(buildCommand, { rawArgs })
   },
 })

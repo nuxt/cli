@@ -1,11 +1,11 @@
 import { resolve } from 'pathe'
 import { execa } from 'execa'
-import { showHelp } from '../utils/help'
+import { showUsage } from 'citty'
 import { defineNuxtCommand } from './index'
 
 export default defineNuxtCommand({
   meta: {
-    name: 'enable',
+    name: 'devtools',
     description: 'Enable or disable features in a Nuxt project',
   },
   args: {
@@ -19,14 +19,14 @@ export default defineNuxtCommand({
       description: 'Root directory of your Nuxt app',
     },
   },
-  async run({ args }) {
-    const [command, _rootDir = '.'] = args._
+  async run({ args, cmd }) {
+    const [_ /* TODO */, command, _rootDir = '.'] = args._
     const rootDir = resolve(_rootDir)
 
     if (!['enable', 'disable'].includes(command)) {
-      console.error(`Unknown command \`${command}\`.`)
-      showHelp(this.meta)
-      process.exit(1)
+      // TODO: Throw ESUBCOMMAND to trigger usage
+      await showUsage(cmd)
+      throw new Error(`Unknown command \`${command}\`!`)
     }
 
     // Defer to feature setup
