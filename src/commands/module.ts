@@ -11,7 +11,7 @@ export default defineNuxtCommand({
   meta: {
     name: 'module',
     usage: 'nuxi module add <name>',
-    description: 'Manage Nuxt Modules'
+    description: 'Manage Nuxt Modules',
   },
   async invoke(args) {
     const command = args._.shift()
@@ -19,7 +19,7 @@ export default defineNuxtCommand({
       return addModule(args)
     }
     throw new Error(`Unknown sub-command: module ${command}`)
-  }
+  },
 })
 
 // --- Sub Commands ---
@@ -34,10 +34,14 @@ async function addModule(args: Argv) {
   // Add npm dependency
   if (!args.skipInstall) {
     consola.info(`Installing dev dependency \`${npmPackage}\``)
-    await addDependency(npmPackage, { cwd: rootDir, dev: true }).catch(err => {
-      consola.error(err)
-      consola.error(`Please manually install \`${npmPackage}\` as a dev dependency`)
-    })
+    await addDependency(npmPackage, { cwd: rootDir, dev: true }).catch(
+      (err) => {
+        consola.error(err)
+        consola.error(
+          `Please manually install \`${npmPackage}\` as a dev dependency`
+        )
+      }
+    )
   }
 
   // Update nuxt.config.ts
@@ -54,17 +58,21 @@ async function addModule(args: Argv) {
       }
       consola.info(`Adding \`${npmPackage}\` to the \`modules\``)
       config.modules.push(npmPackage)
-    }).catch(err => {
+    }).catch((err) => {
       consola.error(err)
-      consola.error(`Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``)
+      consola.error(
+        `Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``
+      )
     })
   }
 }
 
-
 // -- Internal Utils --
 
-async function updateNuxtConfig(rootDir: string, update: (config: any) => void) {
+async function updateNuxtConfig(
+  rootDir: string,
+  update: (config: any) => void
+) {
   let _module: ModuleNode
   const nuxtConfigFile = resolve(rootDir, 'nuxt.config.ts')
   if (existsSync(nuxtConfigFile)) {
