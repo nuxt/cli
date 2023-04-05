@@ -12,6 +12,7 @@ import type { packageManagerLocks } from '../utils/packageManagers'
 import { getPackageManager, getPackageManagerVersion } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
 import { defineNuxtCommand } from './index'
+import { version } from '../../package.json'
 
 export default defineNuxtCommand({
   meta: {
@@ -64,6 +65,7 @@ export default defineNuxtCommand({
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
+      CLIVersion: version,
       NitroVersion: getDepVersion('nitropack'),
       PackageManager: packageManager,
       Builder: builder,
