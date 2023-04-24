@@ -1,7 +1,7 @@
 import mri from 'mri'
 import { red } from 'colorette'
 import type { ConsolaReporter } from 'consola'
-import consola from 'consola'
+import { consola } from 'consola'
 import { checkEngines } from './utils/engines'
 import type { Command, NuxtCommand } from './commands'
 import { commands } from './commands'

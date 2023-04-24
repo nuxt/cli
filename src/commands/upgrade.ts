@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import consola from 'consola'
+import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import {
