@@ -46,13 +46,13 @@ export default defineNuxtCommand({
     }
 
     // Prompt user to select package manager
-    const selectedPackageManager = (await consola.prompt(
-      'Which package manager would you like to use?',
-      {
-        type: 'select',
-        options: ['npm', 'pnpm', 'yarn'],
-      }
-    )) as unknown as PackageManagerName
+    const selectedPackageManager = await consola.prompt<{
+      type: 'select'
+      options: PackageManagerName[]
+    }>('Which package manager would you like to use?', {
+      type: 'select',
+      options: ['npm', 'pnpm', 'yarn'],
+    })
 
     // Get relative project path
     const relativeProjectPath = relative(process.cwd(), t.dir)
