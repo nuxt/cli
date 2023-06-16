@@ -58,7 +58,7 @@ consola.wrapAll()
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
 const wrapReporter = (reporter: ConsolaReporter) =>
-  <ConsolaReporter>{
+  ({
     log(logObj, ctx) {
       if (!logObj.args || !logObj.args.length) {
         return
@@ -73,6 +73,15 @@ const wrapReporter = (reporter: ConsolaReporter) =>
         ) {
           return
         }
+        // Suppress warning about native Node.js fetch
+        if (
+          msg.includes(
+            'ExperimentalWarning: The Fetch API is an experimental feature'
+          )
+        ) {
+          return
+        }
+        // TODO: resolve upstream in Vite
         // Hide sourcemap warnings related to node_modules
         if (msg.startsWith('Sourcemap') && msg.includes('node_modules')) {
           return
@@ -80,9 +89,9 @@ const wrapReporter = (reporter: ConsolaReporter) =>
       }
       return reporter.log(logObj, ctx)
     },
-  }
-// @ts-expect-error
-consola._reporters = consola._reporters.map(wrapReporter)
+  } satisfies ConsolaReporter)
+
+consola.options.reporters = consola.options.reporters.map(wrapReporter)
 
 process.on('unhandledRejection', (err) =>
   consola.error('[unhandledRejection]', err)
