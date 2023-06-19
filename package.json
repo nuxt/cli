@@ -1,6 +1,6 @@
 {
   "name": "nuxi-ng",
-  "version": "0.3.5",
+  "version": "0.0.1",
   "repository": "nuxt/nuxt",
   "license": "MIT",
   "type": "module",
@@ -41,7 +41,6 @@
     "@types/mri": "^1.1.1",
     "@types/node": "^20.3.1",
     "@types/semver": "^7.5.0",
-    "boxen": "^7.1.0",
     "c12": "^1.4.1",
     "changelogen": "^0.5.3",
     "chokidar": "^3.5.3",
