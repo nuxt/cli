@@ -12,21 +12,32 @@ export default defineNuxtCommand({
   meta: {
     name: 'preview',
     usage: 'npx nuxi preview|start [--dotenv] [rootDir]',
-    description: 'Launches nitro server for local testing after `nuxi build`.'
+    description: 'Launches nitro server for local testing after `nuxi build`.',
   },
-  async invoke (args, options = {}) {
+  async invoke(args, options = {}) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
     const { loadNuxtConfig } = await loadKit(rootDir)
-    const config = await loadNuxtConfig({ cwd: rootDir, overrides: options?.overrides || {} })
+    const config = await loadNuxtConfig({
+      cwd: rootDir,
+      overrides: options?.overrides || {},
+    })
 
-    const resolvedOutputDir = resolve(config.srcDir || rootDir, config.nitro.srcDir || 'server', config.nitro.output?.dir || '.output', 'nitro.json')
+    const resolvedOutputDir = resolve(
+      config.srcDir || rootDir,
+      config.nitro.srcDir || 'server',
+      config.nitro.output?.dir || '.output',
+      'nitro.json'
+    )
     const defaultOutput = resolve(rootDir, '.output', 'nitro.json') // for backwards compatibility
 
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
-    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
+    const nitroJSONPath = nitroJSONPaths.find((p) => existsSync(p))
     if (!nitroJSONPath) {
-      consola.error('Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n', nitroJSONPaths)
+      consola.error(
+        'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',
+        nitroJSONPaths
+      )
       process.exit(1)
     }
     const outputPath = dirname(nitroJSONPath)
@@ -41,9 +52,13 @@ export default defineNuxtCommand({
       process.exit(1)
     }
 
-    const envExists = args.dotenv ? existsSync(resolve(rootDir, args.dotenv)) : existsSync(rootDir)
+    const envExists = args.dotenv
+      ? existsSync(resolve(rootDir, args.dotenv))
+      : existsSync(rootDir)
     if (envExists) {
-      consola.info('Loading `.env`. This will not be loaded when running the server in production.')
+      consola.info(
+        'Loading `.env`. This will not be loaded when running the server in production.'
+      )
       await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
     }
 
@@ -51,5 +66,5 @@ export default defineNuxtCommand({
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     consola.log('')
     await execa(command, commandArgs, { stdio: 'inherit', cwd: outputPath })
-  }
+  },
 })

@@ -19,10 +19,11 @@ import { defineNuxtCommand } from './index'
 export default defineNuxtCommand({
   meta: {
     name: 'dev',
-    usage: 'npx nuxi dev [rootDir] [--dotenv] [--log-level] [--clipboard] [--open, -o] [--port, -p] [--host, -h] [--https] [--ssl-cert] [--ssl-key]',
-    description: 'Run nuxt development server'
+    usage:
+      'npx nuxi dev [rootDir] [--dotenv] [--log-level] [--clipboard] [--open, -o] [--port, -p] [--host, -h] [--https] [--ssl-cert] [--ssl-key]',
+    description: 'Run nuxt development server',
   },
-  async invoke (args, options = {}) {
+  async invoke(args, options = {}) {
     overrideEnv('development')
 
     const { listen } = await import('listhen')
@@ -30,13 +31,17 @@ export default defineNuxtCommand({
     let currentHandler: RequestListener | undefined
     let loadingMessage = 'Nuxt is starting...'
     const loadingHandler: RequestListener = async (_req, res) => {
-      const { loading: loadingTemplate } = await importModule('@nuxt/ui-templates')
+      const { loading: loadingTemplate } = await importModule(
+        '@nuxt/ui-templates'
+      )
       res.setHeader('Content-Type', 'text/html; charset=UTF-8')
       res.statusCode = 503 // Service Unavailable
       res.end(loadingTemplate({ loading: loadingMessage }))
     }
     const serverHandler: RequestListener = (req, res) => {
-      return currentHandler ? currentHandler(req, res) : loadingHandler(req, res)
+      return currentHandler
+        ? currentHandler(req, res)
+        : loadingHandler(req, res)
     }
 
     const rootDir = resolve(args._[0] || '.')
@@ -51,22 +56,33 @@ export default defineNuxtCommand({
       overrides: {
         dev: true,
         logLevel: args['log-level'],
-        ...(options.overrides || {})
-      }
+        ...(options.overrides || {}),
+      },
     })
 
     const listener = await listen(serverHandler, {
       showURL: false,
       clipboard: args.clipboard,
       open: args.open || args.o,
-      port: args.port || args.p || process.env.NUXT_PORT || config.devServer.port,
-      hostname: args.host || args.h || process.env.NUXT_HOST || config.devServer.host,
-      https: (args.https !== false && (args.https || config.devServer.https))
-        ? {
-            cert: args['ssl-cert'] || (typeof config.devServer.https !== 'boolean' && config.devServer.https.cert) || undefined,
-            key: args['ssl-key'] || (typeof config.devServer.https !== 'boolean' && config.devServer.https.key) || undefined
-          }
-        : false
+      port:
+        args.port || args.p || process.env.NUXT_PORT || config.devServer.port,
+      hostname:
+        args.host || args.h || process.env.NUXT_HOST || config.devServer.host,
+      https:
+        args.https !== false && (args.https || config.devServer.https)
+          ? {
+              cert:
+                args['ssl-cert'] ||
+                (typeof config.devServer.https !== 'boolean' &&
+                  config.devServer.https.cert) ||
+                undefined,
+              key:
+                args['ssl-key'] ||
+                (typeof config.devServer.https !== 'boolean' &&
+                  config.devServer.https.key) ||
+                undefined,
+            }
+          : false,
     })
 
     let currentNuxt: Nuxt
@@ -75,10 +91,10 @@ export default defineNuxtCommand({
     const showURL = () => {
       listener.showURL({
         // TODO: Normalize URL with trailing slash within schema
-        baseURL: withTrailingSlash(currentNuxt?.options.app.baseURL) || '/'
+        baseURL: withTrailingSlash(currentNuxt?.options.app.baseURL) || '/',
       })
     }
-    async function hardRestart (reason?: string) {
+    async function hardRestart(reason?: string) {
       if (process.send) {
         await listener.close().catch(() => {})
         await currentNuxt.close().catch(() => {})
@@ -94,7 +110,9 @@ export default defineNuxtCommand({
     }
     const load = async (isRestart: boolean, reason?: string) => {
       try {
-        loadingMessage = `${reason ? reason + '. ' : ''}${isRestart ? 'Restarting' : 'Starting'} nuxt...`
+        loadingMessage = `${reason ? reason + '. ' : ''}${
+          isRestart ? 'Restarting' : 'Starting'
+        } nuxt...`
         currentHandler = undefined
         if (isRestart) {
           consola.info(loadingMessage)
@@ -113,10 +131,10 @@ export default defineNuxtCommand({
           overrides: {
             logLevel: args['log-level'],
             vite: {
-              clearScreen: args.clear
+              clearScreen: args.clear,
             },
-            ...(options.overrides || {})
-          }
+            ...(options.overrides || {}),
+          },
         })
 
         if (!isRestart) {
@@ -125,23 +143,34 @@ export default defineNuxtCommand({
 
         // Write manifest and also check if we need cache invalidation
         if (!isRestart) {
-          const previousManifest = await loadNuxtManifest(currentNuxt.options.buildDir)
+          const previousManifest = await loadNuxtManifest(
+            currentNuxt.options.buildDir
+          )
           const newManifest = await writeNuxtManifest(currentNuxt)
-          if (previousManifest && newManifest && previousManifest._hash !== newManifest._hash) {
+          if (
+            previousManifest &&
+            newManifest &&
+            previousManifest._hash !== newManifest._hash
+          ) {
             await clearBuildDir(currentNuxt.options.buildDir)
           }
         }
 
         await currentNuxt.ready()
 
-        distWatcher = chokidar.watch(resolve(currentNuxt.options.buildDir, 'dist'), { ignoreInitial: true, depth: 0 })
+        distWatcher = chokidar.watch(
+          resolve(currentNuxt.options.buildDir, 'dist'),
+          { ignoreInitial: true, depth: 0 }
+        )
         distWatcher.on('unlinkDir', () => {
           dLoad(true, '.nuxt/dist directory has been removed')
         })
 
         const unsub = currentNuxt.hooks.hook('restart', async (options) => {
           unsub() // we use this instead of `hookOnce` for Nuxt Bridge support
-          if (options?.hard) { return hardRestart() }
+          if (options?.hard) {
+            return hardRestart()
+          }
           await load(true)
         })
 
@@ -154,7 +183,7 @@ export default defineNuxtCommand({
 
         await Promise.all([
           writeTypes(currentNuxt).catch(console.error),
-          buildNuxt(currentNuxt)
+          buildNuxt(currentNuxt),
         ])
         currentHandler = toNodeListener(currentNuxt.server.app)
         if (isRestart && args.clear !== false) {
@@ -164,7 +193,8 @@ export default defineNuxtCommand({
       } catch (err) {
         consola.error(`Cannot ${isRestart ? 'restart' : 'start'} nuxt: `, err)
         currentHandler = undefined
-        loadingMessage = 'Error while loading nuxt. Please check console and fix errors.'
+        loadingMessage =
+          'Error while loading nuxt. Please check console and fix errors.'
       }
     }
 
@@ -174,7 +204,9 @@ export default defineNuxtCommand({
     const watcher = chokidar.watch([rootDir], { ignoreInitial: true, depth: 0 })
     watcher.on('all', (_event, _file) => {
       const file = relative(rootDir, _file)
-      if (file === (args.dotenv || '.env')) { return hardRestart('.env updated') }
+      if (file === (args.dotenv || '.env')) {
+        return hardRestart('.env updated')
+      }
       if (RESTART_RE.test(file)) {
         dLoad(true, `${file} updated`)
       }
@@ -183,7 +215,7 @@ export default defineNuxtCommand({
     await load(false)
 
     return 'wait' as const
-  }
+  },
 })
 
 const RESTART_RE = /^(nuxt\.config\.(js|ts|mjs|cjs)|\.nuxtignore|\.nuxtrc)$/

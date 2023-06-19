@@ -15,7 +15,7 @@ if (process.argv[2] === 'dev') {
   import(cliEntry.href)
 }
 
-function startSubprocess () {
+function startSubprocess() {
   let childProc: ChildProcess | undefined
 
   const onShutdown = () => {
@@ -32,9 +32,13 @@ function startSubprocess () {
 
   start()
 
-  function start () {
+  function start() {
     childProc = fork(fileURLToPath(cliEntry))
-    childProc.on('close', (code) => { if (code) { process.exit(code) } })
+    childProc.on('close', (code) => {
+      if (code) {
+        process.exit(code)
+      }
+    })
     childProc.on('message', (message) => {
       if ((message as { type: string })?.type === 'nuxt:restart') {
         childProc?.kill()

@@ -9,9 +9,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'prepare',
     usage: 'npx nuxi prepare [--log-level] [rootDir]',
-    description: 'Prepare nuxt for development/build'
+    description: 'Prepare nuxt for development/build',
   },
-  async invoke (args, options = {}) {
+  async invoke(args, options = {}) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
     const rootDir = resolve(args._[0] || '.')
 
@@ -21,13 +21,16 @@ export default defineNuxtCommand({
       overrides: {
         _prepare: true,
         logLevel: args['log-level'],
-        ...(options.overrides || {})
-      }
+        ...(options.overrides || {}),
+      },
     })
     await clearBuildDir(nuxt.options.buildDir)
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
-    consola.success('Types generated in', relative(process.cwd(), nuxt.options.buildDir))
-  }
+    consola.success(
+      'Types generated in',
+      relative(process.cwd(), nuxt.options.buildDir)
+    )
+  },
 })

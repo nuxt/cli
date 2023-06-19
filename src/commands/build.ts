@@ -11,9 +11,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'build',
     usage: 'npx nuxi build [--prerender] [--dotenv] [--log-level] [rootDir]',
-    description: 'Build nuxt for production deployment'
+    description: 'Build nuxt for production deployment',
   },
-  async invoke (args, options = {}) {
+  async invoke(args, options = {}) {
     overrideEnv('production')
 
     const rootDir = resolve(args._[0] || '.')
@@ -25,13 +25,13 @@ export default defineNuxtCommand({
       rootDir,
       dotenv: {
         cwd: rootDir,
-        fileName: args.dotenv
+        fileName: args.dotenv,
       },
       overrides: {
         logLevel: args['log-level'],
         _generate: args.prerender,
-        ...(options?.overrides || {})
-      }
+        ...(options?.overrides || {}),
+      },
     })
 
     // Use ? for backward compatibility for Nuxt <= RC.10
@@ -50,12 +50,16 @@ export default defineNuxtCommand({
 
     if (args.prerender) {
       if (!nuxt.options.ssr) {
-        consola.warn('HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.')
+        consola.warn(
+          'HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.'
+        )
       }
       // TODO: revisit later if/when nuxt build --prerender will output hybrid
       const dir = nitro?.options.output.publicDir
       const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-      consola.success(`You can now deploy \`${publicDir}\` to any static hosting!`)
+      consola.success(
+        `You can now deploy \`${publicDir}\` to any static hosting!`
+      )
     }
-  }
+  },
 })

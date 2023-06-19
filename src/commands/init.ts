@@ -6,15 +6,17 @@ import { defineNuxtCommand } from './index'
 
 const rpath = (p: string) => relative(process.cwd(), p)
 
-const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+const DEFAULT_REGISTRY =
+  'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 
 export default defineNuxtCommand({
   meta: {
     name: 'init',
-    usage: 'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--shell] [dir]',
-    description: 'Initialize a fresh project'
+    usage:
+      'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--shell] [dir]',
+    description: 'Initialize a fresh project',
   },
-  async invoke (args) {
+  async invoke(args) {
     // Clone template
     const template = args.template || args.t || 'v3'
 
@@ -31,7 +33,7 @@ export default defineNuxtCommand({
         force: args.force,
         offline: args.offline,
         preferOffline: args['prefer-offline'],
-        registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
+        registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
     } catch (err) {
       if (process.env.DEBUG) {
@@ -53,10 +55,12 @@ export default defineNuxtCommand({
     const nextSteps = [
       !args.shell && relativeDist.length > 1 && `\`cd ${relativeDist}\``,
       'Install dependencies with `npm install` or `yarn install` or `pnpm install`',
-      'Start development server with `npm run dev` or `yarn dev` or `pnpm run dev`'
+      'Start development server with `npm run dev` or `yarn dev` or `pnpm run dev`',
     ].filter(Boolean)
 
-    consola.log(`✨ Nuxt project is created with \`${t.name}\` template. Next steps:`)
+    consola.log(
+      `✨ Nuxt project is created with \`${t.name}\` template. Next steps:`
+    )
     for (const step of nextSteps) {
       consola.log(` › ${step}`)
     }
@@ -64,5 +68,5 @@ export default defineNuxtCommand({
     if (args.shell) {
       startShell(t.dir)
     }
-  }
+  },
 })

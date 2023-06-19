@@ -1,33 +1,47 @@
 import { upperFirst } from 'scule'
 
 interface TemplateOptions {
-  name: string,
+  name: string
   args: Record<string, any>
 }
 
 interface Template {
-  (options: TemplateOptions): { path: string, contents: string }
+  (options: TemplateOptions): { path: string; contents: string }
 }
 
-const httpMethods = ['connect', 'delete', 'get', 'head', 'options', 'post', 'put', 'trace', 'patch']
+const httpMethods = [
+  'connect',
+  'delete',
+  'get',
+  'head',
+  'options',
+  'post',
+  'put',
+  'trace',
+  'patch',
+]
 const api: Template = ({ name, args }) => ({
   path: `server/api/${name}${applySuffix(args, httpMethods, 'method')}.ts`,
   contents: `
 export default defineEventHandler((event) => {
   return 'Hello ${name}'
 })
-`
+`,
 })
 
 const plugin: Template = ({ name, args }) => ({
   path: `plugins/${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`,
   contents: `
 export default defineNuxtPlugin((nuxtApp) => {})
-  `
+  `,
 })
 
 const component: Template = ({ name, args }) => ({
-  path: `components/${name}${applySuffix(args, ['client', 'server'], 'mode')}.vue`,
+  path: `components/${name}${applySuffix(
+    args,
+    ['client', 'server'],
+    'mode'
+  )}.vue`,
   contents: `
 <script lang="ts" setup></script>
 
@@ -38,18 +52,20 @@ const component: Template = ({ name, args }) => ({
 </template>
 
 <style scoped></style>
-`
+`,
 })
 
 const composable: Template = ({ name }) => {
-  const nameWithUsePrefix = name.startsWith('use') ? name : `use${upperFirst(name)}`
+  const nameWithUsePrefix = name.startsWith('use')
+    ? name
+    : `use${upperFirst(name)}`
   return {
     path: `composables/${name}.ts`,
     contents: `
 export const ${nameWithUsePrefix} = () => {
   return ref()
 }
-  `
+  `,
   }
 }
 
@@ -57,7 +73,7 @@ const middleware: Template = ({ name, args }) => ({
   path: `middleware/${name}${applySuffix(args, ['global'])}.ts`,
   contents: `
 export default defineNuxtRouteMiddleware((to, from) => {})
-`
+`,
 })
 
 const layout: Template = ({ name }) => ({
@@ -73,7 +89,7 @@ const layout: Template = ({ name }) => ({
 </template>
 
 <style scoped></style>
-`
+`,
 })
 
 const page: Template = ({ name }) => ({
@@ -88,7 +104,7 @@ const page: Template = ({ name }) => ({
 </template>
 
 <style scoped></style>
-`
+`,
 })
 
 export const templates = {
@@ -98,12 +114,16 @@ export const templates = {
   composable,
   middleware,
   layout,
-  page
+  page,
 } as Record<string, Template>
 
 // -- internal utils --
 
-function applySuffix (args: TemplateOptions['args'], suffixes: string[], unwrapFrom?: string): string {
+function applySuffix(
+  args: TemplateOptions['args'],
+  suffixes: string[],
+  unwrapFrom?: string
+): string {
   let suffix = ''
   // --client
   for (const s of suffixes) {

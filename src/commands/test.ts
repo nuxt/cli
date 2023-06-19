@@ -5,9 +5,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'test',
     usage: 'npx nuxi test [--dev] [--watch] [rootDir]',
-    description: 'Run tests'
+    description: 'Run tests',
   },
-  async invoke (args, options = {}) {
+  async invoke(args, options = {}) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'test'
     const rootDir = resolve(args._[0] || '.')
     const { runTests } = await importTestUtils()
@@ -15,16 +15,16 @@ export default defineNuxtCommand({
       rootDir,
       dev: !!args.dev,
       watch: !!args.watch,
-      ...(options || {})
+      ...(options || {}),
     })
 
     if (args.watch) {
       return 'wait' as const
     }
-  }
+  },
 })
 
-async function importTestUtils (): Promise<typeof import('@nuxt/test-utils')> {
+async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   let err
   for (const pkg of ['@nuxt/test-utils-edge', '@nuxt/test-utils']) {
     try {
@@ -39,5 +39,7 @@ async function importTestUtils (): Promise<typeof import('@nuxt/test-utils')> {
     }
   }
   console.error(err)
-  throw new Error('`@nuxt/test-utils-edge` seems missing. Run `npm i -D @nuxt/test-utils-edge` or `yarn add -D @nuxt/test-utils-edge` to install.')
+  throw new Error(
+    '`@nuxt/test-utils-edge` seems missing. Run `npm i -D @nuxt/test-utils-edge` or `yarn add -D @nuxt/test-utils-edge` to install.'
+  )
 }

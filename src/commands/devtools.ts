@@ -7,9 +7,9 @@ export default defineNuxtCommand({
   meta: {
     name: 'enable',
     usage: 'npx nuxi devtools enable|disable [rootDir]',
-    description: 'Enable or disable features in a Nuxt project'
+    description: 'Enable or disable features in a Nuxt project',
   },
-  async invoke (args) {
+  async invoke(args) {
     const [command, _rootDir = '.'] = args._
     const rootDir = resolve(_rootDir)
 
@@ -19,6 +19,9 @@ export default defineNuxtCommand({
       process.exit(1)
     }
 
-    await execa('npx', ['@nuxt/devtools-wizard@latest', command, rootDir], { stdio: 'inherit', cwd: rootDir })
-  }
+    await execa('npx', ['@nuxt/devtools-wizard@latest', command, rootDir], {
+      stdio: 'inherit',
+      cwd: rootDir,
+    })
+  },
 })

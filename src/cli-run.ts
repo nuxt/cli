@@ -2,4 +2,4 @@
 process._startTime = Date.now()
 
 // @ts-expect-error `default` property is not declared
-import('./cli').then(r => (r.default || r).main())
+import('./cli').then((r) => (r.default || r).main())
