@@ -1,0 +1,6 @@
+{
+  "extends": ["@nuxt/eslint-config"],
+  "rules": {
+    "no-extra-semi": 0
+  }
+}
