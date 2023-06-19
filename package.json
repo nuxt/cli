@@ -22,7 +22,8 @@
   "scripts": {
     "build": "unbuild",
     "build:stub": "unbuild --stub",
-    "dev": "nuxi-ng dev ./playground",
+    "nuxi-ng": "JITI_ESM_RESOLVE=1 jiti ./src/cli-run.ts",
+    "dev": "pnpm run nuxi-ng dev ./playground",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
     "prepack": "unbuild",
