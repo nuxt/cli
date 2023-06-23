@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import { relative } from 'pathe'
 import { consola } from 'consola'
-import { addDependency } from 'nypm'
+import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineNuxtCommand } from './index'
 
@@ -69,7 +69,7 @@ export default defineNuxtCommand({
       consola.start('Installing dependencies...')
 
       try {
-        await addDependency('', {
+        await installDependencies({
           cwd: relativeProjectPath,
           packageManager: {
             name: selectedPackageManager,
