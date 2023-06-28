@@ -14,7 +14,7 @@ export default defineNuxtCommand({
   meta: {
     name: 'init',
     usage:
-      'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--shell] [dir]',
+      'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--no-install] [--shell] [dir]',
     description: 'Initialize a fresh project',
   },
   async invoke(args) {
@@ -63,8 +63,8 @@ export default defineNuxtCommand({
     }
 
     // Install project dependencies or skip installation based on '--offline' flag
-    if (args.offline) {
-      consola.info('Installing dependencies skipped in offline mode.')
+    if (args.install === false) {
+      consola.info('Skipping install dependencies step.')
     } else {
       consola.start('Installing dependencies...')
 
