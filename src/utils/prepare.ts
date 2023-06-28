@@ -76,7 +76,9 @@ export const writeTypes = async (nuxt: Nuxt) => {
       tsConfig.compilerOptions.paths[alias] = [absolutePath]
       tsConfig.compilerOptions.paths[`${alias}/*`] = [`${absolutePath}/*`]
     } else {
-      tsConfig.compilerOptions.paths[alias] = [absolutePath.replace(/(?<=\w)\.\w+$/g, '')] /* remove extension */
+      tsConfig.compilerOptions.paths[alias] = [
+        absolutePath.replace(/(?<=\w)\.\w+$/g, ''),
+      ] /* remove extension */
     }
   }
 
@@ -130,7 +132,7 @@ export const writeTypes = async (nuxt: Nuxt) => {
   await writeFile()
 }
 
-function renderAttrs (obj: Record<string, string>) {
+function renderAttrs(obj: Record<string, string>) {
   return Object.entries(obj)
     .map((e) => renderAttr(e[0], e[1]))
     .join(' ')
