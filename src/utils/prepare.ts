@@ -46,6 +46,8 @@ export const writeTypes = async (nuxt: Nuxt) => {
     ],
   })
 
+  tsConfig.compilerOptions = tsConfig.compilerOptions || {}
+
   const aliases: Record<string, string> = {
     ...nuxt.options.alias,
     '#build': nuxt.options.buildDir,
@@ -69,7 +71,6 @@ export const writeTypes = async (nuxt: Nuxt) => {
     const stats = await fsp
       .stat(resolve(basePath, relativePath))
       .catch(() => null /* file does not exist */)
-    tsConfig.compilerOptions = tsConfig.compilerOptions || {}
     if (stats?.isDirectory()) {
       tsConfig.compilerOptions.paths[alias] = [relativePath]
       tsConfig.compilerOptions.paths[`${alias}/*`] = [`${relativePath}/*`]
