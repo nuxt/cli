@@ -96,11 +96,7 @@ export default defineNuxtCommand({
       !args.shell &&
         relativeProjectPath.length > 1 &&
         `\`cd ${relativeProjectPath}\``,
-      `Start development server with \`${
-        selectedPackageManager === 'yarn'
-          ? 'yarn'
-          : `${selectedPackageManager} run`
-      } dev\``,
+      `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
     for (const step of nextSteps) {
