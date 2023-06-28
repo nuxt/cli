@@ -23,6 +23,13 @@ async function _main() {
   // @ts-ignore
   const command = args._.shift() || 'usage'
 
+  // Wrap all console logs with consola for better DX
+  if (command === 'dev') {
+    consola.wrapAll()
+  } else {
+    consola.wrapConsole()
+  }
+
   showBanner(command === 'dev' && args.clear !== false && !args.help)
 
   if (!(command in commands)) {
@@ -32,15 +39,14 @@ async function _main() {
     process.exit(1)
   }
 
-  // Check Node.js version in background
-  setTimeout(() => {
-    checkEngines().catch(() => {})
-  }, 1000)
-
-  // Check for CLI updates in the background
-  setTimeout(() => {
-    checkForUpdates().catch(() => {})
-  }, 100)
+  // Check Node.js version and CLI updates in background
+  const backgroundTasks = Promise.all([
+    checkEngines(),
+    checkForUpdates()
+  ]).catch(err => console.error(err))
+  if (command === 'init') {
+    await backgroundTasks
+  }
 
   // @ts-ignore default.default is hotfix for #621
   const cmd = (await commands[command as Command]()) as NuxtCommand
@@ -52,9 +58,6 @@ async function _main() {
     return result
   }
 }
-
-// Wrap all console logs with consola for better DX
-consola.wrapAll()
 
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
