@@ -42,8 +42,8 @@ async function _main() {
   // Check Node.js version and CLI updates in background
   const backgroundTasks = Promise.all([
     checkEngines(),
-    checkForUpdates()
-  ]).catch(err => console.error(err))
+    checkForUpdates(),
+  ]).catch((err) => console.error(err))
   if (command === 'init') {
     await backgroundTasks
   }
