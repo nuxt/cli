@@ -39,7 +39,7 @@ export type CLIInvokeResult = void | 'error' | 'wait'
 
 export interface NuxtCommand {
   invoke(
-    args: Argv,
+    args: Argv<Record<string, string | true | undefined>>,
     options?: Record<string, any>
   ): Promise<CLIInvokeResult> | CLIInvokeResult
   meta: NuxtCommandMeta
