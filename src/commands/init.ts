@@ -1,5 +1,6 @@
 import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
+import type { DownloadTemplateResult } from 'giget'
 import { relative } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
@@ -27,10 +28,10 @@ export default defineNuxtCommand({
     }
 
     // Download template
-    let t
+    let template: DownloadTemplateResult
 
     try {
-      t = await downloadTemplate(templateName, {
+      template = await downloadTemplate(templateName, {
         dir: args._[0] || '',
         force: Boolean(args.force),
         offline: Boolean(args.offline),
@@ -55,15 +56,16 @@ export default defineNuxtCommand({
     })
 
     // Get relative project path
-    const relativeProjectPath = relative(process.cwd(), t.dir)
+    const relativeProjectPath = relative(process.cwd(), template.dir)
 
     // Write .nuxtrc with `shamefully-hoist=true` for pnpm
     if (selectedPackageManager === 'pnpm') {
       await writeFile(`${relativeProjectPath}/.npmrc`, 'shamefully-hoist=true')
     }
 
-    // Install project dependencies or skip installation based on '--offline' flag
-    if (args.install === false) {
+    // Install project dependencies
+    // or skip installation based on the '--no-install' flag
+    if (args['no-install']) {
       consola.info('Skipping install dependencies step.')
     } else {
       consola.start('Installing dependencies...')
@@ -89,7 +91,7 @@ export default defineNuxtCommand({
 
     // Display next steps
     consola.log(
-      `\n✨ Nuxt project has been created with the \`${t.name}\` template. Next steps:`
+      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`
     )
 
     const nextSteps = [
@@ -104,7 +106,7 @@ export default defineNuxtCommand({
     }
 
     if (args.shell) {
-      startShell(t.dir)
+      startShell(template.dir)
     }
   },
 })
