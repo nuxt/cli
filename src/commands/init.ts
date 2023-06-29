@@ -65,7 +65,7 @@ export default defineNuxtCommand({
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
-    if (args['no-install']) {
+    if (args.install === false) {
       consola.info('Skipping install dependencies step.')
     } else {
       consola.start('Installing dependencies...')
