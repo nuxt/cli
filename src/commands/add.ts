@@ -3,21 +3,36 @@ import { dirname, resolve } from 'pathe'
 import { consola } from 'consola'
 import { loadKit } from '../utils/kit'
 import { templates } from '../utils/templates'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+import { sharedArgs } from './_shared'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'add',
-    usage: `npx nuxi add [--cwd] [--force] ${Object.keys(templates).join(
-      '|'
-    )} <name>`,
     description: 'Create a new template file.',
   },
-  async invoke(args) {
-    const cwd = resolve(args.cwd || '.')
+  args: {
+    ...sharedArgs,
+    force: {
+      type: 'boolean',
+      description: 'Override existing file',
+    },
+    template: {
+      type: 'positional',
+      required: true,
+      valueHint: Object.keys(templates).join('|'),
+    },
+    name: {
+      type: 'positional',
+      required: true,
+      valueHint: 'name',
+    },
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || '.')
 
-    const template = args._[0]
-    const name = args._[1]
+    const template = ctx.args.template
+    const name = ctx.args.name
 
     // Validate template name
     if (!templates[template]) {
@@ -40,13 +55,13 @@ export default defineNuxtCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
-    const res = templates[template]({ name, args })
+    const res = templates[template]({ name, args: ctx.args })
 
     // Resolve full path to generated file
     const path = resolve(config.srcDir, res.path)
 
     // Ensure not overriding user code
-    if (!args.force && existsSync(path)) {
+    if (!ctx.args.force && existsSync(path)) {
       consola.error(
         `File exists: ${path} . Use --force to override or use a different name.`
       )

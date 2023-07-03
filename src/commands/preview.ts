@@ -6,30 +6,41 @@ import { resolve } from 'pathe'
 import { consola } from 'consola'
 import { loadKit } from '../utils/kit'
 
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'preview',
-    usage: 'npx nuxi preview|start [--dotenv] [rootDir]',
     description: 'Launches nitro server for local testing after `nuxi build`.',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+  },
+  async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
-    const rootDir = resolve(args._[0] || '.')
-    const { loadNuxtConfig } = await loadKit(rootDir)
+
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
+    const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({
-      cwd: rootDir,
-      overrides: options?.overrides || {},
+      cwd,
+      overrides: /*ctx.options?.overrides || */ {},
     })
 
     const resolvedOutputDir = resolve(
-      config.srcDir || rootDir,
+      config.srcDir || cwd,
       config.nitro.srcDir || 'server',
       config.nitro.output?.dir || '.output',
       'nitro.json'
     )
-    const defaultOutput = resolve(rootDir, '.output', 'nitro.json') // for backwards compatibility
+    const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
     const nitroJSONPath = nitroJSONPaths.find((p) => existsSync(p))
@@ -52,14 +63,14 @@ export default defineNuxtCommand({
       process.exit(1)
     }
 
-    const envExists = args.dotenv
-      ? existsSync(resolve(rootDir, args.dotenv))
-      : existsSync(rootDir)
+    const envExists = ctx.args.dotenv
+      ? existsSync(resolve(cwd, ctx.args.dotenv))
+      : existsSync(cwd)
     if (envExists) {
       consola.info(
         'Loading `.env`. This will not be loaded when running the server in production.'
       )
-      await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
+      await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }
 
     consola.info('Starting preview command:', nitroJSON.commands.preview)

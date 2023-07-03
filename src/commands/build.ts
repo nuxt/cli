@@ -5,34 +5,47 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+import { sharedArgs, legacyRootDirArgs } from './_shared'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'build',
-    usage: 'npx nuxi build [--prerender] [--dotenv] [--log-level] [rootDir]',
     description: 'Build nuxt for production deployment',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    prerender: {
+      type: 'boolean',
+      description: 'Build nuxt and prerender static routes',
+    },
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+    ...legacyRootDirArgs,
+  },
+  async run(ctx) {
     overrideEnv('production')
 
-    const rootDir = resolve(args._[0] || '.')
-    showVersions(rootDir)
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    const { loadNuxt, buildNuxt, useNitro } = await loadKit(rootDir)
+    showVersions(cwd)
+
+    const { loadNuxt, buildNuxt, useNitro } = await loadKit(cwd)
 
     const nuxt = await loadNuxt({
-      rootDir,
+      rootDir: cwd,
       dotenv: {
-        cwd: rootDir,
-        fileName: args.dotenv,
+        cwd,
+        fileName: ctx.args.dotenv,
       },
       overrides: {
-        logLevel: args['log-level'],
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8
-        _generate: args.prerender,
-        ...(args.prerender ? { nitro: { static: true } } : {}),
-        ...(options?.overrides || {}),
+        _generate: ctx.args.prerender,
+        ...(ctx.args.prerender ? { nitro: { static: true } } : {}),
+        .../* ctx.options.overrides || */ {},
       },
     })
 
@@ -50,7 +63,7 @@ export default defineNuxtCommand({
 
     await buildNuxt(nuxt)
 
-    if (args.prerender) {
+    if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {
         consola.warn(
           'HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.'

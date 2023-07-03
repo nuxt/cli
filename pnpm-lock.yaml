@@ -46,6 +46,9 @@ devDependencies:
   chokidar:
     specifier: ^3.5.3
     version: 3.5.3
+  citty:
+    specifier: ^0.1.1
+    version: 0.1.1
   clear:
     specifier: ^0.1.0
     version: 0.1.0

@@ -8,7 +8,9 @@ import {
 } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+
+import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
   try {
@@ -22,19 +24,27 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   }
 }
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'upgrade',
-    usage: 'npx nuxi upgrade [--force|-f]',
     description: 'Upgrade nuxt',
   },
-  async invoke(args) {
-    const rootDir = resolve(args._[0] || '.')
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    force: {
+      type: 'boolean',
+      alias: 'f',
+      description: 'Force upgrade to recreate lockfile and node_modules',
+    },
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     // Check package manager
-    const packageManager = getPackageManager(rootDir)
+    const packageManager = getPackageManager(cwd)
     if (!packageManager) {
-      console.error('Cannot detect Package Manager in', rootDir)
+      console.error('Cannot detect Package Manager in', cwd)
       process.exit(1)
     }
     const packageManagerVersion = execSync(`${packageManager} --version`)
@@ -43,14 +53,14 @@ export default defineNuxtCommand({
     consola.info('Package Manager:', packageManager, packageManagerVersion)
 
     // Check currently installed nuxt version
-    const currentVersion = (await getNuxtVersion(rootDir)) || '[unknown]'
+    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Current nuxt version:', currentVersion)
 
     // Force install
-    if (args.force || args.f) {
+    if (ctx.args.force) {
       consola.info('Removing lock-file and node_modules...')
-      const pmLockFile = resolve(rootDir, packageManagerLocks[packageManager])
-      await rmRecursive([pmLockFile, resolve(rootDir, 'node_modules')])
+      const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
+      await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
     }
 
@@ -60,14 +70,14 @@ export default defineNuxtCommand({
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
       } -D nuxt`,
-      { stdio: 'inherit', cwd: rootDir }
+      { stdio: 'inherit', cwd }
     )
 
     // Cleanup after upgrade
-    await cleanupNuxtDirs(rootDir)
+    await cleanupNuxtDirs(cwd)
 
     // Check installed nuxt version again
-    const upgradedVersion = (await getNuxtVersion(rootDir)) || '[unknown]'
+    const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Upgraded nuxt version:', upgradedVersion)
 
     if (upgradedVersion === currentVersion) {

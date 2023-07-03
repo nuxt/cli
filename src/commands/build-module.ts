@@ -2,27 +2,40 @@ import { execa } from 'execa'
 import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { tryResolveModule } from '../utils/esm'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'build-module',
-    usage: 'npx nuxi build-module [--stub] [rootDir]',
     description: `Helper command for using ${MODULE_BUILDER_PKG}`,
   },
-  async invoke(args) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    stub: {
+      type: 'boolean',
+      description: 'Stub dist instead of actually building it for development',
+    },
+    prepare: {
+      type: 'boolean',
+      description: 'Prepare module for local development',
+    },
+  },
+  async run(ctx) {
     // Find local installed version
-    const rootDir = resolve(args._[0] || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
     const hasLocal = await tryResolveModule(
       `${MODULE_BUILDER_PKG}/package.json`,
-      rootDir
+      cwd
     )
 
     const execArgs = Object.entries({
-      '--stub': args.stub,
-      '--prepare': args.prepare,
+      '--stub': ctx.args.stub,
+      '--prepare': ctx.args.prepare,
     })
       .filter(([, value]) => value)
       .map(([key]) => key)
@@ -37,9 +50,9 @@ export default defineNuxtCommand({
     }
 
     await execa(cmd, execArgs, {
+      cwd,
       preferLocal: true,
       stdio: 'inherit',
-      cwd: rootDir,
     })
   },
 })

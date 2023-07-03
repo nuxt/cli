@@ -3,25 +3,31 @@ import { consola } from 'consola'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { writeTypes } from '../utils/prepare'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'prepare',
-    usage: 'npx nuxi prepare [--log-level] [rootDir]',
     description: 'Prepare nuxt for development/build',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+  },
+  async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
-    const rootDir = resolve(args._[0] || '.')
 
-    const { loadNuxt, buildNuxt } = await loadKit(rootDir)
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
+    const { loadNuxt, buildNuxt } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir,
+      rootDir: cwd,
       overrides: {
         _prepare: true,
-        logLevel: args['log-level'],
-        ...(options.overrides || {}),
+        logLevel: ctx.args.logLeve as 'silent' | 'info' | 'verbose',
+        .../*ctx.options.overrides || */ {},
       },
     })
     await clearBuildDir(nuxt.options.buildDir)

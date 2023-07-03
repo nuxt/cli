@@ -4,25 +4,31 @@ import { tryResolveModule } from '../utils/esm'
 
 import { loadKit } from '../utils/kit'
 import { writeTypes } from '../utils/prepare'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'typecheck',
-    usage: 'npx nuxi typecheck [--log-level] [rootDir]',
     description: 'Runs `vue-tsc` to check types throughout your app.',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+  },
+  async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
-    const rootDir = resolve(args._[0] || '.')
 
-    const { loadNuxt, buildNuxt } = await loadKit(rootDir)
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
+    const { loadNuxt, buildNuxt } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir,
+      rootDir: cwd,
       overrides: {
         _prepare: true,
-        logLevel: args['log-level'],
-        ...(options?.overrides || {}),
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        .../*ctx.options?.overrides || */ {},
       },
     })
 
@@ -33,19 +39,19 @@ export default defineNuxtCommand({
 
     // Prefer local install if possible
     const hasLocalInstall =
-      (await tryResolveModule('typescript', rootDir)) &&
-      (await tryResolveModule('vue-tsc/package.json', rootDir))
+      (await tryResolveModule('typescript', cwd)) &&
+      (await tryResolveModule('vue-tsc/package.json', cwd))
     if (hasLocalInstall) {
       await execa('vue-tsc', ['--noEmit'], {
         preferLocal: true,
         stdio: 'inherit',
-        cwd: rootDir,
+        cwd,
       })
     } else {
       await execa(
         'npx',
         '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-        { stdio: 'inherit', cwd: rootDir }
+        { stdio: 'inherit', cwd }
       )
     }
   },

@@ -5,8 +5,7 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./dist/index.mjs",
-    "./cli": "./bin/nuxi.mjs"
+    ".": "./dist/index.mjs"
   },
   "types": "./dist/index.d.ts",
   "bin": {
@@ -22,8 +21,8 @@
   "scripts": {
     "build": "unbuild",
     "build:stub": "unbuild --stub",
-    "nuxi-ng": "JITI_ESM_RESOLVE=1 jiti ./src/cli-run.ts",
-    "dev": "pnpm run nuxi-ng dev ./playground",
+    "nuxi-ng": "node ./scripts/nuxi.mjs",
+    "dev": "node ./scripts/nuxi.mjs dev ./playground",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
     "prepack": "unbuild",
@@ -44,6 +43,7 @@
     "c12": "^1.4.2",
     "changelogen": "^0.5.3",
     "chokidar": "^3.5.3",
+    "citty": "^0.1.1",
     "clear": "^0.1.0",
     "clipboardy": "^3.0.0",
     "colorette": "^2.0.20",

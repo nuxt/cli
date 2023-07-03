@@ -1,5 +1,7 @@
 import { resolve } from 'pathe'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+
+import { sharedArgs } from './_shared'
 import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
@@ -10,18 +12,30 @@ import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray } from 'colorette'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'module',
-    usage: 'nuxi module add <name>',
     description: 'Manage Nuxt Modules',
   },
-  async invoke(args) {
-    const command = args._.shift()
+  args: {
+    cwd: {
+      type: 'string',
+      description: 'Current working directory',
+    },
+    command: {
+      type: 'string',
+      description: 'Command to run',
+      valueHint: 'add|search',
+    },
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
+    const command = ctx.args._.shift()
     if (command === 'add') {
-      return addModule(args)
+      return addModule(ctx.args)
     } else if (command === 'search') {
-      return findModuleByKeywords(args._.join(' '))
+      return findModuleByKeywords(ctx.args._.join(' '))
     }
     throw new Error(`Unknown sub-command: module ${command}`)
   },

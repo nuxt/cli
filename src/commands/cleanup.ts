@@ -1,15 +1,20 @@
 import { resolve } from 'pathe'
 import { cleanupNuxtDirs } from '../utils/nuxt'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { sharedArgs, legacyRootDirArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'cleanup',
-    usage: 'npx nuxi clean|cleanup',
     description: 'Cleanup generated nuxt files and caches',
   },
-  async invoke(args) {
-    const rootDir = resolve(args._[0] || '.')
-    await cleanupNuxtDirs(rootDir)
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    await cleanupNuxtDirs(cwd)
   },
 })

@@ -8,7 +8,7 @@ export default defineBuildConfig({
       exportConditions: ['production', 'node'] as any,
     },
   },
-  entries: ['src/cli', 'src/cli-run', 'src/cli-wrapper', 'src/index'],
+  entries: ['src/index'],
   externals: [
     '@nuxt/kit',
     '@nuxt/schema',

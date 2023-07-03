@@ -1,5 +1,5 @@
 import { cyan, magenta } from 'colorette'
-import type { NuxtCommandMeta } from '../commands'
+import type { NuxtCommandMeta } from '..'
 
 export function showHelp(meta?: Partial<NuxtCommandMeta>) {
   const sections: string[] = []
