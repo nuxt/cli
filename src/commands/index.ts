@@ -1,4 +1,6 @@
-const _rDefault = (r: any) => r.default || r
+import type { CommandDef } from 'citty'
+
+const _rDefault = (r: any) => (r.default || r) as Promise<CommandDef>
 
 export const commands = {
   add: () => import('./add').then(_rDefault),
@@ -17,4 +19,4 @@ export const commands = {
   test: () => import('./test').then(_rDefault),
   typecheck: () => import('./typecheck').then(_rDefault),
   upgrade: () => import('./upgrade').then(_rDefault),
-}
+} as const
