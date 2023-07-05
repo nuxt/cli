@@ -6,7 +6,8 @@ import { checkForUpdates } from './utils/update'
 
 export const main = defineCommand({
   meta: {
-    name: 'nuxt',
+    name: 'nuxi-ng',
+    description: 'Nuxt CLI (experimental)',
   },
   subCommands: commands,
   setup: async (ctx) => {
@@ -19,6 +20,8 @@ export const main = defineCommand({
       checkEngines(),
       checkForUpdates(),
     ]).catch((err) => console.error(err))
+
+    // Avoid background check to fix prompt issues
     if (command === 'init') {
       await backgroundTasks
     }
