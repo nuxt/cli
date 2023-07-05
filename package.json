@@ -78,7 +78,7 @@
   "optionalDependencies": {
     "fsevents": "~2.3.2"
   },
-  "packageManager": "pnpm@8.6.5",
+  "packageManager": "pnpm@8.6.6",
   "engines": {
     "node": "^14.18.0 || >=16.10.0"
   }
