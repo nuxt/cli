@@ -45,7 +45,7 @@ export default defineCommand({
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
         ...(ctx.args.prerender ? { nitro: { static: true } } : {}),
-        ...ctx.data.overrides,
+        ...ctx.data?.overrides,
       },
     })
 

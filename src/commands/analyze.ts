@@ -46,7 +46,7 @@ export default defineCommand({
 
     const nuxt = await loadNuxt({
       rootDir: cwd,
-      overrides: defu(ctx.data.overrides, {
+      overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: true,
         },
