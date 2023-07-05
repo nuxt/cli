@@ -29,7 +29,7 @@
     "prepack": "unbuild",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "test": "pnpm build && pnpm test:dist",
-    "test:dist": "node ./bin/nuxi.mjs info"
+    "test:dist": "node ./bin/nuxi.mjs info ./playground"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^0.1.1",
