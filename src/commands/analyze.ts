@@ -7,32 +7,46 @@ import { defu } from 'defu'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+import { sharedArgs, legacyRootDirArgs } from './_shared'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'analyze',
-    usage: 'npx nuxi analyze [--log-level] [--name] [--no-serve] [rootDir]',
     description: 'Build nuxt and analyze production bundle (experimental)',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    name: {
+      type: 'string',
+      description: 'Name of the analysis',
+      default: 'default',
+    },
+    serve: {
+      type: 'boolean',
+      description: 'Serve the analysis results',
+      default: true,
+    },
+  },
+  async run(ctx) {
     overrideEnv('production')
 
-    const name = args.name || 'default'
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^a-z0-9_-]/gi, '_')
-    const rootDir = resolve(args._[0] || '.')
 
-    let analyzeDir = join(rootDir, '.nuxt/analyze', slug)
+    let analyzeDir = join(cwd, '.nuxt/analyze', slug)
     let buildDir = join(analyzeDir, '.nuxt')
     let outDir = join(analyzeDir, '.output')
 
     const startTime = Date.now()
 
-    const { loadNuxt, buildNuxt } = await loadKit(rootDir)
+    const { loadNuxt, buildNuxt } = await loadKit(cwd)
 
     const nuxt = await loadNuxt({
-      rootDir,
-      overrides: defu(options.overrides, {
+      rootDir: cwd,
+      overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: true,
         },
@@ -43,7 +57,7 @@ export default defineNuxtCommand({
             dir: outDir,
           },
         },
-        logLevel: args['log-level'],
+        logLevel: ctx.args.logLevel,
       }),
     })
 
@@ -78,7 +92,7 @@ export default defineNuxtCommand({
       'Do not deploy analyze results! Use `nuxi build` before deploying.'
     )
 
-    if (args.serve !== false && !process.env.CI) {
+    if (ctx.args.serve !== false && !process.env.CI) {
       const app = createApp()
 
       const serveFile = (filePath: string) =>
@@ -116,8 +130,6 @@ export default defineNuxtCommand({
       )
 
       await listen(toNodeListener(app))
-
-      return 'wait' as const
     }
   },
 })

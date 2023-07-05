@@ -14,34 +14,37 @@ import {
   getPackageManagerVersion,
 } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+
+import { legacyRootDirArgs, sharedArgs } from './_shared'
 import { version } from '../../package.json'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'info',
-    usage: 'npx nuxi info [rootDir]',
     description: 'Get information about nuxt project',
   },
-  async invoke(args) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+  },
+  async run(ctx) {
     // Resolve rootDir
-    const rootDir = resolve(args._[0] || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     // Load nuxt.config
-    const nuxtConfig = getNuxtConfig(rootDir)
+    const nuxtConfig = getNuxtConfig(cwd)
 
     // Find nearest package.json
-    const { dependencies = {}, devDependencies = {} } = findPackage(rootDir)
+    const { dependencies = {}, devDependencies = {} } = findPackage(cwd)
 
     // Utils to query a dependency version
     const getDepVersion = (name: string) =>
-      getPkg(name, rootDir)?.version ||
-      dependencies[name] ||
-      devDependencies[name]
+      getPkg(name, cwd)?.version || dependencies[name] || devDependencies[name]
 
     const listModules = (arr = []) =>
       arr
-        .map((m) => normalizeConfigModule(m, rootDir))
+        .map((m) => normalizeConfigModule(m, cwd))
         .filter(Boolean)
         .map((name) => {
           const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
@@ -67,7 +70,7 @@ export default defineNuxtCommand({
       : 'webpack'
 
     let packageManager: keyof typeof packageManagerLocks | 'unknown' | null =
-      getPackageManager(rootDir)
+      getPackageManager(cwd)
     if (packageManager) {
       packageManager += '@' + getPackageManagerVersion(packageManager)
     } else {
@@ -89,7 +92,7 @@ export default defineNuxtCommand({
       BuildModules: listModules(nuxtConfig.buildModules || []),
     }
 
-    console.log('RootDir:', rootDir)
+    console.log('Working directory:', cwd)
 
     let maxLength = 0
     const entries = Object.entries(infoObj).map(([key, val]) => {

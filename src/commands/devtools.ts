@@ -1,27 +1,40 @@
 import { resolve } from 'pathe'
 import { execa } from 'execa'
 import { showHelp } from '../utils/help'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'enable',
-    usage: 'npx nuxi devtools enable|disable [rootDir]',
     description: 'Enable or disable features in a Nuxt project',
   },
-  async invoke(args) {
-    const [command, _rootDir = '.'] = args._
-    const rootDir = resolve(_rootDir)
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    command: {
+      type: 'string',
+      description: 'Command to run',
+      valueHint: 'enable|disable',
+    },
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    if (!['enable', 'disable'].includes(command)) {
-      console.error(`Unknown command \`${command}\`.`)
+    if (!['enable', 'disable'].includes(ctx.args.command)) {
+      console.error(`Unknown command \`${ctx.args.command}\`.`)
       showHelp(this.meta)
       process.exit(1)
     }
 
-    await execa('npx', ['@nuxt/devtools-wizard@latest', command, rootDir], {
-      stdio: 'inherit',
-      cwd: rootDir,
-    })
+    await execa(
+      'npx',
+      ['@nuxt/devtools-wizard@latest', ctx.args.command, cwd],
+      {
+        stdio: 'inherit',
+        cwd,
+      }
+    )
   },
 })

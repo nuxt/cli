@@ -1,17 +1,22 @@
-import mri from 'mri'
-import type { Command, NuxtCommand } from './commands'
 import { commands } from './commands'
 
+import { runCommand as _runCommand } from 'citty'
+
 export async function runCommand(
-  command: string,
-  argv = process.argv.slice(2),
-  options: Record<string, any> = {}
+  name: string,
+  argv: string[] = process.argv.slice(2),
+  data: { overrides?: Record<string, any> } = {}
 ) {
-  const args = mri(argv)
-  args.clear = false // used by dev
-  const cmd = (await commands[command as Command]()) as NuxtCommand
-  if (!cmd) {
-    throw new Error(`Invalid command ${command}`)
+  argv.push('--no-clear') // Dev
+
+  if (!(name in commands)) {
+    throw new Error(`Invalid command ${name}`)
   }
-  await cmd.invoke(args, options)
+
+  return await _runCommand(await commands[name as keyof typeof commands](), {
+    rawArgs: argv,
+    data: {
+      overrides: data.overrides || {},
+    },
+  })
 }

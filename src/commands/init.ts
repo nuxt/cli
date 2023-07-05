@@ -1,26 +1,63 @@
 import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { relative } from 'pathe'
+import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
+
+import { sharedArgs } from './_shared'
 
 const DEFAULT_REGISTRY =
   'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
 
-export default defineNuxtCommand({
+export default defineCommand({
   meta: {
     name: 'init',
-    usage:
-      'npx nuxi init|create [--template,-t] [--force] [--offline] [--prefer-offline] [--no-install] [--shell] [dir]',
     description: 'Initialize a fresh project',
   },
-  async invoke(args) {
+  args: {
+    ...sharedArgs,
+    dir: {
+      type: 'positional',
+      description: 'Project directory',
+      default: '',
+    },
+    template: {
+      type: 'string',
+      alias: 't',
+      description: 'Template name',
+    },
+    force: {
+      type: 'boolean',
+      alias: 'f',
+      description: 'Override existing directory',
+    },
+    offline: {
+      type: 'boolean',
+      description: 'Force offline mode',
+    },
+    preferOffline: {
+      type: 'boolean',
+      description: 'Prefer offline mode',
+    },
+    install: {
+      type: 'boolean',
+      default: true,
+      description: 'Skip installing dependencies',
+    },
+    shell: {
+      type: 'boolean',
+      description: 'Start shell after installation in project directory',
+    },
+  },
+  async run(ctx) {
+    const cwd = resolve(ctx.args.cwd || '.')
+
     // Get template name
-    const templateName = args.template || args.t || DEFAULT_TEMPLATE_NAME
+    const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
 
     if (typeof templateName !== 'string') {
       consola.error('Please specify a template!')
@@ -32,10 +69,11 @@ export default defineNuxtCommand({
 
     try {
       template = await downloadTemplate(templateName, {
-        dir: args._[0] || '',
-        force: Boolean(args.force),
-        offline: Boolean(args.offline),
-        preferOffline: Boolean(args['prefer-offline']),
+        dir: ctx.args.dir,
+        cwd,
+        force: Boolean(ctx.args.force),
+        offline: Boolean(ctx.args.offline),
+        preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
     } catch (err) {
@@ -65,7 +103,7 @@ export default defineNuxtCommand({
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
-    if (args.install === false) {
+    if (ctx.args.install === false) {
       consola.info('Skipping install dependencies step.')
     } else {
       consola.start('Installing dependencies...')
@@ -95,7 +133,7 @@ export default defineNuxtCommand({
     )
 
     const nextSteps = [
-      !args.shell &&
+      !ctx.args.shell &&
         relativeProjectPath.length > 1 &&
         `\`cd ${relativeProjectPath}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
@@ -105,7 +143,7 @@ export default defineNuxtCommand({
       consola.log(` › ${step}`)
     }
 
-    if (args.shell) {
+    if (ctx.args.shell) {
       startShell(template.dir)
     }
   },

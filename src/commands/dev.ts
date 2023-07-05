@@ -14,31 +14,75 @@ import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { sharedArgs, legacyRootDirArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'dev',
-    usage:
-      'npx nuxi dev [rootDir] [--dotenv] [--log-level] [--clipboard] [--open, -o] [--port, -p] [--host, -h] [--https] [--ssl-cert] [--ssl-key]',
     description: 'Run nuxt development server',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+    clear: {
+      type: 'boolean',
+      description: 'Clear console on restart',
+    },
+    clipboard: {
+      type: 'boolean',
+      description: 'Copy server URL to clipboard',
+    },
+    open: {
+      type: 'boolean',
+      description: 'Open server URL in browser',
+      alias: 'o',
+    },
+    port: {
+      type: 'string',
+      description: 'Port to listen on',
+      alias: 'p',
+    },
+    host: {
+      type: 'string',
+      description: 'Host to listen on',
+      alias: 'h',
+    },
+    https: {
+      type: 'boolean',
+      description: 'Enable HTTPS',
+    },
+    sslCert: {
+      type: 'string',
+      description: 'Path to SSL certificate',
+    },
+    sslKey: {
+      type: 'string',
+      description: 'Path to SSL key',
+    },
+  },
+  async run(ctx) {
     overrideEnv('development')
 
-    const rootDir = resolve(args._[0] || '.')
-    showVersions(rootDir)
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    await setupDotenv({ cwd: rootDir, fileName: args.dotenv })
+    showVersions(cwd)
 
-    const { loadNuxt, loadNuxtConfig, buildNuxt } = await loadKit(rootDir)
+    await setupDotenv({ cwd, fileName: ctx.args.dotenv })
+
+    const { loadNuxt, loadNuxtConfig, buildNuxt } = await loadKit(cwd)
 
     const config = await loadNuxtConfig({
-      cwd: rootDir,
+      cwd,
       overrides: {
         dev: true,
-        logLevel: args['log-level'],
-        ...(options.overrides || {}),
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        ...ctx.data?.overrides,
       },
     })
 
@@ -63,37 +107,35 @@ export default defineNuxtCommand({
 
     const listener = await listen(serverHandler, {
       showURL: false,
-      clipboard: args.clipboard,
-      open: args.open || args.o,
+      clipboard: ctx.args.clipboard,
+      open: ctx.args.open,
       port:
-        args.port ||
-        args.p ||
+        ctx.args.port ||
         process.env.NUXT_PORT ||
         process.env.NITRO_PORT ||
         config.devServer.port,
       hostname:
-        args.host ||
-        args.h ||
+        ctx.args.host ||
         process.env.NUXT_HOST ||
         process.env.NITRO_HOST ||
         config.devServer.host,
       https:
-        args.https !== false && (args.https || config.devServer.https)
+        ctx.args.https !== false && (ctx.args.https || config.devServer.https)
           ? {
               cert:
-                args['ssl-cert'] ||
+                ctx.args.sslCert ||
                 process.env.NUXT_SSL_CERT ||
                 process.env.NITRO_SSL_CERT ||
                 (typeof config.devServer.https !== 'boolean' &&
                   config.devServer.https.cert) ||
-                undefined,
+                '',
               key:
-                args['ssl-key'] ||
+                ctx.args.sslKey ||
                 process.env.NUXT_SSL_KEY ||
                 process.env.NITRO_SSL_KEY ||
                 (typeof config.devServer.https !== 'boolean' &&
                   config.devServer.https.key) ||
-                undefined,
+                '',
             }
           : false,
     })
@@ -138,15 +180,15 @@ export default defineNuxtCommand({
         }
 
         currentNuxt = await loadNuxt({
-          rootDir,
+          rootDir: cwd,
           dev: true,
           ready: false,
           overrides: {
-            logLevel: args['log-level'],
+            logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
             vite: {
-              clearScreen: args.clear,
+              clearScreen: ctx.args.clear,
             },
-            ...(options.overrides || {}),
+            ...ctx.data?.overrides,
           },
         })
 
@@ -199,7 +241,7 @@ export default defineNuxtCommand({
           buildNuxt(currentNuxt),
         ])
         currentHandler = toNodeListener(currentNuxt.server.app)
-        if (isRestart && args.clear !== false) {
+        if (isRestart && ctx.args.clear !== false) {
           showBanner()
           showURL()
         }
@@ -214,10 +256,10 @@ export default defineNuxtCommand({
     // Watch for config changes
     // TODO: Watcher service, modules, and requireTree
     const dLoad = debounce(load)
-    const watcher = chokidar.watch([rootDir], { ignoreInitial: true, depth: 0 })
+    const watcher = chokidar.watch([cwd], { ignoreInitial: true, depth: 0 })
     watcher.on('all', (_event, _file) => {
-      const file = relative(rootDir, _file)
-      if (file === (args.dotenv || '.env')) {
+      const file = relative(cwd, _file)
+      if (file === (ctx.args.dotenv || '.env')) {
         return hardRestart('.env updated')
       }
       if (RESTART_RE.test(file)) {

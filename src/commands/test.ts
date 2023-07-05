@@ -1,29 +1,45 @@
 import { resolve } from 'pathe'
-import { defineNuxtCommand } from './index'
+import { defineCommand } from 'citty'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'test',
-    usage: 'npx nuxi test [--dev] [--watch] [rootDir]',
     description: 'Run tests',
   },
-  async invoke(args, options = {}) {
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    cwd: {
+      type: 'string',
+      description: 'Current working directory',
+    },
+    dev: {
+      type: 'boolean',
+      description: 'Run in dev mode',
+    },
+    watch: {
+      type: 'boolean',
+      description: 'Watch mode',
+    },
+  },
+  async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'test'
-    const rootDir = resolve(args._[0] || '.')
+
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+
     const { runTests } = await importTestUtils()
     await runTests({
-      rootDir,
-      dev: !!args.dev,
-      watch: !!args.watch,
-      ...(options || {}),
+      cwd,
+      dev: ctx.args.dev,
+      watch: ctx.args.watch,
+      .../*ctx.options ||*/ {},
     })
-
-    if (args.watch) {
-      return 'wait' as const
-    }
   },
 })
 
+// @ts-ignore TODO
 async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   let err
   for (const pkg of ['@nuxt/test-utils-edge', '@nuxt/test-utils']) {

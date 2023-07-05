@@ -1,14 +1,23 @@
+import { defineCommand } from 'citty'
 import buildCommand from './build'
-import { defineNuxtCommand } from './index'
 
-export default defineNuxtCommand({
+import { legacyRootDirArgs, sharedArgs } from './_shared'
+
+export default defineCommand({
   meta: {
     name: 'generate',
-    usage: 'npx nuxi generate [rootDir] [--dotenv]',
-    description: 'Build Nuxt and prerender static routes',
+    description: 'Build Nuxt and prerender all routes',
   },
-  async invoke(args, options = {}) {
-    args.prerender = true
-    await buildCommand.invoke(args, options)
+  args: {
+    ...sharedArgs,
+    ...legacyRootDirArgs,
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
+  },
+  async run(ctx) {
+    ctx.args.prerender = true
+    await buildCommand.run!(ctx as any)
   },
 })
