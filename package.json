@@ -69,7 +69,7 @@
     "pathe": "^1.1.1",
     "perfect-debounce": "^1.0.0",
     "pkg-types": "^1.0.3",
-    "prettier": "^2.8.8",
+    "prettier": "^3.0.0",
     "scule": "^1.0.0",
     "semver": "^7.5.3",
     "unbuild": "^1.2.1"
