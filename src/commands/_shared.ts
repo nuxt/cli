@@ -12,7 +12,7 @@ export const sharedArgs = {
 export const legacyRootDirArgs = {
   rootDir: {
     type: 'positional',
-    description: 'Root Directory (prefer using `--cwd`)',
+    description: 'Root Directory',
     required: false,
   },
 } as const
