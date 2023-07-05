@@ -36,8 +36,6 @@ export default defineCommand({
       watch: ctx.args.watch,
       .../*ctx.options ||*/ {},
     })
-
-    // TODO: Make CLI to wait
   },
 })
 

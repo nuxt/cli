@@ -130,8 +130,6 @@ export default defineCommand({
       )
 
       await listen(toNodeListener(app))
-
-      return 'wait' as const
     }
   },
 })
