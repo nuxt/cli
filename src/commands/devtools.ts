@@ -34,7 +34,7 @@ export default defineCommand({
       {
         stdio: 'inherit',
         cwd,
-      }
+      },
     )
   },
 })

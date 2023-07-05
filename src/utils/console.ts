@@ -14,7 +14,7 @@ const wrapReporter = (reporter: ConsolaReporter) =>
         // Hide vue-router 404 warnings
         if (
           msg.startsWith(
-            '[Vue Router warn]: No match found for location with path'
+            '[Vue Router warn]: No match found for location with path',
           )
         ) {
           return
@@ -22,7 +22,7 @@ const wrapReporter = (reporter: ConsolaReporter) =>
         // Suppress warning about native Node.js fetch
         if (
           msg.includes(
-            'ExperimentalWarning: The Fetch API is an experimental feature'
+            'ExperimentalWarning: The Fetch API is an experimental feature',
           )
         ) {
           return
@@ -35,7 +35,7 @@ const wrapReporter = (reporter: ConsolaReporter) =>
       }
       return reporter.log(logObj, ctx)
     },
-  } satisfies ConsolaReporter)
+  }) satisfies ConsolaReporter
 
 export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   consola.options.reporters = consola.options.reporters.map(wrapReporter)
@@ -48,10 +48,10 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   }
 
   process.on('unhandledRejection', (err) =>
-    consola.error('[unhandledRejection]', err)
+    consola.error('[unhandledRejection]', err),
   )
 
   process.on('uncaughtException', (err) =>
-    consola.error('[uncaughtException]', err)
+    consola.error('[uncaughtException]', err),
   )
 }

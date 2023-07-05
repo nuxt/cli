@@ -15,7 +15,7 @@ export function showHelp(meta?: Partial<NuxtCommandMeta>) {
   }
 
   sections.push(
-    `Use ${cyan('npx nuxi [command] --help')} to see help for each command`
+    `Use ${cyan('npx nuxi [command] --help')} to see help for each command`,
   )
 
   console.log(sections.join('\n\n') + '\n')

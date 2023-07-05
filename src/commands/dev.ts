@@ -93,7 +93,7 @@ export default defineCommand({
     const loadingHandler: RequestListener = async (_req, res) => {
       const { loading: loadingTemplate } = await importModule(
         '@nuxt/ui-templates',
-        config.modulesDir
+        config.modulesDir,
       )
       res.setHeader('Content-Type', 'text/html; charset=UTF-8')
       res.statusCode = 503 // Service Unavailable
@@ -199,7 +199,7 @@ export default defineCommand({
         // Write manifest and also check if we need cache invalidation
         if (!isRestart) {
           const previousManifest = await loadNuxtManifest(
-            currentNuxt.options.buildDir
+            currentNuxt.options.buildDir,
           )
           const newManifest = await writeNuxtManifest(currentNuxt)
           if (
@@ -215,7 +215,7 @@ export default defineCommand({
 
         distWatcher = chokidar.watch(
           resolve(currentNuxt.options.buildDir, 'dist'),
-          { ignoreInitial: true, depth: 0 }
+          { ignoreInitial: true, depth: 0 },
         )
         distWatcher.on('unlinkDir', () => {
           dLoad(true, '.nuxt/dist directory has been removed')

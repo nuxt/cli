@@ -56,6 +56,6 @@ async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   }
   console.error(err)
   throw new Error(
-    '`@nuxt/test-utils-edge` seems missing. Run `npm i -D @nuxt/test-utils-edge` or `yarn add -D @nuxt/test-utils-edge` to install.'
+    '`@nuxt/test-utils-edge` seems missing. Run `npm i -D @nuxt/test-utils-edge` or `yarn add -D @nuxt/test-utils-edge` to install.',
   )
 }

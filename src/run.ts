@@ -5,7 +5,7 @@ import { runCommand as _runCommand } from 'citty'
 export async function runCommand(
   name: string,
   argv: string[] = process.argv.slice(2),
-  data: { overrides?: Record<string, any> } = {}
+  data: { overrides?: Record<string, any> } = {},
 ) {
   argv.push('--no-clear') // Dev
 

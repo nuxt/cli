@@ -11,7 +11,7 @@ export async function tryResolveModule(id: string, url = import.meta.url) {
 
 export async function importModule(
   id: string,
-  url: string | string[] = import.meta.url
+  url: string | string[] = import.meta.url,
 ) {
   const resolvedPath = await resolvePath(id, { url })
   return import(pathToFileURL(resolvedPath).href).then(interopDefault)

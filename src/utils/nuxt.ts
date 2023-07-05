@@ -25,7 +25,7 @@ export async function cleanupNuxtDirs(rootDir: string) {
       'dist',
       'node_modules/.vite',
       'node_modules/.cache',
-    ].map((dir) => resolve(rootDir, dir))
+    ].map((dir) => resolve(rootDir, dir)),
   )
 }
 
@@ -54,7 +54,7 @@ export function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
 }
 
 export async function writeNuxtManifest(
-  nuxt: Nuxt
+  nuxt: Nuxt,
 ): Promise<NuxtProjectManifest> {
   const manifest = resolveNuxtManifest(nuxt)
   const manifestPath = resolve(nuxt.options.buildDir, 'nuxt.json')
@@ -64,7 +64,7 @@ export async function writeNuxtManifest(
 }
 
 export async function loadNuxtManifest(
-  buildDir: string
+  buildDir: string,
 ): Promise<NuxtProjectManifest | null> {
   const manifestPath = resolve(buildDir, 'nuxt.json')
   const manifest: NuxtProjectManifest | null = await fsp

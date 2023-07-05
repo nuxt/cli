@@ -51,7 +51,7 @@ export default defineCommand({
       await execa(
         'npx',
         '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-        { stdio: 'inherit', cwd }
+        { stdio: 'inherit', cwd },
       )
     }
   },

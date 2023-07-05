@@ -30,7 +30,7 @@ export default defineCommand({
 
     const hasLocal = await tryResolveModule(
       `${MODULE_BUILDER_PKG}/package.json`,
-      cwd
+      cwd,
     )
 
     const execArgs = Object.entries({
@@ -43,7 +43,7 @@ export default defineCommand({
     let cmd = 'nuxt-module-build'
     if (!hasLocal) {
       consola.warn(
-        `Cannot find locally installed version of \`${MODULE_BUILDER_PKG}\` (>=0.2.0). Falling back to \`npx ${MODULE_BUILDER_PKG}\``
+        `Cannot find locally installed version of \`${MODULE_BUILDER_PKG}\` (>=0.2.0). Falling back to \`npx ${MODULE_BUILDER_PKG}\``,
       )
       cmd = 'npx'
       execArgs.unshift(MODULE_BUILDER_PKG)

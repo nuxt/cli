@@ -66,14 +66,14 @@ export default defineCommand({
     if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {
         consola.warn(
-          'HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.'
+          'HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.',
         )
       }
       // TODO: revisit later if/when nuxt build --prerender will output hybrid
       const dir = nitro?.options.output.publicDir
       const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
       consola.success(
-        `You can now deploy \`${publicDir}\` to any static hosting!`
+        `You can now deploy \`${publicDir}\` to any static hosting!`,
       )
     }
   },

@@ -5,12 +5,12 @@ import { blue, cyan, green, red } from 'colorette'
 function normalizeDiff(
   diffObj: any,
   type: 'added' | 'deleted' | 'updated',
-  ignore: string[]
+  ignore: string[],
 ) {
   return Object.entries(flatten(diffObj) as Record<string, any>)
     .map(([key, value]) => ({ key, value, type }))
     .filter(
-      (item) => !ignore.includes(item.key) && typeof item.value !== 'function'
+      (item) => !ignore.includes(item.key) && typeof item.value !== 'function',
     )
 }
 
@@ -35,7 +35,7 @@ export function printDiff(diff: any) {
       '  ',
       typeMap[item.type as keyof typeof typeMap] || item.type,
       cyan(item.key),
-      item.value ? `~> ${cyan(item.value)}` : ''
+      item.value ? `~> ${cyan(item.value)}` : '',
     )
   }
   console.log()

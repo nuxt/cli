@@ -119,7 +119,7 @@ export default defineCommand({
     console.log(
       `Nuxt project info: ${
         copied ? '(copied to clipboard)' : ''
-      }\n\n${splitter}\n${infoStr}${splitter}\n`
+      }\n\n${splitter}\n${infoStr}${splitter}\n`,
     )
 
     const isNuxt3OrBridge =
@@ -132,14 +132,14 @@ export default defineCommand({
         `👉 Read documentation: ${
           isNuxt3OrBridge ? 'https://nuxt.com' : 'https://v2.nuxt.com'
         }`,
-      ].join('\n\n') + '\n'
+      ].join('\n\n') + '\n',
     )
   },
 })
 
 function normalizeConfigModule(
   module: NuxtModule | string | null | undefined,
-  rootDir: string
+  rootDir: string,
 ): string | null {
   if (!module) {
     return null
@@ -165,7 +165,7 @@ function getNuxtConfig(rootDir: string) {
   try {
     ;(globalThis as any).defineNuxtConfig = (c: any) => c
     const result = jiti(rootDir, { interopDefault: true, esmResolve: true })(
-      './nuxt.config'
+      './nuxt.config',
     )
     delete (globalThis as any).defineNuxtConfig
     return result

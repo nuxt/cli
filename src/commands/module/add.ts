@@ -38,7 +38,7 @@ export default defineCommand({
       await addDependency(npmPackage, { cwd, dev: true }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually install \`${npmPackage}\` as a dev dependency`
+          `Please manually install \`${npmPackage}\` as a dev dependency`,
         )
       })
     }
@@ -60,7 +60,7 @@ export default defineCommand({
       }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``
+          `Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``,
         )
       })
     }
@@ -71,7 +71,7 @@ export default defineCommand({
 
 async function updateNuxtConfig(
   rootDir: string,
-  update: (config: any) => void
+  update: (config: any) => void,
 ) {
   let _module: ProxifiedModule
   const nuxtConfigFile = resolve(rootDir, 'nuxt.config.ts')

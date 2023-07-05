@@ -70,7 +70,7 @@ export default defineCommand({
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
       } -D nuxt`,
-      { stdio: 'inherit', cwd }
+      { stdio: 'inherit', cwd },
     )
 
     // Cleanup after upgrade
@@ -87,14 +87,14 @@ export default defineCommand({
         'Successfully upgraded nuxt from',
         currentVersion,
         'to',
-        upgradedVersion
+        upgradedVersion,
       )
       const commitA = nuxtVersionToGitIdentifier(currentVersion)
       const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
       if (commitA && commitB) {
         consola.info(
           'Changelog:',
-          `https://github.com/nuxt/nuxt/compare/${commitA}...${commitB}`
+          `https://github.com/nuxt/nuxt/compare/${commitA}...${commitB}`,
         )
       }
     }

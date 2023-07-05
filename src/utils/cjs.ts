@@ -7,7 +7,7 @@ export function getModulePaths(paths?: string | string[]): string[] {
       global.__NUXT_PREPATHS__,
       paths,
       process.cwd(),
-      global.__NUXT_PATHS__
+      global.__NUXT_PATHS__,
     )
     .filter(Boolean) as string[]
 }

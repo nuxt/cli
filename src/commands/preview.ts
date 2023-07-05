@@ -38,7 +38,7 @@ export default defineCommand({
       config.srcDir || cwd,
       config.nitro.srcDir || 'server',
       config.nitro.output?.dir || '.output',
-      'nitro.json'
+      'nitro.json',
     )
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
@@ -47,7 +47,7 @@ export default defineCommand({
     if (!nitroJSONPath) {
       consola.error(
         'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',
-        nitroJSONPaths
+        nitroJSONPaths,
       )
       process.exit(1)
     }
@@ -68,7 +68,7 @@ export default defineCommand({
       : existsSync(cwd)
     if (envExists) {
       consola.info(
-        'Loading `.env`. This will not be loaded when running the server in production.'
+        'Loading `.env`. This will not be loaded when running the server in production.',
       )
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }

@@ -66,7 +66,7 @@ async function findModuleByKeywords(query: string) {
   consola.success(
     `Found ${results.length} nuxt ${
       results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)}:\n`
+    } matching ${cyan(query)}:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0

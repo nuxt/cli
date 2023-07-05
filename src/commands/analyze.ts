@@ -84,12 +84,12 @@ export default defineCommand({
     await fsp.writeFile(
       join(analyzeDir, 'meta.json'),
       JSON.stringify(meta, null, 2),
-      'utf-8'
+      'utf-8',
     )
 
     console.info('Analyze results are available at: `' + analyzeDir + '`')
     console.warn(
-      'Do not deploy analyze results! Use `nuxi build` before deploying.'
+      'Do not deploy analyze results! Use `nuxi build` before deploying.',
     )
 
     if (ctx.args.serve !== false && !process.env.CI) {
@@ -125,8 +125,8 @@ export default defineCommand({
             </li>
           </ul>
         </html>
-      `
-        )
+      `,
+        ),
       )
 
       await listen(toNodeListener(app))

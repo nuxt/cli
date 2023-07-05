@@ -67,7 +67,7 @@ export interface NuxtModule {
 
 export async function fetchModules(): Promise<NuxtModule[]> {
   const data = await $fetch<NuxtModule[]>(
-    'https://cdn.jsdelivr.net/npm/@nuxt/modules@latest/modules.json'
+    'https://cdn.jsdelivr.net/npm/@nuxt/modules@latest/modules.json',
   )
   return data
 }

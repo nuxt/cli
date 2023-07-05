@@ -9,7 +9,7 @@ export async function checkForUpdates() {
     return
   }
   const { version: latestVersion = '' } = await $fetch(
-    `https://registry.npmjs.org/${pkgName}/latest`
+    `https://registry.npmjs.org/${pkgName}/latest`,
   )
   if (!latestVersion) {
     return

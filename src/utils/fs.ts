@@ -22,7 +22,7 @@ export async function clearDir(path: string, exclude?: string[]) {
         if (!exclude.includes(name)) {
           await fsp.rm(join(path, name), { recursive: true, force: true })
         }
-      })
+      }),
     )
   }
   await fsp.mkdir(path, { recursive: true })
@@ -39,7 +39,7 @@ export async function rmRecursive(paths: string[]) {
       .map(async (path) => {
         consola.debug('Removing recursive path', path)
         await fsp.rm(path, { recursive: true, force: true }).catch(() => {})
-      })
+      }),
   )
 }
 
@@ -50,7 +50,7 @@ export async function touchFile(path: string) {
 
 export function findup<T>(
   rootDir: string,
-  fn: (dir: string) => T | undefined
+  fn: (dir: string) => T | undefined,
 ): T | null {
   let dir = rootDir
   while (dir !== dirname(dir)) {

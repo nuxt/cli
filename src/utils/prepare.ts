@@ -37,7 +37,7 @@ export const writeTypes = async (nuxt: Nuxt) => {
         ? [
             join(
               relative(nuxt.options.buildDir, nuxt.options.workspaceDir),
-              '**/*'
+              '**/*',
             ),
           ]
         : []),
@@ -117,7 +117,7 @@ export const writeTypes = async (nuxt: Nuxt) => {
     await fsp.mkdir(nuxt.options.buildDir, { recursive: true })
     await fsp.writeFile(
       tsConfigPath,
-      GeneratedBy + '\n' + JSON.stringify(tsConfig, null, 2)
+      GeneratedBy + '\n' + JSON.stringify(tsConfig, null, 2),
     )
 
     const declarationPath = resolve(nuxt.options.buildDir, 'nuxt.d.ts')

@@ -38,8 +38,8 @@ export default defineCommand({
     if (!templates[template]) {
       consola.error(
         `Template ${template} is not supported. Possible values: ${Object.keys(
-          templates
-        ).join(', ')}`
+          templates,
+        ).join(', ')}`,
       )
       process.exit(1)
     }
@@ -63,7 +63,7 @@ export default defineCommand({
     // Ensure not overriding user code
     if (!ctx.args.force && existsSync(path)) {
       consola.error(
-        `File exists: ${path} . Use --force to override or use a different name.`
+        `File exists: ${path} . Use --force to override or use a different name.`,
       )
       process.exit(1)
     }

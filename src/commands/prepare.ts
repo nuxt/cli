@@ -36,7 +36,7 @@ export default defineCommand({
     await writeTypes(nuxt)
     consola.success(
       'Types generated in',
-      relative(process.cwd(), nuxt.options.buildDir)
+      relative(process.cwd(), nuxt.options.buildDir),
     )
   },
 })

@@ -40,7 +40,7 @@ const component: Template = ({ name, args }) => ({
   path: `components/${name}${applySuffix(
     args,
     ['client', 'server'],
-    'mode'
+    'mode',
   )}.vue`,
   contents: `
 <script lang="ts" setup></script>
@@ -122,7 +122,7 @@ export const templates = {
 function applySuffix(
   args: TemplateOptions['args'],
   suffixes: string[],
-  unwrapFrom?: string
+  unwrapFrom?: string,
 ): string {
   let suffix = ''
   // --client

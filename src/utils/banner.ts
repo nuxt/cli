@@ -19,7 +19,7 @@ export function showVersions(cwd: string) {
   console.log(
     gray(
       green(`Nuxt ${bold(nuxtVersion)}`) +
-        (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : '')
-    )
+        (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : ''),
+    ),
   )
 }

@@ -1,7 +1,7 @@
 import { importModule, tryResolveModule } from './esm'
 
 export const loadKit = async (
-  rootDir: string
+  rootDir: string,
 ): Promise<typeof import('@nuxt/kit')> => {
   try {
     // Without PNP (or if users have a local install of kit, we bypass resolving from nuxt)
@@ -10,12 +10,12 @@ export const loadKit = async (
     const rootURL = localKit ? rootDir : (await tryResolveNuxt()) || rootDir
     return (await importModule(
       '@nuxt/kit',
-      rootURL
+      rootURL,
     )) as typeof import('@nuxt/kit')
   } catch (e: any) {
     if (e.toString().includes("Cannot find module '@nuxt/kit'")) {
       throw new Error(
-        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3 or `@nuxt/bridge` first.'
+        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3 or `@nuxt/bridge` first.',
       )
     }
     throw e
