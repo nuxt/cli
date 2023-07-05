@@ -82,7 +82,7 @@ export default defineCommand({
       overrides: {
         dev: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        .../*ctx.options.overrides ||  */ {},
+        ...ctx.data.overrides,
       },
     })
 
@@ -188,7 +188,7 @@ export default defineCommand({
             vite: {
               clearScreen: ctx.args.clear,
             },
-            .../*ctx.options.overrides || */ {},
+            ...ctx.data.overrides,
           },
         })
 

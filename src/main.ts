@@ -10,7 +10,7 @@ export const main = defineCommand({
     description: 'Nuxt CLI (experimental)',
   },
   subCommands: commands,
-  setup: async (ctx) => {
+  async setup(ctx) {
     const command = ctx.args._[0]
     const dev = command === 'dev'
     setupGlobalConsole({ dev })

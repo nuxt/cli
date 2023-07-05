@@ -27,7 +27,7 @@ export default defineCommand({
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLeve as 'silent' | 'info' | 'verbose',
-        .../*ctx.options.overrides || */ {},
+        ...ctx.data.overrides,
       },
     })
     await clearBuildDir(nuxt.options.buildDir)
