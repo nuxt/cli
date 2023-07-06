@@ -1,6 +1,9 @@
 import { commands } from './commands'
+import { main } from './main'
 
-import { runCommand as _runCommand } from 'citty'
+import { runCommand as _runCommand, runMain as _runMain } from 'citty'
+
+export const runMain = () => _runMain(main)
 
 export async function runCommand(
   name: string,

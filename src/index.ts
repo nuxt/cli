@@ -1,2 +1,2 @@
 export { main } from './main'
-export { runCommand } from './run'
+export { runCommand, runMain } from './run'
