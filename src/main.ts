@@ -2,7 +2,7 @@ import { defineCommand } from 'citty'
 import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
-import { checkForUpdates } from './utils/update'
+// import { checkForUpdates } from './utils/update'
 
 export const main = defineCommand({
   meta: {
