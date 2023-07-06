@@ -11,8 +11,8 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
+    # permissions:
+    #   id-token: write
     steps:
       - uses: actions/checkout@v3
         with:
@@ -39,3 +39,4 @@ jobs:
           pnpm changelogen --canary --publish
         env:
           NPM_TOKEN: ${{secrets.NPM_TOKEN}}
+          NPM_CONFIG_PROVENANCE: false
