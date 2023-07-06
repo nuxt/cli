@@ -18,7 +18,7 @@ export const main = defineCommand({
     // Check Node.js version and CLI updates in background
     const backgroundTasks = Promise.all([
       checkEngines(),
-      checkForUpdates(),
+      // checkForUpdates(),
     ]).catch((err) => console.error(err))
 
     // Avoid background check to fix prompt issues
