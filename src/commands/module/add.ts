@@ -1,6 +1,7 @@
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 import { sharedArgs } from '../_shared'
+import { validateNpmModule } from './_utils'
 import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
@@ -29,8 +30,12 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
 
-    // TODO: Resolve and validate npm package name first
     const npmPackage = ctx.args.moduleName
+    const isValid = await validateNpmModule(npmPackage) 
+
+    if (!isValid) {
+      return consola.error(`\`${npmPackage}\` is not a valid npm package`)
+    }
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {

@@ -71,3 +71,12 @@ export async function fetchModules(): Promise<NuxtModule[]> {
   )
   return data
 }
+
+export async function validateNpmModule(module: string): Promise<boolean> {
+  try {
+    await $fetch(`https://registry.npmjs.org/${module}`)
+    return true
+  } catch (err) {
+    return false
+  }
+}
