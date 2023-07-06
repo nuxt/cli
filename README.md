@@ -1,22 +1,30 @@
 # Nuxt CLI (nuxi)
 
-💫 Next Generation CLI Experience for [Nuxt](https://nuxt.com/).
+⚡️ Next Generation CLI Experience for [Nuxt](https://nuxt.com/).
 
 > **Warning**
-> 🚧 This project is heavily a work in progress.
+> This project is heavily a work in progress.
+
 
 ## Open Discussions
 
-- [**Project Goals**](https://github.com/nuxt/cli/discussions/3)
-- [Feedbacks and Ideas](https://github.com/nuxt/cli/discussions/4)
-- [The journey of Nuxt CLI Generations](https://github.com/nuxt/cli/discussions/7)
+- <a href="https://github.com/nuxt/cli/discussions/3" target="_blank"><strong>Project Goals</strong></a>
+- <a href="https://github.com/nuxt/cli/discussions/4" target="_blank">Feedbacks and Ideas</a>
+- <a href="https://github.com/nuxt/cli/discussions/7" target="_blank">The journey of Nuxt CLI Generations</a>
+
 
 ## Beta Testing
 
-### Using `npx` (recommended)
+### Using `npx`
 
 ```bash
 npx nuxi-ng@latest --help
+```
+
+### Global Install
+
+```bash
+npm i -g nuxi-ng@latest
 ```
 
 ### Add to the Project
