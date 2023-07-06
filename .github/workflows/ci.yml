@@ -32,6 +32,8 @@ jobs:
       #   !contains(github.event.head_commit.message, '[skip-release]') &&
       #   !contains(github.event.head_commit.message, 'chore') &&
       #   !contains(github.event.head_commit.message, 'docs')
-        run: pnpm changelogen --canary --publish
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
+          pnpm changelogen --canary --publish
         env:
           NPM_TOKEN: ${{secrets.NPM_TOKEN}}
