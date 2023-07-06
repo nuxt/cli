@@ -34,7 +34,7 @@ export default defineCommand({
     const isValid = await validateNpmModule(npmPackage) 
 
     if (!isValid) {
-      return consola.error(`\`${npmPackage}\` is not a valid npm package`)
+      throw new Error(`\`${npmPackage}\` is not a valid npm package`)
     }
 
     // Add npm dependency
