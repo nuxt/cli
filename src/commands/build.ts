@@ -7,6 +7,7 @@ import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
 import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { isCompatibleNodeVersion } from '../utils/nodeVersion'
 
 export default defineCommand({
   meta: {
@@ -27,6 +28,11 @@ export default defineCommand({
   },
   async run(ctx) {
     overrideEnv('production')
+    if (!isCompatibleNodeVersion()) {
+      consola.warn(
+        'You are using an outdated version of Node.js. Please upgrade to Node.js >= 16.10.0.',
+      )
+    }
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
