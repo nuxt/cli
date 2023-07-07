@@ -12,15 +12,70 @@ import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
-async function getNuxtVersion(path: string): Promise<string | null> {
+interface NuxtPackage {
+  version: string | null
+  name: string | null
+  edge: boolean
+  major: number
+}
+
+const isFilled = <T extends {}>(v: PromiseSettledResult<T>): v is PromiseFulfilledResult<T> => v.status === 'fulfilled';
+
+function detectNuxtEdge (nuxtVersion: string): boolean {
   try {
-    const pkg = await readPackageJSON('nuxt', { url: path })
+    return (/-\d{8}.[a-z0-9]{7}/).test(nuxtVersion)
+  } catch {
+    return false
+  }
+}
+
+function detectMajorVersion (nuxtVersion: string): number {
+  try {
+    return parseInt(nuxtVersion.split('.')[0])
+  } catch {
+    // fallback to Nuxt 3
+    return 3
+  }
+}
+
+function getNpmTag (nuxtPackage: NuxtPackage): string {
+  // later we can extend support in case of using nuxt-edge for Nuxt 3
+  if (!nuxtPackage.edge && nuxtPackage.major === 2) {
+    return '2x'
+  }
+  return 'latest'
+}
+
+async function getNuxtPackage(path: string): Promise<NuxtPackage> {
+  try {
+    // check edge packages first, then stable nuxt
+    const possiblePackages = ['nuxt3', 'nuxt-edge', 'nuxt']
+    // Promise.any will be better, but it requires Node 15+
+    const pkgs = await Promise.allSettled(
+      possiblePackages.map(name => readPackageJSON(name, { url: path }))
+    )
+
+    const pkg = pkgs.find(isFilled)!.value || {}
+    
     if (!pkg.version) {
       consola.warn('Cannot find any installed nuxt versions in ', path)
     }
-    return pkg.version || null
+
+    const nuxtPackage = {
+      version: pkg.version || null,
+      name: pkg.name || 'nuxt',
+      edge: detectNuxtEdge(pkg.version || ''),
+      major: detectMajorVersion(pkg.version || ''),
+    }
+    return nuxtPackage
   } catch {
-    return null
+    // Even if we cannot read package.json, we can still upgrade to latest Nuxt 3
+    return {
+      version: null,
+      name: 'nuxt',
+      edge: false,
+      major: 3,
+    }
   }
 }
 
@@ -53,8 +108,17 @@ export default defineCommand({
     consola.info('Package Manager:', packageManager, packageManagerVersion)
 
     // Check currently installed nuxt version
-    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Current nuxt version:', currentVersion)
+    const currentNuxt = (await getNuxtPackage(cwd))
+
+    // Warn user to add alias to nuxt3 package or install stable rc version
+    if (currentNuxt.name === 'nuxt3') {
+      consola.warn('`nuxt3` package usage without alias is removed.\nPlease, update your code to continue working with new releases.\nSee more: https://github.com/nuxt/nuxt/pull/4449')
+    }
+    
+    consola.info(`Current nuxt version: ${currentNuxt.version}`)
+    if (currentNuxt.edge) {
+      consola.info('Edge release channel detected')
+    }
 
     // Force install
     if (ctx.args.force) {
@@ -65,11 +129,11 @@ export default defineCommand({
     }
 
     // Install latest version
-    consola.info('Installing latest Nuxt 3 release...')
+    consola.info(`Installing latest Nuxt ${currentNuxt.major} release...`)
     execSync(
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
-      } -D nuxt`,
+      } -D ${currentNuxt.name}@${getNpmTag(currentNuxt)}`,
       { stdio: 'inherit', cwd },
     )
 
@@ -77,20 +141,20 @@ export default defineCommand({
     await cleanupNuxtDirs(cwd)
 
     // Check installed nuxt version again
-    const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Upgraded nuxt version:', upgradedVersion)
+    const upgradedNuxt = (await getNuxtPackage(cwd)) || '[unknown]'
+    consola.info('Upgraded nuxt version:', upgradedNuxt.version)
 
-    if (upgradedVersion === currentVersion) {
+    if (upgradedNuxt.version === currentNuxt.version) {
       consola.success("You're already using the latest version of nuxt.")
     } else {
       consola.success(
         'Successfully upgraded nuxt from',
-        currentVersion,
+        currentNuxt.version,
         'to',
-        upgradedVersion,
+        upgradedNuxt.version,
       )
-      const commitA = nuxtVersionToGitIdentifier(currentVersion)
-      const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
+      const commitA = nuxtVersionToGitIdentifier(currentNuxt.version || '')
+      const commitB = nuxtVersionToGitIdentifier(upgradedNuxt.version || '')
       if (commitA && commitB) {
         consola.info(
           'Changelog:',
