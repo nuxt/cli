@@ -40,6 +40,9 @@ function detectMajorVersion (nuxtVersion: string): number {
 
 function getNpmTag (nuxtPackage: NuxtPackage): string {
   // later we can extend support in case of using nuxt-edge for Nuxt 3
+  if (nuxtPackage.edge && nuxtPackage.major === 3 && nuxtPackage.name === 'nuxt') {
+    return 'npm:nuxt3@latest'
+  }
   if (!nuxtPackage.edge && nuxtPackage.major === 2) {
     return '2x'
   }
@@ -48,12 +51,20 @@ function getNpmTag (nuxtPackage: NuxtPackage): string {
 
 async function getNuxtPackage(path: string): Promise<NuxtPackage> {
   try {
-    // check edge packages first, then stable nuxt
-    const possiblePackages = ['nuxt3', 'nuxt-edge', 'nuxt']
+    const possiblePackages = ['nuxt-edge', 'nuxt', 'nuxt3']
     // Promise.any will be better, but it requires Node 15+
     const pkgs = await Promise.allSettled(
       possiblePackages.map(name => readPackageJSON(name, { url: path }))
     )
+
+    // also add package names to the result
+    pkgs.forEach((pkg, index) => {
+      if (!isFilled(pkg)) return
+      pkg.value = {
+        ...pkg.value,
+        searchedName: possiblePackages[index]
+      }
+    })
 
     const pkg = pkgs.find(isFilled)!.value || {}
     
@@ -63,7 +74,7 @@ async function getNuxtPackage(path: string): Promise<NuxtPackage> {
 
     const nuxtPackage = {
       version: pkg.version || null,
-      name: pkg.name || 'nuxt',
+      name: pkg.searchedName || 'nuxt',
       edge: detectNuxtEdge(pkg.version || ''),
       major: detectMajorVersion(pkg.version || ''),
     }
