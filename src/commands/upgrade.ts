@@ -15,6 +15,7 @@ import { legacyRootDirArgs, sharedArgs } from './_shared'
 interface NuxtPackage {
   version: string | null
   name: string | null
+  alias: string | null
   edge: boolean
   major: number
 }
@@ -57,15 +58,6 @@ async function getNuxtPackage(path: string): Promise<NuxtPackage> {
       possiblePackages.map(name => readPackageJSON(name, { url: path }))
     )
 
-    // also add package names to the result
-    pkgs.forEach((pkg, index) => {
-      if (!isFilled(pkg)) return
-      pkg.value = {
-        ...pkg.value,
-        searchedName: possiblePackages[index]
-      }
-    })
-
     const pkg = pkgs.find(isFilled)!.value || {}
     
     if (!pkg.version) {
@@ -74,7 +66,8 @@ async function getNuxtPackage(path: string): Promise<NuxtPackage> {
 
     const nuxtPackage = {
       version: pkg.version || null,
-      name: pkg.searchedName || 'nuxt',
+      name: pkg._name || 'nuxt',
+      alias: pkg.name || null,
       edge: detectNuxtEdge(pkg.version || ''),
       major: detectMajorVersion(pkg.version || ''),
     }
@@ -84,6 +77,7 @@ async function getNuxtPackage(path: string): Promise<NuxtPackage> {
     return {
       version: null,
       name: 'nuxt',
+      alias: null,
       edge: false,
       major: 3,
     }
