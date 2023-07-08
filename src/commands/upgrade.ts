@@ -41,8 +41,8 @@ function detectMajorVersion (nuxtVersion: string): number {
 
 function getNpmTag (nuxtPackage: NuxtPackage): string {
   // later we can extend support in case of using nuxt-edge for Nuxt 3
-  if (nuxtPackage.edge && nuxtPackage.major === 3 && nuxtPackage.name === 'nuxt') {
-    return 'npm:nuxt3@latest'
+  if (nuxtPackage.name !== nuxtPackage.alias) {
+    return `npm:${nuxtPackage.alias}@latest`
   }
   if (!nuxtPackage.edge && nuxtPackage.major === 2) {
     return '2x'
