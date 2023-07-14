@@ -3,10 +3,13 @@ import { isAbsolute, join, relative, resolve } from 'pathe'
 import type { Nuxt, TSReference } from '@nuxt/schema'
 import { defu } from 'defu'
 import type { TSConfig } from 'pkg-types'
+import { withTrailingSlash } from 'ufo'
 import { getModulePaths, getNearestPackage } from './cjs'
 
 export const writeTypes = async (nuxt: Nuxt) => {
   const modulePaths = getModulePaths(nuxt.options.modulesDir)
+
+  const rootDirWithSlash = withTrailingSlash(nuxt.options.rootDir)
 
   const tsConfig: TSConfig = defu(nuxt.options.typescript?.tsConfig, {
     compilerOptions: {
@@ -14,7 +17,10 @@ export const writeTypes = async (nuxt: Nuxt) => {
       jsx: 'preserve',
       target: 'ESNext',
       module: 'ESNext',
-      moduleResolution: nuxt.options.experimental.typescriptBundlerResolution ? 'Bundler' : 'Node',
+      // @ts-expect-error waiting for next nuxt release
+      moduleResolution: nuxt.options.experimental.typescriptBundlerResolution
+        ? 'Bundler'
+        : 'Node',
       skipLibCheck: true,
       strict: nuxt.options.typescript?.strict ?? true,
       allowJs: true,
@@ -32,6 +38,16 @@ export const writeTypes = async (nuxt: Nuxt) => {
       ...(nuxt.options.srcDir !== nuxt.options.rootDir
         ? [join(relative(nuxt.options.buildDir, nuxt.options.srcDir), '**/*')]
         : []),
+      ...nuxt.options._layers
+        .map((layer) => layer.config.srcDir ?? layer.cwd)
+        .filter(
+          (srcOrCwd) =>
+            !srcOrCwd.startsWith(rootDirWithSlash) ||
+            srcOrCwd.includes('node_modules'),
+        )
+        .map((srcOrCwd) =>
+          join(relative(nuxt.options.buildDir, srcOrCwd), '**/*'),
+        ),
       ...(nuxt.options.typescript.includeWorkspace &&
       nuxt.options.workspaceDir !== nuxt.options.rootDir
         ? [
@@ -62,6 +78,9 @@ export const writeTypes = async (nuxt: Nuxt) => {
     ? resolve(nuxt.options.buildDir, tsConfig.compilerOptions!.baseUrl)
     : nuxt.options.buildDir
 
+  tsConfig.compilerOptions = tsConfig.compilerOptions || {}
+  tsConfig.include = tsConfig.include || []
+
   for (const alias in aliases) {
     if (excludedAlias.some((re) => re.test(alias))) {
       continue
@@ -71,14 +90,22 @@ export const writeTypes = async (nuxt: Nuxt) => {
     const stats = await fsp
       .stat(absolutePath)
       .catch(() => null /* file does not exist */)
-    tsConfig.compilerOptions = tsConfig.compilerOptions || {}
     if (stats?.isDirectory()) {
       tsConfig.compilerOptions.paths[alias] = [absolutePath]
       tsConfig.compilerOptions.paths[`${alias}/*`] = [`${absolutePath}/*`]
+
+      if (!absolutePath.startsWith(rootDirWithSlash)) {
+        tsConfig.include.push(absolutePath)
+        tsConfig.include.push(`${absolutePath}/*`)
+      }
     } else {
       tsConfig.compilerOptions.paths[alias] = [
         absolutePath.replace(/(?<=\w)\.\w+$/g, ''),
       ] /* remove extension */
+
+      if (!absolutePath.startsWith(rootDirWithSlash)) {
+        tsConfig.include.push(absolutePath.replace(/(?<=\w)\.\w+$/g, ''))
+      }
     }
   }
 
