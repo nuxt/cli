@@ -18,7 +18,7 @@ export const writeTypes = async (nuxt: Nuxt) => {
       target: 'ESNext',
       module: 'ESNext',
       // @ts-expect-error waiting for next nuxt release
-      moduleResolution: nuxt.options.experimental.typescriptBundlerResolution
+      moduleResolution: nuxt.options.experimental?.typescriptBundlerResolution
         ? 'Bundler'
         : 'Node',
       skipLibCheck: true,
