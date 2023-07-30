@@ -20,17 +20,19 @@ interface NuxtPackage {
   major: number
 }
 
-const isFilled = <T extends {}>(v: PromiseSettledResult<T>): v is PromiseFulfilledResult<T> => v.status === 'fulfilled';
+const isFilled = <T extends {}>(
+  v: PromiseSettledResult<T>,
+): v is PromiseFulfilledResult<T> => v.status === 'fulfilled'
 
-function detectNuxtEdge (nuxtVersion: string): boolean {
+function detectNuxtEdge(nuxtVersion: string): boolean {
   try {
-    return (/-\d{8}.[a-z0-9]{7}/).test(nuxtVersion)
+    return /-\d{8}.[a-z0-9]{7}/.test(nuxtVersion)
   } catch {
     return false
   }
 }
 
-function detectMajorVersion (nuxtVersion: string): number {
+function detectMajorVersion(nuxtVersion: string): number {
   try {
     return parseInt(nuxtVersion.split('.')[0])
   } catch {
@@ -39,7 +41,7 @@ function detectMajorVersion (nuxtVersion: string): number {
   }
 }
 
-function getNpmTag (nuxtPackage: NuxtPackage): string {
+function getNpmTag(nuxtPackage: NuxtPackage): string {
   // later we can extend support in case of using nuxt-edge for Nuxt 3
   if (nuxtPackage.name !== nuxtPackage.alias) {
     return `npm:${nuxtPackage.alias}@latest`
@@ -55,11 +57,11 @@ async function getNuxtPackage(path: string): Promise<NuxtPackage> {
     const possiblePackages = ['nuxt-edge', 'nuxt', 'nuxt3']
     // Promise.any will be better, but it requires Node 15+
     const pkgs = await Promise.allSettled(
-      possiblePackages.map(name => readPackageJSON(name, { url: path }))
+      possiblePackages.map((name) => readPackageJSON(name, { url: path })),
     )
 
     const pkg = pkgs.find(isFilled)!.value || {}
-    
+
     if (!pkg.version) {
       consola.warn('Cannot find any installed nuxt versions in ', path)
     }
@@ -113,13 +115,15 @@ export default defineCommand({
     consola.info('Package Manager:', packageManager, packageManagerVersion)
 
     // Check currently installed nuxt version
-    const currentNuxt = (await getNuxtPackage(cwd))
+    const currentNuxt = await getNuxtPackage(cwd)
 
     // Warn user to add alias to nuxt3 package or install stable rc version
     if (currentNuxt.name === 'nuxt3') {
-      consola.warn('`nuxt3` package usage without alias is removed.\nPlease, update your code to continue working with new releases.\nSee more: https://github.com/nuxt/nuxt/pull/4449')
+      consola.warn(
+        '`nuxt3` package usage without alias is removed.\nPlease, update your code to continue working with new releases.\nSee more: https://github.com/nuxt/nuxt/pull/4449',
+      )
     }
-    
+
     consola.info(`Current nuxt version: ${currentNuxt.version}`)
     if (currentNuxt.edge) {
       consola.info('Edge release channel detected')
@@ -136,9 +140,9 @@ export default defineCommand({
     // Install latest version
     consola.info(`Installing latest Nuxt ${currentNuxt.major} release...`)
     execSync(
-      `${packageManager} ${
-        packageManager === 'yarn' ? 'add' : 'install'
-      } -D ${currentNuxt.name}@${getNpmTag(currentNuxt)}`,
+      `${packageManager} ${packageManager === 'yarn' ? 'add' : 'install'} -D ${
+        currentNuxt.name
+      }@${getNpmTag(currentNuxt)}`,
       { stdio: 'inherit', cwd },
     )
 
