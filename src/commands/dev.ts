@@ -91,10 +91,12 @@ export default defineCommand({
     let currentHandler: RequestListener | undefined
     let loadingMessage = 'Nuxt is starting...'
     const loadingHandler: RequestListener = async (_req, res) => {
-      const { loading: loadingTemplate } = await importModule(
-        '@nuxt/ui-templates',
-        config.modulesDir,
-      )
+      const loadingTemplate =
+        // @ts-expect-error: TODO: remove when v3.7 is released
+        config.devServer.loadingTemplate ??
+        (await importModule('@nuxt/ui-templates', config.modulesDir).then(
+          (r) => r.loading,
+        ))
       res.setHeader('Content-Type', 'text/html; charset=UTF-8')
       res.statusCode = 503 // Service Unavailable
       res.end(loadingTemplate({ loading: loadingMessage }))
