@@ -1,6 +1,8 @@
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
-import { writeTypes } from '../utils/prepare'
+// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
+import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
+
 import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
@@ -32,7 +34,7 @@ export default defineCommand({
 
     showVersions(cwd)
 
-    const { loadNuxt, buildNuxt, useNitro } = await loadKit(cwd)
+    const { loadNuxt, buildNuxt, useNitro, writeTypes = writeTypesLegacy } = await loadKit(cwd)
 
     const nuxt = await loadNuxt({
       rootDir: cwd,

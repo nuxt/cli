@@ -7,8 +7,10 @@ import type { Nuxt } from '@nuxt/schema'
 import { consola } from 'consola'
 import { withTrailingSlash } from 'ufo'
 import { setupDotenv } from 'c12'
+// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
+import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
+
 import { showBanner, showVersions } from '../utils/banner'
-import { writeTypes } from '../utils/prepare'
 import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
@@ -75,7 +77,7 @@ export default defineCommand({
 
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
-    const { loadNuxt, loadNuxtConfig, buildNuxt } = await loadKit(cwd)
+    const { loadNuxt, loadNuxtConfig, buildNuxt, writeTypes = writeTypesLegacy } = await loadKit(cwd)
 
     const config = await loadNuxtConfig({
       cwd,
@@ -92,7 +94,6 @@ export default defineCommand({
     let loadingMessage = 'Nuxt is starting...'
     const loadingHandler: RequestListener = async (_req, res) => {
       const loadingTemplate =
-        // @ts-expect-error: TODO: remove when v3.7 is released
         config.devServer.loadingTemplate ??
         (await importModule('@nuxt/ui-templates', config.modulesDir).then(
           (r) => r.loading,

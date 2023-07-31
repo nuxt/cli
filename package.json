@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^0.1.1",
-    "@nuxt/kit": "^3.6.5",
+    "@nuxt/kit": "npm:@nuxt/kit-edge@latest",
     "@nuxt/schema": "^3.6.5",
     "@types/clear": "^0.1.2",
     "@types/flat": "^5.0.2",
