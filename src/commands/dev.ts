@@ -213,14 +213,6 @@ export default defineCommand({
 
         await currentNuxt.ready()
 
-        distWatcher = chokidar.watch(
-          resolve(currentNuxt.options.buildDir, 'dist'),
-          { ignoreInitial: true, depth: 0 },
-        )
-        distWatcher.on('unlinkDir', () => {
-          dLoad(true, '.nuxt/dist directory has been removed')
-        })
-
         const unsub = currentNuxt.hooks.hook('restart', async (options) => {
           unsub() // we use this instead of `hookOnce` for Nuxt Bridge support
           if (options?.hard) {
@@ -240,6 +232,15 @@ export default defineCommand({
           writeTypes(currentNuxt).catch(console.error),
           buildNuxt(currentNuxt),
         ])
+
+        distWatcher = chokidar.watch(
+          resolve(currentNuxt.options.buildDir, 'dist'),
+          { ignoreInitial: true, depth: 0 },
+        )
+        distWatcher.on('unlinkDir', () => {
+          dLoad(true, '.nuxt/dist directory has been removed')
+        })
+
         currentHandler = toNodeListener(currentNuxt.server.app)
         if (isRestart && ctx.args.clear !== false) {
           showBanner()
