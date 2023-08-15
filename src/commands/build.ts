@@ -1,5 +1,6 @@
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
+import type { Nitro } from 'nitropack'
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
@@ -56,8 +57,14 @@ export default defineCommand({
       },
     })
 
-    // Use ? for backward compatibility for Nuxt <= RC.10
-    const nitro = useNitro?.()
+    let nitro: Nitro | undefined
+    // In Bridge, if nitro is not enabled, useNitro will throw an error
+    try {
+      // Use ? for backward compatibility for Nuxt <= RC.10
+      nitro = useNitro?.()
+    } catch {
+      //
+    }
 
     await clearBuildDir(nuxt.options.buildDir)
 

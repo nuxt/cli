@@ -15,7 +15,7 @@ devDependencies:
     version: 0.1.1(eslint@8.47.0)
   '@nuxt/kit':
     specifier: npm:@nuxt/kit-edge@latest
-    version: /@nuxt/kit-edge@3.7.0-28194570.99375d68(rollup@3.26.1)
+    version: /@nuxt/kit-edge@3.7.0-28201456.eff05e1d(rollup@3.26.1)
   '@nuxt/schema':
     specifier: ^3.6.5
     version: 3.6.5(rollup@3.26.1)
@@ -106,6 +106,9 @@ devDependencies:
   mri:
     specifier: ^1.2.0
     version: 1.2.0
+  nitropack:
+    specifier: ^2.5.2
+    version: 2.5.2
   nuxt:
     specifier: ^3.6.5
     version: 3.6.5(@types/node@20.5.0)(eslint@8.47.0)(rollup@3.26.1)(typescript@5.1.6)
@@ -446,6 +449,7 @@ packages:
   /@babel/highlight@7.22.10:
     resolution: {integrity: sha512-78aUtVcT7MUscr0K5mIEnkwxPE0MaxkR5RxRwuHaQ+JuU5AmTPhY+do2mdzVTnIJJpyBglql2pehuBIWHug+WQ==}
     engines: {node: '>=6.9.0'}
+    requiresBuild: true
     dependencies:
       '@babel/helper-validator-identifier': 7.22.5
       chalk: 2.4.2
@@ -1157,11 +1161,11 @@ packages:
       - supports-color
     dev: true
 
-  /@nuxt/kit-edge@3.7.0-28194570.99375d68(rollup@3.26.1):
-    resolution: {integrity: sha512-N9/GqHSCvwFOEvpez/vphbv51waAqS2Nl7/br3j5ajNWVaxcQYUBUF+gwM6hhbq+hYax7Qo+QQtn/s67NQjoOg==}
+  /@nuxt/kit-edge@3.7.0-28201456.eff05e1d(rollup@3.26.1):
+    resolution: {integrity: sha512-VTWxrPTL2tG7tNgdY3jWVWw1DwUVpM465FtYXPZSIIQ5k1c/dRzmsXNalsPVlr64BesT4l+3eU8bGftpUjM/zQ==}
     engines: {node: ^14.18.0 || >=16.10.0}
     dependencies:
-      '@nuxt/schema': /@nuxt/schema-edge@3.7.0-28194570.99375d68(rollup@3.26.1)
+      '@nuxt/schema': /@nuxt/schema-edge@3.7.0-28201456.eff05e1d(rollup@3.26.1)
       c12: 1.4.2
       consola: 3.2.3
       defu: 6.1.2
@@ -1210,8 +1214,8 @@ packages:
       - supports-color
     dev: true
 
-  /@nuxt/schema-edge@3.7.0-28194570.99375d68(rollup@3.26.1):
-    resolution: {integrity: sha512-BGNUYxUOR3g+6M4XJptc31Tfuj9RpgFLK2b8RJfctYUwOpj3qJydDnyjy7S53bVtQHwOo3wrTjWSWAf317Mv5A==}
+  /@nuxt/schema-edge@3.7.0-28201456.eff05e1d(rollup@3.26.1):
+    resolution: {integrity: sha512-aUsxGLYHjDTrNW+WIg2UFfXutK0MLBwLptFZRXWmboGuVsROrRdjC01EMLOi+fTOx11/RYtG4/JXVNoGbKG2rQ==}
     engines: {node: ^14.18.0 || >=16.10.0}
     dependencies:
       '@nuxt/ui-templates': 1.3.1
@@ -4396,7 +4400,7 @@ packages:
       klona: 2.0.6
       knitwork: 1.0.0
       listhen: 1.3.0
-      magic-string: 0.30.1
+      magic-string: 0.30.2
       mime: 3.0.0
       mlly: 1.4.0
       mri: 1.2.0
@@ -4420,7 +4424,7 @@ packages:
       ufo: 1.2.0
       uncrypto: 0.1.3
       unenv: 1.7.1
-      unimport: 3.0.14(rollup@3.26.1)
+      unimport: 3.1.3(rollup@3.26.1)
       unstorage: 1.8.0
     transitivePeerDependencies:
       - '@azure/app-configuration'
@@ -4721,7 +4725,7 @@ packages:
     hasBin: true
     dependencies:
       ansi-colors: 4.1.3
-      fast-glob: 3.3.0
+      fast-glob: 3.3.1
       js-yaml: 4.1.0
       supports-color: 9.4.0
       undici: 5.22.1
@@ -5361,7 +5365,7 @@ packages:
       rollup: 3.26.1
       typescript: 5.1.6
     optionalDependencies:
-      '@babel/code-frame': 7.22.5
+      '@babel/code-frame': 7.22.10
     dev: true
 
   /rollup-plugin-visualizer@5.9.2(rollup@3.26.1):
@@ -6060,7 +6064,7 @@ packages:
     dependencies:
       '@babel/core': 7.22.10
       '@babel/standalone': 7.22.10
-      '@babel/types': 7.22.5
+      '@babel/types': 7.22.10
       defu: 6.1.2
       jiti: 1.19.1
       mri: 1.2.0
