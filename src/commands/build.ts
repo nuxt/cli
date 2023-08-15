@@ -34,7 +34,12 @@ export default defineCommand({
 
     showVersions(cwd)
 
-    const { loadNuxt, buildNuxt, useNitro, writeTypes = writeTypesLegacy } = await loadKit(cwd)
+    const {
+      loadNuxt,
+      buildNuxt,
+      useNitro,
+      writeTypes = writeTypesLegacy,
+    } = await loadKit(cwd)
 
     const nuxt = await loadNuxt({
       rootDir: cwd,

@@ -77,7 +77,12 @@ export default defineCommand({
 
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
-    const { loadNuxt, loadNuxtConfig, buildNuxt, writeTypes = writeTypesLegacy } = await loadKit(cwd)
+    const {
+      loadNuxt,
+      loadNuxtConfig,
+      buildNuxt,
+      writeTypes = writeTypesLegacy,
+    } = await loadKit(cwd)
 
     const config = await loadNuxtConfig({
       cwd,

@@ -23,7 +23,11 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    const { loadNuxt, buildNuxt, writeTypes = writeTypesLegacy } = await loadKit(cwd)
+    const {
+      loadNuxt,
+      buildNuxt,
+      writeTypes = writeTypesLegacy,
+    } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       rootDir: cwd,
       overrides: {
