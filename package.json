@@ -75,7 +75,7 @@
     "prettier": "^3.0.2",
     "scule": "^1.0.0",
     "semver": "^7.5.4",
-    "unbuild": "^1.2.1"
+    "unbuild": "^2.0.0-rc.0"
   },
   "optionalDependencies": {
     "fsevents": "~2.3.2"
