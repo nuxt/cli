@@ -17,8 +17,8 @@ devDependencies:
     specifier: npm:@nuxt/kit-edge@latest
     version: /@nuxt/kit-edge@3.7.0-28204774.4e538a03(rollup@3.28.0)
   '@nuxt/schema':
-    specifier: ^3.6.5
-    version: 3.6.5(rollup@3.28.0)
+    specifier: npm:@nuxt/schema-edge@latest
+    version: /@nuxt/schema-edge@3.7.0-28204774.4e538a03(rollup@3.28.0)
   '@types/clear':
     specifier: ^0.1.2
     version: 0.1.2
