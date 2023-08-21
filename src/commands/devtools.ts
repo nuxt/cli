@@ -1,6 +1,5 @@
 import { resolve } from 'pathe'
 import { execa } from 'execa'
-import { showHelp } from '../utils/help'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
@@ -24,7 +23,6 @@ export default defineCommand({
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
       console.error(`Unknown command \`${ctx.args.command}\`.`)
-      showHelp(this.meta)
       process.exit(1)
     }
 

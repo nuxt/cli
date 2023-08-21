@@ -29,13 +29,14 @@
     "nuxi-ng": "node ./scripts/nuxi.mjs",
     "prepack": "unbuild",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
-    "test": "pnpm build && pnpm test:dist",
-    "test:dist": "node ./bin/nuxi.mjs info ./playground"
+    "test": "pnpm lint && pnpm test:types && pnpm build && pnpm test:dist",
+    "test:dist": "node ./bin/nuxi.mjs info ./playground",
+    "test:types": "tsc --noEmit"
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^0.1.1",
     "@nuxt/kit": "npm:@nuxt/kit-edge@latest",
-    "@nuxt/schema": "^3.6.5",
+    "@nuxt/schema": "npm:@nuxt/schema-edge@latest",
     "@types/clear": "^0.1.2",
     "@types/flat": "^5.0.2",
     "@types/http-proxy": "^1.17.11",
@@ -75,7 +76,7 @@
     "prettier": "^3.0.2",
     "scule": "^1.0.0",
     "semver": "^7.5.4",
-    "unbuild": "^1.2.1"
+    "unbuild": "^2.0.0-rc.0"
   },
   "optionalDependencies": {
     "fsevents": "~2.3.2"
