@@ -41,7 +41,7 @@
     "@types/flat": "^5.0.2",
     "@types/http-proxy": "^1.17.11",
     "@types/mri": "^1.1.1",
-    "@types/node": "^20.5.1",
+    "@types/node": "^20.5.2",
     "@types/semver": "^7.5.0",
     "c12": "^1.4.2",
     "changelogen": "^0.5.4",
@@ -79,7 +79,7 @@
     "unbuild": "^2.0.0-rc.0"
   },
   "optionalDependencies": {
-    "fsevents": "~2.3.2"
+    "fsevents": "~2.3.3"
   },
   "packageManager": "pnpm@8.6.12",
   "engines": {
