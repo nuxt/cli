@@ -90,7 +90,7 @@ export default defineCommand({
       options: PackageManagerName[]
     }>('Which package manager would you like to use?', {
       type: 'select',
-      options: ['npm', 'pnpm', 'yarn'],
+      options: ['npm', 'pnpm', 'yarn', 'bun'],
     })
 
     // Get relative project path
