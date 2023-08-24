@@ -171,6 +171,8 @@ function _startSubprocess(devServer: DevServer) {
   childProc.on('close', (code) => {
     if (code) {
       process.exit(code)
+    } else {
+      process.exit()
     }
   })
 
