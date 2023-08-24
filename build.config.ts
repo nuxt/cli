@@ -10,7 +10,6 @@ export default defineBuildConfig({
   },
   entries: ['src/index'],
   externals: [
-    '@nuxt/schema',
     '@nuxt/test-utils',
     'fsevents',
     'node:url',
