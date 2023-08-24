@@ -6,6 +6,7 @@ import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
 import type { ListenOptions } from 'listhen'
+import { getArgs, parseArgs } from 'listhen/cli'
 import type { NuxtOptions } from '@nuxt/schema'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { fork } from 'node:child_process'
@@ -21,6 +22,7 @@ const command = defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
+    ...getArgs(),
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
@@ -28,29 +30,6 @@ const command = defineCommand({
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
-    },
-    clipboard: {
-      type: 'boolean',
-      description: 'Copy server URL to clipboard',
-    },
-    open: {
-      type: 'boolean',
-      description: 'Open server URL in browser',
-      alias: 'o',
-    },
-    port: {
-      type: 'string',
-      description: 'Port to listen on',
-      alias: 'p',
-    },
-    host: {
-      type: 'string',
-      description: 'Host to listen on',
-      alias: 'h',
-    },
-    https: {
-      type: 'boolean',
-      description: 'Enable HTTPS',
     },
     sslCert: {
       type: 'string',
@@ -200,38 +179,36 @@ function _resolveListenOptions(
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
   return {
+    ...parseArgs({
+      ...args,
+      port:
+        args.port ||
+        process.env.NUXT_PORT ||
+        process.env.NITRO_PORT ||
+        nuxtOptions.devServer.port.toString(),
+      hostname:
+        args.host ||
+        process.env.NUXT_HOST ||
+        process.env.NITRO_HOST ||
+        nuxtOptions.devServer.host ||
+        false,
+      'https.cert':
+        args['https.cert'] ||
+        args.sslCert ||
+        process.env.NUXT_SSL_CERT ||
+        process.env.NITRO_SSL_CERT ||
+        (typeof nuxtOptions.devServer.https !== 'boolean' &&
+          nuxtOptions.devServer.https.cert) ||
+        '',
+      'https.key':
+        args['https.key'] ||
+        args.sslKey ||
+        process.env.NUXT_SSL_KEY ||
+        process.env.NITRO_SSL_KEY ||
+        (typeof nuxtOptions.devServer.https !== 'boolean' &&
+          nuxtOptions.devServer.https.key) ||
+        '',
+    }),
     showURL: false,
-    clipboard: args.clipboard,
-    open: args.open,
-    port:
-      args.port ||
-      process.env.NUXT_PORT ||
-      process.env.NITRO_PORT ||
-      nuxtOptions.devServer.port,
-    hostname:
-      args.host ||
-      process.env.NUXT_HOST ||
-      process.env.NITRO_HOST ||
-      nuxtOptions.devServer.host ||
-      undefined,
-    https:
-      args.https !== false && (args.https || nuxtOptions.devServer.https)
-        ? {
-            cert:
-              args.sslCert ||
-              process.env.NUXT_SSL_CERT ||
-              process.env.NITRO_SSL_CERT ||
-              (typeof nuxtOptions.devServer.https !== 'boolean' &&
-                nuxtOptions.devServer.https.cert) ||
-              '',
-            key:
-              args.sslKey ||
-              process.env.NUXT_SSL_KEY ||
-              process.env.NITRO_SSL_KEY ||
-              (typeof nuxtOptions.devServer.https !== 'boolean' &&
-                nuxtOptions.devServer.https.key) ||
-              '',
-          }
-        : false,
-  } satisfies Partial<ListenOptions>
+  }
 }
