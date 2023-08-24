@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import jiti from 'jiti'
+import { fileURLToPath } from 'node:url'
 
-process._startTime = Date.now()
+global.__nuxt_cli__ = {
+  startTime: Date.now(),
+  entry: fileURLToPath(import.meta.url),
+}
 
 const { runMain } = jiti(import.meta.url, {
   esmResolve: true,
