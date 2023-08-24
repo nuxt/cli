@@ -91,6 +91,9 @@ devDependencies:
   http-proxy:
     specifier: ^1.18.1
     version: 1.18.1
+  httpxy:
+    specifier: ^0.1.0
+    version: 0.1.0
   jiti:
     specifier: ^1.19.3
     version: 1.19.3
@@ -3530,6 +3533,10 @@ packages:
       debug: 4.3.4
     transitivePeerDependencies:
       - supports-color
+    dev: true
+
+  /httpxy@0.1.0:
+    resolution: {integrity: sha512-xLlTxZ9Odw1Kw80aODYOArYJ0SynACVM6HbxSAXOv6icsEoNbsmQ4w0LhT4sdrNvCJJF9oSA2GwrrfHJKPx58w==}
     dev: true
 
   /human-signals@2.1.0:
