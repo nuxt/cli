@@ -6,8 +6,8 @@ import { checkEngines } from './utils/engines'
 
 export const main = defineCommand({
   meta: {
-    name: 'nuxi-ng',
-    description: 'Nuxt CLI (experimental)',
+    name: 'nuxi',
+    description: 'Nuxt CLI',
   },
   subCommands: commands,
   async setup(ctx) {
