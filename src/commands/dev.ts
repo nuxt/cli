@@ -185,11 +185,13 @@ function _resolveListenOptions(
         args.port ||
         process.env.NUXT_PORT ||
         process.env.NITRO_PORT ||
+        process.env.PORT ||
         nuxtOptions.devServer.port.toString(),
       hostname:
         args.host ||
         process.env.NUXT_HOST ||
         process.env.NITRO_HOST ||
+        process.env.HOST ||
         nuxtOptions.devServer.host ||
         false,
       'https.cert':
