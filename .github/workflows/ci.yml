@@ -36,7 +36,7 @@ jobs:
           !contains(github.event.head_commit.message, 'docs')
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
-          pnpm changelogen --canary --publish
+          pnpm changelogen --canary ng --publish
         env:
           NPM_TOKEN: ${{secrets.NPM_TOKEN}}
           NPM_CONFIG_PROVENANCE: false
