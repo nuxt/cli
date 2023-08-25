@@ -14,6 +14,7 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { RequestListener, Server } from 'http'
 import { toNodeListener } from 'h3'
 import { AddressInfo } from 'net'
+import { isTest } from 'std-env'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready'; port: number }
@@ -32,9 +33,10 @@ export default defineCommand({
     ...legacyRootDirArgs,
   },
   async run(ctx) {
-    if (!process.send) {
-      throw new Error(
-        'This command is only meant to be run in a subprocess. Please use `nuxi dev`',
+    const logger = consola.withTag('nuxi')
+    if (!process.send && !isTest) {
+      logger.warn(
+        '`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.',
       )
     }
 
@@ -62,14 +64,24 @@ export default defineCommand({
     })
 
     const port = await new Promise<number>((resolve) => {
-      server.listen(0, () => {
+      server.listen(process.env._PORT || 0, () => {
         resolve((server.address() as AddressInfo).port)
       })
     })
+    if (!process.send) {
+      logger.success('Listening on http://localhost:' + port)
+    }
 
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
       if (process.send) {
         process.send(message)
+      } else {
+        logger.info(
+          'Dev server event:',
+          Object.entries(message)
+            .map((e) => e[0] + '=' + JSON.stringify(e[1]))
+            .join(' '),
+        )
       }
     }
 
