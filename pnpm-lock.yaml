@@ -92,8 +92,8 @@ devDependencies:
     specifier: ^1.18.1
     version: 1.18.1
   httpxy:
-    specifier: ^0.1.2
-    version: 0.1.2
+    specifier: ^0.1.4
+    version: 0.1.4
   jiti:
     specifier: ^1.19.3
     version: 1.19.3
@@ -3561,8 +3561,8 @@ packages:
       - supports-color
     dev: true
 
-  /httpxy@0.1.2:
-    resolution: {integrity: sha512-8IldwriN7eS7Pe1pPRE6L7S1LW551lBJ3N9oI4HLYGZTXl2JBkdINEi+mDZwhwykw1OBVI2li3zhPSi7r1N8lQ==}
+  /httpxy@0.1.4:
+    resolution: {integrity: sha512-ArXKNWhU5taozl6fFnu01M9HiInAqSOw4mUp+7DY/zbTHPmS8JBqH0IC3VLovRBd9b8ZE03ztemcxzeWT6pCoA==}
     dev: true
 
   /human-signals@2.1.0:
@@ -4225,7 +4225,7 @@ packages:
       gzip-size: 7.0.0
       h3: 1.8.0
       hookable: 5.5.3
-      httpxy: 0.1.2
+      httpxy: 0.1.4
       is-primitive: 3.0.1
       jiti: 1.19.3
       klona: 2.0.6

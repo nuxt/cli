@@ -61,7 +61,7 @@
     "giget": "^1.1.2",
     "h3": "^1.8.0",
     "http-proxy": "^1.18.1",
-    "httpxy": "^0.1.2",
+    "httpxy": "^0.1.4",
     "jiti": "^1.19.3",
     "listhen": "^1.4.0",
     "magicast": "^0.2.10",
@@ -82,7 +82,7 @@
   "optionalDependencies": {
     "fsevents": "~2.3.3"
   },
-  "packageManager": "pnpm@8.6.12",
+  "packageManager": "pnpm@8.7.0",
   "engines": {
     "node": "^14.18.0 || >=16.10.0"
   }
