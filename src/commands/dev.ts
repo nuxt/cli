@@ -31,14 +31,6 @@ const command = defineCommand({
       type: 'boolean',
       description: 'Clear console on restart',
     },
-    sslCert: {
-      type: 'string',
-      description: 'Path to SSL certificate',
-    },
-    sslKey: {
-      type: 'string',
-      description: 'Path to SSL key',
-    },
   },
   async run(ctx) {
     // Prepare
@@ -184,6 +176,7 @@ function _resolveListenOptions(
 
   const _port =
     args.port ??
+    args.p ??
     process.env.NUXT_PORT ??
     process.env.NITRO_PORT ??
     process.env.PORT ??
@@ -206,7 +199,7 @@ function _resolveListenOptions(
 
   const _httpsCert =
     args['https.cert'] ||
-    args.sslCert ||
+    (args.sslCert as string) ||
     process.env.NUXT_SSL_CERT ||
     process.env.NITRO_SSL_CERT ||
     (typeof _devServerConfig.https !== 'boolean' &&
@@ -215,7 +208,7 @@ function _resolveListenOptions(
 
   const _httpsKey =
     args['https.key'] ||
-    args.sslKey ||
+    (args.sslKey as string) ||
     process.env.NUXT_SSL_KEY ||
     process.env.NITRO_SSL_KEY ||
     (typeof _devServerConfig.https !== 'boolean' &&
@@ -225,6 +218,7 @@ function _resolveListenOptions(
   return {
     ...parseArgs({
       ...args,
+      open: args.open ?? args.o,
       'https.cert': _httpsCert,
       'https.key': _httpsKey,
     }),
