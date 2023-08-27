@@ -1,6 +1,33 @@
 # Changelog
 
 
+## v3.7.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.7.0...v3.7.2)
+
+### 🩹 Fixes
+
+- Update name internally to `nuxi` ([42106c6](https://github.com/nuxt/cli/commit/42106c6))
+- Respect `HOST`, `--host` and `devServer.host` options ([#105](https://github.com/nuxt/cli/pull/105))
+- **dev:** Add backward compatibility for `-o` and `-p` and deprecate `ssl*` args ([#106](https://github.com/nuxt/cli/pull/106))
+
+### 🏡 Chore
+
+- **release:** V3.7.0 ([40d98cb](https://github.com/nuxt/cli/commit/40d98cb))
+- Publish as nuxi ([d655b4e](https://github.com/nuxt/cli/commit/d655b4e))
+- Add `.eslintignore` ([3cd3b49](https://github.com/nuxt/cli/commit/3cd3b49))
+- Update dependencies ([9379f78](https://github.com/nuxt/cli/commit/9379f78))
+- Update dependencies ([5633db6](https://github.com/nuxt/cli/commit/5633db6))
+
+### 🤖 CI
+
+- Publish canary as `nuxi-edge` (for now) ([d1120b1](https://github.com/nuxt/cli/commit/d1120b1))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Daniel Roe <daniel@roe.dev>
+
 ## v3.7.0
 
 

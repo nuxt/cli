@@ -1,6 +1,6 @@
 {
   "name": "nuxi",
-  "version": "3.7.0",
+  "version": "3.7.2",
   "repository": "nuxt/cli",
   "license": "MIT",
   "type": "module",
