@@ -178,39 +178,59 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
+  // TODO: Default host in schema should be undefined
+  const _devServerConfig =
+    (nuxtOptions._layers?.[0].config || nuxtOptions)?.devServer || {}
+
+  const _port =
+    args.port ??
+    process.env.NUXT_PORT ??
+    process.env.NITRO_PORT ??
+    process.env.PORT ??
+    _devServerConfig.port
+
+  const _hostname =
+    typeof args.host === 'string'
+      ? args.host
+      : (args.host === true ? '' : undefined) ??
+        process.env.NUXT_HOST ??
+        process.env.NITRO_HOST ??
+        process.env.HOST ??
+        _devServerConfig.host
+
+  const _public: boolean | undefined =
+    args.public ??
+    (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
+      ? true
+      : undefined
+
+  const _httpsCert =
+    args['https.cert'] ||
+    args.sslCert ||
+    process.env.NUXT_SSL_CERT ||
+    process.env.NITRO_SSL_CERT ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.cert) ||
+    ''
+
+  const _httpsKey =
+    args['https.key'] ||
+    args.sslKey ||
+    process.env.NUXT_SSL_KEY ||
+    process.env.NITRO_SSL_KEY ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.key) ||
+    ''
+
   return {
     ...parseArgs({
       ...args,
-      port:
-        args.port ||
-        process.env.NUXT_PORT ||
-        process.env.NITRO_PORT ||
-        process.env.PORT ||
-        nuxtOptions.devServer.port.toString(),
-      hostname:
-        args.host ||
-        process.env.NUXT_HOST ||
-        process.env.NITRO_HOST ||
-        process.env.HOST ||
-        nuxtOptions.devServer.host ||
-        false,
-      'https.cert':
-        args['https.cert'] ||
-        args.sslCert ||
-        process.env.NUXT_SSL_CERT ||
-        process.env.NITRO_SSL_CERT ||
-        (typeof nuxtOptions.devServer.https !== 'boolean' &&
-          nuxtOptions.devServer.https.cert) ||
-        '',
-      'https.key':
-        args['https.key'] ||
-        args.sslKey ||
-        process.env.NUXT_SSL_KEY ||
-        process.env.NITRO_SSL_KEY ||
-        (typeof nuxtOptions.devServer.https !== 'boolean' &&
-          nuxtOptions.devServer.https.key) ||
-        '',
+      'https.cert': _httpsCert,
+      'https.key': _httpsKey,
     }),
+    port: _port,
+    hostname: _hostname,
+    public: _public,
     showURL: false,
   }
 }
