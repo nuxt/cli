@@ -178,48 +178,56 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
-  const port =
+  const _port =
     args.port ||
     process.env.NUXT_PORT ||
     process.env.NITRO_PORT ||
     process.env.PORT ||
     String(nuxtOptions.devServer.port)
 
-  const hostname =
-    // prettier-ignore
-    typeof args.host === "string" ? args.host : (args.host === true ? "" : undefined) ||
-    process.env.NUXT_HOST ||
-    process.env.NITRO_HOST ||
-    process.env.HOST ||
-    // TODO: `host` in nuxt schema defaults should be undefined
-    (nuxtOptions.devServer.host ? nuxtOptions.devServer.host : undefined)
+  const _hostname =
+    typeof args.host === 'string'
+      ? args.host
+      : (args.host === true ? '' : undefined) ??
+        process.env.NUXT_HOST ??
+        process.env.NITRO_HOST ??
+        process.env.HOST ??
+        // TODO: `host` in nuxt schema defaults should be undefined
+        (nuxtOptions.devServer.host ? nuxtOptions.devServer.host : undefined)
 
-  const httpsCert =
+  const _public: boolean | undefined =
+    args.public ??
+    !['localhost', '127.0.0.1', '::1'].includes(_hostname as string)
+      ? true
+      : undefined
+
+  const _httpsCert =
     args['https.cert'] ||
     args.sslCert ||
     process.env.NUXT_SSL_CERT ||
     process.env.NITRO_SSL_CERT ||
     (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https.cert) ||
+      nuxtOptions.devServer.https?.cert) ||
     ''
 
-  const httpsKey =
+  const _httpsKey =
     args['https.key'] ||
     args.sslKey ||
     process.env.NUXT_SSL_KEY ||
     process.env.NITRO_SSL_KEY ||
     (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https.key) ||
+      nuxtOptions.devServer.https?.key) ||
     ''
 
   return {
-    port,
-    hostname,
     ...parseArgs({
       ...args,
-      'https.cert': httpsCert,
-      'https.key': httpsKey,
+      'https.cert': _httpsCert,
+      'https.key': _httpsKey,
     }),
+    port: _port,
+    hostname: _hostname,
+    public: _public,
     showURL: false,
   }
 }
