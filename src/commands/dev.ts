@@ -178,12 +178,16 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
+  // TODO: Default host in schema should be undefined
+  const _devServerConfig =
+    (nuxtOptions._layers?.[0].config || nuxtOptions)?.devServer || {}
+
   const _port =
-    args.port ||
-    process.env.NUXT_PORT ||
-    process.env.NITRO_PORT ||
-    process.env.PORT ||
-    String(nuxtOptions.devServer.port)
+    args.port ??
+    process.env.NUXT_PORT ??
+    process.env.NITRO_PORT ??
+    process.env.PORT ??
+    _devServerConfig.port
 
   const _hostname =
     typeof args.host === 'string'
@@ -192,12 +196,11 @@ function _resolveListenOptions(
         process.env.NUXT_HOST ??
         process.env.NITRO_HOST ??
         process.env.HOST ??
-        // TODO: `host` in nuxt schema defaults should be undefined
-        (nuxtOptions.devServer.host ? nuxtOptions.devServer.host : undefined)
+        _devServerConfig.host
 
   const _public: boolean | undefined =
     args.public ??
-    !['localhost', '127.0.0.1', '::1'].includes(_hostname as string)
+    (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
       ? true
       : undefined
 
@@ -206,8 +209,8 @@ function _resolveListenOptions(
     args.sslCert ||
     process.env.NUXT_SSL_CERT ||
     process.env.NITRO_SSL_CERT ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.cert) ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.cert) ||
     ''
 
   const _httpsKey =
@@ -215,8 +218,8 @@ function _resolveListenOptions(
     args.sslKey ||
     process.env.NUXT_SSL_KEY ||
     process.env.NITRO_SSL_KEY ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.key) ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.key) ||
     ''
 
   return {
