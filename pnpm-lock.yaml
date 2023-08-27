@@ -80,8 +80,8 @@ devDependencies:
     specifier: ^6.6.2
     version: 6.6.2
   get-port-please:
-    specifier: ^3.0.1
-    version: 3.0.1
+    specifier: ^3.0.2
+    version: 3.0.2
   giget:
     specifier: ^1.1.2
     version: 1.1.2
@@ -98,8 +98,8 @@ devDependencies:
     specifier: ^1.19.3
     version: 1.19.3
   listhen:
-    specifier: ^1.4.1
-    version: 1.4.1
+    specifier: ^1.4.2
+    version: 1.4.2
   magicast:
     specifier: ^0.2.10
     version: 0.2.10
@@ -1175,7 +1175,7 @@ packages:
       estree-walker: 3.0.3
       externality: 1.0.2
       fs-extra: 11.1.1
-      get-port-please: 3.0.1
+      get-port-please: 3.0.2
       h3: 1.8.1
       knitwork: 1.0.0
       magic-string: 0.30.3
@@ -3334,8 +3334,8 @@ packages:
       has-symbols: 1.0.3
     dev: true
 
-  /get-port-please@3.0.1:
-    resolution: {integrity: sha512-R5pcVO8Z1+pVDu8Ml3xaJCEkBiiy1VQN9za0YqH8GIi1nIqD4IzQhzY6dDzMRtdS1lyiGlucRzm8IN8wtLIXng==}
+  /get-port-please@3.0.2:
+    resolution: {integrity: sha512-c14cAITf0E+uqdxGALvyYHwOL7UsnWcv3oDtgDAZksiVSGN87xlWVUWGZcmWQU3cICdaOxT+6LdQzUfK2ei1SA==}
     dev: true
 
   /get-stream@6.0.1:
@@ -3903,8 +3903,8 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  /listhen@1.4.1:
-    resolution: {integrity: sha512-uBDwzyhYtpxMm25WdWHDlC8rNov0e3lsylc4DR/33TpNMUy92VeXAWPkrdqpR+2rEeZZlCYGyOrRyN/fRrSPgg==}
+  /listhen@1.4.2:
+    resolution: {integrity: sha512-yWWwLYcuG1bEOboK+sGTMYp0yc5KIcVsGmADO8dkMdoRC4gQ7jGGZR6PUI/HvtnuF/QOt3VflWE75uGeU776BQ==}
     hasBin: true
     dependencies:
       '@parcel/watcher': 2.3.0
@@ -3913,7 +3913,7 @@ packages:
       clipboardy: 3.0.0
       consola: 3.2.3
       defu: 6.1.2
-      get-port-please: 3.0.1
+      get-port-please: 3.0.2
       h3: 1.8.1
       http-shutdown: 1.2.2
       jiti: 1.19.3
@@ -4256,7 +4256,7 @@ packages:
       jiti: 1.19.3
       klona: 2.0.6
       knitwork: 1.0.0
-      listhen: 1.4.1
+      listhen: 1.4.2
       magic-string: 0.30.3
       mime: 3.0.0
       mlly: 1.4.1
@@ -5858,7 +5858,7 @@ packages:
       destr: 2.0.1
       h3: 1.8.1
       ioredis: 5.3.2
-      listhen: 1.4.1
+      listhen: 1.4.2
       lru-cache: 10.0.1
       mri: 1.2.0
       node-fetch-native: 1.4.0

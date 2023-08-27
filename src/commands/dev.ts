@@ -178,38 +178,47 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
+  const port =
+    args.port ||
+    process.env.NUXT_PORT ||
+    process.env.NITRO_PORT ||
+    process.env.PORT ||
+    String(nuxtOptions.devServer.port)
+
+  const hostname =
+    // prettier-ignore
+    typeof args.host === "string" ? args.host : (args.host === true ? "" : undefined) ||
+    process.env.NUXT_HOST ||
+    process.env.NITRO_HOST ||
+    process.env.HOST ||
+    // TODO: `host` in nuxt schema defaults should be undefined
+    (nuxtOptions.devServer.host ? nuxtOptions.devServer.host : undefined)
+
+  const httpsCert =
+    args['https.cert'] ||
+    args.sslCert ||
+    process.env.NUXT_SSL_CERT ||
+    process.env.NITRO_SSL_CERT ||
+    (typeof nuxtOptions.devServer.https !== 'boolean' &&
+      nuxtOptions.devServer.https.cert) ||
+    ''
+
+  const httpsKey =
+    args['https.key'] ||
+    args.sslKey ||
+    process.env.NUXT_SSL_KEY ||
+    process.env.NITRO_SSL_KEY ||
+    (typeof nuxtOptions.devServer.https !== 'boolean' &&
+      nuxtOptions.devServer.https.key) ||
+    ''
+
   return {
+    port,
+    hostname,
     ...parseArgs({
       ...args,
-      port:
-        args.port ||
-        process.env.NUXT_PORT ||
-        process.env.NITRO_PORT ||
-        process.env.PORT ||
-        nuxtOptions.devServer.port.toString(),
-      hostname:
-        args.host ||
-        process.env.NUXT_HOST ||
-        process.env.NITRO_HOST ||
-        process.env.HOST ||
-        nuxtOptions.devServer.host ||
-        false,
-      'https.cert':
-        args['https.cert'] ||
-        args.sslCert ||
-        process.env.NUXT_SSL_CERT ||
-        process.env.NITRO_SSL_CERT ||
-        (typeof nuxtOptions.devServer.https !== 'boolean' &&
-          nuxtOptions.devServer.https.cert) ||
-        '',
-      'https.key':
-        args['https.key'] ||
-        args.sslKey ||
-        process.env.NUXT_SSL_KEY ||
-        process.env.NITRO_SSL_KEY ||
-        (typeof nuxtOptions.devServer.https !== 'boolean' &&
-          nuxtOptions.devServer.https.key) ||
-        '',
+      'https.cert': httpsCert,
+      'https.key': httpsKey,
     }),
     showURL: false,
   }
