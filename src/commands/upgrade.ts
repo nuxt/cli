@@ -35,6 +35,7 @@ export default defineCommand({
     force: {
       type: 'boolean',
       alias: 'f',
+      default: true,
       description: 'Force upgrade to recreate lockfile and node_modules',
     },
   },
