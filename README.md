@@ -1,6 +1,6 @@
 # Nuxt CLI (nuxi)
 
-⚡️ Next Generation CLI Experience for [Nuxt](https://nuxt.com/).
+⚡️ [Nuxt](https://nuxt.com/) Generation CLI Experience.
 
 ## Vision and Roadmap
 
