@@ -149,12 +149,12 @@ export default defineCommand({
 
       // Emulate a listener for listen hook
       // Currently it is typed as any in nuxt. we try to keep it close to listhen interface
-      const listenrInfo = JSON.parse(
+      const listenerInfo = JSON.parse(
         process.env.__NUXT_DEV_LISTENER__ || 'null',
       ) || { url: serverURL, urls: [] }
       await currentNuxt.hooks.callHook('listen', server, {
         server,
-        url: listenrInfo.url,
+        url: listenerInfo.url,
         https: false,
         address: { host: 'localhost', port },
         close: () => Promise.reject('Cannot close internal dev server!'),
@@ -162,7 +162,7 @@ export default defineCommand({
         showURL: () => Promise.resolve(),
         getURLs: () =>
           Promise.resolve([
-            ...listenrInfo.urls,
+            ...listenerInfo.urls,
             { url: serverURL, type: 'local' },
           ]),
       } satisfies Listener)
