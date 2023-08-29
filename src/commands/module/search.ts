@@ -9,7 +9,7 @@ import { bold, green, magenta, cyan, gray } from 'colorette'
 export default defineCommand({
   meta: {
     name: 'add',
-    description: 'Serch in nuxt modules',
+    description: 'Search in nuxt modules',
   },
   args: {
     ...sharedArgs,
