@@ -1,6 +1,7 @@
 import { execSync } from 'node:child_process'
 import { consola } from 'consola'
-import { resolve } from 'pathe'
+import { colors } from 'consola/utils'
+import { relative, resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import {
   getPackageManager,
@@ -35,7 +36,6 @@ export default defineCommand({
     force: {
       type: 'boolean',
       alias: 'f',
-      default: true,
       description: 'Force upgrade to recreate lockfile and node_modules',
     },
   },
@@ -58,9 +58,23 @@ export default defineCommand({
     consola.info('Current nuxt version:', currentVersion)
 
     // Force install
+    const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
+    const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
+      .map((p) => colors.cyan(p))
+      .join(' and ')
+    if (ctx.args.force === undefined) {
+      ctx.args.force = await consola.prompt(
+        `Would you like to recreate ${forceRemovals} to fix problems with hoised dependency versions are ensure you have the most up-to-date dependencies?`,
+        {
+          type: 'confirm',
+          default: true,
+        },
+      )
+    }
     if (ctx.args.force) {
-      consola.info('Removing lock-file and node_modules...')
-      const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
+      consola.info(
+        `Recreating ${forceRemovals}. If you have encountred any issues, revert the changes and try with \`--no-force\``,
+      )
       await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
     }
