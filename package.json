@@ -34,7 +34,7 @@
     "test:types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@nuxt/eslint-config": "^0.1.1",
+    "@nuxt/eslint-config": "^0.2.0",
     "@nuxt/kit": "npm:@nuxt/kit-edge@3.7.0-28216351.0094b569",
     "@nuxt/schema": "npm:@nuxt/schema-edge@3.7.0-28216351.0094b569",
     "@types/clear": "^0.1.2",
@@ -74,7 +74,7 @@
     "pathe": "^1.1.1",
     "perfect-debounce": "^1.0.0",
     "pkg-types": "^1.0.3",
-    "prettier": "^3.0.2",
+    "prettier": "^3.0.3",
     "scule": "^1.0.0",
     "semver": "^7.5.4",
     "unbuild": "^2.0.0"
