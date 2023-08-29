@@ -64,7 +64,7 @@ export default defineCommand({
       .join(' and ')
     if (ctx.args.force === undefined) {
       ctx.args.force = await consola.prompt(
-        `Would you like to recreate ${forceRemovals} to fix problems with hoised dependency versions are ensure you have the most up-to-date dependencies?`,
+        `Would you like to recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
         {
           type: 'confirm',
           default: true,
@@ -73,7 +73,7 @@ export default defineCommand({
     }
     if (ctx.args.force) {
       consola.info(
-        `Recreating ${forceRemovals}. If you have encountred any issues, revert the changes and try with \`--no-force\``,
+        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
       await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
