@@ -15,6 +15,7 @@ import { RequestListener, Server } from 'http'
 import { toNodeListener } from 'h3'
 import { AddressInfo } from 'net'
 import { isTest } from 'std-env'
+import { Listener } from 'listhen'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready'; port: number }
@@ -68,8 +69,9 @@ export default defineCommand({
         resolve((server.address() as AddressInfo).port)
       })
     })
+    const serverURL = `http://localhost:${port}/`
     if (!process.send) {
-      logger.success('Listening on http://localhost:' + port)
+      logger.success(`Listening on ${serverURL}`)
     }
 
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
@@ -145,10 +147,31 @@ export default defineCommand({
         await load(true)
       })
 
-      await currentNuxt.hooks.callHook('listen', server, {})
+      // Emulate a listener for listen hook
+      // Currently it is typed as any in nuxt. we try to keep it close to listhen interface
+      const listenrInfo = JSON.parse(
+        process.env.__NUXT_DEV_LISTENER__ || 'null',
+      ) || { url: serverURL, urls: [] }
+      await currentNuxt.hooks.callHook('listen', server, {
+        server,
+        url: listenrInfo.url,
+        https: false,
+        address: { host: 'localhost', port },
+        close: () => Promise.reject('Cannot close internal dev server!'),
+        open: () => Promise.resolve(),
+        showURL: () => Promise.resolve(),
+        getURLs: () =>
+          Promise.resolve([
+            ...listenrInfo.urls,
+            { url: serverURL, type: 'local' },
+          ]),
+      } satisfies Listener)
+
+      // Sync internal server info to the internals
+      // It is important for vite-node to use the internal URL
       currentNuxt.options.devServer.url = `http://localhost:${port}/`
-      currentNuxt.options.devServer.port = port
       currentNuxt.options.devServer.host = 'localhost'
+      currentNuxt.options.devServer.port = port
       currentNuxt.options.devServer.https = false
 
       await Promise.all([

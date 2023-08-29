@@ -5,7 +5,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
-import type { ListenOptions } from 'listhen'
+import type { Listener, ListenOptions } from 'listhen'
 import { getArgs, parseArgs } from 'listhen/cli'
 import type { NuxtOptions } from '@nuxt/schema'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
@@ -60,7 +60,7 @@ const command = defineCommand({
     await listener.showURL()
 
     // Start actual builder sub process
-    _startSubprocess(devServer)
+    _startSubprocess(devServer, listener)
   },
 })
 
@@ -106,7 +106,7 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
   }
 }
 
-function _startSubprocess(devServer: DevServer) {
+function _startSubprocess(devServer: DevServer, listener: Listener) {
   let childProc: ChildProcess | undefined
 
   const close = () => {
@@ -116,7 +116,7 @@ function _startSubprocess(devServer: DevServer) {
 
   const restart = () => {
     close()
-    _startSubprocess(devServer)
+    _startSubprocess(devServer, listener)
   }
 
   for (const signal of [
@@ -136,6 +136,13 @@ function _startSubprocess(devServer: DevServer) {
         '--enable-source-maps',
         process.argv.includes('--inspect') && '--inspect',
       ].filter(Boolean) as string[],
+      env: {
+        ...process.env,
+        __NUXT_DEV_LISTENER__: JSON.stringify({
+          url: listener.url,
+          urls: listener.getURLs(),
+        }),
+      },
     },
   )
 
