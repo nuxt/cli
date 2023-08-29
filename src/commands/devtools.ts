@@ -11,12 +11,12 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
-    ...legacyRootDirArgs,
     command: {
-      type: 'string',
+      type: 'positional',
       description: 'Command to run',
       valueHint: 'enable|disable',
     },
+    ...legacyRootDirArgs,
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
