@@ -6,8 +6,8 @@ import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 export default defineCommand({
   meta: {
-    name: 'enable',
-    description: 'Enable or disable features in a Nuxt project',
+    name: 'devtools',
+    description: 'Enable or disable devtools in a Nuxt project',
   },
   args: {
     ...sharedArgs,
