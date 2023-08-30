@@ -57,6 +57,10 @@ const command = defineCommand({
       devServer.handler,
       _resolveListenOptions(nuxtOptions, ctx.args),
     )
+
+    // Handle websocket upgrade
+    listener.server.on('upgrade', devServer.wsHandler)
+
     await listener.showURL()
 
     // Start actual builder sub process
@@ -92,11 +96,20 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
       res.end(loadingTemplate({ loading: loadingMessage }))
       return
     }
-    proxy.web(req, res, { target: address })
+    return proxy.web(req, res, { target: address })
+  }
+
+  const wsHandler = (req: IncomingMessage, socket: any, head: any) => {
+    if (!address) {
+      socket.destroy()
+      return
+    }
+    return proxy.ws(req, socket, { target: address }, head)
   }
 
   return {
     handler,
+    wsHandler,
     setAddress: (_addr: string | undefined) => {
       address = _addr
     },
