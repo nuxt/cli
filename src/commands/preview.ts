@@ -4,6 +4,7 @@ import { execa } from 'execa'
 import { setupDotenv } from 'c12'
 import { resolve } from 'pathe'
 import { consola } from 'consola'
+import { box, colors } from 'consola/utils'
 import { loadKit } from '../utils/kit'
 
 import { defineCommand } from 'citty'
@@ -54,14 +55,39 @@ export default defineCommand({
     const outputPath = dirname(nitroJSONPath)
     const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
 
-    consola.info('Node.js version:', process.versions.node)
-    consola.info('Preset:', nitroJSON.preset)
-    consola.info('Working dir:', relative(process.cwd(), outputPath))
-
     if (!nitroJSON.commands.preview) {
       consola.error('Preview is not supported for this build.')
       process.exit(1)
     }
+
+    const info = [
+      ['Node.js:', `v${process.versions.node}`],
+      ['Nitro Preset:', nitroJSON.preset],
+      ['Working directory:', relative(process.cwd(), outputPath)],
+    ] as const
+    const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
+
+    consola.log(
+      box(
+        [
+          'You are running Nuxt production build in preview mode',
+          `For production deployments, please directly use ${colors.cyan(
+            nitroJSON.commands.preview,
+          )} command.`,
+          '',
+          ...info.map(
+            ([label, value]) =>
+              `${label.padEnd(_infoKeyLen, ' ')} ${colors.cyan(value)}`,
+          ),
+        ].join('\n'),
+        {
+          title: colors.yellow('Preview Mode'),
+          style: {
+            borderColor: 'yellow',
+          },
+        },
+      ),
+    )
 
     const envExists = ctx.args.dotenv
       ? existsSync(resolve(cwd, ctx.args.dotenv))
@@ -73,7 +99,7 @@ export default defineCommand({
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }
 
-    consola.info('Starting preview command:', nitroJSON.commands.preview)
+    consola.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     consola.log('')
     await execa(command, commandArgs, { stdio: 'inherit', cwd: outputPath })
