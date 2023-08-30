@@ -151,12 +151,15 @@ export default defineCommand({
       // Currently it is typed as any in nuxt. we try to keep it close to listhen interface
       const listenerInfo = JSON.parse(
         process.env.__NUXT_DEV_LISTENER__ || 'null',
-      ) || { url: serverURL, urls: [] }
+      ) || { url: serverURL, urls: [], https: false }
+      consola.log(listenerInfo)
       await currentNuxt.hooks.callHook('listen', server, {
+        // Internal server
         server,
-        url: listenerInfo.url,
-        https: false,
         address: { host: '127.0.0.1', port },
+        // Exposed server
+        url: listenerInfo.url,
+        https: listenerInfo.https,
         close: () => Promise.reject('Cannot close internal dev server!'),
         open: () => Promise.resolve(),
         showURL: () => Promise.resolve(),
@@ -172,7 +175,7 @@ export default defineCommand({
       currentNuxt.options.devServer.url = `http://127.0.0.1:${port}/`
       currentNuxt.options.devServer.host = '127.0.0.1'
       currentNuxt.options.devServer.port = port
-      currentNuxt.options.devServer.https = false
+      currentNuxt.options.devServer.https = listenerInfo.https
 
       await Promise.all([
         writeTypes(currentNuxt).catch(console.error),
