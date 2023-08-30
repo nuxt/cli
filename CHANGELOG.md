@@ -1,6 +1,42 @@
 # Changelog
 
 
+## v3.7.3
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.7.1...v3.7.3)
+
+### 🩹 Fixes
+
+- Update nypm to 0.3.2 ([#116](https://github.com/nuxt/cli/pull/116))
+- **dev:** Pass listener interface to the `listen` hook ([#120](https://github.com/nuxt/cli/pull/120))
+- **devtools:** Define `enable ([disable` command as positional argument (#119)](https://github.com/nuxt/cli/commit/disable` command as positional argument (#119)))
+- Prefer ipv4 stack for windows, wsl2 and internals ([#122](https://github.com/nuxt/cli/pull/122))
+- Add cli version and name in usage ([#123](https://github.com/nuxt/cli/pull/123))
+- Improve preview banner and add backward compatible `start` ([#124](https://github.com/nuxt/cli/pull/124))
+- **dev:** Use truthy value of `-o` ([#125](https://github.com/nuxt/cli/pull/125))
+- **dev:** Pass `https` info to the vite hmr ([#126](https://github.com/nuxt/cli/pull/126))
+- **dev:** Support ws upgrades ([#127](https://github.com/nuxt/cli/pull/127))
+
+### 💅 Refactors
+
+- **upgrade:** Prompt for force install ([#111](https://github.com/nuxt/cli/pull/111))
+
+### 📖 Documentation
+
+- Fix typo ([#110](https://github.com/nuxt/cli/pull/110))
+
+### 🏡 Chore
+
+- **release:** V3.7.2 ([ebc8ece](https://github.com/nuxt/cli/commit/ebc8ece))
+- Fix typo ([f7e71ec](https://github.com/nuxt/cli/commit/f7e71ec))
+- Add `packageManager` field to the playground ([0d9b4e8](https://github.com/nuxt/cli/commit/0d9b4e8))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- 1ab4c49 <Andrey Yolkin>
+- Daniel Roe <daniel@roe.dev>
+
 ## v3.7.2
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.7.0...v3.7.2)
