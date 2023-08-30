@@ -70,7 +70,7 @@ export default defineCommand({
     consola.log(
       box(
         [
-          'You are running Nuxt production build in preview mode',
+          'You are running Nuxt production build in preview mode.',
           `For production deployments, please directly use ${colors.cyan(
             nitroJSON.commands.preview,
           )} command.`,
