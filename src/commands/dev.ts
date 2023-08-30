@@ -96,9 +96,6 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
       res.end(loadingTemplate({ loading: loadingMessage }))
       return
     }
-    if (req.url?.includes('/api/ws')) {
-      console.log(req.url, 'proxy to', address)
-    }
     return proxy.web(req, res, { target: address, ws: true })
   }
 
