@@ -96,7 +96,7 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
       res.end(loadingTemplate({ loading: loadingMessage }))
       return
     }
-    return proxy.web(req, res, { target: address, ws: true })
+    return proxy.web(req, res, { target: address })
   }
 
   const wsHandler = (req: IncomingMessage, socket: any, head: any) => {
@@ -104,7 +104,7 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
       socket.destroy()
       return
     }
-    return proxy.ws(req, socket, { target: address, ws: true }, head)
+    return proxy.ws(req, socket, { target: address }, head)
   }
 
   return {
