@@ -141,6 +141,7 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
         __NUXT_DEV_LISTENER__: JSON.stringify({
           url: listener.url,
           urls: listener.getURLs(),
+          https: listener.https,
         }),
       },
     },
