@@ -156,7 +156,7 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
 
   childProc.on('message', (message: NuxtDevIPCMessage) => {
     if (message.type === 'nuxt:internal:dev:ready') {
-      devServer.setAddress(`http://localhost:${message.port}`)
+      devServer.setAddress(`http://127.0.0.1:${message.port}`)
     } else if (message.type === 'nuxt:internal:dev:loading') {
       devServer.setAddress(undefined)
       devServer.setLoadingMessage(message.message)

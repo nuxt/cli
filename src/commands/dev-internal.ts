@@ -69,7 +69,7 @@ export default defineCommand({
         resolve((server.address() as AddressInfo).port)
       })
     })
-    const serverURL = `http://localhost:${port}/`
+    const serverURL = `http://127.0.0.1:${port}/`
     if (!process.send) {
       logger.success(`Listening on ${serverURL}`)
     }
@@ -156,7 +156,7 @@ export default defineCommand({
         server,
         url: listenerInfo.url,
         https: false,
-        address: { host: 'localhost', port },
+        address: { host: '127.0.0.1', port },
         close: () => Promise.reject('Cannot close internal dev server!'),
         open: () => Promise.resolve(),
         showURL: () => Promise.resolve(),
@@ -169,8 +169,8 @@ export default defineCommand({
 
       // Sync internal server info to the internals
       // It is important for vite-node to use the internal URL
-      currentNuxt.options.devServer.url = `http://localhost:${port}/`
-      currentNuxt.options.devServer.host = 'localhost'
+      currentNuxt.options.devServer.url = `http://127.0.0.1:${port}/`
+      currentNuxt.options.devServer.host = '127.0.0.1'
       currentNuxt.options.devServer.port = port
       currentNuxt.options.devServer.https = false
 
