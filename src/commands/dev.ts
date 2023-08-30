@@ -225,7 +225,7 @@ function _resolveListenOptions(
   return {
     ...parseArgs({
       ...args,
-      open: args.open ?? args.o,
+      open: (args.o as boolean) || args.open,
       'https.cert': _httpsCert,
       'https.key': _httpsKey,
     }),
