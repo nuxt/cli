@@ -152,7 +152,6 @@ export default defineCommand({
       const listenerInfo = JSON.parse(
         process.env.__NUXT_DEV_LISTENER__ || 'null',
       ) || { url: serverURL, urls: [], https: false }
-      consola.log(listenerInfo)
       await currentNuxt.hooks.callHook('listen', server, {
         // Internal server
         server,
