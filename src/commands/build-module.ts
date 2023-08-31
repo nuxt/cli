@@ -19,6 +19,10 @@ export default defineCommand({
       type: 'boolean',
       description: 'Stub dist instead of actually building it for development',
     },
+    sourcemap: {
+      type: 'boolean',
+      description: 'Generate sourcemaps',
+    },
     prepare: {
       type: 'boolean',
       description: 'Prepare module for local development',
@@ -35,6 +39,7 @@ export default defineCommand({
 
     const execArgs = Object.entries({
       '--stub': ctx.args.stub,
+      '--sourcemap': ctx.args.sourcemap,
       '--prepare': ctx.args.prepare,
     })
       .filter(([, value]) => value)
