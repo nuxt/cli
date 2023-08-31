@@ -22,7 +22,7 @@ export default defineCommand({
     },
     nuxtVersion: {
       type: 'string',
-      description: 'Nuxt Version',
+      description: 'Filter by Nuxt Version and only see compatible modules',
       required: false,
     }
   },
