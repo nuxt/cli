@@ -23,7 +23,7 @@
   "scripts": {
     "build": "unbuild",
     "build:stub": "unbuild --stub",
-    "dev": "node ./scripts/nuxi.mjs dev ./playground",
+    "dev": "node ./scripts/nuxi.mjs",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
     "nuxi": "node ./scripts/nuxi.mjs",

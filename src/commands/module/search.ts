@@ -5,6 +5,8 @@ import { fetchModules } from './_utils'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray } from 'colorette'
+import { satisfies, coerce } from 'semver'
+import type { NuxtModule } from './_utils'
 
 export default defineCommand({
   meta: {
@@ -18,15 +20,21 @@ export default defineCommand({
       description: 'keywords to search for',
       required: true,
     },
+    nuxtVersion: {
+      type: 'string',
+      description: 'Nuxt Version',
+      required: false,
+    }
   },
   async setup(ctx) {
-    return findModuleByKeywords(ctx.args._.join(' '))
+    return findModuleByKeywords(ctx.args._.join(' '), ctx.args.nuxtVersion)
   },
 })
 
-async function findModuleByKeywords(query: string) {
+async function findModuleByKeywords(query: string, nuxtVersion: string | null) {
   const modules = await fetchModules()
-  const fuse = new Fuse(modules, {
+  const compatibleModules = getCompatibleModules(modules, nuxtVersion)
+  const fuse = new Fuse(compatibleModules, {
     threshold: 0.1,
     keys: [
       { name: 'name', weight: 1 },
@@ -64,9 +72,8 @@ async function findModuleByKeywords(query: string) {
   }
 
   consola.success(
-    `Found ${results.length} nuxt ${
-      results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)}:\n`,
+    `Found ${results.length} nuxt ${results.length > 1 ? 'modules' : 'module'
+    } matching ${cyan(query)} ${nuxtVersion ? 'and nuxt version ' + cyan(nuxtVersion) :""}:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0
@@ -87,4 +94,20 @@ async function findModuleByKeywords(query: string) {
     }
     console.log(infoStr)
   }
+}
+
+const getCompatibleModules = (modules: NuxtModule[], nuxtVersion: string | null): NuxtModule[] => {
+  const version = coerce(nuxtVersion)
+
+  if (!version) {
+    return modules
+  }
+
+  const compatibleModules = modules.filter(entry => {
+    const requiredNuxtVersion = entry.compatibility.nuxt
+
+    return satisfies(version, requiredNuxtVersion);
+  });
+
+  return compatibleModules
 }
