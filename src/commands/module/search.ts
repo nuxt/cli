@@ -24,7 +24,7 @@ export default defineCommand({
       type: 'string',
       description: 'Filter by Nuxt Version and only see compatible modules',
       required: false,
-    }
+    },
   },
   async setup(ctx) {
     return findModuleByKeywords(ctx.args._.join(' '), ctx.args.nuxtVersion)
@@ -72,8 +72,11 @@ async function findModuleByKeywords(query: string, nuxtVersion: string | null) {
   }
 
   consola.success(
-    `Found ${results.length} nuxt ${results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)} ${nuxtVersion ? 'and nuxt version ' + cyan(nuxtVersion) :""}:\n`,
+    `Found ${results.length} nuxt ${
+      results.length > 1 ? 'modules' : 'module'
+    } matching ${cyan(query)} ${
+      nuxtVersion ? 'and nuxt version ' + cyan(nuxtVersion) : ''
+    }:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0
@@ -96,18 +99,21 @@ async function findModuleByKeywords(query: string, nuxtVersion: string | null) {
   }
 }
 
-const getCompatibleModules = (modules: NuxtModule[], nuxtVersion: string | null): NuxtModule[] => {
+const getCompatibleModules = (
+  modules: NuxtModule[],
+  nuxtVersion: string | null,
+): NuxtModule[] => {
   const version = coerce(nuxtVersion)
 
   if (!version) {
     return modules
   }
 
-  const compatibleModules = modules.filter(entry => {
+  const compatibleModules = modules.filter((entry) => {
     const requiredNuxtVersion = entry.compatibility.nuxt
 
-    return satisfies(version, requiredNuxtVersion);
-  });
+    return satisfies(version, requiredNuxtVersion)
+  })
 
   return compatibleModules
 }
