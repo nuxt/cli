@@ -67,7 +67,19 @@ const command = defineCommand({
     await listener.showURL()
 
     // Start actual builder sub process
-    _startSubprocess(devServer, listener)
+    const subProcess = _startSubprocess(devServer, listener)
+
+    // Graceful shutdown
+    for (const signal of [
+      'exit',
+      'SIGTERM' /* Graceful shutdown */,
+      'SIGINT' /* Ctrl-C */,
+      'SIGQUIT' /* Ctrl-\ */,
+    ] as const) {
+      process.once(signal, () => {
+        subProcess.kill()
+      })
+    }
   },
 })
 
@@ -125,68 +137,63 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
 function _startSubprocess(devServer: DevServer, listener: Listener) {
   let childProc: ChildProcess | undefined
 
-  const close = () => {
-    childProc?.kill()
-    childProc = undefined
+  const kill = () => {
+    if (childProc) {
+      childProc.kill(0)
+      childProc = undefined
+    }
   }
 
   const restart = () => {
-    close()
-    _startSubprocess(devServer, listener)
-  }
+    console.log('Restarting...')
+    // Kill previous process
+    kill()
 
-  for (const signal of [
-    'exit',
-    'SIGTERM' /* Graceful shutdown */,
-    'SIGINT' /* Ctrl-C */,
-    'SIGQUIT' /* Ctrl-\ */,
-  ] as const) {
-    process.once(signal, close)
-  }
-
-  childProc = fork(
-    globalThis.__nuxt_cli__?.entry!,
-    ['_dev', ...process.argv.splice(3)],
-    {
-      execArgv: [
-        '--enable-source-maps',
-        process.argv.includes('--inspect') && '--inspect',
-      ].filter(Boolean) as string[],
-      env: {
-        ...process.env,
-        __NUXT_DEV_LISTENER__: JSON.stringify({
-          url: listener.url,
-          urls: listener.getURLs(),
-          https: listener.https,
-        }),
+    // Start new process
+    childProc = fork(
+      globalThis.__nuxt_cli__?.entry!,
+      ['_dev', ...process.argv.slice(3)],
+      {
+        execArgv: [
+          '--enable-source-maps',
+          process.argv.includes('--inspect') && '--inspect',
+        ].filter(Boolean) as string[],
+        env: {
+          ...process.env,
+          __NUXT_DEV_LISTENER__: JSON.stringify({
+            url: listener.url,
+            urls: listener.getURLs(),
+            https: listener.https,
+          }),
+        },
       },
-    },
-  )
+    )
 
-  childProc.on('close', (code) => {
-    if (code) {
-      process.exit(code)
-    } else {
-      process.exit()
-    }
-  })
+    // Close main process on child exit with error
+    childProc.on('close', (errorCode) => {
+      if (errorCode) {
+        process.exit(errorCode)
+      }
+    })
 
-  childProc.on('message', (message: NuxtDevIPCMessage) => {
-    if (message.type === 'nuxt:internal:dev:ready') {
-      devServer.setAddress(`http://127.0.0.1:${message.port}`)
-    } else if (message.type === 'nuxt:internal:dev:loading') {
-      devServer.setAddress(undefined)
-      devServer.setLoadingMessage(message.message)
-    }
-    if ((message as { type: string })?.type === 'nuxt:restart') {
-      restart
-    }
-  })
+    // Listen for IPC messages
+    childProc.on('message', (message: NuxtDevIPCMessage) => {
+      if (message.type === 'nuxt:internal:dev:ready') {
+        devServer.setAddress(`http://127.0.0.1:${message.port}`)
+      } else if (message.type === 'nuxt:internal:dev:loading') {
+        devServer.setAddress(undefined)
+        devServer.setLoadingMessage(message.message)
+      } else if (message.type === 'nuxt:internal:dev:restart') {
+        restart()
+      }
+    })
+  }
+
+  restart()
 
   return {
-    childProc,
-    close,
     restart,
+    kill,
   }
 }
 
