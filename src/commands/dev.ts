@@ -145,7 +145,6 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
   }
 
   const restart = () => {
-    console.log('Restarting...')
     // Kill previous process
     kill()
 
