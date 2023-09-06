@@ -6,7 +6,10 @@ import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
 import type { Listener, ListenOptions } from 'listhen'
-import { getArgs, parseArgs } from 'listhen/cli'
+import {
+  getArgs as getListhenArgs,
+  parseArgs as parseListhenArgs,
+} from 'listhen/cli'
 import type { NuxtOptions } from '@nuxt/schema'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { fork } from 'node:child_process'
@@ -22,7 +25,7 @@ const command = defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
-    ...getArgs(),
+    ...getListhenArgs(),
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
@@ -237,7 +240,7 @@ function _resolveListenOptions(
     ''
 
   return {
-    ...parseArgs({
+    ...parseListhenArgs({
       ...args,
       open: (args.o as boolean) || args.open,
       'https.cert': _httpsCert,
@@ -246,6 +249,7 @@ function _resolveListenOptions(
     port: _port,
     hostname: _hostname,
     public: _public,
+    https: args.https ?? _devServerConfig.https,
     showURL: false,
   }
 }
