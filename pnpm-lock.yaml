@@ -82,9 +82,6 @@ devDependencies:
   fuse.js:
     specifier: ^6.6.2
     version: 6.6.2
-  get-port-please:
-    specifier: ^3.0.2
-    version: 3.0.2
   giget:
     specifier: ^1.1.2
     version: 1.1.2
@@ -101,8 +98,8 @@ devDependencies:
     specifier: ^1.19.3
     version: 1.19.3
   listhen:
-    specifier: ^1.4.4
-    version: 1.4.4
+    specifier: ^1.4.7
+    version: 1.4.7
   magicast:
     specifier: ^0.2.10
     version: 0.2.10
@@ -1184,7 +1181,7 @@ packages:
       estree-walker: 3.0.3
       externality: 1.0.2
       fs-extra: 11.1.1
-      get-port-please: 3.0.2
+      get-port-please: 3.1.0
       h3: 1.8.1
       knitwork: 1.0.0
       magic-string: 0.30.3
@@ -3275,8 +3272,8 @@ packages:
       has-symbols: 1.0.3
     dev: true
 
-  /get-port-please@3.0.2:
-    resolution: {integrity: sha512-c14cAITf0E+uqdxGALvyYHwOL7UsnWcv3oDtgDAZksiVSGN87xlWVUWGZcmWQU3cICdaOxT+6LdQzUfK2ei1SA==}
+  /get-port-please@3.1.0:
+    resolution: {integrity: sha512-r/qtQh/rku1cnqnEFgnY7CFsy+EXUuWjw4938fk7yfGVMJfEkpJBOTMtkiP4QcXMfXICpuaBJELrifWK+mtvXw==}
     dev: true
 
   /get-stream@6.0.1:
@@ -3840,8 +3837,8 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  /listhen@1.4.4:
-    resolution: {integrity: sha512-xoZWbfziou7xPWj9nlFXeroFTJZVIyJ6wKrLea2jxvWgMkcz/vLMoZACYHLRmcLGi5hZkcDF48tmkmv1Y6Y42Q==}
+  /listhen@1.4.7:
+    resolution: {integrity: sha512-CCwyvkwJzoUfKb9jYOYEIJMK+waOkKDW1EuABIocwK3caZtqrq6t/Bo51WpN7gpeF8yusoiZf3xeJNyoque3aw==}
     hasBin: true
     dependencies:
       '@parcel/watcher': 2.3.0
@@ -3850,7 +3847,7 @@ packages:
       clipboardy: 3.0.0
       consola: 3.2.3
       defu: 6.1.2
-      get-port-please: 3.0.2
+      get-port-please: 3.1.0
       h3: 1.8.1
       http-shutdown: 1.2.2
       jiti: 1.19.3
@@ -4173,7 +4170,7 @@ packages:
       jiti: 1.19.3
       klona: 2.0.6
       knitwork: 1.0.0
-      listhen: 1.4.4
+      listhen: 1.4.7
       magic-string: 0.30.3
       mime: 3.0.0
       mlly: 1.4.2
@@ -5762,7 +5759,7 @@ packages:
       destr: 2.0.1
       h3: 1.8.1
       ioredis: 5.3.2
-      listhen: 1.4.4
+      listhen: 1.4.7
       lru-cache: 10.0.1
       mri: 1.2.0
       node-fetch-native: 1.4.0
