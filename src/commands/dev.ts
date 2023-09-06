@@ -5,7 +5,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
-import type { Listener, ListenOptions } from 'listhen'
+import type { HTTPSOptions, Listener, ListenOptions } from 'listhen'
 import {
   getArgs as getListhenArgs,
   parseArgs as parseListhenArgs,
@@ -239,17 +239,28 @@ function _resolveListenOptions(
       _devServerConfig.https?.key) ||
     ''
 
+  const httpsEnabled =
+    args.https == true || (args.https === undefined && !!_devServerConfig.https)
+
+  const _listhenOptions = parseListhenArgs({
+    ...args,
+    open: (args.o as boolean) || args.open,
+    https: httpsEnabled,
+    'https.cert': _httpsCert,
+    'https.key': _httpsKey,
+  })
+
+  const httpsOptions = httpsEnabled && {
+    ...(_devServerConfig.https as HTTPSOptions),
+    ...(_listhenOptions.https as HTTPSOptions),
+  }
+
   return {
-    ...parseListhenArgs({
-      ...args,
-      open: (args.o as boolean) || args.open,
-      'https.cert': _httpsCert,
-      'https.key': _httpsKey,
-    }),
+    ..._listhenOptions,
     port: _port,
     hostname: _hostname,
     public: _public,
-    https: args.https ?? _devServerConfig.https,
     showURL: false,
+    https: httpsOptions,
   }
 }
