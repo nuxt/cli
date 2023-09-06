@@ -2,6 +2,6 @@
   "name": "nuxt-cli-playground",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@8.7.0",
+  "packageManager": "pnpm@8.7.4",
   "devDependencies": {}
 }
