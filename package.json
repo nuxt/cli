@@ -23,11 +23,10 @@
   "scripts": {
     "build": "unbuild",
     "build:stub": "unbuild --stub",
-    "dev": "node ./scripts/nuxi.mjs dev ./playground",
+    "dev": "node ./bin/nuxi.mjs dev ./playground",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
-    "nuxi": "node ./scripts/nuxi.mjs",
-    "nuxi-ng": "node ./scripts/nuxi.mjs",
+    "nuxi": "node ./bin/nuxi.mjs",
     "prepack": "unbuild",
     "release": "pnpm test && changelogen --release && npm publish && git push --follow-tags",
     "test": "pnpm lint && pnpm test:types && pnpm build && pnpm test:dist",
