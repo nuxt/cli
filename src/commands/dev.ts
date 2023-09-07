@@ -15,7 +15,7 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { fork } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import { IncomingMessage, ServerResponse } from 'node:http'
-import { NuxtDevIPCMessage } from './dev-internal'
+import { NuxtDevIPCMessage } from '../utils/dev'
 
 const command = defineCommand({
   meta: {
@@ -33,6 +33,11 @@ const command = defineCommand({
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
+    },
+    fork: {
+      type: 'boolean',
+      description: 'Disable forked mode',
+      default: true,
     },
   },
   async run(ctx) {
@@ -53,32 +58,30 @@ const command = defineCommand({
       },
     })
 
-    // Initialize dev server and listen
-    const devServer = await _createDevServer(nuxtOptions)
+    // Prepare listener
     const { listen } = await import('listhen')
-    const listener = await listen(
-      devServer.handler,
-      _resolveListenOptions(nuxtOptions, ctx.args),
-    )
+    const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
 
-    // Handle websocket upgrade
-    listener.server.on('upgrade', devServer.wsHandler)
-
-    await listener.showURL()
-
-    // Start actual builder sub process
-    const subProcess = _startSubprocess(devServer, listener)
-
-    // Graceful shutdown
-    for (const signal of [
-      'exit',
-      'SIGTERM' /* Graceful shutdown */,
-      'SIGINT' /* Ctrl-C */,
-      'SIGQUIT' /* Ctrl-\ */,
-    ] as const) {
-      process.once(signal, () => {
-        subProcess.kill()
+    if (ctx.args.fork) {
+      // Fork nuxt dev process
+      const devServer = await _createDevServer(nuxtOptions)
+      const listener = await listen(devServer.handler, listenOptions)
+      listener.server.on('upgrade', devServer.wsHandler)
+      await _startSubprocess(devServer, listener)
+      await listener.showURL()
+    } else {
+      // Directly start nuxt dev
+      const { createNuxtDevServer } = await import('../utils/dev')
+      const nuxtDev = createNuxtDevServer({
+        cwd,
+        overrides: ctx.data?.overrides,
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        clear: ctx.args.clear,
+        dotenv: !!ctx.args.dotenv,
       })
+      const listener = await listen(nuxtDev.handler, listenOptions)
+      await nuxtDev.init(listener)
+      await listener.showURL()
     }
   },
 })
@@ -185,6 +188,18 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
       } else if (message.type === 'nuxt:internal:dev:restart') {
         restart()
       }
+    })
+  }
+
+  // Graceful shutdown
+  for (const signal of [
+    'exit',
+    'SIGTERM' /* Graceful shutdown */,
+    'SIGINT' /* Ctrl-C */,
+    'SIGQUIT' /* Ctrl-\ */,
+  ] as const) {
+    process.once(signal, () => {
+      kill()
     })
   }
 
