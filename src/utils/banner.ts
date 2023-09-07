@@ -1,13 +1,13 @@
 import clear from 'clear'
 import { bold, gray, green } from 'colorette'
-import { version } from '../../package.json'
+import nuxiPkg from '../../package.json'
 import { tryRequireModule } from './cjs'
 
 export function showBanner(_clear?: boolean) {
   if (_clear) {
     clear()
   }
-  console.log(gray(`Nuxt CLI ${bold(version)}`))
+  console.log(gray(`Nuxt CLI ${bold(nuxiPkg.version)}`))
 }
 
 export function showVersions(cwd: string) {
