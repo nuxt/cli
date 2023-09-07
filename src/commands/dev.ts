@@ -64,10 +64,10 @@ const command = defineCommand({
 
     if (ctx.args.fork) {
       // Fork nuxt dev process
-      const devServer = await _createDevServer(nuxtOptions)
-      const listener = await listen(devServer.handler, listenOptions)
-      listener.server.on('upgrade', devServer.wsHandler)
-      await _startSubprocess(devServer, listener)
+      const devProxy = await _createDevProxy(nuxtOptions)
+      const listener = await listen(devProxy.handler, listenOptions)
+      listener.server.on('upgrade', devProxy.wsHandler)
+      await _startSubprocess(devProxy, listener)
       await listener.showURL()
     } else {
       // Directly start nuxt dev
@@ -92,9 +92,9 @@ export default command
 
 type ArgsT = Exclude<Awaited<typeof command.args>, undefined | Function>
 
-type DevServer = Awaited<ReturnType<typeof _createDevServer>>
+type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
-async function _createDevServer(nuxtOptions: NuxtOptions) {
+async function _createDevProxy(nuxtOptions: NuxtOptions) {
   let loadingMessage = 'Nuxt dev server is starting...'
   const loadingTemplate =
     nuxtOptions.devServer.loadingTemplate ??
@@ -137,7 +137,7 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
   }
 }
 
-function _startSubprocess(devServer: DevServer, listener: Listener) {
+function _startSubprocess(devProxy: DevProxy, listener: Listener) {
   let childProc: ChildProcess | undefined
 
   const kill = () => {
@@ -181,10 +181,10 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
     // Listen for IPC messages
     childProc.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:ready') {
-        devServer.setAddress(`http://127.0.0.1:${message.port}`)
+        devProxy.setAddress(`http://127.0.0.1:${message.port}`)
       } else if (message.type === 'nuxt:internal:dev:loading') {
-        devServer.setAddress(undefined)
-        devServer.setLoadingMessage(message.message)
+        devProxy.setAddress(undefined)
+        devProxy.setLoadingMessage(message.message)
       } else if (message.type === 'nuxt:internal:dev:restart') {
         restart()
       }
