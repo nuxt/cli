@@ -17,7 +17,7 @@ import { findup } from '../utils/fs'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
-import { version } from '../../package.json'
+import nuxiPkg from '../../package.json'
 
 export default defineCommand({
   meta: {
@@ -80,7 +80,7 @@ export default defineCommand({
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
-      CLIVersion: version,
+      CLIVersion: nuxiPkg.version,
       NitroVersion: getDepVersion('nitropack'),
       PackageManager: packageManager,
       Builder: builder,

@@ -1,4 +1,4 @@
-import { engines } from '../../package.json'
+import nuxiPkg from '../../package.json'
 
 export async function checkEngines() {
   const satisfies = await import('semver/functions/satisfies.js').then(
@@ -6,7 +6,7 @@ export async function checkEngines() {
       r.default || (r as any as typeof import('semver/functions/satisfies.js')),
   ) // npm/node-semver#381
   const currentNode = process.versions.node
-  const nodeRange = engines.node
+  const nodeRange = nuxiPkg.engines.node
 
   if (!satisfies(currentNode, nodeRange)) {
     console.warn(
