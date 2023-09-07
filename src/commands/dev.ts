@@ -1,21 +1,23 @@
+import { fork } from 'node:child_process'
 import { resolve } from 'pathe'
 import { setupDotenv } from 'c12'
-import { showVersions } from '../utils/banner'
-import { loadKit } from '../utils/kit'
-import { importModule } from '../utils/esm'
-import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
-import type { HTTPSOptions, Listener, ListenOptions } from 'listhen'
 import {
   getArgs as getListhenArgs,
   parseArgs as parseListhenArgs,
 } from 'listhen/cli'
-import type { NuxtOptions } from '@nuxt/schema'
+import { showVersions } from '../utils/banner'
+import { loadKit } from '../utils/kit'
+import { importModule } from '../utils/esm'
+import { overrideEnv } from '../utils/env'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
-import { fork } from 'node:child_process'
+
+import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
-import { IncomingMessage, ServerResponse } from 'node:http'
-import { NuxtDevIPCMessage } from './dev-internal'
+import type { DevChildContext } from './dev-child'
+import type { NuxtOptions } from '@nuxt/schema'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { NuxtDevIPCMessage } from '../utils/dev'
 
 const command = defineCommand({
   meta: {
@@ -33,6 +35,11 @@ const command = defineCommand({
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
+    },
+    fork: {
+      type: 'boolean',
+      description: 'Disable forked mode',
+      default: true,
     },
   },
   async run(ctx) {
@@ -53,32 +60,27 @@ const command = defineCommand({
       },
     })
 
-    // Initialize dev server and listen
-    const devServer = await _createDevServer(nuxtOptions)
-    const { listen } = await import('listhen')
-    const listener = await listen(
-      devServer.handler,
-      _resolveListenOptions(nuxtOptions, ctx.args),
-    )
+    // Start Proxy Listener
+    const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
+    const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
 
-    // Handle websocket upgrade
-    listener.server.on('upgrade', devServer.wsHandler)
-
-    await listener.showURL()
-
-    // Start actual builder sub process
-    const subProcess = _startSubprocess(devServer, listener)
-
-    // Graceful shutdown
-    for (const signal of [
-      'exit',
-      'SIGTERM' /* Graceful shutdown */,
-      'SIGINT' /* Ctrl-C */,
-      'SIGQUIT' /* Ctrl-\ */,
-    ] as const) {
-      process.once(signal, () => {
-        subProcess.kill()
+    if (ctx.args.fork) {
+      // Fork nuxt dev process
+      await _startSubprocess(devProxy)
+    } else {
+      // Directly start nuxt dev
+      const { createNuxtDevServer } = await import('../utils/dev')
+      const devServer = await createNuxtDevServer({
+        cwd,
+        overrides: ctx.data?.overrides,
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        clear: ctx.args.clear,
+        dotenv: !!ctx.args.dotenv,
+        loadingTemplate: nuxtOptions.devServer.loadingTemplate,
+        https: devProxy.listener.https,
       })
+      devProxy.setAddress(devServer.listener.url)
+      await devServer.init()
     }
   },
 })
@@ -89,9 +91,12 @@ export default command
 
 type ArgsT = Exclude<Awaited<typeof command.args>, undefined | Function>
 
-type DevServer = Awaited<ReturnType<typeof _createDevServer>>
+type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
-async function _createDevServer(nuxtOptions: NuxtOptions) {
+async function _createDevProxy(
+  nuxtOptions: NuxtOptions,
+  listenOptions: Partial<ListenOptions>,
+) {
   let loadingMessage = 'Nuxt dev server is starting...'
   const loadingTemplate =
     nuxtOptions.devServer.loadingTemplate ??
@@ -122,7 +127,12 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
     return proxy.ws(req, socket, { target: address }, head)
   }
 
+  const { listen } = await import('listhen')
+  const listener = await listen(handler, listenOptions)
+  listener.server.on('upgrade', wsHandler)
+
   return {
+    listener,
     handler,
     wsHandler,
     setAddress: (_addr: string | undefined) => {
@@ -134,7 +144,7 @@ async function _createDevServer(nuxtOptions: NuxtOptions) {
   }
 }
 
-function _startSubprocess(devServer: DevServer, listener: Listener) {
+async function _startSubprocess(devProxy: DevProxy) {
   let childProc: ChildProcess | undefined
 
   const kill = () => {
@@ -144,7 +154,7 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
     }
   }
 
-  const restart = () => {
+  const restart = async () => {
     // Kill previous process
     kill()
 
@@ -159,11 +169,11 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
         ].filter(Boolean) as string[],
         env: {
           ...process.env,
-          __NUXT_DEV_LISTENER__: JSON.stringify({
-            url: listener.url,
-            urls: listener.getURLs(),
-            https: listener.https,
-          }),
+          __NUXT_DEV_PROXY__: JSON.stringify({
+            url: devProxy.listener.url,
+            urls: await devProxy.listener.getURLs(),
+            https: devProxy.listener.https,
+          } satisfies DevChildContext),
         },
       },
     )
@@ -178,17 +188,29 @@ function _startSubprocess(devServer: DevServer, listener: Listener) {
     // Listen for IPC messages
     childProc.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:ready') {
-        devServer.setAddress(`http://127.0.0.1:${message.port}`)
+        devProxy.setAddress(`http://127.0.0.1:${message.port}`)
       } else if (message.type === 'nuxt:internal:dev:loading') {
-        devServer.setAddress(undefined)
-        devServer.setLoadingMessage(message.message)
+        devProxy.setAddress(undefined)
+        devProxy.setLoadingMessage(message.message)
       } else if (message.type === 'nuxt:internal:dev:restart') {
         restart()
       }
     })
   }
 
-  restart()
+  // Graceful shutdown
+  for (const signal of [
+    'exit',
+    'SIGTERM' /* Graceful shutdown */,
+    'SIGINT' /* Ctrl-C */,
+    'SIGQUIT' /* Ctrl-\ */,
+  ] as const) {
+    process.once(signal, () => {
+      kill()
+    })
+  }
+
+  await restart()
 
   return {
     restart,
@@ -266,7 +288,6 @@ function _resolveListenOptions(
     port: _port,
     hostname: _hostname,
     public: _public,
-    showURL: false,
     https: httpsOptions,
   }
 }
