@@ -2,6 +2,7 @@ import { fork } from 'node:child_process'
 import { resolve } from 'pathe'
 import { setupDotenv } from 'c12'
 import { defineCommand, ParsedArgs } from 'citty'
+import { isBun, isTest } from 'std-env'
 import {
   getArgs as getListhenArgs,
   parseArgs as parseListhenArgs,
@@ -18,6 +19,8 @@ import type { DevChildContext } from './dev-child'
 import type { NuxtOptions } from '@nuxt/schema'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { NuxtDevIPCMessage } from '../utils/dev'
+
+const forkSupported = !isBun && !isTest
 
 const command = defineCommand({
   meta: {
@@ -38,8 +41,8 @@ const command = defineCommand({
     },
     fork: {
       type: 'boolean',
-      description: 'Disable forked mode',
-      default: true,
+      description: forkSupported ? 'Disable forked mode' : 'Enable forked mode',
+      default: forkSupported,
     },
   },
   async run(ctx) {
