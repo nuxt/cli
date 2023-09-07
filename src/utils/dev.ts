@@ -23,6 +23,7 @@ export interface NuxtDevServerOptions {
   dotenv: boolean
   clear: boolean
   overrides: NuxtConfig
+  loadingTemplate?: ({ loading }: { loading: string }) => string
 }
 
 export function createNuxtDevServer(options: NuxtDevServerOptions) {
@@ -68,13 +69,17 @@ export class NuxtDevServer extends EventEmitter {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate =
-      this._currentNuxt?.options.devServer.loadingTemplate ??
-      (await importModule('@nuxt/ui-templates', this.options.cwd).then(
-        (r) => r.loading,
-      ))
+      this.options.loadingTemplate ||
+      this._currentNuxt?.options.devServer.loadingTemplate ||
+      (
+        await importModule('@nuxt/ui-templates', this.options.cwd).then(
+          (r) => r.loading,
+        )
+      ).catch(() => {}) ||
+      ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
-        loading: this._loadingMessage || 'Loading...',
+        loading: _error?.toString() || this._loadingMessage || 'Loading...',
       }),
     )
   }

@@ -78,6 +78,7 @@ const command = defineCommand({
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         clear: ctx.args.clear,
         dotenv: !!ctx.args.dotenv,
+        loadingTemplate: nuxtOptions.devServer.loadingTemplate,
       })
       const listener = await listen(nuxtDev.handler, listenOptions)
       await nuxtDev.init(listener)
