@@ -1,21 +1,23 @@
+import { fork } from 'node:child_process'
 import { resolve } from 'pathe'
 import { setupDotenv } from 'c12'
-import { showVersions } from '../utils/banner'
-import { loadKit } from '../utils/kit'
-import { importModule } from '../utils/esm'
-import { overrideEnv } from '../utils/env'
 import { defineCommand, ParsedArgs } from 'citty'
-import type { HTTPSOptions, Listener, ListenOptions } from 'listhen'
 import {
   getArgs as getListhenArgs,
   parseArgs as parseListhenArgs,
 } from 'listhen/cli'
-import type { NuxtOptions } from '@nuxt/schema'
+import { showVersions } from '../utils/banner'
+import { loadKit } from '../utils/kit'
+import { importModule } from '../utils/esm'
+import { overrideEnv } from '../utils/env'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
-import { fork } from 'node:child_process'
+
+import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
-import { IncomingMessage, ServerResponse } from 'node:http'
-import { NuxtDevIPCMessage } from '../utils/dev'
+import type { DevChildContext } from './dev-child'
+import type { NuxtOptions } from '@nuxt/schema'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { NuxtDevIPCMessage } from '../utils/dev'
 
 const command = defineCommand({
   meta: {
@@ -58,31 +60,27 @@ const command = defineCommand({
       },
     })
 
-    // Prepare listener
-    const { listen } = await import('listhen')
+    // Start Proxy Listener
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
+    const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
 
     if (ctx.args.fork) {
       // Fork nuxt dev process
-      const devProxy = await _createDevProxy(nuxtOptions)
-      const listener = await listen(devProxy.handler, listenOptions)
-      listener.server.on('upgrade', devProxy.wsHandler)
-      await _startSubprocess(devProxy, listener)
-      await listener.showURL()
+      await _startSubprocess(devProxy)
     } else {
       // Directly start nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
-      const nuxtDev = createNuxtDevServer({
+      const devServer = await createNuxtDevServer({
         cwd,
         overrides: ctx.data?.overrides,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         clear: ctx.args.clear,
         dotenv: !!ctx.args.dotenv,
         loadingTemplate: nuxtOptions.devServer.loadingTemplate,
+        https: devProxy.listener.https,
       })
-      const listener = await listen(nuxtDev.handler, listenOptions)
-      await nuxtDev.init(listener)
-      await listener.showURL()
+      devProxy.setAddress(devServer.listener.url)
+      await devServer.init()
     }
   },
 })
@@ -95,7 +93,10 @@ type ArgsT = Exclude<Awaited<typeof command.args>, undefined | Function>
 
 type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
-async function _createDevProxy(nuxtOptions: NuxtOptions) {
+async function _createDevProxy(
+  nuxtOptions: NuxtOptions,
+  listenOptions: Partial<ListenOptions>,
+) {
   let loadingMessage = 'Nuxt dev server is starting...'
   const loadingTemplate =
     nuxtOptions.devServer.loadingTemplate ??
@@ -126,7 +127,12 @@ async function _createDevProxy(nuxtOptions: NuxtOptions) {
     return proxy.ws(req, socket, { target: address }, head)
   }
 
+  const { listen } = await import('listhen')
+  const listener = await listen(handler, listenOptions)
+  listener.server.on('upgrade', wsHandler)
+
   return {
+    listener,
     handler,
     wsHandler,
     setAddress: (_addr: string | undefined) => {
@@ -138,7 +144,7 @@ async function _createDevProxy(nuxtOptions: NuxtOptions) {
   }
 }
 
-function _startSubprocess(devProxy: DevProxy, listener: Listener) {
+async function _startSubprocess(devProxy: DevProxy) {
   let childProc: ChildProcess | undefined
 
   const kill = () => {
@@ -148,7 +154,7 @@ function _startSubprocess(devProxy: DevProxy, listener: Listener) {
     }
   }
 
-  const restart = () => {
+  const restart = async () => {
     // Kill previous process
     kill()
 
@@ -163,11 +169,11 @@ function _startSubprocess(devProxy: DevProxy, listener: Listener) {
         ].filter(Boolean) as string[],
         env: {
           ...process.env,
-          __NUXT_DEV_LISTENER__: JSON.stringify({
-            url: listener.url,
-            urls: listener.getURLs(),
-            https: listener.https,
-          }),
+          __NUXT_DEV_PROXY__: JSON.stringify({
+            url: devProxy.listener.url,
+            urls: await devProxy.listener.getURLs(),
+            https: devProxy.listener.https,
+          } satisfies DevChildContext),
         },
       },
     )
@@ -204,7 +210,7 @@ function _startSubprocess(devProxy: DevProxy, listener: Listener) {
     })
   }
 
-  restart()
+  await restart()
 
   return {
     restart,
@@ -282,7 +288,6 @@ function _resolveListenOptions(
     port: _port,
     hostname: _hostname,
     public: _public,
-    showURL: false,
     https: httpsOptions,
   }
 }

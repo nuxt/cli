@@ -2,7 +2,11 @@
 import { WebSocket } from 'unws'
 
 const reqURL = useRequestURL()
-const urls = [`ws://${reqURL.host}/api/ws`, 'ws://localhost:8080']
+const isSecure = reqURL.protocol === 'https:'
+const urls = [
+  `${isSecure ? 'wss' : 'ws'}://${reqURL.host}/api/ws`,
+  'ws://localhost:8080',
+]
 const _queryURL = useRoute().query.url as string
 if (_queryURL && !urls.includes(_queryURL)) {
   urls.push(_queryURL)

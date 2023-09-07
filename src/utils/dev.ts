@@ -1,15 +1,15 @@
+import type { RequestListener, ServerResponse } from 'node:http'
+import EventEmitter from 'node:events'
 import { relative, resolve } from 'pathe'
 import chokidar from 'chokidar'
-import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
+import { toNodeListener } from 'h3'
+import { HTTPSOptions, listen, Listener } from 'listhen'
+import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
-import { RequestListener, ServerResponse } from 'http'
-import { toNodeListener } from 'h3'
-import { Listener } from 'listhen'
-import EventEmitter from 'events'
 import { importModule } from './esm'
 
 export type NuxtDevIPCMessage =
@@ -23,24 +23,31 @@ export interface NuxtDevServerOptions {
   dotenv: boolean
   clear: boolean
   overrides: NuxtConfig
+  https?: boolean | HTTPSOptions
   loadingTemplate?: ({ loading }: { loading: string }) => string
 }
 
-export function createNuxtDevServer(options: NuxtDevServerOptions) {
-  return new NuxtDevServer(options)
+export async function createNuxtDevServer(options: NuxtDevServerOptions) {
+  const devServer = new NuxtDevServer(options)
+  devServer.listener = await listen(devServer.handler, {
+    port: 0,
+    hostname: '127.0.0.1',
+    showURL: false,
+  })
+  return devServer
 }
 
 const RESTART_RE = /^(nuxt\.config\.(js|ts|mjs|cjs)|\.nuxtignore|\.nuxtrc)$/
 
-export class NuxtDevServer extends EventEmitter {
+class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
   private _distWatcher?: chokidar.FSWatcher
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
-  listener?: Listener
   handler: RequestListener
+  listener: Listener
 
   constructor(private options: NuxtDevServerOptions) {
     super()
@@ -63,6 +70,9 @@ export class NuxtDevServer extends EventEmitter {
         this._renderError(res)
       }
     }
+
+    // @ts-ignore we set it in wrapper function
+    this.listener = undefined
   }
 
   async _renderError(res: ServerResponse, _error?: Error) {
@@ -84,8 +94,7 @@ export class NuxtDevServer extends EventEmitter {
     )
   }
 
-  async init(listener: Listener) {
-    this.listener = listener
+  async init() {
     await this.load()
     await this._watchConfig()
   }
@@ -103,10 +112,6 @@ export class NuxtDevServer extends EventEmitter {
   }
 
   async _load(reload?: boolean, reason?: string) {
-    if (!this.listener) {
-      throw new Error('nuxt dev server is not initialized with listener')
-    }
-
     const action = reload ? 'Restarting' : 'Starting'
     this._loadingMessage = `${reason ? reason + '. ' : ''}${action} nuxt...`
     this._handler = undefined
@@ -174,14 +179,16 @@ export class NuxtDevServer extends EventEmitter {
     )
 
     // Sync internal server info to the internals
-    // It is important for vite-node to use the internal URL
-    const _addr = this.listener.address
-    this._currentNuxt.options.devServer.host = _addr.address
-    this._currentNuxt.options.devServer.port = _addr.port
+    // It is important for vite-node to use the internal URL but public proto
+    const addr = this.listener.address
+    this._currentNuxt.options.devServer.host = addr.address
+    this._currentNuxt.options.devServer.port = addr.port
     this._currentNuxt.options.devServer.url = `http://${
-      _addr.address.includes(':') ? `[${_addr.address}]` : _addr.address
-    }:${_addr.port}/`
-    this._currentNuxt.options.devServer.https = this.listener.https
+      addr.address.includes(':') ? `[${addr.address}]` : addr.address
+    }:${addr.port}/`
+    this._currentNuxt.options.devServer.https = this.options.https as
+      | boolean
+      | { key: string; cert: string }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),
@@ -198,7 +205,7 @@ export class NuxtDevServer extends EventEmitter {
     })
 
     this._handler = toNodeListener(this._currentNuxt.server.app)
-    this.emit('ready', { port: _addr.port })
+    this.emit('ready', addr)
   }
 
   async _watchConfig() {

@@ -3,11 +3,15 @@ import { consola } from 'consola'
 import { overrideEnv } from '../utils/env'
 import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
-import { Server } from 'http'
-import { AddressInfo } from 'net'
 import { isTest } from 'std-env'
-import { Listener } from 'listhen'
 import { NuxtDevIPCMessage, createNuxtDevServer } from '../utils/dev'
+import type { ListenURL, HTTPSOptions } from 'listhen'
+
+export type DevChildContext = {
+  url?: string
+  urls?: ListenURL[]
+  https?: boolean | HTTPSOptions
+}
 
 export default defineCommand({
   meta: {
@@ -32,54 +36,18 @@ export default defineCommand({
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    // Start internal server
-    const server = new Server((req, res) => {
-      if (!nuxtDev.handler) {
-        // This should not be reached!
-        res.statusCode = 503
-        res.end('Nuxt is not ready yet!')
-        return
-      }
-      nuxtDev.handler(req, res)
-    })
-
-    const _addr = await new Promise<AddressInfo>((resolve) => {
-      server.listen(process.env._PORT || 0, () => {
-        resolve(server.address() as AddressInfo)
-      })
-    })
-    const serverURL = `http://127.0.0.1:${_addr.port}/`
-    if (!process.send) {
-      logger.success(`Listening on ${serverURL}`)
-    }
-
-    const listenerInfo = JSON.parse(
-      process.env.__NUXT_DEV_LISTENER__ || 'null',
-    ) || { url: serverURL, urls: [], https: false }
-    const listener = {
-      // Internal server
-      server: server,
-      address: _addr,
-      // Exposed server
-      url: listenerInfo.url,
-      https: listenerInfo.https,
-      close: () => Promise.reject('Cannot close internal dev server!'),
-      open: () => Promise.resolve(),
-      showURL: () => Promise.resolve(),
-      getURLs: () =>
-        Promise.resolve([
-          ...listenerInfo.urls,
-          { url: serverURL, type: 'local' },
-        ]),
-    } satisfies Listener
+    // Get host info
+    const devProxyOptions: DevChildContext =
+      JSON.parse(process.env.__NUXT_DEV_PROXY__ || 'null') || {}
 
     // Init Nuxt dev
-    const nuxtDev = createNuxtDevServer({
+    const nuxtDev = await createNuxtDevServer({
       cwd,
       overrides: ctx.data?.overrides,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,
+      https: devProxyOptions.https,
     })
 
     // IPC Hooks
@@ -106,6 +74,6 @@ export default defineCommand({
     })
 
     // Init server
-    await nuxtDev.init(listener)
+    await nuxtDev.init()
   },
 })
