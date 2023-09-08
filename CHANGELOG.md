@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v3.8.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.0...v3.8.1)
+
+### 🩹 Fixes
+
+- **dev:** Add polyfill for `writeTypes` ([#158](https://github.com/nuxt/cli/pull/158))
+
+### 🏡 Chore
+
+- Update dependencies ([4dee2dc](https://github.com/nuxt/cli/commit/4dee2dc))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
 ## v3.8.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.7.3...v3.8.0)
