@@ -1,5 +1,8 @@
 import { importModule, tryResolveModule } from './esm'
 
+// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
+import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
+
 export const loadKit = async (
   rootDir: string,
 ): Promise<typeof import('@nuxt/kit')> => {
@@ -8,10 +11,15 @@ export const loadKit = async (
     const localKit = await tryResolveModule('@nuxt/kit', rootDir)
     // Otherwise, we resolve Nuxt _first_ as it is Nuxt's kit dependency that will be used
     const rootURL = localKit ? rootDir : (await tryResolveNuxt()) || rootDir
-    return (await importModule(
+    let kit: typeof import('@nuxt/kit') = await importModule(
       '@nuxt/kit',
       rootURL,
-    )) as typeof import('@nuxt/kit')
+    )
+    if (!kit.writeTypes) {
+      // Polyfills for schema < 3.7
+      kit = { ...kit, writeTypes: writeTypesLegacy }
+    }
+    return kit
   } catch (e: any) {
     if (e.toString().includes("Cannot find module '@nuxt/kit'")) {
       throw new Error(
