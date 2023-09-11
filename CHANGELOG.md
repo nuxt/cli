@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.8.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.1...v3.8.2)
+
+### 🏡 Chore
+
+- Update nypm ([adfaf8b](https://github.com/nuxt/cli/commit/adfaf8b))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
 ## v3.8.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.8.0...v3.8.1)
