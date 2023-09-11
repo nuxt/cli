@@ -48,6 +48,7 @@ export default defineCommand({
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,
       https: devProxyOptions.https,
+      port: process.env._PORT ?? undefined,
     })
 
     // IPC Hooks

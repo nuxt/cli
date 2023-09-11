@@ -24,13 +24,14 @@ export interface NuxtDevServerOptions {
   clear: boolean
   overrides: NuxtConfig
   https?: boolean | HTTPSOptions
+  port?: string | number
   loadingTemplate?: ({ loading }: { loading: string }) => string
 }
 
 export async function createNuxtDevServer(options: NuxtDevServerOptions) {
   const devServer = new NuxtDevServer(options)
   devServer.listener = await listen(devServer.handler, {
-    port: 0,
+    port: options.port ?? 0,
     hostname: '127.0.0.1',
     showURL: false,
   })
