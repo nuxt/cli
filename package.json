@@ -35,8 +35,8 @@
   },
   "devDependencies": {
     "@nuxt/eslint-config": "^0.2.0",
-    "@nuxt/kit": "npm:@nuxt/kit-edge@3.7.2-28240515.28af761c",
-    "@nuxt/schema": "npm:@nuxt/schema-edge@3.7.2-28240515.28af761c",
+    "@nuxt/kit": "npm:@nuxt/kit-edge@3.7.2-28240679.f79f9b3a",
+    "@nuxt/schema": "npm:@nuxt/schema-edge@3.7.2-28240679.f79f9b3a",
     "@types/clear": "^0.1.2",
     "@types/flat": "^5.0.2",
     "@types/http-proxy": "^1.17.11",
