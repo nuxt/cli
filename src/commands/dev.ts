@@ -227,7 +227,7 @@ function _resolveListenOptions(
 ): Partial<ListenOptions> {
   // TODO: Default host in schema should be undefined
   const _devServerConfig =
-    (nuxtOptions._layers?.[0].config || nuxtOptions)?.devServer || {}
+    nuxtOptions._layers?.[0].config?.devServer || nuxtOptions.devServer || {}
 
   const _port =
     args.port ??
