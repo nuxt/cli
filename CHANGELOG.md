@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.8.3
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.2...v3.8.3)
+
+### 🩹 Fixes
+
+- Allow overriding internal dev server error via `_PORT` ([#165](https://github.com/nuxt/cli/pull/165))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
 ## v3.8.2
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.8.1...v3.8.2)
