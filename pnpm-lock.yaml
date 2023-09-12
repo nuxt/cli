@@ -14,11 +14,11 @@ devDependencies:
     specifier: ^0.2.0
     version: 0.2.0(eslint@8.49.0)
   '@nuxt/kit':
-    specifier: npm:@nuxt/kit-edge@3.7.2-28240679.f79f9b3a
-    version: /@nuxt/kit-edge@3.7.2-28240679.f79f9b3a(rollup@3.29.1)
+    specifier: npm:@nuxt/kit-edge@3.7.2-28241671.a4d8cad3
+    version: /@nuxt/kit-edge@3.7.2-28241671.a4d8cad3(rollup@3.29.1)
   '@nuxt/schema':
-    specifier: npm:@nuxt/schema-edge@3.7.2-28240679.f79f9b3a
-    version: /@nuxt/schema-edge@3.7.2-28240679.f79f9b3a(rollup@3.29.1)
+    specifier: npm:@nuxt/schema-edge@3.7.2-28241671.a4d8cad3
+    version: /@nuxt/schema-edge@3.7.2-28241671.a4d8cad3(rollup@3.29.1)
   '@types/clear':
     specifier: ^0.1.2
     version: 0.1.2
@@ -1036,11 +1036,11 @@ packages:
       - supports-color
     dev: true
 
-  /@nuxt/kit-edge@3.7.2-28240679.f79f9b3a(rollup@3.29.1):
-    resolution: {integrity: sha512-K/jl2jLjQjHllFAREi9S3RgVrtaHLiZYeO6l/ELMmcDJpkCWsZjsiuRFl2HCksTlcbP4lYWHpSyDeQvwhOTFWA==}
+  /@nuxt/kit-edge@3.7.2-28241671.a4d8cad3(rollup@3.29.1):
+    resolution: {integrity: sha512-C2biYGoHLxld2o2nE+RUMK/Mpy2lPxBbRA0TQR3/vTypXvIOhep75bWZhpQvEBrh3wleNi7ocU5SnIBybOViQg==}
     engines: {node: ^14.18.0 || >=16.10.0}
     dependencies:
-      '@nuxt/schema': /@nuxt/schema-edge@3.7.2-28240679.f79f9b3a(rollup@3.29.1)
+      '@nuxt/schema': /@nuxt/schema-edge@3.7.2-28241671.a4d8cad3(rollup@3.29.1)
       c12: 1.4.2
       consola: 3.2.3
       defu: 6.1.2
@@ -1090,8 +1090,8 @@ packages:
       - supports-color
     dev: true
 
-  /@nuxt/schema-edge@3.7.2-28240679.f79f9b3a(rollup@3.29.1):
-    resolution: {integrity: sha512-KC/1C4XmxmN/J7+xdLHQ7PPU2SVu2SyH48RdrKbeVGpt9HgGAqxMjiDSD9uBU30mVQGzLwy1RXCxM4B9SdCatA==}
+  /@nuxt/schema-edge@3.7.2-28241671.a4d8cad3(rollup@3.29.1):
+    resolution: {integrity: sha512-MvlJR8jP470/nDyzDv/7s055hDybrU0yOse+0GgGc2IuW/WBkRrXen+OuvFz8Id6mtpwhHmy6cKYkjGSGChmDw==}
     engines: {node: ^14.18.0 || >=16.10.0}
     dependencies:
       '@nuxt/ui-templates': 1.3.1
