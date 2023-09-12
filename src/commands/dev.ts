@@ -150,16 +150,16 @@ async function _createDevProxy(
 async function _startSubprocess(devProxy: DevProxy) {
   let childProc: ChildProcess | undefined
 
-  const kill = () => {
+  const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
-      childProc.kill(0)
+      childProc.kill(signal)
       childProc = undefined
     }
   }
 
   const restart = async () => {
-    // Kill previous process
-    kill()
+    // Kill previous process with restart signal
+    kill('SIGHUP')
 
     // Start new process
     childProc = fork(
@@ -209,7 +209,7 @@ async function _startSubprocess(devProxy: DevProxy) {
     'SIGQUIT' /* Ctrl-\ */,
   ] as const) {
     process.once(signal, () => {
-      kill()
+      kill(signal === 'exit' ? 0 : signal)
     })
   }
 
