@@ -61,7 +61,7 @@ export default defineCommand({
       .trim()
     consola.info('Package Manager:', packageManager, packageManagerVersion)
 
-    let nuxtDirsClean = false
+    let nuxtDirsCleaned = false
 
     for (const packageName of [
       'nuxt',
@@ -104,9 +104,9 @@ export default defineCommand({
       }
 
       // Cleanup after upgrade
-      if (!nuxtDirsClean) {
+      if (!nuxtDirsCleaned) {
         await cleanupNuxtDirs(cwd)
-        nuxtDirsClean = true
+        nuxtDirsCleaned = true
       }
 
       // Install latest version
