@@ -147,6 +147,28 @@ class NuxtDevServer extends EventEmitter {
       },
     })
 
+    // Connect Vite HMR
+    this._currentNuxt.hooks.hookOnce(
+      'vite:extendConfig',
+      (config, { isClient }) => {
+        if (isClient && config.server) {
+          config.server.hmr = {
+            ...(config.server.hmr as Exclude<
+              typeof config.server.hmr,
+              boolean
+            >),
+            protocol: undefined,
+            port: undefined,
+            host: undefined,
+            server: this.listener.server,
+          }
+        }
+      },
+    )
+    this._currentNuxt.hooks.hookOnce('close', () => {
+      this.listener.server.removeAllListeners('upgrade')
+    })
+
     // Write manifest and also check if we need cache invalidation
     if (!reload) {
       const previousManifest = await loadNuxtManifest(
