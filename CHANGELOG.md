@@ -1,6 +1,29 @@
 # Changelog
 
 
+## v3.8.4
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.3...v3.8.4)
+
+### 🩹 Fixes
+
+- Pass `logLevel` when running `prepare` ([#170](https://github.com/nuxt/cli/pull/170))
+- Allow layers to define `devServer` config ([#166](https://github.com/nuxt/cli/pull/166))
+- **dev:** Use dedicated signal for restart ([#174](https://github.com/nuxt/cli/pull/174))
+- **dev:** Default host should be undefined ([#182](https://github.com/nuxt/cli/pull/182))
+
+### 🏡 Chore
+
+- Update `listhen` and `nuxt` ([6c21be3](https://github.com/nuxt/cli/commit/6c21be3))
+- Cleanup ws playground ([701e38f](https://github.com/nuxt/cli/commit/701e38f))
+- Update dependencies ([9d6bcb6](https://github.com/nuxt/cli/commit/9d6bcb6))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Niels Janssen <nielsjanssen@live.nl>
+- Daniel Roe <daniel@roe.dev>
+
 ## v3.8.3
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.8.2...v3.8.3)
