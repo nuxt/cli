@@ -153,6 +153,13 @@ class NuxtDevServer extends EventEmitter {
       (config, { isClient }) => {
         if (isClient && config.server) {
           config.server.hmr = {
+            ...(config.server.hmr as Exclude<
+              typeof config.server.hmr,
+              boolean
+            >),
+            protocol: undefined,
+            port: undefined,
+            host: undefined,
             server: this.listener.server,
           }
         }
