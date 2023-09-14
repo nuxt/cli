@@ -148,23 +148,27 @@ class NuxtDevServer extends EventEmitter {
     })
 
     // Connect Vite HMR
-    this._currentNuxt.hooks.hookOnce(
-      'vite:extendConfig',
-      (config, { isClient }) => {
-        if (isClient && config.server) {
-          config.server.hmr = {
-            ...(config.server.hmr as Exclude<
-              typeof config.server.hmr,
-              boolean
-            >),
-            protocol: undefined,
-            port: undefined,
-            host: undefined,
-            server: this.listener.server,
+    if (!process.env._NUXI_DISABLE_VITE_HMR) {
+      this._currentNuxt.hooks.hookOnce(
+        'vite:extendConfig',
+        (config, { isClient }) => {
+          if (isClient && config.server) {
+            config.server.hmr = {
+              ...(config.server.hmr as Exclude<
+                typeof config.server.hmr,
+                boolean
+              >),
+              protocol: undefined,
+              port: undefined,
+              host: undefined,
+              server: this.listener.server,
+            }
           }
-        }
-      },
-    )
+        },
+      )
+    }
+
+    // Remove websocket handlers on close
     this._currentNuxt.hooks.hookOnce('close', () => {
       this.listener.server.removeAllListeners('upgrade')
     })
