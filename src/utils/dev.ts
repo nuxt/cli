@@ -158,6 +158,9 @@ class NuxtDevServer extends EventEmitter {
         }
       },
     )
+    this._currentNuxt.hooks.hookOnce('close', () => {
+      this.listener.server.removeAllListeners('upgrade')
+    })
 
     // Write manifest and also check if we need cache invalidation
     if (!reload) {
