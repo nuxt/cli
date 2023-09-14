@@ -149,7 +149,7 @@ class NuxtDevServer extends EventEmitter {
 
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
-      this._currentNuxt.hooks.hookOnce(
+      this._currentNuxt.hooks.hook(
         'vite:extendConfig',
         (config, { isClient }) => {
           if (isClient && config.server) {
