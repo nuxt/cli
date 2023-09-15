@@ -77,8 +77,8 @@ devDependencies:
     specifier: ^8.0.1
     version: 8.0.1
   flat:
-    specifier: ^5.0.2
-    version: 5.0.2
+    specifier: ^6.0.0
+    version: 6.0.0
   fuse.js:
     specifier: ^6.6.2
     version: 6.6.2
@@ -3125,6 +3125,12 @@ packages:
 
   /flat@5.0.2:
     resolution: {integrity: sha512-b6suED+5/3rTpUBdG1gupIl8MPFCAMA0QXwmljLhvCUKcUvdE4gWky9zpuGCcXHOsz4J9wPGNWq6OKpmIzz3hQ==}
+    hasBin: true
+    dev: true
+
+  /flat@6.0.0:
+    resolution: {integrity: sha512-/aYW7n5yD9HyW9ZHCzW2LGSpyTmbXEdRWdH5ded6K/a2ETgowOripjBqJorQ4/PBa3VPFub28fNruWp+onmIUg==}
+    engines: {node: '>=18'}
     hasBin: true
     dev: true
 
