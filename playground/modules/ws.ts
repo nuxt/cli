@@ -33,8 +33,8 @@ export default defineNuxtModule({
 
     nuxt.hook('listen', (server) => {
       server.on('upgrade', (req, socket, head) => {
-        console.log(`[server] WebSocket upgrade for path: ${req.url}`)
         if (req.url === '/api/ws') {
+          console.log(`[server] WebSocket upgrade for path: ${req.url}`)
           return wss.handleUpgrade(req, socket, head, (ws) => {
             wss.emit('connection', ws, req)
           })

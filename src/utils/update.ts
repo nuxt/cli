@@ -1,4 +1,4 @@
-import { name as pkgName, version as currentVersion } from '../../package.json'
+import nuxiPkg from '../../package.json'
 import { $fetch } from 'ofetch'
 import { cyan, green, yellow, underline } from 'colorette'
 import consola from 'consola'
@@ -9,12 +9,12 @@ export async function checkForUpdates() {
     return
   }
   const { version: latestVersion = '' } = await $fetch(
-    `https://registry.npmjs.org/${pkgName}/latest`,
+    `https://registry.npmjs.org/${nuxiPkg.name}/latest`,
   )
   if (!latestVersion) {
     return
   }
-  if (semver.gt(latestVersion, currentVersion, { loose: true })) {
+  if (semver.gt(latestVersion, nuxiPkg.version, { loose: true })) {
     const changelogURL = `https://github.com/nuxt/cli/releases/tag/v${latestVersion}`
     consola.box({
       title: 'Nuxt CLI Update is Available!',
@@ -23,11 +23,11 @@ export async function checkForUpdates() {
       },
       message: [
         `A new version of Nuxt CLI is available: ${green(latestVersion)}`,
-        `You are currently using ${yellow(currentVersion)}`,
+        `You are currently using ${yellow(nuxiPkg.version)}`,
         '',
         `Release notes: ${underline(cyan(changelogURL))}`,
         '',
-        `To update: \`npm install -g ${pkgName}\``,
+        `To update: \`npm install -g ${nuxiPkg.name}\``,
       ].join('\n'),
     })
   }

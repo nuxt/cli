@@ -32,7 +32,7 @@ export default defineCommand({
       rootDir: cwd,
       overrides: {
         _prepare: true,
-        logLevel: ctx.args.logLeve as 'silent' | 'info' | 'verbose',
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         ...ctx.data?.overrides,
       },
     })

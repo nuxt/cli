@@ -1,6 +1,103 @@
 # Changelog
 
 
+## v3.8.4
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.3...v3.8.4)
+
+### 🩹 Fixes
+
+- Pass `logLevel` when running `prepare` ([#170](https://github.com/nuxt/cli/pull/170))
+- Allow layers to define `devServer` config ([#166](https://github.com/nuxt/cli/pull/166))
+- **dev:** Use dedicated signal for restart ([#174](https://github.com/nuxt/cli/pull/174))
+- **dev:** Default host should be undefined ([#182](https://github.com/nuxt/cli/pull/182))
+
+### 🏡 Chore
+
+- Update `listhen` and `nuxt` ([6c21be3](https://github.com/nuxt/cli/commit/6c21be3))
+- Cleanup ws playground ([701e38f](https://github.com/nuxt/cli/commit/701e38f))
+- Update dependencies ([9d6bcb6](https://github.com/nuxt/cli/commit/9d6bcb6))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Niels Janssen <nielsjanssen@live.nl>
+- Daniel Roe <daniel@roe.dev>
+
+## v3.8.3
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.2...v3.8.3)
+
+### 🩹 Fixes
+
+- Allow overriding internal dev server error via `_PORT` ([#165](https://github.com/nuxt/cli/pull/165))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
+## v3.8.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.1...v3.8.2)
+
+### 🏡 Chore
+
+- Update nypm ([adfaf8b](https://github.com/nuxt/cli/commit/adfaf8b))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
+## v3.8.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.0...v3.8.1)
+
+### 🩹 Fixes
+
+- **dev:** Add polyfill for `writeTypes` ([#158](https://github.com/nuxt/cli/pull/158))
+
+### 🏡 Chore
+
+- Update dependencies ([4dee2dc](https://github.com/nuxt/cli/commit/4dee2dc))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
+## v3.8.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.7.3...v3.8.0)
+
+### 🚀 Enhancements
+
+- Add `--sourcemap` support to `build-module` ([#129](https://github.com/nuxt/cli/pull/129))
+
+### 🩹 Fixes
+
+- Update listhen ([86cfa41](https://github.com/nuxt/cli/commit/86cfa41))
+- **dev:** Enable `https` by default when `devServer.https` options is set ([#146](https://github.com/nuxt/cli/pull/146))
+- **dev:** Handle hard restart ([#147](https://github.com/nuxt/cli/pull/147))
+- **dev:** Provide cli entry for programmatic usage ([#148](https://github.com/nuxt/cli/pull/148))
+- **dev:** Disable forked mode by default for bun and test ([#154](https://github.com/nuxt/cli/pull/154))
+
+### 💅 Refactors
+
+- Import `package.json` with json assertion ([#151](https://github.com/nuxt/cli/pull/151))
+- **dev:** Rewrite dev to support `--no-fork` and improve stability ([#153](https://github.com/nuxt/cli/pull/153))
+
+### 🏡 Chore
+
+- Update lockfile ([97d313f](https://github.com/nuxt/cli/commit/97d313f))
+- Update lockfile for `get-port-please` ([41a1b75](https://github.com/nuxt/cli/commit/41a1b75))
+- Remove `console.log` ([9c851ce](https://github.com/nuxt/cli/commit/9c851ce))
+- Update jiti ([942b5c7](https://github.com/nuxt/cli/commit/942b5c7))
+- Update nitro to 2.6.3 ([41824a7](https://github.com/nuxt/cli/commit/41824a7))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Bobbie Goede <bobbiegoede@gmail.com>
+
 ## v3.7.3
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.7.1...v3.7.3)
