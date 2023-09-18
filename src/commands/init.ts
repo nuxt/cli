@@ -52,6 +52,10 @@ export default defineCommand({
       type: 'boolean',
       description: 'Start shell after installation in project directory',
     },
+    packageManager: {
+      type: 'string',
+      description: 'Package manager choice (npm, pnpm, yarn, bun)',
+    },
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
@@ -84,14 +88,22 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // Prompt user to select package manager
-    const selectedPackageManager = await consola.prompt<{
-      type: 'select'
-      options: PackageManagerName[]
-    }>('Which package manager would you like to use?', {
-      type: 'select',
-      options: ['npm', 'pnpm', 'yarn', 'bun'],
-    })
+    // Resolve package manager
+    const packageManagerOptions: PackageManagerName[] = [
+      'npm',
+      'pnpm',
+      'yarn',
+      'bun',
+    ]
+    const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const selectedPackageManager = packageManagerOptions.includes(
+      packageManagerArg,
+    )
+      ? packageManagerArg
+      : await consola.prompt('Which package manager would you like to use?', {
+          type: 'select',
+          options: packageManagerOptions,
+        })
 
     // Get relative project path
     const relativeProjectPath = relative(process.cwd(), template.dir)
