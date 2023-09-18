@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
+import { fetchModules } from './_utils'
 
 export default defineCommand({
   meta: {
@@ -25,12 +26,30 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
+    exact: {
+      type: 'string',
+      description: 'use exact module name as npm package name to install',
+    },
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
 
-    // TODO: Resolve and validate npm package name first
-    const npmPackage = ctx.args.moduleName
+    let npmPackage = ctx.args.moduleName
+
+    // Try to find as slug in nuxt/modules database
+    try {
+      const modulesDB = await fetchModules()
+      const matchedModule = modulesDB.find(
+        (module) =>
+          module.name === ctx.args.moduleName ||
+          module.npm === ctx.args.moduleName,
+      )
+      if (matchedModule?.npm) {
+        npmPackage = matchedModule.npm
+      }
+    } catch (err) {
+      consola.warn('Cannot search in the modules database:', err)
+    }
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
