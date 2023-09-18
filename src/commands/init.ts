@@ -52,9 +52,9 @@ export default defineCommand({
       type: 'boolean',
       description: 'Start shell after installation in project directory',
     },
-    manager: {
+    packageManager: {
       type: 'string',
-      description: 'Package manager choice',
+      description: 'Package manager choice (npm, pnpm, yarn, bun)',
     },
   },
   async run(ctx) {
@@ -95,9 +95,11 @@ export default defineCommand({
       'yarn',
       'bun',
     ]
-    const managerArg = ctx.args.manager as PackageManagerName
-    const selectedPackageManager = packageManagerOptions.includes(managerArg)
-      ? managerArg
+    const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const selectedPackageManager = packageManagerOptions.includes(
+      packageManagerArg,
+    )
+      ? packageManagerArg
       : await consola.prompt<{
           type: 'select'
           options: PackageManagerName[]
