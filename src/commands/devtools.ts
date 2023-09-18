@@ -1,30 +1,28 @@
 import { resolve } from 'pathe'
 import { execa } from 'execa'
-import { showHelp } from '../utils/help'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 export default defineCommand({
   meta: {
-    name: 'enable',
-    description: 'Enable or disable features in a Nuxt project',
+    name: 'devtools',
+    description: 'Enable or disable devtools in a Nuxt project',
   },
   args: {
     ...sharedArgs,
-    ...legacyRootDirArgs,
     command: {
-      type: 'string',
+      type: 'positional',
       description: 'Command to run',
       valueHint: 'enable|disable',
     },
+    ...legacyRootDirArgs,
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
       console.error(`Unknown command \`${ctx.args.command}\`.`)
-      showHelp(this.meta)
       process.exit(1)
     }
 

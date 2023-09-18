@@ -1,9 +1,10 @@
 import { execa } from 'execa'
 import { resolve } from 'pathe'
-import { tryResolveModule } from '../utils/esm'
+// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
+import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
+import { tryResolveModule } from '../utils/esm'
 import { loadKit } from '../utils/kit'
-import { writeTypes } from '../utils/prepare'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
@@ -22,7 +23,11 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    const { loadNuxt, buildNuxt } = await loadKit(cwd)
+    const {
+      loadNuxt,
+      buildNuxt,
+      writeTypes = writeTypesLegacy,
+    } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       rootDir: cwd,
       overrides: {

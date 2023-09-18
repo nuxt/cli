@@ -17,7 +17,7 @@ import { findup } from '../utils/fs'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
-import { version } from '../../package.json'
+import nuxiPkg from '../../package.json'
 
 export default defineCommand({
   meta: {
@@ -58,11 +58,10 @@ export default defineCommand({
       getDepVersion('nuxt') ||
       getDepVersion('nuxt-edge') ||
       getDepVersion('nuxt3') ||
-      '0.0.0'
-    const isNuxt3 = nuxtVersion.startsWith('3')
-    const builder = isNuxt3
-      ? nuxtConfig.builder /* latest schema */ ||
-        (nuxtConfig.vite !== false ? 'vite' : 'webpack') /* previous schema */
+      '-'
+    const isLegacy = nuxtVersion.startsWith('2')
+    const builder = !isLegacy
+      ? nuxtConfig.builder /* latest schema */ || '-'
       : nuxtConfig.bridge?.vite
       ? 'vite' /* bridge vite implementation */
       : nuxtConfig.buildModules?.includes('nuxt-vite')
@@ -81,7 +80,7 @@ export default defineCommand({
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
-      CLIVersion: version,
+      CLIVersion: nuxiPkg.version,
       NitroVersion: getDepVersion('nitropack'),
       PackageManager: packageManager,
       Builder: builder,
@@ -122,9 +121,7 @@ export default defineCommand({
       }\n\n${splitter}\n${infoStr}${splitter}\n`,
     )
 
-    const isNuxt3OrBridge =
-      infoObj.NuxtVersion.startsWith('3') ||
-      infoObj.BuildModules.includes('bridge')
+    const isNuxt3OrBridge = !isLegacy || infoObj.BuildModules.includes('bridge')
     console.log(
       [
         '👉 Report an issue: https://github.com/nuxt/nuxt/issues/new',

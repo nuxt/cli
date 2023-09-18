@@ -1,6 +1,6 @@
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
-import { writeTypes } from '../utils/prepare'
+import type { Nitro } from 'nitropack'
 import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
@@ -32,9 +32,9 @@ export default defineCommand({
 
     showVersions(cwd)
 
-    const { loadNuxt, buildNuxt, useNitro } = await loadKit(cwd)
+    const kit = await loadKit(cwd)
 
-    const nuxt = await loadNuxt({
+    const nuxt = await kit.loadNuxt({
       rootDir: cwd,
       dotenv: {
         cwd,
@@ -49,19 +49,25 @@ export default defineCommand({
       },
     })
 
-    // Use ? for backward compatibility for Nuxt <= RC.10
-    const nitro = useNitro?.()
+    let nitro: Nitro | undefined
+    // In Bridge, if nitro is not enabled, useNitro will throw an error
+    try {
+      // Use ? for backward compatibility for Nuxt <= RC.10
+      nitro = kit.useNitro?.()
+    } catch {
+      //
+    }
 
     await clearBuildDir(nuxt.options.buildDir)
 
-    await writeTypes(nuxt)
+    await kit.writeTypes(nuxt)
 
     nuxt.hook('build:error', (err) => {
       consola.error('Nuxt Build Error:', err)
       process.exit(1)
     })
 
-    await buildNuxt(nuxt)
+    await kit.buildNuxt(nuxt)
 
     if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {
