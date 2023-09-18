@@ -31,7 +31,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || '.')
 
     const npmPackage = ctx.args.moduleName
-    const isValid = await validateNpmModule(npmPackage) 
+    const isValid = await validateNpmModule(npmPackage)
 
     if (!isValid) {
       throw new Error(`\`${npmPackage}\` is not a valid npm package`)
