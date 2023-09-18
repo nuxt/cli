@@ -100,10 +100,7 @@ export default defineCommand({
       packageManagerArg,
     )
       ? packageManagerArg
-      : await consola.prompt<{
-          type: 'select'
-          options: PackageManagerName[]
-        }>('Which package manager would you like to use?', {
+      : await consola.prompt('Which package manager would you like to use?', {
           type: 'select',
           options: packageManagerOptions,
         })
