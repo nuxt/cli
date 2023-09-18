@@ -26,10 +26,6 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
-    exact: {
-      type: 'string',
-      description: 'use exact module name as npm package name to install',
-    },
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
