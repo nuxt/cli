@@ -185,7 +185,7 @@ async function resolveModule(
             pkgVersion = _moduleVersion
           } else {
             consola.warn(
-              `Recommanded version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
+              `Recommended version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
             pkgVersion = await consola.prompt('Choose a version:', {
               type: 'select',
