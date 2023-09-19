@@ -5,18 +5,18 @@ export function getIsGitInstalled(): Promise<boolean> {
   return new Promise((resolve) => {
     exec('git --version', (error, stdout, stderr) => {
       if (error) {
-        console.error('Git is not installed.')
+        consola.error('Git is not installed.')
         resolve(false)
         return
       }
 
       if (stderr) {
-        console.error(`Git check failed. Additional info: ${stderr}`)
+        consola.error(`Git check failed. Additional info: ${stderr}`)
         resolve(false)
         return
       }
 
-      console.info(`Git is installed: ${stdout}`)
+      consola.info(`Git is installed: ${stdout}`)
       resolve(true)
     })
   })
