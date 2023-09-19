@@ -112,62 +112,81 @@ export default defineNuxtConfig({
 })`
 }
 
+// Extended from https://github.com/dword-design/package-name-regex
+const packageNameRegex =
+  /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[^@]+)?$/
+
 async function resolveModule(
   moduleName: string,
   cwd: string,
 ): Promise<false | { module?: NuxtModule; npm: string }> {
   let npmName = moduleName
 
-  const modulesDB = await fetchModules().catch((err) => {
-    consola.warn('Cannot search in the Nuxt Modules database: ' + err)
-    return []
-  })
-  const matchedModule = modulesDB.find(
-    (module) => module.name === moduleName || module.npm === moduleName,
-  )
-  if (matchedModule?.npm) {
-    npmName = matchedModule.npm
+  if (!packageNameRegex.test(moduleName)) {
+    consola.error(`Invalid module name \`${moduleName}\`.`)
+    return false
   }
 
-  if (matchedModule && matchedModule.compatibility.nuxt) {
-    // Get local Nuxt version
-    const nuxtVersion = await getNuxtVersion(cwd)
+  let checkModules = true
 
-    // Check for Module Compatibility
-    if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
-      consola.warn(
-        `The module \`${npmName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
-      )
-      const shouldContinue = await consola.prompt(
-        'Do you want to continue installing incompatible version?',
-        {
-          type: 'confirm',
-          initial: false,
-        },
-      )
-      if (shouldContinue !== true) {
-        return false
-      }
+  if (moduleName.includes('@', 1)) {
+    checkModules = false
+  }
+
+  let matchedModule: NuxtModule | undefined
+
+  if (checkModules) {
+    const modulesDB = await fetchModules().catch((err) => {
+      consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+      return []
+    })
+    matchedModule = modulesDB.find(
+      (module) => module.name === moduleName || module.npm === moduleName,
+    )
+    if (matchedModule?.npm) {
+      npmName = matchedModule.npm
     }
 
-    // TODO: Preview for https://github.com/nuxt/modules/pull/770
-    if (
-      matchedModule.name === 'image' &&
-      !matchedModule.compatibility.versionMap
-    ) {
-      matchedModule.compatibility.versionMap = {
-        '^2.x': '^0',
-        '^3.x': 'rc',
-      }
-    }
+    if (matchedModule && matchedModule.compatibility.nuxt) {
+      // Get local Nuxt version
+      const nuxtVersion = await getNuxtVersion(cwd)
 
-    // Match corresponding version of module for local Nuxt version
-    const versionMap = matchedModule.compatibility.versionMap
-    if (versionMap) {
-      for (const _nuxtVersion in versionMap) {
-        if (satisfies(nuxtVersion, _nuxtVersion)) {
-          npmName = `${npmName}@${versionMap[_nuxtVersion]}`
-          break
+      // Check for Module Compatibility
+      if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
+        consola.warn(
+          `The module \`${npmName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+        )
+        const shouldContinue = await consola.prompt(
+          'Do you want to continue installing incompatible version?',
+          {
+            type: 'confirm',
+            initial: false,
+          },
+        )
+        if (shouldContinue !== true) {
+          return false
+        }
+      }
+
+      // TODO: Preview for https://github.com/nuxt/modules/pull/770
+      if (
+        matchedModule.name === 'image' &&
+        !matchedModule.compatibility.versionMap
+      ) {
+        matchedModule.compatibility.versionMap = {
+          '^2.x': '^0',
+          '^3.x': 'rc',
+        }
+      }
+
+      // Match corresponding version of module for local Nuxt version
+      const versionMap = matchedModule.compatibility.versionMap
+      if (versionMap) {
+        for (const _nuxtVersion in versionMap) {
+          if (satisfies(nuxtVersion, _nuxtVersion)) {
+            npmName = `${npmName}@${versionMap[_nuxtVersion]}`
+            break
+          }
         }
       }
     }
