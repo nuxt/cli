@@ -1,4 +1,5 @@
 import { defineCommand } from 'citty'
+import { provider } from 'std-env'
 import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
@@ -20,7 +21,7 @@ export const main = defineCommand({
 
     // Check Node.js version and CLI updates in background
     let backgroundTasks: Promise<any> | undefined
-    if (command !== '_dev') {
+    if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
         // checkForUpdates(),
