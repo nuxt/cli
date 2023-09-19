@@ -179,17 +179,17 @@ async function resolveModule(
     // Match corresponding version of module for local Nuxt version
     const versionMap = matchedModule.compatibility.versionMap
     if (versionMap) {
-      for (const _version in versionMap) {
-        if (satisfies(nuxtVersion, _version)) {
+      for (const [_nuxtVersion, _moduleVersion] of Object.entries(versionMap)) {
+        if (satisfies(nuxtVersion, _nuxtVersion)) {
           if (!pkgVersion) {
-            pkgVersion = versionMap[_version]
+            pkgVersion = _moduleVersion
           } else {
             consola.warn(
-              `Recommanded version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_version}\` but you have requested \`${pkgVersion}\``,
+              `Recommanded version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
-            pkgVersion = await consola.prompt('Choose a version', {
+            pkgVersion = await consola.prompt('Choose a version:', {
               type: 'select',
-              options: [versionMap[_version], pkgVersion],
+              options: [_moduleVersion, pkgVersion],
             })
           }
           break
