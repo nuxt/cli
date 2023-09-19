@@ -6,6 +6,7 @@ import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
 import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
+import { satisfies } from 'semver'
 
 export default defineCommand({
   meta: {
@@ -47,7 +48,10 @@ export default defineCommand({
     }
 
     if (matchedModule && matchedModule.compatibility.nuxt) {
+      // Get local Nuxt version
       const nuxtVersion = await getNuxtVersion(cwd)
+
+      // Check for Module Compatibility
       if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
         consola.warn(
           `The module \`${npmPackage}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
@@ -61,6 +65,27 @@ export default defineCommand({
         )
         if (shouldContinue !== true) {
           return
+        }
+      }
+
+      // TODO: Preview for https://github.com/nuxt/modules/pull/770
+      if (
+        matchedModule.name === 'image' &&
+        !matchedModule.compatibility.versionMap
+      ) {
+        matchedModule.compatibility.versionMap = {
+          '^2.x': '^0',
+          '^3.x': 'rc',
+        }
+        // Match corresponding version of module for local Nuxt version
+        const versionMap = matchedModule.compatibility.versionMap
+        if (versionMap) {
+          for (const _nuxtVersion in versionMap) {
+            if (satisfies(nuxtVersion, _nuxtVersion)) {
+              npmPackage = `${npmPackage}@${versionMap[_nuxtVersion]}`
+              break
+            }
+          }
         }
       }
     }
