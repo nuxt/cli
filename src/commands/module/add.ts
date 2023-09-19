@@ -162,7 +162,7 @@ async function resolveModule(
     // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
       consola.warn(
-        `The module \`${pkgName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+        `The module \`${pkgName}\` is not compatible with Nuxt \`${nuxtVersion}\` (requires \`${matchedModule.compatibility.nuxt}\`)`,
       )
       const shouldContinue = await consola.prompt(
         'Do you want to continue installing incompatible version?',
