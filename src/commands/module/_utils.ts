@@ -27,6 +27,9 @@ export const categories = [
 export interface ModuleCompatibility {
   nuxt: string
   requires: { bridge?: boolean | 'optional' }
+  versionMap: {
+    [nuxtVersion: string]: string
+  }
 }
 
 export interface MaintainerInfo {
