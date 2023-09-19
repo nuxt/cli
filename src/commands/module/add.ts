@@ -5,7 +5,12 @@ import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
-import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
+import {
+  NuxtModule,
+  checkNuxtCompatibility,
+  fetchModules,
+  getNuxtVersion,
+} from './_utils'
 import { satisfies } from 'semver'
 
 export default defineCommand({
@@ -31,72 +36,18 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
 
-    let npmPackage = ctx.args.moduleName
-
-    // Try to find as slug in nuxt/modules database
-    const modulesDB = await fetchModules().catch((err) => {
-      consola.warn('Cannot search in the Nuxt Modules database: ' + err)
-      return []
-    })
-    const matchedModule = modulesDB.find(
-      (module) =>
-        module.name === ctx.args.moduleName ||
-        module.npm === ctx.args.moduleName,
-    )
-    if (matchedModule?.npm) {
-      npmPackage = matchedModule.npm
-    }
-
-    if (matchedModule && matchedModule.compatibility.nuxt) {
-      // Get local Nuxt version
-      const nuxtVersion = await getNuxtVersion(cwd)
-
-      // Check for Module Compatibility
-      if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
-        consola.warn(
-          `The module \`${npmPackage}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
-        )
-        const shouldContinue = await consola.prompt(
-          'Do you want to continue installing incompatible version?',
-          {
-            type: 'confirm',
-            initial: false,
-          },
-        )
-        if (shouldContinue !== true) {
-          return
-        }
-      }
-
-      // TODO: Preview for https://github.com/nuxt/modules/pull/770
-      if (
-        matchedModule.name === 'image' &&
-        !matchedModule.compatibility.versionMap
-      ) {
-        matchedModule.compatibility.versionMap = {
-          '^2.x': '^0',
-          '^3.x': 'rc',
-        }
-        // Match corresponding version of module for local Nuxt version
-        const versionMap = matchedModule.compatibility.versionMap
-        if (versionMap) {
-          for (const _nuxtVersion in versionMap) {
-            if (satisfies(nuxtVersion, _nuxtVersion)) {
-              npmPackage = `${npmPackage}@${versionMap[_nuxtVersion]}`
-              break
-            }
-          }
-        }
-      }
+    const r = await resolveModule(ctx.args.moduleName, cwd)
+    if (r === false) {
+      return
     }
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
-      consola.info(`Installing dev dependency \`${npmPackage}\``)
-      await addDependency(npmPackage, { cwd, dev: true }).catch((err) => {
+      consola.info(`Installing dev dependency \`${r.npm}\``)
+      await addDependency(r.npm, { cwd, dev: true }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually install \`${npmPackage}\` as a dev dependency`,
+          `Please manually install \`${r.npm}\` as a dev dependency`,
         )
       })
     }
@@ -108,17 +59,17 @@ export default defineCommand({
           config.modules = []
         }
         for (let i = 0; i < config.modules.length; i++) {
-          if (config.modules[i] === npmPackage) {
-            consola.info(`\`${npmPackage}\` is already in the \`modules\``)
+          if (config.modules[i] === r.npm) {
+            consola.info(`\`${r.npm}\` is already in the \`modules\``)
             return
           }
         }
-        consola.info(`Adding \`${npmPackage}\` to the \`modules\``)
-        config.modules.push(npmPackage)
+        consola.info(`Adding \`${r.npm}\` to the \`modules\``)
+        config.modules.push(r.npm)
       }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually add \`${npmPackage}\` to the \`modules\` in \`nuxt.config.ts\``,
+          `Please manually add \`${r.npm}\` to the \`modules\` in \`nuxt.config.ts\``,
         )
       })
     }
@@ -159,4 +110,70 @@ function getDefaultNuxtConfig() {
 export default defineNuxtConfig({
   modules: []
 })`
+}
+
+async function resolveModule(
+  moduleName: string,
+  cwd: string,
+): Promise<false | { module?: NuxtModule; npm: string }> {
+  let npmName = moduleName
+
+  const modulesDB = await fetchModules().catch((err) => {
+    consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+    return []
+  })
+  const matchedModule = modulesDB.find(
+    (module) => module.name === moduleName || module.npm === moduleName,
+  )
+  if (matchedModule?.npm) {
+    npmName = matchedModule.npm
+  }
+
+  if (matchedModule && matchedModule.compatibility.nuxt) {
+    // Get local Nuxt version
+    const nuxtVersion = await getNuxtVersion(cwd)
+
+    // Check for Module Compatibility
+    if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
+      consola.warn(
+        `The module \`${npmName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+      )
+      const shouldContinue = await consola.prompt(
+        'Do you want to continue installing incompatible version?',
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+      if (shouldContinue !== true) {
+        return false
+      }
+    }
+
+    // TODO: Preview for https://github.com/nuxt/modules/pull/770
+    if (
+      matchedModule.name === 'image' &&
+      !matchedModule.compatibility.versionMap
+    ) {
+      matchedModule.compatibility.versionMap = {
+        '^2.x': '^0',
+        '^3.x': 'rc',
+      }
+      // Match corresponding version of module for local Nuxt version
+      const versionMap = matchedModule.compatibility.versionMap
+      if (versionMap) {
+        for (const _nuxtVersion in versionMap) {
+          if (satisfies(nuxtVersion, _nuxtVersion)) {
+            npmName = `${npmName}@${versionMap[_nuxtVersion]}`
+            break
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    module: matchedModule,
+    npm: npmName,
+  }
 }
