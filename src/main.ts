@@ -19,10 +19,13 @@ export const main = defineCommand({
     setupGlobalConsole({ dev })
 
     // Check Node.js version and CLI updates in background
-    const backgroundTasks = Promise.all([
-      checkEngines(),
-      // checkForUpdates(),
-    ]).catch((err) => console.error(err))
+    let backgroundTasks: Promise<any> | undefined
+    if (command !== '_dev') {
+      backgroundTasks = Promise.all([
+        checkEngines(),
+        // checkForUpdates(),
+      ]).catch((err) => console.error(err))
+    }
 
     // Avoid background check to fix prompt issues
     if (command === 'init') {
