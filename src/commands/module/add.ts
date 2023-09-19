@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
-import { fetchModules } from './_utils'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 
 export default defineCommand({
   meta: {
@@ -33,18 +33,36 @@ export default defineCommand({
     let npmPackage = ctx.args.moduleName
 
     // Try to find as slug in nuxt/modules database
-    try {
-      const modulesDB = await fetchModules()
-      const matchedModule = modulesDB.find(
-        (module) =>
-          module.name === ctx.args.moduleName ||
-          module.npm === ctx.args.moduleName,
-      )
-      if (matchedModule?.npm) {
-        npmPackage = matchedModule.npm
+    const modulesDB = await fetchModules().catch((err) => {
+      consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+      return []
+    })
+    const matchedModule = modulesDB.find(
+      (module) =>
+        module.name === ctx.args.moduleName ||
+        module.npm === ctx.args.moduleName,
+    )
+    if (matchedModule?.npm) {
+      npmPackage = matchedModule.npm
+    }
+
+    if (matchedModule && matchedModule.compatibility.nuxt) {
+      const nuxtVersion = await getNuxtVersion(cwd)
+      if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
+        consola.warn(
+          `The module \`${npmPackage}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+        )
+        const shouldContinue = await consola.prompt(
+          'Do you want to continue installing incompatible version?',
+          {
+            type: 'confirm',
+            initial: false,
+          },
+        )
+        if (shouldContinue !== true) {
+          return
+        }
       }
-    } catch (err) {
-      consola.warn('Cannot search in the modules database:', err)
     }
 
     // Add npm dependency
