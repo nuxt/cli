@@ -112,9 +112,9 @@ export default defineNuxtConfig({
 })`
 }
 
-// Extended from https://github.com/dword-design/package-name-regex
-const packageNameRegex =
-  /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(@[^@]+)?$/
+// Based on https://github.com/dword-design/package-name-regex
+const packageRegex =
+  /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
 
 async function resolveModule(
   moduleName: string,
@@ -129,79 +129,81 @@ async function resolveModule(
     }
 > {
   let pkgName = moduleName
-  let pkgVersion = 'latest'
+  let pkgVersion: string | undefined
 
-  if (pkgName.includes('@', 1)) {
-    const s = pkgName.split('@')
-    pkgName = s[0]
-    pkgVersion = s[1]
-  }
-
-  if (!packageNameRegex.test(pkgName)) {
+  const reMatch = moduleName.match(packageRegex)
+  if (reMatch) {
+    if (reMatch[3]) {
+      pkgName = `${reMatch[1] || ''}${reMatch[2] || ''}`
+      pkgVersion = reMatch[3].slice(1)
+    }
+  } else {
     consola.error(`Invalid package name \`${pkgName}\`.`)
     return false
   }
 
-  let checkModules = true
+  const modulesDB = await fetchModules().catch((err) => {
+    consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+    return []
+  })
 
-  if (pkgName.includes('@', 1)) {
-    checkModules = false
+  const matchedModule = modulesDB.find(
+    (module) => module.name === moduleName || module.npm === pkgName,
+  )
+
+  if (matchedModule?.npm) {
+    pkgName = matchedModule.npm
   }
 
-  let matchedModule: NuxtModule | undefined
+  if (matchedModule && matchedModule.compatibility.nuxt) {
+    // Get local Nuxt version
+    const nuxtVersion = await getNuxtVersion(cwd)
 
-  if (checkModules) {
-    const modulesDB = await fetchModules().catch((err) => {
-      consola.warn('Cannot search in the Nuxt Modules database: ' + err)
-      return []
-    })
-    matchedModule = modulesDB.find(
-      (module) => module.name === moduleName || module.npm === moduleName,
-    )
-    if (matchedModule?.npm) {
-      pkgName = matchedModule.npm
+    // Check for Module Compatibility
+    if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
+      consola.warn(
+        `The module \`${pkgName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+      )
+      const shouldContinue = await consola.prompt(
+        'Do you want to continue installing incompatible version?',
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+      if (shouldContinue !== true) {
+        return false
+      }
     }
 
-    if (matchedModule && matchedModule.compatibility.nuxt) {
-      // Get local Nuxt version
-      const nuxtVersion = await getNuxtVersion(cwd)
-
-      // Check for Module Compatibility
-      if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
-        consola.warn(
-          `The module \`${pkgName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
-        )
-        const shouldContinue = await consola.prompt(
-          'Do you want to continue installing incompatible version?',
-          {
-            type: 'confirm',
-            initial: false,
-          },
-        )
-        if (shouldContinue !== true) {
-          return false
-        }
+    // TODO: Preview for https://github.com/nuxt/modules/pull/770
+    if (
+      matchedModule.name === 'image' &&
+      !matchedModule.compatibility.versionMap
+    ) {
+      matchedModule.compatibility.versionMap = {
+        '^2.x': '^0',
+        '^3.x': 'rc',
       }
+    }
 
-      // TODO: Preview for https://github.com/nuxt/modules/pull/770
-      if (
-        matchedModule.name === 'image' &&
-        !matchedModule.compatibility.versionMap
-      ) {
-        matchedModule.compatibility.versionMap = {
-          '^2.x': '^0',
-          '^3.x': 'rc',
-        }
-      }
-
-      // Match corresponding version of module for local Nuxt version
-      const versionMap = matchedModule.compatibility.versionMap
-      if (versionMap) {
-        for (const _version in versionMap) {
-          if (satisfies(nuxtVersion, _version)) {
+    // Match corresponding version of module for local Nuxt version
+    const versionMap = matchedModule.compatibility.versionMap
+    if (versionMap) {
+      for (const _version in versionMap) {
+        if (satisfies(nuxtVersion, _version)) {
+          if (!pkgVersion) {
             pkgVersion = versionMap[_version]
-            break
+          } else {
+            consola.warn(
+              `Recommanded version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_version}\` but you have requested \`${pkgVersion}\``,
+            )
+            pkgVersion = await consola.prompt('Choose a version', {
+              type: 'select',
+              options: [versionMap[_version], pkgVersion],
+            })
           }
+          break
         }
       }
     }
@@ -209,8 +211,8 @@ async function resolveModule(
 
   return {
     nuxtModule: matchedModule,
-    pkg: `${pkgName}@${pkgVersion}`,
+    pkg: `${pkgName}@${pkgVersion || 'latest'}`,
     pkgName,
-    pkgVersion,
+    pkgVersion: pkgVersion || 'latest',
   }
 }
