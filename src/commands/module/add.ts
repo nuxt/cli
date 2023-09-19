@@ -176,17 +176,6 @@ async function resolveModule(
       }
     }
 
-    // TODO: Preview for https://github.com/nuxt/modules/pull/770
-    if (
-      matchedModule.name === 'image' &&
-      !matchedModule.compatibility.versionMap
-    ) {
-      matchedModule.compatibility.versionMap = {
-        '^2.x': '^0',
-        '^3.x': 'rc',
-      }
-    }
-
     // Match corresponding version of module for local Nuxt version
     const versionMap = matchedModule.compatibility.versionMap
     if (versionMap) {
