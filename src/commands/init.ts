@@ -133,8 +133,6 @@ export default defineCommand({
     }
 
     if (ctx.args?.['git-init']) {
-      consola.info('git-init passed')
-      //ensure git is installed
       const isGitInstalled = await getIsGitInstalled()
 
       if (isGitInstalled) {
