@@ -43,11 +43,11 @@ export default defineCommand({
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
-      consola.info(`Installing dev dependency \`${r.npm}\``)
-      await addDependency(r.npm, { cwd, dev: true }).catch((err) => {
+      consola.info(`Installing dev dependency \`${r.pkg}\``)
+      await addDependency(r.pkg, { cwd, dev: true }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually install \`${r.npm}\` as a dev dependency`,
+          `Please manually install \`${r.pkg}\` as a dev dependency`,
         )
       })
     }
@@ -59,17 +59,17 @@ export default defineCommand({
           config.modules = []
         }
         for (let i = 0; i < config.modules.length; i++) {
-          if (config.modules[i] === r.npm) {
-            consola.info(`\`${r.npm}\` is already in the \`modules\``)
+          if (config.modules[i] === r.pkgName) {
+            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
             return
           }
         }
-        consola.info(`Adding \`${r.npm}\` to the \`modules\``)
-        config.modules.push(r.npm)
+        consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
+        config.modules.push(r.pkgName)
       }).catch((err) => {
         consola.error(err)
         consola.error(
-          `Please manually add \`${r.npm}\` to the \`modules\` in \`nuxt.config.ts\``,
+          `Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
         )
       })
     }
@@ -119,17 +119,32 @@ const packageNameRegex =
 async function resolveModule(
   moduleName: string,
   cwd: string,
-): Promise<false | { module?: NuxtModule; npm: string }> {
-  let npmName = moduleName
+): Promise<
+  | false
+  | {
+      nuxtModule?: NuxtModule
+      pkg: string
+      pkgName: string
+      pkgVersion: string
+    }
+> {
+  let pkgName = moduleName
+  let pkgVersion = 'latest'
 
-  if (!packageNameRegex.test(moduleName)) {
-    consola.error(`Invalid module name \`${moduleName}\`.`)
+  if (pkgName.includes('@', 1)) {
+    const s = pkgName.split('@')
+    pkgName = s[0]
+    pkgVersion = s[1]
+  }
+
+  if (!packageNameRegex.test(pkgName)) {
+    consola.error(`Invalid package name \`${pkgName}\`.`)
     return false
   }
 
   let checkModules = true
 
-  if (moduleName.includes('@', 1)) {
+  if (pkgName.includes('@', 1)) {
     checkModules = false
   }
 
@@ -144,7 +159,7 @@ async function resolveModule(
       (module) => module.name === moduleName || module.npm === moduleName,
     )
     if (matchedModule?.npm) {
-      npmName = matchedModule.npm
+      pkgName = matchedModule.npm
     }
 
     if (matchedModule && matchedModule.compatibility.nuxt) {
@@ -154,7 +169,7 @@ async function resolveModule(
       // Check for Module Compatibility
       if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
         consola.warn(
-          `The module \`${npmName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
+          `The module \`${pkgName}\` is not compatible with Nuxt ${nuxtVersion} (requires ${matchedModule.compatibility.nuxt})`,
         )
         const shouldContinue = await consola.prompt(
           'Do you want to continue installing incompatible version?',
@@ -182,9 +197,9 @@ async function resolveModule(
       // Match corresponding version of module for local Nuxt version
       const versionMap = matchedModule.compatibility.versionMap
       if (versionMap) {
-        for (const _nuxtVersion in versionMap) {
-          if (satisfies(nuxtVersion, _nuxtVersion)) {
-            npmName = `${npmName}@${versionMap[_nuxtVersion]}`
+        for (const _version in versionMap) {
+          if (satisfies(nuxtVersion, _version)) {
+            pkgVersion = versionMap[_version]
             break
           }
         }
@@ -193,7 +208,9 @@ async function resolveModule(
   }
 
   return {
-    module: matchedModule,
-    npm: npmName,
+    nuxtModule: matchedModule,
+    pkg: `${pkgName}@${pkgVersion}`,
+    pkgName,
+    pkgVersion,
   }
 }
