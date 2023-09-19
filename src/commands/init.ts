@@ -8,6 +8,7 @@ import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 
 import { sharedArgs } from './_shared'
+import { getIsGitInstalled, initializeGit } from '../utils/git'
 
 const DEFAULT_REGISTRY =
   'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
@@ -47,6 +48,10 @@ export default defineCommand({
       type: 'boolean',
       default: true,
       description: 'Skip installing dependencies',
+    },
+    'git-init': {
+      type: 'boolean',
+      description: 'initialize git',
     },
     shell: {
       type: 'boolean',
@@ -125,6 +130,16 @@ export default defineCommand({
       }
 
       consola.success('Installation completed.')
+    }
+
+    if (ctx.args?.['git-init']) {
+      consola.info('git-int passed')
+      //ensure git is installed
+      const isGitInstalled = await getIsGitInstalled()
+
+      if (isGitInstalled) {
+        initializeGit(cwd, ctx.args.dir || 'nuxt-app')
+      }
     }
 
     // Display next steps
