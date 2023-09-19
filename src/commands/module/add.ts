@@ -159,14 +159,15 @@ async function resolveModule(
         '^2.x': '^0',
         '^3.x': 'rc',
       }
-      // Match corresponding version of module for local Nuxt version
-      const versionMap = matchedModule.compatibility.versionMap
-      if (versionMap) {
-        for (const _nuxtVersion in versionMap) {
-          if (satisfies(nuxtVersion, _nuxtVersion)) {
-            npmName = `${npmName}@${versionMap[_nuxtVersion]}`
-            break
-          }
+    }
+
+    // Match corresponding version of module for local Nuxt version
+    const versionMap = matchedModule.compatibility.versionMap
+    if (versionMap) {
+      for (const _nuxtVersion in versionMap) {
+        if (satisfies(nuxtVersion, _nuxtVersion)) {
+          npmName = `${npmName}@${versionMap[_nuxtVersion]}`
+          break
         }
       }
     }
