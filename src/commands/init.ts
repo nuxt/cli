@@ -6,9 +6,8 @@ import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
-
+import { execaCommand } from 'execa'
 import { sharedArgs } from './_shared'
-import { getIsGitInstalled, initializeGit } from '../utils/git'
 
 const DEFAULT_REGISTRY =
   'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
@@ -49,9 +48,9 @@ export default defineCommand({
       default: true,
       description: 'Skip installing dependencies',
     },
-    'git-init': {
+    gitInit: {
       type: 'boolean',
-      description: 'initialize git',
+      description: 'Initialize git repository',
     },
     shell: {
       type: 'boolean',
@@ -132,12 +131,9 @@ export default defineCommand({
       consola.success('Installation completed.')
     }
 
-    if (ctx.args?.['git-init']) {
-      const isGitInstalled = await getIsGitInstalled()
-
-      if (isGitInstalled) {
-        initializeGit(cwd, ctx.args.dir || 'nuxt-app')
-      }
+    if (ctx.args.gitInit) {
+      consola.info('Initializing git repository...')
+      await execaCommand(`git init ${template.dir}`, { stdio: 'inherit' })
     }
 
     // Display next steps
@@ -147,8 +143,8 @@ export default defineCommand({
 
     const nextSteps = [
       !ctx.args.shell &&
-        relativeProjectPath.length > 1 &&
-        `\`cd ${relativeProjectPath}\``,
+      relativeProjectPath.length > 1 &&
+      `\`cd ${relativeProjectPath}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
@@ -161,3 +157,16 @@ export default defineCommand({
     }
   },
 })
+
+export function initializeGit(cwd: string, dirName: string) {
+  execa(`cd ${cwd}/${dirName} && git init`, (error, stdout, stderr) => {
+    if (error) {
+      consola.error(`exec error: ${error}`)
+      return
+    }
+    consola.log(`Output: ${stdout}`)
+    if (stderr) {
+      consola.error(`stderr: ${stderr}`)
+    }
+  })
+}
