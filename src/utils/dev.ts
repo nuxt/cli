@@ -5,7 +5,13 @@ import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
-import { HTTPSOptions, ListenURL, listen, Listener } from 'listhen'
+import {
+  HTTPSOptions,
+  ListenURL,
+  listen,
+  Listener,
+  ListenOptions,
+} from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
@@ -36,16 +42,22 @@ export interface NuxtDevServerOptions {
   devContext: NuxtDevContext
 }
 
-export async function createNuxtDevServer(options: NuxtDevServerOptions) {
+export async function createNuxtDevServer(
+  options: NuxtDevServerOptions,
+  listenOptions?: Partial<ListenOptions>,
+) {
   // Initialize dev server
   const devServer = new NuxtDevServer(options)
 
   // Attach internal listener
-  devServer.listener = await listen(devServer.handler, {
-    port: options.port ?? 0,
-    hostname: '127.0.0.1',
-    showURL: false,
-  })
+  devServer.listener = await listen(
+    devServer.handler,
+    listenOptions || {
+      port: options.port ?? 0,
+      hostname: '127.0.0.1',
+      showURL: false,
+    },
+  )
 
   // Merge interface with public context
   // @ts-expect-error
@@ -236,11 +248,19 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = `http://${
-      addr.address.includes(':') ? `[${addr.address}]` : addr.address
-    }:${addr.port}/`
+    this._currentNuxt.options.devServer.url = `${
+      this.listener.https ? 'https' : 'http'
+    }://${addr.address.includes(':') ? `[${addr.address}]` : addr.address}:${
+      addr.port
+    }/`
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string; cert: string }
+
+    if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
+      consola.warn(
+        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment vairable to make https work.',
+      )
+    }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),

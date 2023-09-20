@@ -64,32 +64,28 @@ const command = defineCommand({
 
     // Start Proxy Listener
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
-    const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
 
     if (ctx.args.fork) {
       // Fork nuxt dev process
+      const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
       await _startSubprocess(devProxy)
     } else {
       // Directly start nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
-      const devServer = await createNuxtDevServer({
-        cwd,
-        overrides: ctx.data?.overrides,
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        clear: ctx.args.clear,
-        dotenv: !!ctx.args.dotenv,
-        loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-        devContext: {
-          proxy: {
-            https: devProxy.listener.https,
-            url: devProxy.listener.url,
-            urls: await devProxy.listener.getURLs(),
-          },
+      const devServer = await createNuxtDevServer(
+        {
+          cwd,
+          overrides: ctx.data?.overrides,
+          logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+          clear: ctx.args.clear,
+          dotenv: !!ctx.args.dotenv,
+          loadingTemplate: nuxtOptions.devServer.loadingTemplate,
+          devContext: {},
         },
-      })
-      // @ts-expect-error
-      devProxy.setAddress(devServer.listener._url || devServer.listener.url)
+        listenOptions,
+      )
       await devServer.init()
+      devServer.listener.showURL()
     }
   },
 })
