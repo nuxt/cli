@@ -17,7 +17,6 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:loading'; message: string }
   | { type: 'nuxt:internal:dev:restart' }
 
-
 export interface NuxtDevContext {
   proxy: {
     url?: string
@@ -54,10 +53,10 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions) {
   }
   if (options.devContext.proxy?.urls) {
     const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
-    devServer.listener.getURLs = async () => Array.from(new Set([
-      ...options.devContext.proxy!.urls!,
-      ...await _getURLs(),
-    ]))
+    devServer.listener.getURLs = async () =>
+      Array.from(
+        new Set([...options.devContext.proxy!.urls!, ...(await _getURLs())]),
+      )
   }
 
   return devServer
@@ -111,7 +110,7 @@ class NuxtDevServer extends EventEmitter {
         await importModule('@nuxt/ui-templates', this.options.cwd).then(
           (r) => r.loading,
         )
-      ).catch(() => { }) ||
+      ).catch(() => {}) ||
       ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
@@ -235,11 +234,11 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = `http://${addr.address.includes(':') ? `[${addr.address}]` : addr.address
-      }:${addr.port}/`
-    this._currentNuxt.options.devServer.https = this.options.devContext.proxy.https as
-      | boolean
-      | { key: string; cert: string }
+    this._currentNuxt.options.devServer.url = `http://${
+      addr.address.includes(':') ? `[${addr.address}]` : addr.address
+    }:${addr.port}/`
+    this._currentNuxt.options.devServer.https = this.options.devContext.proxy
+      .https as boolean | { key: string; cert: string }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),

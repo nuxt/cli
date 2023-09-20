@@ -4,7 +4,11 @@ import { overrideEnv } from '../utils/env'
 import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { isTest } from 'std-env'
-import { NuxtDevContext, NuxtDevIPCMessage, createNuxtDevServer } from '../utils/dev'
+import {
+  NuxtDevContext,
+  NuxtDevIPCMessage,
+  createNuxtDevServer,
+} from '../utils/dev'
 
 export default defineCommand({
   meta: {
