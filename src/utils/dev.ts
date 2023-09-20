@@ -18,7 +18,7 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:restart' }
 
 export interface NuxtDevContext {
-  proxy: {
+  proxy?: {
     url?: string
     urls?: ListenURL[]
     https?: boolean | HTTPSOptions
@@ -110,7 +110,7 @@ class NuxtDevServer extends EventEmitter {
         await importModule('@nuxt/ui-templates', this.options.cwd).then(
           (r) => r.loading,
         )
-      ).catch(() => {}) ||
+      ).catch(() => { }) ||
       ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
@@ -234,11 +234,10 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = `http://${
-      addr.address.includes(':') ? `[${addr.address}]` : addr.address
-    }:${addr.port}/`
+    this._currentNuxt.options.devServer.url = `http://${addr.address.includes(':') ? `[${addr.address}]` : addr.address
+      }:${addr.port}/`
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
-      .https as boolean | { key: string; cert: string }
+      ?.https as boolean | { key: string; cert: string }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),
