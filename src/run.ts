@@ -1,7 +1,21 @@
+import { fileURLToPath } from 'node:url'
+import { runCommand as _runCommand, runMain as _runMain } from 'citty'
+
 import { commands } from './commands'
 import { main } from './main'
 
-import { runCommand as _runCommand, runMain as _runMain } from 'citty'
+globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
+  // Programmatic usage fallback
+  startTime: Date.now(),
+  entry: fileURLToPath(
+    new URL(
+      import.meta.url.endsWith('.ts')
+        ? '../bin/nuxi.mjs'
+        : '../../bin/nuxi.mjs',
+      import.meta.url,
+    ),
+  ),
+}
 
 export const runMain = () => _runMain(main)
 
