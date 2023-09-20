@@ -143,10 +143,19 @@ export default defineCommand({
       consola.success('Installation completed.')
     }
 
+    if (ctx.args.gitInit === undefined) {
+      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
+        type: 'confirm',
+      })
+    }
     if (ctx.args.gitInit) {
-      consola.info('Initializing git repository...')
+      consola.info('Initializing git repository...\n')
       const { execaCommand } = await import('execa')
-      await execaCommand(`git init ${template.dir}`, { stdio: 'inherit' })
+      await execaCommand(`git init ${template.dir}`, {
+        stdio: 'inherit',
+      }).catch((err) => {
+        consola.warn(`Failed to initialize git repository: ${err}`)
+      })
     }
 
     // Display next steps
