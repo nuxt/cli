@@ -15,10 +15,9 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
-import type { DevChildContext } from './dev-child'
 import type { NuxtOptions } from '@nuxt/schema'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { NuxtDevIPCMessage } from '../utils/dev'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 const forkSupported = !isBun && !isTest
 
@@ -80,7 +79,13 @@ const command = defineCommand({
         clear: ctx.args.clear,
         dotenv: !!ctx.args.dotenv,
         loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-        https: devProxy.listener.https,
+        devContext: {
+          proxy: {
+            https: devProxy.listener.https,
+            url: devProxy.listener.url,
+            urls: await devProxy.listener.getURLs(),
+          }
+        }
       })
       devProxy.setAddress(devServer.listener.url)
       await devServer.init()
@@ -172,11 +177,13 @@ async function _startSubprocess(devProxy: DevProxy) {
         ].filter(Boolean) as string[],
         env: {
           ...process.env,
-          __NUXT_DEV_PROXY__: JSON.stringify({
-            url: devProxy.listener.url,
-            urls: await devProxy.listener.getURLs(),
-            https: devProxy.listener.https,
-          } satisfies DevChildContext),
+          __NUXT_DEV__: JSON.stringify({
+            proxy: {
+              url: devProxy.listener.url,
+              urls: await devProxy.listener.getURLs(),
+              https: devProxy.listener.https,
+            }
+          } satisfies NuxtDevContext),
         },
       },
     )
@@ -237,16 +244,16 @@ function _resolveListenOptions(
     typeof args.host === 'string'
       ? args.host
       : (args.host === true ? '' : undefined) ??
-        process.env.NUXT_HOST ??
-        process.env.NITRO_HOST ??
-        process.env.HOST ??
-        // TODO: Default host in schema should be undefined instead of ''
-        nuxtOptions._layers?.[0].config?.devServer?.host ??
-        undefined
+      process.env.NUXT_HOST ??
+      process.env.NITRO_HOST ??
+      process.env.HOST ??
+      // TODO: Default host in schema should be undefined instead of ''
+      nuxtOptions._layers?.[0].config?.devServer?.host ??
+      undefined
 
   const _public: boolean | undefined =
     args.public ??
-    (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
+      (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
       ? true
       : undefined
 
