@@ -6,7 +6,6 @@ import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
-import { execaCommand } from 'execa'
 import { sharedArgs } from './_shared'
 
 const DEFAULT_REGISTRY =
@@ -145,6 +144,7 @@ export default defineCommand({
 
     if (ctx.args.gitInit) {
       consola.info('Initializing git repository...')
+      const { execaCommand } = await import('execa')
       await execaCommand(`git init ${template.dir}`, { stdio: 'inherit' })
     }
 
@@ -169,16 +169,3 @@ export default defineCommand({
     }
   },
 })
-
-export function initializeGit(cwd: string, dirName: string) {
-  execa(`cd ${cwd}/${dirName} && git init`, (error, stdout, stderr) => {
-    if (error) {
-      consola.error(`exec error: ${error}`)
-      return
-    }
-    consola.log(`Output: ${stdout}`)
-    if (stderr) {
-      consola.error(`stderr: ${stderr}`)
-    }
-  })
-}
