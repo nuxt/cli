@@ -6,6 +6,7 @@ import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
+
 import { sharedArgs } from './_shared'
 
 const DEFAULT_REGISTRY =
