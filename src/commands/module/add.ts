@@ -12,6 +12,7 @@ import {
   getNuxtVersion,
 } from './_utils'
 import { satisfies } from 'semver'
+import { colors } from 'consola/utils'
 
 export default defineCommand({
   meta: {
@@ -44,12 +45,25 @@ export default defineCommand({
     // Add npm dependency
     if (!ctx.args.skipInstall) {
       consola.info(`Installing dev dependency \`${r.pkg}\``)
-      await addDependency(r.pkg, { cwd, dev: true }).catch((err) => {
-        consola.error(err)
-        consola.error(
-          `Please manually install \`${r.pkg}\` as a dev dependency`,
-        )
-      })
+      const res = await addDependency(r.pkg, { cwd, dev: true }).catch(
+        (error) => {
+          consola.error(error)
+          return consola.prompt(
+            `Install failed for ${colors.cyan(
+              r.pkg,
+            )}. Do you want to continue adding the module to ${colors.cyan(
+              'nuxt.config',
+            )}?`,
+            {
+              type: 'confirm',
+              initial: false,
+            },
+          )
+        },
+      )
+      if (res === false) {
+        return
+      }
     }
 
     // Update nuxt.config.ts
