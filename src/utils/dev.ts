@@ -5,7 +5,7 @@ import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
-import { HTTPSOptions, listen, Listener } from 'listhen'
+import { HTTPSOptions, ListenURL, listen, Listener } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
@@ -17,24 +17,48 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:loading'; message: string }
   | { type: 'nuxt:internal:dev:restart' }
 
+export interface NuxtDevContext {
+  proxy?: {
+    url?: string
+    urls?: ListenURL[]
+    https?: boolean | HTTPSOptions
+  }
+}
+
 export interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
   dotenv: boolean
   clear: boolean
   overrides: NuxtConfig
-  https?: boolean | HTTPSOptions
   port?: string | number
   loadingTemplate?: ({ loading }: { loading: string }) => string
+  devContext: NuxtDevContext
 }
 
 export async function createNuxtDevServer(options: NuxtDevServerOptions) {
+  // Initialize dev server
   const devServer = new NuxtDevServer(options)
+
+  // Attach internal listener
   devServer.listener = await listen(devServer.handler, {
     port: options.port ?? 0,
     hostname: '127.0.0.1',
     showURL: false,
   })
+
+  // Merge interface with public context
+  if (options.devContext.proxy?.url) {
+    devServer.listener.url = options.devContext.proxy.url
+  }
+  if (options.devContext.proxy?.urls) {
+    const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
+    devServer.listener.getURLs = async () =>
+      Array.from(
+        new Set([...options.devContext.proxy!.urls!, ...(await _getURLs())]),
+      )
+  }
+
   return devServer
 }
 
@@ -213,9 +237,8 @@ class NuxtDevServer extends EventEmitter {
     this._currentNuxt.options.devServer.url = `http://${
       addr.address.includes(':') ? `[${addr.address}]` : addr.address
     }:${addr.port}/`
-    this._currentNuxt.options.devServer.https = this.options.https as
-      | boolean
-      | { key: string; cert: string }
+    this._currentNuxt.options.devServer.https = this.options.devContext.proxy
+      ?.https as boolean | { key: string; cert: string }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),

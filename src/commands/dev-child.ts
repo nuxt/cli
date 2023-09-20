@@ -4,14 +4,11 @@ import { overrideEnv } from '../utils/env'
 import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { isTest } from 'std-env'
-import { NuxtDevIPCMessage, createNuxtDevServer } from '../utils/dev'
-import type { ListenURL, HTTPSOptions } from 'listhen'
-
-export type DevChildContext = {
-  url?: string
-  urls?: ListenURL[]
-  https?: boolean | HTTPSOptions
-}
+import {
+  NuxtDevContext,
+  NuxtDevIPCMessage,
+  createNuxtDevServer,
+} from '../utils/dev'
 
 export default defineCommand({
   meta: {
@@ -36,9 +33,9 @@ export default defineCommand({
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    // Get host info
-    const devProxyOptions: DevChildContext =
-      JSON.parse(process.env.__NUXT_DEV_PROXY__ || 'null') || {}
+    // Get dev context info
+    const devContext: NuxtDevContext =
+      JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
@@ -47,8 +44,8 @@ export default defineCommand({
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,
-      https: devProxyOptions.https,
       port: process.env._PORT ?? undefined,
+      devContext,
     })
 
     // IPC Hooks
