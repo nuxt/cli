@@ -87,7 +87,8 @@ const command = defineCommand({
           },
         },
       })
-      devProxy.setAddress(devServer.listener.url)
+      // @ts-expect-error
+      devProxy.setAddress(devServer.listener._url || devServer.listener.url)
       await devServer.init()
     }
   },
