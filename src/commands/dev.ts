@@ -85,7 +85,6 @@ const command = defineCommand({
         listenOptions,
       )
       await devServer.init()
-      devServer.listener.showURL()
     }
   },
 })
