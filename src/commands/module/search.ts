@@ -4,7 +4,7 @@ import consola from 'consola'
 import { fetchModules } from './_utils'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
-import { bold, green, magenta, cyan, gray } from 'colorette'
+import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
 
 export default defineCommand({
   meta: {
@@ -48,6 +48,7 @@ async function findModuleByKeywords(query: string) {
       description: gray(result.item.description),
       package: gray(result.item.npm),
       install: cyan(`nuxt module add ${result.item.npm}`),
+      stars: yellow(result.item.stats.stars),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage
