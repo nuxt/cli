@@ -49,6 +49,7 @@ async function findModuleByKeywords(query: string) {
       package: gray(result.item.npm),
       install: cyan(`nuxt module add ${result.item.npm}`),
       stars: yellow(result.item.stats.stars),
+      downloads: yellow(result.item.stats.downloads),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage
