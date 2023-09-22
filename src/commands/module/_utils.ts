@@ -1,4 +1,6 @@
 import { $fetch } from 'ofetch'
+import { satisfies, coerce } from 'semver'
+import { tryRequireModule } from '../../utils/cjs'
 
 export const categories = [
   'Analytics',
@@ -49,6 +51,9 @@ export interface Stats {
 export interface ModuleCompatibility {
   nuxt: string
   requires: { bridge?: boolean | 'optional' }
+  versionMap: {
+    [nuxtVersion: string]: string
+  }
 }
 
 export interface MaintainerInfo {
@@ -84,9 +89,27 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const data = await $fetch<NuxtApiResponse>(
-    'https://api.nuxt.com/modules',
-  )
+  const data = await $fetch<NuxtApiResponse>('https://api.nuxt.com/modules')
 
   return data.modules
+}
+
+export function checkNuxtCompatibility(
+  module: NuxtModule,
+  nuxtVersion: string,
+): boolean {
+  if (!module.compatibility?.nuxt) {
+    return true
+  }
+  return satisfies(nuxtVersion, module.compatibility.nuxt)
+}
+
+export async function getNuxtVersion(cwd: string) {
+  const nuxtPkg = tryRequireModule('nuxt/package.json', cwd)
+  if (nuxtPkg) {
+    return nuxtPkg.version
+  }
+  const pkg = await tryRequireModule('./package.json', cwd)
+  const pkgDep = pkg?.dependencies?.['nuxt'] || pkg?.devDependencies?.['nuxt']
+  return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
 }
