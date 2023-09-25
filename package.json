@@ -27,6 +27,7 @@
     "dev:bun": "bun --bun ./bin/nuxi.mjs dev ./playground",
     "lint": "eslint . && prettier --check src",
     "lint:fix": "eslint --fix . && prettier --write src",
+    "play:nuxi": "cd ./playground && node ../bin/nuxi.mjs",
     "nuxi": "node ./bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./bin/nuxi.mjs",
     "prepack": "unbuild",
