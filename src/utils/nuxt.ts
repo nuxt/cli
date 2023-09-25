@@ -15,17 +15,13 @@ export interface NuxtProjectManifest {
   }
 }
 
-export async function cleanupNuxtDirs(rootDir: string) {
+export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
   consola.info('Cleaning up generated nuxt files and caches...')
 
   await rmRecursive(
-    [
-      '.nuxt',
-      '.output',
-      'dist',
-      'node_modules/.vite',
-      'node_modules/.cache',
-    ].map((dir) => resolve(rootDir, dir)),
+    ['.output', 'dist', 'node_modules/.vite', 'node_modules/.cache']
+      .map((dir) => resolve(rootDir, dir))
+      .concat(buildDir),
   )
 }
 
