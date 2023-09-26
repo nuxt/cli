@@ -184,7 +184,7 @@ class NuxtDevServer extends EventEmitter {
         ...this.options.overrides,
       },
     })
-    await this._currentNuxt.ready();
+    await this._currentNuxt.ready()
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this._currentNuxt.hooks.hook(
