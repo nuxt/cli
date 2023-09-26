@@ -44,7 +44,12 @@ export default defineCommand({
         return
       }
       consola.info(`${moduleName} has been resolved. Adding module...`)
-      await addModule(moduleName, ctx.args.skipInstall, ctx.args.skipConfig, cwd)
+      await addModule(
+        moduleName,
+        ctx.args.skipInstall,
+        ctx.args.skipConfig,
+        cwd,
+      )
     }
   },
 })
@@ -54,7 +59,7 @@ async function addModule(
   npmPackage: string,
   skipInstall: boolean,
   skipConfig: boolean,
-  cwd: string
+  cwd: string,
 ) {
   // Add npm dependency
   if (!skipInstall) {
@@ -134,11 +139,11 @@ async function resolveModule(
 ): Promise<
   | false
   | {
-    nuxtModule?: NuxtModule
-    pkg: string
-    pkgName: string
-    pkgVersion: string
-  }
+      nuxtModule?: NuxtModule
+      pkg: string
+      pkgName: string
+      pkgVersion: string
+    }
 > {
   let pkgName = moduleName
   let pkgVersion: string | undefined
