@@ -184,7 +184,7 @@ class NuxtDevServer extends EventEmitter {
         ...this.options.overrides,
       },
     })
-
+    await this._currentNuxt.ready();
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this._currentNuxt.hooks.hook(
@@ -207,7 +207,7 @@ class NuxtDevServer extends EventEmitter {
     }
 
     // Remove websocket handlers on close
-    this._currentNuxt.hooks.hookOnce('close', () => {
+    this._currentNuxt.hooks.hook('close', () => {
       this.listener.server.removeAllListeners('upgrade')
     })
 
@@ -225,8 +225,6 @@ class NuxtDevServer extends EventEmitter {
         await clearBuildDir(this._currentNuxt.options.buildDir)
       }
     }
-
-    await this._currentNuxt.ready()
 
     const unsub = this._currentNuxt.hooks.hook('restart', async (options) => {
       unsub() // We use this instead of `hookOnce` for Nuxt Bridge support
