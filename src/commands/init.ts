@@ -48,9 +48,17 @@ export default defineCommand({
       default: true,
       description: 'Skip installing dependencies',
     },
+    gitInit: {
+      type: 'boolean',
+      description: 'Initialize git repository',
+    },
     shell: {
       type: 'boolean',
       description: 'Start shell after installation in project directory',
+    },
+    packageManager: {
+      type: 'string',
+      description: 'Package manager choice (npm, pnpm, yarn, bun)',
     },
   },
   async run(ctx) {
@@ -84,14 +92,22 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // Prompt user to select package manager
-    const selectedPackageManager = await consola.prompt<{
-      type: 'select'
-      options: PackageManagerName[]
-    }>('Which package manager would you like to use?', {
-      type: 'select',
-      options: ['npm', 'pnpm', 'yarn', 'bun'],
-    })
+    // Resolve package manager
+    const packageManagerOptions: PackageManagerName[] = [
+      'npm',
+      'pnpm',
+      'yarn',
+      'bun',
+    ]
+    const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const selectedPackageManager = packageManagerOptions.includes(
+      packageManagerArg,
+    )
+      ? packageManagerArg
+      : await consola.prompt('Which package manager would you like to use?', {
+          type: 'select',
+          options: packageManagerOptions,
+        })
 
     // Get relative project path
     const relativeProjectPath = relative(process.cwd(), template.dir)
@@ -125,6 +141,21 @@ export default defineCommand({
       }
 
       consola.success('Installation completed.')
+    }
+
+    if (ctx.args.gitInit === undefined) {
+      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
+        type: 'confirm',
+      })
+    }
+    if (ctx.args.gitInit) {
+      consola.info('Initializing git repository...\n')
+      const { execaCommand } = await import('execa')
+      await execaCommand(`git init ${template.dir}`, {
+        stdio: 'inherit',
+      }).catch((err) => {
+        consola.warn(`Failed to initialize git repository: ${err}`)
+      })
     }
 
     // Display next steps
