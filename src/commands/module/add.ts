@@ -46,7 +46,7 @@ export default defineCommand({
       consola.info(`${moduleName} has been resolved. Adding module...`)
       await addModule(moduleName, ctx.args.skipInstall, ctx.args.skipConfig, cwd)
     }
-  }
+  },
 })
 
 // -- Internal Utils --
