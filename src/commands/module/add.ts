@@ -73,22 +73,23 @@ async function addModule(
   // Add npm dependency
   if (!skipInstall) {
     consola.info(`Installing dev dependency \`${resolvedModule.pkg}\``)
-    const res = await addDependency(resolvedModule.pkg, { cwd, dev: true }).catch(
-        (error) => {
-          consola.error(error)
-          return consola.prompt(
-              `Install failed for ${colors.cyan(
-                  resolvedModule.pkg,
-              )}. Do you want to continue adding the module to ${colors.cyan(
-                  'nuxt.config',
-              )}?`,
-              {
-                type: 'confirm',
-                initial: false,
-              },
-          )
+    const res = await addDependency(resolvedModule.pkg, {
+      cwd,
+      dev: true,
+    }).catch((error) => {
+      consola.error(error)
+      return consola.prompt(
+        `Install failed for ${colors.cyan(
+          resolvedModule.pkg,
+        )}. Do you want to continue adding the module to ${colors.cyan(
+          'nuxt.config',
+        )}?`,
+        {
+          type: 'confirm',
+          initial: false,
         },
-    )
+      )
+    })
     if (res === false) {
       return
     }
@@ -102,7 +103,9 @@ async function addModule(
       }
       for (let i = 0; i < config.modules.length; i++) {
         if (config.modules[i] === resolvedModule.pkgName) {
-          consola.info(`\`${resolvedModule.pkgName}\` is already in the \`modules\``)
+          consola.info(
+            `\`${resolvedModule.pkgName}\` is already in the \`modules\``,
+          )
           return
         }
       }
@@ -111,7 +114,7 @@ async function addModule(
     }).catch((err) => {
       consola.error(err)
       consola.error(
-          `Please manually add \`${resolvedModule.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
+        `Please manually add \`${resolvedModule.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
       )
     })
   }
