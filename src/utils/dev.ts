@@ -207,7 +207,9 @@ class NuxtDevServer extends EventEmitter {
     }
 
     // Remove websocket handlers on close
-    this._currentNuxt.hooks.hook('close', () => {
+    // nuxt bridge doesn't have support for `hookOnce` here
+    const unsubClose = this._currentNuxt.hooks.hook('close', () => {
+      unsubClose()
       this.listener.server.removeAllListeners('upgrade')
     })
 
