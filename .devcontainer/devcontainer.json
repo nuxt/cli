@@ -1,8 +1,6 @@
 // https://code.visualstudio.com/docs/devcontainers/containers
 // https://containers.dev/implementors/json_reference/
 {
-  "name": "nitro-devcontainer",
-  "forwardPorts": [3000],
   "image": "node:18",
   "features": {},
   "customizations": {
@@ -16,6 +14,9 @@
       ]
     }
   },
-  "postStartCommand": "corepack enable && pnpm install",
-  "mounts": ["type=volume,target=${containerWorkspaceFolder}/node_modules"]
+  "postStartCommand": "corepack enable && pnpm install && pnpm build --stub",
+  "mounts": [
+    "type=volume,target=${containerWorkspaceFolder}/node_modules",
+    "type=volume,target=${containerWorkspaceFolder}/dist"
+  ]
 }
