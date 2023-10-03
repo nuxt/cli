@@ -17,6 +17,7 @@ import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
 import { importModule } from './esm'
+import { AddressInfo } from 'node:net'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready'; port: number }
@@ -248,11 +249,10 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = `${
-      this.listener.https ? 'https' : 'http'
-    }://${addr.address.includes(':') ? `[${addr.address}]` : addr.address}:${
-      addr.port
-    }/`
+    this._currentNuxt.options.devServer.url = _getAddressURL(
+      addr,
+      !!this.listener.https,
+    )
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string; cert: string }
 
@@ -295,4 +295,14 @@ class NuxtDevServer extends EventEmitter {
       }
     })
   }
+}
+
+function _getAddressURL(addr: AddressInfo, https: boolean) {
+  const proto = https ? 'https' : 'http'
+  let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
+  if (host === '[::]') {
+    host = 'localhost' // Fix issues with Docker networking
+  }
+  const port = addr.port || 3000
+  return `${proto}://${host}:${port}/`
 }
