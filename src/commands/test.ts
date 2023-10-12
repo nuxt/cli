@@ -42,7 +42,11 @@ export default defineCommand({
 // @ts-ignore TODO
 async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   let err
-  for (const pkg of ['@nuxt/test-utils-nightly', '@nuxt/test-utils-edge', '@nuxt/test-utils']) {
+  for (const pkg of [
+    '@nuxt/test-utils-nightly',
+    '@nuxt/test-utils-edge',
+    '@nuxt/test-utils',
+  ]) {
     try {
       const exports = await import(pkg)
       // Detect old @nuxt/test-utils
