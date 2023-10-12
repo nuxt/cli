@@ -56,6 +56,7 @@ export default defineCommand({
     // Check nuxt version
     const nuxtVersion =
       getDepVersion('nuxt') ||
+      getDepVersion('nuxt-nightly') ||
       getDepVersion('nuxt-edge') ||
       getDepVersion('nuxt3') ||
       '-'
