@@ -3,3 +3,4 @@ dist
 .vscode
 .nuxt
 nuxt-app
+.pnpm-store

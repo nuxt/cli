@@ -42,7 +42,11 @@ export default defineCommand({
 // @ts-ignore TODO
 async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   let err
-  for (const pkg of ['@nuxt/test-utils-edge', '@nuxt/test-utils']) {
+  for (const pkg of [
+    '@nuxt/test-utils-nightly',
+    '@nuxt/test-utils-edge',
+    '@nuxt/test-utils',
+  ]) {
     try {
       const exports = await import(pkg)
       // Detect old @nuxt/test-utils
@@ -56,6 +60,6 @@ async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   }
   console.error(err)
   throw new Error(
-    '`@nuxt/test-utils-edge` seems missing. Run `npm i -D @nuxt/test-utils-edge` or `yarn add -D @nuxt/test-utils-edge` to install.',
+    '`@nuxt/test-utils` seems missing. Run `npm i -D @nuxt/test-utils` or `yarn add -D @nuxt/test-utils` to install.',
   )
 }

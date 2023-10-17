@@ -294,5 +294,6 @@ function _resolveListenOptions(
     hostname: _hostname,
     public: _public,
     https: httpsOptions,
+    baseURL: nuxtOptions.app.baseURL,
   }
 }

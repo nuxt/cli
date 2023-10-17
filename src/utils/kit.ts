@@ -31,7 +31,7 @@ export const loadKit = async (
 }
 
 async function tryResolveNuxt() {
-  for (const pkg of ['nuxt3', 'nuxt', 'nuxt-edge']) {
+  for (const pkg of ['nuxt-nightly', 'nuxt3', 'nuxt', 'nuxt-edge']) {
     const path = await tryResolveModule(pkg)
     if (path) {
       return path
