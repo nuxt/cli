@@ -3,6 +3,7 @@ import { defineCommand } from 'citty'
 import { sharedArgs } from '../_shared'
 import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
+import { exists } from '../../utils/fs'
 import consola from 'consola'
 import { addDependency } from 'nypm'
 import {
@@ -36,10 +37,25 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
+    const nuxtConfigFile = await exists(resolve(cwd, 'nuxt.config.ts'))
 
     const r = await resolveModule(ctx.args.moduleName, cwd)
     if (r === false) {
       return
+    }
+
+    if (!nuxtConfigFile) {
+      const notValidDirPrompt = await consola.prompt(
+        `This directory does not appear to contain a Nuxt project. Do you still want to continue?`,
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+
+      if (notValidDirPrompt !== true) {
+        return
+      }
     }
 
     // Add npm dependency
