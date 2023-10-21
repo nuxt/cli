@@ -21,4 +21,5 @@ export const commands = {
   test: () => import('./test').then(_rDefault),
   typecheck: () => import('./typecheck').then(_rDefault),
   upgrade: () => import('./upgrade').then(_rDefault),
+  payloads: () => import('./payloads').then(_rDefault),
 } as const
