@@ -58,7 +58,7 @@ export default defineCommand({
 
     // Display sorted payloads
     sortedPayloads.forEach(payload => {
-      console.log(`${payload.payload} ${toHumainSize(payload.payloadSize)}`);
+      console.log(`${payload.payload} ${toHumanSize(payload.payloadSize)}`);
     });
     // TODO: improve output. We could use a table like or a tree like output (waiting for https://github.com/unjs/consola/pull/223).
   },
