@@ -64,7 +64,7 @@ export default defineCommand({
   },
 })
 
-function toHumainSize(bytes: number): string {
+function toHumanSize(bytes: number): string {
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
   if (bytes === 0) return "0 Byte";
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
