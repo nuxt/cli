@@ -48,7 +48,7 @@ export default defineCommand({
       rootDir: cwd,
       overrides: defu(ctx.data?.overrides, {
         build: {
-          analyze: true,
+          analyze: { enabled: true },
         },
         analyzeDir,
         buildDir,
