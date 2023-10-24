@@ -14,6 +14,15 @@ import {
 import { satisfies } from 'semver'
 import { colors } from 'consola/utils'
 
+type ResolvedModule = {
+  nuxtModule?: NuxtModule
+  pkg: string
+  pkgName: string
+  pkgVersion: string
+}
+type UnresolvedModule = false
+type ModuleResolution = ResolvedModule | UnresolvedModule
+
 export default defineCommand({
   meta: {
     name: 'module',
@@ -36,61 +45,80 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
+    const modules = ctx.args._
 
-    const r = await resolveModule(ctx.args.moduleName, cwd)
-    if (r === false) {
-      return
-    }
-
-    // Add npm dependency
-    if (!ctx.args.skipInstall) {
-      consola.info(`Installing dev dependency \`${r.pkg}\``)
-      const res = await addDependency(r.pkg, { cwd, dev: true }).catch(
-        (error) => {
-          consola.error(error)
-          return consola.prompt(
-            `Install failed for ${colors.cyan(
-              r.pkg,
-            )}. Do you want to continue adding the module to ${colors.cyan(
-              'nuxt.config',
-            )}?`,
-            {
-              type: 'confirm',
-              initial: false,
-            },
-          )
-        },
-      )
-      if (res === false) {
+    for (const moduleName of modules) {
+      const moduleResolution = await resolveModule(moduleName, cwd)
+      if (moduleResolution === false) {
         return
       }
-    }
-
-    // Update nuxt.config.ts
-    if (!ctx.args.skipConfig) {
-      await updateNuxtConfig(cwd, (config) => {
-        if (!config.modules) {
-          config.modules = []
-        }
-        for (let i = 0; i < config.modules.length; i++) {
-          if (config.modules[i] === r.pkgName) {
-            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-            return
-          }
-        }
-        consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
-        config.modules.push(r.pkgName)
-      }).catch((err) => {
-        consola.error(err)
-        consola.error(
-          `Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
-        )
-      })
+      consola.info(`${moduleName} has been resolved. Adding module...`)
+      await addModule(
+        moduleResolution,
+        ctx.args.skipInstall,
+        ctx.args.skipConfig,
+        cwd,
+      )
     }
   },
 })
 
 // -- Internal Utils --
+async function addModule(
+  resolvedModule: ResolvedModule,
+  skipInstall: boolean,
+  skipConfig: boolean,
+  cwd: string,
+) {
+  // Add npm dependency
+  if (!skipInstall) {
+    consola.info(`Installing dev dependency \`${resolvedModule.pkg}\``)
+    const res = await addDependency(resolvedModule.pkg, {
+      cwd,
+      dev: true,
+    }).catch((error) => {
+      consola.error(error)
+      return consola.prompt(
+        `Install failed for ${colors.cyan(
+          resolvedModule.pkg,
+        )}. Do you want to continue adding the module to ${colors.cyan(
+          'nuxt.config',
+        )}?`,
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+    })
+    if (res === false) {
+      return
+    }
+  }
+
+  // Update nuxt.config.ts
+  if (!skipConfig) {
+    await updateNuxtConfig(cwd, (config) => {
+      if (!config.modules) {
+        config.modules = []
+      }
+      for (let i = 0; i < config.modules.length; i++) {
+        if (config.modules[i] === resolvedModule.pkgName) {
+          consola.info(
+            `\`${resolvedModule.pkgName}\` is already in the \`modules\``,
+          )
+          return
+        }
+      }
+      consola.info(`Adding \`${resolvedModule.pkgName}\` to the \`modules\``)
+      config.modules.push(resolvedModule.pkgName)
+    }).catch((err) => {
+      consola.error(err)
+      consola.error(
+        `Please manually add \`${resolvedModule.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
+      )
+    })
+  }
+}
 
 async function updateNuxtConfig(
   rootDir: string,
@@ -133,15 +161,7 @@ const packageRegex =
 async function resolveModule(
   moduleName: string,
   cwd: string,
-): Promise<
-  | false
-  | {
-      nuxtModule?: NuxtModule
-      pkg: string
-      pkgName: string
-      pkgVersion: string
-    }
-> {
+): Promise<ModuleResolution> {
   let pkgName = moduleName
   let pkgVersion: string | undefined
 
