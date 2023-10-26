@@ -1,6 +1,29 @@
 # Changelog
 
 
+## v3.9.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.9.0...v3.9.1)
+
+### 🩹 Fixes
+
+- Pass `baseUrl` to listen options ([#236](https://github.com/nuxt/cli/pull/236))
+- **dev:** Prefer `localhost` over `[::]` for internal networking ([#242](https://github.com/nuxt/cli/pull/242))
+- Support `-nightly` nuxt releases and publish `nuxi-nightly` ([#248](https://github.com/nuxt/cli/pull/248))
+
+### 🏡 Chore
+
+- **release:** V3.9.0 ([c4b90f7](https://github.com/nuxt/cli/commit/c4b90f7))
+- Add `.devcontainer` ([b8f9fd3](https://github.com/nuxt/cli/commit/b8f9fd3))
+- Islolate `dist` dir for dev container ([f55d0a1](https://github.com/nuxt/cli/commit/f55d0a1))
+- Update c12 and lockfile ([f7eecc7](https://github.com/nuxt/cli/commit/f7eecc7))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Daniel Roe <daniel@roe.dev>
+- Warflash <nwiesinger67@gmail.com>
+
 ## v3.9.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.8.4...v3.9.0)
