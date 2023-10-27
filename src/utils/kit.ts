@@ -1,4 +1,6 @@
-import { importModule, tryResolveModule } from './esm'
+import { tryResolveModule } from '@nuxt/kit'
+
+import { importModule } from './esm'
 
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
