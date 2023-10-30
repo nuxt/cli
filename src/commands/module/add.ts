@@ -72,11 +72,10 @@ export default defineCommand({
         if (!config.modules) {
           config.modules = []
         }
-        for (let i = 0; i < config.modules.length; i++) {
-          if (config.modules[i] === r.pkgName) {
-            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-            return
-          }
+       
+        if (config.modules.includes(r.pkgName) {
+          consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
+          return
         }
         consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
         config.modules.push(r.pkgName)
