@@ -72,7 +72,7 @@ export default defineCommand({
         if (!config.modules) {
           config.modules = []
         }
-       
+
         if (config.modules.includes(r.pkgName)) {
           consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
           return
