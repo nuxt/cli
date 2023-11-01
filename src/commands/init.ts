@@ -110,9 +110,12 @@ export default defineCommand({
         })
 
     // Get relative project path
-    const relativeProjectPath = relative(process.cwd(), template.dir)
+    let relativeProjectPath = relative(process.cwd(), template.dir)
+    if (relativeProjectPath === '') {
+      relativeProjectPath = '.';
+    }
 
-    // Write .nuxtrc with `shamefully-hoist=true` for pnpm
+    // Write .npmrc with `shamefully-hoist=true` for pnpm
     if (selectedPackageManager === 'pnpm') {
       await writeFile(`${relativeProjectPath}/.npmrc`, 'shamefully-hoist=true')
     }
