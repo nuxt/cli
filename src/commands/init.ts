@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { relative, resolve } from 'pathe'
+import { join, relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
@@ -109,12 +109,9 @@ export default defineCommand({
           options: packageManagerOptions,
         })
 
-    // Get relative project path
-    const relativeProjectPath = relative(process.cwd(), template.dir)
-
-    // Write .nuxtrc with `shamefully-hoist=true` for pnpm
+    // Write `.npmrc` with `shamefully-hoist=true` for pnpm
     if (selectedPackageManager === 'pnpm') {
-      await writeFile(`${relativeProjectPath}/.npmrc`, 'shamefully-hoist=true')
+      await writeFile(join(template.dir, '.npmrc'), 'shamefully-hoist=true')
     }
 
     // Install project dependencies
@@ -126,7 +123,7 @@ export default defineCommand({
 
       try {
         await installDependencies({
-          cwd: relativeProjectPath,
+          cwd: template.dir,
           packageManager: {
             name: selectedPackageManager,
             command: selectedPackageManager,
@@ -162,11 +159,11 @@ export default defineCommand({
     consola.log(
       `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
-
+    const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
       !ctx.args.shell &&
-        relativeProjectPath.length > 1 &&
-        `\`cd ${relativeProjectPath}\``,
+        relativeTemplateDir.length > 1 &&
+        `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
