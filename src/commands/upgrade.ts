@@ -45,7 +45,9 @@ export default defineCommand({
     // Check package manager
     const packageManager = getPackageManager(cwd)
     if (!packageManager) {
-      console.error('Cannot detect Package Manager in', cwd)
+      consola.error(
+        `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
+      )
       process.exit(1)
     }
     const packageManagerVersion = execSync(`${packageManager} --version`)
