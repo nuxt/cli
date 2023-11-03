@@ -12,6 +12,7 @@ import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { loadKit } from '../utils/kit'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
   try {
@@ -91,7 +92,15 @@ export default defineCommand({
     )
 
     // Cleanup after upgrade
-    await cleanupNuxtDirs(cwd)
+    let buildDir: string = '.nuxt'
+    try {
+      const { loadNuxtConfig } = await loadKit(cwd)
+      const nuxtOptions = await loadNuxtConfig({ cwd })
+      buildDir = nuxtOptions.buildDir
+    } catch {
+      // Use default buildDir (.nuxt)
+    }
+    await cleanupNuxtDirs(cwd, buildDir)
 
     // Check installed nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
