@@ -69,7 +69,7 @@ const command = defineCommand({
       // Fork nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
       await _startSubprocess(devProxy, ctx.rawArgs)
-      return devProxy?.listener?.url;
+      return devProxy?.listener?.url
     } else {
       // Directly start nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
@@ -86,7 +86,7 @@ const command = defineCommand({
         listenOptions,
       )
       await devServer.init()
-      return devServer?.listener?.url;
+      return devServer?.listener?.url
     }
   },
 })
