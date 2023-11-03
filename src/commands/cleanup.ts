@@ -3,6 +3,7 @@ import { cleanupNuxtDirs } from '../utils/nuxt'
 import { defineCommand } from 'citty'
 
 import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { loadKit } from '../utils/kit'
 
 export default defineCommand({
   meta: {
@@ -15,6 +16,8 @@ export default defineCommand({
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
-    await cleanupNuxtDirs(cwd)
+    const { loadNuxtConfig } = await loadKit(cwd)
+    const nuxtOptions = await loadNuxtConfig({ cwd })
+    await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir)
   },
 })

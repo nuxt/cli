@@ -36,10 +36,6 @@ export default defineCommand({
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^a-z0-9_-]/gi, '_')
 
-    let analyzeDir = join(cwd, '.nuxt/analyze', slug)
-    let buildDir = join(analyzeDir, '.nuxt')
-    let outDir = join(analyzeDir, '.output')
-
     const startTime = Date.now()
 
     const { loadNuxt, buildNuxt } = await loadKit(cwd)
@@ -48,22 +44,18 @@ export default defineCommand({
       rootDir: cwd,
       overrides: defu(ctx.data?.overrides, {
         build: {
-          analyze: { enabled: true },
-        },
-        analyzeDir,
-        buildDir,
-        nitro: {
-          output: {
-            dir: outDir,
+          analyze: {
+            enabled: true,
           },
         },
         logLevel: ctx.args.logLevel,
       }),
     })
 
-    analyzeDir = nuxt.options.analyzeDir
-    buildDir = nuxt.options.buildDir
-    outDir = nuxt.options.nitro.output?.dir || outDir
+    const analyzeDir = nuxt.options.analyzeDir
+    const buildDir = nuxt.options.buildDir
+    const outDir =
+      nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
 
     await clearDir(analyzeDir)
     await buildNuxt(nuxt)
