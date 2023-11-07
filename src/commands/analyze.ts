@@ -57,8 +57,9 @@ export default defineCommand({
     const outDir =
       nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
 
-    nuxt.options.build.analyze.filename =
-      nuxt.options.build.analyze.filename || join(analyzeDir, 'client.html')
+    nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
+      filename: join(analyzeDir, 'client.html'),
+    })
 
     await clearDir(analyzeDir)
     await buildNuxt(nuxt)
