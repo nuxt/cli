@@ -31,7 +31,7 @@ export default defineCommand({
 
     const { runTests } = await importTestUtils()
     await runTests({
-      cwd,
+      rootDir: cwd,
       dev: ctx.args.dev,
       watch: ctx.args.watch,
       .../*ctx.options ||*/ {},
@@ -39,7 +39,6 @@ export default defineCommand({
   },
 })
 
-// @ts-ignore TODO
 async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
   let err
   for (const pkg of [
