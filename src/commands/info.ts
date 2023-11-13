@@ -64,10 +64,10 @@ export default defineCommand({
     const builder = !isLegacy
       ? nuxtConfig.builder /* latest schema */ || '-'
       : nuxtConfig.bridge?.vite
-      ? 'vite' /* bridge vite implementation */
-      : nuxtConfig.buildModules?.includes('nuxt-vite')
-      ? 'vite' /* nuxt-vite */
-      : 'webpack'
+        ? 'vite' /* bridge vite implementation */
+        : nuxtConfig.buildModules?.includes('nuxt-vite')
+          ? 'vite' /* nuxt-vite */
+          : 'webpack'
 
     let packageManager: keyof typeof packageManagerLocks | 'unknown' | null =
       getPackageManager(cwd)
