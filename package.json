@@ -69,7 +69,7 @@
     "perfect-debounce": "^1.0.0",
     "pkg-types": "^1.0.3",
     "prettier": "^3.1.0",
-    "scule": "^1.0.0",
+    "scule": "^1.1.0",
     "semver": "^7.5.4",
     "unbuild": "^2.0.0",
     "unws": "^0.2.4",
