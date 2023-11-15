@@ -19,6 +19,10 @@ export default defineCommand({
       type: 'boolean',
       description: 'Build nuxt and prerender static routes',
     },
+    preset: {
+      type: 'string',
+      description: 'Nitro server preset',
+    },
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
@@ -34,6 +38,12 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
+    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
+    if (nitroPreset) {
+      // TODO: Link to the docs
+      consola.info(`Using Nitro server preset: \`${nitroPreset}\``)
+    }
+
     const nuxt = await kit.loadNuxt({
       rootDir: cwd,
       dotenv: {
@@ -44,7 +54,9 @@ export default defineCommand({
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
-        ...(ctx.args.prerender ? { nitro: { static: true } } : {}),
+        ...(ctx.args.prerender
+          ? { nitro: { static: true } }
+          : { nitro: { preset: nitroPreset } }),
         ...ctx.data?.overrides,
       },
     })
