@@ -1,6 +1,44 @@
 # Changelog
 
 
+## v3.10.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.9.1...v3.10.0)
+
+### 🚀 Enhancements
+
+- **build:** Support `--preset` arg ([#290](https://github.com/nuxt/cli/pull/290))
+- **dev:** Return listener instance for programmatic usage ([#278](https://github.com/nuxt/cli/pull/278))
+
+### 🩹 Fixes
+
+- **analyze:** Don't override analyze options ([#259](https://github.com/nuxt/cli/pull/259))
+- **init:** Use absolute path for installing dependencies ([#272](https://github.com/nuxt/cli/pull/272))
+- **dev:** Pass programmatic args to sub process ([#275](https://github.com/nuxt/cli/pull/275))
+- **analyze, cleanup, upgrade:** Respect custom `buildDir` ([#276](https://github.com/nuxt/cli/pull/276))
+- **analyze:** Set path for client analyze results ([#277](https://github.com/nuxt/cli/pull/277))
+- **test:** Pass `rootDir` to `runTests` command ([#284](https://github.com/nuxt/cli/pull/284))
+
+### 💅 Refactors
+
+- Use magicast `.includes` helper ([#268](https://github.com/nuxt/cli/pull/268))
+- **upgrade:** Improve error message when package manager cannot be detected ([#270](https://github.com/nuxt/cli/pull/270))
+
+### 🏡 Chore
+
+- **release:** V3.9.1 ([25c3dfe](https://github.com/nuxt/cli/commit/25c3dfe))
+- Update citty and lockfile ([2104cf8](https://github.com/nuxt/cli/commit/2104cf8))
+- Update lockfile ([7515e22](https://github.com/nuxt/cli/commit/7515e22))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Katerina Skroumpelou 
+- Daniel Roe <daniel@roe.dev>
+- Larry Williamson ([@L422Y](http://github.com/L422Y))
+- Jiten (Jits) Bhagat 
+- Angel Hernandez <angel.hernandez.12@live.com>
+
 ## v3.9.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.9.0...v3.9.1)
