@@ -1,10 +1,11 @@
-export async function checkEngines() {
+export async function checkEngines({
+  currentNode = process.versions.node,
+  nodeRange = '>= 18.0.0',
+} = {}) {
   const satisfies = await import('semver/functions/satisfies.js').then(
     (r) =>
       r.default || (r as any as typeof import('semver/functions/satisfies.js')),
   ) // npm/node-semver#381
-  const currentNode = process.versions.node
-  const nodeRange = '>= 18.0.0'
 
   if (!satisfies(currentNode, nodeRange)) {
     console.warn(
