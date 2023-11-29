@@ -8,7 +8,14 @@ export default defineBuildConfig({
       exportConditions: ['production', 'node'] as any,
     },
   },
-  entries: ['src/index'],
+  entries: [
+    'src/index', 
+    {
+      builder: 'mkdist',
+      input: 'src/utils',
+      outDir: './dist/utils',
+    }
+  ],
   externals: [
     '@nuxt/test-utils',
     'fsevents',
