@@ -6,8 +6,8 @@ import { readPackageJSON } from 'pkg-types'
 import {
   getPackageManager,
   packageManagerLocks,
-} from '../utils/packageManagers'
-import { rmRecursive, touchFile } from '../utils/fs'
+} from '../utils/internal/packageManagers'
+import { rmRecursive, touchFile } from '../utils/internal/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { defineCommand } from 'citty'
 

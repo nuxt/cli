@@ -8,62 +8,7 @@
   "exports": {
     ".": "./dist/index.mjs",
     "./cli": "./bin/nuxi.mjs",
-    "./utils": {
-      "types": "./dist/utils/index.d.ts",
-      "import": "./dist/utils/index.mjs"
-    },
-    "./utils/banner": {
-      "types": "./dist/utils/banner.d.ts",
-      "import": "./dist/utils/banner.mjs"
-    },
-    "./utils/cjs": {
-      "types": "./dist/utils/cjs.d.ts",
-      "import": "./dist/utils/cjs.mjs"
-    },
-    "./utils/console": {
-      "types": "./dist/utils/console.d.ts",
-      "import": "./dist/utils/console.mjs"
-    },
-    "./utils/dev": {
-      "types": "./dist/utils/dev.d.ts",
-      "import": "./dist/utils/dev.mjs"
-    },
-    "./utils/engines": {
-      "types": "./dist/utils/engines.d.ts",
-      "import": "./dist/utils/engines.mjs"
-    },
-    "./utils/env": {
-      "types": "./dist/utils/env.d.ts",
-      "import": "./dist/utils/env.mjs"
-    },
-    "./utils/esm": {
-      "types": "./dist/utils/esm.d.ts",
-      "import": "./dist/utils/esm.mjs"
-    },
-    "./utils/fs": {
-      "types": "./dist/utils/fs.d.ts",
-      "import": "./dist/utils/fs.mjs"
-    },
-    "./utils/kit": {
-      "types": "./dist/utils/kit.d.ts",
-      "import": "./dist/utils/kit.mjs"
-    },
-    "./utils/nuxt": {
-      "types": "./dist/utils/nuxt.d.ts",
-      "import": "./dist/utils/nuxt.mjs"
-    },
-    "./utils/packageManagers": {
-      "types": "./dist/utils/packageManagers.d.ts",
-      "import": "./dist/utils/packageManagers.mjs"
-    },
-    "./utils/templates": {
-      "types": "./dist/utils/templates.d.ts",
-      "import": "./dist/utils/templates.mjs"
-    },
-    "./utils/update": {
-      "types": "./dist/utils/update.d.ts",
-      "import": "./dist/utils/banner.mjs"
-    }
+    "./utils": "./dist/utils/index.mjs"
   },
   "types": "./dist/index.d.ts",
   "bin": {

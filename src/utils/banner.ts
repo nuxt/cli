@@ -1,5 +1,5 @@
 import { bold, gray, green } from 'colorette'
-import { tryRequireModule } from './cjs'
+import { tryRequireModule } from './internal/cjs'
 
 export function showVersions(cwd: string) {
   const getPkgVersion = (pkg: string) => {

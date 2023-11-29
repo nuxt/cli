@@ -15,7 +15,7 @@ import {
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { clearBuildDir } from '../utils/fs'
+import { clearBuildDir } from './internal/fs'
 import { importModule } from './esm'
 import { AddressInfo } from 'node:net'
 

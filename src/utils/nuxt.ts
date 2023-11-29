@@ -3,7 +3,7 @@ import { dirname, resolve } from 'pathe'
 import { consola } from 'consola'
 import { hash } from 'ohash'
 import type { Nuxt } from '@nuxt/schema'
-import { rmRecursive } from './fs'
+import { rmRecursive } from './internal/fs'
 
 export interface NuxtProjectManifest {
   _hash: string | null

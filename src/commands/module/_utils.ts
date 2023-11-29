@@ -1,6 +1,6 @@
 import { $fetch } from 'ofetch'
 import { satisfies, coerce } from 'semver'
-import { tryRequireModule } from '../../utils/cjs'
+import { tryRequireModule } from '../../utils/internal/cjs'
 
 export const categories = [
   'Analytics',

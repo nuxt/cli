@@ -8,12 +8,12 @@ import type { PackageJson } from 'pkg-types'
 import { splitByCase } from 'scule'
 import clipboardy from 'clipboardy'
 import type { NuxtModule } from '@nuxt/schema'
-import type { packageManagerLocks } from '../utils/packageManagers'
+import type { packageManagerLocks } from '../utils/internal/packageManagers'
 import {
   getPackageManager,
   getPackageManagerVersion,
-} from '../utils/packageManagers'
-import { findup } from '../utils/fs'
+} from '../utils/internal/packageManagers'
+import { findup } from '../utils/internal/fs'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'

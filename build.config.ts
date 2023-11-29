@@ -10,15 +10,14 @@ export default defineBuildConfig({
   },
   entries: [
     'src/index', 
-    {
-      builder: 'mkdist',
-      input: 'src/utils',
-      outDir: './dist/utils',
-    }
+    'src/utils/index'
   ],
   externals: [
+    '@nuxt/kit',
+    '@nuxt/schema',
     '@nuxt/test-utils',
     'fsevents',
+    'listhen',
     'node:url',
     'node:buffer',
     'node:path',
