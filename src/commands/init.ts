@@ -10,7 +10,7 @@ import { defineCommand } from 'citty'
 import { sharedArgs } from './_shared'
 
 const DEFAULT_REGISTRY =
-  'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+  'https://raw.githubusercontent.com/nuxt/starter/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
 
 export default defineCommand({
