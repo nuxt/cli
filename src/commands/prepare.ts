@@ -48,11 +48,12 @@ export default defineCommand({
         },
       })
 
-      ctx.args.layers && projects.push(
-        ...nuxt.options._layers
-          .filter((layer) => layer.config.rootDir !== currentDir)
-          .map((layer) => layer.config.rootDir),
-      )
+      ctx.args.layers &&
+        projects.push(
+          ...nuxt.options._layers
+            .filter((layer) => layer.config.rootDir !== currentDir)
+            .map((layer) => layer.config.rootDir),
+        )
       await clearBuildDir(nuxt.options.buildDir)
 
       await buildNuxt(nuxt)
