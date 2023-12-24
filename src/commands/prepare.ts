@@ -17,6 +17,10 @@ export default defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
+    layers: {
+      type: 'boolean',
+      description: 'Run prepare for layers',
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
@@ -44,7 +48,7 @@ export default defineCommand({
         },
       })
 
-      projects.push(
+      ctx.args.layers && projects.push(
         ...nuxt.options._layers
           .filter((layer) => layer.config.rootDir !== currentDir)
           .map((layer) => layer.config.rootDir),
