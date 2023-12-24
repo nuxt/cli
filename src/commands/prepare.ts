@@ -22,27 +22,35 @@ export default defineCommand({
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const projects = [cwd];
 
-    const {
-      loadNuxt,
-      buildNuxt,
-      writeTypes = writeTypesLegacy,
-    } = await loadKit(cwd)
-    const nuxt = await loadNuxt({
-      rootDir: cwd,
-      overrides: {
-        _prepare: true,
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        ...ctx.data?.overrides,
-      },
-    })
-    await clearBuildDir(nuxt.options.buildDir)
+    do {
+      const currentDir = projects.shift();
+      if (!currentDir) { break }
 
-    await buildNuxt(nuxt)
-    await writeTypes(nuxt)
-    consola.success(
-      'Types generated in',
-      relative(process.cwd(), nuxt.options.buildDir),
-    )
+      const {
+        loadNuxt,
+        buildNuxt,
+        writeTypes = writeTypesLegacy,
+      } = await loadKit(currentDir)
+      const nuxt = await loadNuxt({
+        rootDir: currentDir,
+        overrides: {
+          _prepare: true,
+          logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+          ...ctx.data?.overrides,
+        },
+      })
+
+      projects.push(...nuxt.options._layers.filter((layer) => layer.config.rootDir !== currentDir).map((layer) => layer.config.rootDir))
+      await clearBuildDir(nuxt.options.buildDir)
+
+      await buildNuxt(nuxt)
+      await writeTypes(nuxt)
+      consola.success(
+        'Types generated in',
+        relative(process.cwd(), nuxt.options.buildDir),
+      )
+    } while (projects.length > 0)
   },
 })

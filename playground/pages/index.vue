@@ -6,5 +6,6 @@
     <br />
     <br />
     <NuxtLink to="/ws"> /ws </NuxtLink>
+    <LayerButton />
   </div>
 </template>
