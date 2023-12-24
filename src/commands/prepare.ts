@@ -22,11 +22,13 @@ export default defineCommand({
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
-    const projects = [cwd];
+    const projects = [cwd]
 
     do {
-      const currentDir = projects.shift();
-      if (!currentDir) { break }
+      const currentDir = projects.shift()
+      if (!currentDir) {
+        break
+      }
 
       const {
         loadNuxt,
@@ -42,7 +44,11 @@ export default defineCommand({
         },
       })
 
-      projects.push(...nuxt.options._layers.filter((layer) => layer.config.rootDir !== currentDir).map((layer) => layer.config.rootDir))
+      projects.push(
+        ...nuxt.options._layers
+          .filter((layer) => layer.config.rootDir !== currentDir)
+          .map((layer) => layer.config.rootDir),
+      )
       await clearBuildDir(nuxt.options.buildDir)
 
       await buildNuxt(nuxt)
