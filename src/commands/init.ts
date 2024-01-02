@@ -109,11 +109,6 @@ export default defineCommand({
           options: packageManagerOptions,
         })
 
-    // Write `.npmrc` with `shamefully-hoist=true` for pnpm
-    if (selectedPackageManager === 'pnpm') {
-      await writeFile(join(template.dir, '.npmrc'), 'shamefully-hoist=true')
-    }
-
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
