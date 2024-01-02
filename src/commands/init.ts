@@ -108,7 +108,7 @@ export default defineCommand({
           type: 'select',
           options: packageManagerOptions,
         })
-    
+
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
