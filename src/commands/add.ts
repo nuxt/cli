@@ -21,11 +21,14 @@ export default defineCommand({
       type: 'positional',
       required: true,
       valueHint: Object.keys(templates).join('|'),
+      description: `Scaffold template. 
+              Possible values: ${Object.keys(templates).join(', ')}`,
     },
     name: {
       type: 'positional',
       required: true,
       valueHint: 'name',
+      description: 'Generated file name',
     },
   },
   async run(ctx) {
