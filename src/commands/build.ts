@@ -8,6 +8,14 @@ import { showVersions } from '../utils/banner'
 import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 
+type LogLevel = 'silent' | 'info' | 'verbose'
+
+const logLevelMapNitro = {
+  silent: 0,
+  info: 3,
+  verbose: 3,
+} as const
+
 export default defineCommand({
   meta: {
     name: 'build',
@@ -51,12 +59,15 @@ export default defineCommand({
         fileName: ctx.args.dotenv,
       },
       overrides: {
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        logLevel: ctx.args.logLevel as LogLevel,
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
-        ...(ctx.args.prerender
-          ? { nitro: { static: true } }
-          : { nitro: { preset: nitroPreset } }),
+        nitro: {
+          ...(ctx.args.prerender
+            ? { static: true }
+            : { preset: nitroPreset }),
+          logLevel: logLevelMapNitro[ctx.args.logLevel as LogLevel],
+        },
         ...ctx.data?.overrides,
       },
     })
