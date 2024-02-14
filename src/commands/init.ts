@@ -1,7 +1,6 @@
-import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { join, relative, resolve } from 'pathe'
+import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
