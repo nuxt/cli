@@ -1,6 +1,6 @@
 import type { RequestListener, ServerResponse } from 'node:http'
 import EventEmitter from 'node:events'
-import { relative, resolve } from 'pathe'
+import { relative, resolve, join } from 'pathe'
 import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
@@ -77,7 +77,9 @@ export async function createNuxtDevServer(
   return devServer
 }
 
-const RESTART_RE = /^(nuxt\.config\.(js|ts|mjs|cjs)|\.nuxtignore|\.nuxtrc)$/
+// https://regex101.com/r/7HkR5c/1
+const RESTART_RE =
+  /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -281,10 +283,13 @@ class NuxtDevServer extends EventEmitter {
   }
 
   async _watchConfig() {
-    const configWatcher = chokidar.watch([this.options.cwd], {
-      ignoreInitial: true,
-      depth: 0,
-    })
+    const configWatcher = chokidar.watch(
+      [this.options.cwd, join(this.options.cwd, '.config')],
+      {
+        ignoreInitial: true,
+        depth: 0,
+      },
+    )
     configWatcher.on('all', (_event, _file) => {
       const file = relative(this.options.cwd, _file)
       if (file === (this.options.dotenv || '.env')) {
