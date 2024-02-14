@@ -1,6 +1,34 @@
 # Changelog
 
 
+## v3.10.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.10.0...v3.10.1)
+
+### 🩹 Fixes
+
+- Don't write `.npmrc` with `shamefully-hoist=true` anymore ([#319](https://github.com/nuxt/cli/pull/319))
+- Handle spaces in path at repo initialization ([#300](https://github.com/nuxt/cli/pull/300))
+- **dev:** Support `.config/` dir and custom config extensions ([#341](https://github.com/nuxt/cli/pull/341))
+
+### 💅 Refactors
+
+- **add:** Show description for `template` positional arg ([#325](https://github.com/nuxt/cli/pull/325))
+
+### 🏡 Chore
+
+- Update giget to 1.2 and lockfile ([#159](https://github.com/nuxt/cli/pull/159))
+- Remove unused imports ([9ca7ae4](https://github.com/nuxt/cli/commit/9ca7ae4))
+- Update dependencies ([9995400](https://github.com/nuxt/cli/commit/9995400))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Ettapp 
+- Gangan 
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Celibioux
+
 ## v3.10.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.9.1...v3.10.0)
