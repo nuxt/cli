@@ -99,7 +99,7 @@ const page: Template = ({ name }) => ({
 
 <template>
   <div>
-    Page: foo
+    Page: ${name}
   </div>
 </template>
 
