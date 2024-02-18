@@ -3,6 +3,7 @@ import { runCommand as _runCommand, runMain as _runMain } from 'citty'
 
 import { commands } from './commands'
 import { main } from './main'
+import { voltaRun } from './utils/volta'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback
@@ -18,6 +19,8 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
 }
 
 export const runMain = () => _runMain(main)
+
+export const voltaRunMain = (command: string) => voltaRun(command)
 
 export async function runCommand(
   name: string,
