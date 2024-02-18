@@ -2,6 +2,10 @@
 
 ⚡️ [Nuxt](https://nuxt.com/) Generation CLI Experience.
 
+## Commands
+
+All commands are listed on https://nuxt.com/docs/api/commands
+
 ## Vision and Roadmap
 
 We've rebuilt `nuxi` from the ground up using [unjs/citty](http://github.com/unjs/citty). We have grand plans for this - check out some of the features + roadmap discussions and please feel free to contribute!
