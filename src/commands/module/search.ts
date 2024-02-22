@@ -9,7 +9,7 @@ import { bold, green, magenta, cyan, gray } from 'colorette'
 export default defineCommand({
   meta: {
     name: 'add',
-    description: 'Search in nuxt modules',
+    description: 'Search in Nuxt modules',
   },
   args: {
     ...sharedArgs,
@@ -72,7 +72,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
 
   if (!results.length) {
     consola.info(
-      `No nuxt modules found matching query ${magenta(query)} for nuxt ${cyan(
+      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(
         nuxtVersion,
       )}`,
     )
@@ -80,10 +80,10 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   }
 
   consola.success(
-    `Found ${results.length} nuxt ${
+    `Found ${results.length} Nuxt ${
       results.length > 1 ? 'modules' : 'module'
     } matching ${cyan(query)} ${
-      nuxtVersion ? `for nuxt ${cyan(nuxtVersion)}` : ''
+      nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''
     }:\n`,
   )
   for (const foundModule of results) {

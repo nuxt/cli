@@ -16,7 +16,7 @@ export interface NuxtProjectManifest {
 }
 
 export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
-  consola.info('Cleaning up generated nuxt files and caches...')
+  consola.info('Cleaning up generated Nuxt files and caches...')
 
   await rmRecursive(
     [

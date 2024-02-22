@@ -18,7 +18,7 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   try {
     const pkg = await readPackageJSON('nuxt', { url: path })
     if (!pkg.version) {
-      consola.warn('Cannot find any installed nuxt versions in ', path)
+      consola.warn('Cannot find any installed Nuxt versions in ', path)
     }
     return pkg.version || null
   } catch {
@@ -29,7 +29,7 @@ async function getNuxtVersion(path: string): Promise<string | null> {
 export default defineCommand({
   meta: {
     name: 'upgrade',
-    description: 'Upgrade nuxt',
+    description: 'Upgrade Nuxt',
   },
   args: {
     ...sharedArgs,
@@ -54,11 +54,11 @@ export default defineCommand({
     const packageManagerVersion = execSync(`${packageManager} --version`)
       .toString('utf8')
       .trim()
-    consola.info('Package Manager:', packageManager, packageManagerVersion)
+    consola.info('Package manager:', packageManager, packageManagerVersion)
 
-    // Check currently installed nuxt version
+    // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Current nuxt version:', currentVersion)
+    consola.info('Current Nuxt version:', currentVersion)
 
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
@@ -91,7 +91,7 @@ export default defineCommand({
       { stdio: 'inherit', cwd },
     )
 
-    // Cleanup after upgrade
+    // Clean up after upgrade
     let buildDir: string = '.nuxt'
     try {
       const { loadNuxtConfig } = await loadKit(cwd)
@@ -102,15 +102,15 @@ export default defineCommand({
     }
     await cleanupNuxtDirs(cwd, buildDir)
 
-    // Check installed nuxt version again
+    // Check installed Nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Upgraded nuxt version:', upgradedVersion)
+    consola.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === currentVersion) {
-      consola.success("You're already using the latest version of nuxt.")
+      consola.success("You're already using the latest version of Nuxt.")
     } else {
       consola.success(
-        'Successfully upgraded nuxt from',
+        'Successfully upgraded Nuxt from',
         currentVersion,
         'to',
         upgradedVersion,

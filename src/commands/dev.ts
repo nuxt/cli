@@ -24,7 +24,7 @@ const forkSupported = !isBun && !isTest
 const command = defineCommand({
   meta: {
     name: 'dev',
-    description: 'Run nuxt development server',
+    description: 'Run Nuxt development server',
   },
   args: {
     ...sharedArgs,
@@ -66,12 +66,12 @@ const command = defineCommand({
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
 
     if (ctx.args.fork) {
-      // Fork nuxt dev process
+      // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
       await _startSubprocess(devProxy, ctx.rawArgs)
       return { listener: devProxy?.listener }
     } else {
-      // Directly start nuxt dev
+      // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
       const devServer = await createNuxtDevServer(
         {

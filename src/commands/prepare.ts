@@ -12,7 +12,7 @@ import { legacyRootDirArgs, sharedArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'prepare',
-    description: 'Prepare nuxt for development/build',
+    description: 'Prepare Nuxt for development/build',
   },
   args: {
     ...sharedArgs,

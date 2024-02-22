@@ -148,14 +148,14 @@ class NuxtDevServer extends EventEmitter {
       consola.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingMessage =
-        'Error while loading nuxt. Please check console and fix errors.'
+        'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading', this._loadingMessage)
     }
   }
 
   async _load(reload?: boolean, reason?: string) {
     const action = reload ? 'Restarting' : 'Starting'
-    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} nuxt...`
+    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} Nuxt...`
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {

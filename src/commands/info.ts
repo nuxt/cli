@@ -22,7 +22,7 @@ import nuxiPkg from '../../package.json'
 export default defineCommand({
   meta: {
     name: 'info',
-    description: 'Get information about nuxt project',
+    description: 'Get information about Nuxt project',
   },
   args: {
     ...sharedArgs,
@@ -32,7 +32,7 @@ export default defineCommand({
     // Resolve rootDir
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
-    // Load nuxt.config
+    // Load Nuxt config
     const nuxtConfig = getNuxtConfig(cwd)
 
     // Find nearest package.json
@@ -53,7 +53,7 @@ export default defineCommand({
         })
         .join(', ')
 
-    // Check nuxt version
+    // Check Nuxt version
     const nuxtVersion =
       getDepVersion('nuxt') ||
       getDepVersion('nuxt-nightly') ||

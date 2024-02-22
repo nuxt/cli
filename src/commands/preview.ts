@@ -14,7 +14,7 @@ import { legacyRootDirArgs, sharedArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'preview',
-    description: 'Launches nitro server for local testing after `nuxi build`.',
+    description: 'Launches Nitro server for local testing after `nuxi build`.',
   },
   args: {
     ...sharedArgs,
