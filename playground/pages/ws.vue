@@ -58,7 +58,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="ms-m-5" data-theme="dark">
+  <div
+    class="ms-m-5"
+    data-theme="dark"
+  >
     <h3>Nuxt WebSocket Test Page</h3>
 
     <div class="ms-btn-group">
@@ -70,11 +73,20 @@ onMounted(async () => {
     <div class="ms-form-group ms-mt-2">
       <div class="row">
         <div class="col-sm-6">
-          <input id="message" v-model="message" type="email" class="ms-secondary ms-small" placeholder="Message..."
-            @keydown.enter="sendMessage" />
+          <input
+            id="message"
+            v-model="message"
+            type="email"
+            class="ms-secondary ms-small"
+            placeholder="Message..."
+            @keydown.enter="sendMessage"
+          />
         </div>
         <div class="col-sm-1">
-          <button class="ms-btn ms-secondary ms-small" @click="sendMessage">
+          <button
+            class="ms-btn ms-secondary ms-small"
+            @click="sendMessage"
+          >
             Send
           </button>
         </div>
