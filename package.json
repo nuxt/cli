@@ -78,6 +78,11 @@
   "optionalDependencies": {
     "fsevents": "~2.3.3"
   },
+  "resolutions": {
+    "nitropack": "npm:nitropack-nightly",
+    "nuxt": "npm:nuxt-nightly",
+    "h3": "^1.11.1"
+  },
   "packageManager": "pnpm@8.15.4",
   "engines": {
     "node": "^14.18.0 || >=16.10.0"
