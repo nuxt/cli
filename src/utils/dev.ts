@@ -240,6 +240,15 @@ class NuxtDevServer extends EventEmitter {
       await this.load(true)
     })
 
+    if ('upgrade' in this._currentNuxt.server) {
+      this.listener.server.on('upgrade', async (req: any, socket: any, head: any) => {
+        if (req.url.startsWith(this._currentNuxt?.options.app.buildAssetsDir /* /_nuxt/ */)) {
+          return // Skip for Vite HMR
+        }
+        await this._currentNuxt?.server.upgrade(req, socket, head)
+      })
+    }
+
     await this._currentNuxt.hooks.callHook(
       'listen',
       this.listener.server,
