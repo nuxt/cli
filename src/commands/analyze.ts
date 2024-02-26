@@ -41,7 +41,7 @@ export default defineCommand({
     const { loadNuxt, buildNuxt } = await loadKit(cwd)
 
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: {

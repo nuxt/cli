@@ -45,7 +45,7 @@ export default defineCommand({
     }
 
     const nuxt = await kit.loadNuxt({
-      rootDir: cwd,
+      cwd,
       dotenv: {
         cwd,
         fileName: ctx.args.dotenv,
