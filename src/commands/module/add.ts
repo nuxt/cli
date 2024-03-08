@@ -16,8 +16,8 @@ import { colors } from 'consola/utils'
 
 export default defineCommand({
   meta: {
-    name: 'module',
-    description: 'Manage Nuxt Modules',
+    name: 'add',
+    description: 'Add Nuxt modules',
   },
   args: {
     ...sharedArgs,

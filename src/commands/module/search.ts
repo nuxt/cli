@@ -8,7 +8,7 @@ import { bold, green, magenta, cyan, gray } from 'colorette'
 
 export default defineCommand({
   meta: {
-    name: 'add',
+    name: 'search',
     description: 'Search in Nuxt modules',
   },
   args: {
