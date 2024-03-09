@@ -59,7 +59,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       repository: gray(result.item.github),
       description: gray(result.item.description),
       package: gray(result.item.npm),
-      install: cyan(`nuxt module add ${result.item.npm}`),
+      install: cyan(`npx nuxi module add ${result.item.npm}`),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage
