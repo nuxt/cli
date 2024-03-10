@@ -1,11 +1,5 @@
 {
   "extends": ["@nuxt/eslint-config"],
-  "ignorePatterns":[
-    ".nuxt",
-    ".output",
-    "dist",
-    "node_modules"
-  ],
   "rules": {
     "no-extra-semi": 0,
     "vue/html-self-closing": 0,
