@@ -25,6 +25,7 @@ pnpm dev:prepare
 
 # Go the the playground directory
 cd playground
+
 # And run any commands
 pnpm nuxi <command>
 ```
