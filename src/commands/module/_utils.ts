@@ -72,11 +72,10 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const latest = await $fetch('https://registry.npmjs.org/@nuxt/modules/latest')
-  const data = await $fetch<NuxtModule[]>(
-    `https://cdn.jsdelivr.net/npm/@nuxt/modules@${latest.version}/modules.json`,
+  const { modules } = await $fetch<{ modules: NuxtModule[] }>(
+    `https://api.nuxt.com/modules?version=all`,
   )
-  return data
+  return modules
 }
 
 export function checkNuxtCompatibility(
@@ -86,10 +85,8 @@ export function checkNuxtCompatibility(
   if (!module.compatibility?.nuxt) {
     return true
   }
-  // Remove pre-release tag
-  nuxtVersion = nuxtVersion.split('-')[0]
 
-  return satisfies(nuxtVersion, module.compatibility.nuxt)
+  return satisfies(nuxtVersion, module.compatibility.nuxt, { includePrerelease: true })
 }
 
 export async function getNuxtVersion(cwd: string) {
