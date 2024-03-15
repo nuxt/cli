@@ -86,7 +86,9 @@ export function checkNuxtCompatibility(
     return true
   }
 
-  return satisfies(nuxtVersion, module.compatibility.nuxt, { includePrerelease: true })
+  return satisfies(nuxtVersion, module.compatibility.nuxt, {
+    includePrerelease: true,
+  })
 }
 
 export async function getNuxtVersion(cwd: string) {
