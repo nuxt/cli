@@ -3,5 +3,10 @@
   "private": true,
   "version": "1.0.0",
   "packageManager": "pnpm@8.15.4",
-  "devDependencies": {}
+  "scripts": {
+    "nuxi": "node ../bin/nuxi.mjs"
+  },
+  "dependencies": {
+    "nuxt": "latest"
+  }
 }
