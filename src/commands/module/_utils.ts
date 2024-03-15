@@ -97,7 +97,11 @@ export async function getNuxtVersion(cwd: string) {
   if (nuxtPkg) {
     return nuxtPkg.version
   }
-  const pkg = await tryRequireModule('./package.json', cwd)
+  const pkg = await getProjectPackage(cwd)
   const pkgDep = pkg?.dependencies?.['nuxt'] || pkg?.devDependencies?.['nuxt']
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
+}
+
+export async function getProjectPackage(cwd: string) {
+  return await tryRequireModule('./package.json', cwd)
 }

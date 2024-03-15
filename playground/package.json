@@ -6,5 +6,7 @@
   "scripts": {
     "nuxi": "node ../bin/nuxi.mjs"
   },
-  "devDependencies": {}
+  "dependencies": {
+    "nuxt": "latest"
+  }
 }

@@ -11,6 +11,7 @@ import {
   checkNuxtCompatibility,
   fetchModules,
   getNuxtVersion,
+  getProjectPackage,
 } from './_utils'
 import { satisfies } from 'semver'
 import { colors } from 'consola/utils'
@@ -37,6 +38,12 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
+    const projectPkg = await getProjectPackage(cwd)
+    
+    if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
+      consola.error('Nuxt is not installed in this project')
+      return
+    }
 
     const r = await resolveModule(ctx.args.moduleName, cwd)
     if (r === false) {
@@ -45,8 +52,9 @@ export default defineCommand({
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
-      consola.info(`Installing dev dependency \`${r.pkg}\``)
-      const res = await addDependency(r.pkg, { cwd, dev: true }).catch(
+      const isDev = Boolean(projectPkg.devDependencies?.nuxt)
+      consola.info(`Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`)
+      const res = await addDependency(r.pkg, { cwd, dev: isDev }).catch(
         (error) => {
           consola.error(error)
           return consola.prompt(
