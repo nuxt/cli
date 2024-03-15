@@ -21,6 +21,7 @@
     "dist"
   ],
   "scripts": {
+    "dev:prepare": "unbuild --stub",
     "build": "unbuild",
     "build:stub": "unbuild --stub",
     "dev": "node ./bin/nuxi.mjs dev ./playground",

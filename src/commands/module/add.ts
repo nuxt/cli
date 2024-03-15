@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
+import { $fetch } from 'ofetch'
 import {
   NuxtModule,
   checkNuxtCompatibility,
@@ -161,7 +162,7 @@ async function resolveModule(
   })
 
   const matchedModule = modulesDB.find(
-    (module) => module.name === moduleName || module.npm === pkgName,
+    (module) => module.name === moduleName || module.npm === pkgName || module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
@@ -211,10 +212,28 @@ async function resolveModule(
     }
   }
 
+  // Fetch package on npm
+  pkgVersion = pkgVersion || 'latest'
+  const pkg = await $fetch(`https://registry.npmjs.org/${pkgName}/${pkgVersion}`)
+  const pkgDependencies = Object.assign(pkg.dependencies || {}, pkg.devDependencies || {})
+  if (!pkgDependencies['nuxt'] && !pkgDependencies['nuxt-edge']) {
+    consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
+    const shouldContinue = await consola.prompt(
+      `Do you want to continue installing \`${pkgName}\` anyway?`,
+      {
+        type: 'confirm',
+        initial: false,
+      },
+    )
+    if (shouldContinue !== true) {
+      return false
+    }
+  }
+
   return {
     nuxtModule: matchedModule,
-    pkg: `${pkgName}@${pkgVersion || 'latest'}`,
+    pkg: `${pkgName}@${pkgVersion}`,
     pkgName,
-    pkgVersion: pkgVersion || 'latest',
+    pkgVersion,
   }
 }

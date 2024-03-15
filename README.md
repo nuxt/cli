@@ -14,6 +14,21 @@ We've rebuilt `nuxi` from the ground up using [unjs/citty](http://github.com/unj
 - <a href="https://github.com/nuxt/cli/discussions/4" target="_blank">Feedbacks and Ideas</a>
 - <a href="https://github.com/nuxt/cli/discussions/7" target="_blank">The journey of Nuxt CLI Generations</a>
 
+## Contributing
+
+```bash
+# Install dependencies
+pnpm i
+
+# Generate type stubs
+pnpm dev:prepare
+
+# Go the the playground directory
+cd playground
+# And run any commands
+pnpm nuxi <command>
+```
+
 ## License
 
 [MIT](./LICENSE)

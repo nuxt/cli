@@ -61,6 +61,7 @@ export interface NuxtModule {
   maintainers: MaintainerInfo[]
   contributors?: GithubContributor[]
   compatibility: ModuleCompatibility
+  aliases?: string[]
 
   // Fetched in realtime API for modules.nuxt.org
   downloads?: number
@@ -71,8 +72,9 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
+  const latest = await $fetch('https://registry.npmjs.org/@nuxt/modules/latest')
   const data = await $fetch<NuxtModule[]>(
-    'https://cdn.jsdelivr.net/npm/@nuxt/modules@latest/modules.json',
+    `https://cdn.jsdelivr.net/npm/@nuxt/modules@${latest.version}/modules.json`,
   )
   return data
 }
@@ -84,6 +86,9 @@ export function checkNuxtCompatibility(
   if (!module.compatibility?.nuxt) {
     return true
   }
+  // Remove pre-release tag
+  nuxtVersion = nuxtVersion.split('-')[0]
+
   return satisfies(nuxtVersion, module.compatibility.nuxt)
 }
 
