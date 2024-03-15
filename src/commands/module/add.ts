@@ -39,7 +39,7 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
     const projectPkg = await getProjectPackage(cwd)
-    
+
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       consola.error('Nuxt is not installed in this project')
       return
@@ -53,7 +53,9 @@ export default defineCommand({
     // Add npm dependency
     if (!ctx.args.skipInstall) {
       const isDev = Boolean(projectPkg.devDependencies?.nuxt)
-      consola.info(`Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`)
+      consola.info(
+        `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
+      )
       const res = await addDependency(r.pkg, { cwd, dev: isDev }).catch(
         (error) => {
           consola.error(error)
@@ -170,7 +172,10 @@ async function resolveModule(
   })
 
   const matchedModule = modulesDB.find(
-    (module) => module.name === moduleName || module.npm === pkgName || module.aliases?.includes(pkgName),
+    (module) =>
+      module.name === moduleName ||
+      module.npm === pkgName ||
+      module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
@@ -222,8 +227,13 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const pkg = await $fetch(`https://registry.npmjs.org/${pkgName}/${pkgVersion}`)
-  const pkgDependencies = Object.assign(pkg.dependencies || {}, pkg.devDependencies || {})
+  const pkg = await $fetch(
+    `https://registry.npmjs.org/${pkgName}/${pkgVersion}`,
+  )
+  const pkgDependencies = Object.assign(
+    pkg.dependencies || {},
+    pkg.devDependencies || {},
+  )
   if (!pkgDependencies['nuxt'] && !pkgDependencies['nuxt-edge']) {
     consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
     const shouldContinue = await consola.prompt(
