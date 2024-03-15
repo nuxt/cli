@@ -41,8 +41,17 @@ export default defineCommand({
     const projectPkg = await getProjectPackage(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
-      consola.error('Nuxt is not installed in this project')
-      return
+      consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
+      const shouldContinue = await consola.prompt(
+        `Do you want to continue anyway?`,
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+      if (shouldContinue !== true) {
+        return false
+      }
     }
 
     const r = await resolveModule(ctx.args.moduleName, cwd)
