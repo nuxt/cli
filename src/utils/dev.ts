@@ -171,7 +171,7 @@ class NuxtDevServer extends EventEmitter {
 
     const kit = await loadKit(this.options.cwd)
     this._currentNuxt = await kit.loadNuxt({
-      rootDir: this.options.cwd,
+      cwd: this.options.cwd,
       dev: true,
       ready: false,
       overrides: {

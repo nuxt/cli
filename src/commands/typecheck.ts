@@ -29,7 +29,7 @@ export default defineCommand({
       writeTypes = writeTypesLegacy,
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
