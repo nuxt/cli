@@ -1,9 +1,6 @@
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import type { Nitro } from 'nitropack'
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
-
 import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
@@ -14,13 +11,17 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'build',
-    description: 'Build nuxt for production deployment',
+    description: 'Build Nuxt for production deployment',
   },
   args: {
     ...sharedArgs,
     prerender: {
       type: 'boolean',
-      description: 'Build nuxt and prerender static routes',
+      description: 'Build Nuxt and prerender static routes',
+    },
+    preset: {
+      type: 'string',
+      description: 'Nitro server preset',
     },
     dotenv: {
       type: 'string',
@@ -35,14 +36,15 @@ export default defineCommand({
 
     showVersions(cwd)
 
-    const {
-      loadNuxt,
-      buildNuxt,
-      useNitro,
-      writeTypes = writeTypesLegacy,
-    } = await loadKit(cwd)
+    const kit = await loadKit(cwd)
 
-    const nuxt = await loadNuxt({
+    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
+    if (nitroPreset) {
+      // TODO: Link to the docs
+      consola.info(`Using Nitro server preset: \`${nitroPreset}\``)
+    }
+
+    const nuxt = await kit.loadNuxt({
       rootDir: cwd,
       dotenv: {
         cwd,
@@ -52,30 +54,32 @@ export default defineCommand({
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
-        ...(ctx.args.prerender ? { nitro: { static: true } } : {}),
+        ...(ctx.args.prerender
+          ? { nitro: { static: true } }
+          : { nitro: { preset: nitroPreset } }),
         ...ctx.data?.overrides,
       },
     })
 
     let nitro: Nitro | undefined
-    // In Bridge, if nitro is not enabled, useNitro will throw an error
+    // In Bridge, if Nitro is not enabled, useNitro will throw an error
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
-      nitro = useNitro?.()
+      nitro = kit.useNitro?.()
     } catch {
       //
     }
 
     await clearBuildDir(nuxt.options.buildDir)
 
-    await writeTypes(nuxt)
+    await kit.writeTypes(nuxt)
 
     nuxt.hook('build:error', (err) => {
       consola.error('Nuxt Build Error:', err)
       process.exit(1)
     })
 
-    await buildNuxt(nuxt)
+    await kit.buildNuxt(nuxt)
 
     if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {

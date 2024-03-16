@@ -14,11 +14,11 @@ jobs:
     # permissions:
     #   id-token: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
         with:
           fetch-depth: 0
       - run: corepack enable
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: "pnpm"
@@ -36,7 +36,7 @@ jobs:
           !contains(github.event.head_commit.message, 'docs')
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
-          pnpm changelogen --canary edge --publish
+          pnpm changelogen --canary nightly --publish
         env:
           NPM_TOKEN: ${{secrets.NPM_TOKEN}}
           NPM_CONFIG_PROVENANCE: false

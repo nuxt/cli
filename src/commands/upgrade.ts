@@ -12,12 +12,13 @@ import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { loadKit } from '../utils/kit'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
   try {
     const pkg = await readPackageJSON('nuxt', { url: path })
     if (!pkg.version) {
-      consola.warn('Cannot find any installed nuxt versions in ', path)
+      consola.warn('Cannot find any installed Nuxt versions in ', path)
     }
     return pkg.version || null
   } catch {
@@ -28,7 +29,7 @@ async function getNuxtVersion(path: string): Promise<string | null> {
 export default defineCommand({
   meta: {
     name: 'upgrade',
-    description: 'Upgrade nuxt',
+    description: 'Upgrade Nuxt',
   },
   args: {
     ...sharedArgs,
@@ -45,17 +46,19 @@ export default defineCommand({
     // Check package manager
     const packageManager = getPackageManager(cwd)
     if (!packageManager) {
-      console.error('Cannot detect Package Manager in', cwd)
+      consola.error(
+        `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
+      )
       process.exit(1)
     }
     const packageManagerVersion = execSync(`${packageManager} --version`)
       .toString('utf8')
       .trim()
-    consola.info('Package Manager:', packageManager, packageManagerVersion)
+    consola.info('Package manager:', packageManager, packageManagerVersion)
 
-    // Check currently installed nuxt version
+    // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Current nuxt version:', currentVersion)
+    consola.info('Current Nuxt version:', currentVersion)
 
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
@@ -88,18 +91,26 @@ export default defineCommand({
       { stdio: 'inherit', cwd },
     )
 
-    // Cleanup after upgrade
-    await cleanupNuxtDirs(cwd)
+    // Clean up after upgrade
+    let buildDir: string = '.nuxt'
+    try {
+      const { loadNuxtConfig } = await loadKit(cwd)
+      const nuxtOptions = await loadNuxtConfig({ cwd })
+      buildDir = nuxtOptions.buildDir
+    } catch {
+      // Use default buildDir (.nuxt)
+    }
+    await cleanupNuxtDirs(cwd, buildDir)
 
-    // Check installed nuxt version again
+    // Check installed Nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Upgraded nuxt version:', upgradedVersion)
+    consola.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === currentVersion) {
-      consola.success("You're already using the latest version of nuxt.")
+      consola.success("You're already using the latest version of Nuxt.")
     } else {
       consola.success(
-        'Successfully upgraded nuxt from',
+        'Successfully upgraded Nuxt from',
         currentVersion,
         'to',
         upgradedVersion,

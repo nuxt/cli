@@ -1,15 +1,15 @@
 import { defineCommand } from 'citty'
 import { sharedArgs } from '../_shared'
 import consola from 'consola'
-import { fetchModules } from './_utils'
+import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
 
 export default defineCommand({
   meta: {
-    name: 'add',
-    description: 'Search in nuxt modules',
+    name: 'search',
+    description: 'Search in Nuxt modules',
   },
   args: {
     ...sharedArgs,
@@ -18,15 +18,25 @@ export default defineCommand({
       description: 'keywords to search for',
       required: true,
     },
+    nuxtVersion: {
+      type: 'string',
+      description:
+        'Filter by Nuxt version and list compatible moduless only (auto detected by default)',
+      required: false,
+    },
   },
   async setup(ctx) {
-    return findModuleByKeywords(ctx.args._.join(' '))
+    const nuxtVersion = await getNuxtVersion(ctx.args.cwd || '.')
+    return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })
 
-async function findModuleByKeywords(query: string) {
-  const modules = await fetchModules()
-  const fuse = new Fuse(modules, {
+async function findModuleByKeywords(query: string, nuxtVersion: string) {
+  const allModules = await fetchModules()
+  const compatibleModules = allModules.filter((m) =>
+    checkNuxtCompatibility(m, nuxtVersion),
+  )
+  const fuse = new Fuse(compatibleModules, {
     threshold: 0.1,
     keys: [
       { name: 'name', weight: 1 },
@@ -44,10 +54,11 @@ async function findModuleByKeywords(query: string) {
     const res: Record<string, string> = {
       name: bold(result.item.name),
       homepage: cyan(result.item.website),
+      compatibility: `nuxt: ${result.item.compatibility?.nuxt || '*'}`,
       repository: gray(result.item.github),
       description: gray(result.item.description),
       package: gray(result.item.npm),
-      install: cyan(`nuxt module add ${result.item.npm}`),
+      install: cyan(`npx nuxi module add ${result.item.name}`),
       stars: yellow(result.item.stats.stars),
       downloads: yellow(result.item.stats.downloads),
     }
@@ -61,14 +72,20 @@ async function findModuleByKeywords(query: string) {
   })
 
   if (!results.length) {
-    consola.info(`No nuxt modules found matching query ${magenta(query)}`)
+    consola.info(
+      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(
+        nuxtVersion,
+      )}`,
+    )
     return
   }
 
   consola.success(
-    `Found ${results.length} nuxt ${
+    `Found ${results.length} Nuxt ${
       results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)}:\n`,
+    } matching ${cyan(query)} ${
+      nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''
+    }:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0

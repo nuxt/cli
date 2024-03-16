@@ -37,7 +37,7 @@ export default defineCommand({
       },
     })
 
-    // Generate types and build nuxt instance
+    // Generate types and build Nuxt instance
     await writeTypes(nuxt)
     await buildNuxt(nuxt)
     await nuxt.close()

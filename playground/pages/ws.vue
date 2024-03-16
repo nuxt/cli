@@ -1,70 +1,107 @@
 <script setup lang="ts">
-import { WebSocket } from 'unws'
 
-const reqURL = useRequestURL()
-const urls = [`ws://${reqURL.host}/api/ws`, 'ws://localhost:8080']
-const _queryURL = useRoute().query.url as string
-if (_queryURL && !urls.includes(_queryURL)) {
-  urls.push(_queryURL)
-}
-
-// Poor man logger
 const logs = ref<string[]>([])
-let lastTime = Date.now()
-const log = (message: string) => {
-  console.log(message)
-  const now = Date.now()
-  const timeTaken = now - lastTime
-  logs.value.push(`${message} ${timeTaken > 0 ? `(+${timeTaken}ms)` : ''}`)
-  lastTime = now
-}
 
-const wsAddress = ref<string>((useRoute().query.url as string) || urls[0])
+const log = (...args: any[]) => {
+  console.log("[ws]", ...args);
+  logs.value.push(args.join(" "));
+};
 
-if (process.client) {
-  const init = () => {
-    logs.value = []
+let ws: WebSocket | undefined
 
-    // Create WebSocket connection.
-    log(`Creating WebSocket connection to ${wsAddress.value}...`)
-    const socket = new WebSocket(wsAddress.value)
+const connect = async () => {
+  const isSecure = location.protocol === "https:";
+  const url = (isSecure ? "wss://" : "ws://") + location.host + "/_ws";
 
-    // Connection opened
-    socket.addEventListener('open', () => {
-      log('WebSocket connection opened!')
-      log('Sending ping...')
-      socket.send('ping from client')
-    })
-
-    // Listen for messages
-    socket.addEventListener('message', (event) => {
-      log(`Message from server: ${JSON.stringify(event.data)}`)
-    })
+  if (ws) {
+    log("Closing...");
+    ws.close();
   }
-  onMounted(() => init())
-  watch(wsAddress, () => {
-    const u = new URL(window.location.href)
-    u.searchParams.set('url', wsAddress.value)
-    history.pushState({}, '', u)
-    init()
-  })
-}
+
+  log("Connecting to", url, "...");
+  ws = new WebSocket(url);
+
+  ws.addEventListener("close", () => {
+    log("Connection closed");
+  });
+
+  ws.addEventListener("error", (event) => {
+    log("Error:", event);
+  });
+
+  ws.addEventListener("message", (event) => {
+    log("Message from server:", event.data);
+  });
+
+  log("Waiting for connection...");
+  await new Promise((resolve) => ws!.addEventListener("open", resolve));
+};
+
+const clearLogs = () => {
+  logs.value = []
+};
+
+const sendPing = () => {
+  log("Sending ping...");
+  ws?.send("ping");
+};
+
+const message = ref<string>("ping")
+const sendMessage = () => {
+  ws?.send(message.value);
+};
+
+onMounted(async () => {
+  await connect();
+  sendPing();
+})
 </script>
 
 <template>
-  <div>
-    <h1>WebSocket Playground</h1>
-    <select v-model="wsAddress">
-      <option
-        v-for="url in urls"
-        :key="url"
-        :value="url"
-        :selected="url === wsAddress"
-      >
-        {{ url }}
-      </option>
-    </select>
-    <h2>Logs</h2>
-    <pre><code>{{ logs.join('\n') }}</code></pre>
+  <div
+    class="ms-m-5"
+    data-theme="dark"
+  >
+    <h3>Nuxt WebSocket Test Page</h3>
+
+    <div class="ms-btn-group">
+      <button @click="sendPing">Send Ping</button>
+      <button @click="connect">Reconnect</button>
+      <button @click="clearLogs">Clear</button>
+    </div>
+
+    <div class="ms-form-group ms-mt-2">
+      <div class="row">
+        <div class="col-sm-6">
+          <input
+            id="message"
+            v-model="message"
+            type="email"
+            class="ms-secondary ms-small"
+            placeholder="Message..."
+            @keydown.enter="sendMessage"
+          />
+        </div>
+        <div class="col-sm-1">
+          <button
+            class="ms-btn ms-secondary ms-small"
+            @click="sendMessage"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+      <br />
+    </div>
+    <pre id="logs">
+      <div
+v-for="log in logs"
+:key="log"
+>{{ log }}</div>
+    </pre>
   </div>
 </template>
+
+<style>
+@import url('https://cdn.jsdelivr.net/npm/minstyle.io@2.0.2/dist/css/minstyle.io.min.css');
+</style>
