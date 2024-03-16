@@ -24,6 +24,30 @@ export const categories = [
   'UI',
 ]
 
+export interface NuxtApiModulesResponse {
+  version: string
+  generatedAt: string
+  stats: Stats
+  maintainers: MaintainerInfo[]
+  contributors: Contributor[]
+  modules: NuxtModule[]
+}
+
+export interface Contributor {
+  id: number
+  username: string
+  contributions: number
+  modules: string[]
+}
+
+export interface Stats {
+  downloads: number
+  stars: number
+  maintainers: number
+  contributors: number
+  modules: number
+}
+
 export interface ModuleCompatibility {
   nuxt: string
   requires: { bridge?: boolean | 'optional' }
@@ -62,6 +86,7 @@ export interface NuxtModule {
   contributors?: GithubContributor[]
   compatibility: ModuleCompatibility
   aliases?: string[]
+  stats: Stats
 
   // Fetched in realtime API for modules.nuxt.org
   downloads?: number
@@ -72,7 +97,7 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const { modules } = await $fetch<{ modules: NuxtModule[] }>(
+  const { modules } = await $fetch<NuxtApiModulesResponse>(
     `https://api.nuxt.com/modules?version=all`,
   )
   return modules
