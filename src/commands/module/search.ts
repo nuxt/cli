@@ -6,6 +6,8 @@ import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
 
+const { format: formatNumber } = Intl.NumberFormat('en-GB', { notation: 'compact', maximumFractionDigits: 1 })
+
 export default defineCommand({
   meta: {
     name: 'search',
@@ -59,8 +61,8 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       description: gray(result.item.description),
       package: gray(result.item.npm),
       install: cyan(`npx nuxi module add ${result.item.name}`),
-      stars: yellow(result.item.stats.stars),
-      downloads: yellow(result.item.stats.downloads),
+      stars: yellow(formatNumber(result.item.stats.stars)),
+      monthlyDownloads: yellow(formatNumber(result.item.stats.downloads)),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage
