@@ -11,13 +11,17 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'build',
-    description: 'Build nuxt for production deployment',
+    description: 'Build Nuxt for production deployment',
   },
   args: {
     ...sharedArgs,
     prerender: {
       type: 'boolean',
-      description: 'Build nuxt and prerender static routes',
+      description: 'Build Nuxt and prerender static routes',
+    },
+    preset: {
+      type: 'string',
+      description: 'Nitro server preset',
     },
     dotenv: {
       type: 'string',
@@ -34,8 +38,14 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
+    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
+    if (nitroPreset) {
+      // TODO: Link to the docs
+      consola.info(`Using Nitro server preset: \`${nitroPreset}\``)
+    }
+
     const nuxt = await kit.loadNuxt({
-      rootDir: cwd,
+      cwd,
       dotenv: {
         cwd,
         fileName: ctx.args.dotenv,
@@ -44,13 +54,15 @@ export default defineCommand({
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
-        ...(ctx.args.prerender ? { nitro: { static: true } } : {}),
+        ...(ctx.args.prerender
+          ? { nitro: { static: true } }
+          : { nitro: { preset: nitroPreset } }),
         ...ctx.data?.overrides,
       },
     })
 
     let nitro: Nitro | undefined
-    // In Bridge, if nitro is not enabled, useNitro will throw an error
+    // In Bridge, if Nitro is not enabled, useNitro will throw an error
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()

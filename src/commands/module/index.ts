@@ -3,7 +3,7 @@ import { defineCommand } from 'citty'
 export default defineCommand({
   meta: {
     name: 'module',
-    description: 'Manage Nuxt Modules',
+    description: 'Manage Nuxt modules',
   },
   args: {},
   subCommands: {

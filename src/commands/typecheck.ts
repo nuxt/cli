@@ -29,7 +29,7 @@ export default defineCommand({
       writeTypes = writeTypesLegacy,
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
@@ -37,7 +37,7 @@ export default defineCommand({
       },
     })
 
-    // Generate types and build nuxt instance
+    // Generate types and build Nuxt instance
     await writeTypes(nuxt)
     await buildNuxt(nuxt)
     await nuxt.close()

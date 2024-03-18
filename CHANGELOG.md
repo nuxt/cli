@@ -1,6 +1,164 @@
 # Changelog
 
 
+## v3.10.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.10.0...v3.10.1)
+
+### 🩹 Fixes
+
+- Don't write `.npmrc` with `shamefully-hoist=true` anymore ([#319](https://github.com/nuxt/cli/pull/319))
+- Handle spaces in path at repo initialization ([#300](https://github.com/nuxt/cli/pull/300))
+- **dev:** Support `.config/` dir and custom config extensions ([#341](https://github.com/nuxt/cli/pull/341))
+
+### 💅 Refactors
+
+- **add:** Show description for `template` positional arg ([#325](https://github.com/nuxt/cli/pull/325))
+
+### 🏡 Chore
+
+- Update giget to 1.2 and lockfile ([#159](https://github.com/nuxt/cli/pull/159))
+- Remove unused imports ([9ca7ae4](https://github.com/nuxt/cli/commit/9ca7ae4))
+- Update dependencies ([9995400](https://github.com/nuxt/cli/commit/9995400))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Ettapp 
+- Gangan 
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Celibioux
+
+## v3.10.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.9.1...v3.10.0)
+
+### 🚀 Enhancements
+
+- **build:** Support `--preset` arg ([#290](https://github.com/nuxt/cli/pull/290))
+- **dev:** Return listener instance for programmatic usage ([#278](https://github.com/nuxt/cli/pull/278))
+
+### 🩹 Fixes
+
+- **analyze:** Don't override analyze options ([#259](https://github.com/nuxt/cli/pull/259))
+- **init:** Use absolute path for installing dependencies ([#272](https://github.com/nuxt/cli/pull/272))
+- **dev:** Pass programmatic args to sub process ([#275](https://github.com/nuxt/cli/pull/275))
+- **analyze, cleanup, upgrade:** Respect custom `buildDir` ([#276](https://github.com/nuxt/cli/pull/276))
+- **analyze:** Set path for client analyze results ([#277](https://github.com/nuxt/cli/pull/277))
+- **test:** Pass `rootDir` to `runTests` command ([#284](https://github.com/nuxt/cli/pull/284))
+
+### 💅 Refactors
+
+- Use magicast `.includes` helper ([#268](https://github.com/nuxt/cli/pull/268))
+- **upgrade:** Improve error message when package manager cannot be detected ([#270](https://github.com/nuxt/cli/pull/270))
+
+### 🏡 Chore
+
+- **release:** V3.9.1 ([25c3dfe](https://github.com/nuxt/cli/commit/25c3dfe))
+- Update citty and lockfile ([2104cf8](https://github.com/nuxt/cli/commit/2104cf8))
+- Update lockfile ([7515e22](https://github.com/nuxt/cli/commit/7515e22))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Katerina Skroumpelou 
+- Daniel Roe <daniel@roe.dev>
+- Larry Williamson ([@L422Y](http://github.com/L422Y))
+- Jiten (Jits) Bhagat 
+- Angel Hernandez <angel.hernandez.12@live.com>
+
+## v3.9.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.9.0...v3.9.1)
+
+### 🩹 Fixes
+
+- Pass `baseUrl` to listen options ([#236](https://github.com/nuxt/cli/pull/236))
+- **dev:** Prefer `localhost` over `[::]` for internal networking ([#242](https://github.com/nuxt/cli/pull/242))
+- Support `-nightly` nuxt releases and publish `nuxi-nightly` ([#248](https://github.com/nuxt/cli/pull/248))
+
+### 🏡 Chore
+
+- **release:** V3.9.0 ([c4b90f7](https://github.com/nuxt/cli/commit/c4b90f7))
+- Add `.devcontainer` ([b8f9fd3](https://github.com/nuxt/cli/commit/b8f9fd3))
+- Islolate `dist` dir for dev container ([f55d0a1](https://github.com/nuxt/cli/commit/f55d0a1))
+- Update c12 and lockfile ([f7eecc7](https://github.com/nuxt/cli/commit/f7eecc7))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Daniel Roe <daniel@roe.dev>
+- Warflash <nwiesinger67@gmail.com>
+
+## v3.9.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.4...v3.9.0)
+
+### 🚀 Enhancements
+
+- **dev:** Reuse main dev port for vite hmr ([#184](https://github.com/nuxt/cli/pull/184))
+- **mod-search:** Filter mod search by compatible nuxt version ([#134](https://github.com/nuxt/cli/pull/134))
+- **init:** Support `--package-manager` ([#97](https://github.com/nuxt/cli/pull/97))
+- Modules db integration with `nuxi module add` ([#197](https://github.com/nuxt/cli/pull/197))
+- **init:** Support `--git-init` ([#204](https://github.com/nuxt/cli/pull/204))
+
+### 🔥 Performance
+
+- **dev:** Avoid using proxy with `--no-fork` mode ([#207](https://github.com/nuxt/cli/pull/207))
+
+### 🩹 Fixes
+
+- Use `hook` to avoid rece conditions ([bc98376](https://github.com/nuxt/cli/commit/bc98376))
+- Soft warning for `node < 18` ([#199](https://github.com/nuxt/cli/pull/199))
+- Make dev proxy url available for `listen` hook ([#206](https://github.com/nuxt/cli/pull/206))
+- Use internal dev server url for dev proxy ([1316da6](https://github.com/nuxt/cli/commit/1316da6))
+- **dev:** Remove duplicate url in no-fork mode ([dfb3651](https://github.com/nuxt/cli/commit/dfb3651))
+- Prompt to abort `module add` if install failed ([#208](https://github.com/nuxt/cli/pull/208))
+
+### 💅 Refactors
+
+- Remove unused dependencies and code ([f0e0c94](https://github.com/nuxt/cli/commit/f0e0c94))
+
+### 🏡 Chore
+
+- **release:** V3.8.4 ([5e97bc2](https://github.com/nuxt/cli/commit/5e97bc2))
+- Add `dev:bun` and `nuxi-bun` local scripts ([e350838](https://github.com/nuxt/cli/commit/e350838))
+- Allow disabling vite hmr port integration ([#189](https://github.com/nuxt/cli/pull/189))
+- Update listhen ([9de6d4c](https://github.com/nuxt/cli/commit/9de6d4c))
+- Update listhen ([8039b88](https://github.com/nuxt/cli/commit/8039b88))
+- Update lockfile ([43bbe9b](https://github.com/nuxt/cli/commit/43bbe9b))
+- Update listhen ([f831d51](https://github.com/nuxt/cli/commit/f831d51))
+- Update listhen and lockfile ([68ba094](https://github.com/nuxt/cli/commit/68ba094))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Richard Rohrig 
+- Murisceman <murisceman@gmail.com>
+
+## v3.8.4
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.8.3...v3.8.4)
+
+### 🩹 Fixes
+
+- Pass `logLevel` when running `prepare` ([#170](https://github.com/nuxt/cli/pull/170))
+- Allow layers to define `devServer` config ([#166](https://github.com/nuxt/cli/pull/166))
+- **dev:** Use dedicated signal for restart ([#174](https://github.com/nuxt/cli/pull/174))
+- **dev:** Default host should be undefined ([#182](https://github.com/nuxt/cli/pull/182))
+
+### 🏡 Chore
+
+- Update `listhen` and `nuxt` ([6c21be3](https://github.com/nuxt/cli/commit/6c21be3))
+- Cleanup ws playground ([701e38f](https://github.com/nuxt/cli/commit/701e38f))
+- Update dependencies ([9d6bcb6](https://github.com/nuxt/cli/commit/9d6bcb6))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Niels Janssen <nielsjanssen@live.nl>
+- Daniel Roe <daniel@roe.dev>
+
 ## v3.8.3
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.8.2...v3.8.3)

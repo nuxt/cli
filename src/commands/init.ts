@@ -1,4 +1,3 @@
-import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve } from 'pathe'
@@ -48,9 +47,17 @@ export default defineCommand({
       default: true,
       description: 'Skip installing dependencies',
     },
+    gitInit: {
+      type: 'boolean',
+      description: 'Initialize git repository',
+    },
     shell: {
       type: 'boolean',
       description: 'Start shell after installation in project directory',
+    },
+    packageManager: {
+      type: 'string',
+      description: 'Package manager choice (npm, pnpm, yarn, bun)',
     },
   },
   async run(ctx) {
@@ -84,22 +91,22 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // Prompt user to select package manager
-    const selectedPackageManager = await consola.prompt<{
-      type: 'select'
-      options: PackageManagerName[]
-    }>('Which package manager would you like to use?', {
-      type: 'select',
-      options: ['npm', 'pnpm', 'yarn', 'bun'],
-    })
-
-    // Get relative project path
-    const relativeProjectPath = relative(process.cwd(), template.dir)
-
-    // Write .nuxtrc with `shamefully-hoist=true` for pnpm
-    if (selectedPackageManager === 'pnpm') {
-      await writeFile(`${relativeProjectPath}/.npmrc`, 'shamefully-hoist=true')
-    }
+    // Resolve package manager
+    const packageManagerOptions: PackageManagerName[] = [
+      'npm',
+      'pnpm',
+      'yarn',
+      'bun',
+    ]
+    const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const selectedPackageManager = packageManagerOptions.includes(
+      packageManagerArg,
+    )
+      ? packageManagerArg
+      : await consola.prompt('Which package manager would you like to use?', {
+          type: 'select',
+          options: packageManagerOptions,
+        })
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -110,7 +117,7 @@ export default defineCommand({
 
       try {
         await installDependencies({
-          cwd: relativeProjectPath,
+          cwd: template.dir,
           packageManager: {
             name: selectedPackageManager,
             command: selectedPackageManager,
@@ -127,15 +134,30 @@ export default defineCommand({
       consola.success('Installation completed.')
     }
 
+    if (ctx.args.gitInit === undefined) {
+      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
+        type: 'confirm',
+      })
+    }
+    if (ctx.args.gitInit) {
+      consola.info('Initializing git repository...\n')
+      const { execa } = await import('execa')
+      await execa('git', ['init', template.dir], {
+        stdio: 'inherit',
+      }).catch((err) => {
+        consola.warn(`Failed to initialize git repository: ${err}`)
+      })
+    }
+
     // Display next steps
     consola.log(
       `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
-
+    const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
       !ctx.args.shell &&
-        relativeProjectPath.length > 1 &&
-        `\`cd ${relativeProjectPath}\``,
+        relativeTemplateDir.length > 1 &&
+        `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 

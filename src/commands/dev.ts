@@ -15,17 +15,16 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
-import type { DevChildContext } from './dev-child'
 import type { NuxtOptions } from '@nuxt/schema'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { NuxtDevIPCMessage } from '../utils/dev'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 const forkSupported = !isBun && !isTest
 
 const command = defineCommand({
   meta: {
     name: 'dev',
-    description: 'Run nuxt development server',
+    description: 'Run Nuxt development server',
   },
   args: {
     ...sharedArgs,
@@ -65,25 +64,29 @@ const command = defineCommand({
 
     // Start Proxy Listener
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
-    const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
 
     if (ctx.args.fork) {
-      // Fork nuxt dev process
-      await _startSubprocess(devProxy)
+      // Fork Nuxt dev process
+      const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
+      await _startSubprocess(devProxy, ctx.rawArgs)
+      return { listener: devProxy?.listener }
     } else {
-      // Directly start nuxt dev
+      // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
-      const devServer = await createNuxtDevServer({
-        cwd,
-        overrides: ctx.data?.overrides,
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        clear: ctx.args.clear,
-        dotenv: !!ctx.args.dotenv,
-        loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-        https: devProxy.listener.https,
-      })
-      devProxy.setAddress(devServer.listener.url)
+      const devServer = await createNuxtDevServer(
+        {
+          cwd,
+          overrides: ctx.data?.overrides,
+          logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+          clear: ctx.args.clear,
+          dotenv: !!ctx.args.dotenv,
+          loadingTemplate: nuxtOptions.devServer.loadingTemplate,
+          devContext: {},
+        },
+        listenOptions,
+      )
       await devServer.init()
+      return { listener: devServer?.listener }
     }
   },
 })
@@ -147,7 +150,7 @@ async function _createDevProxy(
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy) {
+async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
   let childProc: ChildProcess | undefined
 
   const kill = (signal: NodeJS.Signals | number) => {
@@ -162,24 +165,22 @@ async function _startSubprocess(devProxy: DevProxy) {
     kill('SIGHUP')
 
     // Start new process
-    childProc = fork(
-      globalThis.__nuxt_cli__?.entry!,
-      ['_dev', ...process.argv.slice(3)],
-      {
-        execArgv: [
-          '--enable-source-maps',
-          process.argv.includes('--inspect') && '--inspect',
-        ].filter(Boolean) as string[],
-        env: {
-          ...process.env,
-          __NUXT_DEV_PROXY__: JSON.stringify({
+    childProc = fork(globalThis.__nuxt_cli__?.entry!, ['_dev', ...rawArgs], {
+      execArgv: [
+        '--enable-source-maps',
+        process.argv.includes('--inspect') && '--inspect',
+      ].filter(Boolean) as string[],
+      env: {
+        ...process.env,
+        __NUXT_DEV__: JSON.stringify({
+          proxy: {
             url: devProxy.listener.url,
             urls: await devProxy.listener.getURLs(),
             https: devProxy.listener.https,
-          } satisfies DevChildContext),
-        },
+          },
+        } satisfies NuxtDevContext),
       },
-    )
+    })
 
     // Close main process on child exit with error
     childProc.on('close', (errorCode) => {
@@ -292,5 +293,6 @@ function _resolveListenOptions(
     hostname: _hostname,
     public: _public,
     https: httpsOptions,
+    baseURL: nuxtOptions.app.baseURL,
   }
 }

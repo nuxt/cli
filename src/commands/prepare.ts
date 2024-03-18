@@ -12,7 +12,7 @@ import { legacyRootDirArgs, sharedArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'prepare',
-    description: 'Prepare nuxt for development/build',
+    description: 'Prepare Nuxt for development/build',
   },
   args: {
     ...sharedArgs,
@@ -29,7 +29,7 @@ export default defineCommand({
       writeTypes = writeTypesLegacy,
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
