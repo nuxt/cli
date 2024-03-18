@@ -24,6 +24,30 @@ export const categories = [
   'UI',
 ]
 
+export interface NuxtApiModulesResponse {
+  version: string
+  generatedAt: string
+  stats: Stats
+  maintainers: MaintainerInfo[]
+  contributors: Contributor[]
+  modules: NuxtModule[]
+}
+
+export interface Contributor {
+  id: number
+  username: string
+  contributions: number
+  modules: string[]
+}
+
+export interface Stats {
+  downloads: number
+  stars: number
+  maintainers: number
+  contributors: number
+  modules: number
+}
+
 export interface ModuleCompatibility {
   nuxt: string
   requires: { bridge?: boolean | 'optional' }
@@ -61,6 +85,8 @@ export interface NuxtModule {
   maintainers: MaintainerInfo[]
   contributors?: GithubContributor[]
   compatibility: ModuleCompatibility
+  aliases?: string[]
+  stats: Stats
 
   // Fetched in realtime API for modules.nuxt.org
   downloads?: number
@@ -71,10 +97,10 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const data = await $fetch<NuxtModule[]>(
-    'https://cdn.jsdelivr.net/npm/@nuxt/modules@latest/modules.json',
+  const { modules } = await $fetch<NuxtApiModulesResponse>(
+    `https://api.nuxt.com/modules?version=all`,
   )
-  return data
+  return modules
 }
 
 export function checkNuxtCompatibility(
@@ -84,7 +110,10 @@ export function checkNuxtCompatibility(
   if (!module.compatibility?.nuxt) {
     return true
   }
-  return satisfies(nuxtVersion, module.compatibility.nuxt)
+
+  return satisfies(nuxtVersion, module.compatibility.nuxt, {
+    includePrerelease: true,
+  })
 }
 
 export async function getNuxtVersion(cwd: string) {
@@ -92,7 +121,11 @@ export async function getNuxtVersion(cwd: string) {
   if (nuxtPkg) {
     return nuxtPkg.version
   }
-  const pkg = await tryRequireModule('./package.json', cwd)
+  const pkg = await getProjectPackage(cwd)
   const pkgDep = pkg?.dependencies?.['nuxt'] || pkg?.devDependencies?.['nuxt']
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
+}
+
+export async function getProjectPackage(cwd: string) {
+  return await tryRequireModule('./package.json', cwd)
 }

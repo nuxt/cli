@@ -11,13 +11,13 @@ import { sharedArgs, legacyRootDirArgs } from './_shared'
 export default defineCommand({
   meta: {
     name: 'build',
-    description: 'Build nuxt for production deployment',
+    description: 'Build Nuxt for production deployment',
   },
   args: {
     ...sharedArgs,
     prerender: {
       type: 'boolean',
-      description: 'Build nuxt and prerender static routes',
+      description: 'Build Nuxt and prerender static routes',
     },
     preset: {
       type: 'string',
@@ -45,7 +45,7 @@ export default defineCommand({
     }
 
     const nuxt = await kit.loadNuxt({
-      rootDir: cwd,
+      cwd,
       dotenv: {
         cwd,
         fileName: ctx.args.dotenv,
@@ -62,7 +62,7 @@ export default defineCommand({
     })
 
     let nitro: Nitro | undefined
-    // In Bridge, if nitro is not enabled, useNitro will throw an error
+    // In Bridge, if Nitro is not enabled, useNitro will throw an error
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()

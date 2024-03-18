@@ -14,7 +14,7 @@ export default defineCommand({
   meta: {
     name: '_dev',
     description:
-      'Run nuxt development server (internal command to start child process)',
+      'Run Nuxt development server (internal command to start child process)',
   },
   args: {
     ...sharedArgs,

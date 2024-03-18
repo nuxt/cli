@@ -8,7 +8,7 @@ import { loadKit } from '../utils/kit'
 export default defineCommand({
   meta: {
     name: 'cleanup',
-    description: 'Cleanup generated nuxt files and caches',
+    description: 'Clean up generated Nuxt files and caches',
   },
   args: {
     ...sharedArgs,
