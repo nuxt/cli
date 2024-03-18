@@ -1,7 +1,7 @@
 import { execa } from 'execa'
 import { consola } from 'consola'
 import { resolve } from 'pathe'
-import { tryResolveModule } from '@nuxt/kit'
+import { tryResolveModule } from '../utils/esm'
 import { defineCommand } from 'citty'
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
