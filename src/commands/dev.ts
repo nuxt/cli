@@ -226,13 +226,17 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
+  // TODO: Default host in schema should be undefined
+  const _devServerConfig =
+    nuxtOptions._layers?.[0].config?.devServer || nuxtOptions.devServer || {}
+
   const _port =
     args.port ??
     args.p ??
     process.env.NUXT_PORT ??
     process.env.NITRO_PORT ??
     process.env.PORT ??
-    nuxtOptions.devServer.port
+    _devServerConfig.port
 
   const _hostname =
     typeof args.host === 'string'
@@ -241,9 +245,7 @@ function _resolveListenOptions(
         process.env.NUXT_HOST ??
         process.env.NITRO_HOST ??
         process.env.HOST ??
-        // TODO: Default host in schema should be undefined instead of ''
-        nuxtOptions._layers?.[0].config?.devServer?.host ??
-        undefined
+        _devServerConfig.host
 
   const _public: boolean | undefined =
     args.public ??
@@ -256,8 +258,8 @@ function _resolveListenOptions(
     (args.sslCert as string) ||
     process.env.NUXT_SSL_CERT ||
     process.env.NITRO_SSL_CERT ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.cert) ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.cert) ||
     ''
 
   const _httpsKey =
@@ -265,13 +267,12 @@ function _resolveListenOptions(
     (args.sslKey as string) ||
     process.env.NUXT_SSL_KEY ||
     process.env.NITRO_SSL_KEY ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.key) ||
+    (typeof _devServerConfig.https !== 'boolean' &&
+      _devServerConfig.https?.key) ||
     ''
 
   const httpsEnabled =
-    args.https == true ||
-    (args.https === undefined && !!nuxtOptions.devServer.https)
+    args.https == true || (args.https === undefined && !!_devServerConfig.https)
 
   const _listhenOptions = parseListhenArgs({
     ...args,
@@ -282,7 +283,7 @@ function _resolveListenOptions(
   })
 
   const httpsOptions = httpsEnabled && {
-    ...(nuxtOptions.devServer.https as HTTPSOptions),
+    ...(_devServerConfig.https as HTTPSOptions),
     ...(_listhenOptions.https as HTTPSOptions),
   }
 
