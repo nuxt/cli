@@ -72,6 +72,7 @@
     "semver": "^7.5.4",
     "unbuild": "^2.0.0",
     "unws": "^0.2.4",
+    "vue-tsc": "^2.0.6",
     "ws": "^8.14.2"
   },
   "optionalDependencies": {
