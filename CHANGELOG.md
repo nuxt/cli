@@ -1,6 +1,47 @@
 # Changelog
 
 
+## v3.11.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.10.1...v3.11.0)
+
+### 🚀 Enhancements
+
+- **dev:** Support experimental runtime websocket ([#348](https://github.com/nuxt/cli/pull/348))
+- Support module aliases and validate cwd and pkg ([#362](https://github.com/nuxt/cli/pull/362))
+- **module search:** Add stats to module search results ([#221](https://github.com/nuxt/cli/pull/221))
+
+### 🩹 Fixes
+
+- **typecheck:** Use resolve `vue-tsc` and `typescript`  path ([#264](https://github.com/nuxt/cli/pull/264))
+
+### 💅 Refactors
+
+- **module:** Improve messages ([#355](https://github.com/nuxt/cli/pull/355))
+- **pkg:** Update node engine ([#356](https://github.com/nuxt/cli/pull/356))
+- Migrate to `cwd` from `rootDir` ([#350](https://github.com/nuxt/cli/pull/350))
+- **add:** Strip `.ts` and `.vue` extension from name ([#345](https://github.com/nuxt/cli/pull/345))
+
+### 📖 Documentation
+
+- Update commands link ([54726df](https://github.com/nuxt/cli/commit/54726df))
+
+### 🏡 Chore
+
+- **release:** V3.10.1 ([5de9b7c](https://github.com/nuxt/cli/commit/5de9b7c))
+- Correct grammar ([2f9762a](https://github.com/nuxt/cli/commit/2f9762a))
+- Update lockfile ([ea58b08](https://github.com/nuxt/cli/commit/ea58b08))
+
+### ❤️ Contributors
+
+- Jonas Thelemann <e-mail@jonas-thelemann.de>
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Gangan ([@shinGangan](http://github.com/shinGangan))
+- Richard Rohrig ([@rohrig](http://github.com/rohrig))
+- Ethan ([@yuusheng](http://github.com/yuusheng))
+- Sébastien Chopin ([@Atinux](http://github.com/Atinux))
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+
 ## v3.10.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.10.0...v3.10.1)
