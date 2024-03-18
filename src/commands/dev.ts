@@ -24,7 +24,7 @@ const forkSupported = !isBun && !isTest
 const command = defineCommand({
   meta: {
     name: 'dev',
-    description: 'Run nuxt development server',
+    description: 'Run Nuxt development server',
   },
   args: {
     ...sharedArgs,
@@ -66,11 +66,12 @@ const command = defineCommand({
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
 
     if (ctx.args.fork) {
-      // Fork nuxt dev process
+      // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy)
+      await _startSubprocess(devProxy, ctx.rawArgs)
+      return { listener: devProxy?.listener }
     } else {
-      // Directly start nuxt dev
+      // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
       const devServer = await createNuxtDevServer(
         {
@@ -85,6 +86,7 @@ const command = defineCommand({
         listenOptions,
       )
       await devServer.init()
+      return { listener: devServer?.listener }
     }
   },
 })
@@ -148,7 +150,7 @@ async function _createDevProxy(
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy) {
+async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
   let childProc: ChildProcess | undefined
 
   const kill = (signal: NodeJS.Signals | number) => {
@@ -163,26 +165,22 @@ async function _startSubprocess(devProxy: DevProxy) {
     kill('SIGHUP')
 
     // Start new process
-    childProc = fork(
-      globalThis.__nuxt_cli__?.entry!,
-      ['_dev', ...process.argv.slice(3)],
-      {
-        execArgv: [
-          '--enable-source-maps',
-          process.argv.includes('--inspect') && '--inspect',
-        ].filter(Boolean) as string[],
-        env: {
-          ...process.env,
-          __NUXT_DEV__: JSON.stringify({
-            proxy: {
-              url: devProxy.listener.url,
-              urls: await devProxy.listener.getURLs(),
-              https: devProxy.listener.https,
-            },
-          } satisfies NuxtDevContext),
-        },
+    childProc = fork(globalThis.__nuxt_cli__?.entry!, ['_dev', ...rawArgs], {
+      execArgv: [
+        '--enable-source-maps',
+        process.argv.includes('--inspect') && '--inspect',
+      ].filter(Boolean) as string[],
+      env: {
+        ...process.env,
+        __NUXT_DEV__: JSON.stringify({
+          proxy: {
+            url: devProxy.listener.url,
+            urls: await devProxy.listener.getURLs(),
+            https: devProxy.listener.https,
+          },
+        } satisfies NuxtDevContext),
       },
-    )
+    })
 
     // Close main process on child exit with error
     childProc.on('close', (errorCode) => {

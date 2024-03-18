@@ -1,6 +1,6 @@
 import type { RequestListener, ServerResponse } from 'node:http'
 import EventEmitter from 'node:events'
-import { relative, resolve } from 'pathe'
+import { relative, resolve, join } from 'pathe'
 import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
@@ -77,7 +77,9 @@ export async function createNuxtDevServer(
   return devServer
 }
 
-const RESTART_RE = /^(nuxt\.config\.(js|ts|mjs|cjs)|\.nuxtignore|\.nuxtrc)$/
+// https://regex101.com/r/7HkR5c/1
+const RESTART_RE =
+  /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -146,14 +148,14 @@ class NuxtDevServer extends EventEmitter {
       consola.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingMessage =
-        'Error while loading nuxt. Please check console and fix errors.'
+        'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading', this._loadingMessage)
     }
   }
 
   async _load(reload?: boolean, reason?: string) {
     const action = reload ? 'Restarting' : 'Starting'
-    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} nuxt...`
+    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} Nuxt...`
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
@@ -169,7 +171,7 @@ class NuxtDevServer extends EventEmitter {
 
     const kit = await loadKit(this.options.cwd)
     this._currentNuxt = await kit.loadNuxt({
-      rootDir: this.options.cwd,
+      cwd: this.options.cwd,
       dev: true,
       ready: false,
       overrides: {
@@ -238,6 +240,22 @@ class NuxtDevServer extends EventEmitter {
       await this.load(true)
     })
 
+    if ('upgrade' in this._currentNuxt.server) {
+      this.listener.server.on(
+        'upgrade',
+        async (req: any, socket: any, head: any) => {
+          if (
+            req.url.startsWith(
+              this._currentNuxt?.options.app.buildAssetsDir /* /_nuxt/ */,
+            )
+          ) {
+            return // Skip for Vite HMR
+          }
+          await this._currentNuxt?.server.upgrade(req, socket, head)
+        },
+      )
+    }
+
     await this._currentNuxt.hooks.callHook(
       'listen',
       this.listener.server,
@@ -281,10 +299,13 @@ class NuxtDevServer extends EventEmitter {
   }
 
   async _watchConfig() {
-    const configWatcher = chokidar.watch([this.options.cwd], {
-      ignoreInitial: true,
-      depth: 0,
-    })
+    const configWatcher = chokidar.watch(
+      [this.options.cwd, join(this.options.cwd, '.config')],
+      {
+        ignoreInitial: true,
+        depth: 0,
+      },
+    )
     configWatcher.on('all', (_event, _file) => {
       const file = relative(this.options.cwd, _file)
       if (file === (this.options.dotenv || '.env')) {

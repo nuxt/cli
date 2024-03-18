@@ -1,4 +1,3 @@
-import { writeFile } from 'node:fs/promises'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve } from 'pathe'
@@ -109,14 +108,6 @@ export default defineCommand({
           options: packageManagerOptions,
         })
 
-    // Get relative project path
-    const relativeProjectPath = relative(process.cwd(), template.dir)
-
-    // Write .nuxtrc with `shamefully-hoist=true` for pnpm
-    if (selectedPackageManager === 'pnpm') {
-      await writeFile(`${relativeProjectPath}/.npmrc`, 'shamefully-hoist=true')
-    }
-
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
@@ -126,7 +117,7 @@ export default defineCommand({
 
       try {
         await installDependencies({
-          cwd: relativeProjectPath,
+          cwd: template.dir,
           packageManager: {
             name: selectedPackageManager,
             command: selectedPackageManager,
@@ -150,8 +141,8 @@ export default defineCommand({
     }
     if (ctx.args.gitInit) {
       consola.info('Initializing git repository...\n')
-      const { execaCommand } = await import('execa')
-      await execaCommand(`git init ${template.dir}`, {
+      const { execa } = await import('execa')
+      await execa('git', ['init', template.dir], {
         stdio: 'inherit',
       }).catch((err) => {
         consola.warn(`Failed to initialize git repository: ${err}`)
@@ -162,11 +153,11 @@ export default defineCommand({
     consola.log(
       `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
-
+    const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
       !ctx.args.shell &&
-        relativeProjectPath.length > 1 &&
-        `\`cd ${relativeProjectPath}\``,
+        relativeTemplateDir.length > 1 &&
+        `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 

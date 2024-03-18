@@ -5,19 +5,21 @@ import { existsSync } from 'node:fs'
 import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
+import { $fetch } from 'ofetch'
 import {
   NuxtModule,
   checkNuxtCompatibility,
   fetchModules,
   getNuxtVersion,
+  getProjectPackage,
 } from './_utils'
 import { satisfies } from 'semver'
 import { colors } from 'consola/utils'
 
 export default defineCommand({
   meta: {
-    name: 'module',
-    description: 'Manage Nuxt Modules',
+    name: 'add',
+    description: 'Add Nuxt modules',
   },
   args: {
     ...sharedArgs,
@@ -36,6 +38,21 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
+    const projectPkg = await getProjectPackage(cwd)
+
+    if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
+      consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
+      const shouldContinue = await consola.prompt(
+        `Do you want to continue anyway?`,
+        {
+          type: 'confirm',
+          initial: false,
+        },
+      )
+      if (shouldContinue !== true) {
+        return false
+      }
+    }
 
     const r = await resolveModule(ctx.args.moduleName, cwd)
     if (r === false) {
@@ -44,8 +61,11 @@ export default defineCommand({
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
-      consola.info(`Installing dev dependency \`${r.pkg}\``)
-      const res = await addDependency(r.pkg, { cwd, dev: true }).catch(
+      const isDev = Boolean(projectPkg.devDependencies?.nuxt)
+      consola.info(
+        `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
+      )
+      const res = await addDependency(r.pkg, { cwd, dev: isDev }).catch(
         (error) => {
           consola.error(error)
           return consola.prompt(
@@ -72,11 +92,10 @@ export default defineCommand({
         if (!config.modules) {
           config.modules = []
         }
-        for (let i = 0; i < config.modules.length; i++) {
-          if (config.modules[i] === r.pkgName) {
-            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-            return
-          }
+
+        if (config.modules.includes(r.pkgName)) {
+          consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
+          return
         }
         consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
         config.modules.push(r.pkgName)
@@ -162,7 +181,10 @@ async function resolveModule(
   })
 
   const matchedModule = modulesDB.find(
-    (module) => module.name === moduleName || module.npm === pkgName,
+    (module) =>
+      module.name === moduleName ||
+      module.npm === pkgName ||
+      module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
@@ -212,10 +234,33 @@ async function resolveModule(
     }
   }
 
+  // Fetch package on npm
+  pkgVersion = pkgVersion || 'latest'
+  const pkg = await $fetch(
+    `https://registry.npmjs.org/${pkgName}/${pkgVersion}`,
+  )
+  const pkgDependencies = Object.assign(
+    pkg.dependencies || {},
+    pkg.devDependencies || {},
+  )
+  if (!pkgDependencies['nuxt'] && !pkgDependencies['nuxt-edge']) {
+    consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
+    const shouldContinue = await consola.prompt(
+      `Do you want to continue installing \`${pkgName}\` anyway?`,
+      {
+        type: 'confirm',
+        initial: false,
+      },
+    )
+    if (shouldContinue !== true) {
+      return false
+    }
+  }
+
   return {
     nuxtModule: matchedModule,
-    pkg: `${pkgName}@${pkgVersion || 'latest'}`,
+    pkg: `${pkgName}@${pkgVersion}`,
     pkgName,
-    pkgVersion: pkgVersion || 'latest',
+    pkgVersion,
   }
 }

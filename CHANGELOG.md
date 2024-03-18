@@ -1,6 +1,72 @@
 # Changelog
 
 
+## v3.10.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.10.0...v3.10.1)
+
+### 🩹 Fixes
+
+- Don't write `.npmrc` with `shamefully-hoist=true` anymore ([#319](https://github.com/nuxt/cli/pull/319))
+- Handle spaces in path at repo initialization ([#300](https://github.com/nuxt/cli/pull/300))
+- **dev:** Support `.config/` dir and custom config extensions ([#341](https://github.com/nuxt/cli/pull/341))
+
+### 💅 Refactors
+
+- **add:** Show description for `template` positional arg ([#325](https://github.com/nuxt/cli/pull/325))
+
+### 🏡 Chore
+
+- Update giget to 1.2 and lockfile ([#159](https://github.com/nuxt/cli/pull/159))
+- Remove unused imports ([9ca7ae4](https://github.com/nuxt/cli/commit/9ca7ae4))
+- Update dependencies ([9995400](https://github.com/nuxt/cli/commit/9995400))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Ettapp 
+- Gangan 
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Celibioux
+
+## v3.10.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.9.1...v3.10.0)
+
+### 🚀 Enhancements
+
+- **build:** Support `--preset` arg ([#290](https://github.com/nuxt/cli/pull/290))
+- **dev:** Return listener instance for programmatic usage ([#278](https://github.com/nuxt/cli/pull/278))
+
+### 🩹 Fixes
+
+- **analyze:** Don't override analyze options ([#259](https://github.com/nuxt/cli/pull/259))
+- **init:** Use absolute path for installing dependencies ([#272](https://github.com/nuxt/cli/pull/272))
+- **dev:** Pass programmatic args to sub process ([#275](https://github.com/nuxt/cli/pull/275))
+- **analyze, cleanup, upgrade:** Respect custom `buildDir` ([#276](https://github.com/nuxt/cli/pull/276))
+- **analyze:** Set path for client analyze results ([#277](https://github.com/nuxt/cli/pull/277))
+- **test:** Pass `rootDir` to `runTests` command ([#284](https://github.com/nuxt/cli/pull/284))
+
+### 💅 Refactors
+
+- Use magicast `.includes` helper ([#268](https://github.com/nuxt/cli/pull/268))
+- **upgrade:** Improve error message when package manager cannot be detected ([#270](https://github.com/nuxt/cli/pull/270))
+
+### 🏡 Chore
+
+- **release:** V3.9.1 ([25c3dfe](https://github.com/nuxt/cli/commit/25c3dfe))
+- Update citty and lockfile ([2104cf8](https://github.com/nuxt/cli/commit/2104cf8))
+- Update lockfile ([7515e22](https://github.com/nuxt/cli/commit/7515e22))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Katerina Skroumpelou 
+- Daniel Roe <daniel@roe.dev>
+- Larry Williamson ([@L422Y](http://github.com/L422Y))
+- Jiten (Jits) Bhagat 
+- Angel Hernandez <angel.hernandez.12@live.com>
+
 ## v3.9.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.9.0...v3.9.1)
