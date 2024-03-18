@@ -33,12 +33,11 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || '.')
 
     const template = ctx.args.template
+    const ext = extname(ctx.args.name)
     const name =
-      extname(ctx.args.name) === '.vue'
-        ? ctx.args.name.replace('.vue', '')
-        : extname(ctx.args.name) === '.ts'
-          ? ctx.args.name.replace('.ts', '')
-          : ctx.args.name
+      ext === '.vue' || ext === '.ts'
+        ? ctx.args.name.replace(ext, '')
+        : ctx.args.name
 
     // Validate template name
     if (!templates[template]) {
