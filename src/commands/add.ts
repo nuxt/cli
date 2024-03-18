@@ -1,5 +1,5 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, resolve } from 'pathe'
+import { dirname, resolve, extname } from 'pathe'
 import { consola } from 'consola'
 import { loadKit } from '../utils/kit'
 import { templates } from '../utils/templates'
@@ -33,7 +33,11 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || '.')
 
     const template = ctx.args.template
-    const name = ctx.args.name
+    const ext = extname(ctx.args.name)
+    const name =
+      ext === '.vue' || ext === '.ts'
+        ? ctx.args.name.replace(ext, '')
+        : ctx.args.name
 
     // Validate template name
     if (!templates[template]) {
