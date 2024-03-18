@@ -42,12 +42,12 @@ export default defineCommand({
     await nuxt.close()
 
     // Prefer local install if possible
-    const typescriptModule = await tryResolveModule('typescript')
-    const vueTscModule = await tryResolveModule('vue-tsc/bin/vue-tsc.js')
-    const hasLocalInstall = typescriptModule && vueTscModule
-
-    if (hasLocalInstall) {
-      await execa(vueTscModule, ['--noEmit'], {
+    const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
+      tryResolveModule('typescript'),
+      tryResolveModule('vue-tsc/bin/vue-tsc.js'),
+    ])
+    if (resolvedTypeScript && resolvedVueTsc) {
+      await execa(resolvedVueTsc, ['--noEmit'], {
         preferLocal: true,
         stdio: 'inherit',
         cwd,
