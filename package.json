@@ -84,7 +84,7 @@
     "nuxt": "^3.10.3",
     "h3": "^1.11.1"
   },
-  "packageManager": "pnpm@8.15.4",
+  "packageManager": "pnpm@8.15.5",
   "engines": {
     "node": "^16.10.0 || >=18.0.0"
   }
