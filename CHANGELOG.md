@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v3.11.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.11.0...v3.11.1)
+
+### 🩹 Fixes
+
+- **dev:** Prepend `baseURL` for vite hmr ws upgrade ([#370](https://github.com/nuxt/cli/pull/370))
+
+### 🏡 Chore
+
+- Update lockfile ([ec0bc08](https://github.com/nuxt/cli/commit/ec0bc08))
+
+### ❤️ Contributors
+
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+- Anthony Fu <anthonyfu117@hotmail.com>
+
 ## v3.11.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.10.1...v3.11.0)
