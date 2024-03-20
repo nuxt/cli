@@ -5,6 +5,7 @@ import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
+import { joinURL } from 'ufo'
 import {
   HTTPSOptions,
   ListenURL,
@@ -246,9 +247,10 @@ class NuxtDevServer extends EventEmitter {
         async (req: any, socket: any, head: any) => {
           const nuxt = this._currentNuxt
           if (!nuxt) return
-          const viteHmrPath = (
-            nuxt.options.app.baseURL + nuxt.options.app.buildAssetsDir
-          ).replace(/\/\//g, '/')
+          const viteHmrPath = joinURL(
+            nuxt.options.app.baseURL,
+            nuxt.options.app.buildAssetsDir,
+          )
           if (req.url.startsWith(viteHmrPath)) {
             return // Skip for Vite HMR
           }
