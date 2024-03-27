@@ -33,7 +33,7 @@ export default defineCommand({
       writeTypes = writeTypesLegacy,
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       dotenv: {
         cwd,
         fileName: ctx.args.dotenv,
