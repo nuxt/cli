@@ -15,6 +15,10 @@ export default defineCommand({
     description: 'Prepare Nuxt for development/build',
   },
   args: {
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+    },
     ...sharedArgs,
     ...legacyRootDirArgs,
   },
@@ -30,6 +34,10 @@ export default defineCommand({
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       rootDir: cwd,
+      dotenv: {
+        cwd,
+        fileName: ctx.args.dotenv,
+      },
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
