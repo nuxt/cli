@@ -1,11 +1,12 @@
 import { execa } from 'execa'
 import { resolve } from 'pathe'
+import { defineCommand } from 'citty'
+
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
 import { tryResolveModule } from '../utils/esm'
 import { loadKit } from '../utils/kit'
-import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
@@ -29,7 +30,7 @@ export default defineCommand({
       writeTypes = writeTypesLegacy,
     } = await loadKit(cwd)
     const nuxt = await loadNuxt({
-      rootDir: cwd,
+      cwd,
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
@@ -43,11 +44,12 @@ export default defineCommand({
     await nuxt.close()
 
     // Prefer local install if possible
-    const hasLocalInstall =
-      (await tryResolveModule('typescript', cwd)) &&
-      (await tryResolveModule('vue-tsc/package.json', cwd))
-    if (hasLocalInstall) {
-      await execa('vue-tsc', ['--noEmit'], {
+    const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
+      tryResolveModule('typescript'),
+      tryResolveModule('vue-tsc/bin/vue-tsc.js'),
+    ])
+    if (resolvedTypeScript && resolvedVueTsc) {
+      await execa(resolvedVueTsc, ['--noEmit'], {
         preferLocal: true,
         stdio: 'inherit',
         cwd,

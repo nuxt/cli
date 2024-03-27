@@ -4,11 +4,16 @@ import consola from 'consola'
 import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
-import { bold, green, magenta, cyan, gray } from 'colorette'
+import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
+
+const { format: formatNumber } = Intl.NumberFormat('en-GB', {
+  notation: 'compact',
+  maximumFractionDigits: 1,
+})
 
 export default defineCommand({
   meta: {
-    name: 'add',
+    name: 'search',
     description: 'Search in Nuxt modules',
   },
   args: {
@@ -36,7 +41,6 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const compatibleModules = allModules.filter((m) =>
     checkNuxtCompatibility(m, nuxtVersion),
   )
-
   const fuse = new Fuse(compatibleModules, {
     threshold: 0.1,
     keys: [
@@ -59,7 +63,9 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       repository: gray(result.item.github),
       description: gray(result.item.description),
       package: gray(result.item.npm),
-      install: cyan(`nuxt module add ${result.item.npm}`),
+      install: cyan(`npx nuxi module add ${result.item.name}`),
+      stars: yellow(formatNumber(result.item.stats.stars)),
+      monthlyDownloads: yellow(formatNumber(result.item.stats.downloads)),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage

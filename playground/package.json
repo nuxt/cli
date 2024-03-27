@@ -2,6 +2,11 @@
   "name": "nuxt-cli-playground",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@8.15.4",
-  "devDependencies": {}
+  "packageManager": "pnpm@8.15.5",
+  "scripts": {
+    "nuxi": "node ../bin/nuxi.mjs"
+  },
+  "dependencies": {
+    "nuxt": "latest"
+  }
 }
