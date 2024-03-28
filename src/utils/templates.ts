@@ -43,7 +43,7 @@ const component: Template = ({ name, args }) => ({
     'mode',
   )}.vue`,
   contents: `
-<script lang="ts" setup></script>
+<script setup lang="ts"></script>
 
 <template>
   <div>
@@ -79,7 +79,7 @@ export default defineNuxtRouteMiddleware((to, from) => {})
 const layout: Template = ({ name }) => ({
   path: `layouts/${name}.vue`,
   contents: `
-<script lang="ts" setup></script>
+<script setup lang="ts"></script>
 
 <template>
   <div>
@@ -95,7 +95,7 @@ const layout: Template = ({ name }) => ({
 const page: Template = ({ name }) => ({
   path: `pages/${name}.vue`,
   contents: `
-<script lang="ts" setup></script>
+<script setup lang="ts"></script>
 
 <template>
   <div>
