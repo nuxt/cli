@@ -19,6 +19,15 @@ export default defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
+    dotenv: {
+      type: 'string',
+      description: 'Path to .env file',
+      default: '.env'
+    },
+    clear: {
+      type: 'boolean',
+      description: 'Clear console on restart',
+    },
   },
   async run(ctx) {
     const logger = consola.withTag('nuxi')
@@ -42,8 +51,8 @@ export default defineCommand({
       cwd,
       overrides: ctx.data?.overrides,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-      clear: !!ctx.args.clear,
-      dotenv: !!ctx.args.dotenv,
+      clear: ctx.args.clear,
+      dotenv: ctx.args.dotenv,
       port: process.env._PORT ?? undefined,
       devContext,
     })

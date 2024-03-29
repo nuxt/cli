@@ -33,6 +33,7 @@ const command = defineCommand({
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
+      default: '.env'
     },
     clear: {
       type: 'boolean',
@@ -79,7 +80,7 @@ const command = defineCommand({
           overrides: ctx.data?.overrides,
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
-          dotenv: !!ctx.args.dotenv,
+          dotenv: ctx.args.dotenv,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
           devContext: {},
         },

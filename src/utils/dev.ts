@@ -36,7 +36,7 @@ export interface NuxtDevContext {
 export interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
-  dotenv: boolean
+  dotenv: string
   clear: boolean
   overrides: NuxtConfig
   port?: string | number
@@ -173,6 +173,10 @@ class NuxtDevServer extends EventEmitter {
     const kit = await loadKit(this.options.cwd)
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
+      dotenv: {
+        cwd: this.options.cwd,
+        fileName: this.options.dotenv,
+      },
       dev: true,
       ready: false,
       overrides: {
@@ -311,7 +315,7 @@ class NuxtDevServer extends EventEmitter {
     )
     configWatcher.on('all', (_event, _file) => {
       const file = relative(this.options.cwd, _file)
-      if (file === (this.options.dotenv || '.env')) {
+      if (file === this.options.dotenv) {
         this.emit('restart')
       }
       if (RESTART_RE.test(file)) {
