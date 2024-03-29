@@ -36,9 +36,9 @@ export default defineCommand({
       description: 'Skip nuxt.config.ts update',
     },
     layer: {
-        type: 'string',
-        description: 'Layer name'
-    }
+      type: 'string',
+      description: 'Layer name',
+    },
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
