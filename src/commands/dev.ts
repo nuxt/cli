@@ -33,7 +33,7 @@ const command = defineCommand({
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
-      default: '.env'
+      default: '.env',
     },
     clear: {
       type: 'boolean',

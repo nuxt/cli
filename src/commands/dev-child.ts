@@ -22,7 +22,7 @@ export default defineCommand({
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
-      default: '.env'
+      default: '.env',
     },
     clear: {
       type: 'boolean',
