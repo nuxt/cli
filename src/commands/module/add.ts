@@ -35,6 +35,10 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
+    layer: {
+        type: 'string',
+        description: 'Layer name'
+    }
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
@@ -88,7 +92,9 @@ export default defineCommand({
 
     // Update nuxt.config.ts
     if (!ctx.args.skipConfig) {
-      await updateNuxtConfig(cwd, (config) => {
+      const rootDir = ctx.args.layer ? resolve(cwd, ctx.args.layer) : cwd
+
+      await updateNuxtConfig(rootDir, (config) => {
         if (!config.modules) {
           config.modules = []
         }
