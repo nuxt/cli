@@ -243,7 +243,11 @@ async function resolveModule(
     pkg.dependencies || {},
     pkg.devDependencies || {},
   )
-  if (!pkgDependencies['nuxt'] && !pkgDependencies['nuxt-edge']) {
+  if (
+    !pkgDependencies['nuxt'] &&
+    !pkgDependencies['nuxt-edge'] &&
+    !pkgDependencies['@nuxt/kit']
+  ) {
     consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
     const shouldContinue = await consola.prompt(
       `Do you want to continue installing \`${pkgName}\` anyway?`,
