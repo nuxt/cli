@@ -115,26 +115,36 @@ async function updateNuxtConfig(
   rootDir: string,
   update: (config: any) => void,
 ) {
-  let _module: ProxifiedModule
-  const nuxtConfigFile = resolve(rootDir, 'nuxt.config.ts')
-  if (existsSync(nuxtConfigFile)) {
-    consola.info('Updating `nuxt.config.ts`')
-    _module = await loadFile(nuxtConfigFile)
-  } else {
-    consola.info('Creating `nuxt.config.ts`')
+  const configFiles = ['nuxt.config.ts', 'nuxt.config.js']
+  let _module: ProxifiedModule | undefined
+  let configFile: string | undefined
+  let configPath: string | undefined
+  for (const file of configFiles) {
+    configFile = file
+    configPath = resolve(rootDir, configFile)
+    if (existsSync(configPath)) {
+      consola.info(`Updating \`${configFile}\``)
+      _module = await loadFile(configPath)
+      break
+    }
+  }
+  if (!_module || !configPath) {
+    configFile = 'nuxt.config.ts'
+    consola.info(`Creating \`${configFile}\``)
     _module = parseModule(getDefaultNuxtConfig())
+    configPath = resolve(rootDir, configFile)
   }
   const defaultExport = _module.exports.default
   if (!defaultExport) {
-    throw new Error('`nuxt.config.ts` does not have a default export!')
+    throw new Error(`\`${configFile}\` does not have a default export!`)
   }
   if (defaultExport.$type === 'function-call') {
     update(defaultExport.$args[0])
   } else {
     update(defaultExport)
   }
-  await writeFile(_module as any, nuxtConfigFile)
-  consola.success('`nuxt.config.ts` updated')
+  await writeFile(_module as any, configPath)
+  consola.success(`\`${configFile}\` updated`)
 }
 
 function getDefaultNuxtConfig() {
