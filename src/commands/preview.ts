@@ -89,14 +89,21 @@ export default defineCommand({
       ),
     )
 
-    const envExists = ctx.args.dotenv
-      ? existsSync(resolve(cwd, ctx.args.dotenv))
-      : existsSync(cwd)
-    if (envExists) {
-      consola.info(
-        'Loading `.env`. This will not be loaded when running the server in production.',
-      )
-      await setupDotenv({ cwd, fileName: ctx.args.dotenv })
+    if (ctx.args.dotenv !== undefined) {
+        const fileName = ctx.args.dotenv || '.env'
+
+        const envExists = existsSync(resolve(cwd, fileName))
+
+        if (envExists) {
+            consola.info(
+                `Loading \`${fileName}\`. This will not be loaded when running the server in production.`,
+            )
+
+            await setupDotenv({ cwd, fileName })
+        } else {
+            consola.error(`Cannot find \`${fileName}\`.`)
+            process.exit(1)
+        }
     }
 
     consola.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
