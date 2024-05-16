@@ -1,8 +1,8 @@
 import { execa } from 'execa'
 import { consola } from 'consola'
 import { resolve } from 'pathe'
-import { tryResolveModule } from '../utils/esm'
 import { defineCommand } from 'citty'
+import { tryResolveModule } from '../utils/esm'
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'

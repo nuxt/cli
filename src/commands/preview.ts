@@ -5,9 +5,8 @@ import { setupDotenv } from 'c12'
 import { resolve } from 'pathe'
 import { consola } from 'consola'
 import { box, colors } from 'consola/utils'
-import { loadKit } from '../utils/kit'
-
 import { defineCommand } from 'citty'
+import { loadKit } from '../utils/kit'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
@@ -32,7 +31,7 @@ export default defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({
       cwd,
-      overrides: /*ctx.options?.overrides || */ {},
+      overrides: /* ctx.options?.overrides || */ {},
     })
 
     const resolvedOutputDir = resolve(
@@ -44,7 +43,7 @@ export default defineCommand({
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
-    const nitroJSONPath = nitroJSONPaths.find((p) => existsSync(p))
+    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       consola.error(
         'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',

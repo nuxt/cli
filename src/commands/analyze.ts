@@ -4,10 +4,10 @@ import { createApp, eventHandler, lazyEventHandler, toNodeListener } from 'h3'
 import { listen } from 'listhen'
 import type { NuxtAnalyzeMeta } from '@nuxt/schema'
 import { defu } from 'defu'
+import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
-import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -54,8 +54,8 @@ export default defineCommand({
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
-    const outDir =
-      nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
+    const outDir
+      = nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
 
     nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
       filename: join(analyzeDir, 'client.html'),

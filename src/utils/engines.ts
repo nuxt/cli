@@ -1,6 +1,6 @@
 export async function checkEngines() {
   const satisfies = await import('semver/functions/satisfies.js').then(
-    (r) =>
+    r =>
       r.default || (r as any as typeof import('semver/functions/satisfies.js')),
   ) // npm/node-semver#381
   const currentNode = process.versions.node

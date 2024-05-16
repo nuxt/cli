@@ -4,7 +4,8 @@ import { interopDefault, resolvePath } from 'mlly'
 export async function tryResolveModule(id: string, url = import.meta.url) {
   try {
     return await resolvePath(id, { url })
-  } catch {
+  }
+  catch {
     // Ignore error
   }
 }
@@ -20,7 +21,8 @@ export async function importModule(
 export function tryImportModule(id: string, url = import.meta.url) {
   try {
     return importModule(id, url).catch(() => undefined)
-  } catch {
+  }
+  catch {
     // Ignore error
   }
 }
