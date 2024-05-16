@@ -100,9 +100,11 @@ onMounted(async () => {
     </div>
     <pre id="logs">
       <div
-v-for="log in logs"
-:key="log"
->{{ log }}</div>
+        v-for="l in logs"
+        :key="l"
+      >
+        {{ l }}
+      </div>
     </pre>
   </div>
 </template>

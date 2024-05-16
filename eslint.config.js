@@ -11,4 +11,9 @@ export default createConfigForNuxt({
       './playground',
     ],
   },
+}).append({
+  rules: {
+    // TODO: remove usage of `any` throughout codebase
+    '@typescript-eslint/no-explicit-any': 'off',
+  },
 })

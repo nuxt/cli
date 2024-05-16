@@ -96,7 +96,7 @@ export default command
 
 // --- Internal ---
 
-type ArgsT = Exclude<Awaited<typeof command.args>, undefined | Function>
+type ArgsT = Exclude<Awaited<typeof command.args>, undefined | ((...args: unknown[]) => unknown)>
 
 type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
@@ -166,7 +166,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
     kill('SIGHUP')
 
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__?.entry!, ['_dev', ...rawArgs], {
+    childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
       execArgv: [
         '--enable-source-maps',
         process.argv.includes('--inspect') && '--inspect',

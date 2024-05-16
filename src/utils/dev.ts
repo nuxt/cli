@@ -63,7 +63,7 @@ export async function createNuxtDevServer(
   )
 
   // Merge interface with public context
-  // @ts-expect-error
+  // @ts-expect-error private property
   devServer.listener._url = devServer.listener.url
   if (options.devContext.proxy?.url) {
     devServer.listener.url = options.devContext.proxy.url
