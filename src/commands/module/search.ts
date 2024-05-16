@@ -1,10 +1,10 @@
 import { defineCommand } from 'citty'
-import { sharedArgs } from '../_shared'
 import consola from 'consola'
-import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
+import { sharedArgs } from '../_shared'
+import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
   notation: 'compact',
@@ -38,7 +38,7 @@ export default defineCommand({
 
 async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const allModules = await fetchModules()
-  const compatibleModules = allModules.filter((m) =>
+  const compatibleModules = allModules.filter(m =>
     checkNuxtCompatibility(m, nuxtVersion),
   )
   const fuse = new Fuse(compatibleModules, {
@@ -103,11 +103,11 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     })
     let infoStr = ''
     for (const [label, value] of entries) {
-      infoStr +=
-        bold(label === 'Install' ? '→ ' : '- ') +
-        green(label.padEnd(maxLength + 2)) +
-        value +
-        '\n'
+      infoStr
+        += bold(label === 'Install' ? '→ ' : '- ')
+        + green(label.padEnd(maxLength + 2))
+        + value
+        + '\n'
     }
     console.log(infoStr)
   }

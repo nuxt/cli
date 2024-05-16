@@ -1,9 +1,9 @@
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
+import nuxiPkg from '../package.json' assert { type: 'json' }
 import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
-import nuxiPkg from '../package.json' assert { type: 'json' }
 
 // import { checkForUpdates } from './utils/update'
 
@@ -25,7 +25,7 @@ export const main = defineCommand({
       backgroundTasks = Promise.all([
         checkEngines(),
         // checkForUpdates(),
-      ]).catch((err) => console.error(err))
+      ]).catch(err => console.error(err))
     }
 
     // Avoid background check to fix prompt issues

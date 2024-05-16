@@ -1,7 +1,7 @@
+import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 import { importModule, tryResolveModule } from './esm'
 
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
 export const loadKit = async (
   rootDir: string,
@@ -20,8 +20,9 @@ export const loadKit = async (
       kit = { ...kit, writeTypes: writeTypesLegacy }
     }
     return kit
-  } catch (e: any) {
-    if (e.toString().includes("Cannot find module '@nuxt/kit'")) {
+  }
+  catch (e: any) {
+    if (e.toString().includes('Cannot find module \'@nuxt/kit\'')) {
       throw new Error(
         'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3 or `@nuxt/bridge` first.',
       )

@@ -6,7 +6,7 @@ interface TemplateOptions {
 }
 
 interface Template {
-  (options: TemplateOptions): { path: string; contents: string }
+  (options: TemplateOptions): { path: string, contents: string }
 }
 
 const httpMethods = [

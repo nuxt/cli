@@ -3,8 +3,10 @@
 <template>
   <div>
     Welcome to the Nuxt CLI playground!
-    <br />
-    <br />
-    <NuxtLink to="/ws"> /ws </NuxtLink>
+    <br>
+    <br>
+    <NuxtLink to="/ws">
+      /ws
+    </NuxtLink>
   </div>
 </template>

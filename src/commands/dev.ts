@@ -1,23 +1,23 @@
 import { fork } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { resolve } from 'pathe'
 import { setupDotenv } from 'c12'
-import { defineCommand, ParsedArgs } from 'citty'
+import type { ParsedArgs } from 'citty'
+import { defineCommand } from 'citty'
 import { isBun, isTest } from 'std-env'
 import {
   getArgs as getListhenArgs,
   parseArgs as parseListhenArgs,
 } from 'listhen/cli'
+import type { HTTPSOptions, ListenOptions } from 'listhen'
+import type { NuxtOptions } from '@nuxt/schema'
 import { showVersions } from '../utils/banner'
 import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
-
-import type { HTTPSOptions, ListenOptions } from 'listhen'
-import type { ChildProcess } from 'node:child_process'
-import type { NuxtOptions } from '@nuxt/schema'
-import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -70,7 +70,8 @@ const command = defineCommand({
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
       await _startSubprocess(devProxy, ctx.rawArgs)
       return { listener: devProxy?.listener }
-    } else {
+    }
+    else {
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
       const devServer = await createNuxtDevServer(
@@ -104,10 +105,10 @@ async function _createDevProxy(
   listenOptions: Partial<ListenOptions>,
 ) {
   let loadingMessage = 'Nuxt dev server is starting...'
-  const loadingTemplate =
-    nuxtOptions.devServer.loadingTemplate ??
-    (await importModule('@nuxt/ui-templates', nuxtOptions.modulesDir).then(
-      (r) => r.loading,
+  const loadingTemplate
+    = nuxtOptions.devServer.loadingTemplate
+    ?? (await importModule('@nuxt/ui-templates', nuxtOptions.modulesDir).then(
+      r => r.loading,
     ))
 
   const { createProxyServer } = await import('httpxy')
@@ -193,10 +194,12 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
     childProc.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:ready') {
         devProxy.setAddress(`http://127.0.0.1:${message.port}`)
-      } else if (message.type === 'nuxt:internal:dev:loading') {
+      }
+      else if (message.type === 'nuxt:internal:dev:loading') {
         devProxy.setAddress(undefined)
         devProxy.setLoadingMessage(message.message)
-      } else if (message.type === 'nuxt:internal:dev:restart') {
+      }
+      else if (message.type === 'nuxt:internal:dev:restart') {
         restart()
       }
     })
@@ -226,57 +229,57 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
-  const _port =
-    args.port ??
-    args.p ??
-    process.env.NUXT_PORT ??
-    process.env.NITRO_PORT ??
-    process.env.PORT ??
-    nuxtOptions.devServer.port
+  const _port
+    = args.port
+    ?? args.p
+    ?? process.env.NUXT_PORT
+    ?? process.env.NITRO_PORT
+    ?? process.env.PORT
+    ?? nuxtOptions.devServer.port
 
-  const _hostname =
-    typeof args.host === 'string'
+  const _hostname
+    = typeof args.host === 'string'
       ? args.host
-      : (args.host === true ? '' : undefined) ??
-        process.env.NUXT_HOST ??
-        process.env.NITRO_HOST ??
-        process.env.HOST ??
+      : (args.host === true ? '' : undefined)
+      ?? process.env.NUXT_HOST
+      ?? process.env.NITRO_HOST
+      ?? process.env.HOST
         // TODO: Default host in schema should be undefined instead of ''
-        nuxtOptions._layers?.[0].config?.devServer?.host ??
-        undefined
+      ?? nuxtOptions._layers?.[0].config?.devServer?.host
+      ?? undefined
 
-  const _public: boolean | undefined =
-    args.public ??
-    (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
+  const _public: boolean | undefined
+    = args.public
+    ?? (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
       ? true
       : undefined
 
-  const _httpsCert =
-    args['https.cert'] ||
-    (args.sslCert as string) ||
-    process.env.NUXT_SSL_CERT ||
-    process.env.NITRO_SSL_CERT ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.cert) ||
-    ''
+  const _httpsCert
+    = args['https.cert']
+    || (args.sslCert as string)
+    || process.env.NUXT_SSL_CERT
+    || process.env.NITRO_SSL_CERT
+    || (typeof nuxtOptions.devServer.https !== 'boolean'
+    && nuxtOptions.devServer.https?.cert)
+    || ''
 
-  const _httpsKey =
-    args['https.key'] ||
-    (args.sslKey as string) ||
-    process.env.NUXT_SSL_KEY ||
-    process.env.NITRO_SSL_KEY ||
-    (typeof nuxtOptions.devServer.https !== 'boolean' &&
-      nuxtOptions.devServer.https?.key) ||
-    ''
+  const _httpsKey
+    = args['https.key']
+    || (args.sslKey as string)
+    || process.env.NUXT_SSL_KEY
+    || process.env.NITRO_SSL_KEY
+    || (typeof nuxtOptions.devServer.https !== 'boolean'
+    && nuxtOptions.devServer.https?.key)
+    || ''
 
-  const httpsEnabled =
-    args.https == true ||
-    (args.https === undefined && !!nuxtOptions.devServer.https)
+  const httpsEnabled
+    = args.https == true
+    || (args.https === undefined && !!nuxtOptions.devServer.https)
 
   const _listhenOptions = parseListhenArgs({
     ...args,
-    open: (args.o as boolean) || args.open,
-    https: httpsEnabled,
+    'open': (args.o as boolean) || args.open,
+    'https': httpsEnabled,
     'https.cert': _httpsCert,
     'https.key': _httpsKey,
   })

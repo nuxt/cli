@@ -1,14 +1,15 @@
 import { resolve } from 'pathe'
 import { consola } from 'consola'
-import { overrideEnv } from '../utils/env'
 import { defineCommand } from 'citty'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { isTest } from 'std-env'
-import {
+import { overrideEnv } from '../utils/env'
+import type {
   NuxtDevContext,
-  NuxtDevIPCMessage,
+  NuxtDevIPCMessage } from '../utils/dev'
+import {
   createNuxtDevServer,
 } from '../utils/dev'
+import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -34,8 +35,8 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     // Get dev context info
-    const devContext: NuxtDevContext =
-      JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
+    const devContext: NuxtDevContext
+      = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
@@ -52,11 +53,12 @@ export default defineCommand({
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
       if (process.send) {
         process.send(message)
-      } else {
+      }
+      else {
         logger.info(
           'Dev server event:',
           Object.entries(message)
-            .map((e) => e[0] + '=' + JSON.stringify(e[1]))
+            .map(e => e[0] + '=' + JSON.stringify(e[1]))
             .join(' '),
         )
       }
