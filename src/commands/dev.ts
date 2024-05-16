@@ -96,7 +96,10 @@ export default command
 
 // --- Internal ---
 
-type ArgsT = Exclude<Awaited<typeof command.args>, undefined | ((...args: unknown[]) => unknown)>
+type ArgsT = Exclude<
+  Awaited<typeof command.args>,
+  undefined | ((...args: unknown[]) => unknown)
+>
 
 type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 

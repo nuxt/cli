@@ -1,7 +1,6 @@
+// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 import { importModule, tryResolveModule } from './esm'
-
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 
 export const loadKit = async (
   rootDir: string,

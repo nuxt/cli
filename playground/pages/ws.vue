@@ -64,15 +64,9 @@ onMounted(async () => {
     <h3>Nuxt WebSocket Test Page</h3>
 
     <div class="ms-btn-group">
-      <button @click="sendPing">
-        Send Ping
-      </button>
-      <button @click="connect">
-        Reconnect
-      </button>
-      <button @click="clearLogs">
-        Clear
-      </button>
+      <button @click="sendPing">Send Ping</button>
+      <button @click="connect">Reconnect</button>
+      <button @click="clearLogs">Clear</button>
     </div>
 
     <div class="ms-form-group ms-mt-2">

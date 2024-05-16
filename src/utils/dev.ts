@@ -7,14 +7,8 @@ import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
 import { joinURL } from 'ufo'
-import type {
-  HTTPSOptions,
-  ListenURL,
-  Listener,
-  ListenOptions } from 'listhen'
-import {
-  listen,
-} from 'listhen'
+import type { HTTPSOptions, ListenURL, Listener, ListenOptions } from 'listhen'
+import { listen } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'

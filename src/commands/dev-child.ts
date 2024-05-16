@@ -3,12 +3,8 @@ import { consola } from 'consola'
 import { defineCommand } from 'citty'
 import { isTest } from 'std-env'
 import { overrideEnv } from '../utils/env'
-import type {
-  NuxtDevContext,
-  NuxtDevIPCMessage } from '../utils/dev'
-import {
-  createNuxtDevServer,
-} from '../utils/dev'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+import { createNuxtDevServer } from '../utils/dev'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
