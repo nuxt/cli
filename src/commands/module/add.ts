@@ -24,19 +24,19 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
-    moduleName: {
+    'moduleName': {
       type: 'positional',
       description: 'Module name',
     },
-    skipInstall: {
+    'skipInstall': {
       type: 'boolean',
       description: 'Skip npm install',
     },
-    skipConfig: {
+    'skipConfig': {
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
-    install: {
+    'install': {
       type: 'string',
       description: 'Installing module peer dependencies.',
       default: undefined,
@@ -179,12 +179,12 @@ async function resolveModule(
 ): Promise<
   | false
   | {
-      nuxtModule?: NuxtModule
-      pkg: string
-      pkgName: string
-      pkgVersion: string
-      peerDeps: string[]
-    }
+    nuxtModule?: NuxtModule
+    pkg: string
+    pkgName: string
+    pkgVersion: string
+    peerDeps: string[]
+  }
 > {
   let pkgName = moduleName
   let pkgVersion: string | undefined
