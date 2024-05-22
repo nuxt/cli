@@ -36,6 +36,20 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
+    peerDeps: {
+      type: 'string',
+      description: 'Installing peer dependencies.',
+      alias: 'p',
+      default: undefined,
+    },
+    devDeps: {
+      type: 'boolean',
+      description:
+        'Use this with "-p" option.\n\t \
+           Enabling this option will install to devDependencies.',
+      alias: 'D',
+      default: false,
+    },
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
@@ -106,6 +120,19 @@ export default defineCommand({
           `Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
         )
       })
+    }
+
+    // Install module peer dependencies
+    const _deps = ctx.args.peerDeps
+    if (typeof _deps === 'undefined') {
+      consola.info('peer dependencies is not installed')
+    } else {
+      consola.info(`Installing ${colors.cyan(_deps)} dependencies`)
+      await addDependency(_deps, { cwd, dev: ctx.args.devDeps }).catch(
+        (error) => {
+          consola.error(error)
+        },
+      )
     }
   },
 })
