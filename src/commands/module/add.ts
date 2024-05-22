@@ -120,10 +120,14 @@ export default defineCommand({
     }
 
     // Install module peer dependencies
-    await installPeerDeps(cwd, ctx.args.install)
+    if (ctx.args.install !== undefined) {
+      await installPeerDeps(cwd, ctx.args.install || r.peerDeps)
+    }
 
     // Install module peer dependencies in devDependencies
-    await installPeerDeps(cwd, ctx.args['install-dev'], true)
+    if (ctx.args['install-dev'] !== undefined) {
+      await installPeerDeps(cwd, ctx.args['install-dev'], true)
+    }
   },
 })
 
@@ -175,11 +179,12 @@ async function resolveModule(
 ): Promise<
   | false
   | {
-    nuxtModule?: NuxtModule
-    pkg: string
-    pkgName: string
-    pkgVersion: string
-  }
+      nuxtModule?: NuxtModule
+      pkg: string
+      pkgName: string
+      pkgVersion: string
+      peerDeps: string[]
+    }
 > {
   let pkgName = moduleName
   let pkgVersion: string | undefined
@@ -283,31 +288,34 @@ async function resolveModule(
     }
   }
 
+  const peerDeps = Object.entries(pkg.peerDependencies).map(
+    ([name, version]) => {
+      return `${name}@${version}`
+    },
+  )
+
   return {
     nuxtModule: matchedModule,
     pkg: `${pkgName}@${pkgVersion}`,
     pkgName,
     pkgVersion,
+    peerDeps,
   }
 }
 
 /**
  * Installing module peer dependencies.
  * @param cwd Current working directory.
- * @param isDev Installing module peer dependencies to devDependencies.
  * @param deps Installing module peer dependencies.
+ * @param isDev Installing module peer dependencies to devDependencies.
  */
 async function installPeerDeps(
   cwd: string,
-  deps?: string,
+  deps: string | string[],
   isDev: boolean = false,
 ): Promise<void> {
-  if (typeof deps === 'undefined') {
-    consola.info('peer dependencies is not installed')
-  } else {
-    consola.info(`Installing ${colors.cyan(deps)} dependencies`)
-    await addDependency(deps, { cwd, dev: isDev }).catch((error) => {
-      consola.error(error)
-    })
-  }
+  consola.info(`Installing ${colors.cyan(deps)} dependencies`)
+  await addDependency(deps, { cwd, dev: isDev }).catch((error) => {
+    consola.error(error)
+  })
 }
