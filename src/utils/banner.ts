@@ -11,7 +11,7 @@ export function showVersions(cwd: string) {
     || getPkgVersion('nuxt3')
     || getPkgVersion('nuxt-edge')
   const nitroVersion
-    = getPkgVersion('nitropack') || getPkgVersion('nitropack-nightly')|| getPkgVersion('nitropack-edge')
+    = getPkgVersion('nitropack') || getPkgVersion('nitropack-nightly') || getPkgVersion('nitropack-edge')
   console.log(
     gray(
       green(`Nuxt ${bold(nuxtVersion)}`)
