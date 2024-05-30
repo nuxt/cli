@@ -36,7 +36,6 @@ export default defineCommand({
 
     const resolvedOutputDir = resolve(
       config.srcDir || cwd,
-      config.nitro.srcDir || 'server',
       config.nitro.output?.dir || '.output',
       'nitro.json',
     )
