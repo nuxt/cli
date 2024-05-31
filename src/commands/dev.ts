@@ -34,6 +34,10 @@ const command = defineCommand({
       type: 'string',
       description: 'Path to .env file',
     },
+    env: {
+      type: 'string',
+      description: "Name of the build environment to use (see 'Environment overrides' in the docs)",
+    },
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
@@ -55,6 +59,7 @@ const command = defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const nuxtOptions = await loadNuxtConfig({
       cwd,
+      envName: ctx.args.env, // c12 will fall back to NODE_ENV
       overrides: {
         dev: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
@@ -81,6 +86,7 @@ const command = defineCommand({
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
           dotenv: !!ctx.args.dotenv,
+          env: ctx.args.env,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
           devContext: {},
         },

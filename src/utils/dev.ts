@@ -32,6 +32,7 @@ export interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
   dotenv: boolean
+  env: string
   clear: boolean
   overrides: NuxtConfig
   port?: string | number
@@ -172,6 +173,7 @@ class NuxtDevServer extends EventEmitter {
       cwd: this.options.cwd,
       dev: true,
       ready: false,
+      envName: this.options.env,
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
         vite: {

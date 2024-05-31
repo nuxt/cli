@@ -22,6 +22,10 @@ export default defineCommand({
       type: 'string',
       description: 'Path to .env file',
     },
+    env: {
+      type: 'string',
+      description: "Name of the build environment to use (see 'Environment overrides' in the docs)",
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
@@ -31,6 +35,7 @@ export default defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({
       cwd,
+      envName: ctx.args.env, // c12 will fall back to NODE_ENV
       overrides: /* ctx.options?.overrides || */ {},
     })
 

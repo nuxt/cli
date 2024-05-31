@@ -15,6 +15,10 @@ export default defineCommand({
       type: 'string',
       description: 'Path to .env file',
     },
+    env: {
+      type: 'string',
+      description: "Name of the build environment to use (see 'Environment overrides' in the docs)",
+    },
   },
   async run(ctx) {
     ctx.args.prerender = true

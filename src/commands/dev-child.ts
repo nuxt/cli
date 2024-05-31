@@ -16,6 +16,10 @@ export default defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
+    env: {
+      type: 'string',
+      description: "Name of the build environment to use (see 'Environment overrides' in the docs)",
+    },
   },
   async run(ctx) {
     const logger = consola.withTag('nuxi')
@@ -41,6 +45,7 @@ export default defineCommand({
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,
+      env: ctx.args.env,
       port: process.env._PORT ?? undefined,
       devContext,
     })
