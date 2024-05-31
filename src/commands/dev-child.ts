@@ -18,7 +18,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
     env: {
       type: 'string',
-      description: "Name of the build environment to use (see 'Environment overrides' in the docs)",
+      description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
     },
   },
   async run(ctx) {
