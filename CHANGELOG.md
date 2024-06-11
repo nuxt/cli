@@ -1,6 +1,33 @@
 # Changelog
 
 
+## v3.12.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.11.1...v3.12.0)
+
+### 🩹 Fixes
+
+- **prepare:** Respect `--dotenv` ([#377](https://github.com/nuxt/cli/pull/377))
+- Add '@nuxt/kit' to nuxt module verification ([#386](https://github.com/nuxt/cli/pull/386), [#387](https://github.com/nuxt/cli/pull/387))
+- Check`nitropack-nightly` when resolving nitro version ([bfaf128](https://github.com/nuxt/cli/commit/bfaf128))
+- **dev:** Set `hmr.server` earlier in lifecycle ([#420](https://github.com/nuxt/cli/pull/420))
+- **preview:** Correct path with custom `nitro.output.dir` ([#376](https://github.com/nuxt/cli/pull/376))
+
+### 🏡 Chore
+
+- **release:** V3.11.1 ([8e1bd03](https://github.com/nuxt/cli/commit/8e1bd03))
+- Migrate to eslint v9 ([#412](https://github.com/nuxt/cli/pull/412))
+- **add:** Change order of `setup` attr in templates ([#378](https://github.com/nuxt/cli/pull/378))
+
+### ❤️ Contributors
+
+- Xjccc ([@xjccc](http://github.com/xjccc))
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Dale Weaver ([@daleweaver777](http://github.com/daleweaver777))
+- 你好怪凡 <zousitanghulu@foxmail.com>
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
 ## v3.11.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.11.0...v3.11.1)
