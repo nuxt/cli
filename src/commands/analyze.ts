@@ -34,7 +34,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
     const name = ctx.args.name || 'default'
-    const slug = name.trim().replace(/[^a-z0-9_-]/gi, '_')
+    const slug = name.trim().replace(/[^\w-]/g, '_')
 
     const startTime = Date.now()
 
