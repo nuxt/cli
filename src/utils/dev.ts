@@ -75,7 +75,7 @@ export async function createNuxtDevServer(
 
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE
-  = /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
+  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
