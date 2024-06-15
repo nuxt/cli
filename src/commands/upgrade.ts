@@ -27,6 +27,23 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   }
 }
 
+async function checkNuxtDependencyType(path: string): Promise<'dependencies' | 'devDependencies' | null> {
+  try {
+    const pkg = await readPackageJSON(path)
+    if (pkg.dependencies && pkg.dependencies['nuxt']) {
+      return 'dependencies'
+    }
+    if (pkg.devDependencies && pkg.devDependencies['nuxt']) {
+      return 'devDependencies'
+    }
+    consola.warn('Cannot find Nuxt dependency type in ', path)
+    return null
+  }
+  catch {
+    return null
+  }
+}
+
 export default defineCommand({
   meta: {
     name: 'upgrade',
@@ -61,6 +78,9 @@ export default defineCommand({
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Current Nuxt version:', currentVersion)
 
+    // Check if Nuxt is a dependency or devDependency
+    const nuxtDependencyType = await checkNuxtDependencyType(cwd)
+
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
@@ -88,7 +108,7 @@ export default defineCommand({
     execSync(
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
-      } -D nuxt`,
+      } ${nuxtDependencyType === 'dependencies' ? '' : '-D'} nuxt`,
       { stdio: 'inherit', cwd },
     )
 
