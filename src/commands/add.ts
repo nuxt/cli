@@ -1,9 +1,9 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, resolve, extname } from 'pathe'
 import { consola } from 'consola'
+import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { templates } from '../utils/templates'
-import { defineCommand } from 'citty'
 import { sharedArgs } from './_shared'
 
 export default defineCommand({
@@ -34,8 +34,8 @@ export default defineCommand({
 
     const template = ctx.args.template
     const ext = extname(ctx.args.name)
-    const name =
-      ext === '.vue' || ext === '.ts'
+    const name
+      = ext === '.vue' || ext === '.ts'
         ? ctx.args.name.replace(ext, '')
         : ctx.args.name
 

@@ -3,16 +3,16 @@ import { consola } from 'consola'
 import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
+import { defineCommand } from 'citty'
 import {
   getPackageManager,
   packageManagerLocks,
 } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
-import { defineCommand } from 'citty'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
 import { loadKit } from '../utils/kit'
+import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
   try {
@@ -21,7 +21,8 @@ async function getNuxtVersion(path: string): Promise<string | null> {
       consola.warn('Cannot find any installed Nuxt versions in ', path)
     }
     return pkg.version || null
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -63,7 +64,7 @@ export default defineCommand({
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
-      .map((p) => colors.cyan(p))
+      .map(p => colors.cyan(p))
       .join(' and ')
     if (ctx.args.force === undefined) {
       ctx.args.force = await consola.prompt(
@@ -97,7 +98,8 @@ export default defineCommand({
       const { loadNuxtConfig } = await loadKit(cwd)
       const nuxtOptions = await loadNuxtConfig({ cwd })
       buildDir = nuxtOptions.buildDir
-    } catch {
+    }
+    catch {
       // Use default buildDir (.nuxt)
     }
     await cleanupNuxtDirs(cwd, buildDir)
@@ -107,8 +109,9 @@ export default defineCommand({
     consola.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === currentVersion) {
-      consola.success("You're already using the latest version of Nuxt.")
-    } else {
+      consola.success('You\'re already using the latest version of Nuxt.')
+    }
+    else {
       consola.success(
         'Successfully upgraded Nuxt from',
         currentVersion,

@@ -1,20 +1,21 @@
-import { resolve } from 'pathe'
-import { defineCommand } from 'citty'
-import { sharedArgs } from '../_shared'
 import { existsSync } from 'node:fs'
-import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
+import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
+import type { ProxifiedModule } from 'magicast'
+import { loadFile, writeFile, parseModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
 import { $fetch } from 'ofetch'
+import { satisfies } from 'semver'
+import { colors } from 'consola/utils'
+import { sharedArgs } from '../_shared'
 import {
-  NuxtModule,
   checkNuxtCompatibility,
   fetchModules,
   getNuxtVersion,
   getProjectPackage,
 } from './_utils'
-import { satisfies } from 'semver'
-import { colors } from 'consola/utils'
+import type { NuxtModule } from './_utils'
 
 export default defineCommand({
   meta: {
@@ -119,7 +120,7 @@ async function updateNuxtConfig(
     'nuxt.config.ts',
     'nuxt.config.js',
     '.config/nuxt.ts',
-    '.config/nuxt.js'
+    '.config/nuxt.js',
   ]
   let _module: ProxifiedModule | undefined
   let configFile: string | undefined
@@ -145,7 +146,8 @@ async function updateNuxtConfig(
   }
   if (defaultExport.$type === 'function-call') {
     update(defaultExport.$args[0])
-  } else {
+  }
+  else {
     update(defaultExport)
   }
   await writeFile(_module as any, configPath)
@@ -161,8 +163,8 @@ export default defineNuxtConfig({
 }
 
 // Based on https://github.com/dword-design/package-name-regex
-const packageRegex =
-  /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
+const packageRegex
+  = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
 
 async function resolveModule(
   moduleName: string,
@@ -170,11 +172,11 @@ async function resolveModule(
 ): Promise<
   | false
   | {
-      nuxtModule?: NuxtModule
-      pkg: string
-      pkgName: string
-      pkgVersion: string
-    }
+    nuxtModule?: NuxtModule
+    pkg: string
+    pkgName: string
+    pkgVersion: string
+  }
 > {
   let pkgName = moduleName
   let pkgVersion: string | undefined
@@ -185,7 +187,8 @@ async function resolveModule(
       pkgName = `${reMatch[1] || ''}${reMatch[2] || ''}`
       pkgVersion = reMatch[3].slice(1)
     }
-  } else {
+  }
+  else {
     consola.error(`Invalid package name \`${pkgName}\`.`)
     return false
   }
@@ -196,10 +199,10 @@ async function resolveModule(
   })
 
   const matchedModule = modulesDB.find(
-    (module) =>
-      module.name === moduleName ||
-      module.npm === pkgName ||
-      module.aliases?.includes(pkgName),
+    module =>
+      module.name === moduleName
+      || module.npm === pkgName
+      || module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
@@ -234,7 +237,8 @@ async function resolveModule(
         if (satisfies(nuxtVersion, _nuxtVersion)) {
           if (!pkgVersion) {
             pkgVersion = _moduleVersion
-          } else {
+          }
+          else {
             consola.warn(
               `Recommended version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
@@ -259,9 +263,9 @@ async function resolveModule(
     pkg.devDependencies || {},
   )
   if (
-    !pkgDependencies['nuxt'] &&
-    !pkgDependencies['nuxt-edge'] &&
-    !pkgDependencies['@nuxt/kit']
+    !pkgDependencies['nuxt']
+    && !pkgDependencies['nuxt-edge']
+    && !pkgDependencies['@nuxt/kit']
   ) {
     consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
     const shouldContinue = await consola.prompt(

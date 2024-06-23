@@ -25,7 +25,8 @@ export function requireModule(id: string, paths?: string | string[]) {
 export function tryRequireModule(id: string, paths?: string | string[]) {
   try {
     return requireModule(id, paths)
-  } catch {
+  }
+  catch {
     return null
   }
 }
@@ -34,7 +35,8 @@ export function getNearestPackage(id: string, paths?: string | string[]) {
   while (dirname(id) !== id) {
     try {
       return requireModule(id + '/package.json', paths)
-    } catch {
+    }
+    catch {
       // Ignore error
     }
     id = dirname(id)

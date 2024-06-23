@@ -1,28 +1,23 @@
 import type { RequestListener, ServerResponse } from 'node:http'
 import EventEmitter from 'node:events'
+import type { AddressInfo } from 'node:net'
 import { relative, resolve, join } from 'pathe'
 import chokidar from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
 import { joinURL } from 'ufo'
-import {
-  HTTPSOptions,
-  ListenURL,
-  listen,
-  Listener,
-  ListenOptions,
-} from 'listhen'
+import type { HTTPSOptions, ListenURL, Listener, ListenOptions } from 'listhen'
+import { listen } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
 import { importModule } from './esm'
-import { AddressInfo } from 'node:net'
 
 export type NuxtDevIPCMessage =
-  | { type: 'nuxt:internal:dev:ready'; port: number }
-  | { type: 'nuxt:internal:dev:loading'; message: string }
+  | { type: 'nuxt:internal:dev:ready', port: number }
+  | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
 
 export interface NuxtDevContext {
@@ -62,7 +57,7 @@ export async function createNuxtDevServer(
   )
 
   // Merge interface with public context
-  // @ts-expect-error
+  // @ts-expect-error private property
   devServer.listener._url = devServer.listener.url
   if (options.devContext.proxy?.url) {
     devServer.listener.url = options.devContext.proxy.url
@@ -79,8 +74,8 @@ export async function createNuxtDevServer(
 }
 
 // https://regex101.com/r/7HkR5c/1
-const RESTART_RE =
-  /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
+const RESTART_RE
+  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -109,27 +104,28 @@ class NuxtDevServer extends EventEmitter {
       await _initPromise
       if (this._handler) {
         this._handler(req, res)
-      } else {
+      }
+      else {
         this._renderError(res)
       }
     }
 
-    // @ts-ignore we set it in wrapper function
+    // @ts-expect-error we set it in wrapper function
     this.listener = undefined
   }
 
   async _renderError(res: ServerResponse, _error?: Error) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
-    const loadingTemplate =
-      this.options.loadingTemplate ||
-      this._currentNuxt?.options.devServer.loadingTemplate ||
-      (
+    const loadingTemplate
+      = this.options.loadingTemplate
+      || this._currentNuxt?.options.devServer.loadingTemplate
+      || (
         await importModule('@nuxt/ui-templates', this.options.cwd).then(
-          (r) => r.loading,
+          r => r.loading,
         )
-      ).catch(() => {}) ||
-      ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+      ).catch(() => {})
+      || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
         loading: _error?.toString() || this._loadingMessage || 'Loading...',
@@ -145,11 +141,12 @@ class NuxtDevServer extends EventEmitter {
   async load(reload?: boolean, reason?: string) {
     try {
       await this._load(reload, reason)
-    } catch (error) {
+    }
+    catch (error) {
       consola.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
-      this._loadingMessage =
-        'Error while loading Nuxt. Please check console and fix errors.'
+      this._loadingMessage
+        = 'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading', this._loadingMessage)
     }
   }
@@ -191,23 +188,17 @@ class NuxtDevServer extends EventEmitter {
 
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
-      this._currentNuxt.hooks.hook(
-        'vite:extendConfig',
-        (config, { isClient }) => {
-          if (isClient && config.server) {
-            config.server.hmr = {
-              ...(config.server.hmr as Exclude<
-                typeof config.server.hmr,
-                boolean
-              >),
-              protocol: undefined,
-              port: undefined,
-              host: undefined,
-              server: this.listener.server,
-            }
+      this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
+        if (config.server) {
+          config.server.hmr = {
+            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
+            protocol: undefined,
+            port: undefined,
+            host: undefined,
+            server: this.listener.server,
           }
-        },
-      )
+        }
+      })
     }
 
     // Remove websocket handlers on close
@@ -222,9 +213,9 @@ class NuxtDevServer extends EventEmitter {
       )
       const newManifest = await writeNuxtManifest(this._currentNuxt)
       if (
-        previousManifest &&
-        newManifest &&
-        previousManifest._hash !== newManifest._hash
+        previousManifest
+        && newManifest
+        && previousManifest._hash !== newManifest._hash
       ) {
         await clearBuildDir(this._currentNuxt.options.buildDir)
       }
@@ -275,7 +266,7 @@ class NuxtDevServer extends EventEmitter {
       !!this.listener.https,
     )
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
-      ?.https as boolean | { key: string; cert: string }
+      ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       consola.warn(

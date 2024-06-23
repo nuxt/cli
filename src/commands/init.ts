@@ -8,8 +8,8 @@ import { defineCommand } from 'citty'
 
 import { sharedArgs } from './_shared'
 
-const DEFAULT_REGISTRY =
-  'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+const DEFAULT_REGISTRY
+  = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
 
 export default defineCommand({
@@ -83,7 +83,8 @@ export default defineCommand({
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
-    } catch (err) {
+    }
+    catch (err) {
       if (process.env.DEBUG) {
         throw err
       }
@@ -104,15 +105,16 @@ export default defineCommand({
     )
       ? packageManagerArg
       : await consola.prompt('Which package manager would you like to use?', {
-          type: 'select',
-          options: packageManagerOptions,
-        })
+        type: 'select',
+        options: packageManagerOptions,
+      })
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
       consola.info('Skipping install dependencies step.')
-    } else {
+    }
+    else {
       consola.start('Installing dependencies...')
 
       try {
@@ -123,7 +125,8 @@ export default defineCommand({
             command: selectedPackageManager,
           },
         })
-      } catch (err) {
+      }
+      catch (err) {
         if (process.env.DEBUG) {
           throw err
         }
@@ -155,9 +158,9 @@ export default defineCommand({
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
-      !ctx.args.shell &&
-        relativeTemplateDir.length > 1 &&
-        `\`cd ${relativeTemplateDir}\``,
+      !ctx.args.shell
+      && relativeTemplateDir.length > 1
+      && `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
