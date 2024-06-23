@@ -115,7 +115,12 @@ async function updateNuxtConfig(
   rootDir: string,
   update: (config: any) => void,
 ) {
-  const configFiles = ['nuxt.config.ts', 'nuxt.config.js']
+  const configFiles = [
+    'nuxt.config.ts',
+    'nuxt.config.js',
+    '.config/nuxt.ts',
+    '.config/nuxt.js'
+  ]
   let _module: ProxifiedModule | undefined
   let configFile: string | undefined
   let configPath: string | undefined
