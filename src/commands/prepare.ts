@@ -3,9 +3,9 @@ import { consola } from 'consola'
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
+import { defineCommand } from 'citty'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { defineCommand } from 'citty'
 
 import { legacyRootDirArgs, sharedArgs } from './_shared'
 
