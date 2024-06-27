@@ -123,8 +123,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(typescript@5.4.2)
       unplugin-purge-polyfills:
-        specifier: ^0.0.3
-        version: 0.0.3
+        specifier: ^0.0.4
+        version: 0.0.4
       unws:
         specifier: ^0.2.4
         version: 0.2.4(ws@8.17.1)
@@ -4625,8 +4625,8 @@ packages:
       vite:
         optional: true
 
-  unplugin-purge-polyfills@0.0.3:
-    resolution: {integrity: sha512-FUthxYFu0Ko4x3Y8cagfnBC6A5N3bRmRnpPMpHYnc+I5Tfnt9N7jAzpz9dIDQvn8iUd9irHvqm6FxGh4fwvJhw==}
+  unplugin-purge-polyfills@0.0.4:
+    resolution: {integrity: sha512-8s6XYngObhiqHjH+2tzRuaiU1LlwD6qhajuDVUHQDWrFDM1BDjeC32s0b117+a8VZSnvNI5ArWDPiYYTc5c6VQ==}
 
   unplugin-vue-router@0.7.0:
     resolution: {integrity: sha512-ddRreGq0t5vlSB7OMy4e4cfU1w2AwBQCwmvW3oP/0IHQiokzbx4hd3TpwBu3eIAFVuhX2cwNQwp1U32UybTVCw==}
@@ -8749,7 +8749,7 @@ snapshots:
 
   minipass-collect@2.0.1:
     dependencies:
-      minipass: 7.0.4
+      minipass: 7.1.2
 
   minipass-fetch@3.0.4:
     dependencies:
@@ -10381,7 +10381,7 @@ snapshots:
       - rollup
       - supports-color
 
-  unplugin-purge-polyfills@0.0.3:
+  unplugin-purge-polyfills@0.0.4:
     dependencies:
       defu: 6.1.4
       magic-string: 0.30.10
