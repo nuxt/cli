@@ -8,9 +8,9 @@ export default defineBuildConfig({
     'rollup:options'(_, options) {
       const plugins = (options.plugins ||= []) as InputPluginOption[]
       plugins.push(purgePolyfills.rollup({
-        logLevel: 'verbose'
+        logLevel: 'verbose',
       }))
-    }
+    },
   },
   rollup: {
     inlineDependencies: true,
