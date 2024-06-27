@@ -1,11 +1,11 @@
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import type { Nitro } from 'nitropack'
+import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { defineCommand } from 'citty'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -40,6 +40,9 @@ export default defineCommand({
 
     const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
     if (nitroPreset) {
+      if (ctx.args.prerender && ctx.args.preset) {
+        consola.warn(`\`--prerender\` is set. Ignoring \`--preset ${ctx.args.preset}\``)
+      }
       // TODO: Link to the docs
       consola.info(`Using Nitro server preset: \`${nitroPreset}\``)
     }
@@ -66,7 +69,8 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
-    } catch {
+    }
+    catch {
       //
     }
 

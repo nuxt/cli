@@ -34,7 +34,7 @@ export default defineCommand({
       rootDir: cwd,
       dev: ctx.args.dev,
       watch: ctx.args.watch,
-      .../*ctx.options ||*/ {},
+      ...{},
     })
   },
 })
@@ -53,7 +53,8 @@ async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
         throw new Error('Invalid version of `@nuxt/test-utils` is installed!')
       }
       return exports
-    } catch (_err) {
+    }
+    catch (_err) {
       err = _err
     }
   }

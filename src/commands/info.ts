@@ -8,16 +8,16 @@ import type { PackageJson } from 'pkg-types'
 import { splitByCase } from 'scule'
 import clipboardy from 'clipboardy'
 import type { NuxtModule } from '@nuxt/schema'
+import { defineCommand } from 'citty'
 import type { packageManagerLocks } from '../utils/packageManagers'
 import {
   getPackageManager,
   getPackageManagerVersion,
 } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
-import { defineCommand } from 'citty'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
 import nuxiPkg from '../../package.json'
+import { legacyRootDirArgs, sharedArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -44,7 +44,7 @@ export default defineCommand({
 
     const listModules = (arr = []) =>
       arr
-        .map((m) => normalizeConfigModule(m, cwd))
+        .map(m => normalizeConfigModule(m, cwd))
         .filter(Boolean)
         .map((name) => {
           const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
@@ -54,12 +54,12 @@ export default defineCommand({
         .join(', ')
 
     // Check Nuxt version
-    const nuxtVersion =
-      getDepVersion('nuxt') ||
-      getDepVersion('nuxt-nightly') ||
-      getDepVersion('nuxt-edge') ||
-      getDepVersion('nuxt3') ||
-      '-'
+    const nuxtVersion
+      = getDepVersion('nuxt')
+      || getDepVersion('nuxt-nightly')
+      || getDepVersion('nuxt-edge')
+      || getDepVersion('nuxt3')
+      || '-'
     const isLegacy = nuxtVersion.startsWith('2')
     const builder = !isLegacy
       ? nuxtConfig.builder /* latest schema */ || '-'
@@ -69,11 +69,12 @@ export default defineCommand({
           ? 'vite' /* nuxt-vite */
           : 'webpack'
 
-    let packageManager: keyof typeof packageManagerLocks | 'unknown' | null =
-      getPackageManager(cwd)
+    let packageManager: keyof typeof packageManagerLocks | 'unknown' | null
+      = getPackageManager(cwd)
     if (packageManager) {
       packageManager += '@' + getPackageManagerVersion(packageManager)
-    } else {
+    }
+    else {
       packageManager = 'unknown'
     }
 
@@ -86,7 +87,7 @@ export default defineCommand({
       PackageManager: packageManager,
       Builder: builder,
       UserConfig: Object.keys(nuxtConfig)
-        .map((key) => '`' + key + '`')
+        .map(key => '`' + key + '`')
         .join(', '),
       RuntimeModules: listModules(nuxtConfig.modules),
       BuildModules: listModules(nuxtConfig.buildModules || []),
@@ -104,11 +105,11 @@ export default defineCommand({
     })
     let infoStr = ''
     for (const [label, value] of entries) {
-      infoStr +=
-        '- ' +
-        (label + ': ').padEnd(maxLength + 2) +
-        (value.includes('`') ? value : '`' + value + '`') +
-        '\n'
+      infoStr
+        += '- '
+        + (label + ': ').padEnd(maxLength + 2)
+        + (value.includes('`') ? value : '`' + value + '`')
+        + '\n'
     }
 
     const copied = await clipboardy
@@ -167,7 +168,8 @@ function getNuxtConfig(rootDir: string) {
     )
     delete (globalThis as any).defineNuxtConfig
     return result
-  } catch (err) {
+  }
+  catch (err) {
     // TODO: Show error as warning if it is not 404
     return {}
   }
@@ -181,7 +183,8 @@ function getPkg(name: string, rootDir: string) {
   const _require = createRequire(rootDir)
   try {
     pkgPath = _require.resolve(name + '/package.json')
-  } catch (_err) {
+  }
+  catch (_err) {
     // console.log('not found:', name)
   }
 
@@ -202,7 +205,8 @@ function findPackage(rootDir: string) {
 function readJSONSync(filePath: string) {
   try {
     return destr(readFileSync(filePath, 'utf-8'))
-  } catch (err) {
+  }
+  catch (err) {
     // TODO: Warn error
     return null
   }

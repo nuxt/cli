@@ -1,9 +1,9 @@
 import { resolve } from 'pathe'
-import { cleanupNuxtDirs } from '../utils/nuxt'
 import { defineCommand } from 'citty'
+import { cleanupNuxtDirs } from '../utils/nuxt'
 
-import { sharedArgs, legacyRootDirArgs } from './_shared'
 import { loadKit } from '../utils/kit'
+import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {

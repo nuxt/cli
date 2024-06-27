@@ -7,7 +7,8 @@ export async function exists(path: string) {
   try {
     await fsp.access(path)
     return true
-  } catch {
+  }
+  catch {
     return false
   }
 }
@@ -15,7 +16,8 @@ export async function exists(path: string) {
 export async function clearDir(path: string, exclude?: string[]) {
   if (!exclude) {
     await fsp.rm(path, { recursive: true, force: true })
-  } else if (existsSync(path)) {
+  }
+  else if (existsSync(path)) {
     const files = await fsp.readdir(path)
     await Promise.all(
       files.map(async (name) => {
@@ -35,7 +37,7 @@ export function clearBuildDir(path: string) {
 export async function rmRecursive(paths: string[]) {
   await Promise.all(
     paths
-      .filter((p) => typeof p === 'string')
+      .filter(p => typeof p === 'string')
       .map(async (path) => {
         consola.debug('Removing recursive path', path)
         await fsp.rm(path, { recursive: true, force: true }).catch(() => {})

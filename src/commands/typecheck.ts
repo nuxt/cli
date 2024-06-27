@@ -34,7 +34,7 @@ export default defineCommand({
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        .../*ctx.options?.overrides || */ {},
+        ...{},
       },
     })
 
@@ -54,7 +54,8 @@ export default defineCommand({
         stdio: 'inherit',
         cwd,
       })
-    } else {
+    }
+    else {
       await execa(
         'npx',
         '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
