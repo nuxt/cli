@@ -75,7 +75,7 @@ export async function createNuxtDevServer(
 
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE
-  = /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
+  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -188,23 +188,17 @@ class NuxtDevServer extends EventEmitter {
 
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
-      this._currentNuxt.hooks.hook(
-        'vite:extendConfig',
-        (config, { isClient }) => {
-          if (isClient && config.server) {
-            config.server.hmr = {
-              ...(config.server.hmr as Exclude<
-                typeof config.server.hmr,
-                boolean
-              >),
-              protocol: undefined,
-              port: undefined,
-              host: undefined,
-              server: this.listener.server,
-            }
+      this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
+        if (config.server) {
+          config.server.hmr = {
+            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
+            protocol: undefined,
+            port: undefined,
+            host: undefined,
+            server: this.listener.server,
           }
-        },
-      )
+        }
+      })
     }
 
     // Remove websocket handlers on close
