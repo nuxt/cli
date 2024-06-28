@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
+import { filename } from 'pathe/utils'
 import type { ProxifiedModule } from 'magicast'
 import { loadFile, writeFile, parseModule } from 'magicast'
 import consola from 'consola'
@@ -16,6 +17,7 @@ import {
   getProjectPackage,
 } from './_utils'
 import type { NuxtModule } from './_utils'
+import { loadKit } from '../../utils/kit'
 
 export default defineCommand({
   meta: {
@@ -116,28 +118,21 @@ async function updateNuxtConfig(
   rootDir: string,
   update: (config: any) => void,
 ) {
-  const configFiles = ['nuxt.config.ts', 'nuxt.config.js']
-  let _module: ProxifiedModule | undefined
-  let configFile: string | undefined
-  let configPath: string | undefined
-  for (const file of configFiles) {
-    configFile = file
-    configPath = resolve(rootDir, configFile)
-    if (existsSync(configPath)) {
-      consola.info(`Updating \`${configFile}\``)
-      _module = await loadFile(configPath)
-      break
-    }
+  let _module: ProxifiedModule
+  const { resolvePath } = await loadKit(rootDir)
+  const nuxtConfigFile = await resolvePath(resolve(rootDir, 'nuxt.config'))
+  const nuxtConfigFileName = filename(nuxtConfigFile)
+  if (existsSync(nuxtConfigFile)) {
+    consola.info(`Updating \`${nuxtConfigFileName}\``)
+    _module = await loadFile(nuxtConfigFile)
   }
-  if (!_module || !configPath) {
-    configFile = 'nuxt.config.ts'
-    consola.info(`Creating \`${configFile}\``)
+  else {
+    consola.info(`Creating \`nuxt.config\`.ts`)
     _module = parseModule(getDefaultNuxtConfig())
-    configPath = resolve(rootDir, configFile)
   }
   const defaultExport = _module.exports.default
   if (!defaultExport) {
-    throw new Error(`\`${configFile}\` does not have a default export!`)
+    throw new Error(`\`${nuxtConfigFileName}\` does not have a default export!`)
   }
   if (defaultExport.$type === 'function-call') {
     update(defaultExport.$args[0])
@@ -145,8 +140,8 @@ async function updateNuxtConfig(
   else {
     update(defaultExport)
   }
-  await writeFile(_module as any, configPath)
-  consola.success(`\`${configFile}\` updated`)
+  await writeFile(_module as any, nuxtConfigFile.replace(/nuxt\.config$/, 'nuxt.config.ts'))
+  consola.success(`\`${nuxtConfigFileName}\` updated`)
 }
 
 function getDefaultNuxtConfig() {
