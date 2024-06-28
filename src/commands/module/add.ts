@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
+import { filename } from 'pathe/utils'
 import type { ProxifiedModule } from 'magicast'
 import { loadFile, writeFile, parseModule } from 'magicast'
 import consola from 'consola'
@@ -9,6 +10,7 @@ import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
+import { loadKit } from '../../utils/kit'
 import {
   checkNuxtCompatibility,
   fetchModules,
@@ -117,18 +119,20 @@ async function updateNuxtConfig(
   update: (config: any) => void,
 ) {
   let _module: ProxifiedModule
-  const nuxtConfigFile = resolve(rootDir, 'nuxt.config.ts')
+  const { resolvePath } = await loadKit(rootDir)
+  const nuxtConfigFile = await resolvePath(resolve(rootDir, 'nuxt.config'))
+  const nuxtConfigFileName = filename(nuxtConfigFile)
   if (existsSync(nuxtConfigFile)) {
-    consola.info('Updating `nuxt.config.ts`')
+    consola.info(`Updating \`${nuxtConfigFileName}\``)
     _module = await loadFile(nuxtConfigFile)
   }
   else {
-    consola.info('Creating `nuxt.config.ts`')
+    consola.info(`Creating \`nuxt.config\`.ts`)
     _module = parseModule(getDefaultNuxtConfig())
   }
   const defaultExport = _module.exports.default
   if (!defaultExport) {
-    throw new Error('`nuxt.config.ts` does not have a default export!')
+    throw new Error(`\`${nuxtConfigFileName}\` does not have a default export!`)
   }
   if (defaultExport.$type === 'function-call') {
     update(defaultExport.$args[0])
@@ -136,8 +140,8 @@ async function updateNuxtConfig(
   else {
     update(defaultExport)
   }
-  await writeFile(_module as any, nuxtConfigFile)
-  consola.success('`nuxt.config.ts` updated')
+  await writeFile(_module as any, nuxtConfigFile.replace(/nuxt\.config$/, 'nuxt.config.ts'))
+  consola.success(`\`${nuxtConfigFileName}\` updated`)
 }
 
 function getDefaultNuxtConfig() {
