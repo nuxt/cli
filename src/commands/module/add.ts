@@ -1,16 +1,12 @@
-import { existsSync } from 'node:fs'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
-import { filename } from 'pathe/utils'
-import type { ProxifiedModule } from 'magicast'
-import { loadFile, writeFile, parseModule } from 'magicast'
 import consola from 'consola'
 import { addDependency } from 'nypm'
 import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
+import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
-import { loadKit } from '../../utils/kit'
 import {
   checkNuxtCompatibility,
   fetchModules,
@@ -91,59 +87,34 @@ export default defineCommand({
 
     // Update nuxt.config.ts
     if (!ctx.args.skipConfig) {
-      await updateNuxtConfig(cwd, (config) => {
-        if (!config.modules) {
-          config.modules = []
-        }
-
-        if (config.modules.includes(r.pkgName)) {
-          consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-          return
-        }
-        consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
-        config.modules.push(r.pkgName)
-      }).catch((err) => {
-        consola.error(err)
-        consola.error(
-          `Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
-        )
+      await updateConfig({
+        cwd,
+        configFile: 'nuxt.config',
+        async onCreate() {
+          consola.info(`Creating \`nuxt.config.ts\``)
+          return getDefaultNuxtConfig()
+        },
+        async onUpdate(config) {
+          if (!config.modules) {
+            config.modules = []
+          }
+          if (config.modules.includes(r.pkgName)) {
+            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
+            return
+          }
+          consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
+          config.modules.push(r.pkgName)
+        },
+      }).catch((error) => {
+        consola.error(`Failed to update \`nuxt.config\`: ${error.message}`)
+        consola.error(`Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``)
+        return null
       })
     }
   },
 })
 
 // -- Internal Utils --
-
-async function updateNuxtConfig(
-  rootDir: string,
-  update: (config: any) => void,
-) {
-  let _module: ProxifiedModule
-  const { resolvePath } = await loadKit(rootDir)
-  const nuxtConfigFile = await resolvePath(resolve(rootDir, 'nuxt.config'))
-  const nuxtConfigFileName = filename(nuxtConfigFile)
-  if (existsSync(nuxtConfigFile)) {
-    consola.info(`Updating \`${nuxtConfigFileName}\``)
-    _module = await loadFile(nuxtConfigFile)
-  }
-  else {
-    consola.info(`Creating \`nuxt.config\`.ts`)
-    _module = parseModule(getDefaultNuxtConfig())
-  }
-  const defaultExport = _module.exports.default
-  if (!defaultExport) {
-    throw new Error(`\`${nuxtConfigFileName}\` does not have a default export!`)
-  }
-  if (defaultExport.$type === 'function-call') {
-    update(defaultExport.$args[0])
-  }
-  else {
-    update(defaultExport)
-  }
-  await writeFile(_module as any, nuxtConfigFile.replace(/nuxt\.config$/, 'nuxt.config.ts'))
-  consola.success(`\`${nuxtConfigFileName}\` updated`)
-}
-
 function getDefaultNuxtConfig() {
   return `
 // https://nuxt.com/docs/api/configuration/nuxt-config
