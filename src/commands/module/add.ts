@@ -10,6 +10,7 @@ import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
+import { loadKit } from '../../utils/kit'
 import {
   checkNuxtCompatibility,
   fetchModules,
@@ -17,7 +18,6 @@ import {
   getProjectPackage,
 } from './_utils'
 import type { NuxtModule } from './_utils'
-import { loadKit } from '../../utils/kit'
 
 export default defineCommand({
   meta: {
