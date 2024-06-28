@@ -191,8 +191,8 @@ class NuxtDevServer extends EventEmitter {
       this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
           config.server.hmr = {
-            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
             protocol: undefined,
+            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
             port: undefined,
             host: undefined,
             server: this.listener.server,
