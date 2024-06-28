@@ -64,7 +64,7 @@ export default defineCommand({
       consola.info(
         `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
       )
-      const res = await addDependency(r.pkg, { cwd, dev: isDev }).catch(
+      const res = await addDependency(r.pkg, { cwd, dev: isDev, installPeerDependencies: true }).catch(
         (error) => {
           consola.error(error)
           return consola.prompt(
