@@ -8,8 +8,8 @@ import { defineCommand } from 'citty'
 
 import { sharedArgs } from './_shared'
 
-const DEFAULT_REGISTRY
-  = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+const DEFAULT_REGISTRY =
+  'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
 
 export default defineCommand({
@@ -63,8 +63,17 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
 
-    // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
+
+    const selectedPackageManager = await resolvePackageManager(
+      ctx.args.packageManager as PackageManagerName
+    )
+
+    if (ctx.args.gitInit === undefined) {
+      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
+        type: 'confirm',
+      })
+    }
 
     if (typeof templateName !== 'string') {
       consola.error('Please specify a template!')
@@ -83,8 +92,7 @@ export default defineCommand({
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
-    }
-    catch (err) {
+    } catch (err) {
       if (process.env.DEBUG) {
         throw err
       }
@@ -92,29 +100,11 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // Resolve package manager
-    const packageManagerOptions: PackageManagerName[] = [
-      'npm',
-      'pnpm',
-      'yarn',
-      'bun',
-    ]
-    const packageManagerArg = ctx.args.packageManager as PackageManagerName
-    const selectedPackageManager = packageManagerOptions.includes(
-      packageManagerArg,
-    )
-      ? packageManagerArg
-      : await consola.prompt('Which package manager would you like to use?', {
-        type: 'select',
-        options: packageManagerOptions,
-      })
-
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
       consola.info('Skipping install dependencies step.')
-    }
-    else {
+    } else {
       consola.start('Installing dependencies...')
 
       try {
@@ -125,8 +115,7 @@ export default defineCommand({
             command: selectedPackageManager,
           },
         })
-      }
-      catch (err) {
+      } catch (err) {
         if (process.env.DEBUG) {
           throw err
         }
@@ -137,30 +126,19 @@ export default defineCommand({
       consola.success('Installation completed.')
     }
 
-    if (ctx.args.gitInit === undefined) {
-      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
-        type: 'confirm',
-      })
-    }
     if (ctx.args.gitInit) {
-      consola.info('Initializing git repository...\n')
-      const { execa } = await import('execa')
-      await execa('git', ['init', template.dir], {
-        stdio: 'inherit',
-      }).catch((err) => {
-        consola.warn(`Failed to initialize git repository: ${err}`)
-      })
+      await initializeGitRepository(template.dir)
     }
 
     // Display next steps
     consola.log(
-      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
+      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
-      !ctx.args.shell
-      && relativeTemplateDir.length > 1
-      && `\`cd ${relativeTemplateDir}\``,
+      !ctx.args.shell &&
+        relativeTemplateDir.length > 1 &&
+        `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
@@ -173,3 +151,32 @@ export default defineCommand({
     }
   },
 })
+
+async function resolvePackageManager(packageManager: PackageManagerName) {
+  const packageManagerOptions: PackageManagerName[] = [
+    'npm',
+    'pnpm',
+    'yarn',
+    'bun',
+  ]
+
+  const isSupportedPackageManager =
+    packageManagerOptions.includes(packageManager)
+
+  return isSupportedPackageManager
+    ? packageManager
+    : await consola.prompt('Which package manager would you like to use?', {
+        type: 'select',
+        options: packageManagerOptions,
+      })
+}
+
+async function initializeGitRepository(templateDir: string) {
+  consola.info('Initializing git repository...\n')
+  const { execa } = await import('execa')
+  await execa('git', ['init', templateDir], {
+    stdio: 'inherit',
+  }).catch((err) => {
+    consola.warn(`Failed to initialize git repository: ${err}`)
+  })
+}
