@@ -126,7 +126,7 @@ export default defineCommand({
     const isNuxt3OrBridge = !isLegacy || infoObj.BuildModules.includes('bridge')
     console.log(
       [
-        '👉 Report an issue: https://github.com/nuxt/nuxt/issues/new',
+        `👉 Report an issue: https://github.com/nuxt/nuxt/issues/new?template=${isNuxt3OrBridge ? 'bug-report' : 'z-bug-report-2'}.yml&bug-env=${encodeURIComponent(infoStr)}`,
         '👉 Suggest an improvement: https://github.com/nuxt/nuxt/discussions/new',
         `👉 Read documentation: ${
           isNuxt3OrBridge ? 'https://nuxt.com' : 'https://v2.nuxt.com'
