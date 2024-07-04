@@ -4,3 +4,4 @@ dist
 .nuxt
 nuxt-app
 .pnpm-store
+.idea

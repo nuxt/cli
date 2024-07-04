@@ -1,16 +1,23 @@
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { relative, resolve } from 'pathe'
+import { relative, resolve, dirname, join } from 'pathe'
 import { consola } from 'consola'
-import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
+import nunjucks from 'nunjucks'
 
 import { sharedArgs } from './_shared'
+import { fileURLToPath } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import { updateConfig } from 'c12/update'
+import { readPackageJson, writePackageJson } from '../utils/packageJson'
 
 const DEFAULT_REGISTRY =
   'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 export default defineCommand({
   meta: {
@@ -69,6 +76,35 @@ export default defineCommand({
       ctx.args.packageManager as PackageManagerName
     )
 
+    const selectedFeatures = (await consola.prompt(
+      'Select additional features',
+      {
+        type: 'multiselect',
+        required: false,
+        options: [
+          {
+            value: 'eslint',
+            label: 'Add ESLint for code linting',
+          },
+          {
+            value: 'prettier',
+            label: 'Add Prettier for code formatting',
+          },
+          {
+            value: 'playwright',
+            label: 'Add Playwright for browser testing',
+          },
+          {
+            value: 'vitest',
+            label: 'Add Vitest for unit testing',
+          },
+        ],
+      }
+    )) as any as string[]
+    const features = Object.fromEntries(
+      selectedFeatures.map((value) => [value, true])
+    )
+
     if (ctx.args.gitInit === undefined) {
       ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
         type: 'confirm',
@@ -100,35 +136,53 @@ export default defineCommand({
       process.exit(1)
     }
 
+    const templateDir = join(__dirname, '..', 'partial-templates')
+    const engine = nunjucks.configure(templateDir, {
+      autoescape: false,
+      trimBlocks: true,
+    })
+    const templateCtx = {
+      ...features,
+      packageManager: selectedPackageManager,
+    }
+
+    if (features.prettier) {
+      renderPrettierFiles(engine, template.dir, templateCtx)
+    }
+    if (features.eslint) {
+      renderEslintFiles(engine, template.dir, templateCtx)
+    }
+    await renderPackageJson(template.dir, features)
+
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
-    if (ctx.args.install === false) {
-      consola.info('Skipping install dependencies step.')
-    } else {
-      consola.start('Installing dependencies...')
+    // if (ctx.args.install === false) {
+    //   consola.info('Skipping install dependencies step.')
+    // } else {
+    //   consola.start('Installing dependencies...')
 
-      try {
-        await installDependencies({
-          cwd: template.dir,
-          packageManager: {
-            name: selectedPackageManager,
-            command: selectedPackageManager,
-          },
-        })
-      } catch (err) {
-        if (process.env.DEBUG) {
-          throw err
-        }
-        consola.error((err as Error).toString())
-        process.exit(1)
-      }
+    //   try {
+    //     await installDependencies({
+    //       cwd: template.dir,
+    //       packageManager: {
+    //         name: selectedPackageManager,
+    //         command: selectedPackageManager,
+    //       },
+    //     })
+    //   } catch (err) {
+    //     if (process.env.DEBUG) {
+    //       throw err
+    //     }
+    //     consola.error((err as Error).toString())
+    //     process.exit(1)
+    //   }
 
-      consola.success('Installation completed.')
-    }
+    //   consola.success('Installation completed.')
+    // }
 
-    if (ctx.args.gitInit) {
-      await initializeGitRepository(template.dir)
-    }
+    // if (ctx.args.gitInit) {
+    //   await initializeGitRepository(template.dir)
+    // }
 
     // Display next steps
     consola.log(
@@ -169,6 +223,74 @@ async function resolvePackageManager(packageManager: PackageManagerName) {
         type: 'select',
         options: packageManagerOptions,
       })
+}
+
+function renderPrettierFiles(
+  engine: nunjucks.Environment,
+  dir: string,
+  ctx: any
+) {
+  writeFileSync(
+    join(dir, '.prettierrc.mjs'),
+    engine.render('prettier/.prettierrc.mjs', { ctx })
+  )
+  writeFileSync(
+    join(dir, '.prettierignore'),
+    engine.render('prettier/.prettierignore.njk', { ctx })
+  )
+}
+
+function renderEslintFiles(
+  engine: nunjucks.Environment,
+  dir: string,
+  ctx: any
+) {
+  writeFileSync(
+    join(dir, 'eslint.config.mjs'),
+    engine.render('eslint/eslint.config.mjs', { ctx })
+  )
+}
+
+async function renderPackageJson(
+  dir: string,
+  features: Record<string, boolean>
+) {
+  const pkgJson = await readPackageJson(dir)
+  if (features.prettier) {
+    pkgJson.devDependencies ??= {}
+    pkgJson.devDependencies['prettier'] = 'latest'
+
+    if (features.eslint) {
+      pkgJson.scripts!['lint'] = 'prettier --check . && eslint .'
+    } else {
+      pkgJson.scripts!['lint'] = 'prettier --check .'
+    }
+    pkgJson.scripts!['format'] = 'prettier --write .'
+  }
+  if (features.eslint) {
+    pkgJson.devDependencies ??= {}
+    pkgJson.devDependencies['eslint'] = 'latest'
+    pkgJson.devDependencies['@nuxt/eslint'] = 'latest'
+
+    if (!features.prettier) {
+      pkgJson.scripts!['lint'] = 'eslint .'
+    }
+
+    await updateConfig({
+      cwd: dir,
+      configFile: 'nuxt.config',
+      async onUpdate(config) {
+        if (!config.modules) {
+          config.modules = []
+        }
+        if (config.modules.includes('@nuxt/eslint')) {
+          return
+        }
+        config.modules.push('@nuxt/eslint')
+      },
+    })
+  }
+  writePackageJson(dir, pkgJson)
 }
 
 async function initializeGitRepository(templateDir: string) {

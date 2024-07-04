@@ -1,6 +1,7 @@
 import { $fetch } from 'ofetch'
 import { satisfies, coerce } from 'semver'
 import { tryRequireModule } from '../../utils/cjs'
+import { readPackageJson } from '../../utils/packageJson'
 
 export const categories = [
   'Analytics',
@@ -121,11 +122,7 @@ export async function getNuxtVersion(cwd: string) {
   if (nuxtPkg) {
     return nuxtPkg.version
   }
-  const pkg = await getProjectPackage(cwd)
+  const pkg = await readPackageJson(cwd)
   const pkgDep = pkg?.dependencies?.['nuxt'] || pkg?.devDependencies?.['nuxt']
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
-}
-
-export async function getProjectPackage(cwd: string) {
-  return await tryRequireModule('./package.json', cwd)
 }
