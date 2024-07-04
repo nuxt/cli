@@ -4,7 +4,7 @@ import { relative, resolve, dirname, join } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies, type PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
-import nunjucks from 'nunjucks'
+import type nunjucks from 'nunjucks'
 
 import { sharedArgs } from './_shared'
 import { fileURLToPath } from 'node:url'
@@ -15,9 +15,6 @@ import { readPackageJson, writePackageJson } from '../utils/packageJson'
 const DEFAULT_REGISTRY =
   'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
 
 export default defineCommand({
   meta: {
@@ -66,6 +63,10 @@ export default defineCommand({
       type: 'string',
       description: 'Package manager choice (npm, pnpm, yarn, bun)',
     },
+    skipExtras: {
+      type: 'boolean',
+      description: 'Skip setting up any extra technology',
+    },
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
@@ -76,34 +77,7 @@ export default defineCommand({
       ctx.args.packageManager as PackageManagerName
     )
 
-    const selectedFeatures = (await consola.prompt(
-      'Select additional features',
-      {
-        type: 'multiselect',
-        required: false,
-        options: [
-          {
-            value: 'eslint',
-            label: 'Add ESLint for code linting',
-          },
-          {
-            value: 'prettier',
-            label: 'Add Prettier for code formatting',
-          },
-          {
-            value: 'playwright',
-            label: 'Add Playwright for browser testing',
-          },
-          {
-            value: 'vitest',
-            label: 'Add Vitest for unit testing',
-          },
-        ],
-      }
-    )) as any as string[]
-    const features = Object.fromEntries(
-      selectedFeatures.map((value) => [value, true])
-    )
+    const extraFeatures = await resolveExtraFeatures(ctx.args.skipExtras)
 
     if (ctx.args.gitInit === undefined) {
       ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
@@ -136,30 +110,9 @@ export default defineCommand({
       process.exit(1)
     }
 
-    const templateDir = join(__dirname, '..', 'partial-templates')
-    const engine = nunjucks.configure(templateDir, {
-      autoescape: false,
-      trimBlocks: true,
-    })
-    const templateCtx = {
-      ...features,
-      packageManager: selectedPackageManager,
+    if (anyExtraSelected(extraFeatures)) {
+      setupExtras(template, selectedPackageManager, extraFeatures)
     }
-
-    if (features.prettier) {
-      renderPrettierFiles(engine, template.dir, templateCtx)
-    }
-    if (features.eslint) {
-      renderEslintFiles(engine, template.dir, templateCtx)
-    }
-    if (features.playwright) {
-      renderPlaywrightFiles(engine, template.dir, templateCtx)
-    }
-    if (features.vitest) {
-      renderVitestFiles(engine, template.dir, templateCtx)
-    }
-
-    await renderPackageJson(template.dir, features)
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -197,6 +150,62 @@ export default defineCommand({
   },
 })
 
+interface ExtraFeatures {
+  eslint: boolean
+  prettier: boolean
+  playwright: boolean
+  vitest: boolean
+}
+
+async function resolveExtraFeatures(
+  skipExtras: boolean
+): Promise<ExtraFeatures> {
+  const DEFAULT = {
+    eslint: false,
+    prettier: false,
+    playwright: false,
+    vitest: false,
+  }
+  if (skipExtras) {
+    return DEFAULT
+  }
+
+  const selectedExtras = await consola.prompt('Select extra features', {
+    type: 'multiselect',
+    required: false,
+    options: [
+      {
+        value: 'eslint',
+        label: 'Add ESLint for code linting',
+      },
+      {
+        value: 'prettier',
+        label: 'Add Prettier for code formatting',
+      },
+      {
+        value: 'playwright',
+        label: 'Add Playwright for browser testing',
+      },
+      {
+        value: 'vitest',
+        label: 'Add Vitest for unit testing',
+      },
+    ],
+  })
+
+  const selectedExtrasObject = Object.fromEntries(
+    selectedExtras.map((extra) => [extra, true])
+  )
+  return {
+    ...DEFAULT,
+    ...selectedExtrasObject,
+  }
+}
+
+function anyExtraSelected(extras: ExtraFeatures) {
+  return Object.values(extras).some((extra) => !!extra)
+}
+
 async function resolvePackageManager(packageManager: PackageManagerName) {
   const packageManagerOptions: PackageManagerName[] = [
     'npm',
@@ -214,6 +223,39 @@ async function resolvePackageManager(packageManager: PackageManagerName) {
         type: 'select',
         options: packageManagerOptions,
       })
+}
+
+async function setupExtras(
+  template: DownloadTemplateResult,
+  packageManager: PackageManagerName,
+  extras: ExtraFeatures
+) {
+  const __dirname = dirname(fileURLToPath(import.meta.url))
+  const templateDir = join(__dirname, '..', 'partial-templates')
+  const nunjucks = await import('nunjucks')
+  const engine = nunjucks.configure(templateDir, {
+    autoescape: false,
+    lstripBlocks: true,
+    trimBlocks: true,
+  })
+  const templateCtx = {
+    ...extras,
+    packageManager,
+  }
+
+  if (extras.prettier) {
+    renderPrettierFiles(engine, template.dir, templateCtx)
+  }
+  if (extras.eslint) {
+    renderEslintFiles(engine, template.dir, templateCtx)
+  }
+  if (extras.playwright) {
+    renderPlaywrightFiles(engine, template.dir, templateCtx)
+  }
+  if (extras.vitest) {
+    renderVitestFiles(engine, template.dir, templateCtx)
+  }
+  await renderPackageJson(template.dir, extras)
 }
 
 function renderPrettierFiles(
@@ -278,8 +320,8 @@ function renderVitestFiles(
   ctx: any
 ) {
   writeFileSync(
-    join(dir, 'app.spec.ts'),
-    engine.render('vitest/vitest.config.mts', { ctx })
+    join(dir, 'vitest.config.mts'),
+    engine.render('vitest/vitest.config.mts.njk', { ctx })
   )
   writeFileSync(
     join(dir, 'app.spec.ts'),
@@ -287,60 +329,59 @@ function renderVitestFiles(
   )
 }
 
-async function renderPackageJson(
-  dir: string,
-  features: Record<string, boolean>
-) {
+async function renderPackageJson(dir: string, features: ExtraFeatures) {
   const pkgJson = await readPackageJson(dir)
+  pkgJson.scripts ??= {}
+  pkgJson.devDependencies ??= {}
+
   if (features.prettier) {
-    pkgJson.devDependencies ??= {}
     pkgJson.devDependencies['prettier'] = '^3.1.1'
 
     if (features.eslint) {
-      pkgJson.scripts!['lint'] = 'prettier --check . && eslint .'
+      pkgJson.scripts['lint'] = 'prettier --check . && eslint .'
     } else {
-      pkgJson.scripts!['lint'] = 'prettier --check .'
+      pkgJson.scripts['lint'] = 'prettier --check .'
     }
-    pkgJson.scripts!['format'] = 'prettier --write .'
+    pkgJson.scripts['format'] = 'prettier --write .'
   }
   if (features.eslint) {
-    pkgJson.devDependencies ??= {}
     pkgJson.devDependencies['eslint'] = '^9.0.0'
     pkgJson.devDependencies['@nuxt/eslint'] = '^0.3.13'
 
     if (!features.prettier) {
-      pkgJson.scripts!['lint'] = 'eslint .'
+      pkgJson.scripts['lint'] = 'eslint .'
     }
 
     await addModuleToNuxtConfig(dir, '@nuxt/eslint')
   }
   if (features.playwright) {
-    pkgJson.devDependencies ??= {}
     pkgJson.devDependencies['@playwright/test'] = '^1.28.1'
     if (features.eslint) {
       pkgJson.devDependencies['eslint-plugin-playwright'] = '^1.6.2'
     }
 
     if (features.vitest) {
-      pkgJson.scripts!['test:e2e'] = 'playwright test'
-      pkgJson.scripts!['test:unit'] = 'vitest run'
-      pkgJson.scripts!['test'] = 'npm run test:unit && npm run test:e2e'
+      pkgJson.scripts['test:e2e'] = 'playwright test'
+      pkgJson.scripts['test:unit'] = 'vitest run'
+      pkgJson.scripts['test'] = 'npm run test:unit && npm run test:e2e'
     } else {
-      pkgJson.scripts!['test'] = 'playwright test'
+      pkgJson.scripts['test'] = 'playwright test'
     }
   }
   if (features.vitest) {
-    pkgJson.devDependencies ??= {}
     pkgJson.devDependencies['@nuxt/test-utils'] = '^3.13.1'
     pkgJson.devDependencies['@testing-library/vue'] = '^8.1.0'
     pkgJson.devDependencies['@vue/test-utils'] = '^2.4.6'
     pkgJson.devDependencies['happy-dom'] = '^14.12.3'
     pkgJson.devDependencies['vitest'] = '^1.6.0'
+    if (features.eslint) {
+      pkgJson.devDependencies['eslint-plugin-vitest'] = '^0.5.4'
+    }
 
     await addModuleToNuxtConfig(dir, '@nuxt/test-utils')
 
     if (!features.playwright) {
-      pkgJson.scripts!['test'] = 'vitest run'
+      pkgJson.scripts['test'] = 'vitest run'
     }
   }
   writePackageJson(dir, pkgJson)

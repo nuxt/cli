@@ -1,7 +1,9 @@
 import { defineVitestConfig } from '@nuxt/test-utils/config'
 
 export default defineVitestConfig({
+  {% if ctx.playwright %}
   test: {
     exclude: ['node_modules', 'e2e'],
   },
+  {% endif %}
 })
