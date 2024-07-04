@@ -2,13 +2,13 @@ import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve, dirname, join } from 'pathe'
 import { consola } from 'consola'
-import type { PackageManagerName } from 'nypm'
+import { installDependencies, type PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 import nunjucks from 'nunjucks'
 
 import { sharedArgs } from './_shared'
 import { fileURLToPath } from 'node:url'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { updateConfig } from 'c12/update'
 import { readPackageJson, writePackageJson } from '../utils/packageJson'
 
@@ -152,37 +152,24 @@ export default defineCommand({
     if (features.eslint) {
       renderEslintFiles(engine, template.dir, templateCtx)
     }
+    if (features.playwright) {
+      renderPlaywrightFiles(engine, template.dir, templateCtx)
+    }
     await renderPackageJson(template.dir, features)
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
-    // if (ctx.args.install === false) {
-    //   consola.info('Skipping install dependencies step.')
-    // } else {
-    //   consola.start('Installing dependencies...')
+    if (ctx.args.install === false) {
+      consola.info('Skipping install dependencies step.')
+    } else {
+      consola.start('Installing dependencies...')
+      await installProjectDependencies(template.dir, selectedPackageManager)
+      consola.success('Installation completed.')
+    }
 
-    //   try {
-    //     await installDependencies({
-    //       cwd: template.dir,
-    //       packageManager: {
-    //         name: selectedPackageManager,
-    //         command: selectedPackageManager,
-    //       },
-    //     })
-    //   } catch (err) {
-    //     if (process.env.DEBUG) {
-    //       throw err
-    //     }
-    //     consola.error((err as Error).toString())
-    //     process.exit(1)
-    //   }
-
-    //   consola.success('Installation completed.')
-    // }
-
-    // if (ctx.args.gitInit) {
-    //   await initializeGitRepository(template.dir)
-    // }
+    if (ctx.args.gitInit) {
+      await initializeGitRepository(template.dir)
+    }
 
     // Display next steps
     consola.log(
@@ -247,8 +234,38 @@ function renderEslintFiles(
 ) {
   writeFileSync(
     join(dir, 'eslint.config.mjs'),
-    engine.render('eslint/eslint.config.mjs', { ctx })
+    engine.render('eslint/eslint.config.mjs.njk', { ctx })
   )
+}
+
+function renderPlaywrightFiles(
+  engine: nunjucks.Environment,
+  dir: string,
+  ctx: any
+) {
+  writeFileSync(
+    join(dir, 'playwright.config.ts'),
+    engine.render('playwright/playwright.config.ts', { ctx })
+  )
+  mkdirSync(join(dir, 'e2e'), { recursive: true })
+  writeFileSync(
+    join(dir, 'e2e', 'index.spec.ts'),
+    engine.render('playwright/e2e/index.spec.ts', { ctx })
+  )
+
+  const ignorePathPatterns = [
+    '/test-results/',
+    '/playwright-report/',
+    '/blob-report/',
+    '/playwright/.cache/',
+  ]
+  const ignorePaths = `\n#Playwright\n${ignorePathPatterns.join('\n')}\n`
+  writeFileSync(join(dir, '.nuxtignore'), ignorePaths)
+
+  const gitignoreContents = readFileSync(join(dir, '.gitignore'), {
+    encoding: 'utf8',
+  })
+  writeFileSync(join(dir, '.gitignore'), gitignoreContents + ignorePaths)
 }
 
 async function renderPackageJson(
@@ -258,7 +275,7 @@ async function renderPackageJson(
   const pkgJson = await readPackageJson(dir)
   if (features.prettier) {
     pkgJson.devDependencies ??= {}
-    pkgJson.devDependencies['prettier'] = 'latest'
+    pkgJson.devDependencies['prettier'] = '^3.1.1'
 
     if (features.eslint) {
       pkgJson.scripts!['lint'] = 'prettier --check . && eslint .'
@@ -269,8 +286,8 @@ async function renderPackageJson(
   }
   if (features.eslint) {
     pkgJson.devDependencies ??= {}
-    pkgJson.devDependencies['eslint'] = 'latest'
-    pkgJson.devDependencies['@nuxt/eslint'] = 'latest'
+    pkgJson.devDependencies['eslint'] = '^9.0.0'
+    pkgJson.devDependencies['@nuxt/eslint'] = '^0.3.13'
 
     if (!features.prettier) {
       pkgJson.scripts!['lint'] = 'eslint .'
@@ -290,7 +307,43 @@ async function renderPackageJson(
       },
     })
   }
+  if (features.playwright) {
+    pkgJson.devDependencies ??= {}
+    pkgJson.devDependencies['@playwright/test'] = '^1.28.1'
+    if (features.eslint) {
+      pkgJson.devDependencies['eslint-plugin-playwright'] = '^1.6.2'
+    }
+
+    if (features.vitest) {
+      pkgJson.scripts!['test:e2e'] = 'playwright test'
+      pkgJson.scripts!['test:unit'] = 'vitest'
+      pkgJson.scripts!['test'] = 'npm run test:unit && npm run test:e2e'
+    } else {
+      pkgJson.scripts!['test'] = 'playwright test'
+    }
+  }
   writePackageJson(dir, pkgJson)
+}
+
+async function installProjectDependencies(
+  dir: string,
+  packageManager: PackageManagerName
+) {
+  try {
+    await installDependencies({
+      cwd: dir,
+      packageManager: {
+        name: packageManager,
+        command: packageManager,
+      },
+    })
+  } catch (err) {
+    if (process.env.DEBUG) {
+      throw err
+    }
+    consola.error((err as Error).toString())
+    process.exit(1)
+  }
 }
 
 async function initializeGitRepository(templateDir: string) {
