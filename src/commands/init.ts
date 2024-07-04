@@ -155,6 +155,10 @@ export default defineCommand({
     if (features.playwright) {
       renderPlaywrightFiles(engine, template.dir, templateCtx)
     }
+    if (features.vitest) {
+      renderVitestFiles(engine, template.dir, templateCtx)
+    }
+
     await renderPackageJson(template.dir, features)
 
     // Install project dependencies
@@ -268,6 +272,21 @@ function renderPlaywrightFiles(
   writeFileSync(join(dir, '.gitignore'), gitignoreContents + ignorePaths)
 }
 
+function renderVitestFiles(
+  engine: nunjucks.Environment,
+  dir: string,
+  ctx: any
+) {
+  writeFileSync(
+    join(dir, 'app.spec.ts'),
+    engine.render('vitest/vitest.config.mts', { ctx })
+  )
+  writeFileSync(
+    join(dir, 'app.spec.ts'),
+    engine.render('vitest/app.spec.ts', { ctx })
+  )
+}
+
 async function renderPackageJson(
   dir: string,
   features: Record<string, boolean>
@@ -293,19 +312,7 @@ async function renderPackageJson(
       pkgJson.scripts!['lint'] = 'eslint .'
     }
 
-    await updateConfig({
-      cwd: dir,
-      configFile: 'nuxt.config',
-      async onUpdate(config) {
-        if (!config.modules) {
-          config.modules = []
-        }
-        if (config.modules.includes('@nuxt/eslint')) {
-          return
-        }
-        config.modules.push('@nuxt/eslint')
-      },
-    })
+    await addModuleToNuxtConfig(dir, '@nuxt/eslint')
   }
   if (features.playwright) {
     pkgJson.devDependencies ??= {}
@@ -316,10 +323,24 @@ async function renderPackageJson(
 
     if (features.vitest) {
       pkgJson.scripts!['test:e2e'] = 'playwright test'
-      pkgJson.scripts!['test:unit'] = 'vitest'
+      pkgJson.scripts!['test:unit'] = 'vitest run'
       pkgJson.scripts!['test'] = 'npm run test:unit && npm run test:e2e'
     } else {
       pkgJson.scripts!['test'] = 'playwright test'
+    }
+  }
+  if (features.vitest) {
+    pkgJson.devDependencies ??= {}
+    pkgJson.devDependencies['@nuxt/test-utils'] = '^3.13.1'
+    pkgJson.devDependencies['@testing-library/vue'] = '^8.1.0'
+    pkgJson.devDependencies['@vue/test-utils'] = '^2.4.6'
+    pkgJson.devDependencies['happy-dom'] = '^14.12.3'
+    pkgJson.devDependencies['vitest'] = '^1.6.0'
+
+    await addModuleToNuxtConfig(dir, '@nuxt/test-utils')
+
+    if (!features.playwright) {
+      pkgJson.scripts!['test'] = 'vitest run'
     }
   }
   writePackageJson(dir, pkgJson)
@@ -344,6 +365,21 @@ async function installProjectDependencies(
     consola.error((err as Error).toString())
     process.exit(1)
   }
+}
+
+async function addModuleToNuxtConfig(dir: string, moduleName: string) {
+  return await updateConfig({
+    cwd: dir,
+    configFile: 'nuxt.config',
+    async onUpdate(config) {
+      if (!config.modules) {
+        config.modules = []
+      }
+      if (!config.modules.includes(moduleName)) {
+        config.modules.push(moduleName)
+      }
+    },
+  })
 }
 
 async function initializeGitRepository(templateDir: string) {

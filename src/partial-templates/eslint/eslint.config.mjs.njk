@@ -2,11 +2,25 @@ import withNuxt from './.nuxt/eslint.config.mjs'
 {% if ctx.playwright %}
 import playwright from "eslint-plugin-playwright"
 {% endif %}
+{% if ctx.playwright %}
+import vitest from "eslint-plugin-vitest"
+{% endif %}
 
 export default withNuxt()
 {% if ctx.playwright %}
 .append({
   ...playwright.configs["flat/recommended"],
   files: ["e2e/**"],
+})
+{% endif %}
+{% if ctx.vitest %}
+.append({
+ files: ["!e2e2/**", "**/*.spec.ts"],
+  plugins: {
+    vitest,
+  },
+  rules: {
+    ...vitest.configs.recommended.rules,
+  },
 })
 {% endif %}
