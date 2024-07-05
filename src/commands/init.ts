@@ -155,6 +155,7 @@ interface ExtraFeatures {
   prettier: boolean
   playwright: boolean
   vitest: boolean
+  vscode: boolean
 }
 
 async function resolveExtraFeatures(
@@ -165,6 +166,7 @@ async function resolveExtraFeatures(
     prettier: false,
     playwright: false,
     vitest: false,
+    vscode: false,
   }
   if (skipExtras) {
     return DEFAULT
@@ -189,6 +191,10 @@ async function resolveExtraFeatures(
       {
         value: 'vitest',
         label: 'Add Vitest for unit testing',
+      },
+      {
+        value: 'vscode',
+        label: 'Setup configuration for VSCode',
       },
     ],
   })
@@ -238,7 +244,7 @@ async function setupExtras(
     lstripBlocks: true,
     trimBlocks: true,
   })
-  const templateCtx = {
+  const templateCtx: TemplateContext = {
     ...extras,
     packageManager,
   }
@@ -255,13 +261,20 @@ async function setupExtras(
   if (extras.vitest) {
     renderVitestFiles(engine, template.dir, templateCtx)
   }
+  if (extras.vscode) {
+    renderVSCodeFiles(engine, template.dir, templateCtx)
+  }
   await renderPackageJson(template.dir, extras)
+}
+
+interface TemplateContext extends ExtraFeatures {
+  packageManager: PackageManagerName
 }
 
 function renderPrettierFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: any
+  ctx: TemplateContext
 ) {
   writeFileSync(
     join(dir, '.prettierrc.mjs'),
@@ -276,7 +289,7 @@ function renderPrettierFiles(
 function renderEslintFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: any
+  ctx: TemplateContext
 ) {
   writeFileSync(
     join(dir, 'eslint.config.mjs'),
@@ -287,7 +300,7 @@ function renderEslintFiles(
 function renderPlaywrightFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: any
+  ctx: TemplateContext
 ) {
   writeFileSync(
     join(dir, 'playwright.config.ts'),
@@ -317,7 +330,7 @@ function renderPlaywrightFiles(
 function renderVitestFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: any
+  ctx: TemplateContext
 ) {
   writeFileSync(
     join(dir, 'vitest.config.mts'),
@@ -326,6 +339,22 @@ function renderVitestFiles(
   writeFileSync(
     join(dir, 'app.spec.ts'),
     engine.render('vitest/app.spec.ts', { ctx })
+  )
+}
+
+function renderVSCodeFiles(
+  engine: nunjucks.Environment,
+  dir: string,
+  ctx: TemplateContext
+) {
+  mkdirSync(join(dir, '.vscode'), { recursive: true })
+  writeFileSync(
+    join(dir, '.vscode', 'extensions.json'),
+    engine.render('vscode/extensions.json.njk', { ctx })
+  )
+  writeFileSync(
+    join(dir, '.vscode', 'settings.json'),
+    engine.render('vscode/settings.json.njk', { ctx })
   )
 }
 

@@ -1,0 +1,12 @@
+{
+  {% if ctx.prettier %}
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  {% endif %}
+  {% if ctx.eslint %}
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  {% endif %}
+  "vue.complete.casing.props": "kebab",
+  "vue.complete.casing.tags": "pascal"
+}

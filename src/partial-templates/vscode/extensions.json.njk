@@ -1,0 +1,18 @@
+{
+  "recommendations": [
+    "vue.volar",
+    "antfu.goto-alias",
+    {% if ctx.prettier %}
+    "esbenp.prettier-vscode",
+    {% endif %}
+    {% if ctx.eslint %}
+    "dbaeumer.vscode-eslint",
+    {% endif %}
+    {% if ctx.playwright %}
+    "ms-playwright.playwright",
+    {% endif %}
+    {% if ctx.vitest %}
+    "vitest.explorer"
+    {% endif %}
+  ]
+}
