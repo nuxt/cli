@@ -7,12 +7,8 @@ import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
-import {
-  checkNuxtCompatibility,
-  fetchModules,
-  getNuxtVersion,
-  getProjectPackage,
-} from './_utils'
+import { readPackageJson } from '../../utils/packageJson'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 import type { NuxtModule } from './_utils'
 
 export default defineCommand({
@@ -37,7 +33,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
-    const projectPkg = await getProjectPackage(cwd)
+    const projectPkg = await readPackageJson(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
