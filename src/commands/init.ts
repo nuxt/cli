@@ -381,7 +381,11 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
     pkgJson.devDependencies['@nuxt/eslint'] = '^0.3.13'
 
     if (!features.prettier) {
+      pkgJson.scripts['lint:fix'] = 'eslint . --fix'
       pkgJson.scripts['lint'] = 'eslint .'
+    }
+    else {
+      pkgJson.scripts['eslint:fix'] = 'eslint . --fix'
     }
 
     await addModuleToNuxtConfig(dir, '@nuxt/eslint')
