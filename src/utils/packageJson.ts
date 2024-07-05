@@ -1,7 +1,7 @@
-import type { PackageJson } from 'pkg-types'
-import { tryRequireModule } from './cjs'
 import { writeFileSync } from 'node:fs'
+import type { PackageJson } from 'pkg-types'
 import { join } from 'pathe'
+import { tryRequireModule } from './cjs'
 
 export async function readPackageJson(dir: string): Promise<PackageJson> {
   return await tryRequireModule('./package.json', dir)

@@ -7,9 +7,9 @@ import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
+import { readPackageJson } from '../../utils/packageJson'
 import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 import type { NuxtModule } from './_utils'
-import { readPackageJson } from '../../utils/packageJson'
 
 export default defineCommand({
   meta: {

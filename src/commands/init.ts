@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve, dirname, join } from 'pathe'
@@ -6,14 +8,12 @@ import { installDependencies, type PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 import type nunjucks from 'nunjucks'
 
-import { sharedArgs } from './_shared'
-import { fileURLToPath } from 'node:url'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { updateConfig } from 'c12/update'
 import { readPackageJson, writePackageJson } from '../utils/packageJson'
+import { sharedArgs } from './_shared'
 
-const DEFAULT_REGISTRY =
-  'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+const DEFAULT_REGISTRY
+  = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
 
 export default defineCommand({
@@ -74,7 +74,7 @@ export default defineCommand({
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
 
     const selectedPackageManager = await resolvePackageManager(
-      ctx.args.packageManager as PackageManagerName
+      ctx.args.packageManager as PackageManagerName,
     )
 
     const extraFeatures = await resolveExtraFeatures(ctx.args.skipExtras)
@@ -102,7 +102,8 @@ export default defineCommand({
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
-    } catch (err) {
+    }
+    catch (err) {
       if (process.env.DEBUG) {
         throw err
       }
@@ -118,7 +119,8 @@ export default defineCommand({
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
       consola.info('Skipping install dependencies step.')
-    } else {
+    }
+    else {
       consola.start('Installing dependencies...')
       await installProjectDependencies(template.dir, selectedPackageManager)
       consola.success('Installation completed.')
@@ -130,13 +132,13 @@ export default defineCommand({
 
     // Display next steps
     consola.log(
-      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`
+      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const nextSteps = [
-      !ctx.args.shell &&
-        relativeTemplateDir.length > 1 &&
-        `\`cd ${relativeTemplateDir}\``,
+      !ctx.args.shell
+      && relativeTemplateDir.length > 1
+      && `\`cd ${relativeTemplateDir}\``,
       `Start development server with \`${selectedPackageManager} run dev\``,
     ].filter(Boolean)
 
@@ -159,7 +161,7 @@ interface ExtraFeatures {
 }
 
 async function resolveExtraFeatures(
-  skipExtras: boolean
+  skipExtras: boolean,
 ): Promise<ExtraFeatures> {
   const DEFAULT = {
     eslint: false,
@@ -200,7 +202,7 @@ async function resolveExtraFeatures(
   })
 
   const selectedExtrasObject = Object.fromEntries(
-    selectedExtras.map((extra) => [extra, true])
+    selectedExtras.map(extra => [extra, true]),
   )
   return {
     ...DEFAULT,
@@ -209,7 +211,7 @@ async function resolveExtraFeatures(
 }
 
 function anyExtraSelected(extras: ExtraFeatures) {
-  return Object.values(extras).some((extra) => !!extra)
+  return Object.values(extras).some(extra => !!extra)
 }
 
 async function resolvePackageManager(packageManager: PackageManagerName) {
@@ -220,21 +222,21 @@ async function resolvePackageManager(packageManager: PackageManagerName) {
     'bun',
   ]
 
-  const isSupportedPackageManager =
-    packageManagerOptions.includes(packageManager)
+  const isSupportedPackageManager
+    = packageManagerOptions.includes(packageManager)
 
   return isSupportedPackageManager
     ? packageManager
     : await consola.prompt('Which package manager would you like to use?', {
-        type: 'select',
-        options: packageManagerOptions,
-      })
+      type: 'select',
+      options: packageManagerOptions,
+    })
 }
 
 async function setupExtras(
   template: DownloadTemplateResult,
   packageManager: PackageManagerName,
-  extras: ExtraFeatures
+  extras: ExtraFeatures,
 ) {
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const templateDir = join(__dirname, '..', 'partial-templates')
@@ -274,42 +276,42 @@ interface TemplateContext extends ExtraFeatures {
 function renderPrettierFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: TemplateContext
+  ctx: TemplateContext,
 ) {
   writeFileSync(
     join(dir, '.prettierrc.mjs'),
-    engine.render('prettier/.prettierrc.mjs', { ctx })
+    engine.render('prettier/.prettierrc.mjs', { ctx }),
   )
   writeFileSync(
     join(dir, '.prettierignore'),
-    engine.render('prettier/.prettierignore.njk', { ctx })
+    engine.render('prettier/.prettierignore.njk', { ctx }),
   )
 }
 
 function renderEslintFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: TemplateContext
+  ctx: TemplateContext,
 ) {
   writeFileSync(
     join(dir, 'eslint.config.mjs'),
-    engine.render('eslint/eslint.config.mjs.njk', { ctx })
+    engine.render('eslint/eslint.config.mjs.njk', { ctx }),
   )
 }
 
 function renderPlaywrightFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: TemplateContext
+  ctx: TemplateContext,
 ) {
   writeFileSync(
     join(dir, 'playwright.config.ts'),
-    engine.render('playwright/playwright.config.ts', { ctx })
+    engine.render('playwright/playwright.config.ts', { ctx }),
   )
   mkdirSync(join(dir, 'e2e'), { recursive: true })
   writeFileSync(
     join(dir, 'e2e', 'index.spec.ts'),
-    engine.render('playwright/e2e/index.spec.ts', { ctx })
+    engine.render('playwright/e2e/index.spec.ts', { ctx }),
   )
 
   const ignorePathPatterns = [
@@ -330,31 +332,31 @@ function renderPlaywrightFiles(
 function renderVitestFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: TemplateContext
+  ctx: TemplateContext,
 ) {
   writeFileSync(
     join(dir, 'vitest.config.mts'),
-    engine.render('vitest/vitest.config.mts.njk', { ctx })
+    engine.render('vitest/vitest.config.mts.njk', { ctx }),
   )
   writeFileSync(
     join(dir, 'app.spec.ts'),
-    engine.render('vitest/app.spec.ts', { ctx })
+    engine.render('vitest/app.spec.ts', { ctx }),
   )
 }
 
 function renderVSCodeFiles(
   engine: nunjucks.Environment,
   dir: string,
-  ctx: TemplateContext
+  ctx: TemplateContext,
 ) {
   mkdirSync(join(dir, '.vscode'), { recursive: true })
   writeFileSync(
     join(dir, '.vscode', 'extensions.json'),
-    engine.render('vscode/extensions.json.njk', { ctx })
+    engine.render('vscode/extensions.json.njk', { ctx }),
   )
   writeFileSync(
     join(dir, '.vscode', 'settings.json'),
-    engine.render('vscode/settings.json.njk', { ctx })
+    engine.render('vscode/settings.json.njk', { ctx }),
   )
 }
 
@@ -368,7 +370,8 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
 
     if (features.eslint) {
       pkgJson.scripts['lint'] = 'prettier --check . && eslint .'
-    } else {
+    }
+    else {
       pkgJson.scripts['lint'] = 'prettier --check .'
     }
     pkgJson.scripts['format'] = 'prettier --write .'
@@ -393,7 +396,8 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
       pkgJson.scripts['test:e2e'] = 'playwright test'
       pkgJson.scripts['test:unit'] = 'vitest run'
       pkgJson.scripts['test'] = 'npm run test:unit && npm run test:e2e'
-    } else {
+    }
+    else {
       pkgJson.scripts['test'] = 'playwright test'
     }
   }
@@ -418,7 +422,7 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
 
 async function installProjectDependencies(
   dir: string,
-  packageManager: PackageManagerName
+  packageManager: PackageManagerName,
 ) {
   try {
     await installDependencies({
@@ -428,7 +432,8 @@ async function installProjectDependencies(
         command: packageManager,
       },
     })
-  } catch (err) {
+  }
+  catch (err) {
     if (process.env.DEBUG) {
       throw err
     }
