@@ -366,7 +366,7 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
   pkgJson.devDependencies ??= {}
 
   if (features.prettier) {
-    pkgJson.devDependencies['prettier'] = '^3.1.1'
+    pkgJson.devDependencies['prettier'] = '^3.3.3'
 
     if (features.eslint) {
       pkgJson.scripts['lint'] = 'prettier --check . && eslint .'
@@ -377,8 +377,8 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
     pkgJson.scripts['format'] = 'prettier --write .'
   }
   if (features.eslint) {
-    pkgJson.devDependencies['eslint'] = '^9.0.0'
-    pkgJson.devDependencies['@nuxt/eslint'] = '^0.3.13'
+    pkgJson.devDependencies['eslint'] = '^9.9.0'
+    pkgJson.devDependencies['@nuxt/eslint'] = '^0.5.0'
 
     if (!features.prettier) {
       pkgJson.scripts['lint:fix'] = 'eslint . --fix'
@@ -391,7 +391,7 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
     await addModuleToNuxtConfig(dir, '@nuxt/eslint')
   }
   if (features.playwright) {
-    pkgJson.devDependencies['@playwright/test'] = '^1.28.1'
+    pkgJson.devDependencies['@playwright/test'] = '^1.46.0'
     if (features.eslint) {
       pkgJson.devDependencies['eslint-plugin-playwright'] = '^1.6.2'
     }
@@ -406,16 +406,16 @@ async function renderPackageJson(dir: string, features: ExtraFeatures) {
     }
   }
   if (features.vitest) {
-    pkgJson.devDependencies['@nuxt/test-utils'] = '^3.13.1'
+    pkgJson.devDependencies['@nuxt/test-utils'] = '^3.14.1'
     pkgJson.devDependencies['@testing-library/vue'] = '^8.1.0'
     pkgJson.devDependencies['@vue/test-utils'] = '^2.4.6'
     pkgJson.devDependencies['happy-dom'] = '^14.12.3'
-    pkgJson.devDependencies['vitest'] = '^1.6.0'
+    pkgJson.devDependencies['vitest'] = '^2.0.5'
     if (features.eslint) {
       pkgJson.devDependencies['eslint-plugin-vitest'] = '^0.5.4'
     }
 
-    await addModuleToNuxtConfig(dir, '@nuxt/test-utils')
+    await addModuleToNuxtConfig(dir, '@nuxt/test-utils/module')
 
     if (!features.playwright) {
       pkgJson.scripts['test'] = 'vitest run'
