@@ -270,7 +270,7 @@ class NuxtDevServer extends EventEmitter {
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       consola.warn(
-        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment vairable to make https work.',
+        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
       )
     }
 

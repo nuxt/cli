@@ -26,7 +26,7 @@ export default defineCommand({
     nuxtVersion: {
       type: 'string',
       description:
-        'Filter by Nuxt version and list compatible moduless only (auto detected by default)',
+        'Filter by Nuxt version and list compatible modules only (auto detected by default)',
       required: false,
     },
   },
