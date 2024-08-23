@@ -126,7 +126,7 @@ export default defineCommand({
     const log = [
       (isNuxt3 || isBridge) && `👉 Report an issue: https://github.com/${repo}/issues/new?template=bug-report.yml`,
       (isNuxt3 || isBridge) && `👉 Suggest an improvement: https://github.com/${repo}/discussions/new`,
-        `👉 Read documentation: ${(isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'}`,
+      `👉 Read documentation: ${(isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'}`,
     ].filter(Boolean).join('\n')
 
     console.log('\n' + log + '\n')
