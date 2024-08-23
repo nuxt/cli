@@ -54,12 +54,7 @@ export default defineCommand({
         .join(', ')
 
     // Check Nuxt version
-    const nuxtVersion
-      = getDepVersion('nuxt')
-      || getDepVersion('nuxt-nightly')
-      || getDepVersion('nuxt-edge')
-      || getDepVersion('nuxt3')
-      || '-'
+    const nuxtVersion = getDepVersion('nuxt') || getDepVersion('nuxt-nightly') || getDepVersion('nuxt-edge') || getDepVersion('nuxt3') || '-'
     const isLegacy = nuxtVersion.startsWith('2')
     const builder = !isLegacy
       ? nuxtConfig.builder /* latest schema */ || '-'
@@ -123,16 +118,18 @@ export default defineCommand({
       }\n\n${splitter}\n${infoStr}${splitter}\n`,
     )
 
-    const isNuxt3OrBridge = !isLegacy || infoObj.BuildModules.includes('bridge')
-    console.log(
-      [
-        '👉 Report an issue: https://github.com/nuxt/nuxt/issues/new',
-        '👉 Suggest an improvement: https://github.com/nuxt/nuxt/discussions/new',
-        `👉 Read documentation: ${
-          isNuxt3OrBridge ? 'https://nuxt.com' : 'https://v2.nuxt.com'
-        }`,
-      ].join('\n\n') + '\n',
-    )
+    const isNuxt3 = !isLegacy
+    const isBridge = !isNuxt3 && infoObj.BuildModules.includes('bridge')
+
+    const repo = isBridge ? 'nuxt/bridge' : 'nuxt/nuxt'
+
+    const log = [
+      (isNuxt3 || isBridge) && `👉 Report an issue: https://github.com/${repo}/issues/new?template=bug-report.yml`,
+      (isNuxt3 || isBridge) && `👉 Suggest an improvement: https://github.com/${repo}/discussions/new`,
+      `👉 Read documentation: ${(isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'}`,
+    ].filter(Boolean).join('\n')
+
+    console.log('\n' + log + '\n')
   },
 })
 
