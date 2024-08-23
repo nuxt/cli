@@ -21,7 +21,7 @@ export default defineCommand({
       type: 'positional',
       required: true,
       valueHint: Object.keys(templates).join('|'),
-      description: `Template type to scafold`,
+      description: `Template type to scaffold`,
     },
     name: {
       type: 'positional',

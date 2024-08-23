@@ -169,7 +169,7 @@ function getNuxtConfig(rootDir: string) {
     delete (globalThis as any).defineNuxtConfig
     return result
   }
-  catch (err) {
+  catch {
     // TODO: Show error as warning if it is not 404
     return {}
   }
@@ -184,7 +184,7 @@ function getPkg(name: string, rootDir: string) {
   try {
     pkgPath = _require.resolve(name + '/package.json')
   }
-  catch (_err) {
+  catch {
     // console.log('not found:', name)
   }
 
@@ -206,7 +206,7 @@ function readJSONSync(filePath: string) {
   try {
     return destr(readFileSync(filePath, 'utf-8'))
   }
-  catch (err) {
+  catch {
     // TODO: Warn error
     return null
   }

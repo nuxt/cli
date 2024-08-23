@@ -191,8 +191,8 @@ class NuxtDevServer extends EventEmitter {
       this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
           config.server.hmr = {
-            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
             protocol: undefined,
+            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
             port: undefined,
             host: undefined,
             server: this.listener.server,
@@ -270,7 +270,7 @@ class NuxtDevServer extends EventEmitter {
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       consola.warn(
-        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment vairable to make https work.',
+        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
       )
     }
 
