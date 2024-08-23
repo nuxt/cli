@@ -138,7 +138,7 @@ async function resolveModule(
     pkgName: string
     pkgVersion: string
   }
-> {
+  > {
   let pkgName = moduleName
   let pkgVersion: string | undefined
 
