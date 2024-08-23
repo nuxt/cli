@@ -1,4 +1,5 @@
 import { execSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { consola } from 'consola'
 import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
@@ -25,6 +26,11 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   catch {
     return null
   }
+}
+
+function hasPnpmWorkspaceFile(cwd: string): boolean {
+  const pnpmWorkspaceFilePath = resolve(cwd, 'pnpm-workspace.yaml')
+  return existsSync(pnpmWorkspaceFilePath)
 }
 
 export default defineCommand({
@@ -88,7 +94,7 @@ export default defineCommand({
     execSync(
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
-      } -D nuxt`,
+      } -D nuxt ${packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : ''}`,
       { stdio: 'inherit', cwd },
     )
 
