@@ -28,8 +28,8 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   }
 }
 
-function hasPnpmWorkspaceFile(): boolean {
-  const pnpmWorkspaceFilePath = `${process.cwd()}/pnpm-workspace.yaml`
+function hasPnpmWorkspaceFile(cwd: string): boolean {
+  const pnpmWorkspaceFilePath = resolve(cwd, 'pnpm-workspace.yaml')
   return existsSync(pnpmWorkspaceFilePath)
 }
 
@@ -94,7 +94,7 @@ export default defineCommand({
     execSync(
       `${packageManager} ${
         packageManager === 'yarn' ? 'add' : 'install'
-      } -D nuxt ${packageManager === 'pnpm' && hasPnpmWorkspaceFile() ? '-w' : ''}`,
+      } -D nuxt ${packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : ''}`,
       { stdio: 'inherit', cwd },
     )
 
