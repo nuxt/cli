@@ -37,7 +37,6 @@ async function checkNuxtDependencyType(path: string): Promise<'dependencies' | '
     if (pkg.devDependencies && pkg.devDependencies['nuxt']) {
       return 'devDependencies'
     }
-    consola.warn('Cannot find Nuxt dependency type in ', path)
     return null
   }
   catch {
@@ -111,12 +110,16 @@ export default defineCommand({
 
     // Install latest version
     consola.info('Installing latest Nuxt 3 release...')
-    execSync(
-      `${packageManager} ${
-        packageManager === 'yarn' ? 'add' : 'install'
-      } ${nuxtDependencyType === 'dependencies' ? '' : '-D'} nuxt ${packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : ''}`,
-      { stdio: 'inherit', cwd },
-    )
+
+    const command = [
+      packageManager,
+      packageManager === 'yarn' ? 'add' : 'install',
+      nuxtDependencyType === 'devDependencies' ? '-D' : '',
+      packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : '',
+      'nuxt',
+    ].filter(Boolean).join(' ')
+
+    execSync(command, { stdio: 'inherit', cwd })
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'
