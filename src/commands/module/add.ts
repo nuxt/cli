@@ -17,7 +17,7 @@ import type { NuxtModule } from './_utils'
 
 // Maybe we can import the list from somewhere, but idk
 const forceDevDependencies = [
-  "@nuxt/eslint@latest",
+  "@nuxt/eslint",
   "@nuxtjs/color-mode"
 ]
 
@@ -66,7 +66,7 @@ export default defineCommand({
 
     // Add npm dependency
     if (!ctx.args.skipInstall) {
-      const isDev = Boolean(projectPkg.devDependencies?.nuxt || forceDevDependencies.includes(r.pkg))
+      const isDev = Boolean(projectPkg.devDependencies?.nuxt || forceDevDependencies.includes(r.pkg.replace(/@latest$/,'')))
       consola.info(
         `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
       )
