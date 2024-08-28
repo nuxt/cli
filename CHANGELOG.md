@@ -1,6 +1,10 @@
 # Changelog
 
 
+## v3.13.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.0...v3.13.1)
+
 ## v3.13.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.12.0...v3.13.0)
