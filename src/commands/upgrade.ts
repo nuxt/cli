@@ -69,17 +69,11 @@ async function getNightlyVersion(): Promise<{ npmVersion: string, nuxtVersion: s
 }
 
 async function getRequiredNewVersion(channel: string): Promise<{ npmVersion: string, nuxtVersion: string }> {
-  let npmVersion = 'nuxt@latest'
-  let nuxtVersion = '3'
-
   if (channel === 'nightly') {
-    const { npmVersion: nightlyNpmVersion, nuxtVersion: nightlyNuxtVersion } = await getNightlyVersion()
-
-    npmVersion = nightlyNpmVersion
-    nuxtVersion = nightlyNuxtVersion
+    return getNightlyVersion()
   }
 
-  return { npmVersion, nuxtVersion }
+  return { npmVersion: 'nuxt@latest', nuxtVersion: '3' }
 }
 
 export default defineCommand({
