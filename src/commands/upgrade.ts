@@ -49,6 +49,39 @@ function hasPnpmWorkspaceFile(cwd: string): boolean {
   return existsSync(pnpmWorkspaceFilePath)
 }
 
+async function getNightlyVersion(): Promise<{ npmVersion: string, nuxtVersion: string }> {
+  const nuxtVersion = await consola.prompt(
+    'Which version of nighlty Nuxt do you want to install? (3 or 4)',
+    {
+      type: 'select',
+      options: ['3', '4'],
+      default: '3',
+    },
+  ) as '3' | '4'
+
+  const versions = {
+    3: '3.x',
+    4: 'latest',
+  }
+  const npmVersion = `nuxt@npm:nuxt-nightly@${versions[nuxtVersion]}`
+
+  return { npmVersion, nuxtVersion }
+}
+
+async function getRequiredNewVersion(channel: string): Promise<{ npmVersion: string, nuxtVersion: string }> {
+  let npmVersion = 'nuxt@latest'
+  let nuxtVersion = '3'
+
+  if (channel === 'nightly') {
+    const { npmVersion: nightlyNpmVersion, nuxtVersion: nightlyNuxtVersion } = await getNightlyVersion()
+
+    npmVersion = nightlyNpmVersion
+    nuxtVersion = nightlyNuxtVersion
+  }
+
+  return { npmVersion, nuxtVersion }
+}
+
 export default defineCommand({
   meta: {
     name: 'upgrade',
@@ -61,6 +94,12 @@ export default defineCommand({
       type: 'boolean',
       alias: 'f',
       description: 'Force upgrade to recreate lockfile and node_modules',
+    },
+    channel: {
+      type: 'string',
+      alias: 'ch',
+      default: 'stable',
+      description: 'Specify a channel to install from (nightly or stable)',
     },
   },
   async run(ctx) {
@@ -109,14 +148,17 @@ export default defineCommand({
     }
 
     // Install latest version
-    consola.info('Installing latest Nuxt 3 release...')
+    const { npmVersion, nuxtVersion } = await getRequiredNewVersion(ctx.args.channel)
+
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
     const command = [
       packageManager,
       packageManager === 'yarn' ? 'add' : 'install',
       nuxtDependencyType === 'devDependencies' ? '-D' : '',
       packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : '',
-      'nuxt',
+      npmVersion,
     ].filter(Boolean).join(' ')
 
     execSync(command, { stdio: 'inherit', cwd })
