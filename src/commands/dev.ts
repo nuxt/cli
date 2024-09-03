@@ -2,7 +2,7 @@ import { fork } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { resolve } from 'pathe'
-import { setupDotenv } from 'c12'
+import { loadDotenv, setupDotenv } from 'c12'
 import type { ParsedArgs } from 'citty'
 import { defineCommand } from 'citty'
 import { isBun, isTest } from 'std-env'
@@ -20,6 +20,8 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { sharedArgs, legacyRootDirArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
+let _cwd: string
+let _dotenv: string | undefined
 
 const command = defineCommand({
   meta: {
@@ -48,6 +50,8 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    _cwd = cwd
+    _dotenv = ctx.args.dotenv
     showVersions(cwd)
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
@@ -167,6 +171,11 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
   const restart = async () => {
     // Kill previous process with restart signal
     kill('SIGHUP')
+
+    if (_cwd) {
+      const env = await loadDotenv({ cwd: _cwd, fileName: _dotenv || '.env', interpolate: true })
+      Object.assign(process.env, env)
+    }
 
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
