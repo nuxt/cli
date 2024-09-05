@@ -1,3 +1,6 @@
+import * as fs from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import consola from 'consola'
@@ -216,8 +219,9 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
+  const registry = getRegistry()
   const pkg = await $fetch(
-    `https://registry.npmjs.org/${pkgName}/${pkgVersion}`,
+    `${registry}/${pkgName}/${pkgVersion}`,
   )
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
@@ -247,4 +251,14 @@ async function resolveModule(
     pkgName,
     pkgVersion,
   }
+}
+
+function getRegistry() {
+  const npmrcPath = join(homedir(), '.npmrc')
+  if (fs.existsSync(npmrcPath)) {
+    const npmrcContent = fs.readFileSync(npmrcPath, 'utf-8')
+    const registryMatch = npmrcContent.match(/registry=(.*)/)
+    return registryMatch ? registryMatch[1].trim() : 'https://registry.npmjs.org'
+  }
+  return 'https://registry.npmjs.org' // default registry
 }
