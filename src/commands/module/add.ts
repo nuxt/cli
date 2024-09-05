@@ -219,7 +219,8 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const registry = getRegistry()
+  const registry = getRegistryFromNpmrc()
+  setCorepackNpmRegistry(registry)
   const pkg = await $fetch(
     `${registry}/${pkgName}/${pkgVersion}`,
   )
@@ -253,7 +254,7 @@ async function resolveModule(
   }
 }
 
-function getRegistry() {
+function getRegistryFromNpmrc() {
   const npmrcPath = join(homedir(), '.npmrc')
   if (fs.existsSync(npmrcPath)) {
     const npmrcContent = fs.readFileSync(npmrcPath, 'utf-8')
@@ -261,4 +262,10 @@ function getRegistry() {
     return registryMatch ? registryMatch[1].trim() : 'https://registry.npmjs.org'
   }
   return 'https://registry.npmjs.org' // default registry
+}
+
+function setCorepackNpmRegistry(registry: string) {
+  if (!process.env.COREPACK_NPM_REGISTRY) {
+    process.env.COREPACK_NPM_REGISTRY = registry ? registry : ''
+  }
 }
