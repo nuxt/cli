@@ -239,7 +239,7 @@ class NuxtDevServer extends EventEmitter {
           const nuxt = this._currentNuxt
           if (!nuxt) return
           const viteHmrPath = joinURL(
-            nuxt.options.app.baseURL,
+            nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
             nuxt.options.app.buildAssetsDir,
           )
           if (req.url.startsWith(viteHmrPath)) {
