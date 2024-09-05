@@ -298,6 +298,6 @@ function _resolveListenOptions(
     hostname: _hostname,
     public: _public,
     https: httpsOptions,
-    baseURL: nuxtOptions.app.baseURL,
+    baseURL: nuxtOptions.app.baseURL.startsWith('./') ? nuxtOptions.app.baseURL.slice(1) : nuxtOptions.app.baseURL,
   }
 }
