@@ -17,7 +17,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -28,15 +28,12 @@ const command = defineCommand({
   },
   args: {
     ...sharedArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     ...getListhenArgs(),
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
-    },
-    env: {
-      type: 'string',
-      description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
     },
     clear: {
       type: 'boolean',
@@ -59,7 +56,7 @@ const command = defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const nuxtOptions = await loadNuxtConfig({
       cwd,
-      envName: ctx.args.env, // c12 will fall back to NODE_ENV
+      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: {
         dev: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
@@ -86,7 +83,7 @@ const command = defineCommand({
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
           dotenv: !!ctx.args.dotenv,
-          env: ctx.args.env,
+          envName: ctx.args.envName,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
           devContext: {},
         },

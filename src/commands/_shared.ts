@@ -9,6 +9,13 @@ export const sharedArgs = {
   },
 } as const
 
+export const envNameArgs = {
+  envName: {
+    type: 'string',
+    description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
+  },
+} as const
+
 export const legacyRootDirArgs = {
   rootDir: {
     type: 'positional',

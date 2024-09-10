@@ -6,7 +6,7 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -27,10 +27,7 @@ export default defineCommand({
       type: 'string',
       description: 'Path to .env file',
     },
-    env: {
-      type: 'string',
-      description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
-    },
+    ...envNameArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -54,7 +51,7 @@ export default defineCommand({
         cwd,
         fileName: ctx.args.dotenv,
       },
-      envName: ctx.args.env, // c12 will fall back to NODE_ENV
+      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: {
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8

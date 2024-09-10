@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
 import buildCommand from './build'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -10,14 +10,11 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     dotenv: {
       type: 'string',
       description: 'Path to .env file',
-    },
-    env: {
-      type: 'string',
-      description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
     },
   },
   async run(ctx) {
