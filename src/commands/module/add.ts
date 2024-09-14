@@ -255,13 +255,20 @@ async function resolveModule(
 }
 
 function getRegistryFromNpmrc() {
-  const npmrcPath = join(homedir(), '.npmrc')
+  const userNpmrcPath = join(homedir(), '.npmrc')
+  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
+  return getRegistryFromFile(cwdNpmrcPath) || getRegistryFromFile(userNpmrcPath) || 'https://registry.npmjs.org'
+}
+
+function getRegistryFromFile(npmrcPath: string) {
   if (fs.existsSync(npmrcPath)) {
     const npmrcContent = fs.readFileSync(npmrcPath, 'utf-8')
     const registryMatch = npmrcContent.match(/registry=(.*)/)
-    return registryMatch ? registryMatch[1].trim() : 'https://registry.npmjs.org'
+    if (registryMatch) {
+      return registryMatch[1].trim()
+    }
   }
-  return 'https://registry.npmjs.org' // default registry
+  return null
 }
 
 function setCorepackNpmRegistry(registry: string) {
