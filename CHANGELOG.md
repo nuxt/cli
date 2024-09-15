@@ -1,6 +1,23 @@
 # Changelog
 
 
+## v3.13.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.1...v3.13.2)
+
+### 🩹 Fixes
+
+- **dev:** Handle relative baseURL ([#468](https://github.com/nuxt/cli/pull/468))
+
+### 🏡 Chore
+
+- **release:** V3.13.1 ([34bdbbc](https://github.com/nuxt/cli/commit/34bdbbc))
+- Add `compatibilityDate` ([dd0bf06](https://github.com/nuxt/cli/commit/dd0bf06))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.13.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.13.0...v3.13.1)
