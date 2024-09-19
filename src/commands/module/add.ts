@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import type { FileHandle } from 'node:fs/promises'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import consola from 'consola'
@@ -219,11 +220,8 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const registry = getRegistryFromNpmrc()
-  setCorepackNpmRegistry(registry)
-  const pkg = await $fetch(
-    `${registry}/${pkgName}/${pkgVersion}`,
-  )
+  const registry = await detectNpmRegistry()
+  const pkg = await $fetch(`${registry}/${pkgName}/${pkgVersion}`)
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
     pkg.devDependencies || {},
@@ -254,25 +252,39 @@ async function resolveModule(
   }
 }
 
-function getRegistryFromNpmrc() {
+async function detectNpmRegistry() {
+  console.log(process.env.COREPACK_NPM_REGISTRY)
+  if (process.env.COREPACK_NPM_REGISTRY) {
+    return process.env.COREPACK_NPM_REGISTRY
+  }
   const userNpmrcPath = join(homedir(), '.npmrc')
   const cwdNpmrcPath = join(process.cwd(), '.npmrc')
-  return getRegistryFromFile(cwdNpmrcPath) || getRegistryFromFile(userNpmrcPath) || 'https://registry.npmjs.org'
+  const registry = await getRegistryFromFile([cwdNpmrcPath, userNpmrcPath])
+  if (registry) {
+    process.env.COREPACK_NPM_REGISTRY = registry
+  }
+  return registry || 'https://registry.npmjs.org'
 }
 
-function getRegistryFromFile(npmrcPath: string) {
-  if (fs.existsSync(npmrcPath)) {
-    const npmrcContent = fs.readFileSync(npmrcPath, 'utf-8')
-    const registryMatch = npmrcContent.match(/registry=(.*)/)
-    if (registryMatch) {
-      return registryMatch[1].trim()
+async function getRegistryFromFile(paths: string[]) {
+  for (const npmrcPath of paths) {
+    let fd: FileHandle | undefined
+    try {
+      fd = await fs.promises.open(npmrcPath, 'r')
+      if (await fd.stat().then(r => r.isFile())) {
+        const npmrcContent = await fd.readFile('utf-8')
+        const registryMatch = npmrcContent.match(/registry=(.*)/)
+        if (registryMatch) {
+          return registryMatch[1].trim()
+        }
+      }
+    }
+    catch {
+    // swallow errors as file does not exist
+    }
+    finally {
+      await fd?.close()
     }
   }
   return null
-}
-
-function setCorepackNpmRegistry(registry: string) {
-  if (!process.env.COREPACK_NPM_REGISTRY) {
-    process.env.COREPACK_NPM_REGISTRY = registry ? registry : ''
-  }
 }
