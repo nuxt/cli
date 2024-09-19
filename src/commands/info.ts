@@ -2,7 +2,7 @@ import os from 'node:os'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'pathe'
-import jiti from 'jiti'
+import { createJiti } from 'jiti'
 import destr from 'destr'
 import type { PackageJson } from 'pkg-types'
 import { splitByCase } from 'scule'
@@ -159,10 +159,16 @@ function normalizeConfigModule(
 
 function getNuxtConfig(rootDir: string) {
   try {
+    const jiti = createJiti(rootDir, {
+      interopDefault: true,
+      // allow using `~` and `@` in `nuxt.config`
+      alias: {
+        '~': rootDir,
+        '@': rootDir,
+      },
+    })
     ;(globalThis as any).defineNuxtConfig = (c: any) => c
-    const result = jiti(rootDir, { interopDefault: true, esmResolve: true })(
-      './nuxt.config',
-    )
+    const result = jiti.import('./nuxt.config')
     delete (globalThis as any).defineNuxtConfig
     return result
   }
