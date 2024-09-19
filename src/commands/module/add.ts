@@ -253,7 +253,6 @@ async function resolveModule(
 }
 
 async function detectNpmRegistry() {
-  console.log(process.env.COREPACK_NPM_REGISTRY)
   if (process.env.COREPACK_NPM_REGISTRY) {
     return process.env.COREPACK_NPM_REGISTRY
   }
