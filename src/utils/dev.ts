@@ -3,6 +3,7 @@ import EventEmitter from 'node:events'
 import type { AddressInfo } from 'node:net'
 import { relative, resolve, join } from 'pathe'
 import chokidar from 'chokidar'
+import type { FSWatcher } from 'chokidar'
 import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
@@ -79,7 +80,7 @@ const RESTART_RE
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
-  private _distWatcher?: chokidar.FSWatcher
+  private _distWatcher?: FSWatcher
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
 
@@ -239,7 +240,7 @@ class NuxtDevServer extends EventEmitter {
           const nuxt = this._currentNuxt
           if (!nuxt) return
           const viteHmrPath = joinURL(
-            nuxt.options.app.baseURL,
+            nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
             nuxt.options.app.buildAssetsDir,
           )
           if (req.url.startsWith(viteHmrPath)) {
