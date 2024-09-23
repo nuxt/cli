@@ -123,8 +123,8 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0(typescript@5.4.2)
       unplugin-purge-polyfills:
-        specifier: ^0.0.6
-        version: 0.0.6(rollup@3.29.4)(webpack-sources@3.2.3)
+        specifier: ^0.0.7
+        version: 0.0.7(rollup@3.29.4)(webpack-sources@3.2.3)
       unws:
         specifier: ^0.2.4
         version: 0.2.4(ws@8.18.0)
@@ -4089,8 +4089,8 @@ packages:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
 
-  unplugin-purge-polyfills@0.0.6:
-    resolution: {integrity: sha512-sL6OsLNiz5gkAXOEe8kmJP0LUMoisG8nSIC2kLmC2gk5p0l4R3aL89nz0OPbKdsVBUvdZULPrClBW5OpnAVoMQ==}
+  unplugin-purge-polyfills@0.0.7:
+    resolution: {integrity: sha512-l5rxmu+CR6SIQWOcat8RW/2/VUyc4u4s5mBIOSinxP1m7jzAQlgPYzJXTJRPAOW4jfGfqUP+9oB4Q2Zno8SRBA==}
 
   unplugin-vue-router@0.10.8:
     resolution: {integrity: sha512-xi+eLweYAqolIoTRSmumbi6Yx0z5M0PLvl+NFNVWHJgmE2ByJG1SZbrn+TqyuDtIyln20KKgq8tqmL7aLoiFjw==}
@@ -8914,7 +8914,7 @@ snapshots:
 
   universalify@2.0.1: {}
 
-  unplugin-purge-polyfills@0.0.6(rollup@3.29.4)(webpack-sources@3.2.3):
+  unplugin-purge-polyfills@0.0.7(rollup@3.29.4)(webpack-sources@3.2.3):
     dependencies:
       '@rollup/pluginutils': 5.1.0(rollup@3.29.4)
       defu: 6.1.4
