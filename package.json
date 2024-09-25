@@ -77,9 +77,6 @@
     "vue-tsc": "^2.1.6",
     "ws": "^8.18.0"
   },
-  "optionalDependencies": {
-    "fsevents": "~2.3.3"
-  },
   "resolutions": {
     "h3": "^1.12.0",
     "nitropack": "npm:nitropack-nightly",

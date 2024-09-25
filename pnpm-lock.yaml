@@ -12,10 +12,6 @@ overrides:
 importers:
 
   .:
-    optionalDependencies:
-      fsevents:
-        specifier: ~2.3.3
-        version: 2.3.3
     devDependencies:
       '@nuxt/eslint-config':
         specifier: ^0.5.7
