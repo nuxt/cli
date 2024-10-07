@@ -2,7 +2,7 @@
   "name": "nuxt-cli-playground",
   "private": true,
   "version": "1.0.0",
-  "packageManager": "pnpm@9.12.0",
+  "packageManager": "pnpm@9.12.1",
   "scripts": {
     "nuxi": "node ../bin/nuxi.mjs"
   },
