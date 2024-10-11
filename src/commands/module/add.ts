@@ -6,6 +6,7 @@ import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import consola from 'consola'
 import { addDependency } from 'nypm'
+import { joinURL } from 'ufo'
 import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
@@ -221,7 +222,7 @@ async function resolveModule(
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
   const registry = await detectNpmRegistry()
-  const pkg = await $fetch(`${registry}/${pkgName}/${pkgVersion}`)
+  const pkg = await $fetch(joinURL(registry, `${pkgName}/${pkgVersion}`))
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
     pkg.devDependencies || {},
