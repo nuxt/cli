@@ -37,7 +37,7 @@
     "test:types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@nuxt/eslint-config": "^0.5.7",
+    "@nuxt/eslint-config": "^0.6.0",
     "@nuxt/kit": "^3.13.2",
     "@nuxt/schema": "^3.13.2",
     "@nuxt/test-utils": "^3.14.3",
