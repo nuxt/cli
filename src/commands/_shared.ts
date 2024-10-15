@@ -9,6 +9,13 @@ export const sharedArgs = {
   },
 } as const
 
+export const envNameArgs = {
+  envName: {
+    type: 'string',
+    description: 'The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server)',
+  },
+} as const
+
 export const legacyRootDirArgs = {
   rootDir: {
     type: 'positional',
