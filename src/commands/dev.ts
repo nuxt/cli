@@ -167,12 +167,11 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
   const restart = async () => {
     // Kill previous process with restart signal
     kill('SIGHUP')
-
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
       execArgv: [
         '--enable-source-maps',
-        process.argv.includes('--inspect') && '--inspect',
+        process.argv.find((a: string) => a.includes('--inspect')),
       ].filter(Boolean) as string[],
       env: {
         ...process.env,
