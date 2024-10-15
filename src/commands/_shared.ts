@@ -12,7 +12,7 @@ export const sharedArgs = {
 export const envNameArgs = {
   envName: {
     type: 'string',
-    description: 'Name of the build environment to use (see \'Environment overrides\' in the docs)',
+    description: 'The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server)',
   },
 } as const
 
