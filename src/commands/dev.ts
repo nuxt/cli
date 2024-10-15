@@ -171,7 +171,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
     childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
       execArgv: [
         '--enable-source-maps',
-        process.argv.find((a: string) => a.includes("--inspect")),
+        process.argv.find((a: string) => a.includes('--inspect')),
       ].filter(Boolean) as string[],
       env: {
         ...process.env,
