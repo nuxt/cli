@@ -1,6 +1,7 @@
 import { execa } from 'execa'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
+import { isBun } from 'std-env'
 
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
@@ -55,11 +56,25 @@ export default defineCommand({
       })
     }
     else {
-      await execa(
-        'npx',
-        '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-        { stdio: 'inherit', cwd },
-      )
+      if (isBun) {
+        await execa(
+          'bun',
+          'install typescript vue-tsc --global --silent'.split(' '),
+          { stdio: 'inherit', cwd },
+        )
+
+        await execa('bunx', 'vue-tsc --noEmit'.split(' '), {
+          stdio: 'inherit',
+          cwd,
+        })
+      }
+      else {
+        await execa(
+          'npx',
+          '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
+          { stdio: 'inherit', cwd },
+        )
+      }
     }
   },
 })
