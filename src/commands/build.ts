@@ -39,7 +39,7 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
-    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
+    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET
     if (nitroPreset) {
       if (ctx.args.prerender && ctx.args.preset) {
         consola.warn(`\`--prerender\` is set. Ignoring \`--preset ${ctx.args.preset}\``)
