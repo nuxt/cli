@@ -1,4 +1,4 @@
-import { upperFirst } from 'scule'
+import { camelCase, upperFirst } from 'scule'
 
 interface TemplateOptions {
   name: string
@@ -57,8 +57,9 @@ const component: Template = ({ name, args }) => ({
 
 const composable: Template = ({ name }) => {
   const nameWithUsePrefix = name.startsWith('use')
-    ? name
-    : `use${upperFirst(name)}`
+    ? camelCase(name)
+    : `use${upperFirst(camelCase(name))}`
+
   return {
     path: `composables/${name}.ts`,
     contents: `
