@@ -69,7 +69,6 @@ const composable: Template = ({ name }) => {
   }
 }
 
-
 const middleware: Template = ({ name, args }) => ({
   path: `middleware/${name}${applySuffix(args, ['global'])}.ts`,
   contents: `
