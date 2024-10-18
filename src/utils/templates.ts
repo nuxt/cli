@@ -56,19 +56,19 @@ const component: Template = ({ name, args }) => ({
 })
 
 const composable: Template = ({ name }) => {
-  const nameWithUsePrefix = name.startsWith('use')
-    ? camelCase(name)
-    : `use${upperFirst(camelCase(name))}`
+  const nameWithoutUsePrefix = name.replace(/^use-?/, '')
+  const nameWithUsePrefix = `use${upperFirst(camelCase(nameWithoutUsePrefix))}`
 
   return {
     path: `composables/${name}.ts`,
     contents: `
-export const ${nameWithUsePrefix} = () => {
-  return ref()
-}
-  `,
+  export const ${nameWithUsePrefix} = () => {
+    return ref()
+  }
+    `,
   }
 }
+
 
 const middleware: Template = ({ name, args }) => ({
   path: `middleware/${name}${applySuffix(args, ['global'])}.ts`,
