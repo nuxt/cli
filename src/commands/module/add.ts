@@ -221,7 +221,8 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const registry = await detectNpmRegistry()
+  const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0] : null
+  const registry = await detectNpmRegistry(pkgScope)
   const pkg = await $fetch(joinURL(registry, `${pkgName}/${pkgVersion}`))
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
@@ -253,29 +254,40 @@ async function resolveModule(
   }
 }
 
-async function detectNpmRegistry() {
+async function detectNpmRegistry(scope: string | null) {
   if (process.env.COREPACK_NPM_REGISTRY) {
     return process.env.COREPACK_NPM_REGISTRY
   }
   const userNpmrcPath = join(homedir(), '.npmrc')
   const cwdNpmrcPath = join(process.cwd(), '.npmrc')
-  const registry = await getRegistryFromFile([cwdNpmrcPath, userNpmrcPath])
+  const registry = await getRegistryFromFile([cwdNpmrcPath, userNpmrcPath], scope)
   if (registry) {
     process.env.COREPACK_NPM_REGISTRY = registry
   }
   return registry || 'https://registry.npmjs.org'
 }
 
-async function getRegistryFromFile(paths: string[]) {
+async function getRegistryFromFile(paths: string[], scope: string | null) {
   for (const npmrcPath of paths) {
     let fd: FileHandle | undefined
     try {
       fd = await fs.promises.open(npmrcPath, 'r')
       if (await fd.stat().then(r => r.isFile())) {
         const npmrcContent = await fd.readFile('utf-8')
-        const registryMatch = npmrcContent.match(/registry=(.*)/)
-        if (registryMatch) {
-          return registryMatch[1].trim()
+
+        if (scope) {
+          const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
+          const scopedMatch = npmrcContent.match(scopedRegex)
+          if (scopedMatch) {
+            return scopedMatch[1].trim()
+          }
+        }
+
+        // If no scoped registry found or no scope provided, look for the default registry
+        const defaultRegex = /^\s*registry=(.+)$/m
+        const defaultMatch = npmrcContent.match(defaultRegex)
+        if (defaultMatch) {
+          return defaultMatch[1].trim()
         }
       }
     }
