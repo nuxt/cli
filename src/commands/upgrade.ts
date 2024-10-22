@@ -51,17 +51,17 @@ function hasPnpmWorkspaceFile(cwd: string): boolean {
 
 async function getNightlyVersion(): Promise<{ npmVersion: string, nuxtVersion: string }> {
   const nuxtVersion = await consola.prompt(
-    'Which version of nighlty Nuxt do you want to install? (3 or 4)',
+    'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
-      options: ['3', '4'],
-      default: '3',
+      options: ['3.x', '4.x'],
+      default: '3.x',
     },
-  ) as '3' | '4'
+  ) as '3.x' | '4.x'
 
   const versions = {
-    3: '3.x',
-    4: 'latest',
+    '3.x': '3.x',
+    '4.x': 'latest',
   }
   const npmVersion = `nuxt@npm:nuxt-nightly@${versions[nuxtVersion]}`
 
