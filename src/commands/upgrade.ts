@@ -172,6 +172,10 @@ export default defineCommand({
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Upgraded Nuxt version:', upgradedVersion)
 
+    if (upgradedVersion === '[unknown]') {
+      return
+    }
+
     if (upgradedVersion === currentVersion) {
       consola.success('You\'re already using the latest version of Nuxt.')
     }
@@ -182,6 +186,9 @@ export default defineCommand({
         'to',
         upgradedVersion,
       )
+      if (currentVersion === '[unknown]') {
+        return
+      }
       const commitA = nuxtVersionToGitIdentifier(currentVersion)
       const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
       if (commitA && commitB) {
