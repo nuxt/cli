@@ -115,6 +115,12 @@ export default defineCommand({
 
     // Check if Nuxt is a dependency or devDependency
     const nuxtDependencyType = pkg ? await checkNuxtDependencyType(pkg) : 'dependencies'
+    const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
+
+    const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
+
+    // Install latest version
+    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
 
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
@@ -137,11 +143,6 @@ export default defineCommand({
       await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
     }
-
-    const packagesToUpdate = pkg ? ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder'].filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
-
-    // Install latest version
-    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
     consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
