@@ -49,6 +49,33 @@ function hasPnpmWorkspaceFile(cwd: string): boolean {
   return existsSync(pnpmWorkspaceFilePath)
 }
 
+async function getNightlyVersion(): Promise<{ npmVersion: string, nuxtVersion: string }> {
+  const nuxtVersion = await consola.prompt(
+    'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
+    {
+      type: 'select',
+      options: ['3.x', '4.x'],
+      default: '3.x',
+    },
+  ) as '3.x' | '4.x'
+
+  const versions = {
+    '3.x': '3x',
+    '4.x': 'latest',
+  }
+  const npmVersion = `nuxt@npm:nuxt-nightly@${versions[nuxtVersion]}`
+
+  return { npmVersion, nuxtVersion }
+}
+
+async function getRequiredNewVersion(channel: string): Promise<{ npmVersion: string, nuxtVersion: string }> {
+  if (channel === 'nightly') {
+    return getNightlyVersion()
+  }
+
+  return { npmVersion: 'nuxt@latest', nuxtVersion: '3' }
+}
+
 export default defineCommand({
   meta: {
     name: 'upgrade',
@@ -61,6 +88,12 @@ export default defineCommand({
       type: 'boolean',
       alias: 'f',
       description: 'Force upgrade to recreate lockfile and node_modules',
+    },
+    channel: {
+      type: 'string',
+      alias: 'ch',
+      default: 'stable',
+      description: 'Specify a channel to install from (nightly or stable)',
     },
   },
   async run(ctx) {
@@ -109,14 +142,17 @@ export default defineCommand({
     }
 
     // Install latest version
-    consola.info('Installing latest Nuxt 3 release...')
+    const { npmVersion, nuxtVersion } = await getRequiredNewVersion(ctx.args.channel)
+
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
     const command = [
       packageManager,
       packageManager === 'yarn' ? 'add' : 'install',
       nuxtDependencyType === 'devDependencies' ? '-D' : '',
       packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : '',
-      'nuxt',
+      npmVersion,
     ].filter(Boolean).join(' ')
 
     execSync(command, { stdio: 'inherit', cwd })
