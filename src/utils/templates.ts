@@ -55,7 +55,7 @@ const component: Template = ({ name, args }) => ({
 `,
 })
 
-const composable: Template = ({ name }) => {
+export const composable: Template = ({ name }) => {
   const nameWithoutUsePrefix = name.replace(/^use-?/, '')
   const nameWithUsePrefix = `use${upperFirst(camelCase(nameWithoutUsePrefix))}`
 
