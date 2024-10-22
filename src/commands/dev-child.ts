@@ -5,7 +5,7 @@ import { isTest } from 'std-env'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { createNuxtDevServer } from '../utils/dev'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -15,6 +15,7 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -41,6 +42,7 @@ export default defineCommand({
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,
+      envName: ctx.args.envName,
       port: process.env._PORT ?? undefined,
       devContext,
     })

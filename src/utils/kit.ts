@@ -9,7 +9,7 @@ export const loadKit = async (
     // Without PNP (or if users have a local install of kit, we bypass resolving from Nuxt)
     const localKit = await tryResolveModule('@nuxt/kit', rootDir)
     // Otherwise, we resolve Nuxt _first_ as it is Nuxt's kit dependency that will be used
-    const rootURL = localKit ? rootDir : (await tryResolveNuxt()) || rootDir
+    const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
     let kit: typeof import('@nuxt/kit') = await importModule(
       '@nuxt/kit',
       rootURL,
@@ -30,9 +30,9 @@ export const loadKit = async (
   }
 }
 
-async function tryResolveNuxt() {
+async function tryResolveNuxt(rootDir: string) {
   for (const pkg of ['nuxt-nightly', 'nuxt3', 'nuxt', 'nuxt-edge']) {
-    const path = await tryResolveModule(pkg)
+    const path = await tryResolveModule(pkg, rootDir)
     if (path) {
       return path
     }

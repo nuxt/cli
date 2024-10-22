@@ -1,6 +1,45 @@
 # Changelog
 
 
+## v3.14.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.2...v3.14.0)
+
+### 🚀 Enhancements
+
+- **info:** Use jiti v2 ([#477](https://github.com/nuxt/cli/pull/477))
+- **module:** Respect package registry set in `.npmrc` ([#470](https://github.com/nuxt/cli/pull/470))
+
+### 🔥 Performance
+
+- Remove `fsevents` as optional dependency ([f9714f2](https://github.com/nuxt/cli/commit/f9714f2))
+
+### 🩹 Fixes
+
+- Resolve `nuxt` directory from `rootDir` ([1518e46](https://github.com/nuxt/cli/commit/1518e46))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Kiameow ([@Kiameow](http://github.com/Kiameow))
+
+## v3.13.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.1...v3.13.2)
+
+### 🩹 Fixes
+
+- **dev:** Handle relative baseURL ([#468](https://github.com/nuxt/cli/pull/468))
+
+### 🏡 Chore
+
+- **release:** V3.13.1 ([34bdbbc](https://github.com/nuxt/cli/commit/34bdbbc))
+- Add `compatibilityDate` ([dd0bf06](https://github.com/nuxt/cli/commit/dd0bf06))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.13.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.13.0...v3.13.1)

@@ -6,7 +6,7 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -27,6 +27,7 @@ export default defineCommand({
       type: 'string',
       description: 'Path to .env file',
     },
+    ...envNameArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -38,7 +39,7 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
-    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset
+    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET
     if (nitroPreset) {
       if (ctx.args.prerender && ctx.args.preset) {
         consola.warn(`\`--prerender\` is set. Ignoring \`--preset ${ctx.args.preset}\``)
@@ -53,6 +54,7 @@ export default defineCommand({
         cwd,
         fileName: ctx.args.dotenv,
       },
+      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: {
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8

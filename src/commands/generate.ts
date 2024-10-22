@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
 import buildCommand from './build'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -10,6 +10,7 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     dotenv: {
       type: 'string',

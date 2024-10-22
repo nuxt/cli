@@ -10,11 +10,14 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     # permissions:
     #   id-token: write
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
         with:
           fetch-depth: 0
       - run: corepack enable
@@ -27,8 +30,8 @@ jobs:
       - run: pnpm test:types
       - run: pnpm build
       - run: pnpm test:dist
-      # - run: pnpm vitest --coverage && rm -rf coverage/tmp
-      # - uses: codecov/codecov-action@v3
+      - run: pnpm test:unit
+      - uses: codecov/codecov-action@v4
       - name: Release Edge
         if: |
           github.event_name == 'push' &&

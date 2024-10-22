@@ -8,7 +8,7 @@ import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -17,6 +17,7 @@ export default defineCommand({
   },
   args: {
     ...sharedArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     dotenv: {
       type: 'string',
@@ -31,6 +32,7 @@ export default defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({
       cwd,
+      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: /* ctx.options?.overrides || */ {},
     })
 

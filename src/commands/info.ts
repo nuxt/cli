@@ -2,12 +2,12 @@ import os from 'node:os'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { resolve } from 'pathe'
-import jiti from 'jiti'
+import { createJiti } from 'jiti'
 import destr from 'destr'
 import type { PackageJson } from 'pkg-types'
 import { splitByCase } from 'scule'
 import clipboardy from 'clipboardy'
-import type { NuxtModule } from '@nuxt/schema'
+import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
 import { defineCommand } from 'citty'
 import type { packageManagerLocks } from '../utils/packageManagers'
 import {
@@ -33,7 +33,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     // Load Nuxt config
-    const nuxtConfig = getNuxtConfig(cwd)
+    const nuxtConfig = await getNuxtConfig(cwd)
 
     // Find nearest package.json
     const { dependencies = {}, devDependencies = {} } = findPackage(cwd)
@@ -42,27 +42,32 @@ export default defineCommand({
     const getDepVersion = (name: string) =>
       getPkg(name, cwd)?.version || dependencies[name] || devDependencies[name]
 
-    const listModules = (arr = []) =>
-      arr
-        .map(m => normalizeConfigModule(m, cwd))
-        .filter(Boolean)
-        .map((name) => {
+    function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
+      const info: string[] = []
+      for (let m of arr) {
+        if (Array.isArray(m)) {
+          m = m[0]
+        }
+        const name = normalizeConfigModule(m, cwd)
+        if (name) {
           const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
           const v = getDepVersion(npmName)
-          return '`' + (v ? `${name}@${v}` : name) + '`'
-        })
-        .join(', ')
+          info.push('`' + (v ? `${name}@${v}` : name) + '`')
+        }
+      }
+      return info.join(', ')
+    }
 
     // Check Nuxt version
     const nuxtVersion = getDepVersion('nuxt') || getDepVersion('nuxt-nightly') || getDepVersion('nuxt-edge') || getDepVersion('nuxt3') || '-'
     const isLegacy = nuxtVersion.startsWith('2')
     const builder = !isLegacy
       ? nuxtConfig.builder /* latest schema */ || '-'
-      : nuxtConfig.bridge?.vite
-        ? 'vite' /* bridge vite implementation */
-        : nuxtConfig.buildModules?.includes('nuxt-vite')
-          ? 'vite' /* nuxt-vite */
-          : 'webpack'
+      : (nuxtConfig as any /* nuxt v2 */).bridge?.vite
+          ? 'vite' /* bridge vite implementation */
+          : (nuxtConfig as any /* nuxt v2 */).buildModules?.includes('nuxt-vite')
+              ? 'vite' /* nuxt-vite */
+              : 'webpack'
 
     let packageManager: keyof typeof packageManagerLocks | 'unknown' | null
       = getPackageManager(cwd)
@@ -80,12 +85,12 @@ export default defineCommand({
       CLIVersion: nuxiPkg.version,
       NitroVersion: getDepVersion('nitropack'),
       PackageManager: packageManager,
-      Builder: builder,
+      Builder: typeof builder === 'string' ? builder : 'custom',
       UserConfig: Object.keys(nuxtConfig)
         .map(key => '`' + key + '`')
         .join(', '),
       RuntimeModules: listModules(nuxtConfig.modules),
-      BuildModules: listModules(nuxtConfig.buildModules || []),
+      BuildModules: listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
     }
 
     console.log('Working directory:', cwd)
@@ -134,7 +139,7 @@ export default defineCommand({
 })
 
 function normalizeConfigModule(
-  module: NuxtModule | string | null | undefined,
+  module: NuxtModule<any, any> | string | false | null | undefined,
   rootDir: string,
 ): string | null {
   if (!module) {
@@ -157,12 +162,18 @@ function normalizeConfigModule(
   return null
 }
 
-function getNuxtConfig(rootDir: string) {
+async function getNuxtConfig(rootDir: string) {
   try {
+    const jiti = createJiti(rootDir, {
+      interopDefault: true,
+      // allow using `~` and `@` in `nuxt.config`
+      alias: {
+        '~': rootDir,
+        '@': rootDir,
+      },
+    })
     ;(globalThis as any).defineNuxtConfig = (c: any) => c
-    const result = jiti(rootDir, { interopDefault: true, esmResolve: true })(
-      './nuxt.config',
-    )
+    const result = await jiti.import('./nuxt.config') as NuxtConfig
     delete (globalThis as any).defineNuxtConfig
     return result
   }
