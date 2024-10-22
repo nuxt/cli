@@ -7,6 +7,6 @@
     "nuxi": "node ../bin/nuxi.mjs"
   },
   "dependencies": {
-    "nuxt": "npm:nuxt-nightly@4.0.0-28826722.d275b382"
+    "nuxt": "npm:nuxt-nightly@4.0.0-28826831.b619b35e"
   }
 }
