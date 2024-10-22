@@ -162,7 +162,7 @@ function normalizeConfigModule(
   return null
 }
 
-function getNuxtConfig(rootDir: string) {
+async function getNuxtConfig(rootDir: string) {
   try {
     const jiti = createJiti(rootDir, {
       interopDefault: true,
@@ -173,7 +173,7 @@ function getNuxtConfig(rootDir: string) {
       },
     })
     ;(globalThis as any).defineNuxtConfig = (c: any) => c
-    const result = jiti.import('./nuxt.config') as NuxtConfig
+    const result = await jiti.import('./nuxt.config') as NuxtConfig
     delete (globalThis as any).defineNuxtConfig
     return result
   }
