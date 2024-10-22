@@ -12,6 +12,7 @@ import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
+import { runCommand } from '../../run'
 import {
   checkNuxtCompatibility,
   fetchModules,
@@ -116,6 +117,10 @@ export default defineCommand({
         return null
       })
     }
+
+    // update the types for new module
+    const args = Object.entries(ctx.args).filter(([k]) => k in sharedArgs).map(([k, v]) => `--${k}=${v}`)
+    await runCommand('prepare', args)
   },
 })
 
