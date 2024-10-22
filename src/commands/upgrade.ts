@@ -60,7 +60,7 @@ async function getNightlyVersion(): Promise<{ npmVersion: string, nuxtVersion: s
   ) as '3.x' | '4.x'
 
   const versions = {
-    '3.x': '3.x',
+    '3.x': '3x',
     '4.x': 'latest',
   }
   const npmVersion = `nuxt@npm:nuxt-nightly@${versions[nuxtVersion]}`
