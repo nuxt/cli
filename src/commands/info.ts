@@ -33,7 +33,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
 
     // Load Nuxt config
-    const nuxtConfig = getNuxtConfig(cwd)
+    const nuxtConfig = await getNuxtConfig(cwd)
 
     // Find nearest package.json
     const { dependencies = {}, devDependencies = {} } = findPackage(cwd)
