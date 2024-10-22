@@ -44,8 +44,13 @@ function hasPnpmWorkspaceFile(cwd: string): boolean {
   return existsSync(pnpmWorkspaceFilePath)
 }
 
+const nuxtVersionTags = {
+  '3.x': '3x',
+  '4.x': 'latest',
+}
+
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: string }> {
-  const nuxtVersion = await consola.prompt(
+  const result = await consola.prompt(
     'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
@@ -54,11 +59,9 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     },
   ) as '3.x' | '4.x'
 
-  const versions = {
-    '3.x': '3x',
-    '4.x': 'latest',
-  }
-  const npmPackages = packageNames.map(p => `${p}@npm:${p}-nightly@${versions[nuxtVersion]}`)
+  const nuxtVersion = typeof result === 'string' ? result : '3.x'
+
+  const npmPackages = packageNames.map(p => `${p}@npm:${p}-nightly@${nuxtVersionTags[nuxtVersion]}`)
 
   return { npmPackages, nuxtVersion }
 }
