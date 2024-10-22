@@ -1,6 +1,54 @@
 # Changelog
 
 
+## v3.15.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.14.0...v3.15.0)
+
+### 🚀 Enhancements
+
+- Add `--env-name` flag for configuration overrides ([#357](https://github.com/nuxt/cli/pull/357), [#424](https://github.com/nuxt/cli/pull/424))
+- **upgrade:** Allow upgrading to nightly release channel ([#465](https://github.com/nuxt/cli/pull/465))
+- **module:** Rerun prepare command after installing module ([61f0172](https://github.com/nuxt/cli/commit/61f0172))
+
+### 🩹 Fixes
+
+- **add:** Don't add extra `/` if joining registry + package ([b462713](https://github.com/nuxt/cli/commit/b462713))
+- **dev:** Respect explicit address and port in `--inspect` ([#508](https://github.com/nuxt/cli/pull/508))
+- **info:** Await loading of nuxt config file ([#528](https://github.com/nuxt/cli/pull/528))
+- **build:** Respect environment variable preset overrides ([#514](https://github.com/nuxt/cli/pull/514))
+- **module:** Respect per-scope registry when installing packages ([#510](https://github.com/nuxt/cli/pull/510), [#519](https://github.com/nuxt/cli/pull/519))
+- **typecheck:** Use `bunx` if running on bun ([#494](https://github.com/nuxt/cli/pull/494))
+- **add:** Handle kebab-case composable names ([#522](https://github.com/nuxt/cli/pull/522))
+- **upgrade:** Include other core nuxt packages in upgrade ([40877ae](https://github.com/nuxt/cli/commit/40877ae))
+- **upgrade:** Avoid printing info when versions are unknown ([019a6f8](https://github.com/nuxt/cli/commit/019a6f8))
+- **upgrade:** Handle aborted nightly channel selection ([c263859](https://github.com/nuxt/cli/commit/c263859))
+- **preview:** Show more accurate message with custom `--dotenv` ([3fe1ff9](https://github.com/nuxt/cli/commit/3fe1ff9))
+
+### 💅 Refactors
+
+- **upgrade:** Move channel prompt before lockfile prompt ([b3f31de](https://github.com/nuxt/cli/commit/b3f31de))
+
+### 🏡 Chore
+
+- Add CODEOWNERS file ([95ec3c8](https://github.com/nuxt/cli/commit/95ec3c8))
+
+### 🤖 CI
+
+- Run test suite on windows ([#512](https://github.com/nuxt/cli/pull/512))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Martin ([@martin-mastermind](http://github.com/martin-mastermind))
+- Teena ([@franklin-tina](http://github.com/franklin-tina))
+- Horu ([@HigherOrderLogic](http://github.com/HigherOrderLogic))
+- Thomas Kjærgaard ([@tkjaergaard](http://github.com/tkjaergaard))
+- Ezra Ashenafi ([@Eazash](http://github.com/Eazash))
+- Selemon Brahanu ([@selemondev](http://github.com/selemondev))
+- Till Sanders ([@tillsanders](http://github.com/tillsanders))
+- Giacomo Trezzi <giacomo.trezzi@gmail.com>
+
 ## v3.14.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.13.2...v3.14.0)
