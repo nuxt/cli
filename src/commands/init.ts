@@ -98,6 +98,7 @@ export default defineCommand({
       'pnpm',
       'yarn',
       'bun',
+      'deno',
     ]
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
     const selectedPackageManager = packageManagerOptions.includes(
@@ -157,11 +158,12 @@ export default defineCommand({
       `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
+    const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
     const nextSteps = [
       !ctx.args.shell
       && relativeTemplateDir.length > 1
       && `\`cd ${relativeTemplateDir}\``,
-      `Start development server with \`${selectedPackageManager} run dev\``,
+      `Start development server with \`${selectedPackageManager} ${runCmd} dev\``,
     ].filter(Boolean)
 
     for (const step of nextSteps) {
