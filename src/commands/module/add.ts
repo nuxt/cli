@@ -12,7 +12,6 @@ import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { sharedArgs } from '../_shared'
-import { runCommand } from '../../run'
 import {
   checkNuxtCompatibility,
   fetchModules,
@@ -20,6 +19,11 @@ import {
   getProjectPackage,
 } from './_utils'
 import type { NuxtModule } from './_utils'
+
+export type RegistryMeta = {
+  registry: string
+  authToken: string | null
+}
 
 export default defineCommand({
   meta: {
@@ -117,10 +121,6 @@ export default defineCommand({
         return null
       })
     }
-
-    // update the types for new module
-    const args = Object.entries(ctx.args).filter(([k]) => k in sharedArgs).map(([k, v]) => `--${k}=${v}`)
-    await runCommand('prepare', args)
   },
 })
 
@@ -227,8 +227,22 @@ async function resolveModule(
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0] : null
-  const registry = await detectNpmRegistry(pkgScope)
-  const pkg = await $fetch(joinURL(registry, `${pkgName}/${pkgVersion}`))
+  const meta: RegistryMeta = await detectNpmRegistry(pkgScope)
+  const headers: HeadersInit = {}
+
+  if (meta.authToken) {
+    headers.Authorization = `Bearer ${meta.authToken}`
+  }
+
+  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), {
+    headers,
+  })
+
+  // check if a dist-tag exists
+  pkgVersion = (pkgDetails['dist-tags']?.[pkgVersion] || pkgVersion) as string
+
+  const pkg = pkgDetails.versions[pkgVersion]
+
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
     pkg.devDependencies || {},
@@ -259,16 +273,61 @@ async function resolveModule(
   }
 }
 
-async function detectNpmRegistry(scope: string | null) {
+function getNpmrcPaths(): string[] {
+  const userNpmrcPath = join(homedir(), '.npmrc')
+  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
+
+  return [cwdNpmrcPath, userNpmrcPath]
+}
+
+async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
+  const paths = getNpmrcPaths()
+  const authTokenRegex = new RegExp(`^//${registry.replace(/^https?:\/\//, '').replace(/\/$/, '')}/:_authToken=(.+)$`, 'm')
+
+  for (const npmrcPath of paths) {
+    let fd: FileHandle | undefined
+    try {
+      fd = await fs.promises.open(npmrcPath, 'r')
+      if (await fd.stat().then(r => r.isFile())) {
+        const npmrcContent = await fd.readFile('utf-8')
+        const authTokenMatch = npmrcContent.match(authTokenRegex)
+
+        if (authTokenMatch) {
+          return authTokenMatch[1].trim()
+        }
+      }
+    }
+    catch {
+      // swallow errors as file does not exist
+    }
+    finally {
+      await fd?.close()
+    }
+  }
+
+  return null
+}
+
+async function detectNpmRegistry(scope: string | null): Promise<RegistryMeta> {
+  const registry = await getRegistry(scope)
+  const authToken = await getAuthToken(registry)
+
+  return {
+    registry,
+    authToken,
+  }
+}
+
+async function getRegistry(scope: string | null): Promise<string> {
   if (process.env.COREPACK_NPM_REGISTRY) {
     return process.env.COREPACK_NPM_REGISTRY
   }
-  const userNpmrcPath = join(homedir(), '.npmrc')
-  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
-  const registry = await getRegistryFromFile([cwdNpmrcPath, userNpmrcPath], scope)
+  const registry = await getRegistryFromFile(getNpmrcPaths(), scope)
+
   if (registry) {
     process.env.COREPACK_NPM_REGISTRY = registry
   }
+
   return registry || 'https://registry.npmjs.org'
 }
 
