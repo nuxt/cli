@@ -43,7 +43,7 @@
     "@nuxt/schema": "^3.13.2",
     "@nuxt/test-utils": "^3.14.4",
     "@types/http-proxy": "^1.17.15",
-    "@types/node": "^20.17.2",
+    "@types/node": "^20.17.5",
     "@types/semver": "^7.5.8",
     "@types/ws": "^8.5.12",
     "@vitest/coverage-v8": "^2.1.4",
@@ -77,7 +77,7 @@
     "unplugin-purge-polyfills": "^0.0.7",
     "unws": "^0.2.4",
     "vitest": "^2.1.4",
-    "vue-tsc": "^2.1.8",
+    "vue-tsc": "^2.1.10",
     "ws": "^8.18.0"
   },
   "resolutions": {
