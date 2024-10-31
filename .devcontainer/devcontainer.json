@@ -1,7 +1,7 @@
 // https://code.visualstudio.com/docs/devcontainers/containers
 // https://containers.dev/implementors/json_reference/
 {
-  "image": "node:20.18.0",
+  "image": "node:22.11.0",
   "features": {},
   "customizations": {
     "vscode": {
