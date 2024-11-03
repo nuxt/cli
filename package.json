@@ -43,7 +43,7 @@
     "@nuxt/schema": "^3.13.2",
     "@nuxt/test-utils": "^3.14.4",
     "@types/http-proxy": "^1.17.15",
-    "@types/node": "^22.8.6",
+    "@types/node": "^22.8.7",
     "@types/semver": "^7.5.8",
     "@types/ws": "^8.5.13",
     "@vitest/coverage-v8": "^2.1.4",
