@@ -31,7 +31,7 @@ jobs:
       - run: pnpm build
       - run: pnpm test:dist
       - run: pnpm test:unit
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
       - name: Release Edge
         if: |
           github.event_name == 'push' &&
