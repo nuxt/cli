@@ -87,6 +87,11 @@ export default defineCommand({
       alias: 'f',
       description: 'Force upgrade to recreate lockfile and node_modules',
     },
+    dedupe: {
+      type: 'boolean',
+      alias: 'ddp',
+      description: 'Dedupe dependencies after upgrading',
+    },
     channel: {
       type: 'string',
       alias: 'ch',
@@ -130,16 +135,32 @@ export default defineCommand({
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
       .map(p => colors.cyan(p))
       .join(' and ')
-    if (ctx.args.force === undefined) {
-      ctx.args.force = await consola.prompt(
-        `Would you like to recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
+    let methode: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+    if (!methode) {
+      methode = await consola.prompt(
+        `Would you like to dedupe your lockfile (recommended) or force recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
         {
-          type: 'confirm',
-          default: true,
+          type: 'select',
+          initial: 'dedupe',
+          options: [
+            {
+              label: 'dedupe',
+              value: 'dedupe',
+              hint: 'Recommended'
+            },
+            {
+              label: 'force',
+              value: 'force',
+            },
+            {
+              label: 'skip',
+              value: 'skip',
+            },
+          ]
         },
       )
     }
-    if (ctx.args.force) {
+    if (methode === 'force') {
       consola.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
@@ -159,6 +180,14 @@ export default defineCommand({
     ].filter(Boolean).join(' ')
 
     execSync(command, { stdio: 'inherit', cwd })
+
+    if(methode === 'dedupe') {
+      if(packageManager !== 'bun') {
+        consola.info('Deduping dependencies...')
+        execSync(`${packageManager} dedupe`, { stdio: 'inherit', cwd })
+      }
+      consola.info(`Deduping dependencies is not yet supported with ${packageManager}.`)
+    }
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'
