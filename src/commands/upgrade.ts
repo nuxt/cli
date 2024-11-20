@@ -146,7 +146,7 @@ export default defineCommand({
             {
               label: 'dedupe',
               value: 'dedupe',
-              hint: 'Recommended'
+              hint: 'Recommended',
             },
             {
               label: 'force',
@@ -156,7 +156,7 @@ export default defineCommand({
               label: 'skip',
               value: 'skip',
             },
-          ]
+          ],
         },
       )
     }
@@ -181,8 +181,8 @@ export default defineCommand({
 
     execSync(command, { stdio: 'inherit', cwd })
 
-    if(methode === 'dedupe') {
-      if(packageManager !== 'bun') {
+    if (methode === 'dedupe') {
+      if (packageManager !== 'bun') {
         consola.info('Deduping dependencies...')
         execSync(`${packageManager} dedupe`, { stdio: 'inherit', cwd })
       }
