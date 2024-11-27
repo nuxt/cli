@@ -266,7 +266,7 @@ function _resolveListenOptions(
     || process.env.NITRO_SSL_CERT
     || (typeof nuxtOptions.devServer.https !== 'boolean'
       && nuxtOptions.devServer.https?.cert)
-      || ''
+    || ''
 
   const _httpsKey
     = args['https.key']
@@ -275,7 +275,7 @@ function _resolveListenOptions(
     || process.env.NITRO_SSL_KEY
     || (typeof nuxtOptions.devServer.https !== 'boolean'
       && nuxtOptions.devServer.https?.key)
-      || ''
+    || ''
 
   const httpsEnabled
     = args.https == true
