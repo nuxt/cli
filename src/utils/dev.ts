@@ -235,7 +235,7 @@ class NuxtDevServer extends EventEmitter {
       await this.load(true)
     })
 
-    if ('upgrade' in this._currentNuxt.server) {
+    if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
       this.listener.server.on(
         'upgrade',
         async (req: any, socket: any, head: any) => {
