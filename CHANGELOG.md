@@ -1,6 +1,31 @@
 # Changelog
 
 
+## v3.16.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.15.0...v3.16.0)
+
+### 🚀 Enhancements
+
+- **init:** Add support for `deno` ([#526](https://github.com/nuxt/cli/pull/526))
+
+### 🩹 Fixes
+
+- **dev:** Handle non-existent dev server on restart ([#560](https://github.com/nuxt/cli/pull/560))
+- **module:** Pass registry auth token when fetching metadata ([#537](https://github.com/nuxt/cli/pull/537))
+- Improved internal type safety ([9ad7d6f](https://github.com/nuxt/cli/commit/9ad7d6f))
+
+### 🏡 Chore
+
+- Revert change to playground `package.json` ([45801c0](https://github.com/nuxt/cli/commit/45801c0))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Thomas Kjærgaard ([@tkjaergaard](http://github.com/tkjaergaard))
+- Adrien Foulon ([@Tofandel](http://github.com/Tofandel))
+- Yasser Lahbibi ([@yassilah](http://github.com/yassilah))
+
 ## v3.15.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.14.0...v3.15.0)
