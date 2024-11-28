@@ -136,6 +136,7 @@ export default defineCommand({
       .join(' and ')
 
     let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+    // @ts-expect-error can be removed on next consola release
     method ||= await consola.prompt(
       `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
       {
