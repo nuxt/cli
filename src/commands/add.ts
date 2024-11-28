@@ -32,7 +32,8 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || '.')
 
-    const template = ctx.args.template
+    const templateName = ctx.args.template
+    const template = templates[templateName]
     const ext = extname(ctx.args.name)
     const name
       = ext === '.vue' || ext === '.ts'
@@ -40,9 +41,9 @@ export default defineCommand({
         : ctx.args.name
 
     // Validate template name
-    if (!templates[template]) {
+    if (!template) {
       consola.error(
-        `Template ${template} is not supported. Possible values: ${Object.keys(
+        `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
         ).join(', ')}`,
       )
@@ -60,7 +61,7 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
-    const res = templates[template]({ name, args: ctx.args })
+    const res = template({ name, args: ctx.args })
 
     // Resolve full path to generated file
     const path = resolve(config.srcDir, res.path)
@@ -77,7 +78,7 @@ export default defineCommand({
     const parentDir = dirname(path)
     if (!existsSync(parentDir)) {
       consola.info('Creating directory', parentDir)
-      if (template === 'page') {
+      if (templateName === 'page') {
         consola.info('This enables vue-router functionality!')
       }
       await fsp.mkdir(parentDir, { recursive: true })
@@ -85,6 +86,6 @@ export default defineCommand({
 
     // Write file
     await fsp.writeFile(path, res.contents.trim() + '\n')
-    consola.info(`🪄 Generated a new ${template} in ${path}`)
+    consola.info(`🪄 Generated a new ${templateName} in ${path}`)
   },
 })

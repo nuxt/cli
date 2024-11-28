@@ -99,7 +99,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       if (label.length > maxLength) {
         maxLength = label.length
       }
-      return [label, val || '-']
+      return [label, val || '-'] as const
     })
     let infoStr = ''
     for (const [label, value] of entries) {

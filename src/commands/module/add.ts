@@ -231,7 +231,7 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0] : null
+  const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
   const meta: RegistryMeta = await detectNpmRegistry(pkgScope)
   const headers: HeadersInit = {}
 
@@ -295,10 +295,10 @@ async function getAuthToken(registry: RegistryMeta['registry']): Promise<Registr
       fd = await fs.promises.open(npmrcPath, 'r')
       if (await fd.stat().then(r => r.isFile())) {
         const npmrcContent = await fd.readFile('utf-8')
-        const authTokenMatch = npmrcContent.match(authTokenRegex)
+        const authTokenMatch = npmrcContent.match(authTokenRegex)?.[1]
 
         if (authTokenMatch) {
-          return authTokenMatch[1].trim()
+          return authTokenMatch.trim()
         }
       }
     }
@@ -346,17 +346,17 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
 
         if (scope) {
           const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
-          const scopedMatch = npmrcContent.match(scopedRegex)
+          const scopedMatch = npmrcContent.match(scopedRegex)?.[1]
           if (scopedMatch) {
-            return scopedMatch[1].trim()
+            return scopedMatch.trim()
           }
         }
 
         // If no scoped registry found or no scope provided, look for the default registry
         const defaultRegex = /^\s*registry=(.+)$/m
-        const defaultMatch = npmrcContent.match(defaultRegex)
+        const defaultMatch = npmrcContent.match(defaultRegex)?.[1]
         if (defaultMatch) {
-          return defaultMatch[1].trim()
+          return defaultMatch.trim()
         }
       }
     }

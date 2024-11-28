@@ -250,7 +250,7 @@ function _resolveListenOptions(
         ?? process.env.NITRO_HOST
         ?? process.env.HOST
         // TODO: Default host in schema should be undefined instead of ''
-        ?? nuxtOptions._layers?.[0].config?.devServer?.host
+        ?? nuxtOptions._layers?.[0]?.config?.devServer?.host
         ?? undefined
 
   const _public: boolean | undefined
@@ -264,8 +264,7 @@ function _resolveListenOptions(
     || (args.sslCert as string)
     || process.env.NUXT_SSL_CERT
     || process.env.NITRO_SSL_CERT
-    || (typeof nuxtOptions.devServer.https !== 'boolean'
-      && nuxtOptions.devServer.https?.cert)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.cert)
     || ''
 
   const _httpsKey
@@ -273,8 +272,7 @@ function _resolveListenOptions(
     || (args.sslKey as string)
     || process.env.NUXT_SSL_KEY
     || process.env.NITRO_SSL_KEY
-    || (typeof nuxtOptions.devServer.https !== 'boolean'
-      && nuxtOptions.devServer.https?.key)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.key)
     || ''
 
   const httpsEnabled
