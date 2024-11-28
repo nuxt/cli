@@ -38,15 +38,15 @@
     "test:unit": "vitest --coverage"
   },
   "devDependencies": {
-    "@nuxt/eslint-config": "^0.6.1",
-    "@nuxt/kit": "^3.14.159",
-    "@nuxt/schema": "^3.14.159",
+    "@nuxt/eslint-config": "^0.7.2",
+    "@nuxt/kit": "^3.14.1592",
+    "@nuxt/schema": "^3.14.1592",
     "@nuxt/test-utils": "^3.14.4",
     "@types/http-proxy": "^1.17.15",
-    "@types/node": "^22.9.0",
+    "@types/node": "^22.10.1",
     "@types/semver": "^7.5.8",
     "@types/ws": "^8.5.13",
-    "@vitest/coverage-v8": "^2.1.4",
+    "@vitest/coverage-v8": "^2.1.6",
     "c12": "^2.0.1",
     "changelogen": "^0.5.7",
     "chokidar": "^4.0.1",
@@ -55,7 +55,7 @@
     "colorette": "^2.0.20",
     "consola": "^3.2.3",
     "destr": "^2.0.3",
-    "eslint": "^9.14.0",
+    "eslint": "^9.15.0",
     "execa": "^9.5.1",
     "fuse.js": "^7.0.0",
     "giget": "^1.2.3",
@@ -64,9 +64,9 @@
     "jiti": "^2.4.0",
     "listhen": "^1.9.0",
     "magicast": "^0.3.5",
-    "mlly": "^1.7.2",
-    "nuxt": "^3.14.159",
-    "nypm": "^0.3.12",
+    "mlly": "^1.7.3",
+    "nuxt": "^3.14.1592",
+    "nypm": "^0.4.1",
     "ofetch": "^1.4.1",
     "pathe": "^1.1.2",
     "perfect-debounce": "^1.0.0",
@@ -76,16 +76,16 @@
     "unbuild": "^2.0.0",
     "unplugin-purge-polyfills": "^0.0.7",
     "unws": "^0.2.4",
-    "vitest": "^2.1.4",
+    "vitest": "^2.1.6",
     "vue-tsc": "^2.1.10",
     "ws": "^8.18.0"
   },
   "resolutions": {
     "h3": "^1.13.0",
     "nitropack": "npm:nitropack-nightly",
-    "nuxt": "^3.14.159"
+    "nuxt": "^3.14.1592"
   },
-  "packageManager": "pnpm@9.12.3",
+  "packageManager": "pnpm@9.14.2",
   "engines": {
     "node": "^16.10.0 || >=18.0.0"
   }
