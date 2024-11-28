@@ -94,7 +94,7 @@ export default defineCommand({
       : existsSync(cwd)
     if (envExists) {
       consola.info(
-        'Loading `.env`. This will not be loaded when running the server in production.',
+        `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
       )
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }

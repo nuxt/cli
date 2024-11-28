@@ -17,7 +17,7 @@ jobs:
     # permissions:
     #   id-token: write
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
       - run: corepack enable
@@ -30,8 +30,8 @@ jobs:
       - run: pnpm test:types
       - run: pnpm build
       - run: pnpm test:dist
-      # - run: pnpm vitest --coverage && rm -rf coverage/tmp
-      # - uses: codecov/codecov-action@v3
+      - run: pnpm test:unit
+      - uses: codecov/codecov-action@v5
       - name: Release Edge
         if: |
           github.event_name == 'push' &&

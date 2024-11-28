@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs'
 import { consola } from 'consola'
 import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
+import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
 import { defineCommand } from 'citty'
 import {
@@ -28,25 +29,49 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   }
 }
 
-async function checkNuxtDependencyType(path: string): Promise<'dependencies' | 'devDependencies' | null> {
-  try {
-    const pkg = await readPackageJSON(path)
-    if (pkg.dependencies && pkg.dependencies['nuxt']) {
-      return 'dependencies'
-    }
-    if (pkg.devDependencies && pkg.devDependencies['nuxt']) {
-      return 'devDependencies'
-    }
-    return null
+async function checkNuxtDependencyType(pkg: PackageJson): Promise<'dependencies' | 'devDependencies' | null> {
+  if (pkg.dependencies && pkg.dependencies['nuxt']) {
+    return 'dependencies'
   }
-  catch {
-    return null
+  if (pkg.devDependencies && pkg.devDependencies['nuxt']) {
+    return 'devDependencies'
   }
+  return 'dependencies'
 }
 
 function hasPnpmWorkspaceFile(cwd: string): boolean {
   const pnpmWorkspaceFilePath = resolve(cwd, 'pnpm-workspace.yaml')
   return existsSync(pnpmWorkspaceFilePath)
+}
+
+const nuxtVersionTags = {
+  '3.x': '3x',
+  '4.x': 'latest',
+}
+
+async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: string }> {
+  const result = await consola.prompt(
+    'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
+    {
+      type: 'select',
+      options: ['3.x', '4.x'],
+      default: '3.x',
+    },
+  ) as '3.x' | '4.x'
+
+  const nuxtVersion = typeof result === 'string' ? result : '3.x'
+
+  const npmPackages = packageNames.map(p => `${p}@npm:${p}-nightly@${nuxtVersionTags[nuxtVersion]}`)
+
+  return { npmPackages, nuxtVersion }
+}
+
+async function getRequiredNewVersion(packageNames: string[], channel: string): Promise<{ npmPackages: string[], nuxtVersion: string }> {
+  if (channel === 'nightly') {
+    return getNightlyVersion(packageNames)
+  }
+
+  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '3' }
 }
 
 export default defineCommand({
@@ -61,6 +86,12 @@ export default defineCommand({
       type: 'boolean',
       alias: 'f',
       description: 'Force upgrade to recreate lockfile and node_modules',
+    },
+    channel: {
+      type: 'string',
+      alias: 'ch',
+      default: 'stable',
+      description: 'Specify a channel to install from (nightly or stable)',
     },
   },
   async run(ctx) {
@@ -83,8 +114,16 @@ export default defineCommand({
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Current Nuxt version:', currentVersion)
 
+    const pkg = await readPackageJSON(cwd).catch(() => null)
+
     // Check if Nuxt is a dependency or devDependency
-    const nuxtDependencyType = await checkNuxtDependencyType(cwd)
+    const nuxtDependencyType = pkg ? await checkNuxtDependencyType(pkg) : 'dependencies'
+    const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
+
+    const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
+
+    // Install latest version
+    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
 
     // Force install
     const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
@@ -108,15 +147,15 @@ export default defineCommand({
       await touchFile(pmLockFile)
     }
 
-    // Install latest version
-    consola.info('Installing latest Nuxt 3 release...')
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
     const command = [
       packageManager,
       packageManager === 'yarn' ? 'add' : 'install',
       nuxtDependencyType === 'devDependencies' ? '-D' : '',
       packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : '',
-      'nuxt',
+      ...npmPackages,
     ].filter(Boolean).join(' ')
 
     execSync(command, { stdio: 'inherit', cwd })
@@ -137,6 +176,10 @@ export default defineCommand({
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     consola.info('Upgraded Nuxt version:', upgradedVersion)
 
+    if (upgradedVersion === '[unknown]') {
+      return
+    }
+
     if (upgradedVersion === currentVersion) {
       consola.success('You\'re already using the latest version of Nuxt.')
     }
@@ -147,6 +190,9 @@ export default defineCommand({
         'to',
         upgradedVersion,
       )
+      if (currentVersion === '[unknown]') {
+        return
+      }
       const commitA = nuxtVersionToGitIdentifier(currentVersion)
       const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
       if (commitA && commitB) {
