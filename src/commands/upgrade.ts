@@ -89,7 +89,6 @@ export default defineCommand({
     },
     dedupe: {
       type: 'boolean',
-      alias: 'ddp',
       description: 'Dedupe dependencies after upgrading',
     },
     channel: {
@@ -135,35 +134,38 @@ export default defineCommand({
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
       .map(p => colors.cyan(p))
       .join(' and ')
-    let methode: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
-    if (!methode) {
-      methode = await consola.prompt(
-        `Would you like to dedupe your lockfile (recommended) or force recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
-        {
-          type: 'select',
-          initial: 'dedupe',
-          options: [
-            {
-              label: 'dedupe',
-              value: 'dedupe',
-              hint: 'Recommended',
-            },
-            {
-              label: 'force',
-              value: 'force',
-            },
-            {
-              label: 'skip',
-              value: 'skip',
-            },
-          ],
-        },
-      )
+
+    let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+    method ||= await consola.prompt(
+      `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
+      {
+        type: 'select',
+        initial: 'dedupe',
+        options: [
+          {
+            label: 'dedupe lockfile',
+            value: 'dedupe' as const,
+            hint: 'recommended',
+          },
+          {
+            label: `recreate ${forceRemovals}`,
+            value: 'force' as const,
+          },
+          {
+            label: 'skip',
+            value: 'skip' as const,
+          },
+        ],
+      },
+    )
+
+    // user bails on the question with Ctrl+C
+    if (typeof method !== 'string') {
+      process.exit(1)
     }
-    if (methode === 'force') {
-      consola.info(
-        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
-      )
+
+    if (method === 'force') {
+      consola.info(`Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``)
       await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
     }
@@ -181,7 +183,7 @@ export default defineCommand({
 
     execSync(command, { stdio: 'inherit', cwd })
 
-    if (methode === 'dedupe') {
+    if (method === 'dedupe') {
       if (packageManager !== 'bun') {
         consola.info('Deduping dependencies...')
         execSync(`${packageManager} dedupe`, { stdio: 'inherit', cwd })
