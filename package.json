@@ -46,7 +46,7 @@
     "@types/node": "^22.10.1",
     "@types/semver": "^7.5.8",
     "@types/ws": "^8.5.13",
-    "@vitest/coverage-v8": "^2.1.7",
+    "@vitest/coverage-v8": "^2.1.8",
     "c12": "^2.0.1",
     "changelogen": "^0.5.7",
     "chokidar": "^4.0.1",
@@ -76,7 +76,7 @@
     "unbuild": "^2.0.0",
     "unplugin-purge-polyfills": "^0.0.7",
     "unws": "^0.2.4",
-    "vitest": "^2.1.7",
+    "vitest": "^2.1.8",
     "vue-tsc": "^2.1.10",
     "ws": "^8.18.0"
   },
