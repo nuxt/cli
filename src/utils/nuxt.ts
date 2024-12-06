@@ -21,6 +21,7 @@ export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
   await rmRecursive(
     [
       buildDir,
+      '.nuxt',
       '.output',
       'dist',
       'node_modules/.vite',
