@@ -48,6 +48,16 @@ export default defineCommand({
             enabled: true,
           },
         },
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                chunkFileNames: '_nuxt/[name].js',
+                entryFileNames: '_nuxt/[name].js',
+              },
+            },
+          },
+        },
         logLevel: ctx.args.logLevel,
       }),
     })
