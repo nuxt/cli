@@ -61,7 +61,7 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
-    const res = template({ name, args: ctx.args, nuxt: config })
+    const res = template({ name, args: ctx.args, nuxtOptions: config })
 
     // Ensure not overriding user code
     if (!ctx.args.force && existsSync(res.path)) {

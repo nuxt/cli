@@ -5,7 +5,7 @@ import type { NuxtOptions } from '@nuxt/schema'
 interface TemplateOptions {
   name: string
   args: Record<string, any>
-  nuxt: NuxtOptions
+  nuxtOptions: NuxtOptions
 }
 
 interface Template {
@@ -23,9 +23,9 @@ const httpMethods = [
   'trace',
   'patch',
 ]
-const api: Template = ({ name, args, nuxt }) => {
+const api: Template = ({ name, args, nuxtOptions }) => {
   return {
-    path: resolve(nuxt.srcDir, nuxt.serverDir, `api/${name}${applySuffix(args, httpMethods, 'method')}.ts`),
+    path: resolve(nuxtOptions.srcDir, nuxtOptions.serverDir, `api/${name}${applySuffix(args, httpMethods, 'method')}.ts`),
     contents: `
 export default defineEventHandler((event) => {
   return 'Hello ${name}'
@@ -34,15 +34,15 @@ export default defineEventHandler((event) => {
   }
 }
 
-const plugin: Template = ({ name, args, nuxt }) => ({
-  path: resolve(nuxt.srcDir, nuxt.dir.plugins, `${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`),
+const plugin: Template = ({ name, args, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, nuxtOptions.dir.plugins, `${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`),
   contents: `
 export default defineNuxtPlugin((nuxtApp) => {})
   `,
 })
 
-const component: Template = ({ name, args, nuxt }) => ({
-  path: resolve(nuxt.srcDir, `components/${name}${applySuffix(
+const component: Template = ({ name, args, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, `components/${name}${applySuffix(
     args,
     ['client', 'server'],
     'mode',
@@ -60,12 +60,12 @@ const component: Template = ({ name, args, nuxt }) => ({
 `,
 })
 
-export const composable: Template = ({ name, nuxt }) => {
+export const composable: Template = ({ name, nuxtOptions }) => {
   const nameWithoutUsePrefix = name.replace(/^use-?/, '')
   const nameWithUsePrefix = `use${upperFirst(camelCase(nameWithoutUsePrefix))}`
 
   return {
-    path: resolve(nuxt.srcDir, `composables/${name}.ts`),
+    path: resolve(nuxtOptions.srcDir, `composables/${name}.ts`),
     contents: `
   export const ${nameWithUsePrefix} = () => {
     return ref()
@@ -74,15 +74,15 @@ export const composable: Template = ({ name, nuxt }) => {
   }
 }
 
-const middleware: Template = ({ name, args, nuxt }) => ({
-  path: resolve(nuxt.srcDir, nuxt.dir.middleware, `${name}${applySuffix(args, ['global'])}.ts`),
+const middleware: Template = ({ name, args, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, nuxtOptions.dir.middleware, `${name}${applySuffix(args, ['global'])}.ts`),
   contents: `
 export default defineNuxtRouteMiddleware((to, from) => {})
 `,
 })
 
-const layout: Template = ({ name, nuxt }) => ({
-  path: resolve(nuxt.srcDir, nuxt.dir.layouts, `${name}.vue`),
+const layout: Template = ({ name, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, nuxtOptions.dir.layouts, `${name}.vue`),
   contents: `
 <script setup lang="ts"></script>
 
@@ -97,8 +97,8 @@ const layout: Template = ({ name, nuxt }) => ({
 `,
 })
 
-const page: Template = ({ name, nuxt }) => ({
-  path: resolve(nuxt.srcDir, nuxt.dir.pages, `${name}.vue`),
+const page: Template = ({ name, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, nuxtOptions.dir.pages, `${name}.vue`),
   contents: `
 <script setup lang="ts"></script>
 
