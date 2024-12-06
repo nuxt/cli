@@ -24,10 +24,8 @@ const httpMethods = [
   'patch',
 ]
 const api: Template = ({ name, args, nuxt }) => {
-  const pathRoot = nuxt.future.compatibilityVersion === 4 ? nuxt.rootDir : nuxt.srcDir
-
   return {
-    path: resolve(pathRoot, `${nuxt.serverDir}/api/${name}${applySuffix(args, httpMethods, 'method')}.ts`),
+    path: resolve(nuxt.srcDir, nuxt.serverDir, `api/${name}${applySuffix(args, httpMethods, 'method')}.ts`),
     contents: `
 export default defineEventHandler((event) => {
   return 'Hello ${name}'
@@ -37,7 +35,7 @@ export default defineEventHandler((event) => {
 }
 
 const plugin: Template = ({ name, args, nuxt }) => ({
-  path: resolve(nuxt.srcDir, `${nuxt.dir.plugins}/${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`),
+  path: resolve(nuxt.srcDir, nuxt.dir.plugins, `${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`),
   contents: `
 export default defineNuxtPlugin((nuxtApp) => {})
   `,
@@ -77,14 +75,14 @@ export const composable: Template = ({ name, nuxt }) => {
 }
 
 const middleware: Template = ({ name, args, nuxt }) => ({
-  path: resolve(nuxt.srcDir, `${nuxt.dir.middleware}/${name}${applySuffix(args, ['global'])}.ts`),
+  path: resolve(nuxt.srcDir, nuxt.dir.middleware, `${name}${applySuffix(args, ['global'])}.ts`),
   contents: `
 export default defineNuxtRouteMiddleware((to, from) => {})
 `,
 })
 
 const layout: Template = ({ name, nuxt }) => ({
-  path: resolve(nuxt.srcDir, `${nuxt.dir.layouts}/${name}.vue`),
+  path: resolve(nuxt.srcDir, nuxt.dir.layouts, `${name}.vue`),
   contents: `
 <script setup lang="ts"></script>
 
@@ -100,7 +98,7 @@ const layout: Template = ({ name, nuxt }) => ({
 })
 
 const page: Template = ({ name, nuxt }) => ({
-  path: resolve(nuxt.srcDir, `${nuxt.dir.pages}/${name}.vue`),
+  path: resolve(nuxt.srcDir, nuxt.dir.pages, `${name}.vue`),
   contents: `
 <script setup lang="ts"></script>
 
