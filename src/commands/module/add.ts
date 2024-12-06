@@ -74,14 +74,12 @@ export default defineCommand({
       }
     }
 
-    for (const moduleName of modules) {
-      const r = await resolveModule(moduleName, cwd)
-      if (r === false) {
-        return
-      }
-      consola.info(`${moduleName} has been resolved. Adding module...`)
-      await addModule(r, ctx.args, projectPkg)
-    }
+    const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
+    const r = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
+
+    consola.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
+
+    await addModule(r, ctx.args, projectPkg)
 
     // update the types for new module
     const args = Object.entries(ctx.args).filter(([k]) => k in sharedArgs).map(([k, v]) => `--${k}=${v}`)
@@ -90,22 +88,20 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function addModule(r: ResolvedModule, { skipInstall, skipConfig, cwd }: { skipInstall: boolean, skipConfig: boolean, cwd: string }, projectPkg: any) {
+async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd }: { skipInstall: boolean, skipConfig: boolean, cwd: string }, projectPkg: any) {
   // Add npm dependency
   if (!skipInstall) {
     const isDev = Boolean(projectPkg.devDependencies?.nuxt)
-    consola.info(
-      `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
-    )
-    const res = await addDependency(r.pkg, { cwd, dev: isDev, installPeerDependencies: true }).catch(
+    consola.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
+    const res = await addDependency(r.map(x => x.pkg), { cwd, dev: isDev, installPeerDependencies: true }).catch(
       (error) => {
         consola.error(error)
         return consola.prompt(
-          `Install failed for ${colors.cyan(
-            r.pkg,
-          )}. Do you want to continue adding the module to ${colors.cyan(
-            'nuxt.config',
-          )}?`,
+          `Install failed for ${
+            r.map(x => colors.cyan(x.pkg)).join(', ')
+          }. Do you want to continue adding the module(s) to ${
+            colors.cyan('nuxt.config')
+          }?`,
           {
             type: 'confirm',
             initial: false,
@@ -128,19 +124,21 @@ async function addModule(r: ResolvedModule, { skipInstall, skipConfig, cwd }: { 
         return getDefaultNuxtConfig()
       },
       async onUpdate(config) {
-        if (!config.modules) {
-          config.modules = []
+        for (const resolved of r) {
+          if (!config.modules) {
+            config.modules = []
+          }
+          if (config.modules.includes(resolved.pkgName)) {
+            consola.info(`\`${resolved.pkgName}\` is already in the \`modules\``)
+            return
+          }
+          consola.info(`Adding \`${resolved.pkgName}\` to the \`modules\``)
+          config.modules.push(resolved.pkgName)
         }
-        if (config.modules.includes(r.pkgName)) {
-          consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-          return
-        }
-        consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
-        config.modules.push(r.pkgName)
       },
     }).catch((error) => {
       consola.error(`Failed to update \`nuxt.config\`: ${error.message}`)
-      consola.error(`Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``)
+      consola.error(`Please manually add \`${r.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
       return null
     })
   }
