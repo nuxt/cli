@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
 import buildCommand from './build'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -12,10 +12,7 @@ export default defineCommand({
     ...sharedArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     ctx.args.prerender = true

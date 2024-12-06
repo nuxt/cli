@@ -17,7 +17,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -31,10 +31,7 @@ const command = defineCommand({
     ...envNameArgs,
     ...legacyRootDirArgs,
     ...getListhenArgs(),
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',

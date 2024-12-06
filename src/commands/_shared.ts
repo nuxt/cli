@@ -16,6 +16,13 @@ export const envNameArgs = {
   },
 } as const
 
+export const dotEnvArgs = {
+  dotenv: {
+    type: 'string',
+    description: 'Path to .env file',
+  },
+} as const
+
 export const legacyRootDirArgs = {
   rootDir: {
     type: 'positional',

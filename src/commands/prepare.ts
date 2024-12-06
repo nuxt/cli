@@ -7,7 +7,7 @@ import { defineCommand } from 'citty'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -15,10 +15,7 @@ export default defineCommand({
     description: 'Prepare Nuxt for development/build',
   },
   args: {
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
     ...sharedArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
