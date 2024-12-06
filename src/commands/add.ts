@@ -61,10 +61,13 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
-    const res = template({ name, args: ctx.args })
+    const res = template({ name, args: ctx.args, nuxt: config })
+
+    // Change resolution root dir when applicable
+    const resolveFromRoot = config.future.compatibilityVersion === 4 && templateName === 'api'
 
     // Resolve full path to generated file
-    const path = resolve(config.srcDir, res.path)
+    const path = resolve(resolveFromRoot ? config.rootDir : config.srcDir, res.path)
 
     // Ensure not overriding user code
     if (!ctx.args.force && existsSync(path)) {

@@ -1,8 +1,10 @@
 import { camelCase, upperFirst } from 'scule'
+import type { NuxtOptions } from '@nuxt/schema'
 
 interface TemplateOptions {
   name: string
   args: Record<string, any>
+  nuxt: NuxtOptions
 }
 
 interface Template {
@@ -20,8 +22,8 @@ const httpMethods = [
   'trace',
   'patch',
 ]
-const api: Template = ({ name, args }) => ({
-  path: `server/api/${name}${applySuffix(args, httpMethods, 'method')}.ts`,
+const api: Template = ({ name, args, nuxt }) => ({
+  path: `${nuxt.serverDir}/api/${name}${applySuffix(args, httpMethods, 'method')}.ts`,
   contents: `
 export default defineEventHandler((event) => {
   return 'Hello ${name}'
@@ -29,8 +31,8 @@ export default defineEventHandler((event) => {
 `,
 })
 
-const plugin: Template = ({ name, args }) => ({
-  path: `plugins/${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`,
+const plugin: Template = ({ name, args, nuxt }) => ({
+  path: `${nuxt.dir.plugins}/${name}${applySuffix(args, ['client', 'server'], 'mode')}.ts`,
   contents: `
 export default defineNuxtPlugin((nuxtApp) => {})
   `,
@@ -69,15 +71,15 @@ export const composable: Template = ({ name }) => {
   }
 }
 
-const middleware: Template = ({ name, args }) => ({
-  path: `middleware/${name}${applySuffix(args, ['global'])}.ts`,
+const middleware: Template = ({ name, args, nuxt }) => ({
+  path: `${nuxt.dir.middleware}/${name}${applySuffix(args, ['global'])}.ts`,
   contents: `
 export default defineNuxtRouteMiddleware((to, from) => {})
 `,
 })
 
-const layout: Template = ({ name }) => ({
-  path: `layouts/${name}.vue`,
+const layout: Template = ({ name, nuxt }) => ({
+  path: `${nuxt.dir.layouts}/${name}.vue`,
   contents: `
 <script setup lang="ts"></script>
 
@@ -92,8 +94,8 @@ const layout: Template = ({ name }) => ({
 `,
 })
 
-const page: Template = ({ name }) => ({
-  path: `pages/${name}.vue`,
+const page: Template = ({ name, nuxt }) => ({
+  path: `${nuxt.dir.pages}/${name}.vue`,
   contents: `
 <script setup lang="ts"></script>
 
