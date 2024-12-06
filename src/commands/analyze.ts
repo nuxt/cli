@@ -52,8 +52,8 @@ export default defineCommand({
           build: {
             rollupOptions: {
               output: {
-                chunkFileNames: '_nuxt/[name].[hash].js',
-                entryFileNames: '_nuxt/[name].[hash].js',
+                chunkFileNames: '_nuxt/[name].js',
+                entryFileNames: '_nuxt/[name].js',
               },
             },
           },
