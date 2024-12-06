@@ -63,22 +63,16 @@ export default defineCommand({
     // Resolve template
     const res = template({ name, args: ctx.args, nuxt: config })
 
-    // Change resolution root dir when applicable
-    const resolveFromRoot = config.future.compatibilityVersion === 4 && templateName === 'api'
-
-    // Resolve full path to generated file
-    const path = resolve(resolveFromRoot ? config.rootDir : config.srcDir, res.path)
-
     // Ensure not overriding user code
-    if (!ctx.args.force && existsSync(path)) {
+    if (!ctx.args.force && existsSync(res.path)) {
       consola.error(
-        `File exists: ${path} . Use --force to override or use a different name.`,
+        `File exists: ${res.path} . Use --force to override or use a different name.`,
       )
       process.exit(1)
     }
 
     // Ensure parent directory exists
-    const parentDir = dirname(path)
+    const parentDir = dirname(res.path)
     if (!existsSync(parentDir)) {
       consola.info('Creating directory', parentDir)
       if (templateName === 'page') {
@@ -88,7 +82,7 @@ export default defineCommand({
     }
 
     // Write file
-    await fsp.writeFile(path, res.contents.trim() + '\n')
-    consola.info(`🪄 Generated a new ${templateName} in ${path}`)
+    await fsp.writeFile(res.path, res.contents.trim() + '\n')
+    consola.info(`🪄 Generated a new ${templateName} in ${res.path}`)
   },
 })
