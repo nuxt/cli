@@ -6,7 +6,7 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -23,10 +23,7 @@ export default defineCommand({
       type: 'string',
       description: 'Nitro server preset',
     },
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
   },

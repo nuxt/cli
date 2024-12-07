@@ -8,7 +8,7 @@ import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -18,6 +18,7 @@ export default defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
+    ...dotEnvArgs,
     name: {
       type: 'string',
       description: 'Name of the analysis',
@@ -42,6 +43,10 @@ export default defineCommand({
 
     const nuxt = await loadNuxt({
       cwd,
+      dotenv: {
+        cwd,
+        fileName: ctx.args.dotenv,
+      },
       overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: {

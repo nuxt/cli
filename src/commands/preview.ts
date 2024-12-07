@@ -8,7 +8,7 @@ import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -19,10 +19,7 @@ export default defineCommand({
     ...sharedArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
