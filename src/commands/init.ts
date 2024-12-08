@@ -1,10 +1,11 @@
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { relative, resolve } from 'pathe'
+import { relative, resolve, join } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
+import { readPackageJSON, writePackageJSON } from 'pkg-types'
 
 import { sharedArgs } from './_shared'
 
@@ -83,6 +84,13 @@ export default defineCommand({
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
+
+      if (ctx.args.dir.length > 0) {
+        const pkg = await readPackageJSON(template.dir)
+        // Handles paths like ../some/dir with sane fallback
+        pkg.name = ctx.args.dir.split('/').at(-1) || pkg.name
+        await writePackageJSON(join(template.dir, 'package.json'), pkg)
+      }
     }
     catch (err) {
       if (process.env.DEBUG) {
