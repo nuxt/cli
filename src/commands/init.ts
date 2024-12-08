@@ -6,7 +6,7 @@ import { installDependencies } from 'nypm'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 
-import { sharedArgs } from './_shared'
+import { cwdArgs } from './_shared'
 
 const DEFAULT_REGISTRY
   = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
@@ -18,7 +18,7 @@ export default defineCommand({
     description: 'Initialize a fresh project',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
     dir: {
       type: 'positional',
       description: 'Project directory',

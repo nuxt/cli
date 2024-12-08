@@ -17,7 +17,7 @@ import {
 import { findup } from '../utils/fs'
 
 import nuxiPkg from '../../package.json'
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -25,7 +25,7 @@ export default defineCommand({
     description: 'Get information about Nuxt project',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {

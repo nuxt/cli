@@ -7,7 +7,7 @@ import { defineCommand } from 'citty'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,7 +16,8 @@ export default defineCommand({
   },
   args: {
     ...dotEnvArgs,
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
   },

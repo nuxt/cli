@@ -6,7 +6,7 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -14,7 +14,8 @@ export default defineCommand({
     description: 'Build Nuxt for production deployment',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     prerender: {
       type: 'boolean',
       description: 'Build Nuxt and prerender static routes',

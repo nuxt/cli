@@ -9,7 +9,7 @@ import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 import { tryResolveModule } from '../utils/esm'
 import { loadKit } from '../utils/kit'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -17,7 +17,8 @@ export default defineCommand({
     description: 'Runs `vue-tsc` to check types throughout your app.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {

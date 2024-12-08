@@ -1,7 +1,7 @@
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -9,7 +9,8 @@ export default defineCommand({
     description: 'Run tests',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     dev: {
       type: 'boolean',

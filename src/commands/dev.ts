@@ -17,7 +17,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -27,8 +27,8 @@ const command = defineCommand({
     description: 'Run Nuxt development server',
   },
   args: {
-    ...sharedArgs,
-    ...envNameArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     ...getListhenArgs(),
     ...dotEnvArgs,

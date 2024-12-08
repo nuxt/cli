@@ -8,7 +8,7 @@ import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,7 +16,8 @@ export default defineCommand({
     description: 'Launches Nitro server for local testing after `nuxi build`.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
     ...dotEnvArgs,
