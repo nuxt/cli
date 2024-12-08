@@ -30,7 +30,7 @@ export default defineCommand({
   },
   async run(ctx) {
     // Find local installed version
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const hasLocal = await tryResolveModule(
       `${MODULE_BUILDER_PKG}/package.json`,

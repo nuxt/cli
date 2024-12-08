@@ -47,7 +47,7 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
+    const cwd = resolve(ctx.args.cwd)
     const projectPkg = await getProjectPackage(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {

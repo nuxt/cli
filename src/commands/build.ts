@@ -30,7 +30,7 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     showVersions(cwd)
 

@@ -33,7 +33,7 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^\w-]/g, '_')
 

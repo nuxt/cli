@@ -31,7 +31,7 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const nuxtVersion = await getNuxtVersion(ctx.args.cwd || '.')
+    const nuxtVersion = await getNuxtVersion(ctx.args.cwd)
     return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })
