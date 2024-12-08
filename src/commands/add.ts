@@ -30,7 +30,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
+    const cwd = resolve(ctx.args.cwd)
 
     const templateName = ctx.args.template
     const template = templates[templateName]

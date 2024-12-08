@@ -61,7 +61,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
+    const cwd = resolve(ctx.args.cwd)
 
     // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME

@@ -29,7 +29,7 @@ export default defineCommand({
 
     // Prepare
     overrideEnv('development')
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Get dev context info
     const devContext: NuxtDevContext

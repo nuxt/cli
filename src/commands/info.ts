@@ -30,7 +30,7 @@ export default defineCommand({
   },
   async run(ctx) {
     // Resolve rootDir
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Load Nuxt config
     const nuxtConfig = await getNuxtConfig(cwd)

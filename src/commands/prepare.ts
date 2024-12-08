@@ -23,7 +23,7 @@ export default defineCommand({
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const {
       loadNuxt,

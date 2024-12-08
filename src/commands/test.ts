@@ -11,10 +11,6 @@ export default defineCommand({
   args: {
     ...sharedArgs,
     ...legacyRootDirArgs,
-    cwd: {
-      type: 'string',
-      description: 'Current working directory',
-    },
     dev: {
       type: 'boolean',
       description: 'Run in dev mode',
@@ -27,7 +23,7 @@ export default defineCommand({
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'test'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const { runTests } = await importTestUtils()
     await runTests({

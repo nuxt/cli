@@ -19,7 +19,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
       console.error(`Unknown command \`${ctx.args.command}\`.`)

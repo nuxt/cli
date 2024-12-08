@@ -45,7 +45,7 @@ const command = defineCommand({
   async run(ctx) {
     // Prepare
     overrideEnv('development')
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     showVersions(cwd)
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
