@@ -29,6 +29,7 @@ const command = defineCommand({
   args: {
     ...cwdArgs,
     ...logLevelArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     ...getListhenArgs(),
     ...dotEnvArgs,
