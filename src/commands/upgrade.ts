@@ -14,7 +14,7 @@ import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 
 import { loadKit } from '../utils/kit'
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
   try {
@@ -80,7 +80,8 @@ export default defineCommand({
     description: 'Upgrade Nuxt',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     force: {
       type: 'boolean',
@@ -95,7 +96,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Check package manager
     const packageManager = getPackageManager(cwd)

@@ -3,7 +3,7 @@ import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 import { tryResolveModule } from '../utils/esm'
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'
 
@@ -13,7 +13,8 @@ export default defineCommand({
     description: `Helper command for using ${MODULE_BUILDER_PKG}`,
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     stub: {
       type: 'boolean',
@@ -30,7 +31,7 @@ export default defineCommand({
   },
   async run(ctx) {
     // Find local installed version
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const hasLocal = await tryResolveModule(
       `${MODULE_BUILDER_PKG}/package.json`,

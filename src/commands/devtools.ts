@@ -2,7 +2,7 @@ import { resolve } from 'pathe'
 import { execa } from 'execa'
 import { defineCommand } from 'citty'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -10,7 +10,7 @@ export default defineCommand({
     description: 'Enable or disable devtools in a Nuxt project',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
     command: {
       type: 'positional',
       description: 'Command to run',
@@ -19,7 +19,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
       console.error(`Unknown command \`${ctx.args.command}\`.`)

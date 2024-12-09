@@ -17,7 +17,7 @@ import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -27,7 +27,8 @@ const command = defineCommand({
     description: 'Run Nuxt development server',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
     ...getListhenArgs(),
@@ -45,7 +46,7 @@ const command = defineCommand({
   async run(ctx) {
     // Prepare
     overrideEnv('development')
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     showVersions(cwd)
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
