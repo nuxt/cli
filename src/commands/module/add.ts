@@ -45,7 +45,7 @@ export default defineCommand({
     ...logLevelArgs,
     moduleName: {
       type: 'positional',
-      description: 'Module name',
+      description: 'Specify one or more modules to install by name, separated by spaces',
     },
     skipInstall: {
       type: 'boolean',
