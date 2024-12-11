@@ -3,7 +3,7 @@ import consola from 'consola'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
-import { sharedArgs } from '../_shared'
+import { cwdArgs } from '../_shared'
 import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
@@ -17,7 +17,7 @@ export default defineCommand({
     description: 'Search in Nuxt modules',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
     query: {
       type: 'positional',
       description: 'keywords to search for',
@@ -31,7 +31,7 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const nuxtVersion = await getNuxtVersion(ctx.args.cwd || '.')
+    const nuxtVersion = await getNuxtVersion(ctx.args.cwd)
     return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })

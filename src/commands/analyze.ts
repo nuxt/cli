@@ -8,7 +8,7 @@ import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
-import { sharedArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,7 +16,8 @@ export default defineCommand({
     description: 'Build nuxt and analyze production bundle (experimental)',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     ...dotEnvArgs,
     name: {
@@ -33,7 +34,7 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^\w-]/g, '_')
 

@@ -4,7 +4,7 @@ import { consola } from 'consola'
 import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { templates } from '../utils/templates'
-import { sharedArgs } from './_shared'
+import { cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -12,7 +12,8 @@ export default defineCommand({
     description: 'Create a new template file.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     force: {
       type: 'boolean',
       description: 'Override existing file',
@@ -30,7 +31,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
+    const cwd = resolve(ctx.args.cwd)
 
     const templateName = ctx.args.template
     const template = templates[templateName]

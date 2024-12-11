@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
 import buildCommand from './build'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs, dotEnvArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -9,7 +9,8 @@ export default defineCommand({
     description: 'Build Nuxt and prerender all routes',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
     ...dotEnvArgs,
