@@ -88,6 +88,10 @@ export default defineCommand({
       alias: 'f',
       description: 'Force upgrade to recreate lockfile and node_modules',
     },
+    dedupe: {
+      type: 'boolean',
+      description: 'Dedupe dependencies after upgrading',
+    },
     channel: {
       type: 'string',
       alias: 'ch',
@@ -131,19 +135,39 @@ export default defineCommand({
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
       .map(p => colors.cyan(p))
       .join(' and ')
-    if (ctx.args.force === undefined) {
-      ctx.args.force = await consola.prompt(
-        `Would you like to recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
-        {
-          type: 'confirm',
-          default: true,
-        },
-      )
+
+    let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+    // @ts-expect-error can be removed on next consola release
+    method ||= await consola.prompt(
+      `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
+      {
+        type: 'select',
+        initial: 'dedupe',
+        options: [
+          {
+            label: 'dedupe lockfile',
+            value: 'dedupe' as const,
+            hint: 'recommended',
+          },
+          {
+            label: `recreate ${forceRemovals}`,
+            value: 'force' as const,
+          },
+          {
+            label: 'skip',
+            value: 'skip' as const,
+          },
+        ],
+      },
+    )
+
+    // user bails on the question with Ctrl+C
+    if (typeof method !== 'string') {
+      process.exit(1)
     }
-    if (ctx.args.force) {
-      consola.info(
-        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
-      )
+
+    if (method === 'force') {
+      consola.info(`Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``)
       await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
       await touchFile(pmLockFile)
     }
@@ -160,6 +184,14 @@ export default defineCommand({
     ].filter(Boolean).join(' ')
 
     execSync(command, { stdio: 'inherit', cwd })
+
+    if (method === 'dedupe') {
+      if (packageManager !== 'bun') {
+        consola.info('Deduping dependencies...')
+        execSync(`${packageManager} dedupe`, { stdio: 'inherit', cwd })
+      }
+      consola.info(`Deduping dependencies is not yet supported with ${packageManager}.`)
+    }
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'
