@@ -26,6 +26,15 @@ export type RegistryMeta = {
   authToken: string | null
 }
 
+type ResolvedModule = {
+  nuxtModule?: NuxtModule
+  pkg: string
+  pkgName: string
+  pkgVersion: string
+}
+type UnresolvedModule = false
+type ModuleResolution = ResolvedModule | UnresolvedModule
+
 export default defineCommand({
   meta: {
     name: 'add',
@@ -36,7 +45,7 @@ export default defineCommand({
     ...logLevelArgs,
     moduleName: {
       type: 'positional',
-      description: 'Module name',
+      description: 'Specify one or more modules to install by name, separated by spaces',
     },
     skipInstall: {
       type: 'boolean',
@@ -49,6 +58,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
+    const modules = ctx.args._
     const projectPkg = await getProjectPackage(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
@@ -65,64 +75,12 @@ export default defineCommand({
       }
     }
 
-    const r = await resolveModule(ctx.args.moduleName, cwd)
-    if (r === false) {
-      return
-    }
+    const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
+    const r = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
 
-    // Add npm dependency
-    if (!ctx.args.skipInstall) {
-      const isDev = Boolean(projectPkg.devDependencies?.nuxt)
-      consola.info(
-        `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
-      )
-      const res = await addDependency(r.pkg, { cwd, dev: isDev, installPeerDependencies: true }).catch(
-        (error) => {
-          consola.error(error)
-          return consola.prompt(
-            `Install failed for ${colors.cyan(
-              r.pkg,
-            )}. Do you want to continue adding the module to ${colors.cyan(
-              'nuxt.config',
-            )}?`,
-            {
-              type: 'confirm',
-              initial: false,
-            },
-          )
-        },
-      )
-      if (res === false) {
-        return
-      }
-    }
+    consola.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
 
-    // Update nuxt.config.ts
-    if (!ctx.args.skipConfig) {
-      await updateConfig({
-        cwd,
-        configFile: 'nuxt.config',
-        async onCreate() {
-          consola.info(`Creating \`nuxt.config.ts\``)
-          return getDefaultNuxtConfig()
-        },
-        async onUpdate(config) {
-          if (!config.modules) {
-            config.modules = []
-          }
-          if (config.modules.includes(r.pkgName)) {
-            consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-            return
-          }
-          consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
-          config.modules.push(r.pkgName)
-        },
-      }).catch((error) => {
-        consola.error(`Failed to update \`nuxt.config\`: ${error.message}`)
-        consola.error(`Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``)
-        return null
-      })
-    }
+    await addModule(r, ctx.args, projectPkg)
 
     // update the types for new module
     const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
@@ -131,6 +89,62 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
+async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd }: { skipInstall: boolean, skipConfig: boolean, cwd: string }, projectPkg: any) {
+  // Add npm dependency
+  if (!skipInstall) {
+    const isDev = Boolean(projectPkg.devDependencies?.nuxt)
+    consola.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
+    const res = await addDependency(r.map(x => x.pkg), { cwd, dev: isDev, installPeerDependencies: true }).catch(
+      (error) => {
+        consola.error(error)
+        return consola.prompt(
+          `Install failed for ${
+            r.map(x => colors.cyan(x.pkg)).join(', ')
+          }. Do you want to continue adding the module(s) to ${
+            colors.cyan('nuxt.config')
+          }?`,
+          {
+            type: 'confirm',
+            initial: false,
+          },
+        )
+      },
+    )
+    if (res === false) {
+      return
+    }
+  }
+
+  // Update nuxt.config.ts
+  if (!skipConfig) {
+    await updateConfig({
+      cwd,
+      configFile: 'nuxt.config',
+      async onCreate() {
+        consola.info(`Creating \`nuxt.config.ts\``)
+        return getDefaultNuxtConfig()
+      },
+      async onUpdate(config) {
+        for (const resolved of r) {
+          if (!config.modules) {
+            config.modules = []
+          }
+          if (config.modules.includes(resolved.pkgName)) {
+            consola.info(`\`${resolved.pkgName}\` is already in the \`modules\``)
+            return
+          }
+          consola.info(`Adding \`${resolved.pkgName}\` to the \`modules\``)
+          config.modules.push(resolved.pkgName)
+        }
+      },
+    }).catch((error) => {
+      consola.error(`Failed to update \`nuxt.config\`: ${error.message}`)
+      consola.error(`Please manually add \`${r.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
+      return null
+    })
+  }
+}
+
 function getDefaultNuxtConfig() {
   return `
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -143,18 +157,7 @@ export default defineNuxtConfig({
 const packageRegex
   = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
 
-async function resolveModule(
-  moduleName: string,
-  cwd: string,
-): Promise<
-  | false
-  | {
-    nuxtModule?: NuxtModule
-    pkg: string
-    pkgName: string
-    pkgVersion: string
-  }
-  > {
+async function resolveModule(moduleName: string, cwd: string): Promise<ModuleResolution> {
   let pkgName = moduleName
   let pkgVersion: string | undefined
 
@@ -362,7 +365,7 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
       }
     }
     catch {
-    // swallow errors as file does not exist
+      // swallow errors as file does not exist
     }
     finally {
       await fd?.close()
