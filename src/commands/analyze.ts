@@ -8,7 +8,7 @@ import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,8 +16,10 @@ export default defineCommand({
     description: 'Build nuxt and analyze production bundle (experimental)',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
+    ...dotEnvArgs,
     name: {
       type: 'string',
       description: 'Name of the analysis',
@@ -32,7 +34,7 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^\w-]/g, '_')
 
@@ -42,10 +44,24 @@ export default defineCommand({
 
     const nuxt = await loadNuxt({
       cwd,
+      dotenv: {
+        cwd,
+        fileName: ctx.args.dotenv,
+      },
       overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: {
             enabled: true,
+          },
+        },
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                chunkFileNames: '_nuxt/[name].js',
+                entryFileNames: '_nuxt/[name].js',
+              },
+            },
           },
         },
         logLevel: ctx.args.logLevel,

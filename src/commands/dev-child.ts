@@ -5,7 +5,7 @@ import { isTest } from 'std-env'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { createNuxtDevServer } from '../utils/dev'
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -14,7 +14,8 @@ export default defineCommand({
       'Run Nuxt development server (internal command to start child process)',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
   },
@@ -29,7 +30,7 @@ export default defineCommand({
 
     // Prepare
     overrideEnv('development')
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Get dev context info
     const devContext: NuxtDevContext

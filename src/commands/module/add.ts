@@ -11,7 +11,7 @@ import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
-import { sharedArgs } from '../_shared'
+import { cwdArgs, logLevelArgs } from '../_shared'
 import { runCommand } from '../../run'
 import {
   checkNuxtCompatibility,
@@ -41,7 +41,8 @@ export default defineCommand({
     description: 'Add Nuxt modules',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     moduleName: {
       type: 'positional',
       description: 'Module name',
@@ -56,7 +57,7 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
+    const cwd = resolve(ctx.args.cwd)
     const modules = ctx.args._
     const projectPkg = await getProjectPackage(cwd)
 
@@ -82,7 +83,7 @@ export default defineCommand({
     await addModule(r, ctx.args, projectPkg)
 
     // update the types for new module
-    const args = Object.entries(ctx.args).filter(([k]) => k in sharedArgs).map(([k, v]) => `--${k}=${v}`)
+    const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
     await runCommand('prepare', args)
   },
 })

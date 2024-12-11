@@ -8,7 +8,7 @@ import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,18 +16,16 @@ export default defineCommand({
     description: 'Launches Nitro server for local testing after `nuxi build`.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({

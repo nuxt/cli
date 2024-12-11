@@ -6,7 +6,7 @@ import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
 import { showVersions } from '../utils/banner'
-import { sharedArgs, envNameArgs, legacyRootDirArgs } from './_shared'
+import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -14,7 +14,8 @@ export default defineCommand({
     description: 'Build Nuxt for production deployment',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     prerender: {
       type: 'boolean',
       description: 'Build Nuxt and prerender static routes',
@@ -23,17 +24,14 @@ export default defineCommand({
       type: 'string',
       description: 'Nitro server preset',
     },
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     showVersions(cwd)
 
