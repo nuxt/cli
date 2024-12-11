@@ -32,15 +32,15 @@ export const dotEnvArgs = {
 } as const satisfies Record<string, ArgDef>
 
 export const legacyRootDirArgs = {
-  // cwd falls back to rootDir's default (indirect default) to ease migration
+  // cwd falls back to rootDir's default (indirect default)
   cwd: {
     ...cwdArgs.cwd,
-    description: 'Specify the working directory (default: `.`)',
+    description: 'Specify the working directory, this takes precedence over ROOTDIR (default: `.`)',
     default: undefined,
   },
   rootDir: {
     type: 'positional',
-    description: '(DEPRECATED) Use `--cwd` instead. Specifies the working directory (default: `.`)',
+    description: 'Specifies the working directory (default: `.`)',
     required: false,
     default: '.',
   },
