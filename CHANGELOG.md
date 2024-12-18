@@ -1,6 +1,32 @@
 # Changelog
 
 
+## v3.17.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.16.0...v3.17.0)
+
+### 🚀 Enhancements
+
+- **module:** Add multiple modules at once ([#584](https://github.com/nuxt/cli/pull/584))
+
+### 🩹 Fixes
+
+- **analyze:** Show readable chunk names ([#587](https://github.com/nuxt/cli/pull/587))
+- **add:** Respect custom dirs from nuxt project ([#586](https://github.com/nuxt/cli/pull/586))
+- **cleanup:** Remove dev `buildDir` when cleaning up ([#590](https://github.com/nuxt/cli/pull/590))
+- **analyze:** Support `--dotenv` argument ([#589](https://github.com/nuxt/cli/pull/589))
+- **dev:** Use `SIGTERM` instead of `SIGHUP` on windows ([#603](https://github.com/nuxt/cli/pull/603))
+- **dev:** Restart nuxt if unhandled rejection occurs ([#602](https://github.com/nuxt/cli/pull/602))
+
+### 💅 Refactors
+
+- Share command descriptions and `--cwd` default ([#592](https://github.com/nuxt/cli/pull/592))
+
+### ❤️ Contributors
+
+- Bobbie Goede <bobbiegoede@gmail.com>
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.16.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.15.0...v3.16.0)
