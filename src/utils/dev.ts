@@ -304,7 +304,10 @@ class NuxtDevServer extends EventEmitter {
         depth: 0,
       },
     )
-    configWatcher.on('all', (_event, _file) => {
+    configWatcher.on('all', (event, _file) => {
+      if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw' || _file instanceof Error) {
+        return
+      }
       const file = relative(this.options.cwd, _file)
       if (file === (this.options.dotenv || '.env')) {
         this.emit('restart')
