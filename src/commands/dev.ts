@@ -166,8 +166,13 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
   }
 
   const restart = async () => {
-    // Kill previous process with restart signal
-    kill('SIGHUP')
+    // Kill previous process with restart signal (not supported on Windows)
+    if (process.platform === 'win32') {
+      kill('SIGTERM')
+    }
+    else {
+      kill('SIGHUP')
+    }
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
       execArgv: [
