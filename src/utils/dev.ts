@@ -20,6 +20,7 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
   | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
+  | { type: 'nuxt:internal:dev:rejection', message: string }
 
 export interface NuxtDevContext {
   proxy?: {

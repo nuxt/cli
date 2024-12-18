@@ -51,8 +51,8 @@ export default defineCommand({
       }
     }
 
-    process.once('unhandledRejection', () => {
-      sendIPCMessage({ type: 'nuxt:internal:dev:restart' })
+    process.once('unhandledRejection', (reason) => {
+      sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
       process.exit()
     })
 
