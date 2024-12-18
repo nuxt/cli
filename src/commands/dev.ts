@@ -12,6 +12,7 @@ import {
 } from 'listhen/cli'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { NuxtOptions } from '@nuxt/schema'
+import { consola } from 'consola'
 import { showVersions } from '../utils/banner'
 import { loadKit } from '../utils/kit'
 import { importModule } from '../utils/esm'
@@ -208,6 +209,10 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
         devProxy.setLoadingMessage(message.message)
       }
       else if (message.type === 'nuxt:internal:dev:restart') {
+        restart()
+      }
+      else if (message.type === 'nuxt:internal:dev:rejection') {
+        consola.withTag('nuxi').info(`Restarting Nuxt due to error: \`${message.message}\``)
         restart()
       }
     })

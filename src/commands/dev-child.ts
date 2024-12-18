@@ -36,18 +36,6 @@ export default defineCommand({
     const devContext: NuxtDevContext
       = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
 
-    // Init Nuxt dev
-    const nuxtDev = await createNuxtDevServer({
-      cwd,
-      overrides: ctx.data?.overrides,
-      logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-      clear: !!ctx.args.clear,
-      dotenv: !!ctx.args.dotenv,
-      envName: ctx.args.envName,
-      port: process.env._PORT ?? undefined,
-      devContext,
-    })
-
     // IPC Hooks
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
       if (process.send) {
@@ -62,6 +50,24 @@ export default defineCommand({
         )
       }
     }
+
+    process.once('unhandledRejection', (reason) => {
+      sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+      process.exit()
+    })
+
+    // Init Nuxt dev
+    const nuxtDev = await createNuxtDevServer({
+      cwd,
+      overrides: ctx.data?.overrides,
+      logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+      clear: !!ctx.args.clear,
+      dotenv: !!ctx.args.dotenv,
+      envName: ctx.args.envName,
+      port: process.env._PORT ?? undefined,
+      devContext,
+    })
+
     nuxtDev.on('loading', (message) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
     })
