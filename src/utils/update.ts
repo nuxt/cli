@@ -1,6 +1,6 @@
 import { $fetch } from 'ofetch'
 import { cyan, green, yellow, underline } from 'colorette'
-import consola from 'consola'
+import { consola } from 'consola'
 import * as semver from 'semver'
 import nuxiPkg from '../../package.json'
 
