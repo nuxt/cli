@@ -32,10 +32,10 @@ export interface NuxtDevContext {
 
 export interface NuxtDevServerOptions {
   cwd: string
-  logLevel: 'silent' | 'info' | 'verbose'
+  logLevel?: 'silent' | 'info' | 'verbose'
   dotenv: boolean
-  envName: string
-  clear: boolean
+  envName?: string
+  clear?: boolean
   overrides: NuxtConfig
   port?: string | number
   loadingTemplate?: ({ loading }: { loading: string }) => string
