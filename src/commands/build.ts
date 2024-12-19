@@ -41,7 +41,7 @@ export default defineCommand({
       = ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET
     const nitroPreset = ctx.args.prerender ? 'static' : resolvedNitroPreset
     if (nitroPreset) {
-      if (ctx.args.prerender && nitroPreset) {
+      if (ctx.args.prerender && resolvedNitroPreset) {
         consola.warn(
           `\`--prerender\` is set. Ignoring \`--preset\`, \`NITRO_PRESET\`, \`SERVER_PRESET\` (${resolvedNitroPreset})`,
         )
