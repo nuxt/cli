@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.17.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.0...v3.17.1)
+
+### 🩹 Fixes
+
+- **module:** Pass resolved `cwd` to `addDependency` ([#606](https://github.com/nuxt/cli/pull/606))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.17.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.16.0...v3.17.0)
