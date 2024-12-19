@@ -305,7 +305,7 @@ class NuxtDevServer extends EventEmitter {
       },
     )
     configWatcher.on('all', (event, _file) => {
-      if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw' || _file instanceof Error) {
+      if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw') {
         return
       }
       const file = relative(this.options.cwd, _file)
