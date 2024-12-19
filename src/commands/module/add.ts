@@ -58,7 +58,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
-    const modules = ctx.args._
+    const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
     const projectPkg = await getProjectPackage(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
@@ -80,7 +80,7 @@ export default defineCommand({
 
     consola.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
 
-    await addModule(r, ctx.args, projectPkg)
+    await addModule(r, { ...ctx.args, cwd }, projectPkg)
 
     // update the types for new module
     const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
