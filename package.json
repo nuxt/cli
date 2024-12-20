@@ -38,7 +38,7 @@
     "test:unit": "vitest --coverage"
   },
   "devDependencies": {
-    "@nuxt/eslint-config": "^0.7.3",
+    "@nuxt/eslint-config": "^0.7.4",
     "@nuxt/kit": "^3.14.1592",
     "@nuxt/schema": "^3.14.1592",
     "@nuxt/test-utils": "^3.15.1",
