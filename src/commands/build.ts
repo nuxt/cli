@@ -37,12 +37,6 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
-    let nitroPreset
-      = ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET
-    if (ctx.args.prerender) {
-      nitroPreset ??= 'static'
-    }
-
     const nuxt = await kit.loadNuxt({
       cwd,
       dotenv: {
@@ -56,7 +50,7 @@ export default defineCommand({
         _generate: ctx.args.prerender,
         nitro: {
           static: ctx.args.prerender,
-          preset: nitroPreset,
+          preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
         },
         ...ctx.data?.overrides,
       },
@@ -67,6 +61,7 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
+      consola.info(`Using Nitro server preset: \`${nitro.options.preset}\``)
     }
     catch {
       //
