@@ -11,9 +11,13 @@ export default defineCommand({
   args: {
     ...cwdArgs,
     ...logLevelArgs,
+    preset: {
+      type: 'string',
+      description: 'Nitro server preset',
+    },
+    ...dotEnvArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    ...dotEnvArgs,
   },
   async run(ctx) {
     ctx.args.prerender = true

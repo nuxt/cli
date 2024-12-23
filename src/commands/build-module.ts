@@ -16,17 +16,25 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...legacyRootDirArgs,
+    build: {
+      type: 'boolean',
+      description: 'Build module for distribution',
+      default: false,
+    },
     stub: {
       type: 'boolean',
       description: 'Stub dist instead of actually building it for development',
+      default: false,
     },
     sourcemap: {
       type: 'boolean',
       description: 'Generate sourcemaps',
+      default: false,
     },
     prepare: {
       type: 'boolean',
       description: 'Prepare module for local development',
+      default: false,
     },
   },
   async run(ctx) {
