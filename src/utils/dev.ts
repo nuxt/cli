@@ -123,11 +123,7 @@ class NuxtDevServer extends EventEmitter {
     const loadingTemplate
       = this.options.loadingTemplate
       || this._currentNuxt?.options.devServer.loadingTemplate
-      || (
-        await importModule('@nuxt/ui-templates', this.options.cwd).then(
-          r => r.loading,
-        )
-      ).catch(() => {})
+      || await importModule('@nuxt/ui-templates', this.options.cwd).then(r => r.loading).catch(() => {})
       || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
