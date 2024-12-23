@@ -110,11 +110,8 @@ async function _createDevProxy(
   listenOptions: Partial<ListenOptions>,
 ) {
   let loadingMessage = 'Nuxt dev server is starting...'
-  const loadingTemplate
-    = nuxtOptions.devServer.loadingTemplate
-    ?? (await importModule('@nuxt/ui-templates', nuxtOptions.modulesDir).then(
-      r => r.loading,
-    ))
+  const loadingTemplate = nuxtOptions.devServer.loadingTemplate
+    ?? await importModule('@nuxt/ui-templates', nuxtOptions.modulesDir).then(r => r.loading)
 
   const { createProxyServer } = await import('httpxy')
   const proxy = createProxyServer({})
