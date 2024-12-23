@@ -1,6 +1,22 @@
 # Changelog
 
 
+## v3.17.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.1...v3.17.2)
+
+### 🩹 Fixes
+
+- **dev:** Chain `catch` correctly on promise ([4504a4c](https://github.com/nuxt/cli/commit/4504a4c))
+
+### 🏡 Chore
+
+- Lint ([1831710](https://github.com/nuxt/cli/commit/1831710))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.17.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.17.0...v3.17.1)

@@ -1,6 +1,6 @@
 {
   "name": "nuxi",
-  "version": "3.17.1",
+  "version": "3.17.2",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "repository": "nuxt/cli",
   "license": "MIT",
