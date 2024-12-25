@@ -4,23 +4,27 @@ import { resolve } from 'pathe'
 import { findup } from './fs'
 
 export const packageManagerLocks = {
-  yarn: 'yarn.lock',
-  npm: 'package-lock.json',
-  pnpm: 'pnpm-lock.yaml',
-  bun: 'bun.lockb',
+  yarn: ['yarn.lock'],
+  npm: ['package-lock.json'],
+  pnpm: ['pnpm-lock.yaml'],
+  bun: ['bun.lockb', 'bun.lock'],
 }
-
-type PackageManager = keyof typeof packageManagerLocks
 
 export function getPackageManager(rootDir: string) {
   return findup(rootDir, (dir) => {
-    for (const name in packageManagerLocks) {
-      const path = packageManagerLocks[name as PackageManager]
-      if (path && existsSync(resolve(dir, path))) {
-        return name
+    let name: keyof typeof packageManagerLocks
+    for (name in packageManagerLocks) {
+      const paths = packageManagerLocks[name]
+      for (const lockFilePath of paths) {
+        if (lockFilePath && existsSync(resolve(dir, lockFilePath))) {
+          return {
+            name,
+            lockFilePath,
+          }
+        }
       }
     }
-  }) as PackageManager | null
+  })
 }
 
 export function getPackageManagerVersion(name: string) {

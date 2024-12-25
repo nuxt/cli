@@ -70,7 +70,7 @@ export default defineCommand({
               : 'webpack'
 
     let packageManager: keyof typeof packageManagerLocks | 'unknown' | null
-      = getPackageManager(cwd)
+      = getPackageManager(cwd)?.name ?? null
     if (packageManager) {
       packageManager += '@' + getPackageManagerVersion(packageManager)
     }
