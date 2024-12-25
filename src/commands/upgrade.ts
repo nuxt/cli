@@ -8,7 +8,7 @@ import { readPackageJSON } from 'pkg-types'
 import { defineCommand } from 'citty'
 import {
   getPackageManager,
-  packageManagerLocks,
+  getPackageManagerVersion,
 } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
@@ -99,16 +99,15 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Check package manager
-    const packageManager = getPackageManager(cwd)
-    if (!packageManager) {
+    const packageManagerAndLockFile = getPackageManager(cwd)
+    if (!packageManagerAndLockFile) {
       consola.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
       )
       process.exit(1)
     }
-    const packageManagerVersion = execSync(`${packageManager} --version`)
-      .toString('utf8')
-      .trim()
+    const { name: packageManager, lockFilePath } = packageManagerAndLockFile
+    const packageManagerVersion = getPackageManagerVersion(packageManager)
     consola.info('Package manager:', packageManager, packageManagerVersion)
 
     // Check currently installed Nuxt version
@@ -127,7 +126,7 @@ export default defineCommand({
     const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
 
     // Force install
-    const pmLockFile = resolve(cwd, packageManagerLocks[packageManager])
+    const pmLockFile = resolve(cwd, lockFilePath)
     const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
       .map(p => colors.cyan(p))
       .join(' and ')
