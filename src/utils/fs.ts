@@ -46,8 +46,12 @@ export async function rmRecursive(paths: string[]) {
 }
 
 export async function touchFile(path: string) {
-  const time = new Date()
-  await fsp.utimes(path, time, time).catch(() => {})
+  if (await exists(path)) {
+    return
+  }
+  await fsp.writeFile(path, '').catch(() => {
+    consola.error(`Failed to create file: ${path}`)
+  })
 }
 
 export function findup<T>(
