@@ -85,7 +85,7 @@
     "nitropack": "npm:nitropack-nightly",
     "nuxt": "^3.15.0"
   },
-  "packageManager": "pnpm@9.15.1",
+  "packageManager": "pnpm@9.15.2",
   "engines": {
     "node": "^16.10.0 || >=18.0.0"
   }
