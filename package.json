@@ -73,7 +73,7 @@
     "pkg-types": "^1.3.0",
     "scule": "^1.3.0",
     "semver": "^7.6.3",
-    "unbuild": "^3.0.1",
+    "unbuild": "^3.1.0",
     "unplugin-purge-polyfills": "^0.0.7",
     "unws": "^0.2.4",
     "vitest": "^2.1.8",
