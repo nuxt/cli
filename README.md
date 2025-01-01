@@ -23,7 +23,7 @@ pnpm i
 # Generate type stubs
 pnpm dev:prepare
 
-# Go the the playground directory
+# Go to the playground directory
 cd playground
 
 # And run any commands

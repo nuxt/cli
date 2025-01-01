@@ -112,6 +112,15 @@ const page: Template = ({ name, nuxtOptions }) => ({
 `,
 })
 
+const layer: Template = ({ name, nuxtOptions }) => {
+  return {
+    path: resolve(nuxtOptions.srcDir, `layers/${name}/nuxt.config.ts`),
+    contents: `
+export default defineNuxtConfig({})
+`,
+  }
+}
+
 export const templates = {
   api,
   plugin,
@@ -120,6 +129,7 @@ export const templates = {
   middleware,
   layout,
   page,
+  layer,
 } as Record<string, Template>
 
 // -- internal utils --
