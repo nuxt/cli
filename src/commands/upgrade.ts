@@ -1,15 +1,12 @@
-import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { consola } from 'consola'
 import { colors } from 'consola/utils'
-import { relative, resolve } from 'pathe'
+import { resolve } from 'pathe'
 import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
 import { defineCommand } from 'citty'
-import {
-  getPackageManager,
-  getPackageManagerVersion,
-} from '../utils/packageManagers'
+import { addDependency, detectPackageManager } from 'nypm'
+import { getPackageManagerVersion } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 
@@ -29,19 +26,14 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   }
 }
 
-async function checkNuxtDependencyType(pkg: PackageJson): Promise<'dependencies' | 'devDependencies' | null> {
-  if (pkg.dependencies && pkg.dependencies['nuxt']) {
+function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
+  if (pkg.dependencies?.['nuxt']) {
     return 'dependencies'
   }
-  if (pkg.devDependencies && pkg.devDependencies['nuxt']) {
+  if (pkg.devDependencies?.['nuxt']) {
     return 'devDependencies'
   }
   return 'dependencies'
-}
-
-function hasPnpmWorkspaceFile(cwd: string): boolean {
-  const pnpmWorkspaceFilePath = resolve(cwd, 'pnpm-workspace.yaml')
-  return existsSync(pnpmWorkspaceFilePath)
 }
 
 const nuxtVersionTags = {
@@ -99,16 +91,16 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Check package manager
-    const packageManagerAndLockFile = getPackageManager(cwd)
-    if (!packageManagerAndLockFile) {
+    const packageManager = await detectPackageManager(cwd)
+    if (!packageManager) {
       consola.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
       )
       process.exit(1)
     }
-    const { name: packageManager, lockFilePath } = packageManagerAndLockFile
-    const packageManagerVersion = getPackageManagerVersion(packageManager)
-    consola.info('Package manager:', packageManager, packageManagerVersion)
+    const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
+    const packageManagerVersion = getPackageManagerVersion(packageManagerName)
+    consola.info('Package manager:', packageManagerName, packageManagerVersion)
 
     // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
@@ -117,7 +109,7 @@ export default defineCommand({
     const pkg = await readPackageJSON(cwd).catch(() => null)
 
     // Check if Nuxt is a dependency or devDependency
-    const nuxtDependencyType = pkg ? await checkNuxtDependencyType(pkg) : 'dependencies'
+    const nuxtDependencyType = pkg ? checkNuxtDependencyType(pkg) : 'dependencies'
     const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
 
     const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
@@ -126,8 +118,14 @@ export default defineCommand({
     const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
 
     // Force install
-    const pmLockFile = resolve(cwd, lockFilePath)
-    const forceRemovals = ['node_modules', relative(process.cwd(), pmLockFile)]
+    const toRemove = ['node_modules']
+
+    const lockFile = normaliseLockFile(cwd, lockFileCandidates)
+    if (lockFile) {
+      toRemove.push(lockFile)
+    }
+
+    const forceRemovals = toRemove
       .map(p => colors.cyan(p))
       .join(' and ')
     if (ctx.args.force === undefined) {
@@ -143,22 +141,20 @@ export default defineCommand({
       consola.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
-      await rmRecursive([pmLockFile, resolve(cwd, 'node_modules')])
-      await touchFile(pmLockFile)
+      await rmRecursive(toRemove.map(file => resolve(cwd, file)))
+      if (lockFile) {
+        await touchFile(resolve(cwd, lockFile))
+      }
     }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
     consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
-    const command = [
+    await addDependency(npmPackages, {
+      cwd,
       packageManager,
-      packageManager === 'yarn' ? 'add' : 'install',
-      nuxtDependencyType === 'devDependencies' ? '-D' : '',
-      packageManager === 'pnpm' && hasPnpmWorkspaceFile(cwd) ? '-w' : '',
-      ...npmPackages,
-    ].filter(Boolean).join(' ')
-
-    execSync(command, { stdio: 'inherit', cwd })
+      dev: nuxtDependencyType === 'devDependencies' ? true : false,
+    })
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'
@@ -204,3 +200,19 @@ export default defineCommand({
     }
   },
 })
+
+// Find which lock file is in use since `nypm.detectPackageManager` doesn't return this
+function normaliseLockFile(cwd: string, lockFiles: string | Array<string> | undefined) {
+  if (typeof lockFiles === 'string') {
+    lockFiles = [lockFiles]
+  }
+
+  const lockFile = lockFiles?.find(file => existsSync(resolve(cwd, file)))
+
+  if (lockFile === undefined) {
+    consola.error(`Unable to find any lock files in ${cwd}`)
+    return undefined
+  }
+
+  return lockFile
+}
