@@ -55,6 +55,10 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
+    dev: {
+      type: 'boolean',
+      description: 'Install modules as dev dependencies',
+    },
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
@@ -89,10 +93,10 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd }: { skipInstall: boolean, skipConfig: boolean, cwd: string }, projectPkg: any) {
+async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd, dev }: { skipInstall: boolean, skipConfig: boolean, cwd: string, dev: boolean }, projectPkg: any) {
   // Add npm dependency
   if (!skipInstall) {
-    const isDev = Boolean(projectPkg.devDependencies?.nuxt)
+    const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
     consola.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
     const res = await addDependency(r.map(x => x.pkg), { cwd, dev: isDev, installPeerDependencies: true }).catch(
       (error) => {
