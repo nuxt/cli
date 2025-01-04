@@ -96,7 +96,7 @@ importers:
         version: 1.7.3
       nuxt:
         specifier: ^3.15.0
-        version: 3.15.0(@parcel/watcher@2.4.1)(@types/node@22.10.3)(db0@0.2.1)(encoding@0.1.13)(eslint@9.17.0(jiti@2.4.2))(ioredis@5.4.1)(magicast@0.3.5)(optionator@0.9.3)(rollup@4.29.1)(terser@5.29.2)(typescript@5.4.2)(vite@5.4.11(@types/node@22.10.3)(terser@5.29.2))(vue-tsc@2.2.0(typescript@5.4.2))(yaml@2.6.1)
+        version: 3.15.0(@parcel/watcher@2.4.1)(@types/node@22.10.3)(db0@0.2.1)(encoding@0.1.13)(eslint@9.17.0(jiti@2.4.2))(ioredis@5.4.2)(magicast@0.3.5)(optionator@0.9.3)(rollup@4.29.1)(terser@5.29.2)(typescript@5.4.2)(vite@5.4.11(@types/node@22.10.3)(terser@5.29.2))(vue-tsc@2.2.0(typescript@5.4.2))(yaml@2.6.1)
       nypm:
         specifier: ^0.4.1
         version: 0.4.1
@@ -104,8 +104,8 @@ importers:
         specifier: ^1.4.1
         version: 1.4.1
       pathe:
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^2.0.0
+        version: 2.0.0
       perfect-debounce:
         specifier: ^1.0.0
         version: 1.0.0
@@ -1097,15 +1097,6 @@ packages:
     engines: {node: '>=14.0.0'}
     peerDependencies:
       rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
-    peerDependenciesMeta:
-      rollup:
-        optional: true
-
-  '@rollup/plugin-node-resolve@15.3.1':
-    resolution: {integrity: sha512-tgg6b91pAybXHJQMAAwW9VuWBO6Thi+q7BCNARLwSqlmsHz0XYURtGvh/AuwSADXSI4h/2uHbs7s4FzlZDGSGA==}
-    engines: {node: '>=14.0.0'}
-    peerDependencies:
-      rollup: ^2.78.0||^3.0.0||^4.0.0
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -2686,8 +2677,8 @@ packages:
     resolution: {integrity: sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
 
-  ioredis@5.4.1:
-    resolution: {integrity: sha512-2YZsvl7jopIa1gaePkeMtd9rAcSjOOjPtpcLlOeusyO+XH2SK5ZcT+UCrElPP+WVIInh2TzeI4XW9ENaSLVVHA==}
+  ioredis@5.4.2:
+    resolution: {integrity: sha512-0SZXGNGZ+WzISQ67QDyZ2x0+wVxjjUndtD8oSeik/4ajifeiRufed8fCb8QW8VMyi4MXcS+UO1k/0NGhvq1PAg==}
     engines: {node: '>=12.22.0'}
 
   iron-webcrypto@1.2.1:
@@ -3115,8 +3106,8 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
-  nitropack-nightly@2.11.0-20241219-215122.26726beb:
-    resolution: {integrity: sha512-ncQWfP658j5S1kqlHfMtZcR1fqz8gDM7l6BswYSQPIXGy1m207d8lmC3CKNJWphtiYV48DXoxLekUI6I/0Go6g==}
+  nitropack-nightly@2.11.0-20250104-004858.217fa7ab:
+    resolution: {integrity: sha512-voVAeoqiYld84rocqygyW/4FExKyayW3ZVEwK4IEoeBAr6aHsZ3HbJLP1//aG8CsXz92AISl62sQ2CtXjAO+PA==}
     engines: {node: ^16.11.0 || >=17.0.0}
     hasBin: true
     peerDependencies:
@@ -3236,8 +3227,8 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openapi-typescript@7.4.4:
-    resolution: {integrity: sha512-7j3nktnRzlQdlHnHsrcr6Gqz8f80/RhfA2I8s1clPI+jkY0hLNmnYVKBfuUEli5EEgK1B6M+ibdS5REasPlsUw==}
+  openapi-typescript@7.5.1:
+    resolution: {integrity: sha512-ebOnVlSyfObXR9geTkITBMan2HqmVJV14poVsS2/f2FS1RbiQsZFqh+q5zbrjn1tydSXHE6njUOfEvS3DOVsUQ==}
     hasBin: true
     peerDependencies:
       typescript: ^5.x
@@ -3336,6 +3327,9 @@ packages:
 
   pathe@1.1.2:
     resolution: {integrity: sha512-whLdWMYL2TwI08hn8/ZqAbrVemu0LNaNNJZX73O6qaIdCTfXutsLhMkjdENX0qhsQ9uIimo4/aQOmXkoon2nDQ==}
+
+  pathe@2.0.0:
+    resolution: {integrity: sha512-G7n4uhtk9qJt2hlD+UFfsIGY854wpF+zs2bUbQ3CQEUTcn7v25LRsrmurOxTo4bJgjE4qkyshd9ldsEuY9M6xg==}
 
   pathval@2.0.0:
     resolution: {integrity: sha512-vE7JKRyES09KiunauX7nd2Q9/L7lhok4smP9RZTDeD4MVs72Dp2qNFVz39Nz5a0FVEW0BJR6C0DYrq6unoziZA==}
@@ -3692,6 +3686,19 @@ packages:
     peerDependencies:
       rollup: 2.x || 3.x || 4.x
     peerDependenciesMeta:
+      rollup:
+        optional: true
+
+  rollup-plugin-visualizer@5.13.1:
+    resolution: {integrity: sha512-vMg8i6BprL8aFm9DKvL2c8AwS8324EgymYQo9o6E26wgVvwMhsJxS37aNL6ZsU7X9iAcMYwdME7gItLfG5fwJg==}
+    engines: {node: '>=18'}
+    hasBin: true
+    peerDependencies:
+      rolldown: 1.x
+      rollup: 2.x || 3.x || 4.x
+    peerDependenciesMeta:
+      rolldown:
+        optional: true
       rollup:
         optional: true
 
@@ -4125,6 +4132,65 @@ packages:
       db0: '>=0.2.1'
       idb-keyval: ^6.2.1
       ioredis: ^5.4.1
+      uploadthing: ^7.4.1
+    peerDependenciesMeta:
+      '@azure/app-configuration':
+        optional: true
+      '@azure/cosmos':
+        optional: true
+      '@azure/data-tables':
+        optional: true
+      '@azure/identity':
+        optional: true
+      '@azure/keyvault-secrets':
+        optional: true
+      '@azure/storage-blob':
+        optional: true
+      '@capacitor/preferences':
+        optional: true
+      '@deno/kv':
+        optional: true
+      '@netlify/blobs':
+        optional: true
+      '@planetscale/database':
+        optional: true
+      '@upstash/redis':
+        optional: true
+      '@vercel/blob':
+        optional: true
+      '@vercel/kv':
+        optional: true
+      aws4fetch:
+        optional: true
+      db0:
+        optional: true
+      idb-keyval:
+        optional: true
+      ioredis:
+        optional: true
+      uploadthing:
+        optional: true
+
+  unstorage@1.14.4:
+    resolution: {integrity: sha512-1SYeamwuYeQJtJ/USE1x4l17LkmQBzg7deBJ+U9qOBoHo15d1cDxG4jM31zKRgF7pG0kirZy4wVMX6WL6Zoscg==}
+    peerDependencies:
+      '@azure/app-configuration': ^1.8.0
+      '@azure/cosmos': ^4.2.0
+      '@azure/data-tables': ^13.3.0
+      '@azure/identity': ^4.5.0
+      '@azure/keyvault-secrets': ^4.9.0
+      '@azure/storage-blob': ^12.26.0
+      '@capacitor/preferences': ^6.0.3
+      '@deno/kv': '>=0.8.4'
+      '@netlify/blobs': ^6.5.0 || ^7.0.0 || ^8.1.0
+      '@planetscale/database': ^1.19.0
+      '@upstash/redis': ^1.34.3
+      '@vercel/blob': '>=0.27.0'
+      '@vercel/kv': ^1.0.1
+      aws4fetch: ^1.0.20
+      db0: '>=0.2.1'
+      idb-keyval: ^6.2.1
+      ioredis: ^5.4.2
       uploadthing: ^7.4.1
     peerDependenciesMeta:
       '@azure/app-configuration':
@@ -5508,16 +5574,6 @@ snapshots:
   '@rollup/plugin-json@6.1.0(rollup@4.29.1)':
     dependencies:
       '@rollup/pluginutils': 5.1.4(rollup@4.29.1)
-    optionalDependencies:
-      rollup: 4.29.1
-
-  '@rollup/plugin-node-resolve@15.3.1(rollup@4.29.1)':
-    dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.29.1)
-      '@types/resolve': 1.20.2
-      deepmerge: 4.3.1
-      is-module: 1.0.0
-      resolve: 1.22.8
     optionalDependencies:
       rollup: 4.29.1
 
@@ -7292,7 +7348,7 @@ snapshots:
 
   ini@4.1.1: {}
 
-  ioredis@5.4.1:
+  ioredis@5.4.2:
     dependencies:
       '@ioredis/commands': 1.2.0
       cluster-key-slot: 1.1.2
@@ -7664,7 +7720,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  nitropack-nightly@2.11.0-20241219-215122.26726beb(encoding@0.1.13)(typescript@5.4.2):
+  nitropack-nightly@2.11.0-20250104-004858.217fa7ab(encoding@0.1.13)(typescript@5.4.2):
     dependencies:
       '@cloudflare/kv-asset-handler': 0.3.4
       '@netlify/functions': 2.8.2
@@ -7672,7 +7728,7 @@ snapshots:
       '@rollup/plugin-commonjs': 28.0.2(rollup@4.29.1)
       '@rollup/plugin-inject': 5.0.5(rollup@4.29.1)
       '@rollup/plugin-json': 6.1.0(rollup@4.29.1)
-      '@rollup/plugin-node-resolve': 15.3.1(rollup@4.29.1)
+      '@rollup/plugin-node-resolve': 16.0.0(rollup@4.29.1)
       '@rollup/plugin-replace': 6.0.2(rollup@4.29.1)
       '@rollup/plugin-terser': 0.4.4(rollup@4.29.1)
       '@rollup/pluginutils': 5.1.4(rollup@4.29.1)
@@ -7701,7 +7757,7 @@ snapshots:
       h3: 1.13.0
       hookable: 5.5.3
       httpxy: 0.1.5
-      ioredis: 5.4.1
+      ioredis: 5.4.2
       jiti: 2.4.2
       klona: 2.0.6
       knitwork: 1.2.0
@@ -7713,14 +7769,14 @@ snapshots:
       node-fetch-native: 1.6.4
       ofetch: 1.4.1
       ohash: 1.1.4
-      openapi-typescript: 7.4.4(encoding@0.1.13)(typescript@5.4.2)
-      pathe: 1.1.2
+      openapi-typescript: 7.5.1(encoding@0.1.13)(typescript@5.4.2)
+      pathe: 2.0.0
       perfect-debounce: 1.0.0
       pkg-types: 1.3.0
       pretty-bytes: 6.1.1
       radix3: 1.1.2
       rollup: 4.29.1
-      rollup-plugin-visualizer: 5.12.0(rollup@4.29.1)
+      rollup-plugin-visualizer: 5.13.1(rollup@4.29.1)
       scule: 1.3.0
       semver: 7.6.3
       serve-placeholder: 2.0.2
@@ -7731,7 +7787,7 @@ snapshots:
       unctx: 2.4.1
       unenv: 1.10.0
       unimport: 3.14.5(rollup@4.29.1)
-      unstorage: 1.14.1(db0@0.2.1)(ioredis@5.4.1)
+      unstorage: 1.14.4(db0@0.2.1)(ioredis@5.4.2)
       untyped: 1.5.2
       unwasm: 0.3.9
     transitivePeerDependencies:
@@ -7756,6 +7812,7 @@ snapshots:
       - encoding
       - idb-keyval
       - mysql2
+      - rolldown
       - supports-color
       - typescript
       - uploadthing
@@ -7810,7 +7867,7 @@ snapshots:
 
   nuxi@3.17.2: {}
 
-  nuxt@3.15.0(@parcel/watcher@2.4.1)(@types/node@22.10.3)(db0@0.2.1)(encoding@0.1.13)(eslint@9.17.0(jiti@2.4.2))(ioredis@5.4.1)(magicast@0.3.5)(optionator@0.9.3)(rollup@4.29.1)(terser@5.29.2)(typescript@5.4.2)(vite@5.4.11(@types/node@22.10.3)(terser@5.29.2))(vue-tsc@2.2.0(typescript@5.4.2))(yaml@2.6.1):
+  nuxt@3.15.0(@parcel/watcher@2.4.1)(@types/node@22.10.3)(db0@0.2.1)(encoding@0.1.13)(eslint@9.17.0(jiti@2.4.2))(ioredis@5.4.2)(magicast@0.3.5)(optionator@0.9.3)(rollup@4.29.1)(terser@5.29.2)(typescript@5.4.2)(vite@5.4.11(@types/node@22.10.3)(terser@5.29.2))(vue-tsc@2.2.0(typescript@5.4.2))(yaml@2.6.1):
     dependencies:
       '@nuxt/devalue': 2.0.2
       '@nuxt/devtools': 1.6.4(rollup@4.29.1)(vite@5.4.11(@types/node@22.10.3)(terser@5.29.2))(vue@3.5.13(typescript@5.4.2))
@@ -7847,7 +7904,7 @@ snapshots:
       magic-string: 0.30.17
       mlly: 1.7.3
       nanotar: 0.1.1
-      nitropack: nitropack-nightly@2.11.0-20241219-215122.26726beb(encoding@0.1.13)(typescript@5.4.2)
+      nitropack: nitropack-nightly@2.11.0-20250104-004858.217fa7ab(encoding@0.1.13)(typescript@5.4.2)
       nuxi: 3.17.2
       nypm: 0.4.1
       ofetch: 1.4.1
@@ -7870,7 +7927,7 @@ snapshots:
       unimport: 3.14.5(rollup@4.29.1)
       unplugin: 2.1.0
       unplugin-vue-router: 0.10.9(rollup@4.29.1)(vue-router@4.5.0(vue@3.5.13(typescript@5.4.2)))(vue@3.5.13(typescript@5.4.2))
-      unstorage: 1.14.1(db0@0.2.1)(ioredis@5.4.1)
+      unstorage: 1.14.1(db0@0.2.1)(ioredis@5.4.2)
       untyped: 1.5.2
       vue: 3.5.13(typescript@5.4.2)
       vue-bundle-renderer: 2.1.1
@@ -7911,6 +7968,7 @@ snapshots:
       - meow
       - mysql2
       - optionator
+      - rolldown
       - rollup
       - sass
       - sass-embedded
@@ -7981,7 +8039,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openapi-typescript@7.4.4(encoding@0.1.13)(typescript@5.4.2):
+  openapi-typescript@7.5.1(encoding@0.1.13)(typescript@5.4.2):
     dependencies:
       '@redocly/openapi-core': 1.25.15(encoding@0.1.13)(supports-color@9.4.0)
       ansi-colors: 4.1.3
@@ -8082,6 +8140,8 @@ snapshots:
   path-type@5.0.0: {}
 
   pathe@1.1.2: {}
+
+  pathe@2.0.0: {}
 
   pathval@2.0.0: {}
 
@@ -8409,6 +8469,15 @@ snapshots:
     dependencies:
       open: 8.4.2
       picomatch: 2.3.1
+      source-map: 0.7.4
+      yargs: 17.7.2
+    optionalDependencies:
+      rollup: 4.29.1
+
+  rollup-plugin-visualizer@5.13.1(rollup@4.29.1):
+    dependencies:
+      open: 8.4.2
+      picomatch: 4.0.2
       source-map: 0.7.4
       yargs: 17.7.2
     optionalDependencies:
@@ -8921,7 +8990,7 @@ snapshots:
       acorn: 8.14.0
       webpack-virtual-modules: 0.6.2
 
-  unstorage@1.14.1(db0@0.2.1)(ioredis@5.4.1):
+  unstorage@1.14.1(db0@0.2.1)(ioredis@5.4.2):
     dependencies:
       anymatch: 3.1.3
       chokidar: 3.6.0
@@ -8935,7 +9004,21 @@ snapshots:
       ufo: 1.5.4
     optionalDependencies:
       db0: 0.2.1
-      ioredis: 5.4.1
+      ioredis: 5.4.2
+
+  unstorage@1.14.4(db0@0.2.1)(ioredis@5.4.2):
+    dependencies:
+      anymatch: 3.1.3
+      chokidar: 3.6.0
+      destr: 2.0.3
+      h3: 1.13.0
+      lru-cache: 10.4.3
+      node-fetch-native: 1.6.4
+      ofetch: 1.4.1
+      ufo: 1.5.4
+    optionalDependencies:
+      db0: 0.2.1
+      ioredis: 5.4.2
 
   untun@0.1.3:
     dependencies:
