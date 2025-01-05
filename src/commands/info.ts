@@ -9,11 +9,8 @@ import { splitByCase } from 'scule'
 import clipboardy from 'clipboardy'
 import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
 import { defineCommand } from 'citty'
-import type { packageManagerLocks } from '../utils/packageManagers'
-import {
-  getPackageManager,
-  getPackageManagerVersion,
-} from '../utils/packageManagers'
+import { detectPackageManager } from 'nypm'
+import { getPackageManagerVersion } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
 
 import nuxiPkg from '../../package.json'
@@ -69,13 +66,10 @@ export default defineCommand({
               ? 'vite' /* nuxt-vite */
               : 'webpack'
 
-    let packageManager: keyof typeof packageManagerLocks | 'unknown' | null
-      = getPackageManager(cwd)?.name ?? null
+    let packageManager = (await detectPackageManager(cwd))?.name
+
     if (packageManager) {
       packageManager += '@' + getPackageManagerVersion(packageManager)
-    }
-    else {
-      packageManager = 'unknown'
     }
 
     const infoObj = {
@@ -84,7 +78,7 @@ export default defineCommand({
       NuxtVersion: nuxtVersion,
       CLIVersion: nuxiPkg.version,
       NitroVersion: getDepVersion('nitropack'),
-      PackageManager: packageManager,
+      PackageManager: packageManager ?? 'unknown',
       Builder: typeof builder === 'string' ? builder : 'custom',
       UserConfig: Object.keys(nuxtConfig)
         .map(key => '`' + key + '`')
