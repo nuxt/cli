@@ -13,7 +13,7 @@
     "noEmit": true,
     "noUnusedLocals": true,
     "resolveJsonModule": true,
-    "types": ["node", "./types"],
+    "types": ["node", "./types.d.ts"],
   },
   "include": ["src"]
 }
