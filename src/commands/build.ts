@@ -37,15 +37,6 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
-    const nitroPreset = ctx.args.prerender ? 'static' : ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET
-    if (nitroPreset) {
-      if (ctx.args.prerender && ctx.args.preset) {
-        consola.warn(`\`--prerender\` is set. Ignoring \`--preset ${ctx.args.preset}\``)
-      }
-      // TODO: Link to the docs
-      consola.info(`Using Nitro server preset: \`${nitroPreset}\``)
-    }
-
     const nuxt = await kit.loadNuxt({
       cwd,
       dotenv: {
@@ -57,9 +48,10 @@ export default defineCommand({
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
         // TODO: remove in 3.8
         _generate: ctx.args.prerender,
-        ...(ctx.args.prerender
-          ? { nitro: { static: true } }
-          : { nitro: { preset: nitroPreset } }),
+        nitro: {
+          static: ctx.args.prerender,
+          preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
+        },
         ...ctx.data?.overrides,
       },
     })
@@ -69,6 +61,7 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
+      consola.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
     }
     catch {
       //
