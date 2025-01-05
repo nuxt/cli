@@ -55,9 +55,6 @@ importers:
       clipboardy:
         specifier: ^4.0.0
         version: 4.0.0
-      colorette:
-        specifier: ^2.0.20
-        version: 2.0.20
       consola:
         specifier: ^3.3.3
         version: 3.3.3

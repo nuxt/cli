@@ -1,5 +1,5 @@
 import { $fetch } from 'ofetch'
-import { cyan, green, yellow, underline } from 'colorette'
+import { colors } from 'consola/utils'
 import { consola } from 'consola'
 import * as semver from 'semver'
 import nuxiPkg from '../../package.json' assert { type: 'json' }
@@ -15,6 +15,7 @@ export async function checkForUpdates() {
     return
   }
   if (semver.gt(latestVersion, nuxiPkg.version, { loose: true })) {
+    const { cyan, green, yellow, underline } = colors
     const changelogURL = `https://github.com/nuxt/cli/releases/tag/v${latestVersion}`
     consola.box({
       title: 'Nuxt CLI Update is Available!',

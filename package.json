@@ -52,7 +52,6 @@
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",
-    "colorette": "^2.0.20",
     "consola": "^3.3.3",
     "destr": "^2.0.3",
     "eslint": "^9.17.0",

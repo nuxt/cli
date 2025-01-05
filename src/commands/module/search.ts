@@ -2,7 +2,7 @@ import { defineCommand } from 'citty'
 import { consola } from 'consola'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
-import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
+import { colors } from 'consola/utils'
 import { cwdArgs } from '../_shared'
 import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 
@@ -54,6 +54,8 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       { name: 'maintainers.github', weight: 0.5 },
     ],
   })
+
+  const { bold, green, magenta, cyan, gray, yellow } = colors
 
   const results = fuse.search(query).map((result) => {
     const res: Record<string, string> = {

@@ -1,7 +1,8 @@
-import { bold, gray, green } from 'colorette'
+import { colors } from 'consola/utils'
 import { tryRequireModule } from './cjs'
 
 export function showVersions(cwd: string) {
+  const { bold, gray, green } = colors
   const getPkgVersion = (pkg: string) => {
     return tryRequireModule(`${pkg}/package.json`, cwd)?.version || ''
   }
