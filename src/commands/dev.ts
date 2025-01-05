@@ -269,7 +269,7 @@ function _resolveListenOptions(
     || (args.sslCert as string)
     || process.env.NUXT_SSL_CERT
     || process.env.NITRO_SSL_CERT
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.cert)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'cert' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.cert)
     || ''
 
   const _httpsKey
@@ -277,7 +277,7 @@ function _resolveListenOptions(
     || (args.sslKey as string)
     || process.env.NUXT_SSL_KEY
     || process.env.NITRO_SSL_KEY
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.key)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'key' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.key)
     || ''
 
   const _httpsPfx
