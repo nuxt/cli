@@ -282,12 +282,12 @@ function _resolveListenOptions(
 
   const _httpsPfx
     = args['https.pfx']
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.pfx)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'pfx' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.pfx)
     || ''
 
   const _httpsPassphrase
     = args['https.passphrase']
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https?.passphrase)
+    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'passphrase' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.passphrase)
     || ''
 
   const httpsEnabled
@@ -301,7 +301,7 @@ function _resolveListenOptions(
     'https.cert': _httpsCert,
     'https.key': _httpsKey,
     'https.pfx': _httpsPfx,
-    'https.passphrase': _httpsPassphrase
+    'https.passphrase': _httpsPassphrase,
   })
 
   const httpsOptions = httpsEnabled && {
