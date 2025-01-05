@@ -2,7 +2,7 @@ import { $fetch } from 'ofetch'
 import { cyan, green, yellow, underline } from 'colorette'
 import { consola } from 'consola'
 import * as semver from 'semver'
-import nuxiPkg from '../../package.json'
+import nuxiPkg from '../../package.json' assert { type: 'json' }
 
 export async function checkForUpdates() {
   if (process.env.SKIP_NUXT_UPDATE_CHECK) {

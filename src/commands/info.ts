@@ -13,7 +13,7 @@ import { detectPackageManager } from 'nypm'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { findup } from '../utils/fs'
 
-import nuxiPkg from '../../package.json'
+import nuxiPkg from '../../package.json' assert { type: 'json' }
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
