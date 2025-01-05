@@ -31,9 +31,12 @@ jobs:
       - run: pnpm build
       - run: pnpm test:dist
       - run: pnpm test:unit
-      - if: ${{ matrix.os != 'windows-latest' }}
+      - if: matrix.os != 'windows-latest'
         uses: codecov/codecov-action@v5
-      - name: Release Edge
+      - name: 📦 release pkg.pr.new
+        if: github.event_name != 'push' && matrix.os != 'windows-latest'
+        run: pnpx pkg-pr-new publish --compact --template './playground'
+      - name: 📦 release nuxi-nightly
         if: |
           github.event_name == 'push' &&
           !contains(github.event.head_commit.message, '[skip-release]') &&
