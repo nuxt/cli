@@ -61,7 +61,7 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
-      consola.info(`Using Nitro server preset: \`${nitro.options.preset}\``)
+      consola.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
     }
     catch {
       //
