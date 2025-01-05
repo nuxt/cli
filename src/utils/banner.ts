@@ -1,22 +1,14 @@
 import { colors } from 'consola/utils'
-import { tryRequireModule } from './cjs'
+import { readPackageJSON } from 'pkg-types'
 
-export function showVersions(cwd: string) {
+export async function showVersions(cwd: string) {
   const { bold, gray, green } = colors
-  const getPkgVersion = (pkg: string) => {
-    return tryRequireModule(`${pkg}/package.json`, cwd)?.version || ''
+  async function getPkgVersion(pkg: string) {
+    const p = await readPackageJSON(pkg, { url: cwd })
+    return p?.version || ''
   }
-  const nuxtVersion
-    = getPkgVersion('nuxt')
-    || getPkgVersion('nuxt-nightly')
-    || getPkgVersion('nuxt3')
-    || getPkgVersion('nuxt-edge')
-  const nitroVersion
-    = getPkgVersion('nitropack') || getPkgVersion('nitropack-nightly') || getPkgVersion('nitropack-edge')
-  console.log(
-    gray(
-      green(`Nuxt ${bold(nuxtVersion)}`)
-      + (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : ''),
-    ),
-  )
+  const nuxtVersion = await getPkgVersion('nuxt') || await getPkgVersion('nuxt-nightly') || await getPkgVersion('nuxt3') || await getPkgVersion('nuxt-edge')
+  const nitroVersion = await getPkgVersion('nitropack') || await getPkgVersion('nitropack-nightly') || await getPkgVersion('nitropack-edge')
+
+  console.log(gray(green(`Nuxt ${bold(nuxtVersion)}`) + (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : '')))
 }

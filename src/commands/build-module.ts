@@ -2,7 +2,7 @@ import { execa } from 'execa'
 import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
-import { tryResolveModule } from '../utils/esm'
+import { readPackageJSON } from 'pkg-types'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'
@@ -33,10 +33,7 @@ export default defineCommand({
     // Find local installed version
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const hasLocal = await tryResolveModule(
-      `${MODULE_BUILDER_PKG}/package.json`,
-      cwd,
-    )
+    const hasLocal = await readPackageJSON(MODULE_BUILDER_PKG, { url: cwd })
 
     const execArgs = Object.entries({
       '--stub': ctx.args.stub,

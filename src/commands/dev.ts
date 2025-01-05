@@ -13,9 +13,9 @@ import {
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { NuxtOptions } from '@nuxt/schema'
 import { consola } from 'consola'
+import { createJiti } from 'jiti'
 import { showVersions } from '../utils/banner'
 import { loadKit } from '../utils/kit'
-import { importModule } from '../utils/esm'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
@@ -48,7 +48,7 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    showVersions(cwd)
+    await showVersions(cwd)
     await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
     // Load Nuxt Config
@@ -105,13 +105,17 @@ type ArgsT = Exclude<
 
 type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
-async function _createDevProxy(
-  nuxtOptions: NuxtOptions,
-  listenOptions: Partial<ListenOptions>,
-) {
+async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
+  const jiti = createJiti(nuxtOptions.rootDir)
   let loadingMessage = 'Nuxt dev server is starting...'
-  const loadingTemplate = nuxtOptions.devServer.loadingTemplate
-    ?? await importModule('@nuxt/ui-templates', nuxtOptions.modulesDir).then(r => r.loading)
+  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
+  for (const url of nuxtOptions.modulesDir) {
+    // @ts-expect-error this is for backwards compatibility
+    if (loadingTemplate) {
+      break
+    }
+    loadingTemplate = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates', { parentURL: url }).then(r => r.loading)
+  }
 
   const { createProxyServer } = await import('httpxy')
   const proxy = createProxyServer({})
