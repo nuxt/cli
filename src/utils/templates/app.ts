@@ -1,9 +1,9 @@
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
 
 const app: Template = ({ args, nuxtOptions }) => ({
   path: resolve(nuxtOptions.srcDir, 'app.vue'),
-  contents: args['pages']
+  contents: args.pages
     ? `
 <script setup lang="ts"></script>
 

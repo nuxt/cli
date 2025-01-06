@@ -1,6 +1,6 @@
+import type { Template } from '.'
 import { resolve } from 'pathe'
 import { camelCase, upperFirst } from 'scule'
-import type { Template } from '.'
 
 const composable: Template = ({ name, nuxtOptions }) => {
   const nameWithoutUsePrefix = name.replace(/^use-?/, '')

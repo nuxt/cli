@@ -1,6 +1,6 @@
-import { applySuffix } from '.'
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
+import { applySuffix } from '.'
 
 const httpMethods = [
   'connect',
