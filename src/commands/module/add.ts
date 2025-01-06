@@ -1,18 +1,19 @@
 import type { FileHandle } from 'node:fs/promises'
-import type { NuxtModule } from './_utils'
+import type { PackageJson } from 'pkg-types'
 
+import type { NuxtModule } from './_utils'
 import * as fs from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
 
+import process from 'node:process'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency } from 'nypm'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
-import { PackageJson, readPackageJSON } from 'pkg-types'
+import { readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
 import { joinURL } from 'ufo'
 
