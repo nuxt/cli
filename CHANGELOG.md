@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.18.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.0...v3.18.1)
+
+### 🩹 Fixes
+
+- **build,dev:** Load packages from nuxt dir ([ac21814](https://github.com/nuxt/cli/commit/ac21814))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.18.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.17.2...v3.18.0)
