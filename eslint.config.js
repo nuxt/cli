@@ -17,4 +17,9 @@ export default createConfigForNuxt({
     // TODO: remove usage of `any` throughout codebase
     '@typescript-eslint/no-explicit-any': 'off',
   },
+}, {
+  files: ['src/**'],
+  rules: {
+    'no-console': 'error',
+  },
 })

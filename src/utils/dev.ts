@@ -280,6 +280,7 @@ class NuxtDevServer extends EventEmitter {
     }
 
     await Promise.all([
+      // eslint-disable-next-line no-console
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])
