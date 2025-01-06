@@ -8,6 +8,7 @@ const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 
 export default defineBuildConfig({
   declaration: !isAnalysingSize,
+  failOnWarn: !isAnalysingSize,
   hooks: {
     'rollup:options'(_, options) {
       const plugins = (options.plugins ||= []) as InputPluginOption[]
