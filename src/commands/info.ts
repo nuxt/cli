@@ -7,9 +7,12 @@ import clipboardy from 'clipboardy'
 import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
 import { defineCommand } from 'citty'
 import { detectPackageManager } from 'nypm'
-import { getPackageManagerVersion } from '../utils/packageManagers'
 
 import nuxiPkg from '../../package.json' assert { type: 'json' }
+
+import { tryResolveNuxt } from '../utils/kit'
+import { getPackageManagerVersion } from '../utils/packageManagers'
+
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -32,8 +35,18 @@ export default defineCommand({
     const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd)
 
     // Utils to query a dependency version
+    const nuxtPath = await tryResolveNuxt(cwd)
     async function getDepVersion(name: string) {
-      return await readPackageJSON(name, { url: cwd }).then(r => r.version).catch(() => null) || dependencies[name] || devDependencies[name]
+      for (const url of [cwd, nuxtPath]) {
+        if (!url) {
+          continue
+        }
+        const pkg = await readPackageJSON(name, { url }).catch(() => null)
+        if (pkg) {
+          return pkg.version!
+        }
+      }
+      return dependencies[name] || devDependencies[name]
     }
 
     async function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
