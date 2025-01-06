@@ -73,6 +73,7 @@
     "pkg-pr-new": "^0.0.39",
     "pkg-types": "^1.3.0",
     "rollup": "^4.30.0",
+    "rollup-plugin-visualizer": "^5.13.1",
     "scule": "^1.3.0",
     "semver": "^7.6.3",
     "std-env": "^3.8.0",
