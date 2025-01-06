@@ -9,6 +9,7 @@ export const commands = {
   cleanup: () => import('./cleanup').then(_rDefault),
   _dev: () => import('./dev-child').then(_rDefault),
   dev: () => import('./dev').then(_rDefault),
+  devtools: () => import('./devtools').then(_rDefault),
   generate: () => import('./generate').then(_rDefault),
   info: () => import('./info').then(_rDefault),
   init: () => import('./init').then(_rDefault),
