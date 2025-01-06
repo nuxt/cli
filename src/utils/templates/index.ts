@@ -37,10 +37,10 @@ const templates = {
   middleware,
   page,
   plugin,
-  'server-middleware': serverMiddleware,
-  'server-plugin': serverPlugin,
-  'server-route': serverRoute,
-  'server-util': serverUtil,
+  serverMiddleware,
+  serverPlugin,
+  serverRoute,
+  serverUtil,
 } satisfies Record<string, Template>
 
 // -- internal utils --
