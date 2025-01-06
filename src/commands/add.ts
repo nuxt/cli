@@ -37,15 +37,9 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd)
 
     const templateName = ctx.args.template
-    const template = templates[templateName]
-    const ext = extname(ctx.args.name)
-    const name
-      = ext === '.vue' || ext === '.ts'
-        ? ctx.args.name.replace(ext, '')
-        : ctx.args.name
 
     // Validate template name
-    if (!template) {
+    if (!Object.keys(templates).includes(templateName)) {
       logger.error(
         `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
@@ -55,6 +49,12 @@ export default defineCommand({
     }
 
     // Validate options
+    const ext = extname(ctx.args.name)
+    const name
+      = ext === '.vue' || ext === '.ts'
+        ? ctx.args.name.replace(ext, '')
+        : ctx.args.name
+
     if (!name) {
       logger.error('name argument is missing!')
       process.exit(1)
@@ -65,6 +65,8 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
+    const template = templates[templateName as keyof typeof templates]
+
     const res = template({ name, args: ctx.args, nuxtOptions: config })
 
     // Ensure not overriding user code
