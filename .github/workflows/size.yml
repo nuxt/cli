@@ -1,3 +1,4 @@
+name: size
 on:
   # this action will error unless run in a pr context
   pull_request:
@@ -8,7 +9,6 @@ jobs:
   # You may replace this with your own build method. All that
   # is required is that the stats.json be an artifact
   build-head:
-    name: 'Build head'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,7 +33,6 @@ jobs:
   # You may replace this with your own build method. All that
   # is required is that the stats.json be an artifact
   build-base:
-    name: 'Build base'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,7 +55,6 @@ jobs:
 
   # run the action against the stats.json files
   compare:
-    name: 'Compare base & head bundle sizes'
     runs-on: ubuntu-latest
     needs: [build-base, build-head]
     permissions:
