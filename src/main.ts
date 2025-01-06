@@ -31,4 +31,4 @@ export const main = defineCommand({
       await backgroundTasks
     }
   },
-}) as any /* TODO: Fix rollup type inline issue */
+})

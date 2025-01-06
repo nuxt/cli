@@ -17,6 +17,9 @@ export default defineCommand({
   },
   async run(ctx) {
     ctx.args.prerender = true
-    await buildCommand.run!(ctx as any)
+    await buildCommand.run!(
+      // @ts-expect-error types do not match
+      ctx,
+    )
   },
 })
