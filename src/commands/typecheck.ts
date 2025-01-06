@@ -1,12 +1,13 @@
+import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 import { isBun } from 'std-env'
+import { createJiti } from 'jiti'
 
 // we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
 import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 
-import { tryResolveModule } from '../utils/esm'
 import { loadKit } from '../utils/kit'
 
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -26,11 +27,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const {
-      loadNuxt,
-      buildNuxt,
-      writeTypes = writeTypesLegacy,
-    } = await loadKit(cwd)
+    const { loadNuxt, buildNuxt, writeTypes = writeTypesLegacy } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       cwd,
       overrides: {
@@ -44,13 +41,15 @@ export default defineCommand({
     await buildNuxt(nuxt)
     await nuxt.close()
 
+    const jiti = createJiti(cwd)
+
     // Prefer local install if possible
     const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
-      tryResolveModule('typescript'),
-      tryResolveModule('vue-tsc/bin/vue-tsc.js'),
+      jiti.esmResolve('typescript', { try: true }),
+      jiti.esmResolve('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
-      await execa(resolvedVueTsc, ['--noEmit'], {
+      await execa(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
         preferLocal: true,
         stdio: 'inherit',
         cwd,

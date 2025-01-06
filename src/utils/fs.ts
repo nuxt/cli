@@ -1,5 +1,5 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, join } from 'pathe'
+import { join } from 'pathe'
 import { consola } from 'consola'
 
 // Check if a file exists
@@ -52,19 +52,4 @@ export async function touchFile(path: string) {
   await fsp.writeFile(path, '').catch(() => {
     consola.error(`Failed to create file: ${path}`)
   })
-}
-
-export function findup<T>(
-  rootDir: string,
-  fn: (dir: string) => T | undefined,
-): T | null {
-  let dir = rootDir
-  while (dir !== dirname(dir)) {
-    const res = fn(dir)
-    if (res) {
-      return res
-    }
-    dir = dirname(dir)
-  }
-  return null
 }

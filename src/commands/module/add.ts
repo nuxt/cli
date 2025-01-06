@@ -11,13 +11,13 @@ import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
+import { readPackageJSON } from 'pkg-types'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import { runCommand } from '../../run'
 import {
   checkNuxtCompatibility,
   fetchModules,
   getNuxtVersion,
-  getProjectPackage,
 } from './_utils'
 import type { NuxtModule } from './_utils'
 
@@ -63,7 +63,7 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
     const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
-    const projectPkg = await getProjectPackage(cwd)
+    const projectPkg = await readPackageJSON(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)

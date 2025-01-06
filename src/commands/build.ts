@@ -33,7 +33,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    showVersions(cwd)
+    await showVersions(cwd)
 
     const kit = await loadKit(cwd)
 

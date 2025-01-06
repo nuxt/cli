@@ -1,19 +1,18 @@
 import os from 'node:os'
-import { existsSync, readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { resolve } from 'pathe'
 import { createJiti } from 'jiti'
-import destr from 'destr'
-import type { PackageJson } from 'pkg-types'
+import { readPackageJSON } from 'pkg-types'
 import { splitByCase } from 'scule'
 import clipboardy from 'clipboardy'
 import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
 import { defineCommand } from 'citty'
 import { detectPackageManager } from 'nypm'
-import { getPackageManagerVersion } from '../utils/packageManagers'
-import { findup } from '../utils/fs'
 
 import nuxiPkg from '../../package.json' assert { type: 'json' }
+
+import { tryResolveNuxt } from '../utils/kit'
+import { getPackageManagerVersion } from '../utils/packageManagers'
+
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -33,13 +32,24 @@ export default defineCommand({
     const nuxtConfig = await getNuxtConfig(cwd)
 
     // Find nearest package.json
-    const { dependencies = {}, devDependencies = {} } = findPackage(cwd)
+    const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd)
 
     // Utils to query a dependency version
-    const getDepVersion = (name: string) =>
-      getPkg(name, cwd)?.version || dependencies[name] || devDependencies[name]
+    const nuxtPath = await tryResolveNuxt(cwd)
+    async function getDepVersion(name: string) {
+      for (const url of [cwd, nuxtPath]) {
+        if (!url) {
+          continue
+        }
+        const pkg = await readPackageJSON(name, { url }).catch(() => null)
+        if (pkg) {
+          return pkg.version!
+        }
+      }
+      return dependencies[name] || devDependencies[name]
+    }
 
-    function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
+    async function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
       const info: string[] = []
       for (let m of arr) {
         if (Array.isArray(m)) {
@@ -48,7 +58,7 @@ export default defineCommand({
         const name = normalizeConfigModule(m, cwd)
         if (name) {
           const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
-          const v = getDepVersion(npmName)
+          const v = await getDepVersion(npmName)
           info.push('`' + (v ? `${name}@${v}` : name) + '`')
         }
       }
@@ -56,7 +66,7 @@ export default defineCommand({
     }
 
     // Check Nuxt version
-    const nuxtVersion = getDepVersion('nuxt') || getDepVersion('nuxt-nightly') || getDepVersion('nuxt-edge') || getDepVersion('nuxt3') || '-'
+    const nuxtVersion = await getDepVersion('nuxt') || await getDepVersion('nuxt-nightly') || await getDepVersion('nuxt-edge') || await getDepVersion('nuxt3') || '-'
     const isLegacy = nuxtVersion.startsWith('2')
     const builder = !isLegacy
       ? nuxtConfig.builder /* latest schema */ || '-'
@@ -77,14 +87,14 @@ export default defineCommand({
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
       CLIVersion: nuxiPkg.version,
-      NitroVersion: getDepVersion('nitropack'),
+      NitroVersion: await getDepVersion('nitropack'),
       PackageManager: packageManager ?? 'unknown',
       Builder: typeof builder === 'string' ? builder : 'custom',
       UserConfig: Object.keys(nuxtConfig)
         .map(key => '`' + key + '`')
         .join(', '),
-      RuntimeModules: listModules(nuxtConfig.modules),
-      BuildModules: listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
+      RuntimeModules: await listModules(nuxtConfig.modules),
+      BuildModules: await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
     }
 
     console.log('Working directory:', cwd)
@@ -174,42 +184,5 @@ async function getNuxtConfig(rootDir: string) {
   catch {
     // TODO: Show error as warning if it is not 404
     return {}
-  }
-}
-
-function getPkg(name: string, rootDir: string) {
-  // Assume it is in {rootDir}/node_modules/${name}/package.json
-  let pkgPath = resolve(rootDir, 'node_modules', name, 'package.json')
-
-  // Try to resolve for more accuracy
-  const _require = createRequire(rootDir)
-  try {
-    pkgPath = _require.resolve(name + '/package.json')
-  }
-  catch {
-    // console.log('not found:', name)
-  }
-
-  return readJSONSync(pkgPath) as PackageJson
-}
-
-function findPackage(rootDir: string) {
-  return (
-    findup(rootDir, (dir) => {
-      const p = resolve(dir, 'package.json')
-      if (existsSync(p)) {
-        return readJSONSync(p) as PackageJson
-      }
-    }) || {}
-  )
-}
-
-function readJSONSync(filePath: string) {
-  try {
-    return destr(readFileSync(filePath, 'utf-8'))
-  }
-  catch {
-    // TODO: Warn error
-    return null
   }
 }

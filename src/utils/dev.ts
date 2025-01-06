@@ -11,10 +11,11 @@ import { joinURL } from 'ufo'
 import type { HTTPSOptions, ListenURL, Listener, ListenOptions } from 'listhen'
 import { listen } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
+import type { Jiti } from 'jiti/lib/types'
+import { createJiti } from 'jiti'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
-import { importModule } from './esm'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
@@ -85,6 +86,7 @@ class NuxtDevServer extends EventEmitter {
   private _distWatcher?: FSWatcher
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
+  private _jiti: Jiti
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -102,6 +104,8 @@ class NuxtDevServer extends EventEmitter {
     this.once('ready', () => {
       _initResolve()
     })
+
+    this._jiti = createJiti(options.cwd)
 
     this.handler = async (req, res) => {
       await _initPromise
@@ -123,7 +127,7 @@ class NuxtDevServer extends EventEmitter {
     const loadingTemplate
       = this.options.loadingTemplate
       || this._currentNuxt?.options.devServer.loadingTemplate
-      || await importModule('@nuxt/ui-templates', this.options.cwd).then(r => r.loading).catch(() => {})
+      || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
       || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
