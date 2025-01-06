@@ -29,7 +29,7 @@ export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit
 async function tryResolveNuxt(rootDir: string) {
   const jiti = createJiti(rootDir)
   for (const pkg of ['nuxt-nightly', 'nuxt', 'nuxt3', 'nuxt-edge']) {
-    const path = jiti.esmResolve(pkg)
+    const path = jiti.esmResolve(pkg, { try: true })
     if (path) {
       return path
     }
