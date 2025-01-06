@@ -3,7 +3,6 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
-import { x } from 'tinyexec'
 
 import nuxiPkg from '../package.json' assert { type: 'json' }
 import { commands } from './commands'
@@ -47,6 +46,7 @@ export const main = defineCommand({
     if (ctx.args.command && !(ctx.args.command in commands)) {
       const cwd = resolve(ctx.args.cwd)
       try {
+        const { x } = await import('tinyexec')
         // `tinyexec` will resolve command from local binaries
         await x(`nuxt-${ctx.args.command}`, ctx.args._.slice(1), {
           nodeOptions: { stdio: 'inherit', cwd },
