@@ -1,4 +1,3 @@
-import { consola } from 'consola'
 import { createJiti } from 'jiti'
 
 export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit')> => {
@@ -8,9 +7,14 @@ export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit
     const localKit = jiti.esmResolve('@nuxt/kit', { try: true })
     // Otherwise, we resolve Nuxt _first_ as it is Nuxt's kit dependency that will be used
     const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
-    const kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
+    let kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
     if (!kit.writeTypes) {
-      consola.warn('Using legacy version of `@nuxt/kit`. Please upgrade to v3.7 or newer.')
+      kit = {
+        ...kit,
+        writeTypes: () => {
+          throw new Error('`writeTypes` is not available in this version of `@nuxt/kit`. Please upgrade to v3.7 or newer.')
+        },
+      }
     }
     return kit
   }
