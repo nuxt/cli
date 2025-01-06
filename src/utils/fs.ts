@@ -1,5 +1,5 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, join } from 'pathe'
+import { join } from 'pathe'
 import { consola } from 'consola'
 
 // Check if a file exists
