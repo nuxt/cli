@@ -7,7 +7,6 @@ import { resolve } from 'pathe'
 import { consola } from 'consola'
 import { addDependency } from 'nypm'
 import { joinURL } from 'ufo'
-import { $fetch } from 'ofetch'
 import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
@@ -247,9 +246,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     headers.Authorization = `Bearer ${meta.authToken}`
   }
 
-  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), {
+  const pkgDetails = await fetch(joinURL(meta.registry, `${pkgName}`), {
     headers,
-  })
+  }).then(r => r.json())
 
   // check if a dist-tag exists
   pkgVersion = (pkgDetails['dist-tags']?.[pkgVersion] || pkgVersion) as string

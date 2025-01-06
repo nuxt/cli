@@ -63,7 +63,6 @@
     "magicast": "^0.3.5",
     "nitropack": "npm:nitropack-nightly",
     "nypm": "^0.4.1",
-    "ofetch": "^1.4.1",
     "ohash": "^1.1.4",
     "pathe": "^2.0.0",
     "perfect-debounce": "^1.0.0",

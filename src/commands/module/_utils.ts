@@ -1,4 +1,3 @@
-import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
 import { satisfies, coerce } from 'semver'
 
@@ -96,9 +95,7 @@ export interface NuxtModule {
 }
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const { modules } = await $fetch<NuxtApiModulesResponse>(
-    `https://api.nuxt.com/modules?version=all`,
-  )
+  const { modules } = await fetch('https://api.nuxt.com/modules?version=all').then(r => r.json()) as NuxtApiModulesResponse
   return modules
 }
 
