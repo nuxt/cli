@@ -29,6 +29,7 @@ jobs:
       - run: pnpm lint
       - run: pnpm test:types
       - run: pnpm build
+      - run: pnpm knip
       - run: pnpm test:dist
       - run: pnpm test:unit
       - if: matrix.os != 'windows-latest'

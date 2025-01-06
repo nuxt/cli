@@ -5,8 +5,6 @@ import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 
-// import { checkForUpdates } from './utils/update'
-
 export const main = defineCommand({
   meta: {
     name: nuxiPkg.name,
@@ -24,7 +22,6 @@ export const main = defineCommand({
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
-        // checkForUpdates(),
       ]).catch(err => console.error(err))
     }
 

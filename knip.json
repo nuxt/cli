@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": [
+        "pkg-pr-new"
+      ]
+    },
+    "playground": {
+      "ignoreDependencies": [
+        "nuxi",
+        "nuxt"
+      ]
+    }
+  }
+}

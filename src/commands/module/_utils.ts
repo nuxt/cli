@@ -24,7 +24,7 @@ export const categories = [
   'UI',
 ]
 
-export interface NuxtApiModulesResponse {
+interface NuxtApiModulesResponse {
   version: string
   generatedAt: string
   stats: Stats
@@ -33,14 +33,14 @@ export interface NuxtApiModulesResponse {
   modules: NuxtModule[]
 }
 
-export interface Contributor {
+interface Contributor {
   id: number
   username: string
   contributions: number
   modules: string[]
 }
 
-export interface Stats {
+interface Stats {
   downloads: number
   stars: number
   maintainers: number
@@ -48,7 +48,7 @@ export interface Stats {
   modules: number
 }
 
-export interface ModuleCompatibility {
+interface ModuleCompatibility {
   nuxt: string
   requires: { bridge?: boolean | 'optional' }
   versionMap: {
@@ -56,20 +56,19 @@ export interface ModuleCompatibility {
   }
 }
 
-export interface MaintainerInfo {
+interface MaintainerInfo {
   name: string
   github: string
   twitter?: string
 }
 
-export interface GithubContributor {
+interface GitHubContributor {
   username: string
   name?: string
   avatar_url?: string
 }
 
-export type CompatibilityStatus = 'working' | 'wip' | 'unknown' | 'not-working'
-export type ModuleType = 'community' | 'official' | '3rd-party'
+type ModuleType = 'community' | 'official' | '3rd-party'
 
 export interface NuxtModule {
   name: string
@@ -83,7 +82,7 @@ export interface NuxtModule {
   category: (typeof categories)[number]
   type: ModuleType
   maintainers: MaintainerInfo[]
-  contributors?: GithubContributor[]
+  contributors?: GitHubContributor[]
   compatibility: ModuleCompatibility
   aliases?: string[]
   stats: Stats

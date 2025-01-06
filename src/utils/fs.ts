@@ -3,7 +3,7 @@ import { join } from 'pathe'
 import { consola } from 'consola'
 
 // Check if a file exists
-export async function exists(path: string) {
+async function exists(path: string) {
   try {
     await fsp.access(path)
     return true

@@ -31,7 +31,7 @@ export interface NuxtDevContext {
   }
 }
 
-export interface NuxtDevServerOptions {
+interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
   dotenv: boolean

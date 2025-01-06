@@ -21,7 +21,7 @@ import {
 } from './_utils'
 import type { NuxtModule } from './_utils'
 
-export type RegistryMeta = {
+type RegistryMeta = {
   registry: string
   authToken: string | null
 }
