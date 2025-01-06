@@ -1,6 +1,7 @@
 import { defineBuildConfig } from 'unbuild'
 import type { InputPluginOption } from 'rollup'
 import { purgePolyfills } from 'unplugin-purge-polyfills'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 export default defineBuildConfig({
   declaration: true,
@@ -10,6 +11,7 @@ export default defineBuildConfig({
       plugins.push(purgePolyfills.rollup({
         logLevel: 'verbose',
       }))
+      plugins.push(visualizer({ template: 'raw-data' }))
     },
   },
   rollup: {
