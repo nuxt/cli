@@ -164,7 +164,7 @@ async function getNuxtConfig(rootDir: string) {
       },
     })
     ;(globalThis as any).defineNuxtConfig = (c: any) => c
-    const result = await jiti.import('./nuxt.config') as NuxtConfig
+    const result = await jiti.import('./nuxt.config', { default: true }) as NuxtConfig
     delete (globalThis as any).defineNuxtConfig
     return result
   }
