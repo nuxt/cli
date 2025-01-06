@@ -2,7 +2,11 @@ name: size
 on:
   # this action will error unless run in a pr context
   pull_request:
-  pull_request_target:
+    branches:
+      - main
+
+env:
+  BUNDLE_SIZE: true
 
 jobs:
   # Build current and upload stats.json
@@ -24,7 +28,7 @@ jobs:
       - run: pnpm install
       - run: pnpm build
       - name: Upload stats.json
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: head-stats
           path: ./stats.json
@@ -48,7 +52,7 @@ jobs:
       - run: pnpm install
       - run: pnpm build
       - name: Upload stats.json
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: base-stats
           path: ./stats.json
@@ -60,7 +64,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
       - uses: twk3/rollup-size-compare-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
