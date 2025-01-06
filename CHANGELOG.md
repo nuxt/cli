@@ -1,6 +1,65 @@
 # Changelog
 
 
+## v3.18.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.2...v3.18.0)
+
+### 🚀 Enhancements
+
+- **dev:** Support PFX certificate for dev server ([#624](https://github.com/nuxt/cli/pull/624))
+- **module:** Install as dev dependency with `--dev` flag ([#630](https://github.com/nuxt/cli/pull/630))
+- **add:** Add layer template ([#626](https://github.com/nuxt/cli/pull/626))
+- Use `jiti` to import/resolve modules ([#632](https://github.com/nuxt/cli/pull/632))
+- Add `nuxi` tag to logs ([#642](https://github.com/nuxt/cli/pull/642))
+
+### 🔥 Performance
+
+- Use consola colors ([a3fe458](https://github.com/nuxt/cli/commit/a3fe458))
+- Use `tinyexec` to execute commands ([#639](https://github.com/nuxt/cli/pull/639))
+- Do not inline `writeTypes` from `@nuxt/kit` ([#641](https://github.com/nuxt/cli/pull/641))
+
+### 🩹 Fixes
+
+- **upgrade:** Detect 'bun.lock' lockfile ([#614](https://github.com/nuxt/cli/pull/614))
+- **build:** Do not override `preset` when prerendering ([#605](https://github.com/nuxt/cli/pull/605))
+- **info:** De-default nuxt config ([5f96214](https://github.com/nuxt/cli/commit/5f96214))
+
+### 💅 Refactors
+
+- **info,upgrade:** Use `nypm` to detect package manager ([#618](https://github.com/nuxt/cli/pull/618))
+
+### 🏡 Chore
+
+- **release:** V3.17.2 ([19556d3](https://github.com/nuxt/cli/commit/19556d3))
+- Use json assertion ([acb6130](https://github.com/nuxt/cli/commit/acb6130))
+- Correct dependency list ([a979a47](https://github.com/nuxt/cli/commit/a979a47))
+- Add explicit nuxi dependency for ppn ([a3be91d](https://github.com/nuxt/cli/commit/a3be91d))
+- Lockfile ([7ded939](https://github.com/nuxt/cli/commit/7ded939))
+- Don't fail build when analysing size ([d8fa483](https://github.com/nuxt/cli/commit/d8fa483))
+- Use `knip` to ensure repository is 💯 ([ee63f74](https://github.com/nuxt/cli/commit/ee63f74))
+- Update lockfile ([a1c2cd2](https://github.com/nuxt/cli/commit/a1c2cd2))
+- Add additional lint preset + lint project ([1e1fd26](https://github.com/nuxt/cli/commit/1e1fd26))
+- Lint 😆 ([0363b58](https://github.com/nuxt/cli/commit/0363b58))
+
+### 🤖 CI
+
+- Don't upload coverage on windows ([fb1c354](https://github.com/nuxt/cli/commit/fb1c354))
+- Release pull requests with `pkg.pr.new` ([#633](https://github.com/nuxt/cli/pull/633))
+- Add bundle size comparison job ([#635](https://github.com/nuxt/cli/pull/635))
+- Move rollup plugin to beginning of array ([b98c031](https://github.com/nuxt/cli/commit/b98c031))
+- Update pr target ([#638](https://github.com/nuxt/cli/pull/638))
+- Skip dts when checking bundle size ([a5382c9](https://github.com/nuxt/cli/commit/a5382c9))
+- Do not release nightly on windows matrix ([982ae2e](https://github.com/nuxt/cli/commit/982ae2e))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Bobbie Goede <bobbiegoede@gmail.com>
+- Colonel-Sandvich ([@Colonel-Sandvich](http://github.com/Colonel-Sandvich))
+- Clément Ollivier ([@clemcode](http://github.com/clemcode))
+- Connor Roberts ([@murshex](http://github.com/murshex))
+
 ## v3.17.2
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.17.1...v3.17.2)
