@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { execa } from 'execa'
+import { x } from 'tinyexec'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 import { isBun } from 'std-env'
@@ -49,30 +49,33 @@ export default defineCommand({
       jiti.esmResolve('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
-      await execa(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
-        preferLocal: true,
-        stdio: 'inherit',
-        cwd,
+      await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
+        nodeOptions: {
+          stdio: 'inherit',
+          cwd,
+        },
       })
     }
     else {
       if (isBun) {
-        await execa(
+        await x(
           'bun',
           'install typescript vue-tsc --global --silent'.split(' '),
-          { stdio: 'inherit', cwd },
+          { nodeOptions: { stdio: 'inherit', cwd } },
         )
 
-        await execa('bunx', 'vue-tsc --noEmit'.split(' '), {
-          stdio: 'inherit',
-          cwd,
+        await x('bunx', 'vue-tsc --noEmit'.split(' '), {
+          nodeOptions: {
+            stdio: 'inherit',
+            cwd,
+          },
         })
       }
       else {
-        await execa(
+        await x(
           'npx',
           '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-          { stdio: 'inherit', cwd },
+          { nodeOptions: { stdio: 'inherit', cwd } },
         )
       }
     }

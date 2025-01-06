@@ -1,5 +1,5 @@
 import { resolve } from 'pathe'
-import { execa } from 'execa'
+import { x } from 'tinyexec'
 import { defineCommand } from 'citty'
 
 import { cwdArgs, legacyRootDirArgs } from './_shared'
@@ -26,12 +26,14 @@ export default defineCommand({
       process.exit(1)
     }
 
-    await execa(
+    await x(
       'npx',
       ['@nuxt/devtools-wizard@latest', ctx.args.command, cwd],
       {
-        stdio: 'inherit',
-        cwd,
+        nodeOptions: {
+          stdio: 'inherit',
+          cwd,
+        },
       },
     )
   },

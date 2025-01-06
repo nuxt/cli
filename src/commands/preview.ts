@@ -1,6 +1,6 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, relative } from 'node:path'
-import { execa } from 'execa'
+import { x } from 'tinyexec'
 import { setupDotenv } from 'c12'
 import { resolve } from 'pathe'
 import { consola } from 'consola'
@@ -100,6 +100,6 @@ export default defineCommand({
     consola.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     consola.log('')
-    await execa(command, commandArgs, { stdio: 'inherit', cwd: outputPath })
+    await x(command, commandArgs, { nodeOptions: { stdio: 'inherit', cwd: outputPath } })
   },
 })
