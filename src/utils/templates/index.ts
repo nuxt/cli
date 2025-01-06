@@ -1,6 +1,7 @@
 import type { NuxtOptions } from '@nuxt/schema'
 import { api } from './api'
 import { app } from './app'
+import { appConfig } from './app-config'
 import { component } from './component'
 import { composable } from './composable'
 import { error } from './error'
@@ -27,6 +28,7 @@ interface Template {
 const templates = {
   api,
   app,
+  appConfig,
   component,
   composable,
   error,
