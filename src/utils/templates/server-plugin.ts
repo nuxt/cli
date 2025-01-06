@@ -1,5 +1,5 @@
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
 
 const serverPlugin: Template = ({ name, nuxtOptions }) => ({
   path: nuxtOptions.future.compatibilityVersion === 3

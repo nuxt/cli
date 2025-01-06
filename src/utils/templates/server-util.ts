@@ -1,5 +1,5 @@
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
 import { pascalCase } from 'scule'
 
 const serverUtil: Template = ({ name, nuxtOptions }) => ({

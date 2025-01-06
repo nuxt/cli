@@ -59,4 +59,4 @@ function applySuffix(
   return suffix
 }
 
-export { templates, applySuffix, Template }
+export { applySuffix, Template, templates }
