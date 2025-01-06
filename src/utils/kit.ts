@@ -10,7 +10,6 @@ export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit
     const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
     const kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
     if (!kit.writeTypes) {
-      // Polyfills for schema < 3.7
       consola.warn('Using legacy Nuxt kit version. Please upgrade to Nuxt v3.7 or newer.')
     }
     return kit
