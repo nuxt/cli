@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.18.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.1...v3.18.2)
+
+### 🩹 Fixes
+
+- Handle failures to resolve deps ([#643](https://github.com/nuxt/cli/pull/643))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.18.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.18.0...v3.18.1)
