@@ -10,6 +10,9 @@ import { middleware } from './middleware'
 import { page } from './page'
 import { plugin } from './plugin'
 import { serverMiddleware } from './server-middleware'
+import { serverPlugin } from './server-plugin'
+import { serverRoute } from './server-route'
+import { serverUtil } from './server-util'
 
 interface TemplateOptions {
   name: string
@@ -33,6 +36,9 @@ const templates: Record<string, Template> = {
   page,
   plugin,
   'server-middleware': serverMiddleware,
+  'server-plugin': serverPlugin,
+  'server-route': serverRoute,
+  'server-util': serverUtil,
 }
 
 // -- internal utils --
