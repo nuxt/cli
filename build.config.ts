@@ -11,7 +11,7 @@ export default defineBuildConfig({
       plugins.push(purgePolyfills.rollup({
         logLevel: 'verbose',
       }))
-      plugins.push(visualizer({ template: 'raw-data' }))
+      plugins.unshift(visualizer({ template: 'raw-data' }))
     },
   },
   rollup: {
