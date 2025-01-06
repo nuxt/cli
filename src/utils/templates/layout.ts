@@ -1,7 +1,8 @@
+import { resolve } from 'pathe'
 import type { Template } from '.'
 
-const layout: Template = ({ name }) => ({
-  path: `layouts/${name}.vue`,
+const layout: Template = ({ name, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, nuxtOptions.dir.layouts, `${name}.vue`),
   contents: `
 <script setup lang="ts"></script>
 

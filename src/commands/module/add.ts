@@ -1,20 +1,40 @@
-import { resolve } from 'pathe'
+import type { FileHandle } from 'node:fs/promises'
+import type { PackageJson } from 'pkg-types'
+
+import type { NuxtModule } from './_utils'
+import * as fs from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+
+import process from 'node:process'
+import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
-import { sharedArgs } from '../_shared'
-import { existsSync } from 'node:fs'
-import { loadFile, writeFile, parseModule, ProxifiedModule } from 'magicast'
-import consola from 'consola'
+import { colors } from 'consola/utils'
 import { addDependency } from 'nypm'
 import { $fetch } from 'ofetch'
-import {
-  NuxtModule,
-  checkNuxtCompatibility,
-  fetchModules,
-  getNuxtVersion,
-  getProjectPackage,
-} from './_utils'
+import { resolve } from 'pathe'
+import { readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
-import { colors } from 'consola/utils'
+import { joinURL } from 'ufo'
+
+import { runCommand } from '../../run'
+import { logger } from '../../utils/logger'
+import { cwdArgs, logLevelArgs } from '../_shared'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
+
+interface RegistryMeta {
+  registry: string
+  authToken: string | null
+}
+
+interface ResolvedModule {
+  nuxtModule?: NuxtModule
+  pkg: string
+  pkgName: string
+  pkgVersion: string
+}
+type UnresolvedModule = false
+type ModuleResolution = ResolvedModule | UnresolvedModule
 
 export default defineCommand({
   meta: {
@@ -22,10 +42,11 @@ export default defineCommand({
     description: 'Add Nuxt modules',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     moduleName: {
       type: 'positional',
-      description: 'Module name',
+      description: 'Specify one or more modules to install by name, separated by spaces',
     },
     skipInstall: {
       type: 'boolean',
@@ -35,14 +56,19 @@ export default defineCommand({
       type: 'boolean',
       description: 'Skip nuxt.config.ts update',
     },
+    dev: {
+      type: 'boolean',
+      description: 'Install modules as dev dependencies',
+    },
   },
   async setup(ctx) {
-    const cwd = resolve(ctx.args.cwd || '.')
-    const projectPkg = await getProjectPackage(cwd)
+    const cwd = resolve(ctx.args.cwd)
+    const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
+    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
-      consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
-      const shouldContinue = await consola.prompt(
+      logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
+      const shouldContinue = await logger.prompt(
         `Do you want to continue anyway?`,
         {
           type: 'confirm',
@@ -54,87 +80,70 @@ export default defineCommand({
       }
     }
 
-    const r = await resolveModule(ctx.args.moduleName, cwd)
-    if (r === false) {
-      return
-    }
+    const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
+    const r = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
 
-    // Add npm dependency
-    if (!ctx.args.skipInstall) {
-      const isDev = Boolean(projectPkg.devDependencies?.nuxt)
-      consola.info(
-        `Installing \`${r.pkg}\`${isDev ? ' development' : ''} dependency`,
-      )
-      const res = await addDependency(r.pkg, { cwd, dev: isDev }).catch(
-        (error) => {
-          consola.error(error)
-          return consola.prompt(
-            `Install failed for ${colors.cyan(
-              r.pkg,
-            )}. Do you want to continue adding the module to ${colors.cyan(
-              'nuxt.config',
-            )}?`,
-            {
-              type: 'confirm',
-              initial: false,
-            },
-          )
-        },
-      )
-      if (res === false) {
-        return
-      }
-    }
+    logger.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
 
-    // Update nuxt.config.ts
-    if (!ctx.args.skipConfig) {
-      await updateNuxtConfig(cwd, (config) => {
-        if (!config.modules) {
-          config.modules = []
-        }
+    await addModule(r, { ...ctx.args, cwd }, projectPkg)
 
-        if (config.modules.includes(r.pkgName)) {
-          consola.info(`\`${r.pkgName}\` is already in the \`modules\``)
-          return
-        }
-        consola.info(`Adding \`${r.pkgName}\` to the \`modules\``)
-        config.modules.push(r.pkgName)
-      }).catch((err) => {
-        consola.error(err)
-        consola.error(
-          `Please manually add \`${r.pkgName}\` to the \`modules\` in \`nuxt.config.ts\``,
-        )
-      })
-    }
+    // update the types for new module
+    const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
+    await runCommand('prepare', args)
   },
 })
 
 // -- Internal Utils --
+async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd, dev }: { skipInstall: boolean, skipConfig: boolean, cwd: string, dev: boolean }, projectPkg: any) {
+  // Add npm dependency
+  if (!skipInstall) {
+    const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
+    logger.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
+    const res = await addDependency(r.map(x => x.pkg), { cwd, dev: isDev, installPeerDependencies: true }).catch(
+      (error) => {
+        logger.error(error)
+        return logger.prompt(
+          `Install failed for ${r.map(x => colors.cyan(x.pkg)).join(', ')}. Do you want to continue adding the module(s) to ${colors.cyan('nuxt.config')}?`,
+          {
+            type: 'confirm',
+            initial: false,
+          },
+        )
+      },
+    )
+    if (res === false) {
+      return
+    }
+  }
 
-async function updateNuxtConfig(
-  rootDir: string,
-  update: (config: any) => void,
-) {
-  let _module: ProxifiedModule
-  const nuxtConfigFile = resolve(rootDir, 'nuxt.config.ts')
-  if (existsSync(nuxtConfigFile)) {
-    consola.info('Updating `nuxt.config.ts`')
-    _module = await loadFile(nuxtConfigFile)
-  } else {
-    consola.info('Creating `nuxt.config.ts`')
-    _module = parseModule(getDefaultNuxtConfig())
+  // Update nuxt.config.ts
+  if (!skipConfig) {
+    await updateConfig({
+      cwd,
+      configFile: 'nuxt.config',
+      async onCreate() {
+        logger.info(`Creating \`nuxt.config.ts\``)
+        return getDefaultNuxtConfig()
+      },
+      async onUpdate(config) {
+        for (const resolved of r) {
+          if (!config.modules) {
+            config.modules = []
+          }
+          if (config.modules.includes(resolved.pkgName)) {
+            logger.info(`\`${resolved.pkgName}\` is already in the \`modules\``)
+            return
+          }
+          logger.info(`Adding \`${resolved.pkgName}\` to the \`modules\``)
+          config.modules.push(resolved.pkgName)
+        }
+      },
+    }).catch((error) => {
+      logger.error(`Failed to update \`nuxt.config\`: ${error.message}`)
+      logger.error(`Please manually add \`${r.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
+      return null
+    })
   }
-  const defaultExport = _module.exports.default
-  if (!defaultExport) {
-    throw new Error('`nuxt.config.ts` does not have a default export!')
-  }
-  if (defaultExport.$type === 'function-call') {
-    update(defaultExport.$args[0])
-  } else {
-    update(defaultExport)
-  }
-  await writeFile(_module as any, nuxtConfigFile)
-  consola.success('`nuxt.config.ts` updated')
 }
 
 function getDefaultNuxtConfig() {
@@ -146,21 +155,10 @@ export default defineNuxtConfig({
 }
 
 // Based on https://github.com/dword-design/package-name-regex
-const packageRegex =
-  /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
+const packageRegex
+  = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
 
-async function resolveModule(
-  moduleName: string,
-  cwd: string,
-): Promise<
-  | false
-  | {
-      nuxtModule?: NuxtModule
-      pkg: string
-      pkgName: string
-      pkgVersion: string
-    }
-> {
+async function resolveModule(moduleName: string, cwd: string): Promise<ModuleResolution> {
   let pkgName = moduleName
   let pkgVersion: string | undefined
 
@@ -170,21 +168,22 @@ async function resolveModule(
       pkgName = `${reMatch[1] || ''}${reMatch[2] || ''}`
       pkgVersion = reMatch[3].slice(1)
     }
-  } else {
-    consola.error(`Invalid package name \`${pkgName}\`.`)
+  }
+  else {
+    logger.error(`Invalid package name \`${pkgName}\`.`)
     return false
   }
 
   const modulesDB = await fetchModules().catch((err) => {
-    consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+    logger.warn(`Cannot search in the Nuxt Modules database: ${err}`)
     return []
   })
 
   const matchedModule = modulesDB.find(
-    (module) =>
-      module.name === moduleName ||
-      module.npm === pkgName ||
-      module.aliases?.includes(pkgName),
+    module =>
+      module.name === moduleName
+      || module.npm === pkgName
+      || module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
@@ -197,10 +196,10 @@ async function resolveModule(
 
     // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
-      consola.warn(
+      logger.warn(
         `The module \`${pkgName}\` is not compatible with Nuxt \`${nuxtVersion}\` (requires \`${matchedModule.compatibility.nuxt}\`)`,
       )
-      const shouldContinue = await consola.prompt(
+      const shouldContinue = await logger.prompt(
         'Do you want to continue installing incompatible version?',
         {
           type: 'confirm',
@@ -219,11 +218,12 @@ async function resolveModule(
         if (satisfies(nuxtVersion, _nuxtVersion)) {
           if (!pkgVersion) {
             pkgVersion = _moduleVersion
-          } else {
-            consola.warn(
+          }
+          else {
+            logger.warn(
               `Recommended version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
-            pkgVersion = await consola.prompt('Choose a version:', {
+            pkgVersion = await logger.prompt('Choose a version:', {
               type: 'select',
               options: [_moduleVersion, pkgVersion],
             })
@@ -236,16 +236,34 @@ async function resolveModule(
 
   // Fetch package on npm
   pkgVersion = pkgVersion || 'latest'
-  const pkg = await $fetch(
-    `https://registry.npmjs.org/${pkgName}/${pkgVersion}`,
-  )
+  const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
+  const meta: RegistryMeta = await detectNpmRegistry(pkgScope)
+  const headers: HeadersInit = {}
+
+  if (meta.authToken) {
+    headers.Authorization = `Bearer ${meta.authToken}`
+  }
+
+  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), {
+    headers,
+  })
+
+  // check if a dist-tag exists
+  pkgVersion = (pkgDetails['dist-tags']?.[pkgVersion] || pkgVersion) as string
+
+  const pkg = pkgDetails.versions[pkgVersion]
+
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
     pkg.devDependencies || {},
   )
-  if (!pkgDependencies['nuxt'] && !pkgDependencies['nuxt-edge']) {
-    consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
-    const shouldContinue = await consola.prompt(
+  if (
+    !pkgDependencies.nuxt
+    && !pkgDependencies['nuxt-edge']
+    && !pkgDependencies['@nuxt/kit']
+  ) {
+    logger.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
+    const shouldContinue = await logger.prompt(
       `Do you want to continue installing \`${pkgName}\` anyway?`,
       {
         type: 'confirm',
@@ -263,4 +281,96 @@ async function resolveModule(
     pkgName,
     pkgVersion,
   }
+}
+
+function getNpmrcPaths(): string[] {
+  const userNpmrcPath = join(homedir(), '.npmrc')
+  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
+
+  return [cwdNpmrcPath, userNpmrcPath]
+}
+
+async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
+  const paths = getNpmrcPaths()
+  const authTokenRegex = new RegExp(`^//${registry.replace(/^https?:\/\//, '').replace(/\/$/, '')}/:_authToken=(.+)$`, 'm')
+
+  for (const npmrcPath of paths) {
+    let fd: FileHandle | undefined
+    try {
+      fd = await fs.promises.open(npmrcPath, 'r')
+      if (await fd.stat().then(r => r.isFile())) {
+        const npmrcContent = await fd.readFile('utf-8')
+        const authTokenMatch = npmrcContent.match(authTokenRegex)?.[1]
+
+        if (authTokenMatch) {
+          return authTokenMatch.trim()
+        }
+      }
+    }
+    catch {
+      // swallow errors as file does not exist
+    }
+    finally {
+      await fd?.close()
+    }
+  }
+
+  return null
+}
+
+async function detectNpmRegistry(scope: string | null): Promise<RegistryMeta> {
+  const registry = await getRegistry(scope)
+  const authToken = await getAuthToken(registry)
+
+  return {
+    registry,
+    authToken,
+  }
+}
+
+async function getRegistry(scope: string | null): Promise<string> {
+  if (process.env.COREPACK_NPM_REGISTRY) {
+    return process.env.COREPACK_NPM_REGISTRY
+  }
+  const registry = await getRegistryFromFile(getNpmrcPaths(), scope)
+
+  if (registry) {
+    process.env.COREPACK_NPM_REGISTRY = registry
+  }
+
+  return registry || 'https://registry.npmjs.org'
+}
+
+async function getRegistryFromFile(paths: string[], scope: string | null) {
+  for (const npmrcPath of paths) {
+    let fd: FileHandle | undefined
+    try {
+      fd = await fs.promises.open(npmrcPath, 'r')
+      if (await fd.stat().then(r => r.isFile())) {
+        const npmrcContent = await fd.readFile('utf-8')
+
+        if (scope) {
+          const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
+          const scopedMatch = npmrcContent.match(scopedRegex)?.[1]
+          if (scopedMatch) {
+            return scopedMatch.trim()
+          }
+        }
+
+        // If no scoped registry found or no scope provided, look for the default registry
+        const defaultRegex = /^\s*registry=(.+)$/m
+        const defaultMatch = npmrcContent.match(defaultRegex)?.[1]
+        if (defaultMatch) {
+          return defaultMatch.trim()
+        }
+      }
+    }
+    catch {
+      // swallow errors as file does not exist
+    }
+    finally {
+      await fd?.close()
+    }
+  }
+  return null
 }

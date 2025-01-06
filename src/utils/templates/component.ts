@@ -1,12 +1,13 @@
 import type { Template } from '.'
 import { applySuffix } from '.'
+import { resolve } from 'pathe'
 
-const component: Template = ({ name, args }) => ({
-  path: `components/${name}${applySuffix(
+const component: Template = ({ name, args, nuxtOptions }) => ({
+  path: resolve(nuxtOptions.srcDir, `components/${name}${applySuffix(
     args,
     ['client', 'server'],
     'mode',
-  )}.vue`,
+  )}.vue`),
   contents: `
 <script setup lang="ts"></script>
 

@@ -1,7 +1,26 @@
+import type { InputPluginOption } from 'rollup'
+import process from 'node:process'
+import { visualizer } from 'rollup-plugin-visualizer'
 import { defineBuildConfig } from 'unbuild'
+import { purgePolyfills } from 'unplugin-purge-polyfills'
+
+const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 
 export default defineBuildConfig({
-  declaration: true,
+  declaration: !isAnalysingSize,
+  failOnWarn: !isAnalysingSize,
+  hooks: {
+    'rollup:options': function (ctx, options) {
+      const plugins = (options.plugins ||= []) as InputPluginOption[]
+      plugins.push(purgePolyfills.rollup({
+        logLevel: 'verbose',
+      }))
+      if (isAnalysingSize) {
+        plugins.unshift(visualizer({ template: 'raw-data' }))
+      }
+      ctx.options.rollup.dts.respectExternal = false
+    },
+  },
   rollup: {
     inlineDependencies: true,
     resolve: {

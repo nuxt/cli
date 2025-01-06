@@ -1,4 +1,6 @@
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+
 import { runCommand as _runCommand, runMain as _runMain } from 'citty'
 
 import { commands } from './commands'

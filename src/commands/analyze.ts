@@ -1,14 +1,19 @@
+import type { NuxtAnalyzeMeta } from '@nuxt/schema'
+
 import { promises as fsp } from 'node:fs'
-import { join, resolve } from 'pathe'
+import process from 'node:process'
+
+import { defineCommand } from 'citty'
+import { defu } from 'defu'
 import { createApp, eventHandler, lazyEventHandler, toNodeListener } from 'h3'
 import { listen } from 'listhen'
-import type { NuxtAnalyzeMeta } from '@nuxt/schema'
-import { defu } from 'defu'
-import { loadKit } from '../utils/kit'
-import { clearDir } from '../utils/fs'
+import { join, resolve } from 'pathe'
+
 import { overrideEnv } from '../utils/env'
-import { defineCommand } from 'citty'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { clearDir } from '../utils/fs'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,8 +21,10 @@ export default defineCommand({
     description: 'Build nuxt and analyze production bundle (experimental)',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
+    ...dotEnvArgs,
     name: {
       type: 'string',
       description: 'Name of the analysis',
@@ -32,9 +39,9 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const name = ctx.args.name || 'default'
-    const slug = name.trim().replace(/[^a-z0-9_-]/gi, '_')
+    const slug = name.trim().replace(/[^\w-]/g, '_')
 
     const startTime = Date.now()
 
@@ -42,10 +49,24 @@ export default defineCommand({
 
     const nuxt = await loadNuxt({
       cwd,
+      dotenv: {
+        cwd,
+        fileName: ctx.args.dotenv,
+      },
       overrides: defu(ctx.data?.overrides, {
         build: {
           analyze: {
             enabled: true,
+          },
+        },
+        vite: {
+          build: {
+            rollupOptions: {
+              output: {
+                chunkFileNames: '_nuxt/[name].js',
+                entryFileNames: '_nuxt/[name].js',
+              },
+            },
           },
         },
         logLevel: ctx.args.logLevel,
@@ -54,8 +75,8 @@ export default defineCommand({
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
-    const outDir =
-      nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
+    const outDir
+      = nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
 
     nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
       filename: join(analyzeDir, 'client.html'),
@@ -83,10 +104,8 @@ export default defineCommand({
       'utf-8',
     )
 
-    console.info('Analyze results are available at: `' + analyzeDir + '`')
-    console.warn(
-      'Do not deploy analyze results! Use `nuxi build` before deploying.',
-    )
+    logger.info(`Analyze results are available at: \`${analyzeDir}\``)
+    logger.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
 
     if (ctx.args.serve !== false && !process.env.CI) {
       const app = createApp()
@@ -99,7 +118,7 @@ export default defineCommand({
           })
         })
 
-      console.info('Starting stats server...')
+      logger.info('Starting stats server...')
 
       app.use('/client', serveFile(join(analyzeDir, 'client.html')))
       app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))

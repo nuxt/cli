@@ -10,28 +10,37 @@ on:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     # permissions:
     #   id-token: write
     steps:
-      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           fetch-depth: 0
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: "pnpm"
+          cache: pnpm
       - run: pnpm install
       - run: pnpm lint
       - run: pnpm test:types
       - run: pnpm build
+      - run: pnpm knip
       - run: pnpm test:dist
-      # - run: pnpm vitest --coverage && rm -rf coverage/tmp
-      # - uses: codecov/codecov-action@v3
-      - name: Release Edge
+      - run: pnpm test:unit
+      - if: matrix.os != 'windows-latest'
+        uses: codecov/codecov-action@v5
+      - name: 📦 release pkg.pr.new
+        if: github.event_name != 'push' && matrix.os != 'windows-latest'
+        run: pnpx pkg-pr-new publish --compact --template './playground'
+      - name: 📦 release nuxi-nightly
         if: |
           github.event_name == 'push' &&
+          matrix.os != 'windows-latest' &&
           !contains(github.event.head_commit.message, '[skip-release]') &&
           !contains(github.event.head_commit.message, 'docs')
         run: |

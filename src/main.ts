@@ -1,11 +1,10 @@
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
+import nuxiPkg from '../package.json' assert { type: 'json' }
 import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
-import nuxiPkg from '../package.json' assert { type: 'json' }
-
-// import { checkForUpdates } from './utils/update'
+import { logger } from './utils/logger'
 
 export const main = defineCommand({
   meta: {
@@ -24,8 +23,7 @@ export const main = defineCommand({
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
-        // checkForUpdates(),
-      ]).catch((err) => console.error(err))
+      ]).catch(err => logger.error(err))
     }
 
     // Avoid background check to fix prompt issues
@@ -33,4 +31,4 @@ export const main = defineCommand({
       await backgroundTasks
     }
   },
-}) as any /* TODO: Fix rollup type inline issue */
+})

@@ -1,9 +1,10 @@
-import { execa } from 'execa'
-import { consola } from 'consola'
-import { resolve } from 'pathe'
-import { tryResolveModule } from '../utils/esm'
 import { defineCommand } from 'citty'
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { resolve } from 'pathe'
+import { readPackageJSON } from 'pkg-types'
+import { x } from 'tinyexec'
+
+import { logger } from '../utils/logger'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'
 
@@ -13,7 +14,8 @@ export default defineCommand({
     description: `Helper command for using ${MODULE_BUILDER_PKG}`,
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
     stub: {
       type: 'boolean',
@@ -30,12 +32,9 @@ export default defineCommand({
   },
   async run(ctx) {
     // Find local installed version
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const hasLocal = await tryResolveModule(
-      `${MODULE_BUILDER_PKG}/package.json`,
-      cwd,
-    )
+    const hasLocal = await readPackageJSON(MODULE_BUILDER_PKG, { url: cwd }).catch(() => false)
 
     const execArgs = Object.entries({
       '--stub': ctx.args.stub,
@@ -47,17 +46,18 @@ export default defineCommand({
 
     let cmd = 'nuxt-module-build'
     if (!hasLocal) {
-      consola.warn(
+      logger.warn(
         `Cannot find locally installed version of \`${MODULE_BUILDER_PKG}\` (>=0.2.0). Falling back to \`npx ${MODULE_BUILDER_PKG}\``,
       )
       cmd = 'npx'
       execArgs.unshift(MODULE_BUILDER_PKG)
     }
 
-    await execa(cmd, execArgs, {
-      cwd,
-      preferLocal: true,
-      stdio: 'inherit',
+    await x(cmd, execArgs, {
+      nodeOptions: {
+        cwd,
+        stdio: 'inherit',
+      },
     })
   },
 })

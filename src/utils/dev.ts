@@ -1,29 +1,31 @@
-import type { RequestListener, ServerResponse } from 'node:http'
-import EventEmitter from 'node:events'
-import { relative, resolve, join } from 'pathe'
-import chokidar from 'chokidar'
-import { consola } from 'consola'
-import { debounce } from 'perfect-debounce'
-import { toNodeListener } from 'h3'
-import { joinURL } from 'ufo'
-import {
-  HTTPSOptions,
-  ListenURL,
-  listen,
-  Listener,
-  ListenOptions,
-} from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
-import { loadKit } from '../utils/kit'
-import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import type { FSWatcher } from 'chokidar'
+import type { Jiti } from 'jiti/lib/types'
+import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { RequestListener, ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
+
+import EventEmitter from 'node:events'
+import process from 'node:process'
+
+import chokidar from 'chokidar'
+import { toNodeListener } from 'h3'
+import { createJiti } from 'jiti'
+import { listen } from 'listhen'
+import { join, relative, resolve } from 'pathe'
+import { debounce } from 'perfect-debounce'
+import { joinURL } from 'ufo'
+
 import { clearBuildDir } from '../utils/fs'
-import { importModule } from './esm'
-import { AddressInfo } from 'node:net'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
 export type NuxtDevIPCMessage =
-  | { type: 'nuxt:internal:dev:ready'; port: number }
-  | { type: 'nuxt:internal:dev:loading'; message: string }
+  | { type: 'nuxt:internal:dev:ready', port: number }
+  | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
+  | { type: 'nuxt:internal:dev:rejection', message: string }
 
 export interface NuxtDevContext {
   proxy?: {
@@ -33,10 +35,11 @@ export interface NuxtDevContext {
   }
 }
 
-export interface NuxtDevServerOptions {
+interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
   dotenv: boolean
+  envName: string
   clear: boolean
   overrides: NuxtConfig
   port?: string | number
@@ -62,7 +65,7 @@ export async function createNuxtDevServer(
   )
 
   // Merge interface with public context
-  // @ts-expect-error
+  // @ts-expect-error private property
   devServer.listener._url = devServer.listener.url
   if (options.devContext.proxy?.url) {
     devServer.listener.url = options.devContext.proxy.url
@@ -79,14 +82,15 @@ export async function createNuxtDevServer(
 }
 
 // https://regex101.com/r/7HkR5c/1
-const RESTART_RE =
-  /^(nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(\.config)?\.[a-z0-9]+)$/
+const RESTART_RE
+  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
-  private _distWatcher?: chokidar.FSWatcher
+  private _distWatcher?: FSWatcher
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
+  private _jiti: Jiti
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -105,31 +109,30 @@ class NuxtDevServer extends EventEmitter {
       _initResolve()
     })
 
+    this._jiti = createJiti(options.cwd)
+
     this.handler = async (req, res) => {
       await _initPromise
       if (this._handler) {
         this._handler(req, res)
-      } else {
+      }
+      else {
         this._renderError(res)
       }
     }
 
-    // @ts-ignore we set it in wrapper function
+    // @ts-expect-error we set it in wrapper function
     this.listener = undefined
   }
 
   async _renderError(res: ServerResponse, _error?: Error) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
-    const loadingTemplate =
-      this.options.loadingTemplate ||
-      this._currentNuxt?.options.devServer.loadingTemplate ||
-      (
-        await importModule('@nuxt/ui-templates', this.options.cwd).then(
-          (r) => r.loading,
-        )
-      ).catch(() => {}) ||
-      ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+    const loadingTemplate
+      = this.options.loadingTemplate
+      || this._currentNuxt?.options.devServer.loadingTemplate
+      || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
+      || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
         loading: _error?.toString() || this._loadingMessage || 'Loading...',
@@ -145,22 +148,23 @@ class NuxtDevServer extends EventEmitter {
   async load(reload?: boolean, reason?: string) {
     try {
       await this._load(reload, reason)
-    } catch (error) {
-      consola.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
+    }
+    catch (error) {
+      logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
-      this._loadingMessage =
-        'Error while loading Nuxt. Please check console and fix errors.'
+      this._loadingMessage
+        = 'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading', this._loadingMessage)
     }
   }
 
   async _load(reload?: boolean, reason?: string) {
     const action = reload ? 'Restarting' : 'Starting'
-    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} Nuxt...`
+    this._loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
-      consola.info(this._loadingMessage)
+      logger.info(this._loadingMessage)
     }
 
     if (this._currentNuxt) {
@@ -175,6 +179,7 @@ class NuxtDevServer extends EventEmitter {
       cwd: this.options.cwd,
       dev: true,
       ready: false,
+      envName: this.options.envName,
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
         vite: {
@@ -191,23 +196,17 @@ class NuxtDevServer extends EventEmitter {
 
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
-      this._currentNuxt.hooks.hook(
-        'vite:extendConfig',
-        (config, { isClient }) => {
-          if (isClient && config.server) {
-            config.server.hmr = {
-              ...(config.server.hmr as Exclude<
-                typeof config.server.hmr,
-                boolean
-              >),
-              protocol: undefined,
-              port: undefined,
-              host: undefined,
-              server: this.listener.server,
-            }
+      this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
+        if (config.server) {
+          config.server.hmr = {
+            protocol: undefined,
+            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
+            port: undefined,
+            host: undefined,
+            server: this.listener.server,
           }
-        },
-      )
+        }
+      })
     }
 
     // Remove websocket handlers on close
@@ -222,9 +221,9 @@ class NuxtDevServer extends EventEmitter {
       )
       const newManifest = await writeNuxtManifest(this._currentNuxt)
       if (
-        previousManifest &&
-        newManifest &&
-        previousManifest._hash !== newManifest._hash
+        previousManifest
+        && newManifest
+        && previousManifest._hash !== newManifest._hash
       ) {
         await clearBuildDir(this._currentNuxt.options.buildDir)
       }
@@ -241,14 +240,15 @@ class NuxtDevServer extends EventEmitter {
       await this.load(true)
     })
 
-    if ('upgrade' in this._currentNuxt.server) {
+    if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
       this.listener.server.on(
         'upgrade',
         async (req: any, socket: any, head: any) => {
           const nuxt = this._currentNuxt
-          if (!nuxt) return
+          if (!nuxt)
+            return
           const viteHmrPath = joinURL(
-            nuxt.options.app.baseURL,
+            nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
             nuxt.options.app.buildAssetsDir,
           )
           if (req.url.startsWith(viteHmrPath)) {
@@ -275,15 +275,16 @@ class NuxtDevServer extends EventEmitter {
       !!this.listener.https,
     )
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
-      ?.https as boolean | { key: string; cert: string }
+      ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      consola.warn(
-        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment vairable to make https work.',
+      logger.warn(
+        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
       )
     }
 
     await Promise.all([
+
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])
@@ -309,7 +310,10 @@ class NuxtDevServer extends EventEmitter {
         depth: 0,
       },
     )
-    configWatcher.on('all', (_event, _file) => {
+    configWatcher.on('all', (event, _file) => {
+      if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw') {
+        return
+      }
       const file = relative(this.options.cwd, _file)
       if (file === (this.options.dotenv || '.env')) {
         this.emit('restart')

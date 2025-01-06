@@ -1,15 +1,16 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, relative } from 'node:path'
-import { execa } from 'execa'
+import process from 'node:process'
+
 import { setupDotenv } from 'c12'
-import { resolve } from 'pathe'
-import { consola } from 'consola'
-import { box, colors } from 'consola/utils'
-import { loadKit } from '../utils/kit'
-
 import { defineCommand } from 'citty'
+import { box, colors } from 'consola/utils'
+import { resolve } from 'pathe'
+import { x } from 'tinyexec'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -17,36 +18,35 @@ export default defineCommand({
     description: 'Launches Nitro server for local testing after `nuxi build`.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const { loadNuxtConfig } = await loadKit(cwd)
     const config = await loadNuxtConfig({
       cwd,
-      overrides: /*ctx.options?.overrides || */ {},
+      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+      overrides: /* ctx.options?.overrides || */ {},
     })
 
     const resolvedOutputDir = resolve(
       config.srcDir || cwd,
-      config.nitro.srcDir || 'server',
       config.nitro.output?.dir || '.output',
       'nitro.json',
     )
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
-    const nitroJSONPath = nitroJSONPaths.find((p) => existsSync(p))
+    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
-      consola.error(
+      logger.error(
         'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',
         nitroJSONPaths,
       )
@@ -56,7 +56,7 @@ export default defineCommand({
     const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
 
     if (!nitroJSON.commands.preview) {
-      consola.error('Preview is not supported for this build.')
+      logger.error('Preview is not supported for this build.')
       process.exit(1)
     }
 
@@ -67,7 +67,7 @@ export default defineCommand({
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
-    consola.log(
+    logger.log(
       box(
         [
           'You are running Nuxt production build in preview mode.',
@@ -93,15 +93,15 @@ export default defineCommand({
       ? existsSync(resolve(cwd, ctx.args.dotenv))
       : existsSync(cwd)
     if (envExists) {
-      consola.info(
-        'Loading `.env`. This will not be loaded when running the server in production.',
+      logger.info(
+        `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
       )
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }
 
-    consola.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
+    logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
-    consola.log('')
-    await execa(command, commandArgs, { stdio: 'inherit', cwd: outputPath })
+    logger.log('')
+    await x(command, commandArgs, { nodeOptions: { stdio: 'inherit', cwd: outputPath } })
   },
 })

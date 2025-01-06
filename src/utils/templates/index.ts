@@ -3,11 +3,23 @@ import { app } from './app'
 import { component } from './component'
 import { composable } from './composable'
 import { error } from './error'
+import { layer } from './layer'
 import { layout } from './layout'
 import { middleware } from './middleware'
 import { page } from './page'
 import { plugin } from './plugin'
 import { serverMiddleware } from './server-middleware'
+import type { NuxtOptions } from '@nuxt/schema'
+
+interface TemplateOptions {
+  name: string
+  args: Record<string, any>
+  nuxtOptions: NuxtOptions
+}
+
+interface Template {
+  (options: TemplateOptions): { path: string, contents: string }
+}
 
 const templates: Record<string, Template> = {
   api,
@@ -15,12 +27,15 @@ const templates: Record<string, Template> = {
   component,
   composable,
   error,
+  layer,
   layout,
   middleware,
   page,
   plugin,
   'server-middleware': serverMiddleware,
 }
+
+// -- internal utils --
 
 function applySuffix(
   args: TemplateOptions['args'],
@@ -32,25 +47,16 @@ function applySuffix(
   // --client
   for (const s of suffixes) {
     if (args[s]) {
-      suffix += '.' + s
+      suffix += `.${s}`
     }
   }
 
   // --mode=server
   if (unwrapFrom && args[unwrapFrom] && suffixes.includes(args[unwrapFrom])) {
-    suffix += '.' + args[unwrapFrom]
+    suffix += `.${args[unwrapFrom]}`
   }
 
   return suffix
-}
-
-type TemplateOptions = {
-  name: string
-  args: Record<string, any>
-}
-
-type Template = {
-  (options: TemplateOptions): { path: string; contents: string }
 }
 
 export { templates, applySuffix, TemplateOptions, Template }
