@@ -1,11 +1,12 @@
 import type { FileHandle } from 'node:fs/promises'
-import type { NuxtModule } from './_utils'
+import type { PackageJson } from 'pkg-types'
 
+import type { NuxtModule } from './_utils'
 import * as fs from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
 
+import process from 'node:process'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -63,7 +64,7 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
     const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
-    const projectPkg = await readPackageJSON(cwd)
+    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)

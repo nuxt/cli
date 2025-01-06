@@ -34,7 +34,7 @@ export default defineCommand({
     // Find local installed version
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const hasLocal = await readPackageJSON(MODULE_BUILDER_PKG, { url: cwd })
+    const hasLocal = await readPackageJSON(MODULE_BUILDER_PKG, { url: cwd }).catch(() => false)
 
     const execArgs = Object.entries({
       '--stub': ctx.args.stub,

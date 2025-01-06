@@ -116,7 +116,7 @@ export function checkNuxtCompatibility(
 }
 
 export async function getNuxtVersion(cwd: string) {
-  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd })
+  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd }).catch(() => null)
   if (nuxtPkg) {
     return nuxtPkg.version!
   }
