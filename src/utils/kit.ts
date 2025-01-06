@@ -1,5 +1,3 @@
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
 import { createJiti } from 'jiti'
 
 export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit')> => {
@@ -11,8 +9,12 @@ export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit
     const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
     let kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
     if (!kit.writeTypes) {
-      // Polyfills for schema < 3.7
-      kit = { ...kit, writeTypes: writeTypesLegacy }
+      kit = {
+        ...kit,
+        writeTypes: () => {
+          throw new Error('`writeTypes` is not available in this version of `@nuxt/kit`. Please upgrade to v3.7 or newer.')
+        },
+      }
     }
     return kit
   }
