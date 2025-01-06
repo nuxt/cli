@@ -10,7 +10,7 @@ export default defineBuildConfig({
   declaration: !isAnalysingSize,
   failOnWarn: !isAnalysingSize,
   hooks: {
-    'rollup:options': function (_, options) {
+    'rollup:options': function (ctx, options) {
       const plugins = (options.plugins ||= []) as InputPluginOption[]
       plugins.push(purgePolyfills.rollup({
         logLevel: 'verbose',
@@ -18,6 +18,7 @@ export default defineBuildConfig({
       if (isAnalysingSize) {
         plugins.unshift(visualizer({ template: 'raw-data' }))
       }
+      ctx.options.rollup.dts.respectExternal = false
     },
   },
   rollup: {
