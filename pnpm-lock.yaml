@@ -82,9 +82,6 @@ importers:
       magicast:
         specifier: ^0.3.5
         version: 0.3.5
-      mlly:
-        specifier: ^1.7.3
-        version: 1.7.3
       nitropack:
         specifier: npm:nitropack-nightly
         version: nitropack-nightly@2.11.0-20250104-004858.217fa7ab(typescript@5.7.2)
