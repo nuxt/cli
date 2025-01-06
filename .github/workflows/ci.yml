@@ -40,6 +40,7 @@ jobs:
       - name: 📦 release nuxi-nightly
         if: |
           github.event_name == 'push' &&
+          matrix.os != 'windows-latest' && 
           !contains(github.event.head_commit.message, '[skip-release]') &&
           !contains(github.event.head_commit.message, 'docs')
         run: |
