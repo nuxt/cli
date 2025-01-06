@@ -24,7 +24,7 @@ interface Template {
   (options: TemplateOptions): { path: string, contents: string }
 }
 
-const templates: Record<string, Template> = {
+const templates = {
   api,
   app,
   component,
@@ -39,7 +39,7 @@ const templates: Record<string, Template> = {
   'server-plugin': serverPlugin,
   'server-route': serverRoute,
   'server-util': serverUtil,
-}
+} satisfies Record<string, Template>
 
 // -- internal utils --
 
