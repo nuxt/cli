@@ -3,6 +3,7 @@ import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve } from 'pathe'
 import { consola } from 'consola'
 import { installDependencies } from 'nypm'
+import { x } from 'tinyexec'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 
@@ -145,12 +146,17 @@ export default defineCommand({
     }
     if (ctx.args.gitInit) {
       consola.info('Initializing git repository...\n')
-      const { execa } = await import('execa')
-      await execa('git', ['init', template.dir], {
-        stdio: 'inherit',
-      }).catch((err) => {
+      try {
+        await x('git', ['init', template.dir], {
+          throwOnError: true,
+          nodeOptions: {
+            stdio: 'inherit',
+          },
+        })
+      }
+      catch (err) {
         consola.warn(`Failed to initialize git repository: ${err}`)
-      })
+      }
     }
 
     // Display next steps

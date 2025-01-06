@@ -1,4 +1,4 @@
-import { execa } from 'execa'
+import { x } from 'tinyexec'
 import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
@@ -52,10 +52,11 @@ export default defineCommand({
       execArgs.unshift(MODULE_BUILDER_PKG)
     }
 
-    await execa(cmd, execArgs, {
-      cwd,
-      preferLocal: true,
-      stdio: 'inherit',
+    await x(cmd, execArgs, {
+      nodeOptions: {
+        cwd,
+        stdio: 'inherit',
+      },
     })
   },
 })
