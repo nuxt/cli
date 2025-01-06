@@ -8,6 +8,7 @@ import { error } from './error'
 import { layer } from './layer'
 import { layout } from './layout'
 import { middleware } from './middleware'
+import { module } from './module'
 import { page } from './page'
 import { plugin } from './plugin'
 import { serverMiddleware } from './server-middleware'
@@ -35,6 +36,7 @@ const templates = {
   layer,
   layout,
   middleware,
+  module,
   page,
   plugin,
   serverMiddleware,
