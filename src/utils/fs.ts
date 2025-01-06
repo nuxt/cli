@@ -1,6 +1,7 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'pathe'
-import { consola } from 'consola'
+
+import { logger } from '../utils/logger'
 
 // Check if a file exists
 async function exists(path: string) {
@@ -39,7 +40,7 @@ export async function rmRecursive(paths: string[]) {
     paths
       .filter(p => typeof p === 'string')
       .map(async (path) => {
-        consola.debug('Removing recursive path', path)
+        logger.debug('Removing recursive path', path)
         await fsp.rm(path, { recursive: true, force: true }).catch(() => {})
       }),
   )
@@ -50,6 +51,6 @@ export async function touchFile(path: string) {
     return
   }
   await fsp.writeFile(path, '').catch(() => {
-    consola.error(`Failed to create file: ${path}`)
+    logger.error(`Failed to create file: ${path}`)
   })
 }

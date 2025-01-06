@@ -1,7 +1,8 @@
 import { resolve } from 'pathe'
-import { consola } from 'consola'
 import { defineCommand } from 'citty'
 import { isTest } from 'std-env'
+
+import { logger } from '../utils/logger'
 import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { createNuxtDevServer } from '../utils/dev'
@@ -20,8 +21,6 @@ export default defineCommand({
     ...legacyRootDirArgs,
   },
   async run(ctx) {
-    const logger = consola.withTag('nuxi')
-
     if (!process.send && !isTest) {
       logger.warn(
         '`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.',

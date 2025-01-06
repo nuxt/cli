@@ -1,6 +1,7 @@
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 
+import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
@@ -55,8 +56,6 @@ async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
       err = _err
     }
   }
-  console.error(err)
-  throw new Error(
-    '`@nuxt/test-utils` seems missing. Run `npm i -D @nuxt/test-utils` or `yarn add -D @nuxt/test-utils` to install.',
-  )
+  logger.error(err)
+  throw new Error('`@nuxt/test-utils` seems missing. Run `npm i -D @nuxt/test-utils` or `yarn add -D @nuxt/test-utils` to install.')
 }

@@ -6,14 +6,12 @@ import { setupDotenv } from 'c12'
 import type { ParsedArgs } from 'citty'
 import { defineCommand } from 'citty'
 import { isBun, isTest } from 'std-env'
-import {
-  getArgs as getListhenArgs,
-  parseArgs as parseListhenArgs,
-} from 'listhen/cli'
+import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { NuxtOptions } from '@nuxt/schema'
-import { consola } from 'consola'
 import { createJiti } from 'jiti'
+
+import { logger } from '../utils/logger'
 import { showVersions } from '../utils/banner'
 import { loadKit } from '../utils/kit'
 import { overrideEnv } from '../utils/env'
@@ -213,7 +211,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
         restart()
       }
       else if (message.type === 'nuxt:internal:dev:rejection') {
-        consola.withTag('nuxi').info(`Restarting Nuxt due to error: \`${message.message}\``)
+        logger.withTag('nuxi').info(`Restarting Nuxt due to error: \`${message.message}\``)
         restart()
       }
     })

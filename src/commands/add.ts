@@ -1,7 +1,8 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, resolve, extname } from 'pathe'
-import { consola } from 'consola'
 import { defineCommand } from 'citty'
+
+import { logger } from '../utils/logger'
 import { loadKit } from '../utils/kit'
 import { templates } from '../utils/templates'
 import { cwdArgs, logLevelArgs } from './_shared'
@@ -43,7 +44,7 @@ export default defineCommand({
 
     // Validate template name
     if (!template) {
-      consola.error(
+      logger.error(
         `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
         ).join(', ')}`,
@@ -53,7 +54,7 @@ export default defineCommand({
 
     // Validate options
     if (!name) {
-      consola.error('name argument is missing!')
+      logger.error('name argument is missing!')
       process.exit(1)
     }
 
@@ -66,7 +67,7 @@ export default defineCommand({
 
     // Ensure not overriding user code
     if (!ctx.args.force && existsSync(res.path)) {
-      consola.error(
+      logger.error(
         `File exists: ${res.path} . Use --force to override or use a different name.`,
       )
       process.exit(1)
@@ -75,15 +76,15 @@ export default defineCommand({
     // Ensure parent directory exists
     const parentDir = dirname(res.path)
     if (!existsSync(parentDir)) {
-      consola.info('Creating directory', parentDir)
+      logger.info('Creating directory', parentDir)
       if (templateName === 'page') {
-        consola.info('This enables vue-router functionality!')
+        logger.info('This enables vue-router functionality!')
       }
       await fsp.mkdir(parentDir, { recursive: true })
     }
 
     // Write file
     await fsp.writeFile(res.path, res.contents.trim() + '\n')
-    consola.info(`🪄 Generated a new ${templateName} in ${res.path}`)
+    logger.info(`🪄 Generated a new ${templateName} in ${res.path}`)
   },
 })

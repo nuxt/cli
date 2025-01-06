@@ -4,7 +4,6 @@ import { join } from 'node:path'
 import type { FileHandle } from 'node:fs/promises'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
-import { consola } from 'consola'
 import { addDependency } from 'nypm'
 import { joinURL } from 'ufo'
 import { $fetch } from 'ofetch'
@@ -12,6 +11,8 @@ import { satisfies } from 'semver'
 import { updateConfig } from 'c12/update'
 import { colors } from 'consola/utils'
 import { readPackageJSON } from 'pkg-types'
+
+import { logger } from '../../utils/logger'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import { runCommand } from '../../run'
 import {
@@ -66,8 +67,8 @@ export default defineCommand({
     const projectPkg = await readPackageJSON(cwd)
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
-      consola.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
-      const shouldContinue = await consola.prompt(
+      logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
+      const shouldContinue = await logger.prompt(
         `Do you want to continue anyway?`,
         {
           type: 'confirm',
@@ -82,7 +83,7 @@ export default defineCommand({
     const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
     const r = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
 
-    consola.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
+    logger.info(`Resolved ${r.map(x => x.pkgName).join(', ')}, adding module(s)...`)
 
     await addModule(r, { ...ctx.args, cwd }, projectPkg)
 
@@ -97,16 +98,12 @@ async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd, de
   // Add npm dependency
   if (!skipInstall) {
     const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
-    consola.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
+    logger.info(`Installing \`${r.map(x => x.pkg).join(', ')}\`${isDev ? ' development' : ''} dep(s)`)
     const res = await addDependency(r.map(x => x.pkg), { cwd, dev: isDev, installPeerDependencies: true }).catch(
       (error) => {
-        consola.error(error)
-        return consola.prompt(
-          `Install failed for ${
-            r.map(x => colors.cyan(x.pkg)).join(', ')
-          }. Do you want to continue adding the module(s) to ${
-            colors.cyan('nuxt.config')
-          }?`,
+        logger.error(error)
+        return logger.prompt(
+          `Install failed for ${r.map(x => colors.cyan(x.pkg)).join(', ')}. Do you want to continue adding the module(s) to ${colors.cyan('nuxt.config')}?`,
           {
             type: 'confirm',
             initial: false,
@@ -125,7 +122,7 @@ async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd, de
       cwd,
       configFile: 'nuxt.config',
       async onCreate() {
-        consola.info(`Creating \`nuxt.config.ts\``)
+        logger.info(`Creating \`nuxt.config.ts\``)
         return getDefaultNuxtConfig()
       },
       async onUpdate(config) {
@@ -134,16 +131,16 @@ async function addModule(r: ResolvedModule[], { skipInstall, skipConfig, cwd, de
             config.modules = []
           }
           if (config.modules.includes(resolved.pkgName)) {
-            consola.info(`\`${resolved.pkgName}\` is already in the \`modules\``)
+            logger.info(`\`${resolved.pkgName}\` is already in the \`modules\``)
             return
           }
-          consola.info(`Adding \`${resolved.pkgName}\` to the \`modules\``)
+          logger.info(`Adding \`${resolved.pkgName}\` to the \`modules\``)
           config.modules.push(resolved.pkgName)
         }
       },
     }).catch((error) => {
-      consola.error(`Failed to update \`nuxt.config\`: ${error.message}`)
-      consola.error(`Please manually add \`${r.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
+      logger.error(`Failed to update \`nuxt.config\`: ${error.message}`)
+      logger.error(`Please manually add \`${r.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
       return null
     })
   }
@@ -173,12 +170,12 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     }
   }
   else {
-    consola.error(`Invalid package name \`${pkgName}\`.`)
+    logger.error(`Invalid package name \`${pkgName}\`.`)
     return false
   }
 
   const modulesDB = await fetchModules().catch((err) => {
-    consola.warn('Cannot search in the Nuxt Modules database: ' + err)
+    logger.warn('Cannot search in the Nuxt Modules database: ' + err)
     return []
   })
 
@@ -199,10 +196,10 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
 
     // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
-      consola.warn(
+      logger.warn(
         `The module \`${pkgName}\` is not compatible with Nuxt \`${nuxtVersion}\` (requires \`${matchedModule.compatibility.nuxt}\`)`,
       )
-      const shouldContinue = await consola.prompt(
+      const shouldContinue = await logger.prompt(
         'Do you want to continue installing incompatible version?',
         {
           type: 'confirm',
@@ -223,10 +220,10 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
             pkgVersion = _moduleVersion
           }
           else {
-            consola.warn(
+            logger.warn(
               `Recommended version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
-            pkgVersion = await consola.prompt('Choose a version:', {
+            pkgVersion = await logger.prompt('Choose a version:', {
               type: 'select',
               options: [_moduleVersion, pkgVersion],
             })
@@ -265,8 +262,8 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     && !pkgDependencies['nuxt-edge']
     && !pkgDependencies['@nuxt/kit']
   ) {
-    consola.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
-    const shouldContinue = await consola.prompt(
+    logger.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
+    const shouldContinue = await logger.prompt(
       `Do you want to continue installing \`${pkgName}\` anyway?`,
       {
         type: 'confirm',

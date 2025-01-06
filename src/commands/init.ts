@@ -1,12 +1,12 @@
 import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
 import { relative, resolve } from 'pathe'
-import { consola } from 'consola'
 import { installDependencies } from 'nypm'
 import { x } from 'tinyexec'
 import type { PackageManagerName } from 'nypm'
 import { defineCommand } from 'citty'
 
+import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
 const DEFAULT_REGISTRY
@@ -68,7 +68,7 @@ export default defineCommand({
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
 
     if (typeof templateName !== 'string') {
-      consola.error('Please specify a template!')
+      logger.error('Please specify a template!')
       process.exit(1)
     }
 
@@ -89,7 +89,7 @@ export default defineCommand({
       if (process.env.DEBUG) {
         throw err
       }
-      consola.error((err as Error).toString())
+      logger.error((err as Error).toString())
       process.exit(1)
     }
 
@@ -106,7 +106,7 @@ export default defineCommand({
       packageManagerArg,
     )
       ? packageManagerArg
-      : await consola.prompt('Which package manager would you like to use?', {
+      : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
         options: packageManagerOptions,
       })
@@ -114,10 +114,10 @@ export default defineCommand({
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
-      consola.info('Skipping install dependencies step.')
+      logger.info('Skipping install dependencies step.')
     }
     else {
-      consola.start('Installing dependencies...')
+      logger.start('Installing dependencies...')
 
       try {
         await installDependencies({
@@ -132,20 +132,20 @@ export default defineCommand({
         if (process.env.DEBUG) {
           throw err
         }
-        consola.error((err as Error).toString())
+        logger.error((err as Error).toString())
         process.exit(1)
       }
 
-      consola.success('Installation completed.')
+      logger.success('Installation completed.')
     }
 
     if (ctx.args.gitInit === undefined) {
-      ctx.args.gitInit = await consola.prompt('Initialize git repository?', {
+      ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
         type: 'confirm',
       })
     }
     if (ctx.args.gitInit) {
-      consola.info('Initializing git repository...\n')
+      logger.info('Initializing git repository...\n')
       try {
         await x('git', ['init', template.dir], {
           throwOnError: true,
@@ -155,12 +155,12 @@ export default defineCommand({
         })
       }
       catch (err) {
-        consola.warn(`Failed to initialize git repository: ${err}`)
+        logger.warn(`Failed to initialize git repository: ${err}`)
       }
     }
 
     // Display next steps
-    consola.log(
+    logger.log(
       `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
@@ -173,7 +173,7 @@ export default defineCommand({
     ].filter(Boolean)
 
     for (const step of nextSteps) {
-      consola.log(` › ${step}`)
+      logger.log(` › ${step}`)
     }
 
     if (ctx.args.shell) {

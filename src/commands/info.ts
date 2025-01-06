@@ -13,6 +13,7 @@ import nuxiPkg from '../../package.json' assert { type: 'json' }
 import { tryResolveNuxt } from '../utils/kit'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 
+import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -97,7 +98,7 @@ export default defineCommand({
       BuildModules: await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
     }
 
-    console.log('Working directory:', cwd)
+    logger.log('Working directory:', cwd)
 
     let maxLength = 0
     const entries = Object.entries(infoObj).map(([key, val]) => {
@@ -120,12 +121,6 @@ export default defineCommand({
       .write(infoStr)
       .then(() => true)
       .catch(() => false)
-    const splitter = '------------------------------'
-    console.log(
-      `Nuxt project info: ${
-        copied ? '(copied to clipboard)' : ''
-      }\n\n${splitter}\n${infoStr}${splitter}\n`,
-    )
 
     const isNuxt3 = !isLegacy
     const isBridge = !isNuxt3 && infoObj.BuildModules.includes('bridge')
@@ -138,7 +133,8 @@ export default defineCommand({
       `👉 Read documentation: ${(isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'}`,
     ].filter(Boolean).join('\n')
 
-    console.log('\n' + log + '\n')
+    const splitter = '------------------------------'
+    logger.log(`Nuxt project info: ${copied ? '(copied to clipboard)' : ''}\n\n${splitter}\n${infoStr}${splitter}\n\n${log}\n`)
   },
 })
 

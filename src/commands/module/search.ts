@@ -1,8 +1,9 @@
 import { defineCommand } from 'citty'
-import { consola } from 'consola'
 import Fuse from 'fuse.js'
 import { upperFirst, kebabCase } from 'scule'
 import { colors } from 'consola/utils'
+
+import { logger } from '../../utils/logger'
 import { cwdArgs } from '../_shared'
 import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
 
@@ -79,20 +80,14 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   })
 
   if (!results.length) {
-    consola.info(
-      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(
-        nuxtVersion,
-      )}`,
+    logger.info(
+      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(nuxtVersion)}`,
     )
     return
   }
 
-  consola.success(
-    `Found ${results.length} Nuxt ${
-      results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)} ${
-      nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''
-    }:\n`,
+  logger.success(
+    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${cyan(query)} ${nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''}:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0
@@ -111,6 +106,6 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
         + value
         + '\n'
     }
-    console.log(infoStr)
+    logger.log(infoStr)
   }
 }

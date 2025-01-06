@@ -4,6 +4,7 @@ import nuxiPkg from '../package.json' assert { type: 'json' }
 import { commands } from './commands'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
+import { logger } from './utils/logger'
 
 export const main = defineCommand({
   meta: {
@@ -22,7 +23,7 @@ export const main = defineCommand({
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
-      ]).catch(err => console.error(err))
+      ]).catch(err => logger.error(err))
     }
 
     // Avoid background check to fix prompt issues

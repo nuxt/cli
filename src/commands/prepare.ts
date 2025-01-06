@@ -1,7 +1,7 @@
 import { relative, resolve } from 'pathe'
-import { consola } from 'consola'
-
 import { defineCommand } from 'citty'
+
+import { logger } from '../utils/logger'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
@@ -42,7 +42,7 @@ export default defineCommand({
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
-    consola.success(
+    logger.success(
       'Types generated in',
       relative(process.cwd(), nuxt.options.buildDir),
     )

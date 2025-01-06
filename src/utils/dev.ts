@@ -4,7 +4,6 @@ import type { AddressInfo } from 'node:net'
 import { relative, resolve, join } from 'pathe'
 import chokidar from 'chokidar'
 import type { FSWatcher } from 'chokidar'
-import { consola } from 'consola'
 import { debounce } from 'perfect-debounce'
 import { toNodeListener } from 'h3'
 import { joinURL } from 'ufo'
@@ -13,6 +12,8 @@ import { listen } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { Jiti } from 'jiti/lib/types'
 import { createJiti } from 'jiti'
+
+import { logger } from '../utils/logger'
 import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { clearBuildDir } from '../utils/fs'
@@ -146,7 +147,7 @@ class NuxtDevServer extends EventEmitter {
       await this._load(reload, reason)
     }
     catch (error) {
-      consola.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
+      logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingMessage
         = 'Error while loading Nuxt. Please check console and fix errors.'
@@ -160,7 +161,7 @@ class NuxtDevServer extends EventEmitter {
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
-      consola.info(this._loadingMessage)
+      logger.info(this._loadingMessage)
     }
 
     if (this._currentNuxt) {
@@ -273,12 +274,13 @@ class NuxtDevServer extends EventEmitter {
       ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      consola.warn(
+      logger.warn(
         'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
       )
     }
 
     await Promise.all([
+      // eslint-disable-next-line no-console
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])

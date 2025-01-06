@@ -1,7 +1,8 @@
 import { relative, resolve } from 'pathe'
-import { consola } from 'consola'
 import type { Nitro } from 'nitropack'
 import { defineCommand } from 'citty'
+
+import { logger } from '../utils/logger'
 import { loadKit } from '../utils/kit'
 import { clearBuildDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
@@ -61,7 +62,7 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
-      consola.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
+      logger.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
     }
     catch {
       //
@@ -72,7 +73,7 @@ export default defineCommand({
     await kit.writeTypes(nuxt)
 
     nuxt.hook('build:error', (err) => {
-      consola.error('Nuxt Build Error:', err)
+      logger.error('Nuxt Build Error:', err)
       process.exit(1)
     })
 
@@ -80,14 +81,14 @@ export default defineCommand({
 
     if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {
-        consola.warn(
+        logger.warn(
           'HTML content not prerendered because `ssr: false` was set. You can read more in `https://nuxt.com/docs/getting-started/deployment#static-hosting`.',
         )
       }
       // TODO: revisit later if/when nuxt build --prerender will output hybrid
       const dir = nitro?.options.output.publicDir
       const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-      consola.success(
+      logger.success(
         `You can now deploy \`${publicDir}\` to any static hosting!`,
       )
     }
