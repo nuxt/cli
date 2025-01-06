@@ -1,3 +1,4 @@
+import type { NuxtOptions } from '@nuxt/schema'
 import { api } from './api'
 import { app } from './app'
 import { component } from './component'
@@ -9,7 +10,6 @@ import { middleware } from './middleware'
 import { page } from './page'
 import { plugin } from './plugin'
 import { serverMiddleware } from './server-middleware'
-import type { NuxtOptions } from '@nuxt/schema'
 
 interface TemplateOptions {
   name: string

@@ -1,5 +1,5 @@
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
 import { applySuffix } from '.'
 
 const middleware: Template = ({ name, args, nuxtOptions }) => ({

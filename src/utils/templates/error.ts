@@ -1,5 +1,5 @@
-import { resolve } from 'pathe'
 import type { Template } from '.'
+import { resolve } from 'pathe'
 
 const error: Template = ({ nuxtOptions }) => ({
   path: resolve(nuxtOptions.srcDir, 'error.vue'),

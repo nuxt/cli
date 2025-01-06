@@ -1,5 +1,5 @@
-import { resolve } from "pathe"
-import { Template } from "."
+import type { Template } from '.'
+import { resolve } from 'pathe'
 
 const layer: Template = ({ name, nuxtOptions }) => {
   return {

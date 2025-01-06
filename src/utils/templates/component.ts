@@ -1,6 +1,6 @@
 import type { Template } from '.'
-import { applySuffix } from '.'
 import { resolve } from 'pathe'
+import { applySuffix } from '.'
 
 const component: Template = ({ name, args, nuxtOptions }) => ({
   path: resolve(nuxtOptions.srcDir, `components/${name}${applySuffix(
