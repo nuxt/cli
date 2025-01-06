@@ -1,8 +1,9 @@
 import { promises as fsp } from 'node:fs'
 import { dirname, resolve } from 'pathe'
-import { consola } from 'consola'
 import { hash } from 'ohash'
 import type { Nuxt } from '@nuxt/schema'
+
+import { logger } from '../utils/logger'
 import { rmRecursive } from './fs'
 
 interface NuxtProjectManifest {
@@ -16,7 +17,7 @@ interface NuxtProjectManifest {
 }
 
 export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
-  consola.info('Cleaning up generated Nuxt files and caches...')
+  logger.info('Cleaning up generated Nuxt files and caches...')
 
   await rmRecursive(
     [

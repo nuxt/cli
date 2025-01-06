@@ -3,9 +3,10 @@ import { dirname, relative } from 'node:path'
 import { x } from 'tinyexec'
 import { setupDotenv } from 'c12'
 import { resolve } from 'pathe'
-import { consola } from 'consola'
 import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
+
+import { logger } from '../utils/logger'
 import { loadKit } from '../utils/kit'
 
 import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
@@ -44,7 +45,7 @@ export default defineCommand({
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
-      consola.error(
+      logger.error(
         'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',
         nitroJSONPaths,
       )
@@ -54,7 +55,7 @@ export default defineCommand({
     const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
 
     if (!nitroJSON.commands.preview) {
-      consola.error('Preview is not supported for this build.')
+      logger.error('Preview is not supported for this build.')
       process.exit(1)
     }
 
@@ -65,7 +66,7 @@ export default defineCommand({
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
-    consola.log(
+    logger.log(
       box(
         [
           'You are running Nuxt production build in preview mode.',
@@ -91,15 +92,15 @@ export default defineCommand({
       ? existsSync(resolve(cwd, ctx.args.dotenv))
       : existsSync(cwd)
     if (envExists) {
-      consola.info(
+      logger.info(
         `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
       )
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }
 
-    consola.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
+    logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
-    consola.log('')
+    logger.log('')
     await x(command, commandArgs, { nodeOptions: { stdio: 'inherit', cwd: outputPath } })
   },
 })

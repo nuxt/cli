@@ -2,6 +2,7 @@ import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 import { defineCommand } from 'citty'
 
+import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -22,7 +23,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
-      console.error(`Unknown command \`${ctx.args.command}\`.`)
+      logger.error(`Unknown command \`${ctx.args.command}\`.`)
       process.exit(1)
     }
 

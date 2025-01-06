@@ -1,3 +1,5 @@
+import { logger } from './logger'
+
 export async function checkEngines() {
   const satisfies = await import('semver/functions/satisfies.js').then(
     r =>
@@ -7,7 +9,7 @@ export async function checkEngines() {
   const nodeRange = '>= 18.0.0'
 
   if (!satisfies(currentNode, nodeRange)) {
-    console.warn(
+    logger.warn(
       `Current version of Node.js (\`${currentNode}\`) is unsupported and might cause issues.\n       Please upgrade to a compatible version \`${nodeRange}\`.`,
     )
   }

@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs'
-import { consola } from 'consola'
 import { colors } from 'consola/utils'
 import { resolve } from 'pathe'
 import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
 import { defineCommand } from 'citty'
 import { addDependency, detectPackageManager } from 'nypm'
+
+import { logger } from '../utils/logger'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
@@ -17,7 +18,7 @@ async function getNuxtVersion(path: string): Promise<string | null> {
   try {
     const pkg = await readPackageJSON('nuxt', { url: path })
     if (!pkg.version) {
-      consola.warn('Cannot find any installed Nuxt versions in ', path)
+      logger.warn('Cannot find any installed Nuxt versions in ', path)
     }
     return pkg.version || null
   }
@@ -42,7 +43,7 @@ const nuxtVersionTags = {
 }
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: string }> {
-  const result = await consola.prompt(
+  const result = await logger.prompt(
     'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
@@ -93,18 +94,18 @@ export default defineCommand({
     // Check package manager
     const packageManager = await detectPackageManager(cwd)
     if (!packageManager) {
-      consola.error(
+      logger.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
       )
       process.exit(1)
     }
     const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
-    consola.info('Package manager:', packageManagerName, packageManagerVersion)
+    logger.info('Package manager:', packageManagerName, packageManagerVersion)
 
     // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Current Nuxt version:', currentVersion)
+    logger.info('Current Nuxt version:', currentVersion)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
 
@@ -129,7 +130,7 @@ export default defineCommand({
       .map(p => colors.cyan(p))
       .join(' and ')
     if (ctx.args.force === undefined) {
-      ctx.args.force = await consola.prompt(
+      ctx.args.force = await logger.prompt(
         `Would you like to recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
         {
           type: 'confirm',
@@ -138,7 +139,7 @@ export default defineCommand({
       )
     }
     if (ctx.args.force) {
-      consola.info(
+      logger.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
       await rmRecursive(toRemove.map(file => resolve(cwd, file)))
@@ -148,7 +149,7 @@ export default defineCommand({
     }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
-    consola.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
+    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
     await addDependency(npmPackages, {
       cwd,
@@ -170,17 +171,17 @@ export default defineCommand({
 
     // Check installed Nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    consola.info('Upgraded Nuxt version:', upgradedVersion)
+    logger.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === '[unknown]') {
       return
     }
 
     if (upgradedVersion === currentVersion) {
-      consola.success('You\'re already using the latest version of Nuxt.')
+      logger.success('You\'re already using the latest version of Nuxt.')
     }
     else {
-      consola.success(
+      logger.success(
         'Successfully upgraded Nuxt from',
         currentVersion,
         'to',
@@ -192,7 +193,7 @@ export default defineCommand({
       const commitA = nuxtVersionToGitIdentifier(currentVersion)
       const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
       if (commitA && commitB) {
-        consola.info(
+        logger.info(
           'Changelog:',
           `https://github.com/nuxt/nuxt/compare/${commitA}...${commitB}`,
         )
@@ -210,7 +211,7 @@ function normaliseLockFile(cwd: string, lockFiles: string | Array<string> | unde
   const lockFile = lockFiles?.find(file => existsSync(resolve(cwd, file)))
 
   if (lockFile === undefined) {
-    consola.error(`Unable to find any lock files in ${cwd}`)
+    logger.error(`Unable to find any lock files in ${cwd}`)
     return undefined
   }
 

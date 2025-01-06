@@ -8,6 +8,7 @@ import { defineCommand } from 'citty'
 import { loadKit } from '../utils/kit'
 import { clearDir } from '../utils/fs'
 import { overrideEnv } from '../utils/env'
+import { logger } from '../utils/logger'
 import { legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
@@ -99,10 +100,8 @@ export default defineCommand({
       'utf-8',
     )
 
-    console.info('Analyze results are available at: `' + analyzeDir + '`')
-    console.warn(
-      'Do not deploy analyze results! Use `nuxi build` before deploying.',
-    )
+    logger.info('Analyze results are available at: `' + analyzeDir + '`')
+    logger.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
 
     if (ctx.args.serve !== false && !process.env.CI) {
       const app = createApp()
@@ -115,7 +114,7 @@ export default defineCommand({
           })
         })
 
-      console.info('Starting stats server...')
+      logger.info('Starting stats server...')
 
       app.use('/client', serveFile(join(analyzeDir, 'client.html')))
       app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))

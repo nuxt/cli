@@ -1,8 +1,9 @@
 import { x } from 'tinyexec'
-import { consola } from 'consola'
 import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
 import { readPackageJSON } from 'pkg-types'
+
+import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const MODULE_BUILDER_PKG = '@nuxt/module-builder'
@@ -45,7 +46,7 @@ export default defineCommand({
 
     let cmd = 'nuxt-module-build'
     if (!hasLocal) {
-      consola.warn(
+      logger.warn(
         `Cannot find locally installed version of \`${MODULE_BUILDER_PKG}\` (>=0.2.0). Falling back to \`npx ${MODULE_BUILDER_PKG}\``,
       )
       cmd = 'npx'
