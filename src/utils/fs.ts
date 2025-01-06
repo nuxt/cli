@@ -53,18 +53,3 @@ export async function touchFile(path: string) {
     consola.error(`Failed to create file: ${path}`)
   })
 }
-
-export function findup<T>(
-  rootDir: string,
-  fn: (dir: string) => T | undefined,
-): T | null {
-  let dir = rootDir
-  while (dir !== dirname(dir)) {
-    const res = fn(dir)
-    if (res) {
-      return res
-    }
-    dir = dirname(dir)
-  }
-  return null
-}
