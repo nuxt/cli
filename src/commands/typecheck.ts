@@ -5,9 +5,6 @@ import { defineCommand } from 'citty'
 import { isBun } from 'std-env'
 import { createJiti } from 'jiti'
 
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
-
 import { loadKit } from '../utils/kit'
 
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -27,7 +24,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxt, buildNuxt, writeTypes = writeTypesLegacy } = await loadKit(cwd)
+    const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       cwd,
       overrides: {

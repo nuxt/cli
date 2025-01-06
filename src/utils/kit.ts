@@ -1,5 +1,4 @@
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
+import { consola } from 'consola'
 import { createJiti } from 'jiti'
 
 export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit')> => {
@@ -9,10 +8,10 @@ export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit
     const localKit = jiti.esmResolve('@nuxt/kit', { try: true })
     // Otherwise, we resolve Nuxt _first_ as it is Nuxt's kit dependency that will be used
     const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
-    let kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
+    const kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
     if (!kit.writeTypes) {
       // Polyfills for schema < 3.7
-      kit = { ...kit, writeTypes: writeTypesLegacy }
+      consola.warn('Using legacy Nuxt kit version. Please upgrade to Nuxt v3.7 or newer.')
     }
     return kit
   }
