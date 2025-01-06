@@ -6,7 +6,7 @@ const serverRoute: Template = ({ name, args, nuxtOptions }) => ({
     ? resolve(nuxtOptions.srcDir, nuxtOptions.serverDir, args.api ? 'api' : 'routes', `${name}.ts`)
     : resolve(nuxtOptions.serverDir, args.api ? 'api' : 'routes', `${name}.ts`),
   contents: `
-export default defineEventHandler((event) => {})
+export default defineEventHandler(event => {})
 `,
 })
 

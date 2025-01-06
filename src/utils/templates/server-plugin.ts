@@ -6,7 +6,7 @@ const serverPlugin: Template = ({ name, nuxtOptions }) => ({
     ? resolve(nuxtOptions.srcDir, nuxtOptions.serverDir, 'plugins', `${name}.ts`)
     : resolve(nuxtOptions.serverDir, 'plugins', `${name}.ts`),
   contents: `
-export default defineNitroPlugin((nitroApp) => {})
+export default defineNitroPlugin(nitroApp => {})
 `,
 })
 

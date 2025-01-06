@@ -18,7 +18,7 @@ const api: Template = ({ name, args, nuxtOptions }) => {
   return {
     path: resolve(nuxtOptions.srcDir, nuxtOptions.serverDir, `api/${name}${applySuffix(args, httpMethods, 'method')}.ts`),
     contents: `
-export default defineEventHandler((event) => {
+export default defineEventHandler(event => {
   return 'Hello ${name}'
 })
 `,

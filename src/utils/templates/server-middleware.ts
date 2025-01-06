@@ -6,7 +6,7 @@ const serverMiddleware: Template = ({ name, nuxtOptions }) => ({
     ? resolve(nuxtOptions.srcDir, nuxtOptions.serverDir, 'middleware', `${name}.ts`)
     : resolve(nuxtOptions.serverDir, 'middleware', `${name}.ts`),
   contents: `
-export default defineEventHandler((event) => {})
+export default defineEventHandler(event => {})
 `,
 })
 
