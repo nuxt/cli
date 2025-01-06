@@ -1,15 +1,19 @@
+import type { NuxtAnalyzeMeta } from '@nuxt/schema'
+
 import { promises as fsp } from 'node:fs'
-import { join, resolve } from 'pathe'
+import process from 'node:process'
+
+import { defineCommand } from 'citty'
+import { defu } from 'defu'
 import { createApp, eventHandler, lazyEventHandler, toNodeListener } from 'h3'
 import { listen } from 'listhen'
-import type { NuxtAnalyzeMeta } from '@nuxt/schema'
-import { defu } from 'defu'
-import { defineCommand } from 'citty'
-import { loadKit } from '../utils/kit'
-import { clearDir } from '../utils/fs'
+import { join, resolve } from 'pathe'
+
 import { overrideEnv } from '../utils/env'
+import { clearDir } from '../utils/fs'
+import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -100,7 +104,7 @@ export default defineCommand({
       'utf-8',
     )
 
-    logger.info('Analyze results are available at: `' + analyzeDir + '`')
+    logger.info(`Analyze results are available at: \`${analyzeDir}\``)
     logger.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
 
     if (ctx.args.serve !== false && !process.env.CI) {

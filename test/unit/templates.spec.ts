@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
 import type { NuxtOptions } from '@nuxt/schema'
+import { describe, expect, it } from 'vitest'
+
 import { composable } from '../../src/utils/templates'
 
 describe('templates', () => {

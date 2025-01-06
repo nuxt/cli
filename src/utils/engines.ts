@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import { logger } from './logger'
 
 export async function checkEngines() {

@@ -1,15 +1,16 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, relative } from 'node:path'
-import { x } from 'tinyexec'
+import process from 'node:process'
+
 import { setupDotenv } from 'c12'
-import { resolve } from 'pathe'
-import { box, colors } from 'consola/utils'
 import { defineCommand } from 'citty'
+import { box, colors } from 'consola/utils'
+import { resolve } from 'pathe'
+import { x } from 'tinyexec'
 
-import { logger } from '../utils/logger'
 import { loadKit } from '../utils/kit'
-
-import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {

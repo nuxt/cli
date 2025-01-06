@@ -1,7 +1,9 @@
-import { promises as fsp } from 'node:fs'
-import { dirname, resolve } from 'pathe'
-import { hash } from 'ohash'
 import type { Nuxt } from '@nuxt/schema'
+
+import { promises as fsp } from 'node:fs'
+
+import { hash } from 'ohash'
+import { dirname, resolve } from 'pathe'
 
 import { logger } from '../utils/logger'
 import { rmRecursive } from './fs'

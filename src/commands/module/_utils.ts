@@ -1,6 +1,6 @@
 import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
-import { satisfies, coerce } from 'semver'
+import { coerce, satisfies } from 'semver'
 
 export const categories = [
   'Analytics',
@@ -121,6 +121,6 @@ export async function getNuxtVersion(cwd: string) {
     return nuxtPkg.version!
   }
   const pkg = await readPackageJSON(cwd)
-  const pkgDep = pkg?.dependencies?.['nuxt'] || pkg?.devDependencies?.['nuxt']
+  const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
 }

@@ -1,19 +1,21 @@
+import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
+
 import os from 'node:os'
-import { resolve } from 'pathe'
+import process from 'node:process'
+
+import { defineCommand } from 'citty'
+import clipboardy from 'clipboardy'
 import { createJiti } from 'jiti'
+import { detectPackageManager } from 'nypm'
+import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { splitByCase } from 'scule'
-import clipboardy from 'clipboardy'
-import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
-import { defineCommand } from 'citty'
-import { detectPackageManager } from 'nypm'
 
 import nuxiPkg from '../../package.json' assert { type: 'json' }
 
 import { tryResolveNuxt } from '../utils/kit'
-import { getPackageManagerVersion } from '../utils/packageManagers'
-
 import { logger } from '../utils/logger'
+import { getPackageManagerVersion } from '../utils/packageManagers'
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
 export default defineCommand({
@@ -60,7 +62,7 @@ export default defineCommand({
         if (name) {
           const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
           const v = await getDepVersion(npmName)
-          info.push('`' + (v ? `${name}@${v}` : name) + '`')
+          info.push(`\`${v ? `${name}@${v}` : name}\``)
         }
       }
       return info.join(', ')
@@ -80,7 +82,7 @@ export default defineCommand({
     let packageManager = (await detectPackageManager(cwd))?.name
 
     if (packageManager) {
-      packageManager += '@' + getPackageManagerVersion(packageManager)
+      packageManager += `@${getPackageManagerVersion(packageManager)}`
     }
 
     const infoObj = {
@@ -92,7 +94,7 @@ export default defineCommand({
       PackageManager: packageManager ?? 'unknown',
       Builder: typeof builder === 'string' ? builder : 'custom',
       UserConfig: Object.keys(nuxtConfig)
-        .map(key => '`' + key + '`')
+        .map(key => `\`${key}\``)
         .join(', '),
       RuntimeModules: await listModules(nuxtConfig.modules),
       BuildModules: await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
@@ -111,10 +113,10 @@ export default defineCommand({
     let infoStr = ''
     for (const [label, value] of entries) {
       infoStr
-        += '- '
-        + (label + ': ').padEnd(maxLength + 2)
-        + (value.includes('`') ? value : '`' + value + '`')
-        + '\n'
+        += `- ${
+          (`${label}: `).padEnd(maxLength + 2)
+        }${value.includes('`') ? value : `\`${value}\``
+        }\n`
     }
 
     const copied = await clipboardy

@@ -1,12 +1,13 @@
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { x } from 'tinyexec'
-import { resolve } from 'pathe'
+
 import { defineCommand } from 'citty'
-import { isBun } from 'std-env'
 import { createJiti } from 'jiti'
+import { resolve } from 'pathe'
+import { isBun } from 'std-env'
+import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({

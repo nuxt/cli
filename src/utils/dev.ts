@@ -1,22 +1,25 @@
-import type { RequestListener, ServerResponse } from 'node:http'
-import EventEmitter from 'node:events'
-import type { AddressInfo } from 'node:net'
-import { relative, resolve, join } from 'pathe'
-import chokidar from 'chokidar'
-import type { FSWatcher } from 'chokidar'
-import { debounce } from 'perfect-debounce'
-import { toNodeListener } from 'h3'
-import { joinURL } from 'ufo'
-import type { HTTPSOptions, ListenURL, Listener, ListenOptions } from 'listhen'
-import { listen } from 'listhen'
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
+import type { FSWatcher } from 'chokidar'
 import type { Jiti } from 'jiti/lib/types'
-import { createJiti } from 'jiti'
+import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { RequestListener, ServerResponse } from 'node:http'
+import type { AddressInfo } from 'node:net'
 
-import { logger } from '../utils/logger'
-import { loadKit } from '../utils/kit'
-import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import EventEmitter from 'node:events'
+import process from 'node:process'
+
+import chokidar from 'chokidar'
+import { toNodeListener } from 'h3'
+import { createJiti } from 'jiti'
+import { listen } from 'listhen'
+import { join, relative, resolve } from 'pathe'
+import { debounce } from 'perfect-debounce'
+import { joinURL } from 'ufo'
+
 import { clearBuildDir } from '../utils/fs'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
@@ -157,7 +160,7 @@ class NuxtDevServer extends EventEmitter {
 
   async _load(reload?: boolean, reason?: string) {
     const action = reload ? 'Restarting' : 'Starting'
-    this._loadingMessage = `${reason ? reason + '. ' : ''}${action} Nuxt...`
+    this._loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
@@ -242,7 +245,8 @@ class NuxtDevServer extends EventEmitter {
         'upgrade',
         async (req: any, socket: any, head: any) => {
           const nuxt = this._currentNuxt
-          if (!nuxt) return
+          if (!nuxt)
+            return
           const viteHmrPath = joinURL(
             nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
             nuxt.options.app.buildAssetsDir,
@@ -280,7 +284,7 @@ class NuxtDevServer extends EventEmitter {
     }
 
     await Promise.all([
-      // eslint-disable-next-line no-console
+
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])

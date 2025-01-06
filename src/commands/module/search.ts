@@ -1,11 +1,11 @@
 import { defineCommand } from 'citty'
-import Fuse from 'fuse.js'
-import { upperFirst, kebabCase } from 'scule'
 import { colors } from 'consola/utils'
+import Fuse from 'fuse.js'
+import { kebabCase, upperFirst } from 'scule'
 
 import { logger } from '../../utils/logger'
 import { cwdArgs } from '../_shared'
-import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
   notation: 'compact',
@@ -101,10 +101,10 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     let infoStr = ''
     for (const [label, value] of entries) {
       infoStr
-        += bold(label === 'Install' ? '→ ' : '- ')
+        += `${bold(label === 'Install' ? '→ ' : '- ')
         + green(label.padEnd(maxLength + 2))
         + value
-        + '\n'
+        }\n`
     }
     logger.log(infoStr)
   }

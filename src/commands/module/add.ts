@@ -1,33 +1,32 @@
+import type { FileHandle } from 'node:fs/promises'
+import type { NuxtModule } from './_utils'
+
 import * as fs from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import type { FileHandle } from 'node:fs/promises'
-import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
-import { addDependency } from 'nypm'
-import { joinURL } from 'ufo'
-import { $fetch } from 'ofetch'
-import { satisfies } from 'semver'
-import { updateConfig } from 'c12/update'
-import { colors } from 'consola/utils'
-import { readPackageJSON } from 'pkg-types'
+import process from 'node:process'
 
+import { updateConfig } from 'c12/update'
+import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
+import { addDependency } from 'nypm'
+import { $fetch } from 'ofetch'
+import { resolve } from 'pathe'
+import { readPackageJSON } from 'pkg-types'
+import { satisfies } from 'semver'
+import { joinURL } from 'ufo'
+
+import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { cwdArgs, logLevelArgs } from '../_shared'
-import { runCommand } from '../../run'
-import {
-  checkNuxtCompatibility,
-  fetchModules,
-  getNuxtVersion,
-} from './_utils'
-import type { NuxtModule } from './_utils'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 
-type RegistryMeta = {
+interface RegistryMeta {
   registry: string
   authToken: string | null
 }
 
-type ResolvedModule = {
+interface ResolvedModule {
   nuxtModule?: NuxtModule
   pkg: string
   pkgName: string
@@ -175,7 +174,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   const modulesDB = await fetchModules().catch((err) => {
-    logger.warn('Cannot search in the Nuxt Modules database: ' + err)
+    logger.warn(`Cannot search in the Nuxt Modules database: ${err}`)
     return []
   })
 
@@ -258,7 +257,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     pkg.devDependencies || {},
   )
   if (
-    !pkgDependencies['nuxt']
+    !pkgDependencies.nuxt
     && !pkgDependencies['nuxt-edge']
     && !pkgDependencies['@nuxt/kit']
   ) {

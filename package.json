@@ -1,10 +1,11 @@
 {
   "name": "nuxi",
-  "version": "3.17.2",
-  "description": "⚡️ Nuxt Generation CLI Experience",
-  "repository": "nuxt/cli",
-  "license": "MIT",
   "type": "module",
+  "version": "3.17.2",
+  "packageManager": "pnpm@9.15.3",
+  "description": "⚡️ Nuxt Generation CLI Experience",
+  "license": "MIT",
+  "repository": "nuxt/cli",
   "exports": {
     ".": "./dist/index.mjs",
     "./cli": "./bin/nuxi.mjs"
@@ -20,6 +21,9 @@
     "bin",
     "dist"
   ],
+  "engines": {
+    "node": "^16.10.0 || >=18.0.0"
+  },
   "scripts": {
     "dev:prepare": "unbuild --stub",
     "build": "unbuild",
@@ -38,6 +42,7 @@
     "test:unit": "vitest --coverage"
   },
   "devDependencies": {
+    "@antfu/eslint-config": "^3.12.1",
     "@nuxt/eslint-config": "^0.7.4",
     "@nuxt/kit": "^3.15.1",
     "@nuxt/schema": "^3.15.1",
@@ -85,9 +90,5 @@
     "h3": "^1.13.0",
     "nitropack": "npm:nitropack-nightly",
     "nuxi": "workspace:*"
-  },
-  "packageManager": "pnpm@9.15.3",
-  "engines": {
-    "node": "^16.10.0 || >=18.0.0"
   }
 }

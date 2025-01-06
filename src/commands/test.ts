@@ -1,5 +1,7 @@
-import { resolve } from 'pathe'
+import process from 'node:process'
+
 import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
 
 import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'

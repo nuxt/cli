@@ -1,7 +1,7 @@
-import { x } from 'tinyexec'
-import { resolve } from 'pathe'
 import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
+import { x } from 'tinyexec'
 
 import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'

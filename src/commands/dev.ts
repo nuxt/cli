@@ -1,22 +1,25 @@
-import { fork } from 'node:child_process'
+import type { NuxtOptions } from '@nuxt/schema'
+import type { ParsedArgs } from 'citty'
+import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { resolve } from 'pathe'
-import { setupDotenv } from 'c12'
-import type { ParsedArgs } from 'citty'
-import { defineCommand } from 'citty'
-import { isBun, isTest } from 'std-env'
-import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
-import type { HTTPSOptions, ListenOptions } from 'listhen'
-import type { NuxtOptions } from '@nuxt/schema'
-import { createJiti } from 'jiti'
-
-import { logger } from '../utils/logger'
-import { showVersions } from '../utils/banner'
-import { loadKit } from '../utils/kit'
-import { overrideEnv } from '../utils/env'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+
+import { fork } from 'node:child_process'
+import process from 'node:process'
+
+import { setupDotenv } from 'c12'
+import { defineCommand } from 'citty'
+import { createJiti } from 'jiti'
+import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
+import { resolve } from 'pathe'
+
+import { isBun, isTest } from 'std-env'
+import { showVersions } from '../utils/banner'
+import { overrideEnv } from '../utils/env'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const forkSupported = !isBun && !isTest
 
@@ -292,9 +295,7 @@ function _resolveListenOptions(
     || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'passphrase' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.passphrase)
     || ''
 
-  const httpsEnabled
-    = args.https == true
-    || (args.https === undefined && !!nuxtOptions.devServer.https)
+  const httpsEnabled = !!(args.https ?? nuxtOptions.devServer.https)
 
   const _listhenOptions = parseListhenArgs({
     ...args,

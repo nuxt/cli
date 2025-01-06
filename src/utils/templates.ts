@@ -1,6 +1,7 @@
+import type { NuxtOptions } from '@nuxt/schema'
+
 import { resolve } from 'pathe'
 import { camelCase, upperFirst } from 'scule'
-import type { NuxtOptions } from '@nuxt/schema'
 
 interface TemplateOptions {
   name: string
@@ -143,12 +144,12 @@ function applySuffix(
   // --client
   for (const s of suffixes) {
     if (args[s]) {
-      suffix += '.' + s
+      suffix += `.${s}`
     }
   }
   // --mode=server
   if (unwrapFrom && args[unwrapFrom] && suffixes.includes(args[unwrapFrom])) {
-    suffix += '.' + args[unwrapFrom]
+    suffix += `.${args[unwrapFrom]}`
   }
   return suffix
 }

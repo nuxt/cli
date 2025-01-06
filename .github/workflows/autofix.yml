@@ -1,9 +1,9 @@
-name: autofix.ci  # needed to securely identify the workflow
+name: autofix.ci # needed to securely identify the workflow
 
 on:
   pull_request:
   push:
-    branches: [ "main" ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: "pnpm"
+          cache: pnpm
       - run: pnpm install
       - name: Fix lint issues
         run: pnpm run lint:fix

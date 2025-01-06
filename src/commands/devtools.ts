@@ -1,6 +1,8 @@
+import process from 'node:process'
+
+import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
-import { defineCommand } from 'citty'
 
 import { logger } from '../utils/logger'
 import { cwdArgs, legacyRootDirArgs } from './_shared'

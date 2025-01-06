@@ -1,9 +1,11 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, resolve, extname } from 'pathe'
-import { defineCommand } from 'citty'
+import process from 'node:process'
 
-import { logger } from '../utils/logger'
+import { defineCommand } from 'citty'
+import { dirname, extname, resolve } from 'pathe'
+
 import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
 import { templates } from '../utils/templates'
 import { cwdArgs, logLevelArgs } from './_shared'
 
@@ -84,7 +86,7 @@ export default defineCommand({
     }
 
     // Write file
-    await fsp.writeFile(res.path, res.contents.trim() + '\n')
+    await fsp.writeFile(res.path, `${res.contents.trim()}\n`)
     logger.info(`🪄 Generated a new ${templateName} in ${res.path}`)
   },
 })

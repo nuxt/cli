@@ -1,12 +1,15 @@
-import { resolve } from 'pathe'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+
+import process from 'node:process'
+
 import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
-import { logger } from '../utils/logger'
-import { overrideEnv } from '../utils/env'
-import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { createNuxtDevServer } from '../utils/dev'
-import { envNameArgs, legacyRootDirArgs, cwdArgs, logLevelArgs } from './_shared'
+import { overrideEnv } from '../utils/env'
+import { logger } from '../utils/logger'
+import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -44,7 +47,7 @@ export default defineCommand({
         logger.info(
           'Dev server event:',
           Object.entries(message)
-            .map(e => e[0] + '=' + JSON.stringify(e[1]))
+            .map(e => `${e[0]}=${JSON.stringify(e[1])}`)
             .join(' '),
         )
       }

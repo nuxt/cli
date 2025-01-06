@@ -1,10 +1,13 @@
-import { downloadTemplate, startShell } from 'giget'
 import type { DownloadTemplateResult } from 'giget'
-import { relative, resolve } from 'pathe'
-import { installDependencies } from 'nypm'
-import { x } from 'tinyexec'
 import type { PackageManagerName } from 'nypm'
+
+import process from 'node:process'
+
 import { defineCommand } from 'citty'
+import { downloadTemplate, startShell } from 'giget'
+import { installDependencies } from 'nypm'
+import { relative, resolve } from 'pathe'
+import { x } from 'tinyexec'
 
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'

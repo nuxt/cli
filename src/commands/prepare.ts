@@ -1,11 +1,12 @@
-import { relative, resolve } from 'pathe'
-import { defineCommand } from 'citty'
+import process from 'node:process'
 
-import { logger } from '../utils/logger'
+import { defineCommand } from 'citty'
+import { relative, resolve } from 'pathe'
+
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-
-import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {

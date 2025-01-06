@@ -1,6 +1,6 @@
 import { createJiti } from 'jiti'
 
-export const loadKit = async (rootDir: string): Promise<typeof import('@nuxt/kit')> => {
+export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit')> {
   const jiti = createJiti(rootDir)
   try {
     // Without PNP (or if users have a local install of kit, we bypass resolving from Nuxt)

@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
-import buildCommand from './build'
 
-import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import buildCommand from './build'
 
 export default defineCommand({
   meta: {

@@ -1,17 +1,19 @@
-import { existsSync } from 'node:fs'
-import { colors } from 'consola/utils'
-import { resolve } from 'pathe'
 import type { PackageJson } from 'pkg-types'
-import { readPackageJSON } from 'pkg-types'
+
+import { existsSync } from 'node:fs'
+import process from 'node:process'
+
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { addDependency, detectPackageManager } from 'nypm'
+import { resolve } from 'pathe'
+import { readPackageJSON } from 'pkg-types'
 
-import { logger } from '../utils/logger'
-import { getPackageManagerVersion } from '../utils/packageManagers'
 import { rmRecursive, touchFile } from '../utils/fs'
-import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
-
 import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
+import { getPackageManagerVersion } from '../utils/packageManagers'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 async function getNuxtVersion(path: string): Promise<string | null> {
@@ -28,10 +30,10 @@ async function getNuxtVersion(path: string): Promise<string | null> {
 }
 
 function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
-  if (pkg.dependencies?.['nuxt']) {
+  if (pkg.dependencies?.nuxt) {
     return 'dependencies'
   }
-  if (pkg.devDependencies?.['nuxt']) {
+  if (pkg.devDependencies?.nuxt) {
     return 'devDependencies'
   }
   return 'dependencies'
@@ -154,7 +156,7 @@ export default defineCommand({
     await addDependency(npmPackages, {
       cwd,
       packageManager,
-      dev: nuxtDependencyType === 'devDependencies' ? true : false,
+      dev: nuxtDependencyType === 'devDependencies',
     })
 
     // Clean up after upgrade

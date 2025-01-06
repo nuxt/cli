@@ -1,13 +1,16 @@
-import { relative, resolve } from 'pathe'
 import type { Nitro } from 'nitropack'
-import { defineCommand } from 'citty'
 
-import { logger } from '../utils/logger'
-import { loadKit } from '../utils/kit'
-import { clearBuildDir } from '../utils/fs'
-import { overrideEnv } from '../utils/env'
+import process from 'node:process'
+
+import { defineCommand } from 'citty'
+import { relative, resolve } from 'pathe'
+
 import { showVersions } from '../utils/banner'
-import { envNameArgs, legacyRootDirArgs, dotEnvArgs, cwdArgs, logLevelArgs } from './_shared'
+import { overrideEnv } from '../utils/env'
+import { clearBuildDir } from '../utils/fs'
+import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
