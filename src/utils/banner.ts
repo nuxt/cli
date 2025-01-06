@@ -12,7 +12,7 @@ export async function showVersions(cwd: string) {
       if (!url) {
         continue
       }
-      const p = await readPackageJSON(pkg, { url })
+      const p = await readPackageJSON(pkg, { url }).catch(() => null)
       if (p) {
         return p.version!
       }

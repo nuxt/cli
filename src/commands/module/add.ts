@@ -12,7 +12,7 @@ import { colors } from 'consola/utils'
 import { addDependency } from 'nypm'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
-import { readPackageJSON } from 'pkg-types'
+import { PackageJson, readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
 import { joinURL } from 'ufo'
 
@@ -63,7 +63,7 @@ export default defineCommand({
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
     const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
-    const projectPkg = await readPackageJSON(cwd)
+    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)

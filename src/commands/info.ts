@@ -1,4 +1,5 @@
 import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
+import type { PackageJson } from 'pkg-types'
 
 import os from 'node:os'
 import process from 'node:process'
@@ -35,7 +36,7 @@ export default defineCommand({
     const nuxtConfig = await getNuxtConfig(cwd)
 
     // Find nearest package.json
-    const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd)
+    const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     // Utils to query a dependency version
     const nuxtPath = await tryResolveNuxt(cwd)
