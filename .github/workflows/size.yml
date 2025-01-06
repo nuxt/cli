@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+env:
+  BUNDLE_SIZE: true
+
 jobs:
   # Build current and upload stats.json
   # You may replace this with your own build method. All that
