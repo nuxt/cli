@@ -4,10 +4,13 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { dirname, extname, resolve } from 'pathe'
 
+import { camelCase, kebabCase } from 'scule'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { templates } from '../utils/templates'
 import { cwdArgs, logLevelArgs } from './_shared'
+
+const KEBAB_CASE_TEMPLATE_NAMES = Object.keys(templates).map(template => kebabCase(template))
 
 export default defineCommand({
   meta: {
@@ -24,7 +27,7 @@ export default defineCommand({
     template: {
       type: 'positional',
       required: true,
-      valueHint: Object.keys(templates).join('|'),
+      valueHint: KEBAB_CASE_TEMPLATE_NAMES.join('|'),
       description: `Template type to scaffold`,
     },
     name: {
@@ -37,15 +40,9 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd)
 
     const templateName = ctx.args.template
-    const template = templates[templateName]
-    const ext = extname(ctx.args.name)
-    const name
-      = ext === '.vue' || ext === '.ts'
-        ? ctx.args.name.replace(ext, '')
-        : ctx.args.name
 
     // Validate template name
-    if (!template) {
+    if (!Object.keys(KEBAB_CASE_TEMPLATE_NAMES).includes(templateName)) {
       logger.error(
         `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
@@ -55,6 +52,12 @@ export default defineCommand({
     }
 
     // Validate options
+    const ext = extname(ctx.args.name)
+    const name
+      = ext === '.vue' || ext === '.ts'
+        ? ctx.args.name.replace(ext, '')
+        : ctx.args.name
+
     if (!name) {
       logger.error('name argument is missing!')
       process.exit(1)
@@ -65,6 +68,8 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
+    const template = templates[camelCase(templateName) as keyof typeof templates]
+
     const res = template({ name, args: ctx.args, nuxtOptions: config })
 
     // Ensure not overriding user code
