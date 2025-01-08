@@ -1,14 +1,15 @@
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
-import process from 'node:process'
+import { existsSync } from 'node:fs'
 
+import process from 'node:process'
 import { defineCommand } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
-import { relative, resolve } from 'pathe'
-import { x } from 'tinyexec'
+import { join, relative, resolve } from 'pathe'
 
+import { x } from 'tinyexec'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -73,6 +74,45 @@ export default defineCommand({
     if (typeof templateName !== 'string') {
       logger.error('Please specify a template!')
       process.exit(1)
+    }
+
+    // Prompt the user if the template download directory already exists
+    // when no `--force` flag is provided
+    if (!ctx.args.force) {
+      const templateDownloadPath = join(cwd, ctx.args.dir)
+
+      const templateDownloadDirExists = existsSync(templateDownloadPath)
+
+      if (templateDownloadDirExists) {
+        const selectedAction = await logger.prompt(
+          `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
+          {
+            type: 'select',
+            options: ['Override its contents', 'Select different directory', 'Abort'],
+          },
+        )
+
+        switch (selectedAction) {
+          case 'Override its contents':
+            (ctx.args.force as boolean) = true
+
+            break
+
+          case 'Select different directory':
+            (ctx.args.dir as string) = await logger.prompt(
+              'Please specify a different directory:',
+              {
+                type: 'text',
+              },
+            )
+
+            break
+
+          case 'Abort':
+            logger.info('Initialization aborted.')
+            process.exit(1)
+        }
+      }
     }
 
     // Download template
