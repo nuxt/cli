@@ -18,18 +18,24 @@ interface NuxtProjectManifest {
   }
 }
 
-export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
+export async function cleanupNuxtDirs(
+  rootDir: string,
+  buildDir: string,
+  customDirs?: string[],
+) {
   logger.info('Cleaning up generated Nuxt files and caches...')
 
-  await rmRecursive(
-    [
-      buildDir,
-      '.output',
-      'dist',
-      'node_modules/.vite',
-      'node_modules/.cache',
-    ].map(dir => resolve(rootDir, dir)),
-  )
+  const defaultDirs = [
+    buildDir,
+    '.output',
+    'dist',
+    'node_modules/.vite',
+    'node_modules/.cache',
+  ].map(dir => resolve(rootDir, dir))
+
+  const dirsToClean = [...defaultDirs, ...(customDirs || [])]
+
+  await rmRecursive(dirsToClean)
 }
 
 export function nuxtVersionToGitIdentifier(version: string) {

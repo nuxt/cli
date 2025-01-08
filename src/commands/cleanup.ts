@@ -13,11 +13,21 @@ export default defineCommand({
   args: {
     ...cwdArgs,
     ...legacyRootDirArgs,
+    cleanDir: {
+      type: 'string',
+      required: false,
+      description: 'Additional directories to clean up',
+    },
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const { loadNuxtConfig } = await loadKit(cwd)
     const nuxtOptions = await loadNuxtConfig({ cwd, overrides: { dev: true } })
-    await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir)
+
+    const customDirs = ctx.args.cleanDir
+      ? ctx.args.cleanDir.split(',').map(dir => resolve(cwd, dir.trim()))
+      : []
+
+    await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir, customDirs)
   },
 })
