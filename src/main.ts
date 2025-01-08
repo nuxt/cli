@@ -48,7 +48,7 @@ export const main = defineCommand({
       try {
         const { x } = await import('tinyexec')
         // `tinyexec` will resolve command from local binaries
-        await x(`nuxt-${ctx.args.command}`, ctx.args._.slice(1), {
+        await x(`nuxt-${ctx.args.command}`, ctx.rawArgs.slice(1), {
           nodeOptions: { stdio: 'inherit', cwd },
           throwOnError: true,
         })
