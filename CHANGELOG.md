@@ -1,6 +1,26 @@
 # Changelog
 
 
+## v3.19.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.2...v3.19.0)
+
+### 🚀 Enhancements
+
+- **subcommand:** Add subcommand support ([#644](https://github.com/nuxt/cli/pull/644))
+- **add:** Move templates to separate files and add new ones ([#379](https://github.com/nuxt/cli/pull/379))
+
+### 🏡 Chore
+
+- Remove some `as any` ([8e5f935](https://github.com/nuxt/cli/commit/8e5f935))
+- Disable `respectExternal` ([542e05c](https://github.com/nuxt/cli/commit/542e05c))
+- Bump nuxt/telemetry version ([00a0a71](https://github.com/nuxt/cli/commit/00a0a71))
+
+### ❤️ Contributors
+
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.18.2
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.18.1...v3.18.2)
