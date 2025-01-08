@@ -18,18 +18,24 @@ interface NuxtProjectManifest {
   }
 }
 
-export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
+export async function cleanupNuxtDirs(
+  rootDir: string,
+  buildDir: string,
+  customDirs?: string[]
+) {
   logger.info('Cleaning up generated Nuxt files and caches...')
 
-  await rmRecursive(
-    [
-      buildDir,
-      '.output',
-      'dist',
-      'node_modules/.vite',
-      'node_modules/.cache',
-    ].map(dir => resolve(rootDir, dir)),
-  )
+  const defaultDirs = [
+    buildDir,
+    '.output',
+    'dist',
+    'node_modules/.vite',
+    'node_modules/.cache',
+  ].map((dir) => resolve(rootDir, dir))
+
+  const dirsToClean = [...defaultDirs, ...(customDirs || [])]
+
+  await rmRecursive(dirsToClean)
 }
 
 export function nuxtVersionToGitIdentifier(version: string) {
@@ -57,7 +63,7 @@ function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
 }
 
 export async function writeNuxtManifest(
-  nuxt: Nuxt,
+  nuxt: Nuxt
 ): Promise<NuxtProjectManifest> {
   const manifest = resolveNuxtManifest(nuxt)
   const manifestPath = resolve(nuxt.options.buildDir, 'nuxt.json')
@@ -67,12 +73,12 @@ export async function writeNuxtManifest(
 }
 
 export async function loadNuxtManifest(
-  buildDir: string,
+  buildDir: string
 ): Promise<NuxtProjectManifest | null> {
   const manifestPath = resolve(buildDir, 'nuxt.json')
   const manifest: NuxtProjectManifest | null = await fsp
     .readFile(manifestPath, 'utf-8')
-    .then(data => JSON.parse(data) as NuxtProjectManifest)
+    .then((data) => JSON.parse(data) as NuxtProjectManifest)
     .catch(() => null)
   return manifest
 }
