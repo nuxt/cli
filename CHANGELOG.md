@@ -1,6 +1,18 @@
 # Changelog
 
 
+## v3.19.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.19.0...v3.19.1)
+
+### 🩹 Fixes
+
+- **subcommand:** Pass all `rawArgs` ([35f7b87](https://github.com/nuxt/cli/commit/35f7b87))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
 ## v3.19.0
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.18.2...v3.19.0)
