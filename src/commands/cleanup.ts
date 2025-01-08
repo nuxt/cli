@@ -24,7 +24,7 @@ export default defineCommand({
     const nuxtOptions = await loadNuxtConfig({ cwd, overrides: { dev: true } })
 
     const customDirs = ctx.args.cleanDir
-      ? ctx.args.cleanDir.split(',').map((dir) => resolve(cwd, dir.trim()))
+      ? ctx.args.cleanDir.split(',').map(dir => resolve(cwd, dir.trim()))
       : []
 
     await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir, customDirs)
