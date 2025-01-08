@@ -15,6 +15,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
     cleanDir: {
       type: 'string',
+      required: false,
       description: 'Additional directories to clean up',
     },
   },
