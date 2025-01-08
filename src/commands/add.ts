@@ -42,7 +42,7 @@ export default defineCommand({
     const templateName = ctx.args.template
 
     // Validate template name
-    if (!Object.keys(KEBAB_CASE_TEMPLATE_NAMES).includes(templateName)) {
+    if (!KEBAB_CASE_TEMPLATE_NAMES.includes(templateName)) {
       logger.error(
         `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
