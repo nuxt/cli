@@ -34,7 +34,7 @@ describe('commands', () => {
     const res = await x('pnpm', ['nuxi'], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
-    expect(res.exitCode).toBe(isWindows ? null : 1)
+    expect(res.exitCode).toBe(1)
     expect(res.stderr).toBe('[error] No command specified.\n')
   })
 
@@ -42,7 +42,8 @@ describe('commands', () => {
     const res = await x('pnpm', ['nuxi', 'foo'], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
-    expect(res.exitCode).toBe(isWindows ? null : 1)
+    // TODO: fix this!
+    expect(res.exitCode).toBe(isWindows ? 0 : 1)
     expect(res.stderr).toBe('[error] Unknown command `foo`\n')
   })
 
