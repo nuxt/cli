@@ -3,7 +3,7 @@ import process from 'node:process'
 import { x } from 'tinyexec'
 
 const pkg = await readFile('package.json', 'utf-8').then(r => JSON.parse(r))
-const isNightlyRelease = process.env.NIGHTLY_RELEASE
+const releaseType = process.env.RELEASE_TYPE
 
 const distributions = {
   'nuxi': { ...pkg, dependencies: {}, devDependencies: { ...pkg.dependencies, ...pkg.devDependencies }, name: 'nuxi' },
@@ -12,8 +12,14 @@ const distributions = {
 
 for (const [DISTRIBUTION, pkg] of Object.entries(distributions)) {
   await writeFile('package.json', JSON.stringify(pkg, null, 2))
-  if (isNightlyRelease) {
+  if (releaseType === 'nightly') {
     await x('changelogen', ['--canary', 'nightly', '--publish'], {
+      nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },
+      throwOnError: true,
+    })
+  }
+  else if (releaseType === 'pkg-pr-new') {
+    await x('pnpm', ['pkg-pr-new', 'publish', '--compact', '--template', './playground'], {
       nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },
       throwOnError: true,
     })

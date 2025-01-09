@@ -78,7 +78,9 @@ jobs:
 
       - name: 📦 release pkg.pr.new
         if: github.event_name != 'push'
-        run: pnpm pkg-pr-new publish --compact --template './playground'
+        run: node ./scripts/release.mjs
+        env:
+          RELEASE_TYPE: pkg-pr-new
 
       - name: 📦 release nuxi-nightly
         if: github.event_name == 'push'
@@ -86,5 +88,6 @@ jobs:
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
           node ./scripts/release.mjs
         env:
+          RELEASE_TYPE: nightly
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
