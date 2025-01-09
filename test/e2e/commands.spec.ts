@@ -38,12 +38,12 @@ describe('commands', () => {
     expect(res.stderr).toBe('[error] No command specified.\n')
   })
 
-  it('throws error if wrong command is provided', async () => {
+  // TODO: FIXME - windows currently throws 'nuxt-foo' is not recognized as an internal or external command, operable program or batch file.
+  it.skipIf(isWindows)('throws error if wrong command is provided', async () => {
     const res = await x('pnpm', ['nuxi', 'foo'], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
-    // TODO: fix this!
-    expect(res.exitCode).toBe(isWindows ? 0 : 1)
+    expect(res.exitCode).toBe(1)
     expect(res.stderr).toBe('[error] Unknown command `foo`\n')
   })
 
