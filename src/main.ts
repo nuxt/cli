@@ -4,7 +4,7 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
-import nuxiPkg from '../package.json' assert { type: 'json' }
+import { description, name, version } from '../package.json' assert { type: 'json' }
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
 import { setupGlobalConsole } from './utils/console'
@@ -13,9 +13,9 @@ import { logger } from './utils/logger'
 
 export const main = defineCommand({
   meta: {
-    name: nuxiPkg.name,
-    version: nuxiPkg.version,
-    description: nuxiPkg.description,
+    name,
+    version,
+    description,
   },
   args: {
     ...cwdArgs,

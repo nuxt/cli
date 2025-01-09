@@ -12,7 +12,7 @@ import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { splitByCase } from 'scule'
 
-import nuxiPkg from '../../package.json' assert { type: 'json' }
+import { version as nuxiVersion } from '../../package.json' assert { type: 'json' }
 
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -90,7 +90,7 @@ export default defineCommand({
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
-      CLIVersion: nuxiPkg.version,
+      CLIVersion: nuxiVersion,
       NitroVersion: await getDepVersion('nitropack'),
       PackageManager: packageManager ?? 'unknown',
       Builder: typeof builder === 'string' ? builder : 'custom',
