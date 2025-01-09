@@ -13,7 +13,7 @@ import { logger } from './utils/logger'
 
 export const main = defineCommand({
   meta: {
-    name,
+    name: name.endsWith('nightly') ? name : 'nuxi',
     version,
     description,
   },
