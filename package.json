@@ -69,7 +69,6 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^3.13.0",
-    "@nuxt/cli": "link:.",
     "@nuxt/eslint-config": "^0.7.5",
     "@nuxt/kit": "^3.15.1",
     "@nuxt/schema": "^3.15.1",
