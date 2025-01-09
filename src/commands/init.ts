@@ -2,14 +2,14 @@ import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
 import { existsSync } from 'node:fs'
-
 import process from 'node:process'
+
 import { defineCommand } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
-import { join, relative, resolve } from 'pathe'
-
+import { relative, resolve } from 'pathe'
 import { x } from 'tinyexec'
+
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -76,42 +76,40 @@ export default defineCommand({
       process.exit(1)
     }
 
+    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+    let shouldForce = Boolean(ctx.args.force)
+
     // Prompt the user if the template download directory already exists
     // when no `--force` flag is provided
-    if (!ctx.args.force) {
-      const templateDownloadPath = join(cwd, ctx.args.dir)
+    const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
+    if (shouldVerify) {
+      const selectedAction = await logger.prompt(
+        `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
+        {
+          type: 'select',
+          options: ['Override its contents', 'Select different directory', 'Abort'],
+        },
+      )
 
-      const templateDownloadDirExists = existsSync(templateDownloadPath)
+      switch (selectedAction) {
+        case 'Override its contents':
+          shouldForce = true
+          break
 
-      if (templateDownloadDirExists) {
-        const selectedAction = await logger.prompt(
-          `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
-          {
-            type: 'select',
-            options: ['Override its contents', 'Select different directory', 'Abort'],
-          },
-        )
-
-        switch (selectedAction) {
-          case 'Override its contents':
-            (ctx.args.force as boolean) = true
-
-            break
-
-          case 'Select different directory':
-            (ctx.args.dir as string) = await logger.prompt(
-              'Please specify a different directory:',
-              {
-                type: 'text',
-              },
-            )
-
-            break
-
-          case 'Abort':
-            logger.info('Initialization aborted.')
-            process.exit(1)
+        case 'Select different directory': {
+          const dir = await logger.prompt('Please specify a different directory:', {
+            type: 'text',
+          })
+          if (dir && typeof dir === 'string') {
+            templateDownloadPath = resolve(cwd, dir)
+          }
+          break
         }
+
+        // 'Abort' or Ctrl+C
+        default:
+          logger.info('Initialization aborted.')
+          process.exit(1)
       }
     }
 
@@ -120,9 +118,8 @@ export default defineCommand({
 
     try {
       template = await downloadTemplate(templateName, {
-        dir: ctx.args.dir,
-        cwd,
-        force: Boolean(ctx.args.force),
+        dir: templateDownloadPath,
+        force: shouldForce,
         offline: Boolean(ctx.args.offline),
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
