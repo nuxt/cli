@@ -1,16 +1,15 @@
 import type { TestFunction } from 'vitest'
 import type { commands } from '../../src/commands'
 
-import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-
 import { isWindows } from 'std-env'
+
+import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
 const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
 
-// TODO: fix tests on windows
-describe.skipIf(isWindows)('commands', () => {
+describe('commands', () => {
   const tests: Record<keyof typeof commands, 'todo' | TestFunction<object>> = {
     _dev: 'todo',
     add: 'todo',
@@ -32,19 +31,20 @@ describe.skipIf(isWindows)('commands', () => {
   }
 
   it('throws error if no command is provided', async () => {
-    const res = spawnSync('pnpm', ['nuxi'], {
-      cwd: fixtureDir,
+    const res = await x('pnpm', ['nuxi'], {
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
-    expect(res.status).toBe(isWindows ? null : 1)
-    expect(res.stderr.toString()).toBe('[error] No command specified.\n')
+    expect(res.exitCode).toBe(1)
+    expect(res.stderr).toBe('[error] No command specified.\n')
   })
 
-  it('throws error if wrong command is provided', async () => {
-    const res = spawnSync('pnpm', ['nuxi', 'foo'], {
-      cwd: fixtureDir,
+  // TODO: FIXME - windows currently throws 'nuxt-foo' is not recognized as an internal or external command, operable program or batch file.
+  it.skipIf(isWindows)('throws error if wrong command is provided', async () => {
+    const res = await x('pnpm', ['nuxi', 'foo'], {
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
-    expect(res.status).toBe(isWindows ? null : 1)
-    expect(res.stderr.toString()).toBe('[error] Unknown command `foo`\n')
+    expect(res.exitCode).toBe(1)
+    expect(res.stderr).toBe('[error] Unknown command `foo`\n')
   })
 
   const testsToRun = Object.entries(tests).filter(([_, value]) => value !== 'todo')
