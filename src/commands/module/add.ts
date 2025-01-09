@@ -192,7 +192,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       },
     }).catch((error) => {
       logger.error(`Failed to update \`nuxt.config\`: ${error.message}`)
-      logger.error(`Please manually add \`${modules.map(x => x.pkgName).join(', ')}\` to the \`modules\` in \`nuxt.config.ts\``)
+      logger.error(`Please manually add \`${modules.map(module => module.pkgName).join('\`, \`')}\` to the \`modules\` in \`nuxt.config.ts\``)
 
       return null
     })
