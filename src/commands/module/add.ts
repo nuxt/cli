@@ -83,11 +83,7 @@ export default defineCommand({
     const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
     const resolvedModules = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
 
-    logger.info(`Resolved \`${
-      resolvedModules.map(x => x.pkgName).join('\`, \`')
-    }\`, adding module${
-      resolvedModules.length > 1 ? 's' : ''
-    }...`)
+    logger.info(`Resolved \`${resolvedModules.map(x => x.pkgName).join('\`, \`')}\`, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
 
     await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
@@ -101,59 +97,50 @@ export default defineCommand({
 async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, cwd, dev }: { skipInstall: boolean, skipConfig: boolean, cwd: string, dev: boolean }, projectPkg: PackageJson) {
   // Add dependencies
   if (!skipInstall) {
-    const modulesGrouppedByInstallationStatus = modules.reduce<
-      { installed: ResolvedModule[], notInstalled: ResolvedModule[] }
-    >((acc, module) => {
-      const isInstalled = (projectPkg.dependencies && module.pkgName in projectPkg.dependencies)
-        || (projectPkg.devDependencies && module.pkgName in projectPkg.devDependencies)
+    const installedModules: ResolvedModule[] = []
+    const notInstalledModules: ResolvedModule[] = []
 
-      if (isInstalled) {
-        acc.installed.push(module)
+    const dependencies = new Set([
+      ...Object.keys(projectPkg.dependencies || {}),
+      ...Object.keys(projectPkg.devDependencies || {}),
+    ])
+
+    for (const module of modules) {
+      if (dependencies.has(module.pkgName)) {
+        installedModules.push(module)
       }
       else {
-        acc.notInstalled.push(module)
+        notInstalledModules.push(module)
       }
-
-      return acc
-    }, { installed: [], notInstalled: [] })
-
-    if (modulesGrouppedByInstallationStatus.installed.length > 0) {
-      logger.info(`\`${
-        modulesGrouppedByInstallationStatus.installed.map(module => module.pkgName).join('\`, \`')
-      }\` ${
-        modulesGrouppedByInstallationStatus.installed.length > 1 ? 'are' : 'is'
-      } already installed`)
     }
 
-    if (modulesGrouppedByInstallationStatus.notInstalled.length > 0) {
+    if (installedModules.length > 0) {
+      const installedModulesList = installedModules.map(module => module.pkgName).join('\`, \`')
+      const are = installedModules.length > 1 ? 'are' : 'is'
+      logger.info(`\`${installedModulesList}\` ${are} already installed`)
+    }
+
+    if (notInstalledModules.length > 0) {
       const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
 
-      logger.info(`Installing \`${
-        modulesGrouppedByInstallationStatus.notInstalled.map(module => module.pkg).join('\`, \`')
-      }\`${
-        isDev ? ' development' : ''
-      } ${
-        modulesGrouppedByInstallationStatus.notInstalled.length > 1 ? 'dependencies' : 'dependency'
-      }`)
+      const notInstalledModulesList = notInstalledModules.map(module => module.pkg).join('\`, \`')
+      const dependencies = notInstalledModules.length > 1 ? 'dependencies' : 'a dependency'
+      logger.info(`Installing \`${notInstalledModulesList} as\`${isDev ? ' development' : ''} ${dependencies}`)
 
-      const res = await addDependency(
-        modulesGrouppedByInstallationStatus.notInstalled.map(module => module.pkg),
-        { cwd, dev: isDev, installPeerDependencies: true },
-      ).catch(
+      const res = await addDependency(notInstalledModules.map(module => module.pkg), {
+        cwd,
+        dev: isDev,
+        installPeerDependencies: true,
+      }).catch(
         (error) => {
           logger.error(error)
 
-          return logger.prompt(
-            `Install failed for \`${
-              modulesGrouppedByInstallationStatus.notInstalled.map(module => colors.cyan(module.pkg)).join('\`, \`')
-            }\`. Do you want to continue adding the module${
-              modulesGrouppedByInstallationStatus.notInstalled.length > 1 ? 's' : ''
-            } to ${colors.cyan('nuxt.config')}?`,
-            {
-              type: 'confirm',
-              initial: false,
-            },
-          )
+          const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join('\`, \`')
+          const s = notInstalledModules.length > 1 ? 's' : ''
+          return logger.prompt(`Install failed for \`${failedModulesList}\`. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`, {
+            type: 'confirm',
+            initial: false,
+          })
         },
       )
 
