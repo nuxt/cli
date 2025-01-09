@@ -2,8 +2,9 @@ import type { TestFunction } from 'vitest'
 import type { commands } from '../../src/commands'
 
 import { spawnSync } from 'node:child_process'
-
 import { fileURLToPath } from 'node:url'
+
+import { isWindows } from 'std-env'
 import { describe, expect, it } from 'vitest'
 
 const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
@@ -33,7 +34,7 @@ describe('commands', () => {
     const res = spawnSync('pnpm', ['nuxi'], {
       cwd: fixtureDir,
     })
-    expect(res.status).toBe(1)
+    expect(res.status).toBe(isWindows ? null : 1)
     expect(res.stderr.toString()).toBe('[error] No command specified.\n')
   })
 
@@ -41,7 +42,7 @@ describe('commands', () => {
     const res = spawnSync('pnpm', ['nuxi', 'foo'], {
       cwd: fixtureDir,
     })
-    expect(res.status).toBe(1)
+    expect(res.status).toBe(isWindows ? null : 1)
     expect(res.stderr.toString()).toBe('[error] Unknown command `foo`\n')
   })
 
