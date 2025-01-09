@@ -1,6 +1,7 @@
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
+import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
@@ -75,14 +76,50 @@ export default defineCommand({
       process.exit(1)
     }
 
+    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+    let shouldForce = Boolean(ctx.args.force)
+
+    // Prompt the user if the template download directory already exists
+    // when no `--force` flag is provided
+    const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
+    if (shouldVerify) {
+      const selectedAction = await logger.prompt(
+        `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
+        {
+          type: 'select',
+          options: ['Override its contents', 'Select different directory', 'Abort'],
+        },
+      )
+
+      switch (selectedAction) {
+        case 'Override its contents':
+          shouldForce = true
+          break
+
+        case 'Select different directory': {
+          const dir = await logger.prompt('Please specify a different directory:', {
+            type: 'text',
+          })
+          if (dir && typeof dir === 'string') {
+            templateDownloadPath = resolve(cwd, dir)
+          }
+          break
+        }
+
+        // 'Abort' or Ctrl+C
+        default:
+          logger.info('Initialization aborted.')
+          process.exit(1)
+      }
+    }
+
     // Download template
     let template: DownloadTemplateResult
 
     try {
       template = await downloadTemplate(templateName, {
-        dir: ctx.args.dir,
-        cwd,
-        force: Boolean(ctx.args.force),
+        dir: templateDownloadPath,
+        force: shouldForce,
         offline: Boolean(ctx.args.offline),
         preferOffline: Boolean(ctx.args.preferOffline),
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
