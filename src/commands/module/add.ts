@@ -124,8 +124,9 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
 
       const notInstalledModulesList = notInstalledModules.map(module => module.pkg).join('\`, \`')
-      const dependencies = notInstalledModules.length > 1 ? 'dependencies' : 'a dependency'
-      logger.info(`Installing \`${notInstalledModulesList} as\`${isDev ? ' development' : ''} ${dependencies}`)
+      const dependency = notInstalledModules.length > 1 ? 'dependencies' : 'dependency'
+      const a = notInstalledModules.length > 1 ? '' : ' a'
+      logger.info(`Installing \`${notInstalledModulesList} as${a}\`${isDev ? ' development' : ''} ${dependency}`)
 
       const res = await addDependency(notInstalledModules.map(module => module.pkg), {
         cwd,
