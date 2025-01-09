@@ -21,6 +21,7 @@ export const main = defineCommand({
     ...cwdArgs,
     command: {
       type: 'positional',
+      required: false,
     },
   },
   subCommands: commands,

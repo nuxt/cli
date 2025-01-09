@@ -27,22 +27,22 @@ interface Template {
 }
 
 const templates = {
-  api,
-  app,
-  appConfig,
-  component,
-  composable,
-  error,
-  layer,
-  layout,
-  middleware,
-  module,
-  page,
-  plugin,
-  serverMiddleware,
-  serverPlugin,
-  serverRoute,
-  serverUtil,
+  'api': api,
+  'app': app,
+  'app-config': appConfig,
+  'component': component,
+  'composable': composable,
+  'error': error,
+  'layer': layer,
+  'layout': layout,
+  'middleware': middleware,
+  'module': module,
+  'page': page,
+  'plugin': plugin,
+  'server-middleware': serverMiddleware,
+  'server-plugin': serverPlugin,
+  'server-route': serverRoute,
+  'server-util': serverUtil,
 } satisfies Record<string, Template>
 
 // -- internal utils --
