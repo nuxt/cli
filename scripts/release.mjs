@@ -18,12 +18,6 @@ for (const [DISTRIBUTION, pkg] of Object.entries(distributions)) {
       throwOnError: true,
     })
   }
-  else if (releaseType === 'pkg-pr-new') {
-    await x('pnpm', ['pkg-pr-new', 'publish', '--template', './playground'], {
-      nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },
-      throwOnError: true,
-    })
-  }
   else {
     await x('npm', ['publish', '--no-git-checks'], {
       nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },

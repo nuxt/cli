@@ -78,9 +78,7 @@ jobs:
 
       - name: 📦 release pkg.pr.new
         if: github.event_name != 'push'
-        run: node ./scripts/release.mjs
-        env:
-          RELEASE_TYPE: pkg-pr-new
+        run: pnpm pkg-pr-new publish --compact --template './playground'
 
       - name: 📦 release nuxi-nightly
         if: github.event_name == 'push'
