@@ -39,6 +39,7 @@
     "test": "pnpm lint && pnpm test:types && pnpm build && pnpm test:dist",
     "test:dist": "node ./bin/nuxi.mjs info ./playground",
     "test:types": "tsc --noEmit",
+    "test:knip": "knip",
     "test:unit": "vitest --coverage"
   },
   "devDependencies": {
