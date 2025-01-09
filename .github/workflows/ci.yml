@@ -84,7 +84,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
-          pnpm changelogen --canary nightly --publish
+          node ./scripts/release.mjs
         env:
-          NPM_TOKEN: ${{secrets.NPM_TOKEN}}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
