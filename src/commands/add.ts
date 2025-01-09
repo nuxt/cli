@@ -4,13 +4,12 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { dirname, extname, resolve } from 'pathe'
 
-import { camelCase, kebabCase } from 'scule'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { templates } from '../utils/templates'
 import { cwdArgs, logLevelArgs } from './_shared'
 
-const KEBAB_CASE_TEMPLATE_NAMES = Object.keys(templates).map(template => kebabCase(template))
+const templateNames = Object.keys(templates)
 
 export default defineCommand({
   meta: {
@@ -27,7 +26,7 @@ export default defineCommand({
     template: {
       type: 'positional',
       required: true,
-      valueHint: KEBAB_CASE_TEMPLATE_NAMES.join('|'),
+      valueHint: templateNames.join('|'),
       description: `Template type to scaffold`,
     },
     name: {
@@ -42,7 +41,7 @@ export default defineCommand({
     const templateName = ctx.args.template
 
     // Validate template name
-    if (!KEBAB_CASE_TEMPLATE_NAMES.includes(templateName)) {
+    if (!templateNames.includes(templateName)) {
       logger.error(
         `Template ${templateName} is not supported. Possible values: ${Object.keys(
           templates,
@@ -68,7 +67,7 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
 
     // Resolve template
-    const template = templates[camelCase(templateName) as keyof typeof templates]
+    const template = templates[templateName as keyof typeof templates]
 
     const res = template({ name, args: ctx.args, nuxtOptions: config })
 
