@@ -9,14 +9,9 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
-import { describe, expect, it, vi } from 'vitest'
-import { packageManagerOptions } from '../../src/commands/init'
+import { describe, expect, it } from 'vitest'
 
 const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
-
-vi.mock('@nuxt/kit', () => {
-  return {}
-})
 
 describe('commands', () => {
   const tests: Record<keyof typeof commands, 'todo' | TestFunction<object>> = {
