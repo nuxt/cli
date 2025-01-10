@@ -25,7 +25,7 @@ const pms: Record<PackageManagerName, undefined> = {
 }
 
 // this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
-const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
+export const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
 
 export default defineCommand({
   meta: {
