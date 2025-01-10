@@ -1,7 +1,7 @@
 {
   "name": "nuxi",
   "type": "module",
-  "version": "3.19.1",
+  "version": "3.20.0",
   "packageManager": "pnpm@9.15.3",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",

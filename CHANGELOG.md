@@ -1,6 +1,56 @@
 # Changelog
 
 
+## v3.20.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.19.1...v3.20.0)
+
+### 🚀 Enhancements
+
+- **init:** Warn if dir already exists and no `--force` flag is provided ([#652](https://github.com/nuxt/cli/pull/652))
+- **add:** Skip installation of already installed modules ([#654](https://github.com/nuxt/cli/pull/654))
+- **cli:** Add new `@nuxt/cli` distribution without inlined deps ([#659](https://github.com/nuxt/cli/pull/659))
+
+### 🔥 Performance
+
+- Do not inline `package.json` in build cli ([d762ada](https://github.com/nuxt/cli/commit/d762ada))
+
+### 🩹 Fixes
+
+- **add:** Correct template name validation ([#651](https://github.com/nuxt/cli/pull/651))
+- **module:** Correct formatting in installation log ([c17039a](https://github.com/nuxt/cli/commit/c17039a))
+- **info:** Do not copy info in ci or without tty ([cf33224](https://github.com/nuxt/cli/commit/cf33224))
+
+### 📖 Documentation
+
+- Remove links to closed discussions ([5627da9](https://github.com/nuxt/cli/commit/5627da9))
+
+### 🏡 Chore
+
+- Skip e2e tests on windows for now ([bc27761](https://github.com/nuxt/cli/commit/bc27761))
+- **nuxt-cli:** Use `nuxi` as name for released cli ([554fa1b](https://github.com/nuxt/cli/commit/554fa1b))
+- Remove json assertion (for stub mode) ([24a2df2](https://github.com/nuxt/cli/commit/24a2df2))
+- Ensure `packageManagerOptions` remains up-to-date ([995fb20](https://github.com/nuxt/cli/commit/995fb20))
+- Remove export for now ([989475f](https://github.com/nuxt/cli/commit/989475f))
+
+### ✅ Tests
+
+- Add some basic e2e tests ([a772c2a](https://github.com/nuxt/cli/commit/a772c2a))
+- Update status test on windows ([7e860dc](https://github.com/nuxt/cli/commit/7e860dc))
+- Exec child process in tests with tinyexec ([#661](https://github.com/nuxt/cli/pull/661))
+- Add `init` and `add` e2e tests ([#662](https://github.com/nuxt/cli/pull/662))
+- Bump windows timeout ([de3afe0](https://github.com/nuxt/cli/commit/de3afe0))
+- Don't install deps in test ([3e321c2](https://github.com/nuxt/cli/commit/3e321c2))
+
+### 🤖 CI
+
+- Split out lint + release workflows ([#657](https://github.com/nuxt/cli/pull/657))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+
 ## v3.19.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.19.0...v3.19.1)
