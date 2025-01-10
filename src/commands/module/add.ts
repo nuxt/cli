@@ -126,7 +126,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       const notInstalledModulesList = notInstalledModules.map(module => module.pkg).join('\`, \`')
       const dependency = notInstalledModules.length > 1 ? 'dependencies' : 'dependency'
       const a = notInstalledModules.length > 1 ? '' : ' a'
-      logger.info(`Installing \`${notInstalledModulesList} as${a}\`${isDev ? ' development' : ''} ${dependency}`)
+      logger.info(`Installing \`${notInstalledModulesList}\` as${a}${isDev ? ' development' : ''} ${dependency}`)
 
       const res = await addDependency(notInstalledModules.map(module => module.pkg), {
         cwd,
