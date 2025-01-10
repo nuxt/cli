@@ -11,6 +11,7 @@ import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { splitByCase } from 'scule'
+import { isMinimal } from 'std-env'
 
 import { version as nuxiVersion } from '../../package.json' assert { type: 'json' }
 
@@ -120,7 +121,7 @@ export default defineCommand({
         }\n`
     }
 
-    const copied = await clipboardy
+    const copied = !isMinimal && await clipboardy
       .write(infoStr)
       .then(() => true)
       .catch(() => false)
