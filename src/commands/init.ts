@@ -13,9 +13,19 @@ import { x } from 'tinyexec'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
-const DEFAULT_REGISTRY
-  = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
+const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
+
+const pms: Record<PackageManagerName, undefined> = {
+  npm: undefined,
+  pnpm: undefined,
+  yarn: undefined,
+  bun: undefined,
+  deno: undefined,
+}
+
+// this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
+export const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
 
 export default defineCommand({
   meta: {
@@ -134,17 +144,8 @@ export default defineCommand({
     }
 
     // Resolve package manager
-    const packageManagerOptions: PackageManagerName[] = [
-      'npm',
-      'pnpm',
-      'yarn',
-      'bun',
-      'deno',
-    ]
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
-    const selectedPackageManager = packageManagerOptions.includes(
-      packageManagerArg,
-    )
+    const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
