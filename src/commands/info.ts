@@ -13,7 +13,7 @@ import { readPackageJSON } from 'pkg-types'
 import { splitByCase } from 'scule'
 import { isMinimal } from 'std-env'
 
-import { version as nuxiVersion } from '../../package.json' assert { type: 'json' }
+import { version as nuxiVersion } from '../../package.json'
 
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'

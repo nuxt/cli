@@ -4,7 +4,7 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
-import { description, name, version } from '../package.json' assert { type: 'json' }
+import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
 import { setupGlobalConsole } from './utils/console'
@@ -55,6 +55,7 @@ export const main = defineCommand({
         })
       }
       catch (err) {
+        // TODO: use windows err code as well
         if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
           return
         }
