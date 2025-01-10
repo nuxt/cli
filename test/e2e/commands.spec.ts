@@ -44,7 +44,7 @@ describe('commands', () => {
         const installPath = join(dir, pm)
         await rm(installPath, { recursive: true, force: true })
         try {
-          await x('nuxi', ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline'], {
+          await x('nuxi', ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline', '--install=false'], {
             nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
           })
           const files = await readdir(installPath).catch(() => [])
