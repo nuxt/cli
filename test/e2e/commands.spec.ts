@@ -62,7 +62,6 @@ describe('commands', () => {
 
   it('throws error if no command is provided', async () => {
     const res = await x('nuxi', [], {
-      throwOnError: true,
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)
@@ -72,7 +71,6 @@ describe('commands', () => {
   // TODO: FIXME - windows currently throws 'nuxt-foo' is not recognized as an internal or external command, operable program or batch file.
   it.skipIf(isWindows)('throws error if wrong command is provided', async () => {
     const res = await x('nuxi', ['foo'], {
-      throwOnError: true,
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)
