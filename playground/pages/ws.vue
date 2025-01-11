@@ -1,59 +1,58 @@
 <script setup lang="ts">
-
 const logs = ref<string[]>([])
 
-const log = (...args: any[]) => {
-  console.log("[ws]", ...args);
-  logs.value.push(args.join(" "));
-};
+function log(...args: any[]) {
+  console.log('[ws]', ...args)
+  logs.value.push(args.join(' '))
+}
 
 let ws: WebSocket | undefined
 
-const connect = async () => {
-  const isSecure = location.protocol === "https:";
-  const url = (isSecure ? "wss://" : "ws://") + location.host + "/_ws";
+async function connect() {
+  const isSecure = location.protocol === 'https:'
+  const url = `${(isSecure ? 'wss://' : 'ws://') + location.host}/_ws`
 
   if (ws) {
-    log("Closing...");
-    ws.close();
+    log('Closing...')
+    ws.close()
   }
 
-  log("Connecting to", url, "...");
-  ws = new WebSocket(url);
+  log('Connecting to', url, '...')
+  ws = new WebSocket(url)
 
-  ws.addEventListener("close", () => {
-    log("Connection closed");
-  });
+  ws.addEventListener('close', () => {
+    log('Connection closed')
+  })
 
-  ws.addEventListener("error", (event) => {
-    log("Error:", event);
-  });
+  ws.addEventListener('error', (event) => {
+    log('Error:', event)
+  })
 
-  ws.addEventListener("message", (event) => {
-    log("Message from server:", event.data);
-  });
+  ws.addEventListener('message', (event) => {
+    log('Message from server:', event.data)
+  })
 
-  log("Waiting for connection...");
-  await new Promise((resolve) => ws!.addEventListener("open", resolve));
-};
+  log('Waiting for connection...')
+  await new Promise(resolve => ws!.addEventListener('open', resolve))
+}
 
-const clearLogs = () => {
+function clearLogs() {
   logs.value = []
-};
+}
 
-const sendPing = () => {
-  log("Sending ping...");
-  ws?.send("ping");
-};
+function sendPing() {
+  log('Sending ping...')
+  ws?.send('ping')
+}
 
-const message = ref<string>("ping")
-const sendMessage = () => {
-  ws?.send(message.value);
-};
+const message = ref<string>('ping')
+function sendMessage() {
+  ws?.send(message.value)
+}
 
 onMounted(async () => {
-  await connect();
-  sendPing();
+  await connect()
+  sendPing()
 })
 </script>
 
@@ -80,7 +79,7 @@ onMounted(async () => {
             class="ms-secondary ms-small"
             placeholder="Message..."
             @keydown.enter="sendMessage"
-          />
+          >
         </div>
         <div class="col-sm-1">
           <button
@@ -91,13 +90,15 @@ onMounted(async () => {
           </button>
         </div>
       </div>
-      <br />
+      <br>
     </div>
     <pre id="logs">
       <div
-v-for="log in logs"
-:key="log"
->{{ log }}</div>
+        v-for="l in logs"
+        :key="l"
+      >
+        {{ l }}
+      </div>
     </pre>
   </div>
 </template>

@@ -1,18 +1,47 @@
-export const sharedArgs = {
+import type { ArgDef } from 'citty'
+
+export const cwdArgs = {
   cwd: {
     type: 'string',
-    description: 'Current working directory',
+    description: 'Specify the working directory',
+    valueHint: 'directory',
+    default: '.',
   },
+} as const satisfies Record<string, ArgDef>
+
+export const logLevelArgs = {
   logLevel: {
     type: 'string',
-    description: 'Log level',
+    description: 'Specify build-time log level',
+    valueHint: 'silent|info|verbose',
   },
-} as const
+} as const satisfies Record<string, ArgDef>
+
+export const envNameArgs = {
+  envName: {
+    type: 'string',
+    description: 'The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server)',
+  },
+} as const satisfies Record<string, ArgDef>
+
+export const dotEnvArgs = {
+  dotenv: {
+    type: 'string',
+    description: 'Path to `.env` file to load, relative to the root directory',
+  },
+} as const satisfies Record<string, ArgDef>
 
 export const legacyRootDirArgs = {
+  // cwd falls back to rootDir's default (indirect default)
+  cwd: {
+    ...cwdArgs.cwd,
+    description: 'Specify the working directory, this takes precedence over ROOTDIR (default: `.`)',
+    default: undefined,
+  },
   rootDir: {
     type: 'positional',
-    description: 'Root Directory',
+    description: 'Specifies the working directory (default: `.`)',
     required: false,
+    default: '.',
   },
-} as const
+} as const satisfies Record<string, ArgDef>

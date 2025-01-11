@@ -5,7 +5,6 @@ const _rDefault = (r: any) => (r.default || r) as Promise<CommandDef>
 export const commands = {
   add: () => import('./add').then(_rDefault),
   analyze: () => import('./analyze').then(_rDefault),
-  'build-module': () => import('./build-module').then(_rDefault),
   build: () => import('./build').then(_rDefault),
   cleanup: () => import('./cleanup').then(_rDefault),
   _dev: () => import('./dev-child').then(_rDefault),

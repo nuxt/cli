@@ -1,14 +1,14 @@
-import { execa } from 'execa'
-import { resolve } from 'pathe'
+import process from 'node:process'
+import { fileURLToPath } from 'node:url'
+
 import { defineCommand } from 'citty'
+import { createJiti } from 'jiti'
+import { resolve } from 'pathe'
+import { isBun } from 'std-env'
+import { x } from 'tinyexec'
 
-// we are deliberately inlining this code as a backup in case user has `@nuxt/schema<3.7`
-import { writeTypes as writeTypesLegacy } from '@nuxt/kit'
-
-import { tryResolveModule } from '../utils/esm'
 import { loadKit } from '../utils/kit'
-
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,25 +16,21 @@ export default defineCommand({
     description: 'Runs `vue-tsc` to check types throughout your app.',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const {
-      loadNuxt,
-      buildNuxt,
-      writeTypes = writeTypesLegacy,
-    } = await loadKit(cwd)
+    const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       cwd,
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        .../*ctx.options?.overrides || */ {},
       },
     })
 
@@ -43,23 +39,43 @@ export default defineCommand({
     await buildNuxt(nuxt)
     await nuxt.close()
 
+    const jiti = createJiti(cwd)
+
     // Prefer local install if possible
     const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
-      tryResolveModule('typescript'),
-      tryResolveModule('vue-tsc/bin/vue-tsc.js'),
+      jiti.esmResolve('typescript', { try: true }),
+      jiti.esmResolve('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
-      await execa(resolvedVueTsc, ['--noEmit'], {
-        preferLocal: true,
-        stdio: 'inherit',
-        cwd,
+      await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
+        nodeOptions: {
+          stdio: 'inherit',
+          cwd,
+        },
       })
-    } else {
-      await execa(
-        'npx',
-        '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-        { stdio: 'inherit', cwd },
-      )
+    }
+    else {
+      if (isBun) {
+        await x(
+          'bun',
+          'install typescript vue-tsc --global --silent'.split(' '),
+          { nodeOptions: { stdio: 'inherit', cwd } },
+        )
+
+        await x('bunx', 'vue-tsc --noEmit'.split(' '), {
+          nodeOptions: {
+            stdio: 'inherit',
+            cwd,
+          },
+        })
+      }
+      else {
+        await x(
+          'npx',
+          '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
+          { nodeOptions: { stdio: 'inherit', cwd } },
+        )
+      }
     }
   },
 })

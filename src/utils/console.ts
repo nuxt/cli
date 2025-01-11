@@ -1,10 +1,13 @@
-import { consola } from 'consola'
 import type { ConsolaReporter } from 'consola'
+
+import process from 'node:process'
+
+import { consola } from 'consola'
 
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
-const wrapReporter = (reporter: ConsolaReporter) =>
-  ({
+function wrapReporter(reporter: ConsolaReporter) {
+  return ({
     log(logObj, ctx) {
       if (!logObj.args || !logObj.args.length) {
         return
@@ -36,6 +39,7 @@ const wrapReporter = (reporter: ConsolaReporter) =>
       return reporter.log(logObj, ctx)
     },
   }) satisfies ConsolaReporter
+}
 
 export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   consola.options.reporters = consola.options.reporters.map(wrapReporter)
@@ -43,15 +47,14 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   // Wrap all console logs with consola for better DX
   if (opts.dev) {
     consola.wrapAll()
-  } else {
+  }
+  else {
     consola.wrapConsole()
   }
 
-  process.on('unhandledRejection', (err) =>
-    consola.error('[unhandledRejection]', err),
-  )
+  process.on('unhandledRejection', err =>
+    consola.error('[unhandledRejection]', err))
 
-  process.on('uncaughtException', (err) =>
-    consola.error('[uncaughtException]', err),
-  )
+  process.on('uncaughtException', err =>
+    consola.error('[uncaughtException]', err))
 }

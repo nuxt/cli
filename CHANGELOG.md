@@ -1,6 +1,404 @@
 # Changelog
 
 
+## v3.20.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.19.1...v3.20.0)
+
+### 🚀 Enhancements
+
+- **init:** Warn if dir already exists and no `--force` flag is provided ([#652](https://github.com/nuxt/cli/pull/652))
+- **add:** Skip installation of already installed modules ([#654](https://github.com/nuxt/cli/pull/654))
+- **cli:** Add new `@nuxt/cli` distribution without inlined deps ([#659](https://github.com/nuxt/cli/pull/659))
+
+### 🔥 Performance
+
+- Do not inline `package.json` in build cli ([d762ada](https://github.com/nuxt/cli/commit/d762ada))
+
+### 🩹 Fixes
+
+- **add:** Correct template name validation ([#651](https://github.com/nuxt/cli/pull/651))
+- **module:** Correct formatting in installation log ([c17039a](https://github.com/nuxt/cli/commit/c17039a))
+- **info:** Do not copy info in ci or without tty ([cf33224](https://github.com/nuxt/cli/commit/cf33224))
+
+### 📖 Documentation
+
+- Remove links to closed discussions ([5627da9](https://github.com/nuxt/cli/commit/5627da9))
+
+### 🏡 Chore
+
+- Skip e2e tests on windows for now ([bc27761](https://github.com/nuxt/cli/commit/bc27761))
+- **nuxt-cli:** Use `nuxi` as name for released cli ([554fa1b](https://github.com/nuxt/cli/commit/554fa1b))
+- Remove json assertion (for stub mode) ([24a2df2](https://github.com/nuxt/cli/commit/24a2df2))
+- Ensure `packageManagerOptions` remains up-to-date ([995fb20](https://github.com/nuxt/cli/commit/995fb20))
+- Remove export for now ([989475f](https://github.com/nuxt/cli/commit/989475f))
+
+### ✅ Tests
+
+- Add some basic e2e tests ([a772c2a](https://github.com/nuxt/cli/commit/a772c2a))
+- Update status test on windows ([7e860dc](https://github.com/nuxt/cli/commit/7e860dc))
+- Exec child process in tests with tinyexec ([#661](https://github.com/nuxt/cli/pull/661))
+- Add `init` and `add` e2e tests ([#662](https://github.com/nuxt/cli/pull/662))
+- Bump windows timeout ([de3afe0](https://github.com/nuxt/cli/commit/de3afe0))
+- Don't install deps in test ([3e321c2](https://github.com/nuxt/cli/commit/3e321c2))
+
+### 🤖 CI
+
+- Split out lint + release workflows ([#657](https://github.com/nuxt/cli/pull/657))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+
+## v3.19.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.19.0...v3.19.1)
+
+### 🩹 Fixes
+
+- **subcommand:** Pass all `rawArgs` ([35f7b87](https://github.com/nuxt/cli/commit/35f7b87))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.19.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.2...v3.19.0)
+
+### 🚀 Enhancements
+
+- **subcommand:** Add subcommand support ([#644](https://github.com/nuxt/cli/pull/644))
+- **add:** Move templates to separate files and add new ones ([#379](https://github.com/nuxt/cli/pull/379))
+
+### 🏡 Chore
+
+- Remove some `as any` ([8e5f935](https://github.com/nuxt/cli/commit/8e5f935))
+- Disable `respectExternal` ([542e05c](https://github.com/nuxt/cli/commit/542e05c))
+- Bump nuxt/telemetry version ([00a0a71](https://github.com/nuxt/cli/commit/00a0a71))
+
+### ❤️ Contributors
+
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.18.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.1...v3.18.2)
+
+### 🩹 Fixes
+
+- Handle failures to resolve deps ([#643](https://github.com/nuxt/cli/pull/643))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.18.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.18.0...v3.18.1)
+
+### 🩹 Fixes
+
+- **build,dev:** Load packages from nuxt dir ([ac21814](https://github.com/nuxt/cli/commit/ac21814))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.18.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.2...v3.18.0)
+
+### 🚀 Enhancements
+
+- **dev:** Support PFX certificate for dev server ([#624](https://github.com/nuxt/cli/pull/624))
+- **module:** Install as dev dependency with `--dev` flag ([#630](https://github.com/nuxt/cli/pull/630))
+- **add:** Add layer template ([#626](https://github.com/nuxt/cli/pull/626))
+- Use `jiti` to import/resolve modules ([#632](https://github.com/nuxt/cli/pull/632))
+- Add `nuxi` tag to logs ([#642](https://github.com/nuxt/cli/pull/642))
+
+### 🔥 Performance
+
+- Use consola colors ([a3fe458](https://github.com/nuxt/cli/commit/a3fe458))
+- Use `tinyexec` to execute commands ([#639](https://github.com/nuxt/cli/pull/639))
+- Do not inline `writeTypes` from `@nuxt/kit` ([#641](https://github.com/nuxt/cli/pull/641))
+
+### 🩹 Fixes
+
+- **upgrade:** Detect 'bun.lock' lockfile ([#614](https://github.com/nuxt/cli/pull/614))
+- **build:** Do not override `preset` when prerendering ([#605](https://github.com/nuxt/cli/pull/605))
+- **info:** De-default nuxt config ([5f96214](https://github.com/nuxt/cli/commit/5f96214))
+
+### 💅 Refactors
+
+- **info,upgrade:** Use `nypm` to detect package manager ([#618](https://github.com/nuxt/cli/pull/618))
+
+### 🏡 Chore
+
+- **release:** V3.17.2 ([19556d3](https://github.com/nuxt/cli/commit/19556d3))
+- Use json assertion ([acb6130](https://github.com/nuxt/cli/commit/acb6130))
+- Correct dependency list ([a979a47](https://github.com/nuxt/cli/commit/a979a47))
+- Add explicit nuxi dependency for ppn ([a3be91d](https://github.com/nuxt/cli/commit/a3be91d))
+- Lockfile ([7ded939](https://github.com/nuxt/cli/commit/7ded939))
+- Don't fail build when analysing size ([d8fa483](https://github.com/nuxt/cli/commit/d8fa483))
+- Use `knip` to ensure repository is 💯 ([ee63f74](https://github.com/nuxt/cli/commit/ee63f74))
+- Update lockfile ([a1c2cd2](https://github.com/nuxt/cli/commit/a1c2cd2))
+- Add additional lint preset + lint project ([1e1fd26](https://github.com/nuxt/cli/commit/1e1fd26))
+- Lint 😆 ([0363b58](https://github.com/nuxt/cli/commit/0363b58))
+
+### 🤖 CI
+
+- Don't upload coverage on windows ([fb1c354](https://github.com/nuxt/cli/commit/fb1c354))
+- Release pull requests with `pkg.pr.new` ([#633](https://github.com/nuxt/cli/pull/633))
+- Add bundle size comparison job ([#635](https://github.com/nuxt/cli/pull/635))
+- Move rollup plugin to beginning of array ([b98c031](https://github.com/nuxt/cli/commit/b98c031))
+- Update pr target ([#638](https://github.com/nuxt/cli/pull/638))
+- Skip dts when checking bundle size ([a5382c9](https://github.com/nuxt/cli/commit/a5382c9))
+- Do not release nightly on windows matrix ([982ae2e](https://github.com/nuxt/cli/commit/982ae2e))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Bobbie Goede <bobbiegoede@gmail.com>
+- Colonel-Sandvich ([@Colonel-Sandvich](http://github.com/Colonel-Sandvich))
+- Clément Ollivier ([@clemcode](http://github.com/clemcode))
+- Connor Roberts ([@murshex](http://github.com/murshex))
+
+## v3.17.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.1...v3.17.2)
+
+### 🩹 Fixes
+
+- **dev:** Chain `catch` correctly on promise ([4504a4c](https://github.com/nuxt/cli/commit/4504a4c))
+
+### 🏡 Chore
+
+- Lint ([1831710](https://github.com/nuxt/cli/commit/1831710))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.17.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.17.0...v3.17.1)
+
+### 🩹 Fixes
+
+- **module:** Pass resolved `cwd` to `addDependency` ([#606](https://github.com/nuxt/cli/pull/606))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.17.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.16.0...v3.17.0)
+
+### 🚀 Enhancements
+
+- **module:** Add multiple modules at once ([#584](https://github.com/nuxt/cli/pull/584))
+
+### 🩹 Fixes
+
+- **analyze:** Show readable chunk names ([#587](https://github.com/nuxt/cli/pull/587))
+- **add:** Respect custom dirs from nuxt project ([#586](https://github.com/nuxt/cli/pull/586))
+- **cleanup:** Remove dev `buildDir` when cleaning up ([#590](https://github.com/nuxt/cli/pull/590))
+- **analyze:** Support `--dotenv` argument ([#589](https://github.com/nuxt/cli/pull/589))
+- **dev:** Use `SIGTERM` instead of `SIGHUP` on windows ([#603](https://github.com/nuxt/cli/pull/603))
+- **dev:** Restart nuxt if unhandled rejection occurs ([#602](https://github.com/nuxt/cli/pull/602))
+
+### 💅 Refactors
+
+- Share command descriptions and `--cwd` default ([#592](https://github.com/nuxt/cli/pull/592))
+
+### ❤️ Contributors
+
+- Bobbie Goede <bobbiegoede@gmail.com>
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.16.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.15.0...v3.16.0)
+
+### 🚀 Enhancements
+
+- **init:** Add support for `deno` ([#526](https://github.com/nuxt/cli/pull/526))
+
+### 🩹 Fixes
+
+- **dev:** Handle non-existent dev server on restart ([#560](https://github.com/nuxt/cli/pull/560))
+- **module:** Pass registry auth token when fetching metadata ([#537](https://github.com/nuxt/cli/pull/537))
+- Improved internal type safety ([9ad7d6f](https://github.com/nuxt/cli/commit/9ad7d6f))
+
+### 🏡 Chore
+
+- Revert change to playground `package.json` ([45801c0](https://github.com/nuxt/cli/commit/45801c0))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Thomas Kjærgaard ([@tkjaergaard](http://github.com/tkjaergaard))
+- Adrien Foulon ([@Tofandel](http://github.com/Tofandel))
+- Yasser Lahbibi ([@yassilah](http://github.com/yassilah))
+
+## v3.15.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.14.0...v3.15.0)
+
+### 🚀 Enhancements
+
+- Add `--env-name` flag for configuration overrides ([#357](https://github.com/nuxt/cli/pull/357), [#424](https://github.com/nuxt/cli/pull/424))
+- **upgrade:** Allow upgrading to nightly release channel ([#465](https://github.com/nuxt/cli/pull/465))
+- **module:** Rerun prepare command after installing module ([61f0172](https://github.com/nuxt/cli/commit/61f0172))
+
+### 🩹 Fixes
+
+- **add:** Don't add extra `/` if joining registry + package ([b462713](https://github.com/nuxt/cli/commit/b462713))
+- **dev:** Respect explicit address and port in `--inspect` ([#508](https://github.com/nuxt/cli/pull/508))
+- **info:** Await loading of nuxt config file ([#528](https://github.com/nuxt/cli/pull/528))
+- **build:** Respect environment variable preset overrides ([#514](https://github.com/nuxt/cli/pull/514))
+- **module:** Respect per-scope registry when installing packages ([#510](https://github.com/nuxt/cli/pull/510), [#519](https://github.com/nuxt/cli/pull/519))
+- **typecheck:** Use `bunx` if running on bun ([#494](https://github.com/nuxt/cli/pull/494))
+- **add:** Handle kebab-case composable names ([#522](https://github.com/nuxt/cli/pull/522))
+- **upgrade:** Include other core nuxt packages in upgrade ([40877ae](https://github.com/nuxt/cli/commit/40877ae))
+- **upgrade:** Avoid printing info when versions are unknown ([019a6f8](https://github.com/nuxt/cli/commit/019a6f8))
+- **upgrade:** Handle aborted nightly channel selection ([c263859](https://github.com/nuxt/cli/commit/c263859))
+- **preview:** Show more accurate message with custom `--dotenv` ([3fe1ff9](https://github.com/nuxt/cli/commit/3fe1ff9))
+
+### 💅 Refactors
+
+- **upgrade:** Move channel prompt before lockfile prompt ([b3f31de](https://github.com/nuxt/cli/commit/b3f31de))
+
+### 🏡 Chore
+
+- Add CODEOWNERS file ([95ec3c8](https://github.com/nuxt/cli/commit/95ec3c8))
+
+### 🤖 CI
+
+- Run test suite on windows ([#512](https://github.com/nuxt/cli/pull/512))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Martin ([@martin-mastermind](http://github.com/martin-mastermind))
+- Teena ([@franklin-tina](http://github.com/franklin-tina))
+- Horu ([@HigherOrderLogic](http://github.com/HigherOrderLogic))
+- Thomas Kjærgaard ([@tkjaergaard](http://github.com/tkjaergaard))
+- Ezra Ashenafi ([@Eazash](http://github.com/Eazash))
+- Selemon Brahanu ([@selemondev](http://github.com/selemondev))
+- Till Sanders ([@tillsanders](http://github.com/tillsanders))
+- Giacomo Trezzi <giacomo.trezzi@gmail.com>
+
+## v3.14.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.2...v3.14.0)
+
+### 🚀 Enhancements
+
+- **info:** Use jiti v2 ([#477](https://github.com/nuxt/cli/pull/477))
+- **module:** Respect package registry set in `.npmrc` ([#470](https://github.com/nuxt/cli/pull/470))
+
+### 🔥 Performance
+
+- Remove `fsevents` as optional dependency ([f9714f2](https://github.com/nuxt/cli/commit/f9714f2))
+
+### 🩹 Fixes
+
+- Resolve `nuxt` directory from `rootDir` ([1518e46](https://github.com/nuxt/cli/commit/1518e46))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Kiameow ([@Kiameow](http://github.com/Kiameow))
+
+## v3.13.2
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.1...v3.13.2)
+
+### 🩹 Fixes
+
+- **dev:** Handle relative baseURL ([#468](https://github.com/nuxt/cli/pull/468))
+
+### 🏡 Chore
+
+- **release:** V3.13.1 ([34bdbbc](https://github.com/nuxt/cli/commit/34bdbbc))
+- Add `compatibilityDate` ([dd0bf06](https://github.com/nuxt/cli/commit/dd0bf06))
+
+### ❤️ Contributors
+
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+
+## v3.13.1
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.13.0...v3.13.1)
+
+## v3.13.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.12.0...v3.13.0)
+
+### 🚀 Enhancements
+
+- **build:** Warn if `--prerender` overrides `--preset` ([#392](https://github.com/nuxt/cli/pull/392))
+- **module:** Support other nuxt config extensions when adding ([#401](https://github.com/nuxt/cli/pull/401))
+- **module:** Install module peer dependencies ([#442](https://github.com/nuxt/cli/pull/442))
+- **info:** Link to issue templates ([#406](https://github.com/nuxt/cli/pull/406))
+
+### 🩹 Fixes
+
+- Allow configuring vite hmr protocol ([#436](https://github.com/nuxt/cli/pull/436))
+- Add `-w` arg when updating pnpm root workspace ([#449](https://github.com/nuxt/cli/pull/449))
+- Keep nuxt current dependency type ([#430](https://github.com/nuxt/cli/pull/430))
+
+### 💅 Refactors
+
+- **module:** Use `c12` util to update config ([#441](https://github.com/nuxt/cli/pull/441))
+
+### 🏡 Chore
+
+- Remove `is-number` from bundled cli ([#439](https://github.com/nuxt/cli/pull/439))
+- Remove unnecessary spread operator and fix typos ([#459](https://github.com/nuxt/cli/pull/459))
+
+### ❤️ Contributors
+
+- OrbisK ([@OrbisK](http://github.com/OrbisK))
+- Deth <gabriel@rosa.dev.br>
+- Julien Huang ([@huang-julien](http://github.com/huang-julien))
+- Xjccc ([@xjccc](http://github.com/xjccc))
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Meir Roth ([@meirroth](http://github.com/meirroth))
+- Cmd430 <cmd430@gmail.com>
+
+## v3.12.0
+
+[compare changes](https://github.com/nuxt/cli/compare/v3.11.1...v3.12.0)
+
+### 🩹 Fixes
+
+- **prepare:** Respect `--dotenv` ([#377](https://github.com/nuxt/cli/pull/377))
+- Add '@nuxt/kit' to nuxt module verification ([#386](https://github.com/nuxt/cli/pull/386), [#387](https://github.com/nuxt/cli/pull/387))
+- Check`nitropack-nightly` when resolving nitro version ([bfaf128](https://github.com/nuxt/cli/commit/bfaf128))
+- **dev:** Set `hmr.server` earlier in lifecycle ([#420](https://github.com/nuxt/cli/pull/420))
+- **preview:** Correct path with custom `nitro.output.dir` ([#376](https://github.com/nuxt/cli/pull/376))
+
+### 🏡 Chore
+
+- **release:** V3.11.1 ([8e1bd03](https://github.com/nuxt/cli/commit/8e1bd03))
+- Migrate to eslint v9 ([#412](https://github.com/nuxt/cli/pull/412))
+- **add:** Change order of `setup` attr in templates ([#378](https://github.com/nuxt/cli/pull/378))
+
+### ❤️ Contributors
+
+- Xjccc ([@xjccc](http://github.com/xjccc))
+- Daniel Roe ([@danielroe](http://github.com/danielroe))
+- Dale Weaver ([@daleweaver777](http://github.com/daleweaver777))
+- 你好怪凡 <zousitanghulu@foxmail.com>
+- Damian Głowala ([@DamianGlowala](http://github.com/DamianGlowala))
+- Pooya Parsa ([@pi0](http://github.com/pi0))
+
 ## v3.11.1
 
 [compare changes](https://github.com/nuxt/cli/compare/v3.11.0...v3.11.1)

@@ -1,14 +1,15 @@
-import { resolve } from 'pathe'
-import { consola } from 'consola'
-import { overrideEnv } from '../utils/env'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+
+import process from 'node:process'
+
 import { defineCommand } from 'citty'
-import { sharedArgs, legacyRootDirArgs } from './_shared'
+import { resolve } from 'pathe'
 import { isTest } from 'std-env'
-import {
-  NuxtDevContext,
-  NuxtDevIPCMessage,
-  createNuxtDevServer,
-} from '../utils/dev'
+
+import { createNuxtDevServer } from '../utils/dev'
+import { overrideEnv } from '../utils/env'
+import { logger } from '../utils/logger'
+import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -17,7 +18,9 @@ export default defineCommand({
       'Run Nuxt development server (internal command to start child process)',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
     dotenv: {
       type: 'string',
@@ -30,8 +33,6 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const logger = consola.withTag('nuxi')
-
     if (!process.send && !isTest) {
       logger.warn(
         '`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.',
@@ -40,36 +41,44 @@ export default defineCommand({
 
     // Prepare
     overrideEnv('development')
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir || '.')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Get dev context info
-    const devContext: NuxtDevContext =
-      JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
+    const devContext: NuxtDevContext
+      = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
+
+    // IPC Hooks
+    function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
+      if (process.send) {
+        process.send(message)
+      }
+      else {
+        logger.info(
+          'Dev server event:',
+          Object.entries(message)
+            .map(e => `${e[0]}=${JSON.stringify(e[1])}`)
+            .join(' '),
+        )
+      }
+    }
+
+    process.once('unhandledRejection', (reason) => {
+      sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+      process.exit()
+    })
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
       cwd,
       overrides: ctx.data?.overrides,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-      clear: ctx.args.clear,
-      dotenv: ctx.args.dotenv,
+      clear: !!ctx.args.clear,
+      dotenv: !!ctx.args.dotenv,
+      envName: ctx.args.envName,
       port: process.env._PORT ?? undefined,
       devContext,
     })
 
-    // IPC Hooks
-    function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
-      if (process.send) {
-        process.send(message)
-      } else {
-        logger.info(
-          'Dev server event:',
-          Object.entries(message)
-            .map((e) => e[0] + '=' + JSON.stringify(e[1]))
-            .join(' '),
-        )
-      }
-    }
     nuxtDev.on('loading', (message) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
     })

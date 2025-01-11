@@ -4,3 +4,5 @@ dist
 .nuxt
 nuxt-app
 .pnpm-store
+coverage
+stats.json

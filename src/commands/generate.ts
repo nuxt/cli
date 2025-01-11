@@ -1,7 +1,7 @@
 import { defineCommand } from 'citty'
-import buildCommand from './build'
 
-import { legacyRootDirArgs, sharedArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import buildCommand from './build'
 
 export default defineCommand({
   meta: {
@@ -9,15 +9,17 @@ export default defineCommand({
     description: 'Build Nuxt and prerender all routes',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
+    ...logLevelArgs,
+    ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     ctx.args.prerender = true
-    await buildCommand.run!(ctx as any)
+    await buildCommand.run!(
+      // @ts-expect-error types do not match
+      ctx,
+    )
   },
 })

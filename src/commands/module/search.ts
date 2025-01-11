@@ -1,10 +1,11 @@
 import { defineCommand } from 'citty'
-import { sharedArgs } from '../_shared'
-import consola from 'consola'
-import { fetchModules, checkNuxtCompatibility, getNuxtVersion } from './_utils'
+import { colors } from 'consola/utils'
 import Fuse from 'fuse.js'
-import { upperFirst, kebabCase } from 'scule'
-import { bold, green, magenta, cyan, gray, yellow } from 'colorette'
+import { kebabCase, upperFirst } from 'scule'
+
+import { logger } from '../../utils/logger'
+import { cwdArgs } from '../_shared'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
 
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
   notation: 'compact',
@@ -17,7 +18,7 @@ export default defineCommand({
     description: 'Search in Nuxt modules',
   },
   args: {
-    ...sharedArgs,
+    ...cwdArgs,
     query: {
       type: 'positional',
       description: 'keywords to search for',
@@ -26,19 +27,19 @@ export default defineCommand({
     nuxtVersion: {
       type: 'string',
       description:
-        'Filter by Nuxt version and list compatible moduless only (auto detected by default)',
+        'Filter by Nuxt version and list compatible modules only (auto detected by default)',
       required: false,
     },
   },
   async setup(ctx) {
-    const nuxtVersion = await getNuxtVersion(ctx.args.cwd || '.')
+    const nuxtVersion = await getNuxtVersion(ctx.args.cwd)
     return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })
 
 async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const allModules = await fetchModules()
-  const compatibleModules = allModules.filter((m) =>
+  const compatibleModules = allModules.filter(m =>
     checkNuxtCompatibility(m, nuxtVersion),
   )
   const fuse = new Fuse(compatibleModules, {
@@ -54,6 +55,8 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       { name: 'maintainers.github', weight: 0.5 },
     ],
   })
+
+  const { bold, green, magenta, cyan, gray, yellow } = colors
 
   const results = fuse.search(query).map((result) => {
     const res: Record<string, string> = {
@@ -77,20 +80,14 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   })
 
   if (!results.length) {
-    consola.info(
-      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(
-        nuxtVersion,
-      )}`,
+    logger.info(
+      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(nuxtVersion)}`,
     )
     return
   }
 
-  consola.success(
-    `Found ${results.length} Nuxt ${
-      results.length > 1 ? 'modules' : 'module'
-    } matching ${cyan(query)} ${
-      nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''
-    }:\n`,
+  logger.success(
+    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${cyan(query)} ${nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''}:\n`,
   )
   for (const foundModule of results) {
     let maxLength = 0
@@ -99,16 +96,16 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       if (label.length > maxLength) {
         maxLength = label.length
       }
-      return [label, val || '-']
+      return [label, val || '-'] as const
     })
     let infoStr = ''
     for (const [label, value] of entries) {
-      infoStr +=
-        bold(label === 'Install' ? '→ ' : '- ') +
-        green(label.padEnd(maxLength + 2)) +
-        value +
-        '\n'
+      infoStr
+        += `${bold(label === 'Install' ? '→ ' : '- ')
+        + green(label.padEnd(maxLength + 2))
+        + value
+        }\n`
     }
-    console.log(infoStr)
+    logger.log(infoStr)
   }
 }

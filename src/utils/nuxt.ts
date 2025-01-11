@@ -1,11 +1,14 @@
-import { promises as fsp } from 'node:fs'
-import { dirname, resolve } from 'pathe'
-import { consola } from 'consola'
-import { hash } from 'ohash'
 import type { Nuxt } from '@nuxt/schema'
+
+import { promises as fsp } from 'node:fs'
+
+import { hash } from 'ohash'
+import { dirname, resolve } from 'pathe'
+
+import { logger } from '../utils/logger'
 import { rmRecursive } from './fs'
 
-export interface NuxtProjectManifest {
+interface NuxtProjectManifest {
   _hash: string | null
   project: {
     rootDir: string
@@ -16,7 +19,7 @@ export interface NuxtProjectManifest {
 }
 
 export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
-  consola.info('Cleaning up generated Nuxt files and caches...')
+  logger.info('Cleaning up generated Nuxt files and caches...')
 
   await rmRecursive(
     [
@@ -25,7 +28,7 @@ export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
       'dist',
       'node_modules/.vite',
       'node_modules/.cache',
-    ].map((dir) => resolve(rootDir, dir)),
+    ].map(dir => resolve(rootDir, dir)),
   )
 }
 
@@ -39,7 +42,7 @@ export function nuxtVersionToGitIdentifier(version: string) {
   return `v${version}`
 }
 
-export function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
+function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
   const manifest: NuxtProjectManifest = {
     _hash: null,
     project: {
@@ -69,7 +72,7 @@ export async function loadNuxtManifest(
   const manifestPath = resolve(buildDir, 'nuxt.json')
   const manifest: NuxtProjectManifest | null = await fsp
     .readFile(manifestPath, 'utf-8')
-    .then((data) => JSON.parse(data) as NuxtProjectManifest)
+    .then(data => JSON.parse(data) as NuxtProjectManifest)
     .catch(() => null)
   return manifest
 }
