@@ -27,4 +27,7 @@ for (const [DISTRIBUTION, pkg] of Object.entries(distributions)) {
 }
 
 // clean up
-x('git', ['restore', 'package.json'])
+x('git', ['restore', 'package.json'], {
+  nodeOptions: { stdio: 'inherit' },
+  throwOnError: true,
+})

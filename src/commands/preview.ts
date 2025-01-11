@@ -102,6 +102,9 @@ export default defineCommand({
     logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     logger.log('')
-    await x(command, commandArgs, { nodeOptions: { stdio: 'inherit', cwd: outputPath } })
+    await x(command, commandArgs, {
+      throwOnError: true,
+      nodeOptions: { stdio: 'inherit', cwd: outputPath },
+    })
   },
 })

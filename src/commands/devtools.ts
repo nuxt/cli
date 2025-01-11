@@ -33,6 +33,7 @@ export default defineCommand({
       'npx',
       ['@nuxt/devtools-wizard@latest', ctx.args.command, cwd],
       {
+        throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
           cwd,
