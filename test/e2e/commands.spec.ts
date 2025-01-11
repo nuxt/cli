@@ -20,6 +20,7 @@ describe('commands', () => {
       const file = join(fixtureDir, 'server/api/test.ts')
       await rm(file, { force: true })
       await x('nuxi', ['add', 'api', 'test'], {
+        throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
       expect(existsSync(file)).toBeTruthy()
@@ -45,6 +46,7 @@ describe('commands', () => {
         await rm(installPath, { recursive: true, force: true })
         try {
           await x('nuxi', ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline', '--install=false'], {
+            throwOnError: true,
             nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
           })
           const files = await readdir(installPath).catch(() => [])
