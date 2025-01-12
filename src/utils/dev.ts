@@ -321,7 +321,7 @@ class NuxtDevServer extends EventEmitter {
         return
       }
       const file = relative(this.options.cwd, _file)
-      if (file === this.options.dotenv) {
+      if (this.options.dotenv && file === this.options.dotenv) {
         this.emit('restart')
       }
       if (RESTART_RE.test(file)) {
