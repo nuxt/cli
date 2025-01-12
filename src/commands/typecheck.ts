@@ -48,6 +48,7 @@ export default defineCommand({
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
       await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
+        throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
           cwd,
@@ -59,10 +60,14 @@ export default defineCommand({
         await x(
           'bun',
           'install typescript vue-tsc --global --silent'.split(' '),
-          { nodeOptions: { stdio: 'inherit', cwd } },
+          {
+            throwOnError: true,
+            nodeOptions: { stdio: 'inherit', cwd },
+          },
         )
 
         await x('bunx', 'vue-tsc --noEmit'.split(' '), {
+          throwOnError: true,
           nodeOptions: {
             stdio: 'inherit',
             cwd,
@@ -73,7 +78,10 @@ export default defineCommand({
         await x(
           'npx',
           '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-          { nodeOptions: { stdio: 'inherit', cwd } },
+          {
+            throwOnError: true,
+            nodeOptions: { stdio: 'inherit', cwd },
+          },
         )
       }
     }
