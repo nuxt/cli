@@ -38,7 +38,7 @@ export interface NuxtDevContext {
 interface NuxtDevServerOptions {
   cwd: string
   logLevel: 'silent' | 'info' | 'verbose'
-  dotenv: string
+  dotenv: string | undefined
   envName: string
   clear: boolean
   overrides: NuxtConfig
@@ -177,10 +177,12 @@ class NuxtDevServer extends EventEmitter {
     const kit = await loadKit(this.options.cwd)
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
-      dotenv: {
-        cwd: this.options.cwd,
-        fileName: this.options.dotenv,
-      },
+      dotenv: this.options.dotenv
+        ? {
+            cwd: this.options.cwd,
+            fileName: this.options.dotenv,
+          }
+        : undefined,
       dev: true,
       ready: false,
       envName: this.options.envName,

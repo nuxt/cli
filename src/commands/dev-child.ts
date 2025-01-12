@@ -2,14 +2,15 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 import process from 'node:process'
 
+import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
-import { isTest } from 'std-env'
 
+import { isTest } from 'std-env'
 import { createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
-import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -22,15 +23,7 @@ export default defineCommand({
     ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    dotenv: {
-      type: 'string',
-      description: 'Path to .env file',
-      default: '.env',
-    },
-    clear: {
-      type: 'boolean',
-      description: 'Clear console on restart',
-    },
+    ...dotEnvArgs,
   },
   async run(ctx) {
     if (!process.send && !isTest) {
@@ -39,9 +32,14 @@ export default defineCommand({
       )
     }
 
+    const envFileName = typeof ctx.args.dotenv === 'string'
+      ? (ctx.args.dotenv || '.env')
+      : undefined
+
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    await setupDotenv({ cwd, fileName: envFileName })
 
     // Get dev context info
     const devContext: NuxtDevContext
@@ -73,7 +71,7 @@ export default defineCommand({
       overrides: ctx.data?.overrides,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
-      dotenv: !!ctx.args.dotenv,
+      dotenv: envFileName,
       envName: ctx.args.envName,
       port: process.env._PORT ?? undefined,
       devContext,

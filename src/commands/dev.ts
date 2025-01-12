@@ -46,11 +46,15 @@ const command = defineCommand({
     },
   },
   async run(ctx) {
+    const envFileName = typeof ctx.args.dotenv === 'string'
+      ? (ctx.args.dotenv || '.env')
+      : undefined
+
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     await showVersions(cwd)
-    await setupDotenv({ cwd, fileName: ctx.args.dotenv })
+    await setupDotenv({ cwd, fileName: envFileName })
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
@@ -82,7 +86,7 @@ const command = defineCommand({
           overrides: ctx.data?.overrides,
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
-          dotenv: !!ctx.args.dotenv,
+          dotenv: envFileName,
           envName: ctx.args.envName,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
           devContext: {},
