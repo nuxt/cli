@@ -18,6 +18,7 @@ export default createConfigForNuxt({
     'vue/singleline-html-element-content-newline': 'off',
     // TODO: remove usage of `any` throughout codebase
     '@typescript-eslint/no-explicit-any': 'off',
+    'style/indent-binary-ops': 'off',
   },
 }, {
   files: ['playground/**'],

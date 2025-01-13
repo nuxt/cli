@@ -244,54 +244,47 @@ function _resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
-  const _port
-    = args.port
+  const _port = args.port
     ?? args.p
     ?? process.env.NUXT_PORT
     ?? process.env.NITRO_PORT
     ?? process.env.PORT
     ?? nuxtOptions.devServer.port
 
-  const _hostname
-    = typeof args.host === 'string'
-      ? args.host
-      : (args.host === true ? '' : undefined)
-        ?? process.env.NUXT_HOST
-        ?? process.env.NITRO_HOST
-        ?? process.env.HOST
-        // TODO: Default host in schema should be undefined instead of ''
-        ?? nuxtOptions._layers?.[0]?.config?.devServer?.host
-        ?? undefined
+  const _hostname = typeof args.host === 'string'
+    ? args.host
+    : (args.host === true ? '' : undefined)
+      ?? process.env.NUXT_HOST
+      ?? process.env.NITRO_HOST
+      ?? process.env.HOST
+      // TODO: Default host in schema should be undefined instead of ''
+      ?? nuxtOptions._layers?.[0]?.config?.devServer?.host
+      ?? undefined
 
-  const _public: boolean | undefined
-    = args.public
+  const _public: boolean | undefined = args.public
     ?? (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
-      ? true
-      : undefined
+    ? true
+    : undefined
 
-  const _httpsCert
-    = args['https.cert']
+  const _httpsCert = args['https.cert']
     || (args.sslCert as string)
     || process.env.NUXT_SSL_CERT
     || process.env.NITRO_SSL_CERT
     || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'cert' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.cert)
     || ''
 
-  const _httpsKey
-    = args['https.key']
+  const _httpsKey = args['https.key']
     || (args.sslKey as string)
     || process.env.NUXT_SSL_KEY
     || process.env.NITRO_SSL_KEY
     || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'key' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.key)
     || ''
 
-  const _httpsPfx
-    = args['https.pfx']
+  const _httpsPfx = args['https.pfx']
     || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'pfx' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.pfx)
     || ''
 
-  const _httpsPassphrase
-    = args['https.passphrase']
+  const _httpsPassphrase = args['https.passphrase']
     || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'passphrase' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.passphrase)
     || ''
 
