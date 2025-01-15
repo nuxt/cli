@@ -70,8 +70,8 @@
   "devDependencies": {
     "@antfu/eslint-config": "^3.14.0",
     "@nuxt/eslint-config": "^0.7.5",
-    "@nuxt/kit": "^3.15.1",
-    "@nuxt/schema": "^3.15.1",
+    "@nuxt/kit": "^3.15.2",
+    "@nuxt/schema": "^3.15.2",
     "@nuxt/test-utils": "^3.15.4",
     "@types/node": "^22.10.6",
     "@types/semver": "^7.5.8",
