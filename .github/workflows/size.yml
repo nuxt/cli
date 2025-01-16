@@ -83,5 +83,5 @@ jobs:
         with:
           title: ${{ matrix.package }} size comparison
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          current-stats-json-path: ./head-stats/packages/${{ matrix.package }}/stats.json
-          base-stats-json-path: ./base-stats/packages/${{ matrix.package }}/stats.json
+          current-stats-json-path: ./head-stats/${{ matrix.package }}/stats.json
+          base-stats-json-path: ./base-stats/${{ matrix.package }}/stats.json
