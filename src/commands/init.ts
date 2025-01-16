@@ -3,13 +3,13 @@ import type { PackageManagerName } from 'nypm'
 
 import { existsSync } from 'node:fs'
 import process from 'node:process'
-
 import { defineCommand } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
-import { relative, resolve } from 'pathe'
-import { x } from 'tinyexec'
+import { join, relative, resolve } from 'pathe'
+import { readPackageJSON, writePackageJSON } from 'pkg-types'
 
+import { x } from 'tinyexec'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -73,6 +73,10 @@ export default defineCommand({
     packageManager: {
       type: 'string',
       description: 'Package manager choice (npm, pnpm, yarn, bun)',
+    },
+    nightly: {
+      type: 'boolean',
+      description: 'Use nightly release channel instead of stable',
     },
   },
   async run(ctx) {
@@ -141,6 +145,22 @@ export default defineCommand({
       }
       logger.error((err as Error).toString())
       process.exit(1)
+    }
+
+    if (ctx.args.nightly) {
+      const nightlyNuxtVersion = 'npm:nuxt-nightly@latest'
+      const packageJsonPath = resolve(cwd, ctx.args.dir)
+
+      const packageJson = await readPackageJSON(packageJsonPath)
+
+      if (packageJson.dependencies && 'nuxt' in packageJson.dependencies) {
+        packageJson.dependencies.nuxt = nightlyNuxtVersion
+      }
+      else if (packageJson.devDependencies && 'nuxt' in packageJson.devDependencies) {
+        packageJson.devDependencies.nuxt = nightlyNuxtVersion
+      }
+
+      await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
     }
 
     // Resolve package manager
