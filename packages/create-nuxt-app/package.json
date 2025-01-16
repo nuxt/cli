@@ -1,0 +1,43 @@
+{
+  "name": "create-nuxt-app",
+  "type": "module",
+  "version": "6.0.0",
+  "description": "Create a Nuxt app in seconds",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuxt/cli.git",
+    "directory": "packages/create-nuxt-app"
+  },
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./cli": "./bin/create-nuxt-app.mjs"
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-nuxt-app": "./bin/create-nuxt-app.mjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "engines": {
+    "node": "^16.10.0 || >=18.0.0"
+  },
+  "scripts": {
+    "dev:prepare": "unbuild --stub",
+    "build": "unbuild",
+    "prepack": "unbuild"
+  },
+  "dependencies": {
+    "citty": "^0.1.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "rollup": "^4.30.1",
+    "rollup-plugin-visualizer": "^5.14.0",
+    "typescript": "^5.7.3",
+    "unbuild": "^3.3.0",
+    "unplugin-purge-polyfills": "^0.0.7"
+  }
+}

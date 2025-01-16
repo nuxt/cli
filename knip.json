@@ -1,10 +1,38 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "workspaces": {
-    "playground": {
+    ".": {
       "ignoreDependencies": [
-        "nuxi",
+        "vue"
+      ]
+    },
+    "packages/nuxt-cli/playground": {
+      "ignoreDependencies": [
         "nuxt"
+      ]
+    },
+    "packages/nuxt-cli": {
+      "ignoreDependencies": [
+        "c12",
+        "chokidar",
+        "clipboardy",
+        "consola",
+        "defu",
+        "fuse.js",
+        "giget",
+        "h3",
+        "httpxy",
+        "jiti",
+        "listhen",
+        "nypm",
+        "ofetch",
+        "ohash",
+        "pathe",
+        "perfect-debounce",
+        "pkg-types",
+        "scule",
+        "semver",
+        "ufo"
       ]
     }
   }

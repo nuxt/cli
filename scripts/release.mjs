@@ -1,33 +1,22 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import process from 'node:process'
 import { x } from 'tinyexec'
 
-const pkg = await readFile('package.json', 'utf-8').then(r => JSON.parse(r))
-const releaseType = process.env.RELEASE_TYPE
+const isNightly = process.env.RELEASE_TYPE === 'nightly'
 
-const distributions = {
-  'nuxi': { ...pkg, dependencies: {}, devDependencies: { ...pkg.dependencies, ...pkg.devDependencies }, name: 'nuxi' },
-  '@nuxt/cli': { ...pkg, name: '@nuxt/cli' },
-}
+const dirs = ['create-nuxt-app', 'nuxi', 'nuxt-cli']
 
-for (const [DISTRIBUTION, pkg] of Object.entries(distributions)) {
-  await writeFile('package.json', JSON.stringify(pkg, null, 2))
-  if (releaseType === 'nightly') {
+for (const dir of dirs) {
+  if (isNightly) {
     await x('changelogen', ['--canary', 'nightly', '--publish'], {
-      nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },
+      nodeOptions: { stdio: 'inherit', cwd: resolve('packages', dir) },
       throwOnError: true,
     })
   }
   else {
-    await x('npm', ['publish', '--no-git-checks'], {
-      nodeOptions: { stdio: 'inherit', env: { DISTRIBUTION } },
+    await x('npm', ['publish'], {
+      nodeOptions: { stdio: 'inherit', cwd: resolve('packages', dir) },
       throwOnError: true,
     })
   }
 }
-
-// clean up
-x('git', ['restore', 'package.json'], {
-  nodeOptions: { stdio: 'inherit' },
-  throwOnError: true,
-})
