@@ -36,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: head-stats
-          path: ./packages/nuxi/stats.json
+          path: ./packages/*/stats.json
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: base-stats
-          path: ./packages/nuxi/stats.json
+          path: ./packages/*/stats.json
 
   # run the action against the stats.json files
   compare:
@@ -73,11 +73,15 @@ jobs:
     needs: [build-base, build-head]
     permissions:
       pull-requests: write
+    strategy:
+      matrix:
+        package: ['nuxi', 'nuxt-cli', 'create-nuxt-app']
     steps:
       - name: ⏬ Download stats.json
         uses: actions/download-artifact@v4
       - uses: twk3/rollup-size-compare-action@v1.1.2
         with:
+          title: ${{ matrix.package }} size comparison
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          current-stats-json-path: ./head-stats/stats.json
-          base-stats-json-path: ./base-stats/stats.json
+          current-stats-json-path: ./head-stats/packages/${{ matrix.package }}/stats.json
+          base-stats-json-path: ./base-stats/packages/${{ matrix.package }}/stats.json
