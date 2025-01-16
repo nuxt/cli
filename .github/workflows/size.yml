@@ -75,7 +75,7 @@ jobs:
       pull-requests: write
     strategy:
       matrix:
-        package: ['nuxi', 'nuxt-cli', 'create-nuxt-app']
+        package: [nuxi, nuxt-cli, create-nuxt-app]
     steps:
       - name: ⏬ Download stats.json
         uses: actions/download-artifact@v4
