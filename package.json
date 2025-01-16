@@ -6,24 +6,6 @@
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
-  "exports": {
-    ".": "./dist/index.mjs",
-    "./cli": "./bin/nuxi.mjs"
-  },
-  "types": "./dist/index.d.ts",
-  "bin": {
-    "nuxi": "./bin/nuxi.mjs",
-    "nuxi-ng": "./bin/nuxi.mjs",
-    "nuxt": "./bin/nuxi.mjs",
-    "nuxt-cli": "./bin/nuxi.mjs"
-  },
-  "files": [
-    "bin",
-    "dist"
-  ],
-  "engines": {
-    "node": "^16.10.0 || >=18.0.0"
-  },
   "scripts": {
     "dev:prepare": "pnpm -r dev:prepare",
     "build": "pnpm -r build",
