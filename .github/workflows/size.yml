@@ -21,17 +21,22 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
-          node-version: 18
+          node-version: 22
           cache: pnpm
-      - run: pnpm install
-      - run: pnpm build
-      - name: Upload stats.json
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
+
+      - name: ⏫ Upload stats.json
         uses: actions/upload-artifact@v4
         with:
           name: head-stats
-          path: ./stats.json
+          path: ./packages/nuxi/stats.json
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -45,17 +50,22 @@ jobs:
         with:
           ref: ${{ github.base_ref }}
       - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
-          node-version: 18
+          node-version: 22
           cache: pnpm
-      - run: pnpm install
-      - run: pnpm build
-      - name: Upload stats.json
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
+
+      - name: ⏫ Upload stats.json
         uses: actions/upload-artifact@v4
         with:
           name: base-stats
-          path: ./stats.json
+          path: ./packages/nuxi/stats.json
 
   # run the action against the stats.json files
   compare:
@@ -64,7 +74,8 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/download-artifact@v4
+      - name: ⏬ Download stats.json
+        uses: actions/download-artifact@v4
       - uses: twk3/rollup-size-compare-action@v1.1.2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

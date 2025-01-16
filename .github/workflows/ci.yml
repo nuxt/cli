@@ -47,11 +47,17 @@ jobs:
         with:
           node-version: 18
           cache: pnpm
-      - run: pnpm install
-      - run: pnpm test:types
-      - run: pnpm build
-      - run: pnpm test:dist
-      - run: pnpm test:unit
+      - name: 📦 Install dependencies
+        run: pnpm install
+      - name: 💪 Test types
+        run: pnpm test:types
+      - name: 🛠 Build project
+        run: pnpm build
+      - name: 🧪 Test built `nuxi`
+        run: pnpm test:dist
+        working-directory: packages/nuxi
+      - name: 🧪 Test (unit)
+        run: pnpm test:unit
       - if: matrix.os != 'windows-latest'
         uses: codecov/codecov-action@v5
 
@@ -78,9 +84,9 @@ jobs:
 
       - name: 📦 release pkg.pr.new
         if: github.event_name != 'push'
-        run: pnpm pkg-pr-new publish --compact --template './playground'
+        run: pnpm pkg-pr-new publish --compact --template './playground' ./packages/create-nuxt-app ./packages/nuxi ./packages/nuxt-cli
 
-      - name: 📦 release nuxi-nightly
+      - name: 📦 release nightly
         if: github.event_name == 'push'
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&

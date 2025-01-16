@@ -10,7 +10,7 @@ export default createConfigForNuxt({
   },
   dirs: {
     src: [
-      './playground',
+      './packages/nuxi/playground',
     ],
   },
 }, antfu()).append({
@@ -21,7 +21,7 @@ export default createConfigForNuxt({
     'style/indent-binary-ops': 'off',
   },
 }, {
-  files: ['playground/**'],
+  files: ['packages/nuxi/playground/**'],
   rules: {
     'no-console': 'off',
   },

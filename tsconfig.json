@@ -4,7 +4,6 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "resolveJsonModule": true,
-    "types": ["node", "./types.d.ts"],
     "allowJs": true,
     "strict": true,
     "noImplicitAny": true,
@@ -15,5 +14,7 @@
     "esModuleInterop": false,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "exclude": [
+    "packages/nuxi/playground/**/*"
+  ]
 }
