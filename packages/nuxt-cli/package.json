@@ -62,6 +62,7 @@
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.7.3",
     "unbuild": "^3.3.0",
-    "unplugin-purge-polyfills": "^0.0.7"
+    "unplugin-purge-polyfills": "^0.0.7",
+    "vitest": "^2.1.8"
   }
 }

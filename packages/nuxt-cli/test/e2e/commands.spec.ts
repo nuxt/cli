@@ -1,5 +1,5 @@
 import type { TestFunction } from 'vitest'
-import type { commands } from '../../src/commands'
+import type { commands } from '../../../nuxi/src/commands'
 
 import { existsSync } from 'node:fs'
 
@@ -12,6 +12,7 @@ import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
 const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
+const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 describe('commands', () => {
   const tests: Record<keyof typeof commands, 'todo' | TestFunction<object>> = {
@@ -19,7 +20,7 @@ describe('commands', () => {
     add: async () => {
       const file = join(fixtureDir, 'server/api/test.ts')
       await rm(file, { force: true })
-      await x('nuxi', ['add', 'api', 'test'], {
+      await x(nuxi, ['add', 'api', 'test'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
@@ -41,27 +42,27 @@ describe('commands', () => {
     generate: 'todo',
     init: async () => {
       const dir = tmpdir()
-      for (const pm of ['pnpm']) {
-        const installPath = join(dir, pm)
+      const pm = 'pnpm'
+      const installPath = join(dir, pm)
+
+      await rm(installPath, { recursive: true, force: true })
+      try {
+        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline', '--install=false'], {
+          throwOnError: true,
+          nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
+        })
+        const files = await readdir(installPath).catch(() => [])
+        expect(files).toContain('nuxt.config.ts')
+      }
+      finally {
         await rm(installPath, { recursive: true, force: true })
-        try {
-          await x('nuxi', ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline', '--install=false'], {
-            throwOnError: true,
-            nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
-          })
-          const files = await readdir(installPath).catch(() => [])
-          expect(files).toContain('nuxt.config.ts')
-        }
-        finally {
-          await rm(installPath, { recursive: true, force: true })
-        }
       }
     },
     info: 'todo',
   }
 
   it('throws error if no command is provided', async () => {
-    const res = await x('nuxi', [], {
+    const res = await x(nuxi, [], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)
@@ -70,7 +71,7 @@ describe('commands', () => {
 
   // TODO: FIXME - windows currently throws 'nuxt-foo' is not recognized as an internal or external command, operable program or batch file.
   it.skipIf(isWindows)('throws error if wrong command is provided', async () => {
-    const res = await x('nuxi', ['foo'], {
+    const res = await x(nuxi, ['foo'], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)

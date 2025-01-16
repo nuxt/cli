@@ -36,11 +36,7 @@
     "nuxi": "node ./bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./bin/nuxi.mjs",
     "prepack": "unbuild",
-    "test": "pnpm test:types && pnpm build && pnpm test:dist",
-    "test:dist": "node ./bin/nuxi.mjs info ./playground",
-    "test:types": "tsc --noEmit",
-    "test:knip": "knip",
-    "test:unit": "vitest --coverage"
+    "test:dist": "node ./bin/nuxi.mjs info ./playground"
   },
   "devDependencies": {
     "@nuxt/kit": "^3.15.1",

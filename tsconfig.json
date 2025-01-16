@@ -15,6 +15,6 @@
     "skipLibCheck": true
   },
   "exclude": [
-    "packages/nuxi/playground/**/*"
+    "packages/nuxt-cli/playground/**/*"
   ]
 }

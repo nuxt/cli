@@ -6,9 +6,8 @@
         "vue"
       ]
     },
-    "packages/nuxi/playground": {
+    "packages/nuxt-cli/playground": {
       "ignoreDependencies": [
-        "nuxi",
         "nuxt"
       ]
     },
