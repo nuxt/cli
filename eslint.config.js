@@ -21,7 +21,7 @@ export default createConfigForNuxt({
     'style/indent-binary-ops': 'off',
   },
 }, {
-  files: ['packages/nuxi/playground/**'],
+  files: ['packages/nuxt-cli/playground/**'],
   rules: {
     'no-console': 'off',
   },
