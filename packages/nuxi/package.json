@@ -48,7 +48,6 @@
     "@nuxt/test-utils": "^3.15.4",
     "@types/node": "^22.10.5",
     "@types/semver": "^7.5.8",
-    "@vitest/coverage-v8": "^2.1.8",
     "c12": "^2.0.1",
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
