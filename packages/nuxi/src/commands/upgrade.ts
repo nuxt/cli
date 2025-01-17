@@ -49,10 +49,10 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
-      options: ['3.x', '4.x'],
+      options: ['3.x', '4.x'] as const,
       default: '3.x',
     },
-  ) as '3.x' | '4.x'
+  )
 
   const nuxtVersion = typeof result === 'string' ? result : '3.x'
 
@@ -138,7 +138,7 @@ export default defineCommand({
           type: 'confirm',
           default: true,
         },
-      )
+      ) === true
     }
     if (ctx.args.force) {
       logger.info(

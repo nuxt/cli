@@ -152,6 +152,11 @@ export default defineCommand({
         options: packageManagerOptions,
       })
 
+    if (!packageManagerOptions.includes(selectedPackageManager)) {
+      logger.error('Invalid package manager selected.')
+      process.exit(1)
+    }
+
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
@@ -183,7 +188,7 @@ export default defineCommand({
     if (ctx.args.gitInit === undefined) {
       ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
         type: 'confirm',
-      })
+      }) === true
     }
     if (ctx.args.gitInit) {
       logger.info('Initializing git repository...\n')
