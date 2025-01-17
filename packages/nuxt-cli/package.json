@@ -29,6 +29,7 @@
   },
   "scripts": {
     "build": "unbuild",
+    "dev:prepare": "unbuild --stub",
     "prepack": "unbuild"
   },
   "dependencies": {
