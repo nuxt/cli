@@ -19,7 +19,7 @@ import { joinURL } from 'ufo'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { loadNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
@@ -216,10 +216,15 @@ class NuxtDevServer extends EventEmitter {
 
     // Write manifest and also check if we need cache invalidation
     if (!reload) {
-      const previousManifest = await loadNuxtManifest(
-        this._currentNuxt.options.buildDir,
-      )
-      const newManifest = await writeNuxtManifest(this._currentNuxt)
+      const previousManifest = await loadNuxtManifest(this._currentNuxt.options.buildDir)
+      const newManifest = resolveNuxtManifest(this._currentNuxt)
+
+      // we deliberately do not block initialising Nuxt on creation of the manifest
+      const promise = writeNuxtManifest(this._currentNuxt, newManifest)
+      this._currentNuxt.hooks.hookOnce('ready', async () => {
+        await promise
+      })
+
       if (
         previousManifest
         && newManifest
@@ -284,7 +289,6 @@ class NuxtDevServer extends EventEmitter {
     }
 
     await Promise.all([
-
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])

@@ -42,7 +42,7 @@ export function nuxtVersionToGitIdentifier(version: string) {
   return `v${version}`
 }
 
-function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
+export function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
   const manifest: NuxtProjectManifest = {
     _hash: null,
     project: {
@@ -56,19 +56,14 @@ function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
   return manifest
 }
 
-export async function writeNuxtManifest(
-  nuxt: Nuxt,
-): Promise<NuxtProjectManifest> {
-  const manifest = resolveNuxtManifest(nuxt)
+export async function writeNuxtManifest(nuxt: Nuxt, manifest = resolveNuxtManifest(nuxt)): Promise<NuxtProjectManifest> {
   const manifestPath = resolve(nuxt.options.buildDir, 'nuxt.json')
   await fsp.mkdir(dirname(manifestPath), { recursive: true })
   await fsp.writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8')
   return manifest
 }
 
-export async function loadNuxtManifest(
-  buildDir: string,
-): Promise<NuxtProjectManifest | null> {
+export async function loadNuxtManifest(buildDir: string): Promise<NuxtProjectManifest | null> {
   const manifestPath = resolve(buildDir, 'nuxt.json')
   const manifest: NuxtProjectManifest | null = await fsp
     .readFile(manifestPath, 'utf-8')
