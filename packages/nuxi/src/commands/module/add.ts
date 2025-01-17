@@ -145,7 +145,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
         },
       )
 
-      if (res === false) {
+      if (res !== true) {
         return
       }
     }
@@ -268,6 +268,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
               type: 'select',
               options: [_moduleVersion, pkgVersion],
             })
+            if (typeof pkgVersion !== 'string') {
+              return false
+            }
           }
           break
         }
