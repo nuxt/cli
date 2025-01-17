@@ -130,9 +130,9 @@ class NuxtDevServer extends EventEmitter {
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate
       = this.options.loadingTemplate
-      || this._currentNuxt?.options.devServer.loadingTemplate
-      || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
-      || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+        || this._currentNuxt?.options.devServer.loadingTemplate
+        || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
+        || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
         loading: _error?.toString() || this._loadingMessage || 'Loading...',
