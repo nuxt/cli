@@ -289,7 +289,6 @@ class NuxtDevServer extends EventEmitter {
     }
 
     await Promise.all([
-
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])
