@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { addDependency, detectPackageManager } from 'nypm'
+import { addDependency, detectPackageManager, removeDependency } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 
@@ -141,6 +141,9 @@ export default defineCommand({
       ) === true
     }
     if (ctx.args.force) {
+      // Trigger dynamic imports in nypm before removing node_modules
+      await removeDependency('', { silent: true })
+
       logger.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
