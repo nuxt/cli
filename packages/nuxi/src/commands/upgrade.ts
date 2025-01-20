@@ -5,11 +5,10 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { addDependency, detectPackageManager } from 'nypm'
+import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 
-import { rmRecursive, touchFile } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
@@ -78,6 +77,10 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...legacyRootDirArgs,
+    dedupe: {
+      type: 'boolean',
+      description: 'Dedupe dependencies after upgrading',
+    },
     force: {
       type: 'boolean',
       alias: 'f',
@@ -131,23 +134,47 @@ export default defineCommand({
     const forceRemovals = toRemove
       .map(p => colors.cyan(p))
       .join(' and ')
-    if (ctx.args.force === undefined) {
-      ctx.args.force = await logger.prompt(
-        `Would you like to recreate ${forceRemovals} to fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies?`,
-        {
-          type: 'confirm',
-          default: true,
-        },
-      ) === true
+
+    let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+
+    method ||= await logger.prompt(
+      `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
+      {
+        type: 'select',
+        initial: 'dedupe',
+        options: [
+          {
+            label: 'dedupe lockfile',
+            value: 'dedupe' as const,
+            hint: 'recommended',
+          },
+          {
+            label: `recreate ${forceRemovals}`,
+            value: 'force' as const,
+          },
+          {
+            label: 'skip',
+            value: 'skip' as const,
+          },
+        ],
+      },
+    )
+
+    // user bails on the question with Ctrl+C
+    if (typeof method !== 'string') {
+      process.exit(1)
     }
-    if (ctx.args.force) {
+
+    if (method === 'force') {
       logger.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
       )
-      await rmRecursive(toRemove.map(file => resolve(cwd, file)))
-      if (lockFile) {
-        await touchFile(resolve(cwd, lockFile))
-      }
+      await dedupeDependencies({ recreateLockfile: true })
+    }
+
+    if (method === 'dedupe') {
+      logger.info('Try deduping dependencies...')
+      await dedupeDependencies()
     }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'

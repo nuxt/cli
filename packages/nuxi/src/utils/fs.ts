@@ -45,12 +45,3 @@ export async function rmRecursive(paths: string[]) {
       }),
   )
 }
-
-export async function touchFile(path: string) {
-  if (await exists(path)) {
-    return
-  }
-  await fsp.writeFile(path, '').catch(() => {
-    logger.error(`Failed to create file: ${path}`)
-  })
-}
