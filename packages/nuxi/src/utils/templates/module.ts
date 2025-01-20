@@ -2,7 +2,7 @@ import type { Template } from '.'
 import { resolve } from 'pathe'
 
 const module: Template = ({ name, nuxtOptions }) => ({
-  path: resolve(nuxtOptions.rootDir, 'modules', `${name}.vue`),
+  path: resolve(nuxtOptions.rootDir, 'modules', `${name}.ts`),
   contents: `
 import { defineNuxtModule } from 'nuxt/kit'
 
