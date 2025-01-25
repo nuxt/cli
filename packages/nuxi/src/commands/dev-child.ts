@@ -3,6 +3,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import defu from 'defu'
 import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
@@ -57,6 +58,15 @@ export default defineCommand({
       sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
       process.exit()
     })
+
+    const hostname = devContext.hostname
+    if (hostname) {
+      ctx.data ||= {}
+      ctx.data.overrides = defu(ctx.data.overrides, {
+        devServer: { cors: { origin: [devContext.proxy?.https ? 'https://' : `http://${hostname}`] } },
+        vite: { server: { allowedHosts: [hostname] } },
+      })
+    }
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({

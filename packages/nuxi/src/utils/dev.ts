@@ -28,6 +28,7 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:rejection', message: string }
 
 export interface NuxtDevContext {
+  hostname?: string
   proxy?: {
     url?: string
     urls?: ListenURL[]
