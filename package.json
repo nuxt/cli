@@ -38,7 +38,7 @@
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "3.15.2",
+    "@nuxt/schema": "3.15.3",
     "create-nuxt-app": "workspace:*",
     "h3": "^1.13.1",
     "nitropack": "npm:nitropack-nightly",
