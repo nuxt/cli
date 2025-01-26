@@ -13,7 +13,7 @@ export default createConfigForNuxt({
       './packages/nuxi/playground',
     ],
   },
-}, antfu()).append({
+}, await antfu()).append({
   rules: {
     'vue/singleline-html-element-content-newline': 'off',
     // TODO: remove usage of `any` throughout codebase
