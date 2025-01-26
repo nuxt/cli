@@ -62,8 +62,9 @@ export default defineCommand({
     const hostname = devContext.hostname
     if (hostname) {
       ctx.data ||= {}
+      const protocol = devContext.proxy?.https ? 'https' : 'http'
       ctx.data.overrides = defu(ctx.data.overrides, {
-        devServer: { cors: { origin: [devContext.proxy?.https ? 'https://' : `http://${hostname}`] } },
+        devServer: { cors: { origin: [`${protocol}://${hostname}`] } },
         vite: { server: { allowedHosts: [hostname] } },
       })
     }

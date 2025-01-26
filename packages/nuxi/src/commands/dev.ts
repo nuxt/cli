@@ -79,8 +79,9 @@ const command = defineCommand({
       const { createNuxtDevServer } = await import('../utils/dev')
       if (listenOptions.hostname) {
         ctx.data ||= {}
+        const protocol = listenOptions.https ? 'https' : 'http'
         ctx.data.overrides = defu(ctx.data.overrides, {
-          devServer: { cors: { origin: [listenOptions.https ? 'https://' : `http://${listenOptions.hostname}`] } },
+          devServer: { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } },
           vite: { server: { allowedHosts: [listenOptions.hostname] } },
         })
       }
