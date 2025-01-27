@@ -223,6 +223,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   const matchedModule = modulesDB.find(
     module =>
       module.name === moduleName
+      || (pkgVersion && module.name === pkgName)
       || module.npm === pkgName
       || module.aliases?.includes(pkgName),
   )

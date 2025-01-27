@@ -10,6 +10,7 @@ import process from 'node:process'
 
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
+import defu from 'defu'
 import { createJiti } from 'jiti'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
@@ -70,12 +71,20 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy, ctx.rawArgs)
+      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions.hostname)
       return { listener: devProxy?.listener }
     }
     else {
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
+      if (listenOptions.hostname) {
+        ctx.data ||= {}
+        const protocol = listenOptions.https ? 'https' : 'http'
+        ctx.data.overrides = defu(ctx.data.overrides, {
+          devServer: { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } },
+          vite: { server: { allowedHosts: [listenOptions.hostname] } },
+        })
+      }
       const devServer = await createNuxtDevServer(
         {
           cwd,
@@ -158,7 +167,7 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
+async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], hostname?: string) {
   let childProc: ChildProcess | undefined
 
   const kill = (signal: NodeJS.Signals | number) => {
@@ -185,6 +194,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[]) {
       env: {
         ...process.env,
         __NUXT_DEV__: JSON.stringify({
+          hostname,
           proxy: {
             url: devProxy.listener.url,
             urls: await devProxy.listener.getURLs(),
