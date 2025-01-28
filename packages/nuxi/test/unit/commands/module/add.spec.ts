@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
+
 import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
 import * as runCommands from '../../../../src/run'
@@ -37,6 +38,12 @@ function applyMocks() {
   })
 }
 describe('module add', () => {
+  let v3: string
+  beforeAll(async () => {
+    v3 = await fetch('https://registry.npmjs.org/@nuxt/content')
+      .then(r => r.json())
+      .then(r => r['dist-tags'].latest)
+  })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
   vi.spyOn(utils, 'getNuxtVersion').mockResolvedValue('3.0.0')
@@ -76,7 +83,7 @@ describe('module add', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@3.0.0'], {
+    expect(addDependency).toHaveBeenCalledWith([`@nuxt/content@${v3}`], {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
