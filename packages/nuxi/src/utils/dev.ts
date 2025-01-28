@@ -28,6 +28,7 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:rejection', message: string }
 
 export interface NuxtDevContext {
+  public?: boolean
   hostname?: string
   proxy?: {
     url?: string
@@ -338,4 +339,22 @@ function _getAddressURL(addr: AddressInfo, https: boolean) {
   }
   const port = addr.port || 3000
   return `${proto}://${host}:${port}/`
+}
+
+export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'public' | 'https'>>) {
+  const defaultOverrides: Partial<NuxtConfig> = {}
+
+  // defined hostname
+  if (listenOptions.hostname) {
+    const protocol = listenOptions.https ? 'https' : 'http'
+    defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } }
+    defaultOverrides.vite = { server: { allowedHosts: [listenOptions.hostname] } }
+  }
+
+  if (listenOptions.public) {
+    defaultOverrides.devServer = { cors: { origin: '*' } }
+    defaultOverrides.vite = { server: { allowedHosts: true } }
+  }
+
+  return defaultOverrides
 }
