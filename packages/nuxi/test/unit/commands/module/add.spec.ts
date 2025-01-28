@@ -1,4 +1,3 @@
-import { satisfies } from 'semver'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import commands from '../../../../src/commands/module'
@@ -41,8 +40,9 @@ function applyMocks() {
 describe('module add', () => {
   let v3: string
   beforeAll(async () => {
-    const versions = await fetch('https://registry.npmjs.org/@nuxt/content').then(r => r.json()).then(r => Object.keys(r.versions).reverse())
-    v3 = versions.find(v => satisfies(v, '^3.0.0'))!
+    v3 = await fetch('https://registry.npmjs.org/@nuxt/content')
+      .then(r => r.json())
+      .then(r => r['dist-tags'].latest)
   })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
