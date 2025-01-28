@@ -1,3 +1,4 @@
+import type { NuxtConfig } from '@nuxt/schema'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 import process from 'node:process'
@@ -15,8 +16,7 @@ import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared
 export default defineCommand({
   meta: {
     name: '_dev',
-    description:
-      'Run Nuxt development server (internal command to start child process)',
+    description: 'Run Nuxt development server (internal command to start child process)',
   },
   args: {
     ...cwdArgs,
@@ -26,9 +26,7 @@ export default defineCommand({
   },
   async run(ctx) {
     if (!process.send && !isTest) {
-      logger.warn(
-        '`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.',
-      )
+      logger.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
     }
 
     // Prepare
@@ -36,8 +34,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Get dev context info
-    const devContext: NuxtDevContext
-      = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
+    const devContext: NuxtDevContext = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
 
     // IPC Hooks
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
@@ -59,15 +56,23 @@ export default defineCommand({
       process.exit()
     })
 
-    const hostname = devContext.hostname
-    if (hostname) {
-      ctx.data ||= {}
+    const defaultOverrides: Partial<NuxtConfig> = {}
+
+    // defined hostname - allow access only from this hostname + other local hosts
+    if (devContext.hostname) {
       const protocol = devContext.proxy?.https ? 'https' : 'http'
-      ctx.data.overrides = defu(ctx.data.overrides, {
-        devServer: { cors: { origin: [`${protocol}://${hostname}`] } },
-        vite: { server: { allowedHosts: [hostname] } },
-      })
+      defaultOverrides.devServer = { cors: { origin: [`${protocol}://${devContext.hostname}`] } }
+      defaultOverrides.vite = { server: { allowedHosts: [devContext.hostname] } }
     }
+
+    // explicitly public dev server - allow access from all hosts
+    if (devContext.public) {
+      defaultOverrides.devServer = { cors: { origin: '*' } }
+      defaultOverrides.vite = { server: { allowedHosts: true } }
+    }
+
+    ctx.data ||= {}
+    ctx.data.overrides = defu(ctx.data.overrides, defaultOverrides)
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({

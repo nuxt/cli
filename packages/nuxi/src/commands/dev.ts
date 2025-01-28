@@ -1,4 +1,4 @@
-import type { NuxtOptions } from '@nuxt/schema'
+import type { NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
@@ -71,20 +71,29 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions.hostname)
+      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
       return { listener: devProxy?.listener }
     }
     else {
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
+
+      const defaultOverrides: Partial<NuxtConfig> = {}
+
+      // defined hostname
       if (listenOptions.hostname) {
-        ctx.data ||= {}
         const protocol = listenOptions.https ? 'https' : 'http'
-        ctx.data.overrides = defu(ctx.data.overrides, {
-          devServer: { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } },
-          vite: { server: { allowedHosts: [listenOptions.hostname] } },
-        })
+        defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } }
+        defaultOverrides.vite = { server: { allowedHosts: [listenOptions.hostname] } }
       }
+
+      if (listenOptions.public) {
+        defaultOverrides.devServer = { cors: { origin: '*' } }
+        defaultOverrides.vite = { server: { allowedHosts: true } }
+      }
+
+      ctx.data ||= {}
+      ctx.data.overrides = defu(ctx.data.overrides, defaultOverrides)
       const devServer = await createNuxtDevServer(
         {
           cwd,
@@ -167,7 +176,7 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], hostname?: string) {
+async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
 
   const kill = (signal: NodeJS.Signals | number) => {
@@ -194,7 +203,8 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], hostname?
       env: {
         ...process.env,
         __NUXT_DEV__: JSON.stringify({
-          hostname,
+          hostname: listenArgs.hostname,
+          public: listenArgs.public,
           proxy: {
             url: devProxy.listener.url,
             urls: await devProxy.listener.getURLs(),
