@@ -1,4 +1,4 @@
-import type { NuxtConfig, NuxtOptions } from '@nuxt/schema'
+import type { NuxtOptions } from '@nuxt/schema'
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
@@ -17,6 +17,7 @@ import { resolve } from 'pathe'
 
 import { isBun, isTest } from 'std-env'
 import { showVersions } from '../utils/banner'
+import { _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -78,22 +79,8 @@ const command = defineCommand({
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
 
-      const defaultOverrides: Partial<NuxtConfig> = {}
-
-      // defined hostname
-      if (listenOptions.hostname) {
-        const protocol = listenOptions.https ? 'https' : 'http'
-        defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } }
-        defaultOverrides.vite = { server: { allowedHosts: [listenOptions.hostname] } }
-      }
-
-      if (listenOptions.public) {
-        defaultOverrides.devServer = { cors: { origin: '*' } }
-        defaultOverrides.vite = { server: { allowedHosts: true } }
-      }
-
       ctx.data ||= {}
-      ctx.data.overrides = defu(ctx.data.overrides, defaultOverrides)
+      ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides(listenOptions))
       const devServer = await createNuxtDevServer(
         {
           cwd,

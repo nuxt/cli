@@ -1,4 +1,3 @@
-import type { NuxtConfig } from '@nuxt/schema'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 import process from 'node:process'
@@ -8,7 +7,7 @@ import defu from 'defu'
 import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
-import { createNuxtDevServer } from '../utils/dev'
+import { _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -56,23 +55,12 @@ export default defineCommand({
       process.exit()
     })
 
-    const defaultOverrides: Partial<NuxtConfig> = {}
-
-    // defined hostname - allow access only from this hostname + other local hosts
-    if (devContext.hostname) {
-      const protocol = devContext.proxy?.https ? 'https' : 'http'
-      defaultOverrides.devServer = { cors: { origin: [`${protocol}://${devContext.hostname}`] } }
-      defaultOverrides.vite = { server: { allowedHosts: [devContext.hostname] } }
-    }
-
-    // explicitly public dev server - allow access from all hosts
-    if (devContext.public) {
-      defaultOverrides.devServer = { cors: { origin: '*' } }
-      defaultOverrides.vite = { server: { allowedHosts: true } }
-    }
-
     ctx.data ||= {}
-    ctx.data.overrides = defu(ctx.data.overrides, defaultOverrides)
+    ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides({
+      hostname: devContext.hostname,
+      public: devContext.public,
+      https: devContext.proxy?.https,
+    }))
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
