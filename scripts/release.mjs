@@ -14,6 +14,10 @@ for (const dir of dirs) {
     })
   }
   else {
+    if (dir === 'create-nuxt-app') {
+      // skip publishing for now
+      continue
+    }
     await x('npm', ['publish'], {
       nodeOptions: { stdio: 'inherit', cwd: resolve('packages', dir) },
       throwOnError: true,
