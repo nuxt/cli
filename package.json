@@ -15,7 +15,6 @@
     "nuxi": "node ./bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./bin/nuxi.mjs",
     "prepack": "pnpm -r build",
-    "release": "pnpm test && changelogen --release && node ./scripts/release.mjs && git push --follow-tags",
     "test:types": "tsc --noEmit",
     "test:knip": "knip",
     "test:dist": "pnpm -r test:dist",

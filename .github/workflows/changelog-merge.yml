@@ -1,0 +1,33 @@
+name: release
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: write
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Create tag
+        run: |
+          TAG_NAME=${{ github.event.pull_request.head.ref }}
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+
+      - name: Create GitHub release
+        run: |
+          TAG_NAME=${{ github.event.pull_request.head.ref }}
+          RELEASE_NAME=${{ github.event.pull_request.head.ref }}
+          BODY=${{ github.event.pull_request.body }}
+          gh release create $TAG_NAME --title "$RELEASE_NAME" --notes "$BODY"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
