@@ -15,7 +15,7 @@
   },
   "types": "./dist/index.d.ts",
   "bin": {
-    "create-nuxt-app": "./bin/create-nuxt-app.mjs"
+    "create-nuxt-app": "bin/create-nuxt-app.mjs"
   },
   "files": [
     "bin",
