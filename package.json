@@ -30,7 +30,7 @@
     "eslint": "^9.19.0",
     "knip": "^5.43.6",
     "pkg-pr-new": "^0.0.39",
-    "semver": "^7.6.3",
+    "semver": "^7.7.0",
     "std-env": "^3.8.0",
     "tinyexec": "^0.3.2",
     "typescript": "^5.7.3",
