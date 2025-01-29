@@ -7,7 +7,7 @@ import defu from 'defu'
 import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
-import { createNuxtDevServer } from '../utils/dev'
+import { _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -15,8 +15,7 @@ import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared
 export default defineCommand({
   meta: {
     name: '_dev',
-    description:
-      'Run Nuxt development server (internal command to start child process)',
+    description: 'Run Nuxt development server (internal command to start child process)',
   },
   args: {
     ...cwdArgs,
@@ -26,9 +25,7 @@ export default defineCommand({
   },
   async run(ctx) {
     if (!process.send && !isTest) {
-      logger.warn(
-        '`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.',
-      )
+      logger.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
     }
 
     // Prepare
@@ -36,8 +33,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Get dev context info
-    const devContext: NuxtDevContext
-      = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
+    const devContext: NuxtDevContext = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
 
     // IPC Hooks
     function sendIPCMessage<T extends NuxtDevIPCMessage>(message: T) {
@@ -59,15 +55,12 @@ export default defineCommand({
       process.exit()
     })
 
-    const hostname = devContext.hostname
-    if (hostname) {
-      ctx.data ||= {}
-      const protocol = devContext.proxy?.https ? 'https' : 'http'
-      ctx.data.overrides = defu(ctx.data.overrides, {
-        devServer: { cors: { origin: [`${protocol}://${hostname}`] } },
-        vite: { server: { allowedHosts: [hostname] } },
-      })
-    }
+    ctx.data ||= {}
+    ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides({
+      hostname: devContext.hostname,
+      public: devContext.public,
+      https: devContext.proxy?.https,
+    }))
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({

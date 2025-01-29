@@ -4,6 +4,9 @@
     ".": {
       "ignoreDependencies": [
         "vue"
+      ],
+      "entry": [
+        "scripts/*"
       ]
     },
     "packages/nuxt-cli/playground": {

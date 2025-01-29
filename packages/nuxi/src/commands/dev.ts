@@ -17,6 +17,7 @@ import { resolve } from 'pathe'
 
 import { isBun, isTest } from 'std-env'
 import { showVersions } from '../utils/banner'
+import { _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -71,20 +72,15 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions.hostname)
+      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
       return { listener: devProxy?.listener }
     }
     else {
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
-      if (listenOptions.hostname) {
-        ctx.data ||= {}
-        const protocol = listenOptions.https ? 'https' : 'http'
-        ctx.data.overrides = defu(ctx.data.overrides, {
-          devServer: { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } },
-          vite: { server: { allowedHosts: [listenOptions.hostname] } },
-        })
-      }
+
+      ctx.data ||= {}
+      ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides(listenOptions))
       const devServer = await createNuxtDevServer(
         {
           cwd,
@@ -167,7 +163,7 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], hostname?: string) {
+async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
 
   const kill = (signal: NodeJS.Signals | number) => {
@@ -194,7 +190,8 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], hostname?
       env: {
         ...process.env,
         __NUXT_DEV__: JSON.stringify({
-          hostname,
+          hostname: listenArgs.hostname,
+          public: listenArgs.public,
           proxy: {
             url: devProxy.listener.url,
             urls: await devProxy.listener.getURLs(),
