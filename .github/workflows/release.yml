@@ -13,7 +13,7 @@ permissions: {}
 jobs:
   release:
     if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'v')
-    concurrency: 
+    concurrency:
       group: release
     permissions:
       contents: write
@@ -50,7 +50,7 @@ jobs:
           git push origin $TAG_NAME
 
       - name: 🛳️ Create GitHub release
-        run:  gh release create $TAG_NAME --title "$RELEASE_NAME" --notes "$BODY"
+        run: gh release create $TAG_NAME --title "$RELEASE_NAME" --notes "$BODY"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.event.pull_request.head.ref }}
