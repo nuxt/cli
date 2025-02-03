@@ -1,3 +1,4 @@
+import type { ParsedArgs } from 'citty'
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, relative } from 'node:path'
 import process from 'node:process'
@@ -5,6 +6,7 @@ import process from 'node:process'
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { box, colors } from 'consola/utils'
+import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
@@ -12,7 +14,10 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-export default defineCommand({
+const listenArgs = getListhenArgs()
+const portArg = listenArgs.port
+
+const command = defineCommand({
   meta: {
     name: 'preview',
     description: 'Launches Nitro server for local testing after `nuxi build`.',
@@ -22,6 +27,7 @@ export default defineCommand({
     ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
+    port: portArg,
     ...dotEnvArgs,
   },
   async run(ctx) {
@@ -92,6 +98,7 @@ export default defineCommand({
     const envExists = ctx.args.dotenv
       ? existsSync(resolve(cwd, ctx.args.dotenv))
       : existsSync(cwd)
+
     if (envExists) {
       logger.info(
         `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
@@ -99,12 +106,41 @@ export default defineCommand({
       await setupDotenv({ cwd, fileName: ctx.args.dotenv })
     }
 
+    const { port } = _resolveListenOptions(ctx.args)
+
     logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     logger.log('')
     await x(command, commandArgs, {
       throwOnError: true,
-      nodeOptions: { stdio: 'inherit', cwd: outputPath },
+      nodeOptions: {
+        stdio: 'inherit',
+        cwd: outputPath,
+        env: {
+          ...process.env,
+          NUXT_PORT: port,
+          NITRO_PORT: port,
+        },
+      },
     })
   },
 })
+
+export default command
+
+type ArgsT = Exclude<
+  Awaited<typeof command.args>,
+  undefined | ((...args: unknown[]) => unknown)
+>
+
+function _resolveListenOptions(args: ParsedArgs<ArgsT>) {
+  const _port = args.port
+    ?? args.p
+    ?? process.env.NUXT_PORT
+    ?? process.env.NITRO_PORT
+    ?? process.env.PORT
+
+  return {
+    port: _port,
+  }
+}
