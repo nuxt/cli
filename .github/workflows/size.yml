@@ -1,6 +1,7 @@
 name: size
 on:
   # this action will error unless run in a pr context
+  pull_request_target:
   pull_request:
     branches:
       - main
