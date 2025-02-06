@@ -23,7 +23,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-const forkSupported = !isBun && !isTest
+const forkSupported = (isBun && isBunForkSpported()) && !isTest
 
 const command = defineCommand({
   meta: {
@@ -320,4 +320,10 @@ function _resolveListenOptions(
     https: httpsOptions,
     baseURL: nuxtOptions.app.baseURL.startsWith('./') ? nuxtOptions.app.baseURL.slice(1) : nuxtOptions.app.baseURL,
   }
+}
+
+function isBunForkSpported() {
+  const bunVersion: string = (globalThis as any).Bun.version
+  const [major, minor] = bunVersion.split('.').map(Number)
+  return (major! === 1 && minor! >= 2) || major! >= 2
 }
