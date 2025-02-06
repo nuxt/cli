@@ -132,7 +132,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
         cwd,
         dev: isDev,
         installPeerDependencies: true,
-      }).catch(
+      }).then(() => true).catch(
         (error) => {
           logger.error(error)
 
