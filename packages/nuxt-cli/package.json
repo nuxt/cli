@@ -41,7 +41,7 @@
     "defu": "^6.1.4",
     "fuse.js": "^7.1.0",
     "giget": "^1.2.4",
-    "h3": "^1.14.0",
+    "h3": "^1.15.0",
     "httpxy": "^0.1.7",
     "jiti": "^2.4.2",
     "listhen": "^1.9.0",
@@ -59,7 +59,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.1",
-    "rollup": "^4.34.4",
+    "rollup": "^4.34.5",
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.7.3",
     "unbuild": "^3.3.1",

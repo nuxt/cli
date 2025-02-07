@@ -2,7 +2,7 @@
   "name": "nuxi-workspace",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.2.0",
+  "packageManager": "pnpm@10.2.1",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.1.1",
-    "@nuxt/eslint-config": "^1.0.0",
+    "@nuxt/eslint-config": "^1.0.1",
     "@types/node": "^22.13.1",
     "@types/semver": "^7.5.8",
     "@vitest/coverage-v8": "^3.0.5",
@@ -41,7 +41,7 @@
     "@nuxt/cli": "workspace:*",
     "@nuxt/schema": "3.15.4",
     "create-nuxt-app": "workspace:*",
-    "h3": "^1.14.0",
+    "h3": "^1.15.0",
     "nitropack": "npm:nitropack-nightly",
     "nuxi": "workspace:*"
   }
