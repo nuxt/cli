@@ -9,7 +9,6 @@ import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { relative, resolve } from 'pathe'
-import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { logger } from '../utils/logger'
@@ -82,10 +81,7 @@ export default defineCommand({
 
     let templateDownloadPath = resolve(cwd, ctx.args.dir)
 
-    if (hasTTY) {
-      logger.info(colors.greenBright(`Welcome to ${colors.bold(('Nuxt'))}!`))
-    }
-
+    logger.info(colors.greenBright(`Welcome to ${colors.bold(('Nuxt'))}!`))
     logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
 
     // Get template name
