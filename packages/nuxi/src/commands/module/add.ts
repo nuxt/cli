@@ -309,7 +309,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   ) {
     logger.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
     const shouldContinue = await logger.prompt(
-      `Do you want to continue installing \`${pkgName}\` anyway?`,
+      `Do you want to continue installing ${colors.cyan(pkgName)} anyway?`,
       {
         type: 'confirm',
         initial: false,
