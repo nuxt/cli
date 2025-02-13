@@ -213,7 +213,7 @@ export default defineCommand({
     }
 
     // Add modules when -M flag is provided
-    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').map(module => module.trim())
+    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').filter(module => !!module.trim())
     if (modules.length > 0) {
       await runCommand('module', ['add', ...modules])
     }
