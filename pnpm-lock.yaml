@@ -7,6 +7,7 @@ settings:
 overrides:
   '@nuxt/cli': workspace:*
   '@nuxt/schema': 3.15.4
+  create-nuxt: workspace:*
   create-nuxt-app: workspace:*
   h3: ^1.15.0
   nitropack: npm:nitropack-nightly
@@ -62,7 +63,7 @@ importers:
         specifier: ^3.5.13
         version: 3.5.13(typescript@5.7.3)
 
-  packages/create-nuxt-app:
+  packages/create-nuxt:
     dependencies:
       citty:
         specifier: ^0.1.6
@@ -86,6 +87,12 @@ importers:
       unplugin-purge-polyfills:
         specifier: ^0.0.7
         version: 0.0.7(rollup@4.34.6)
+
+  packages/create-nuxt-app:
+    dependencies:
+      create-nuxt:
+        specifier: workspace:*
+        version: link:../create-nuxt
 
   packages/nuxi:
     devDependencies:
