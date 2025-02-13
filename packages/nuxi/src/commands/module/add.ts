@@ -132,18 +132,20 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
         cwd,
         dev: isDev,
         installPeerDependencies: true,
-      }).catch(
-        (error) => {
-          logger.error(error)
+      })
+        .then(() => true)
+        .catch(
+          (error) => {
+            logger.error(error)
 
-          const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join('\`, \`')
-          const s = notInstalledModules.length > 1 ? 's' : ''
-          return logger.prompt(`Install failed for \`${failedModulesList}\`. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`, {
-            type: 'confirm',
-            initial: false,
-          })
-        },
-      )
+            const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join('\`, \`')
+            const s = notInstalledModules.length > 1 ? 's' : ''
+            return logger.prompt(`Install failed for \`${failedModulesList}\`. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`, {
+              type: 'confirm',
+              initial: false,
+            })
+          },
+        )
 
       if (res !== true) {
         return
