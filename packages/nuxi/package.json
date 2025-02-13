@@ -2,7 +2,7 @@
   "name": "nuxi",
   "type": "module",
   "version": "3.21.1",
-  "description": "⚡️ Nuxt Generation CLI Experience",
+  "description": "Nuxt CLI",
   "license": "MIT",
   "repository": {
     "type": "git",

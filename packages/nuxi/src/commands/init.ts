@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { relative, resolve } from 'pathe'
@@ -78,6 +79,11 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd)
 
+    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+
+    logger.info(colors.greenBright(`Welcome to ${colors.bold(('Nuxt'))}!`))
+    logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
+
     // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
 
@@ -86,7 +92,6 @@ export default defineCommand({
       process.exit(1)
     }
 
-    let templateDownloadPath = resolve(cwd, ctx.args.dir)
     let shouldForce = Boolean(ctx.args.force)
 
     // Prompt the user if the template download directory already exists
@@ -94,7 +99,7 @@ export default defineCommand({
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       const selectedAction = await logger.prompt(
-        `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
+        `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
         {
           type: 'select',
           options: ['Override its contents', 'Select different directory', 'Abort'],
