@@ -78,7 +78,7 @@ export default defineCommand({
     modules: {
       type: 'string',
       required: false,
-      description: 'Modules to install',
+      description: 'Nuxt modules to install (comma separated without spaces)',
       alias: 'M',
     },
   },
@@ -213,7 +213,7 @@ export default defineCommand({
     }
 
     // Add modules when -M flag is provided
-    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(' ').filter(name => !!name)
+    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').map(module => module.trim())
     if (modules.length > 0) {
       await runCommand('module', ['add', ...modules])
     }
