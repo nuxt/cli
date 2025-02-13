@@ -14,9 +14,6 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-const listenArgs = getListhenArgs()
-const portArg = listenArgs.port
-
 const command = defineCommand({
   meta: {
     name: 'preview',
@@ -27,7 +24,7 @@ const command = defineCommand({
     ...logLevelArgs,
     ...envNameArgs,
     ...legacyRootDirArgs,
-    port: portArg,
+    port: getListhenArgs().port,
     ...dotEnvArgs,
   },
   async run(ctx) {
