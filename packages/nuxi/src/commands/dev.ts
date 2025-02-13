@@ -14,6 +14,7 @@ import defu from 'defu'
 import { createJiti } from 'jiti'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
+import { satisfies } from 'semver'
 
 import { isBun, isTest } from 'std-env'
 import { showVersions } from '../utils/banner'
@@ -23,7 +24,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-const forkSupported = !isBun && !isTest
+const forkSupported = !isTest && (!isBun || isBunForkSupported())
 
 const command = defineCommand({
   meta: {
@@ -320,4 +321,9 @@ function _resolveListenOptions(
     https: httpsOptions,
     baseURL: nuxtOptions.app.baseURL.startsWith('./') ? nuxtOptions.app.baseURL.slice(1) : nuxtOptions.app.baseURL,
   }
+}
+
+function isBunForkSupported() {
+  const bunVersion: string = (globalThis as any).Bun.version
+  return satisfies(bunVersion, '>=1.2')
 }
