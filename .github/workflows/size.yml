@@ -80,7 +80,7 @@ jobs:
     steps:
       - name: ⏬ Download stats.json
         uses: actions/download-artifact@v4
-      - uses: twk3/rollup-size-compare-action@v1.1.2
+      - uses: twk3/rollup-size-compare-action@v1.1.3
         with:
           title: ${{ matrix.package }} size comparison
           github-token: ${{ secrets.GITHUB_TOKEN }}
