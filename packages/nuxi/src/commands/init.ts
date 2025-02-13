@@ -11,6 +11,7 @@ import { installDependencies } from 'nypm'
 import { relative, resolve } from 'pathe'
 import { x } from 'tinyexec'
 
+import { runCommand } from '../run'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -74,6 +75,12 @@ export default defineCommand({
     packageManager: {
       type: 'string',
       description: 'Package manager choice (npm, pnpm, yarn, bun)',
+    },
+    modules: {
+      type: 'string',
+      required: false,
+      description: 'Nuxt modules to install (comma separated without spaces)',
+      alias: 'M',
     },
   },
   async run(ctx) {
@@ -208,6 +215,12 @@ export default defineCommand({
       catch (err) {
         logger.warn(`Failed to initialize git repository: ${err}`)
       }
+    }
+
+    // Add modules when -M flag is provided
+    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean)
+    if (modules.length > 0) {
+      await runCommand('module', ['add', ...modules])
     }
 
     // Display next steps

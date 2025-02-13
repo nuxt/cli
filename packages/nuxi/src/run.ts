@@ -21,6 +21,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
 
 export const runMain = () => _runMain(main)
 
+// To provide subcommands call it as `runCommand(<command>, [<subcommand>, ...])`
 export async function runCommand(
   name: string,
   argv: string[] = process.argv.slice(2),
