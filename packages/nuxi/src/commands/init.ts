@@ -88,7 +88,7 @@ export default defineCommand({
 
     let templateDownloadPath = resolve(cwd, ctx.args.dir)
 
-    logger.info(colors.greenBright(`Welcome to ${colors.bold(('Nuxt'))}!`))
+    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `\x1B[38;5;79m${m}`).join('')))
     logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
 
     // Get template name

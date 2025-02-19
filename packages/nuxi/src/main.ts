@@ -32,7 +32,7 @@ export const main = defineCommand({
     setupGlobalConsole({ dev })
 
     if (hasTTY && (!command || command === 'init')) {
-      logger.log(`${nuxtIcon}\n`)
+      process.stdout.write(`${nuxtIcon}\n`)
     }
 
     // Check Node.js version and CLI updates in background
