@@ -9,9 +9,11 @@ import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { relative, resolve } from 'pathe'
+import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { runCommand } from '../run'
+import { nuxtIcon } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -84,11 +86,22 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd)
-
-    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+    if (hasTTY) {
+      process.stdout.write(`${nuxtIcon}\n`)
+    }
 
     logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `\x1B[38;5;79m${m}`).join('')))
+
+    if (ctx.args.dir === '') {
+      ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
+        placeholder: './nuxt-app',
+        type: 'text',
+        default: 'nuxt-app',
+      })
+    }
+
+    const cwd = resolve(ctx.args.cwd)
+    let templateDownloadPath = resolve(cwd, ctx.args.dir)
     logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
 
     // Get template name

@@ -2,12 +2,11 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { hasTTY, provider } from 'std-env'
+import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
-import { nuxtIcon } from './utils/ascii'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { logger } from './utils/logger'
@@ -30,10 +29,6 @@ export const main = defineCommand({
     const command = ctx.args._[0]
     const dev = command === 'dev'
     setupGlobalConsole({ dev })
-
-    if (hasTTY && (!command || command === 'init')) {
-      process.stdout.write(`${nuxtIcon}\n`)
-    }
 
     // Check Node.js version and CLI updates in background
     let backgroundTasks: Promise<any> | undefined
