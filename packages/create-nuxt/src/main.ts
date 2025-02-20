@@ -1,4 +1,4 @@
-import { defineCommand, showUsage } from 'citty'
+import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import init from '../../nuxi/src/commands/init'
