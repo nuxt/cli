@@ -13,7 +13,7 @@ import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { runCommand } from '../run'
-import { nuxtIcon } from '../utils/ascii'
+import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -87,10 +87,10 @@ export default defineCommand({
   },
   async run(ctx) {
     if (hasTTY) {
-      process.stdout.write(`\n${nuxtIcon}\n`)
+      process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
-    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `\x1B[38;5;79m${m}`).join('')))
+    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     if (ctx.args.dir === '') {
       ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
