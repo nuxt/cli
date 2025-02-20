@@ -1,7 +1,7 @@
 {
   "name": "create-nuxt",
   "type": "module",
-  "version": "3.22.1",
+  "version": "3.22.2",
   "description": "Create a Nuxt app in seconds",
   "license": "MIT",
   "repository": {
