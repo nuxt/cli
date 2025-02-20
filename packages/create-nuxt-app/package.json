@@ -16,6 +16,6 @@
     "bin"
   ],
   "dependencies": {
-    "create-nuxt": "^3.0.0"
+    "create-nuxt": "workspace:*"
   }
 }
