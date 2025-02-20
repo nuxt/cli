@@ -87,7 +87,7 @@ export default defineCommand({
   },
   async run(ctx) {
     if (hasTTY) {
-      process.stdout.write(`${nuxtIcon}\n`)
+      process.stdout.write(`\n${nuxtIcon}\n`)
     }
 
     logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `\x1B[38;5;79m${m}`).join('')))
