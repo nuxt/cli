@@ -44,16 +44,15 @@ const nuxtVersionTags = {
 }
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: string }> {
-  const result = await logger.prompt(
+  const nuxtVersion = await logger.prompt(
     'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
       options: ['3.x', '4.x'] as const,
       default: '3.x',
+      cancel: 'reject',
     },
-  )
-
-  const nuxtVersion = typeof result === 'string' ? result : '3.x'
+  ).catch(() => process.exit(1))
 
   const npmPackages = packageNames.map(p => `${p}@npm:${p}-nightly@${nuxtVersionTags[nuxtVersion]}`)
 
@@ -142,6 +141,7 @@ export default defineCommand({
       {
         type: 'select',
         initial: 'dedupe',
+        cancel: 'reject',
         options: [
           {
             label: 'dedupe lockfile',
@@ -158,12 +158,7 @@ export default defineCommand({
           },
         ],
       },
-    )
-
-    // user bails on the question with Ctrl+C
-    if (typeof method !== 'string') {
-      process.exit(1)
-    }
+    ).catch(() => process.exit(1))
 
     if (method === 'force') {
       logger.info(

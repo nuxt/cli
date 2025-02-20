@@ -73,6 +73,7 @@ export default defineCommand({
         {
           type: 'confirm',
           initial: false,
+          cancel: 'default',
         },
       )
       if (shouldContinue !== true) {
@@ -141,6 +142,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
           return logger.prompt(`Install failed for \`${failedModulesList}\`. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`, {
             type: 'confirm',
             initial: false,
+            cancel: 'default',
           })
         },
       )
@@ -246,9 +248,10 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
         {
           type: 'confirm',
           initial: false,
+          cancel: 'default',
         },
       )
-      if (shouldContinue !== true) {
+      if (!shouldContinue) {
         return false
       }
     }
@@ -268,8 +271,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
             pkgVersion = await logger.prompt('Choose a version:', {
               type: 'select',
               options: [_moduleVersion, pkgVersion],
+              cancel: 'undefined',
             })
-            if (typeof pkgVersion !== 'string') {
+            if (!pkgVersion) {
               return false
             }
           }
@@ -313,9 +317,10 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
       {
         type: 'confirm',
         initial: false,
+        cancel: 'default',
       },
     )
-    if (shouldContinue !== true) {
+    if (!shouldContinue) {
       return false
     }
   }
