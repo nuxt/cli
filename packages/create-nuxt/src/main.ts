@@ -1,4 +1,4 @@
-import { defineCommand, showUsage } from 'citty'
+import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import init from '../../nuxi/src/commands/init'
@@ -20,10 +20,6 @@ export const main = defineCommand({
     // Check Node.js version and CLI updates in background
     if (provider !== 'stackblitz') {
       await checkEngines().catch(err => logger.error(err))
-    }
-
-    if (!ctx.args.dir) {
-      showUsage(main)
     }
 
     await init.run?.(ctx)

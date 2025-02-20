@@ -13,7 +13,7 @@ import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { runCommand } from '../run'
-import { nuxtIcon } from '../utils/ascii'
+import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -87,17 +87,18 @@ export default defineCommand({
   },
   async run(ctx) {
     if (hasTTY) {
-      process.stdout.write(`${nuxtIcon}\n`)
+      process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
-    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `\x1B[38;5;79m${m}`).join('')))
+    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     if (ctx.args.dir === '') {
       ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
         placeholder: './nuxt-app',
         type: 'text',
         default: 'nuxt-app',
-      })
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
     }
 
     const cwd = resolve(ctx.args.cwd)
@@ -132,18 +133,15 @@ export default defineCommand({
           break
 
         case 'Select different directory': {
-          const dir = await logger.prompt('Please specify a different directory:', {
+          templateDownloadPath = resolve(cwd, await logger.prompt('Please specify a different directory:', {
             type: 'text',
-          })
-          if (dir && typeof dir === 'string') {
-            templateDownloadPath = resolve(cwd, dir)
-          }
+            cancel: 'reject',
+          }).catch(() => process.exit(1)))
           break
         }
 
         // 'Abort' or Ctrl+C
         default:
-          logger.info('Initialization aborted.')
           process.exit(1)
       }
     }
@@ -175,12 +173,8 @@ export default defineCommand({
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
         options: packageManagerOptions,
-      })
-
-    if (!packageManagerOptions.includes(selectedPackageManager)) {
-      logger.error('Invalid package manager selected.')
-      process.exit(1)
-    }
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -213,7 +207,8 @@ export default defineCommand({
     if (ctx.args.gitInit === undefined) {
       ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
         type: 'confirm',
-      }) === true
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
     }
     if (ctx.args.gitInit) {
       logger.info('Initializing git repository...\n')
