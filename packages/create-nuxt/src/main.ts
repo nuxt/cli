@@ -22,10 +22,6 @@ export const main = defineCommand({
       await checkEngines().catch(err => logger.error(err))
     }
 
-    if (!ctx.args.dir) {
-      showUsage(main)
-    }
-
     await init.run?.(ctx)
   },
 })
