@@ -23,11 +23,11 @@
   "devDependencies": {
     "@antfu/eslint-config": "^4.3.0",
     "@nuxt/eslint-config": "^1.1.0",
-    "@types/node": "^22.13.4",
+    "@types/node": "^22.13.5",
     "@types/semver": "^7.5.8",
     "@vitest/coverage-v8": "^3.0.6",
     "changelogen": "^0.5.7",
-    "eslint": "^9.20.1",
+    "eslint": "^9.21.0",
     "knip": "^5.44.4",
     "pkg-pr-new": "^0.0.39",
     "semver": "^7.7.1",
@@ -42,7 +42,7 @@
     "@nuxt/schema": "3.15.4",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
-    "h3": "^1.15.0",
+    "h3": "^1.15.1",
     "nitropack": "npm:nitropack-nightly",
     "nuxi": "workspace:*"
   }
