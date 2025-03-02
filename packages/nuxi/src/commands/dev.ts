@@ -193,6 +193,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
         __NUXT_DEV__: JSON.stringify({
           hostname: listenArgs.hostname,
           public: listenArgs.public,
+          publicURLs: await devProxy.listener.getURLs().then(r => r.map(r => r.url)),
           proxy: {
             url: devProxy.listener.url,
             urls: await devProxy.listener.getURLs(),
