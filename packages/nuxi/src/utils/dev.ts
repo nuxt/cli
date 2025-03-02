@@ -357,7 +357,7 @@ export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions
   if (listenOptions.hostname) {
     const protocol = listenOptions.https ? 'https' : 'http'
     defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
-    defaultOverrides.vite = { server: { allowedHosts: [listenOptions.hostname, ...urls.map(u => new URL(u).hostname)] } }
+    defaultOverrides.vite = defu(defaultOverrides.vite, { server: { allowedHosts: [listenOptions.hostname] } })
   }
 
   if (listenOptions.public) {
