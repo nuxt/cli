@@ -60,7 +60,7 @@ export default defineCommand({
       hostname: devContext.hostname,
       public: devContext.public,
       https: devContext.proxy?.https,
-    }))
+    }, devContext.publicURLs))
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
