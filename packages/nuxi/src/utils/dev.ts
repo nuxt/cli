@@ -9,7 +9,7 @@ import EventEmitter from 'node:events'
 import process from 'node:process'
 
 import chokidar from 'chokidar'
-import { defu } from 'defu'
+import defu from 'defu'
 import { toNodeListener } from 'h3'
 import { createJiti } from 'jiti'
 import { listen } from 'listhen'
