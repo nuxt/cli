@@ -112,8 +112,8 @@ importers:
         specifier: ^7.5.8
         version: 7.5.8
       c12:
-        specifier: ^2.0.2
-        version: 2.0.2(magicast@0.3.5)
+        specifier: ^3.0.2
+        version: 3.0.2(magicast@0.3.5)
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -208,8 +208,8 @@ importers:
   packages/nuxt-cli:
     dependencies:
       c12:
-        specifier: ^2.0.2
-        version: 2.0.2(magicast@0.3.5)
+        specifier: ^3.0.2
+        version: 3.0.2(magicast@0.3.5)
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -1778,6 +1778,14 @@ packages:
       magicast:
         optional: true
 
+  c12@3.0.2:
+    resolution: {integrity: sha512-6Tzk1/TNeI3WBPpK0j/Ss4+gPj3PUJYbWl/MWDJBThFvwNGNkXtd7Cz8BJtD4aRwoGHtzQD0SnxamgUiBH0/Nw==}
+    peerDependencies:
+      magicast: ^0.3.5
+    peerDependenciesMeta:
+      magicast:
+        optional: true
+
   cac@6.7.14:
     resolution: {integrity: sha512-b6Ilus+c3RrdDk+JhLKUAQfzzgLEPy6wcXqS7f/xe1EETvsDP6GORG7SFuOs6cID5YkqchW/LXZbX5bc8j7ZcQ==}
     engines: {node: '>=8'}
@@ -2460,6 +2468,9 @@ packages:
   expect-type@1.1.0:
     resolution: {integrity: sha512-bFi65yM+xZgk+u/KRIpekdSYkTB5W1pEf0Lt8Q8Msh7b+eQ7LXVtIB1Bkm4fvclDEL1b2CZkMhv2mOeF8tMdkA==}
     engines: {node: '>=12.0.0'}
+
+  exsolve@1.0.1:
+    resolution: {integrity: sha512-Smf0iQtkQVJLaph8r/qS8C8SWfQkaq9Q/dFcD44MLbJj6DNhlWefVuaS21SjfqOsBbjVlKtbCj6L9ekXK6EZUg==}
 
   externality@1.0.2:
     resolution: {integrity: sha512-LyExtJWKxtgVzmgtEHyQtLFpw1KFhQphF9nTG8TpAIVkiI/xQ3FJh75tRFLYl4hkn7BNIIdLJInuDAavX35pMw==}
@@ -3423,6 +3434,9 @@ packages:
 
   ohash@2.0.2:
     resolution: {integrity: sha512-A2CLcYHM2RlOWMz4jKKfAMO9rz7gJ4EV5XbI2CfHMv1hWm24Gc4JqkoA4Dps1H8rD2cbiqXrwLO6mxoIZNyf1Q==}
+
+  ohash@2.0.9:
+    resolution: {integrity: sha512-ljz2sybhXrRpBW9LleuJPP9uxbMKW8qxFz9lLOHW2QEel78rJ1sUgaX2cBNDt49w+JleNSkhYkVOCx6RgkKn0Q==}
 
   on-finished@2.4.1:
     resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==}
@@ -6575,6 +6589,23 @@ snapshots:
     optionalDependencies:
       magicast: 0.3.5
 
+  c12@3.0.2(magicast@0.3.5):
+    dependencies:
+      chokidar: 4.0.3
+      confbox: 0.1.8
+      defu: 6.1.4
+      dotenv: 16.4.7
+      exsolve: 1.0.1
+      giget: 2.0.0
+      jiti: 2.4.2
+      ohash: 2.0.9
+      pathe: 2.0.3
+      perfect-debounce: 1.0.0
+      pkg-types: 2.0.0
+      rc9: 2.1.2
+    optionalDependencies:
+      magicast: 0.3.5
+
   cac@6.7.14: {}
 
   call-me-maybe@1.0.2: {}
@@ -7333,6 +7364,8 @@ snapshots:
       strip-final-newline: 3.0.0
 
   expect-type@1.1.0: {}
+
+  exsolve@1.0.1: {}
 
   externality@1.0.2:
     dependencies:
@@ -8711,6 +8744,8 @@ snapshots:
   ohash@1.1.4: {}
 
   ohash@2.0.2: {}
+
+  ohash@2.0.9: {}
 
   on-finished@2.4.1:
     dependencies:
