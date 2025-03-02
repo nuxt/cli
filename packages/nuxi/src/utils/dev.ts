@@ -1,6 +1,6 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { FSWatcher } from 'chokidar'
-import type { Jiti } from 'jiti/lib/types'
+import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
 import type { RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
