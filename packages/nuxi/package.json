@@ -41,7 +41,7 @@
   "devDependencies": {
     "@nuxt/kit": "^3.15.4",
     "@nuxt/schema": "^3.15.4",
-    "@nuxt/test-utils": "^3.17.0",
+    "@nuxt/test-utils": "^3.17.1",
     "@types/node": "^22.13.8",
     "@types/semver": "^7.5.8",
     "c12": "^3.0.2",
