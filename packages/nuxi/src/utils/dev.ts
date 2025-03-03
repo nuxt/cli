@@ -360,7 +360,8 @@ export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions
     defaultOverrides.vite = defu(defaultOverrides.vite, { server: { allowedHosts: [listenOptions.hostname] } })
   }
 
-  if (listenOptions.public) {
+  // TODO: https://github.com/unjs/std-env/pull/154
+  if (listenOptions.public || process.env.CODESANDBOX_HOST) {
     defaultOverrides.devServer = { cors: { origin: '*' } }
     defaultOverrides.vite = { server: { allowedHosts: true } }
   }
