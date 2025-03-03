@@ -15,6 +15,7 @@ import { createJiti } from 'jiti'
 import { listen } from 'listhen'
 import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
+import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
 import { clearBuildDir } from '../utils/fs'
@@ -360,7 +361,7 @@ export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions
     defaultOverrides.vite = defu(defaultOverrides.vite, { server: { allowedHosts: [listenOptions.hostname] } })
   }
 
-  if (listenOptions.public) {
+  if (listenOptions.public || provider === 'codesandbox') {
     defaultOverrides.devServer = { cors: { origin: '*' } }
     defaultOverrides.vite = { server: { allowedHosts: true } }
   }
