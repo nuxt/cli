@@ -1,6 +1,6 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { FSWatcher } from 'chokidar'
-import type { Jiti } from 'jiti/lib/types'
+import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
 import type { RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -9,6 +9,7 @@ import EventEmitter from 'node:events'
 import process from 'node:process'
 
 import chokidar from 'chokidar'
+import defu from 'defu'
 import { toNodeListener } from 'h3'
 import { createJiti } from 'jiti'
 import { listen } from 'listhen'
@@ -30,6 +31,7 @@ export type NuxtDevIPCMessage =
 export interface NuxtDevContext {
   public?: boolean
   hostname?: string
+  publicURLs?: string[]
   proxy?: {
     url?: string
     urls?: ListenURL[]
@@ -177,6 +179,8 @@ class NuxtDevServer extends EventEmitter {
     }
 
     const kit = await loadKit(this.options.cwd)
+
+    this.options.overrides = defu(this.options.overrides, _getDevServerOverrides({}, await this.listener.getURLs().then(r => r.map(r => r.url))))
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
       dev: true,
@@ -184,15 +188,16 @@ class NuxtDevServer extends EventEmitter {
       envName: this.options.envName,
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
-        vite: {
-          clearScreen: this.options.clear,
-        },
         nitro: {
           devErrorHandler: (error, event) => {
             this._renderError(event.node.res, error)
           },
         },
         ...this.options.overrides,
+        vite: {
+          clearScreen: this.options.clear,
+          ...this.options.overrides.vite,
+        },
       },
     })
 
@@ -341,17 +346,22 @@ function _getAddressURL(addr: AddressInfo, https: boolean) {
   return `${proto}://${host}:${port}/`
 }
 
-export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'public' | 'https'>>) {
+export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'public' | 'https'>>, urls: string[] = []) {
   const defaultOverrides: Partial<NuxtConfig> = {}
+
+  if (urls) {
+    defaultOverrides.vite = { server: { allowedHosts: urls.map(u => new URL(u).hostname) } }
+  }
 
   // defined hostname
   if (listenOptions.hostname) {
     const protocol = listenOptions.https ? 'https' : 'http'
-    defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`] } }
-    defaultOverrides.vite = { server: { allowedHosts: [listenOptions.hostname] } }
+    defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
+    defaultOverrides.vite = defu(defaultOverrides.vite, { server: { allowedHosts: [listenOptions.hostname] } })
   }
 
-  if (listenOptions.public) {
+  // TODO: https://github.com/unjs/std-env/pull/154
+  if (listenOptions.public || process.env.CODESANDBOX_HOST) {
     defaultOverrides.devServer = { cors: { origin: '*' } }
     defaultOverrides.vite = { server: { allowedHosts: true } }
   }

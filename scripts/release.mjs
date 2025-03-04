@@ -4,7 +4,7 @@ import { x } from 'tinyexec'
 
 const isNightly = process.env.RELEASE_TYPE === 'nightly'
 
-const dirs = ['create-nuxt-app', 'nuxi', 'nuxt-cli']
+const dirs = ['create-nuxt', 'nuxi', 'nuxt-cli']
 
 for (const dir of dirs) {
   if (isNightly) {
@@ -14,10 +14,6 @@ for (const dir of dirs) {
     })
   }
   else {
-    if (dir === 'create-nuxt-app') {
-      // skip publishing for now
-      continue
-    }
     await x('npm', ['publish'], {
       nodeOptions: { stdio: 'inherit', cwd: resolve('packages', dir) },
       throwOnError: true,

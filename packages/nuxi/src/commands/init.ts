@@ -5,11 +5,15 @@ import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { relative, resolve } from 'pathe'
+import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
+import { runCommand } from '../run'
+import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs } from './_shared'
 
@@ -74,9 +78,32 @@ export default defineCommand({
       type: 'string',
       description: 'Package manager choice (npm, pnpm, yarn, bun)',
     },
+    modules: {
+      type: 'string',
+      required: false,
+      description: 'Nuxt modules to install (comma separated without spaces)',
+      alias: 'M',
+    },
   },
   async run(ctx) {
+    if (hasTTY) {
+      process.stdout.write(`\n${nuxtIcon}\n\n`)
+    }
+
+    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+
+    if (ctx.args.dir === '') {
+      ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
+        placeholder: './nuxt-app',
+        type: 'text',
+        default: 'nuxt-app',
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
+    }
+
     const cwd = resolve(ctx.args.cwd)
+    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+    logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
 
     // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
@@ -86,7 +113,6 @@ export default defineCommand({
       process.exit(1)
     }
 
-    let templateDownloadPath = resolve(cwd, ctx.args.dir)
     let shouldForce = Boolean(ctx.args.force)
 
     // Prompt the user if the template download directory already exists
@@ -94,7 +120,7 @@ export default defineCommand({
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       const selectedAction = await logger.prompt(
-        `The directory \`${templateDownloadPath}\` already exists. What would you like to do?`,
+        `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
         {
           type: 'select',
           options: ['Override its contents', 'Select different directory', 'Abort'],
@@ -107,18 +133,15 @@ export default defineCommand({
           break
 
         case 'Select different directory': {
-          const dir = await logger.prompt('Please specify a different directory:', {
+          templateDownloadPath = resolve(cwd, await logger.prompt('Please specify a different directory:', {
             type: 'text',
-          })
-          if (dir && typeof dir === 'string') {
-            templateDownloadPath = resolve(cwd, dir)
-          }
+            cancel: 'reject',
+          }).catch(() => process.exit(1)))
           break
         }
 
         // 'Abort' or Ctrl+C
         default:
-          logger.info('Initialization aborted.')
           process.exit(1)
       }
     }
@@ -150,12 +173,8 @@ export default defineCommand({
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
         options: packageManagerOptions,
-      })
-
-    if (!packageManagerOptions.includes(selectedPackageManager)) {
-      logger.error('Invalid package manager selected.')
-      process.exit(1)
-    }
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -188,7 +207,8 @@ export default defineCommand({
     if (ctx.args.gitInit === undefined) {
       ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
         type: 'confirm',
-      }) === true
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
     }
     if (ctx.args.gitInit) {
       logger.info('Initializing git repository...\n')
@@ -203,6 +223,12 @@ export default defineCommand({
       catch (err) {
         logger.warn(`Failed to initialize git repository: ${err}`)
       }
+    }
+
+    // Add modules when -M flag is provided
+    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean)
+    if (modules.length > 0) {
+      await runCommand('module', ['add', ...modules])
     }
 
     // Display next steps
