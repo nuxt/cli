@@ -23,7 +23,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^4.4.0",
     "@nuxt/eslint-config": "^1.1.0",
-    "@types/node": "^22.13.8",
+    "@types/node": "^22.13.9",
     "@types/semver": "^7.5.8",
     "@vitest/coverage-v8": "^3.0.7",
     "changelogen": "^0.6.1",

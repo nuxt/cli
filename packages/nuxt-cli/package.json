@@ -58,7 +58,7 @@
     "ufo": "^1.5.4"
   },
   "devDependencies": {
-    "@types/node": "^22.13.8",
+    "@types/node": "^22.13.9",
     "rollup": "^4.34.9",
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.8.2",
