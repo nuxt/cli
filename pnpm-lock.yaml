@@ -160,8 +160,8 @@ importers:
         specifier: ^1.4.1
         version: 1.4.1
       ohash:
-        specifier: ^2.0.10
-        version: 2.0.10
+        specifier: ^2.0.11
+        version: 2.0.11
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
@@ -250,8 +250,8 @@ importers:
         specifier: ^1.4.1
         version: 1.4.1
       ohash:
-        specifier: ^2.0.10
-        version: 2.0.10
+        specifier: ^2.0.11
+        version: 2.0.11
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
@@ -3656,8 +3656,8 @@ packages:
   ohash@1.1.4:
     resolution: {integrity: sha512-FlDryZAahJmEF3VR3w1KogSEdWX3WhA5GPakFx4J81kEAiHyLMpdLLElS8n8dfNadMgAne/MywcvmogzscVt4g==}
 
-  ohash@2.0.10:
-    resolution: {integrity: sha512-jf9szh2McTXpXGqejbfHxy4wcs6CXc6MShfzLIdHuCrl2W3qG49qutlOMq1Bdmvpv3s/XJffTu4ElRBPtIOncQ==}
+  ohash@2.0.11:
+    resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
 
   on-finished@2.4.1:
     resolution: {integrity: sha512-oVlzkg3ENAhCk2zdv7IJwd/QUD4z2RxRwpkcGY8psCVcCYZNq4wYnVWALHM+brtuJjePWiYF/ClmuDr8Ch5+kg==}
@@ -7032,7 +7032,7 @@ snapshots:
       exsolve: 1.0.1
       giget: 2.0.0
       jiti: 2.4.2
-      ohash: 2.0.10
+      ohash: 2.0.11
       pathe: 2.0.3
       perfect-debounce: 1.0.0
       pkg-types: 2.1.0
@@ -9228,7 +9228,7 @@ snapshots:
 
   ohash@1.1.4: {}
 
-  ohash@2.0.10: {}
+  ohash@2.0.11: {}
 
   on-finished@2.4.1:
     dependencies:
