@@ -1,3 +1,4 @@
+import nodeCrypto from 'node:crypto'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
@@ -10,6 +11,11 @@ import { cwdArgs } from './commands/_shared'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { logger } from './utils/logger'
+
+// globalThis.crypto support for Node.js 18
+if (!globalThis.crypto) {
+  globalThis.crypto = nodeCrypto as unknown as Crypto
+}
 
 export const main = defineCommand({
   meta: {
