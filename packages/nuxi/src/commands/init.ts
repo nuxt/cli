@@ -266,7 +266,7 @@ export default defineCommand({
       }
 
       if (selectedOfficialModules.length > 0) {
-        modulesToAdd.push(...selectedOfficialModules)
+        modulesToAdd.push(...selectedOfficialModules.map(m => m.npm))
       }
     }
 
