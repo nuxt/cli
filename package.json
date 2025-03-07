@@ -21,7 +21,7 @@
     "test:unit": "vitest --coverage"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.7.0",
+    "@antfu/eslint-config": "^4.8.1",
     "@nuxt/eslint-config": "^1.1.0",
     "@types/node": "^22.13.9",
     "@types/semver": "^7.5.8",
