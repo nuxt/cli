@@ -247,16 +247,15 @@ export default defineCommand({
       const officialModules = response.modules
         .filter(module => module.type === 'official')
         .filter(module => module.npm !== '@nuxt/devtools')
-        .map(module => ({
-          label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.split('.')[0]}`,
-          value: module.npm,
-        }))
 
       const selectedOfficialModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
         {
           type: 'multiselect',
-          options: officialModules,
+          options: officialModules.map(module => ({
+            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.split('.')[0]}`,
+            value: module.npm,
+          })),
           required: false,
         },
       )
@@ -266,7 +265,7 @@ export default defineCommand({
       }
 
       if (selectedOfficialModules.length > 0) {
-        modulesToAdd.push(...selectedOfficialModules.map(m => m.npm))
+        modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
       }
     }
 
