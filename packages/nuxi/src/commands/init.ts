@@ -240,12 +240,17 @@ export default defineCommand({
         modules: {
           npm: string
           type: 'community' | 'official'
+          description: string
         }[]
       }>('https://api.nuxt.com/modules')
 
       const officialModules = response.modules
         .filter(module => module.type === 'official')
-        .map(module => module.npm)
+        .filter(module => module.npm !== '@nuxt/devtools')
+        .map(module => ({
+          label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.split('.')[0]}`,
+          value: module.npm,
+        }))
 
       const selectedOfficialModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
