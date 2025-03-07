@@ -8,10 +8,11 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
-import { relative, resolve } from 'pathe'
+import { $fetch } from 'ofetch'
+import { join, relative, resolve } from 'pathe'
 import { hasTTY } from 'std-env'
-import { x } from 'tinyexec'
 
+import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
@@ -225,10 +226,59 @@ export default defineCommand({
       }
     }
 
-    // Add modules when -M flag is provided
-    const modules = !ctx.args.modules ? [] : ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean)
-    if (modules.length > 0) {
-      await runCommand('module', ['add', ...modules])
+    const modulesToAdd: string[] = []
+
+    // Get modules from arg (if provided)
+    if (ctx.args.modules) {
+      modulesToAdd.push(
+        ...ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean),
+      )
+    }
+    // ...or offer to install official modules (if not offline)
+    else if (!ctx.args.offline && !ctx.args.preferOffline) {
+      const response = await $fetch<{
+        modules: {
+          npm: string
+          type: 'community' | 'official'
+          description: string
+        }[]
+      }>('https://api.nuxt.com/modules')
+
+      const officialModules = response.modules
+        .filter(module => module.type === 'official')
+        .filter(module => module.npm !== '@nuxt/devtools')
+
+      const selectedOfficialModules = await logger.prompt(
+        `Would you like to install any of the official modules?`,
+        {
+          type: 'multiselect',
+          options: officialModules.map(module => ({
+            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.split('.')[0]}`,
+            value: module.npm,
+          })),
+          required: false,
+        },
+      )
+
+      if (selectedOfficialModules === undefined) {
+        process.exit(1)
+      }
+
+      if (selectedOfficialModules.length > 0) {
+        modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
+      }
+    }
+
+    // Add modules
+    if (modulesToAdd.length > 0) {
+      await runCommand('module', [
+        'add',
+        ...modulesToAdd,
+        '--cwd',
+        join(ctx.args.cwd, ctx.args.dir),
+        '--skipInstall',
+        ctx.args.install ? 'false' : 'true',
+      ])
     }
 
     // Display next steps

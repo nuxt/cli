@@ -68,6 +68,7 @@ export default defineCommand({
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
+
       const shouldContinue = await logger.prompt(
         `Do you want to continue anyway?`,
         {
@@ -76,8 +77,9 @@ export default defineCommand({
           cancel: 'default',
         },
       )
+
       if (shouldContinue !== true) {
-        return false
+        process.exit(1)
       }
     }
 
