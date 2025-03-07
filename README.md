@@ -4,7 +4,7 @@
 
 ## Commands
 
-All commands are listed on https://nuxt.com/docs/api/commands
+All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Contributing
 
@@ -14,9 +14,6 @@ pnpm i
 
 # Generate type stubs
 pnpm dev:prepare
-
-# Go to the playground directory
-cd playground
 
 # And run any commands
 pnpm nuxi <command>
