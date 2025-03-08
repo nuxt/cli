@@ -16,7 +16,7 @@ import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
-import { cwdArgs } from './_shared'
+import { cwdArgs, logLevelArgs } from './_shared'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v3'
@@ -39,6 +39,7 @@ export default defineCommand({
   },
   args: {
     ...cwdArgs,
+    ...logLevelArgs,
     dir: {
       type: 'positional',
       description: 'Project directory',
@@ -245,15 +246,14 @@ export default defineCommand({
       }>('https://api.nuxt.com/modules')
 
       const officialModules = response.modules
-        .filter(module => module.type === 'official')
-        .filter(module => module.npm !== '@nuxt/devtools')
+        .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
 
       const selectedOfficialModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
         {
           type: 'multiselect',
           options: officialModules.map(module => ({
-            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.split('.')[0]}`,
+            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
             value: module.npm,
           })),
           required: false,
@@ -271,14 +271,15 @@ export default defineCommand({
 
     // Add modules
     if (modulesToAdd.length > 0) {
-      await runCommand('module', [
+      const args: string[] = [
         'add',
         ...modulesToAdd,
-        '--cwd',
-        join(ctx.args.cwd, ctx.args.dir),
-        '--skipInstall',
-        ctx.args.install ? 'false' : 'true',
-      ])
+        `--cwd=${join(ctx.args.cwd, ctx.args.dir)}`,
+        ctx.args.install ? '' : '--skipInstall',
+        ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
+      ].filter(Boolean)
+
+      await runCommand('module', args)
     }
 
     // Display next steps
