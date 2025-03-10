@@ -90,9 +90,12 @@ export default defineCommand({
 
     await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
-    // update the types for new module
-    const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
-    await runCommand('prepare', args)
+    // Run prepare command if install is not skipped
+    if (!ctx.args.skipInstall) {
+      const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
+
+      await runCommand('prepare', args)
+    }
   },
 })
 
