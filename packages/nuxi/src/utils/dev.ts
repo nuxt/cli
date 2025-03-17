@@ -121,7 +121,7 @@ class NuxtDevServer extends EventEmitter {
         this._handler(req, res)
       }
       else {
-        this._renderError(res)
+        this._renderLoadingScreen(res)
       }
     }
 
@@ -129,7 +129,7 @@ class NuxtDevServer extends EventEmitter {
     this.listener = undefined
   }
 
-  async _renderError(res: ServerResponse, _error?: Error) {
+  async _renderLoadingScreen(res: ServerResponse) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate
@@ -139,7 +139,7 @@ class NuxtDevServer extends EventEmitter {
         || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
     res.end(
       loadingTemplate({
-        loading: _error?.toString() || this._loadingMessage || 'Loading...',
+        loading: this._loadingMessage || 'Loading...',
       }),
     )
   }
@@ -188,11 +188,6 @@ class NuxtDevServer extends EventEmitter {
       envName: this.options.envName,
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
-        nitro: {
-          devErrorHandler: (error, event) => {
-            this._renderError(event.node.res, error)
-          },
-        },
         ...this.options.overrides,
         vite: {
           clearScreen: this.options.clear,
