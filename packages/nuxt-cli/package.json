@@ -37,7 +37,7 @@
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",
-    "consola": "^3.4.0",
+    "consola": "^3.4.1",
     "defu": "^6.1.4",
     "fuse.js": "^7.1.0",
     "giget": "^2.0.0",
@@ -59,11 +59,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "rollup": "^4.35.0",
+    "rollup": "^4.36.0",
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.8.2",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.0.7",
-    "vitest": "^3.0.8"
+    "vitest": "^3.0.9"
   }
 }
