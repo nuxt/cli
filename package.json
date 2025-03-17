@@ -43,7 +43,6 @@
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "h3": "^1.15.1",
-    "nitropack": "npm:nitropack-nightly",
     "nuxi": "workspace:*"
   }
 }
