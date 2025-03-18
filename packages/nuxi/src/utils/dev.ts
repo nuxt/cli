@@ -15,6 +15,7 @@ import { createJiti } from 'jiti'
 import { listen } from 'listhen'
 import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
+import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
 import { clearBuildDir } from '../utils/fs'
@@ -45,6 +46,7 @@ interface NuxtDevServerOptions {
   dotenv: boolean
   envName: string
   clear: boolean
+  defaults: NuxtConfig
   overrides: NuxtConfig
   port?: string | number
   loadingTemplate?: ({ loading }: { loading: string }) => string
@@ -180,12 +182,14 @@ class NuxtDevServer extends EventEmitter {
 
     const kit = await loadKit(this.options.cwd)
 
-    this.options.overrides = defu(this.options.overrides, _getDevServerOverrides({}, await this.listener.getURLs().then(r => r.map(r => r.url))))
+    const devServerDefaults = _getDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
+
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
       dev: true,
       ready: false,
       envName: this.options.envName,
+      defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
         ...this.options.overrides,
@@ -341,25 +345,30 @@ function _getAddressURL(addr: AddressInfo, https: boolean) {
   return `${proto}://${host}:${port}/`
 }
 
-export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'public' | 'https'>>, urls: string[] = []) {
-  const defaultOverrides: Partial<NuxtConfig> = {}
+export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
+  if (listenOptions.public || provider === 'codesandbox') {
+    return {
+      devServer: { cors: { origin: '*' } },
+      vite: { server: { allowedHosts: true } },
+    }
+  }
+
+  return {}
+}
+
+export function _getDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
+  const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls) {
-    defaultOverrides.vite = { server: { allowedHosts: urls.map(u => new URL(u).hostname) } }
+    defaultConfig.vite = { server: { allowedHosts: urls.map(u => new URL(u).hostname) } }
   }
 
   // defined hostname
   if (listenOptions.hostname) {
     const protocol = listenOptions.https ? 'https' : 'http'
-    defaultOverrides.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
-    defaultOverrides.vite = defu(defaultOverrides.vite, { server: { allowedHosts: [listenOptions.hostname] } })
+    defaultConfig.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
+    defaultConfig.vite = defu(defaultConfig.vite, { server: { allowedHosts: [listenOptions.hostname] } })
   }
 
-  // TODO: https://github.com/unjs/std-env/pull/154
-  if (listenOptions.public || process.env.CODESANDBOX_HOST) {
-    defaultOverrides.devServer = { cors: { origin: '*' } }
-    defaultOverrides.vite = { server: { allowedHosts: true } }
-  }
-
-  return defaultOverrides
+  return defaultConfig
 }

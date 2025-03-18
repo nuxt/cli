@@ -7,7 +7,7 @@ import defu from 'defu'
 import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
-import { _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
+import { _getDevServerDefaults, _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
 import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -55,17 +55,20 @@ export default defineCommand({
       process.exit()
     })
 
-    ctx.data ||= {}
-    ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides({
-      hostname: devContext.hostname,
+    const devServerOverrides = _getDevServerOverrides({
       public: devContext.public,
+    })
+
+    const devServerDefaults = _getDevServerDefaults({
+      hostname: devContext.hostname,
       https: devContext.proxy?.https,
-    }, devContext.publicURLs))
+    }, devContext.publicURLs)
 
     // Init Nuxt dev
     const nuxtDev = await createNuxtDevServer({
       cwd,
-      overrides: ctx.data?.overrides,
+      overrides: defu(ctx.data?.overrides, devServerOverrides),
+      defaults: devServerDefaults,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
       dotenv: !!ctx.args.dotenv,

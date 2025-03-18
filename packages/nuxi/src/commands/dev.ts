@@ -18,7 +18,7 @@ import { satisfies } from 'semver'
 
 import { isBun, isTest } from 'std-env'
 import { showVersions } from '../utils/banner'
-import { _getDevServerOverrides } from '../utils/dev'
+import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -80,12 +80,20 @@ const command = defineCommand({
       // Directly start Nuxt dev
       const { createNuxtDevServer } = await import('../utils/dev')
 
-      ctx.data ||= {}
-      ctx.data.overrides = defu(ctx.data.overrides, _getDevServerOverrides(listenOptions))
+      const devServerOverrides = _getDevServerOverrides({
+        public: listenOptions.public,
+      })
+
+      const devServerDefaults = _getDevServerDefaults({
+        hostname: listenOptions.hostname,
+        https: listenOptions.https,
+      })
+
       const devServer = await createNuxtDevServer(
         {
           cwd,
-          overrides: ctx.data?.overrides,
+          overrides: defu(ctx.data?.overrides, devServerOverrides),
+          defaults: devServerDefaults,
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
           dotenv: !!ctx.args.dotenv,
