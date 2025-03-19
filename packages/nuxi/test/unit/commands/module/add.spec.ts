@@ -6,6 +6,7 @@ import * as runCommands from '../../../../src/run'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const addDependency = vi.fn(() => Promise.resolve())
+let v3 = '3.0.0'
 interface CommandsType {
   subCommands: {
     // biome-ignore lint/correctness/noEmptyPattern: <explanation>
@@ -36,13 +37,41 @@ function applyMocks() {
       },
     }
   })
+  vi.mock('ofetch', async () => {
+    return {
+      $fetch: vi.fn(() => Promise.resolve({
+        'name': '@nuxt/content',
+        'npm': '@nuxt/content',
+        devDependencies: {
+          nuxt: v3
+        },
+        'dist-tags': { latest: v3 },
+        versions: {
+          [v3]: {
+          devDependencies: {
+            nuxt: v3
+          }
+        },
+        '2.9.0':{
+          devDependencies: {
+            nuxt: v3
+          },
+        },
+        '2.13.1' :{
+          devDependencies: {
+            nuxt: v3
+          }
+        }
+        }
+      }))
+    }
+  })
 }
 describe('module add', () => {
-  let v3: string
   beforeAll(async () => {
-    v3 = await fetch('https://registry.npmjs.org/@nuxt/content')
-      .then(r => r.json())
-      .then(r => r['dist-tags'].latest)
+    const response = await fetch('https://registry.npmjs.org/@nuxt/content');
+    const json = await response.json();
+    v3 = json['dist-tags'].latest;
   })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
@@ -100,6 +129,22 @@ describe('module add', () => {
     })
 
     expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@2.9.0'], {
+      cwd: '/fake-dir',
+      dev: true,
+      installPeerDependencies: true,
+    })
+  })
+
+  it('should convert major onlly version to full semver', async () => {
+    const addCommand = await (commands as CommandsType).subCommands.add()
+    await addCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['content@2'],
+      },
+    })
+
+    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@2.13.1'], {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
