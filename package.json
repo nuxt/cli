@@ -39,7 +39,7 @@
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "3.16.0",
+    "@nuxt/schema": "3.16.1",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "h3": "^1.15.1",

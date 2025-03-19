@@ -4,6 +4,6 @@
   "private": true,
   "packageManager": "pnpm@10.6.5",
   "dependencies": {
-    "nuxt": "^3.16.0"
+    "nuxt": "^3.16.1"
   }
 }
