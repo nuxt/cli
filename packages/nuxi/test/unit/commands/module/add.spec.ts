@@ -42,36 +42,36 @@ function applyMocks() {
       $fetch: vi.fn(() => Promise.resolve({
         'name': '@nuxt/content',
         'npm': '@nuxt/content',
-        devDependencies: {
-          nuxt: v3
+        'devDependencies': {
+          nuxt: v3,
         },
         'dist-tags': { latest: v3 },
-        versions: {
+        'versions': {
           [v3]: {
-          devDependencies: {
-            nuxt: v3
-          }
-        },
-        '2.9.0':{
-          devDependencies: {
-            nuxt: v3
+            devDependencies: {
+              nuxt: v3,
+            },
+          },
+          '2.9.0': {
+            devDependencies: {
+              nuxt: v3,
+            },
+          },
+          '2.13.1': {
+            devDependencies: {
+              nuxt: v3,
+            },
           },
         },
-        '2.13.1' :{
-          devDependencies: {
-            nuxt: v3
-          }
-        }
-        }
-      }))
+      })),
     }
   })
 }
 describe('module add', () => {
   beforeAll(async () => {
-    const response = await fetch('https://registry.npmjs.org/@nuxt/content');
-    const json = await response.json();
-    v3 = json['dist-tags'].latest;
+    const response = await fetch('https://registry.npmjs.org/@nuxt/content')
+    const json = await response.json()
+    v3 = json['dist-tags'].latest
   })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
