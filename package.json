@@ -2,7 +2,7 @@
   "name": "nuxi-workspace",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.6.4",
+  "packageManager": "pnpm@10.6.5",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
