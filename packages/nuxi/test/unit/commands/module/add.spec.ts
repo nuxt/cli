@@ -42,36 +42,41 @@ function applyMocks() {
       $fetch: vi.fn(() => Promise.resolve({
         'name': '@nuxt/content',
         'npm': '@nuxt/content',
-        'devDependencies': {
-          nuxt: v3,
+        devDependencies: {
+          nuxt: v3
         },
         'dist-tags': { latest: v3 },
-        'versions': {
+        versions: {
           [v3]: {
-            devDependencies: {
-              nuxt: v3,
-            },
-          },
-          '2.9.0': {
-            devDependencies: {
-              nuxt: v3,
-            },
-          },
-          '2.13.1': {
-            devDependencies: {
-              nuxt: v3,
-            },
+          devDependencies: {
+            nuxt: v3
+          }
+        },
+        '3.1.1':{
+          devDependencies: {
+            nuxt: v3
           },
         },
-      })),
+        '2.9.0':{
+          devDependencies: {
+            nuxt: v3
+          },
+        },
+        '2.13.1' :{
+          devDependencies: {
+            nuxt: v3
+          }
+        }
+        }
+      }))
     }
   })
 }
 describe('module add', () => {
   beforeAll(async () => {
-    const response = await fetch('https://registry.npmjs.org/@nuxt/content')
-    const json = await response.json()
-    v3 = json['dist-tags'].latest
+    const response = await fetch('https://registry.npmjs.org/@nuxt/content');
+    const json = await response.json();
+    v3 = json['dist-tags'].latest;
   })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
@@ -135,7 +140,7 @@ describe('module add', () => {
     })
   })
 
-  it('should convert major onlly version to full semver', async () => {
+  it('should convert major only version to full semver', async () => {
     const addCommand = await (commands as CommandsType).subCommands.add()
     await addCommand.setup({
       args: {
@@ -149,5 +154,21 @@ describe('module add', () => {
       dev: true,
       installPeerDependencies: true,
     })
-  })
+  });
+
+  it('should convert not full version to full semver', async () => {
+    const addCommand = await (commands as CommandsType).subCommands.add()
+    await addCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['content@3.1'],
+      },
+    })
+
+    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@3.1.1'], {
+      cwd: '/fake-dir',
+      dev: true,
+      installPeerDependencies: true,
+    })
+  });
 })
