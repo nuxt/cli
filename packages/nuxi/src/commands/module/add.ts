@@ -306,9 +306,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   pkgVersion = (pkgDetails['dist-tags']?.[pkgVersion] || pkgVersion) as string
 
   // if not a full x.y.z version is provided, search for the latest version that starts with that version
-  if(pkgVersion && pkgVersion.split('.').length < 3) {
-    pkgVersion = Object.keys(pkgDetails.versions)?.findLast(version => version.startsWith(pkgVersion as string)) || pkgVersion;
-  } 
+  if (pkgVersion && pkgVersion.split('.').length < 3) {
+    pkgVersion = Object.keys(pkgDetails.versions)?.findLast(version => version.startsWith(pkgVersion as string)) || pkgVersion
+  }
 
   const pkg = pkgDetails.versions[pkgVersion]
 
