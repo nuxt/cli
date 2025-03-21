@@ -289,7 +289,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   // Fetch package on npm
-  pkgVersion = pkgVersion || 'latest'
+  let version = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
   const meta: RegistryMeta = await detectNpmRegistry(pkgScope)
   const headers: HeadersInit = {}
@@ -298,19 +298,17 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     headers.Authorization = `Bearer ${meta.authToken}`
   }
 
-  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), {
-    headers,
-  })
+  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), { headers })
 
-  // check if a dist-tag exists
-  pkgVersion = (pkgDetails['dist-tags']?.[pkgVersion] || pkgVersion) as string
-
-  // if not a full x.y.z version is provided, search for the latest version that starts with that version
-  if (pkgVersion && pkgVersion.split('.').length < 3) {
-    pkgVersion = Object.keys(pkgDetails.versions)?.findLast(version => version.startsWith(pkgVersion as string)) || pkgVersion
+  // fully resolve the version
+  if (pkgDetails['dist-tags']?.[version]) {
+    version = pkgDetails['dist-tags'][version]
+  }
+  else {
+    version = Object.keys(pkgDetails.versions)?.findLast(v => satisfies(v, version)) || version
   }
 
-  const pkg = pkgDetails.versions[pkgVersion]
+  const pkg = pkgDetails.versions[version!]
 
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
@@ -337,9 +335,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
 
   return {
     nuxtModule: matchedModule,
-    pkg: `${pkgName}@${pkgVersion}`,
+    pkg: `${pkgName}@${version}`,
     pkgName,
-    pkgVersion,
+    pkgVersion: version,
   }
 }
 
