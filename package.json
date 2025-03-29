@@ -28,7 +28,7 @@
     "@vitest/coverage-v8": "^3.0.9",
     "changelogen": "^0.6.1",
     "eslint": "^9.23.0",
-    "knip": "^5.46.2",
+    "knip": "^5.46.3",
     "pkg-pr-new": "^0.0.41",
     "semver": "^7.7.1",
     "std-env": "^3.8.1",
