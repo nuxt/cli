@@ -38,6 +38,9 @@
     "prepack": "unbuild",
     "test:dist": "node ./bin/nuxi.mjs info ./playground"
   },
+  "dependencies": {
+    "youch": "^4.1.0-beta.6"
+  },
   "devDependencies": {
     "@nuxt/kit": "^3.16.1",
     "@nuxt/schema": "^3.16.1",

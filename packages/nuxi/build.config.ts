@@ -38,5 +38,6 @@ export default defineBuildConfig({
     'node:process',
     'node:path',
     'node:os',
+    'youch',
   ],
 })

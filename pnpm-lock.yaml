@@ -94,6 +94,10 @@ importers:
         version: link:../create-nuxt
 
   packages/nuxi:
+    dependencies:
+      youch:
+        specifier: ^4.1.0-beta.6
+        version: 4.1.0-beta.6
     devDependencies:
       '@nuxt/kit':
         specifier: ^3.16.1

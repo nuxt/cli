@@ -2,7 +2,7 @@ import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { FSWatcher } from 'chokidar'
 import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
-import type { RequestListener, ServerResponse } from 'node:http'
+import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
@@ -17,6 +17,7 @@ import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
+import { Youch } from 'youch'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -28,6 +29,7 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
   | { type: 'nuxt:internal:dev:rejection', message: string }
+  | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
 export interface NuxtDevContext {
   public?: boolean
@@ -97,6 +99,7 @@ class NuxtDevServer extends EventEmitter {
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
   private _jiti: Jiti
+  private _loadingError?: Error
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -123,7 +126,7 @@ class NuxtDevServer extends EventEmitter {
         this._handler(req, res)
       }
       else {
-        this._renderLoadingScreen(res)
+        this._renderLoadingScreen(req, res)
       }
     }
 
@@ -131,7 +134,21 @@ class NuxtDevServer extends EventEmitter {
     this.listener = undefined
   }
 
-  async _renderLoadingScreen(res: ServerResponse) {
+  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
+    if (this._loadingError) {
+      const youch = new Youch()
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'text/html')
+      return res.end(
+        await youch.toHTML(this._loadingError, {
+          request: {
+            url: req.url,
+            method: req.method,
+            headers: req.headers,
+          },
+        }),
+      )
+    }
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate
@@ -158,9 +175,10 @@ class NuxtDevServer extends EventEmitter {
     catch (error) {
       logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
+      this._loadingError = error as Error
       this._loadingMessage
         = 'Error while loading Nuxt. Please check console and fix errors.'
-      this.emit('loading', this._loadingMessage)
+      this.emit('loading:error', error)
     }
   }
 

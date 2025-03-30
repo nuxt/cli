@@ -77,6 +77,9 @@ export default defineCommand({
       devContext,
     })
 
+    nuxtDev.on('loading:error', (error) => {
+      sendIPCMessage({ type: 'nuxt:internal:dev:loading:error', error })
+    })
     nuxtDev.on('loading', (message) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
     })
