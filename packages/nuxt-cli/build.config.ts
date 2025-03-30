@@ -26,5 +26,6 @@ export default defineBuildConfig({
   entries: ['src/index'],
   externals: [
     '@nuxt/test-utils',
+    'youch',
   ],
 })
