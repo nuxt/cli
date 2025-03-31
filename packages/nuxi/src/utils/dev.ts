@@ -17,12 +17,12 @@ import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
-import { Youch } from 'youch'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { renderError } from './error'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
@@ -55,10 +55,7 @@ interface NuxtDevServerOptions {
   devContext: NuxtDevContext
 }
 
-export async function createNuxtDevServer(
-  options: NuxtDevServerOptions,
-  listenOptions?: Partial<ListenOptions>,
-) {
+export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: Partial<ListenOptions>) {
   // Initialize dev server
   const devServer = new NuxtDevServer(options)
 
@@ -90,8 +87,7 @@ export async function createNuxtDevServer(
 }
 
 // https://regex101.com/r/7HkR5c/1
-const RESTART_RE
-  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
+const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -121,6 +117,10 @@ class NuxtDevServer extends EventEmitter {
     this._jiti = createJiti(options.cwd)
 
     this.handler = async (req, res) => {
+      if (this._loadingError) {
+        this._renderError(req, res)
+        return
+      }
       await _initPromise
       if (this._handler) {
         this._handler(req, res)
@@ -134,21 +134,11 @@ class NuxtDevServer extends EventEmitter {
     this.listener = undefined
   }
 
+  _renderError(req: IncomingMessage, res: ServerResponse) {
+    renderError(req, res, this._loadingError)
+  }
+
   async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
-    if (this._loadingError) {
-      const youch = new Youch()
-      res.statusCode = 500
-      res.setHeader('Content-Type', 'text/html')
-      return res.end(
-        await youch.toHTML(this._loadingError, {
-          request: {
-            url: req.url,
-            method: req.method,
-            headers: req.headers,
-          },
-        }),
-      )
-    }
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate
@@ -171,13 +161,13 @@ class NuxtDevServer extends EventEmitter {
   async load(reload?: boolean, reason?: string) {
     try {
       await this._load(reload, reason)
+      this._loadingError = undefined
     }
     catch (error) {
       logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingError = error as Error
-      this._loadingMessage
-        = 'Error while loading Nuxt. Please check console and fix errors.'
+      this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading:error', error)
     }
   }
@@ -288,28 +278,19 @@ class NuxtDevServer extends EventEmitter {
       )
     }
 
-    await this._currentNuxt.hooks.callHook(
-      'listen',
-      this.listener.server,
-      this.listener,
-    )
+    await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
     // Sync internal server info to the internals
     // It is important for vite-node to use the internal URL but public proto
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = _getAddressURL(
-      addr,
-      !!this.listener.https,
-    )
+    this._currentNuxt.options.devServer.url = _getAddressURL(addr, !!this.listener.https)
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      logger.warn(
-        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
-      )
+      logger.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
     await Promise.all([
@@ -318,10 +299,10 @@ class NuxtDevServer extends EventEmitter {
     ])
 
     // Watch dist directory
-    this._distWatcher = chokidar.watch(
-      resolve(this._currentNuxt.options.buildDir, 'dist'),
-      { ignoreInitial: true, depth: 0 },
-    )
+    this._distWatcher = chokidar.watch(resolve(this._currentNuxt.options.buildDir, 'dist'), {
+      ignoreInitial: true,
+      depth: 0,
+    })
     this._distWatcher.on('unlinkDir', () => {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
@@ -331,13 +312,10 @@ class NuxtDevServer extends EventEmitter {
   }
 
   async _watchConfig() {
-    const configWatcher = chokidar.watch(
-      [this.options.cwd, join(this.options.cwd, '.config')],
-      {
-        ignoreInitial: true,
-        depth: 0,
-      },
-    )
+    const configWatcher = chokidar.watch([this.options.cwd, join(this.options.cwd, '.config')], {
+      ignoreInitial: true,
+      depth: 0,
+    })
     configWatcher.on('all', (event, _file) => {
       if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw') {
         return

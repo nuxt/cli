@@ -17,10 +17,10 @@ import { resolve } from 'pathe'
 import { satisfies } from 'semver'
 
 import { isBun, isTest } from 'std-env'
-import { Youch } from 'youch'
 import { showVersions } from '../utils/banner'
 import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
+import { renderError } from '../utils/error'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -141,18 +141,7 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
 
   const handler = (req: IncomingMessage, res: ServerResponse) => {
     if (error) {
-      const youch = new Youch()
-      res.statusCode = 500
-      res.setHeader('Content-Type', 'text/html')
-      youch.toHTML(error, {
-        request: {
-          url: req.url,
-          method: req.method,
-          headers: req.headers,
-        },
-      }).then((html) => {
-        res.end(html)
-      })
+      renderError(req, res, error)
       return
     }
     if (!address) {
