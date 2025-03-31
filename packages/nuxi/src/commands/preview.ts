@@ -32,12 +32,13 @@ const command = defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxtConfig } = await loadKit(cwd)
-    const config = await loadNuxtConfig({
+    const { loadNuxt } = await loadKit(cwd)
+    const nuxt = await loadNuxt({
       cwd,
       envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: /* ctx.options?.overrides || */ {},
     })
+    const { options: config } = nuxt
 
     const resolvedOutputDir = resolve(
       config.srcDir || cwd,
