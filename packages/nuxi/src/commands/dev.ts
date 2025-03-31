@@ -124,7 +124,7 @@ type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   const jiti = createJiti(nuxtOptions.rootDir)
   let loadingMessage = 'Nuxt dev server is starting...'
-  let error: Error
+  let error: Error | undefined
   let loadingTemplate = nuxtOptions.devServer.loadingTemplate
   for (const url of nuxtOptions.modulesDir) {
     // @ts-expect-error this is for backwards compatibility
@@ -189,6 +189,9 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
     setError: (_error: Error) => {
       error = _error
     },
+    clearError() {
+      error = undefined
+    },
   }
 }
 
@@ -203,6 +206,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
   }
 
   const restart = async () => {
+    devProxy.clearError()
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -246,6 +250,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       else if (message.type === 'nuxt:internal:dev:loading') {
         devProxy.setAddress(undefined)
         devProxy.setLoadingMessage(message.message)
+        devProxy.clearError()
       }
       else if (message.type === 'nuxt:internal:dev:loading:error') {
         devProxy.setAddress(undefined)
