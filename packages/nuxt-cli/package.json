@@ -55,7 +55,8 @@
     "semver": "^7.7.1",
     "std-env": "^3.8.1",
     "tinyexec": "^1.0.1",
-    "ufo": "^1.5.4"
+    "ufo": "^1.5.4",
+    "youch": "^4.1.0-beta.6"
   },
   "devDependencies": {
     "@types/node": "^22.13.14",
@@ -64,6 +65,7 @@
     "typescript": "^5.8.2",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.0.7",
-    "vitest": "^3.0.9"
+    "vitest": "^3.0.9",
+    "youch": "^4.1.0-beta.6"
   }
 }

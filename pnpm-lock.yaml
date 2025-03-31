@@ -205,6 +205,9 @@ importers:
       vitest:
         specifier: ^3.0.9
         version: 3.0.9(@types/debug@4.1.12)(@types/node@22.13.14)(jiti@2.4.2)(terser@5.37.0)(yaml@2.7.0)
+      youch:
+        specifier: ^4.1.0-beta.6
+        version: 4.1.0-beta.6
 
   packages/nuxt-cli:
     dependencies:
@@ -277,6 +280,9 @@ importers:
       ufo:
         specifier: ^1.5.4
         version: 1.5.4
+      youch:
+        specifier: ^4.1.0-beta.6
+        version: 4.1.0-beta.6
     devDependencies:
       '@types/node':
         specifier: ^22.13.14

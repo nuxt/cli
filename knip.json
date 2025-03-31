@@ -35,7 +35,8 @@
         "pkg-types",
         "scule",
         "semver",
-        "ufo"
+        "ufo",
+        "youch"
       ]
     }
   }

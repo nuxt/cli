@@ -20,6 +20,7 @@ import { isBun, isTest } from 'std-env'
 import { showVersions } from '../utils/banner'
 import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
+import { renderError } from '../utils/error'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -123,6 +124,7 @@ type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   const jiti = createJiti(nuxtOptions.rootDir)
   let loadingMessage = 'Nuxt dev server is starting...'
+  let error: Error | undefined
   let loadingTemplate = nuxtOptions.devServer.loadingTemplate
   for (const url of nuxtOptions.modulesDir) {
     // @ts-expect-error this is for backwards compatibility
@@ -138,6 +140,10 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   let address: string | undefined
 
   const handler = (req: IncomingMessage, res: ServerResponse) => {
+    if (error) {
+      renderError(req, res, error)
+      return
+    }
     if (!address) {
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
@@ -169,6 +175,12 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
     setLoadingMessage: (_msg: string) => {
       loadingMessage = _msg
     },
+    setError: (_error: Error) => {
+      error = _error
+    },
+    clearError() {
+      error = undefined
+    },
   }
 }
 
@@ -183,6 +195,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
   }
 
   const restart = async () => {
+    devProxy.clearError()
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -226,6 +239,11 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       else if (message.type === 'nuxt:internal:dev:loading') {
         devProxy.setAddress(undefined)
         devProxy.setLoadingMessage(message.message)
+        devProxy.clearError()
+      }
+      else if (message.type === 'nuxt:internal:dev:loading:error') {
+        devProxy.setAddress(undefined)
+        devProxy.setError(message.error)
       }
       else if (message.type === 'nuxt:internal:dev:restart') {
         restart()
