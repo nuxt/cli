@@ -32,21 +32,28 @@ const command = defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxtConfig } = await loadKit(cwd)
-    const config = await loadNuxtConfig({
-      cwd,
-      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-      overrides: /* ctx.options?.overrides || */ {},
+    const { loadNuxt } = await loadKit(cwd)
+
+    const resolvedOutputDir = await new Promise<string>((res) => {
+      loadNuxt({
+        cwd,
+        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+        ready: true,
+        overrides: {
+          modules: [
+            function (_, nuxt) {
+              nuxt.hook('nitro:init', (nitro) => {
+                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+              })
+            },
+          ],
+        },
+      }).then(nuxt => nuxt.close()).catch(() => '')
     })
 
-    const resolvedOutputDir = resolve(
-      config.srcDir || cwd,
-      config.nitro.output?.dir || '.output',
-      'nitro.json',
-    )
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
+    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
