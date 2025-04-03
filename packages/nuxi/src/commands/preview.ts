@@ -104,7 +104,6 @@ const command = defineCommand({
     }
     else {
       logger.error(`Cannot find \`${envFileName}\`.`)
-      process.exit(1)
     }
 
     const { port } = _resolveListenOptions(ctx.args)
