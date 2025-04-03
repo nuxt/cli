@@ -33,7 +33,7 @@
     "prepack": "unbuild"
   },
   "dependencies": {
-    "c12": "^3.0.2",
+    "c12": "^3.0.3",
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",
@@ -59,8 +59,8 @@
     "youch": "^4.1.0-beta.6"
   },
   "devDependencies": {
-    "@types/node": "^22.13.14",
-    "rollup": "^4.38.0",
+    "@types/node": "^22.14.0",
+    "rollup": "^4.39.0",
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.8.2",
     "unbuild": "^3.5.0",

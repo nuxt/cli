@@ -21,18 +21,19 @@ export default defineCommand({
     ...logLevelArgs,
     force: {
       type: 'boolean',
-      description: 'Override existing file',
+      description: 'Force override file if it already exists',
+      default: false,
     },
     template: {
       type: 'positional',
       required: true,
       valueHint: templateNames.join('|'),
-      description: `Template type to scaffold`,
+      description: `Specify which template to generate`,
     },
     name: {
       type: 'positional',
       required: true,
-      description: 'Generated file name',
+      description: 'Specify name of the generated file',
     },
   },
   async run(ctx) {
