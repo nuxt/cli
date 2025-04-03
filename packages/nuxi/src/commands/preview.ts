@@ -33,18 +33,24 @@ const command = defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const { loadNuxt } = await loadKit(cwd)
-    const nuxt = await loadNuxt({
-      cwd,
-      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-      overrides: /* ctx.options?.overrides || */ {},
-    })
-    const { options: config } = nuxt
 
-    const resolvedOutputDir = resolve(
-      config.srcDir || cwd,
-      config.nitro.output?.dir || '.output',
-      'nitro.json',
-    )
+    const resolvedOutputDir = await new Promise<string>((res, reject) => {
+      loadNuxt({
+        cwd,
+        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+        ready: true,
+        overrides: {
+          modules: [
+            function (_, nuxt) {
+              nuxt.hook('nitro:init', (nitro) => {
+                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+              })
+            },
+          ],
+        },
+      }).then(nuxt => nuxt.close()).catch(reject)
+    })
+
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
     const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
