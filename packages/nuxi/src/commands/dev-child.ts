@@ -2,12 +2,11 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 
 import process from 'node:process'
 
-import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import defu from 'defu'
 import { resolve } from 'pathe'
-
 import { isTest } from 'std-env'
+
 import { _getDevServerDefaults, _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
@@ -22,22 +21,17 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...envNameArgs,
-    ...legacyRootDirArgs,
     ...dotEnvArgs,
+    ...legacyRootDirArgs,
   },
   async run(ctx) {
     if (!process.send && !isTest) {
       logger.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
     }
 
-    const envFileName = typeof ctx.args.dotenv === 'string'
-      ? (ctx.args.dotenv || '.env')
-      : undefined
-
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    await setupDotenv({ cwd, fileName: envFileName })
 
     // Get dev context info
     const devContext: NuxtDevContext = JSON.parse(process.env.__NUXT_DEV__ || 'null') || {}
@@ -78,7 +72,7 @@ export default defineCommand({
       defaults: devServerDefaults,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
-      dotenv: envFileName,
+      dotenv: { cwd, fileName: ctx.args.dotenv },
       envName: ctx.args.envName,
       port: process.env._PORT ?? undefined,
       devContext,

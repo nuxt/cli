@@ -1,4 +1,5 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
+import type { DotenvOptions } from 'c12'
 import type { FSWatcher } from 'chokidar'
 import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
@@ -45,7 +46,7 @@ export interface NuxtDevContext {
 interface NuxtDevServerOptions {
   cwd: string
   logLevel?: 'silent' | 'info' | 'verbose'
-  dotenv: string | undefined
+  dotenv: DotenvOptions
   envName?: string
   clear?: boolean
   defaults: NuxtConfig
@@ -194,15 +195,13 @@ class NuxtDevServer extends EventEmitter {
 
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
-      dotenv: this.options.dotenv
-        ? {
-            cwd: this.options.cwd,
-            fileName: this.options.dotenv,
-          }
-        : undefined,
       dev: true,
       ready: false,
       envName: this.options.envName,
+      dotenv: {
+        cwd: this.options.cwd,
+        fileName: this.options.dotenv.fileName,
+      },
       defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
@@ -327,7 +326,7 @@ class NuxtDevServer extends EventEmitter {
         return
       }
       const file = relative(this.options.cwd, _file)
-      if (this.options.dotenv && file === this.options.dotenv) {
+      if (file === (this.options.dotenv.fileName || '.env')) {
         this.emit('restart')
       }
       if (RESTART_RE.test(file)) {
