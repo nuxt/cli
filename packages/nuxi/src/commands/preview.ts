@@ -34,7 +34,7 @@ const command = defineCommand({
 
     const { loadNuxt } = await loadKit(cwd)
 
-    const resolvedOutputDir = await new Promise<string>((res, reject) => {
+    const resolvedOutputDir = await new Promise<string>((res) => {
       loadNuxt({
         cwd,
         envName: ctx.args.envName, // c12 will fall back to NODE_ENV
@@ -48,12 +48,12 @@ const command = defineCommand({
             },
           ],
         },
-      }).then(nuxt => nuxt.close()).catch(reject)
+      }).then(nuxt => nuxt.close()).catch(() => '')
     })
 
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
+    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
