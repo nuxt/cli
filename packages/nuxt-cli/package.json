@@ -33,7 +33,7 @@
     "prepack": "unbuild"
   },
   "dependencies": {
-    "c12": "^3.0.2",
+    "c12": "^3.0.3",
     "chokidar": "^4.0.3",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",

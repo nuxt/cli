@@ -113,8 +113,8 @@ importers:
         specifier: ^7.7.0
         version: 7.7.0
       c12:
-        specifier: ^3.0.2
-        version: 3.0.2(magicast@0.3.5)
+        specifier: ^3.0.3
+        version: 3.0.3(magicast@0.3.5)
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -212,8 +212,8 @@ importers:
   packages/nuxt-cli:
     dependencies:
       c12:
-        specifier: ^3.0.2
-        version: 3.0.2(magicast@0.3.5)
+        specifier: ^3.0.3
+        version: 3.0.3(magicast@0.3.5)
       chokidar:
         specifier: ^4.0.3
         version: 4.0.3
@@ -2013,8 +2013,8 @@ packages:
     resolution: {integrity: sha512-tjwM5exMg6BGRI+kNmTntNsvdZS1X8BFYS6tnJ2hdH0kVxM6/eVZ2xy+FqStSWvYmtfFMDLIxurorHwDKfDz5Q==}
     engines: {node: '>=18'}
 
-  c12@3.0.2:
-    resolution: {integrity: sha512-6Tzk1/TNeI3WBPpK0j/Ss4+gPj3PUJYbWl/MWDJBThFvwNGNkXtd7Cz8BJtD4aRwoGHtzQD0SnxamgUiBH0/Nw==}
+  c12@3.0.3:
+    resolution: {integrity: sha512-uC3MacKBb0Z15o5QWCHvHWj5Zv34pGQj9P+iXKSpTuSGFS0KKhUWf4t9AJ+gWjYOdmWCPEGpEzm8sS0iqbpo1w==}
     peerDependencies:
       magicast: ^0.3.5
     peerDependenciesMeta:
@@ -2148,6 +2148,9 @@ packages:
 
   confbox@0.2.1:
     resolution: {integrity: sha512-hkT3yDPFbs95mNCy1+7qNKC6Pro+/ibzYxtM2iqEigpf0sVw+bg4Zh9/snjsBcf990vfIsg5+1U7VyiyBb3etg==}
+
+  confbox@0.2.2:
+    resolution: {integrity: sha512-1NB+BKqhtNipMsov4xI/NnhCKp9XG9NamYp5PVm9klAT0fsrNPjaFICsCFhNhwZJKNh7zB/3q8qXz0E9oaMNtQ==}
 
   consola@3.4.2:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
@@ -5674,7 +5677,7 @@ snapshots:
 
   '@nuxt/kit@3.16.1(magicast@0.3.5)':
     dependencies:
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       consola: 3.4.2
       defu: 6.1.4
       destr: 2.0.3
@@ -5701,7 +5704,7 @@ snapshots:
 
   '@nuxt/kit@3.16.2(magicast@0.3.5)':
     dependencies:
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       consola: 3.4.2
       defu: 6.1.4
       destr: 2.0.3
@@ -5754,7 +5757,7 @@ snapshots:
     dependencies:
       '@nuxt/kit': 3.16.2(magicast@0.3.5)
       '@nuxt/schema': 3.16.2
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       consola: 3.4.2
       defu: 6.1.4
       destr: 2.0.3
@@ -6814,10 +6817,10 @@ snapshots:
     dependencies:
       run-applescript: 7.0.0
 
-  c12@3.0.2(magicast@0.3.5):
+  c12@3.0.3(magicast@0.3.5):
     dependencies:
       chokidar: 4.0.3
-      confbox: 0.1.8
+      confbox: 0.2.2
       defu: 6.1.4
       dotenv: 16.4.7
       exsolve: 1.0.4
@@ -6865,7 +6868,7 @@ snapshots:
 
   changelogen@0.6.1(magicast@0.3.5):
     dependencies:
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       confbox: 0.2.1
       consola: 3.4.2
       convert-gitmoji: 0.1.5
@@ -6955,6 +6958,8 @@ snapshots:
   confbox@0.1.8: {}
 
   confbox@0.2.1: {}
+
+  confbox@0.2.2: {}
 
   consola@3.4.2: {}
 
@@ -8547,7 +8552,7 @@ snapshots:
       '@rollup/plugin-terser': 0.4.4(rollup@4.39.0)
       '@vercel/nft': 0.29.2(rollup@4.39.0)
       archiver: 7.0.1
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       chokidar: 4.0.3
       citty: 0.1.6
       compatx: 0.1.8
@@ -8647,7 +8652,7 @@ snapshots:
       '@rollup/plugin-terser': 0.4.4(rollup@4.39.0)
       '@vercel/nft': 0.29.2(rollup@4.39.0)
       archiver: 7.0.1
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       chokidar: 4.0.3
       citty: 0.1.6
       compatx: 0.1.8
@@ -8791,7 +8796,7 @@ snapshots:
       '@oxc-parser/wasm': 0.60.0
       '@unhead/vue': 2.0.0-rc.13(vue@3.5.13(typescript@5.8.2))
       '@vue/shared': 3.5.13
-      c12: 3.0.2(magicast@0.3.5)
+      c12: 3.0.3(magicast@0.3.5)
       chokidar: 4.0.3
       compatx: 0.1.8
       consola: 3.4.2
