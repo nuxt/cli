@@ -4,7 +4,7 @@
 
 ## Commands
 
-All commands are listed on https://nuxt.com/docs/api/commands
+All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Contributing
 
@@ -16,7 +16,7 @@ pnpm i
 pnpm dev:prepare
 
 # Go to the playground directory
-cd playground
+cd packages/nuxt-cli/playground
 
 # And run any commands
 pnpm nuxi <command>

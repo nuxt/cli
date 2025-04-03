@@ -1,0 +1,71 @@
+{
+  "name": "@nuxt/cli",
+  "type": "module",
+  "version": "3.24.0",
+  "description": "Nuxt CLI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuxt/cli.git",
+    "directory": "packages/nuxt-cli"
+  },
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./cli": "./bin/nuxi.mjs"
+  },
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "nuxi": "bin/nuxi.mjs",
+    "nuxi-ng": "bin/nuxi.mjs",
+    "nuxt": "bin/nuxi.mjs",
+    "nuxt-cli": "bin/nuxi.mjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "engines": {
+    "node": "^16.10.0 || >=18.0.0"
+  },
+  "scripts": {
+    "build": "unbuild",
+    "dev:prepare": "unbuild --stub",
+    "prepack": "unbuild"
+  },
+  "dependencies": {
+    "c12": "^3.0.3",
+    "chokidar": "^4.0.3",
+    "citty": "^0.1.6",
+    "clipboardy": "^4.0.0",
+    "consola": "^3.4.2",
+    "defu": "^6.1.4",
+    "fuse.js": "^7.1.0",
+    "giget": "^2.0.0",
+    "h3": "^1.15.1",
+    "httpxy": "^0.1.7",
+    "jiti": "^2.4.2",
+    "listhen": "^1.9.0",
+    "nypm": "^0.6.0",
+    "ofetch": "^1.4.1",
+    "ohash": "^2.0.11",
+    "pathe": "^2.0.3",
+    "perfect-debounce": "^1.0.0",
+    "pkg-types": "^2.1.0",
+    "scule": "^1.3.0",
+    "semver": "^7.7.1",
+    "std-env": "^3.8.1",
+    "tinyexec": "^1.0.1",
+    "ufo": "^1.5.4",
+    "youch": "^4.1.0-beta.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "rollup": "^4.39.0",
+    "rollup-plugin-visualizer": "^5.14.0",
+    "typescript": "^5.8.2",
+    "unbuild": "^3.5.0",
+    "unplugin-purge-polyfills": "^0.0.7",
+    "vitest": "^3.1.1",
+    "youch": "^4.1.0-beta.6"
+  }
+}

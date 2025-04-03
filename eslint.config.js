@@ -10,17 +10,18 @@ export default createConfigForNuxt({
   },
   dirs: {
     src: [
-      './playground',
+      './packages/nuxi/playground',
     ],
   },
-}, antfu()).append({
+}, await antfu()).append({
   rules: {
     'vue/singleline-html-element-content-newline': 'off',
     // TODO: remove usage of `any` throughout codebase
     '@typescript-eslint/no-explicit-any': 'off',
+    'style/indent-binary-ops': 'off',
   },
 }, {
-  files: ['playground/**'],
+  files: ['packages/nuxt-cli/playground/**'],
   rules: {
     'no-console': 'off',
   },
