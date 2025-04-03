@@ -44,10 +44,10 @@ export interface NuxtDevContext {
 
 interface NuxtDevServerOptions {
   cwd: string
-  logLevel: 'silent' | 'info' | 'verbose'
+  logLevel?: 'silent' | 'info' | 'verbose'
   dotenv: boolean
-  envName: string
-  clear: boolean
+  envName?: string
+  clear?: boolean
   defaults: NuxtConfig
   overrides: NuxtConfig
   port?: string | number

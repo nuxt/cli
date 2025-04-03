@@ -29,6 +29,7 @@ export default defineCommand({
       description:
         'Filter by Nuxt version and list compatible modules only (auto detected by default)',
       required: false,
+      valueHint: '2|3',
     },
   },
   async setup(ctx) {

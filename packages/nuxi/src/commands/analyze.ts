@@ -29,10 +29,12 @@ export default defineCommand({
       type: 'string',
       description: 'Name of the analysis',
       default: 'default',
+      valueHint: 'name',
     },
     serve: {
       type: 'boolean',
       description: 'Serve the analysis results',
+      negativeDescription: 'Skip serving the analysis results',
       default: true,
     },
   },

@@ -89,7 +89,8 @@ export default defineCommand({
       type: 'string',
       alias: 'ch',
       default: 'stable',
-      description: 'Specify a channel to install from (nightly or stable)',
+      description: 'Specify a channel to install from (default: stable)',
+      valueHint: 'stable|nightly',
     },
   },
   async run(ctx) {
