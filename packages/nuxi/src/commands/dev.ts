@@ -8,7 +8,6 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
 import { fork } from 'node:child_process'
 import process from 'node:process'
 
-import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import defu from 'defu'
 import { createJiti } from 'jiti'
@@ -88,12 +87,12 @@ const command = defineCommand({
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     await showVersions(cwd)
-    await setupDotenv({ cwd, fileName: ctx.args.dotenv })
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
     const nuxtOptions = await loadNuxtConfig({
       cwd,
+      dotenv: { cwd, fileName: ctx.args.dotenv },
       envName: ctx.args.envName, // c12 will fall back to NODE_ENV
       overrides: {
         dev: true,
@@ -131,7 +130,10 @@ const command = defineCommand({
           defaults: devServerDefaults,
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           clear: ctx.args.clear,
-          dotenv: !!ctx.args.dotenv,
+          dotenv: {
+            cwd,
+            fileName: ctx.args.dotenv,
+          },
           envName: ctx.args.envName,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
           devContext: {},

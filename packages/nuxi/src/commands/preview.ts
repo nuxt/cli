@@ -92,15 +92,18 @@ const command = defineCommand({
       ),
     )
 
-    const envExists = ctx.args.dotenv
-      ? existsSync(resolve(cwd, ctx.args.dotenv))
-      : existsSync(cwd)
+    const envFileName = ctx.args.dotenv || '.env'
+
+    const envExists = existsSync(resolve(cwd, envFileName))
 
     if (envExists) {
       logger.info(
-        `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
+        `Loading \`${envFileName}\`. This will not be loaded when running the server in production.`,
       )
-      await setupDotenv({ cwd, fileName: ctx.args.dotenv })
+      await setupDotenv({ cwd, fileName: envFileName })
+    }
+    else {
+      logger.error(`Cannot find \`${envFileName}\`.`)
     }
 
     const { port } = _resolveListenOptions(ctx.args)

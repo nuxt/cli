@@ -8,7 +8,7 @@ import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -18,6 +18,7 @@ export default defineCommand({
   args: {
     ...cwdArgs,
     ...logLevelArgs,
+    ...dotEnvArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -28,6 +29,7 @@ export default defineCommand({
     const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
     const nuxt = await loadNuxt({
       cwd,
+      dotenv: { cwd, fileName: ctx.args.dotenv },
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
