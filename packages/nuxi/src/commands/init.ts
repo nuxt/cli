@@ -2,17 +2,18 @@ import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
 
 import type { PackageManagerName } from 'nypm'
-import { existsSync } from 'node:fs'
 
+import { existsSync } from 'node:fs'
 import process from 'node:process'
+
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { join, relative, resolve } from 'pathe'
-
 import { hasTTY } from 'std-env'
+
 import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
