@@ -184,7 +184,7 @@ export default defineCommand({
     const currentPackageManager = detectCurrentPackageManager()
     // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
-    const packageMangerSelectOptions = packageManagerOptions.map(pm => ({
+    const packageManagerSelectOptions = packageManagerOptions.map(pm => ({
       label: pm,
       value: pm,
       hint: currentPackageManager === pm ? 'current' : undefined,
@@ -193,7 +193,7 @@ export default defineCommand({
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
-        options: packageMangerSelectOptions,
+        options: packageManagerSelectOptions,
         initial: currentPackageManager,
         cancel: 'reject',
       }).catch(() => process.exit(1))
