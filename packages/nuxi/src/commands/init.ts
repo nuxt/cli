@@ -1,6 +1,5 @@
 import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
-
 import type { PackageManagerName } from 'nypm'
 
 import { existsSync } from 'node:fs'
