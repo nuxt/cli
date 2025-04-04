@@ -1,17 +1,18 @@
+import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
+
 import type { PackageManagerName } from 'nypm'
-
 import { existsSync } from 'node:fs'
-import process from 'node:process'
 
+import process from 'node:process'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { join, relative, resolve } from 'pathe'
-import { hasTTY } from 'std-env'
 
+import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
@@ -168,13 +169,31 @@ export default defineCommand({
       process.exit(1)
     }
 
+    function detectCurrentPackageManager() {
+      const userAgent = process.env.npm_config_user_agent
+      if (!userAgent) {
+        return
+      }
+      const [name] = userAgent.split('/')
+      if (packageManagerOptions.includes(name as PackageManagerName)) {
+        return name as PackageManagerName
+      }
+    }
+
+    const currentPackageManager = detectCurrentPackageManager()
     // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const packageMangerSelectOptions = packageManagerOptions.map(pm => ({
+      label: pm,
+      value: pm,
+      hint: currentPackageManager === pm ? 'current' : undefined,
+    } satisfies SelectPromptOptions['options'][number]))
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
-        options: packageManagerOptions,
+        options: packageMangerSelectOptions,
+        initial: currentPackageManager,
         cancel: 'reject',
       }).catch(() => process.exit(1))
 
