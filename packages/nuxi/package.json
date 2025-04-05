@@ -70,7 +70,7 @@
     "semver": "^7.7.1",
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
-    "typescript": "^5.8.2",
+    "typescript": "^5.8.3",
     "ufo": "^1.5.4",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.0.7",
