@@ -3,13 +3,40 @@
   "workspaces": {
     ".": {
       "ignoreDependencies": [
-        "pkg-pr-new"
+        "vue"
+      ],
+      "entry": [
+        "scripts/*"
       ]
     },
-    "playground": {
+    "packages/nuxt-cli/playground": {
       "ignoreDependencies": [
-        "nuxi",
         "nuxt"
+      ]
+    },
+    "packages/nuxt-cli": {
+      "ignoreDependencies": [
+        "c12",
+        "chokidar",
+        "clipboardy",
+        "consola",
+        "defu",
+        "fuse.js",
+        "giget",
+        "h3",
+        "httpxy",
+        "jiti",
+        "listhen",
+        "nypm",
+        "ofetch",
+        "ohash",
+        "pathe",
+        "perfect-debounce",
+        "pkg-types",
+        "scule",
+        "semver",
+        "ufo",
+        "youch"
       ]
     }
   }

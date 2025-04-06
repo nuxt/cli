@@ -19,19 +19,24 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+          ref: ${{ github.event.pull_request.head.sha }}
+      - run: npm i -g --force corepack && corepack enable
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
         with:
-          node-version: 18
+          node-version: lts/*
           cache: pnpm
-      - run: pnpm install
-      - run: pnpm build
-      - name: Upload stats.json
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
+
+      - name: ⏫ Upload stats.json
         uses: actions/upload-artifact@v4
         with:
           name: head-stats
-          path: ./stats.json
+          path: ./packages/*/stats.json
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -44,18 +49,23 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.base_ref }}
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+      - run: npm i -g --force corepack && corepack enable
+      - uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e # v4.3.0
         with:
-          node-version: 18
+          node-version: lts/*
           cache: pnpm
-      - run: pnpm install
-      - run: pnpm build
-      - name: Upload stats.json
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
+
+      - name: ⏫ Upload stats.json
         uses: actions/upload-artifact@v4
         with:
           name: base-stats
-          path: ./stats.json
+          path: ./packages/*/stats.json
 
   # run the action against the stats.json files
   compare:
@@ -63,10 +73,16 @@ jobs:
     needs: [build-base, build-head]
     permissions:
       pull-requests: write
+      issues: write
+    strategy:
+      matrix:
+        package: [nuxi, nuxt-cli, create-nuxt]
     steps:
-      - uses: actions/download-artifact@v4
-      - uses: twk3/rollup-size-compare-action@v1.1.2
+      - name: ⏬ Download stats.json
+        uses: actions/download-artifact@v4
+      - uses: twk3/rollup-size-compare-action@v1.2.0
         with:
+          title: ${{ matrix.package }} size comparison
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          current-stats-json-path: ./head-stats/stats.json
-          base-stats-json-path: ./base-stats/stats.json
+          current-stats-json-path: ./head-stats/${{ matrix.package }}/stats.json
+          base-stats-json-path: ./base-stats/${{ matrix.package }}/stats.json

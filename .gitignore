@@ -1,6 +1,7 @@
 node_modules
 dist
 .vscode
+.idea
 .nuxt
 nuxt-app
 .pnpm-store

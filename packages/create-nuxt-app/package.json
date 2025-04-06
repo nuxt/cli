@@ -1,0 +1,21 @@
+{
+  "name": "create-nuxt-app",
+  "type": "module",
+  "version": "6.0.0",
+  "description": "Create a Nuxt app in seconds",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuxt/cli.git",
+    "directory": "packages/create-nuxt-app"
+  },
+  "bin": {
+    "create-nuxt-app": "bin/create-nuxt-app.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "dependencies": {
+    "create-nuxt": "workspace:*"
+  }
+}
