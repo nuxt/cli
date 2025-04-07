@@ -192,12 +192,12 @@ export default defineCommand({
         process.exit(1)
       }
 
-      if (!response['dist-tags'][nightlyChannelTag]) {
+      const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
+
+      if (!nightlyChannelVersion) {
         logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
         process.exit(1)
       }
-
-      const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
       const packageJsonPath = resolve(cwd, ctx.args.dir)
