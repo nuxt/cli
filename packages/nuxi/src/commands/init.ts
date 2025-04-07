@@ -193,7 +193,7 @@ export default defineCommand({
       }
 
       if (!response['dist-tags'][nightlyChannelTag]) {
-        logger.error(`Nightly channel tag '${nightlyChannelTag}' not found.`)
+        logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
         process.exit(1)
       }
 
