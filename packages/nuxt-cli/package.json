@@ -55,7 +55,7 @@
     "semver": "^7.7.1",
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
-    "ufo": "^1.5.4",
+    "ufo": "^1.6.0",
     "youch": "^4.1.0-beta.6"
   },
   "devDependencies": {
