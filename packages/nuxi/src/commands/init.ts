@@ -89,8 +89,8 @@ export default defineCommand({
       alias: 'M',
     },
     nightly: {
-      type: 'boolean',
-      description: 'Use nightly release channel instead of stable',
+      type: 'string',
+      description: 'Use Nuxt nightly release channel (3x or latest)',
     },
   },
   async run(ctx) {
@@ -174,17 +174,41 @@ export default defineCommand({
       process.exit(1)
     }
 
-    if (ctx.args.nightly) {
-      const nightlyNuxtVersion = 'npm:nuxt-nightly@latest'
+    if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
+      const response = await $fetch<{
+        'dist-tags': {
+          [key: string]: string
+        }
+      }>('https://registry.npmjs.org/nuxt-nightly')
+
+      const nightlyChannelTag = ctx.args.nightly
+        || Object.keys(response['dist-tags'])
+          .filter(key => /^\d+x$/.test(key))
+          .sort()
+          .reverse()[0]
+
+      if (!nightlyChannelTag) {
+        logger.error(`Error getting nightly channel tag.`)
+        process.exit(1)
+      }
+
+      if (!response['dist-tags'][nightlyChannelTag]) {
+        logger.error(`Nightly channel tag '${nightlyChannelTag}' not found.`)
+        process.exit(1)
+      }
+
+      const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
+
+      const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
       const packageJsonPath = resolve(cwd, ctx.args.dir)
 
       const packageJson = await readPackageJSON(packageJsonPath)
 
       if (packageJson.dependencies && 'nuxt' in packageJson.dependencies) {
-        packageJson.dependencies.nuxt = nightlyNuxtVersion
+        packageJson.dependencies.nuxt = nightlyNuxtPackageJsonVersion
       }
       else if (packageJson.devDependencies && 'nuxt' in packageJson.devDependencies) {
-        packageJson.devDependencies.nuxt = nightlyNuxtVersion
+        packageJson.devDependencies.nuxt = nightlyNuxtPackageJsonVersion
       }
 
       await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
