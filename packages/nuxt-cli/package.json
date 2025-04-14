@@ -59,8 +59,8 @@
     "youch": "^4.1.0-beta.7"
   },
   "devDependencies": {
-    "@types/node": "^22.14.0",
-    "rollup": "^4.39.0",
+    "@types/node": "^22.14.1",
+    "rollup": "^4.40.0",
     "rollup-plugin-visualizer": "^5.14.0",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
