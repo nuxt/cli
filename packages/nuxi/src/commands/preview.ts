@@ -109,7 +109,7 @@ const command = defineCommand({
       )
       await setupDotenv({ cwd, fileName: envFileName })
     }
-    else {
+    else if (ctx.args.dotenv) {
       logger.error(`Cannot find \`${envFileName}\`.`)
     }
 
