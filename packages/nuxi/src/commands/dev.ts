@@ -285,7 +285,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
         restart()
       }
       else if (message.type === 'nuxt:internal:dev:rejection') {
-        logger.withTag('nuxi').info(`Restarting Nuxt due to error: \`${message.message}\``)
+        logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
         restart()
       }
     })
