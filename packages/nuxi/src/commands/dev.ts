@@ -65,7 +65,7 @@ const command = defineCommand({
       'host': {
         ...listhenArgs.host,
         alias: ['h'],
-        description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions._layers?.[0]?.devServer?.host`)',
+        description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
       },
       'clipboard': { ...listhenArgs.clipboard, default: false },
       'https.domains': {
@@ -328,8 +328,7 @@ function _resolveListenOptions(
       ?? process.env.NUXT_HOST
       ?? process.env.NITRO_HOST
       ?? process.env.HOST
-      // TODO: Default host in schema should be undefined instead of ''
-      ?? nuxtOptions._layers?.[0]?.config?.devServer?.host
+      ?? (nuxtOptions.devServer?.host || undefined /* for backwards compatibility with previous '' default */)
       ?? undefined
 
   const _public: boolean | undefined = args.public
