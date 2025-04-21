@@ -73,8 +73,8 @@
     "typescript": "^5.8.3",
     "ufo": "^1.6.1",
     "unbuild": "^3.5.0",
-    "unplugin-purge-polyfills": "^0.0.7",
-    "vitest": "^3.1.1",
+    "unplugin-purge-polyfills": "^0.1.0",
+    "vitest": "^3.1.2",
     "youch": "^4.1.0-beta.7"
   }
 }
