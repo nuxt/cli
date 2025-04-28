@@ -39,7 +39,7 @@
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "3.16.2",
+    "@nuxt/schema": "3.17.0",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "eslint-plugin-jsdoc": "50.6.9",
