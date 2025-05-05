@@ -37,10 +37,10 @@ importers:
         specifier: ^0.6.1
         version: 0.6.1(magicast@0.3.5)
       eslint:
-        specifier: ^9.25.1
+        specifier: ^9.26.0
         version: 9.26.0(jiti@2.4.2)
       knip:
-        specifier: ^5.50.5
+        specifier: ^5.53.0
         version: 5.53.0(@types/node@22.15.3)(typescript@5.8.3)
       pkg-pr-new:
         specifier: ^0.0.43
@@ -104,7 +104,7 @@ importers:
         specifier: 3.17.1
         version: 3.17.1
       '@nuxt/test-utils':
-        specifier: ^3.17.2
+        specifier: ^3.18.0
         version: 3.18.0(@types/node@22.15.3)(jiti@2.4.2)(magicast@0.3.5)(terser@5.39.0)(typescript@5.8.3)(vitest@3.1.2(@types/debug@4.1.12)(@types/node@22.15.3)(jiti@2.4.2)(terser@5.39.0)(yaml@2.7.1))(yaml@2.7.1)
       '@types/node':
         specifier: ^22.15.3
