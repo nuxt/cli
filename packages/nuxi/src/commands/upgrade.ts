@@ -168,11 +168,6 @@ export default defineCommand({
       await dedupeDependencies({ recreateLockfile: true })
     }
 
-    if (method === 'dedupe') {
-      logger.info('Try deduping dependencies...')
-      await dedupeDependencies()
-    }
-
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
     logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
@@ -181,6 +176,11 @@ export default defineCommand({
       packageManager,
       dev: nuxtDependencyType === 'devDependencies',
     })
+
+    if (method === 'dedupe') {
+      logger.info('Try deduping dependencies...')
+      await dedupeDependencies()
+    }
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'
