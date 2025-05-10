@@ -161,13 +161,6 @@ export default defineCommand({
       },
     ).catch(() => process.exit(1))
 
-    if (method === 'force') {
-      logger.info(
-        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
-      )
-      await dedupeDependencies({ recreateLockfile: true })
-    }
-
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
     logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
@@ -176,6 +169,13 @@ export default defineCommand({
       packageManager,
       dev: nuxtDependencyType === 'devDependencies',
     })
+
+    if (method === 'force') {
+      logger.info(
+        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
+      )
+      await dedupeDependencies({ recreateLockfile: true })
+    }
 
     if (method === 'dedupe') {
       logger.info('Try deduping dependencies...')
