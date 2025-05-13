@@ -10,7 +10,7 @@ import { isTest } from 'std-env'
 import { _getDevServerDefaults, _getDevServerOverrides, createNuxtDevServer } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { logger } from '../utils/logger'
-import { cwdArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -21,6 +21,7 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...envNameArgs,
+    ...dotEnvArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -71,12 +72,20 @@ export default defineCommand({
       defaults: devServerDefaults,
       logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
       clear: !!ctx.args.clear,
-      dotenv: !!ctx.args.dotenv,
+      dotenv: { cwd, fileName: ctx.args.dotenv },
       envName: ctx.args.envName,
       port: process.env._PORT ?? undefined,
       devContext,
     })
 
+    nuxtDev.on('loading:error', (_error) => {
+      sendIPCMessage({ type: 'nuxt:internal:dev:loading:error', error: {
+        message: _error.message,
+        stack: _error.stack,
+        name: _error.name,
+        code: _error.code,
+      } })
+    })
     nuxtDev.on('loading', (message) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
     })

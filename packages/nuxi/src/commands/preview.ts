@@ -32,21 +32,28 @@ const command = defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxtConfig } = await loadKit(cwd)
-    const config = await loadNuxtConfig({
-      cwd,
-      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-      overrides: /* ctx.options?.overrides || */ {},
+    const { loadNuxt } = await loadKit(cwd)
+
+    const resolvedOutputDir = await new Promise<string>((res) => {
+      loadNuxt({
+        cwd,
+        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+        ready: true,
+        overrides: {
+          modules: [
+            function (_, nuxt) {
+              nuxt.hook('nitro:init', (nitro) => {
+                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+              })
+            },
+          ],
+        },
+      }).then(nuxt => nuxt.close()).catch(() => '')
     })
 
-    const resolvedOutputDir = resolve(
-      config.srcDir || cwd,
-      config.nitro.output?.dir || '.output',
-      'nitro.json',
-    )
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
 
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput]
+    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
@@ -92,15 +99,18 @@ const command = defineCommand({
       ),
     )
 
-    const envExists = ctx.args.dotenv
-      ? existsSync(resolve(cwd, ctx.args.dotenv))
-      : existsSync(cwd)
+    const envFileName = ctx.args.dotenv || '.env'
+
+    const envExists = existsSync(resolve(cwd, envFileName))
 
     if (envExists) {
       logger.info(
-        `Loading \`${ctx.args.dotenv || '.env'}\`. This will not be loaded when running the server in production.`,
+        `Loading \`${envFileName}\`. This will not be loaded when running the server in production.`,
       )
-      await setupDotenv({ cwd, fileName: ctx.args.dotenv })
+      await setupDotenv({ cwd, fileName: envFileName })
+    }
+    else if (ctx.args.dotenv) {
+      logger.error(`Cannot find \`${envFileName}\`.`)
     }
 
     const { port } = _resolveListenOptions(ctx.args)

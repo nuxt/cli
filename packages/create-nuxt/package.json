@@ -1,7 +1,7 @@
 {
   "name": "create-nuxt",
   "type": "module",
-  "version": "3.23.1",
+  "version": "3.25.1",
   "description": "Create a Nuxt app in seconds",
   "license": "MIT",
   "repository": {
@@ -33,11 +33,11 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@types/node": "^22.13.13",
-    "rollup": "^4.37.0",
+    "@types/node": "^22.15.17",
+    "rollup": "^4.40.2",
     "rollup-plugin-visualizer": "^5.14.0",
-    "typescript": "^5.8.2",
+    "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
-    "unplugin-purge-polyfills": "^0.0.7"
+    "unplugin-purge-polyfills": "^0.1.0"
   }
 }

@@ -89,7 +89,8 @@ export default defineCommand({
       type: 'string',
       alias: 'ch',
       default: 'stable',
-      description: 'Specify a channel to install from (nightly or stable)',
+      description: 'Specify a channel to install from (default: stable)',
+      valueHint: 'stable|nightly',
     },
   },
   async run(ctx) {
@@ -160,6 +161,15 @@ export default defineCommand({
       },
     ).catch(() => process.exit(1))
 
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
+
+    await addDependency(npmPackages, {
+      cwd,
+      packageManager,
+      dev: nuxtDependencyType === 'devDependencies',
+    })
+
     if (method === 'force') {
       logger.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
@@ -171,15 +181,6 @@ export default defineCommand({
       logger.info('Try deduping dependencies...')
       await dedupeDependencies()
     }
-
-    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
-    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
-
-    await addDependency(npmPackages, {
-      cwd,
-      packageManager,
-      dev: nuxtDependencyType === 'devDependencies',
-    })
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'

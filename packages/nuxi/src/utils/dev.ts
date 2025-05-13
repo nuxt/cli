@@ -1,8 +1,9 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
+import type { DotenvOptions } from 'c12'
 import type { FSWatcher } from 'chokidar'
 import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
-import type { RequestListener, ServerResponse } from 'node:http'
+import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
@@ -22,12 +23,14 @@ import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { renderError } from './error'
 
 export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:ready', port: number }
   | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
   | { type: 'nuxt:internal:dev:rejection', message: string }
+  | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
 export interface NuxtDevContext {
   public?: boolean
@@ -42,10 +45,10 @@ export interface NuxtDevContext {
 
 interface NuxtDevServerOptions {
   cwd: string
-  logLevel: 'silent' | 'info' | 'verbose'
-  dotenv: boolean
-  envName: string
-  clear: boolean
+  logLevel?: 'silent' | 'info' | 'verbose'
+  dotenv: DotenvOptions
+  envName?: string
+  clear?: boolean
   defaults: NuxtConfig
   overrides: NuxtConfig
   port?: string | number
@@ -53,10 +56,7 @@ interface NuxtDevServerOptions {
   devContext: NuxtDevContext
 }
 
-export async function createNuxtDevServer(
-  options: NuxtDevServerOptions,
-  listenOptions?: Partial<ListenOptions>,
-) {
+export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: Partial<ListenOptions>) {
   // Initialize dev server
   const devServer = new NuxtDevServer(options)
 
@@ -88,8 +88,7 @@ export async function createNuxtDevServer(
 }
 
 // https://regex101.com/r/7HkR5c/1
-const RESTART_RE
-  = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
+const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
@@ -97,6 +96,7 @@ class NuxtDevServer extends EventEmitter {
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
   private _jiti: Jiti
+  private _loadingError?: Error
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -118,12 +118,16 @@ class NuxtDevServer extends EventEmitter {
     this._jiti = createJiti(options.cwd)
 
     this.handler = async (req, res) => {
+      if (this._loadingError) {
+        this._renderError(req, res)
+        return
+      }
       await _initPromise
       if (this._handler) {
         this._handler(req, res)
       }
       else {
-        this._renderLoadingScreen(res)
+        this._renderLoadingScreen(req, res)
       }
     }
 
@@ -131,7 +135,11 @@ class NuxtDevServer extends EventEmitter {
     this.listener = undefined
   }
 
-  async _renderLoadingScreen(res: ServerResponse) {
+  _renderError(req: IncomingMessage, res: ServerResponse) {
+    renderError(req, res, this._loadingError)
+  }
+
+  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate
@@ -154,13 +162,14 @@ class NuxtDevServer extends EventEmitter {
   async load(reload?: boolean, reason?: string) {
     try {
       await this._load(reload, reason)
+      this._loadingError = undefined
     }
     catch (error) {
       logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
-      this._loadingMessage
-        = 'Error while loading Nuxt. Please check console and fix errors.'
-      this.emit('loading', this._loadingMessage)
+      this._loadingError = error as Error
+      this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
+      this.emit('loading:error', error)
     }
   }
 
@@ -189,6 +198,10 @@ class NuxtDevServer extends EventEmitter {
       dev: true,
       ready: false,
       envName: this.options.envName,
+      dotenv: {
+        cwd: this.options.cwd,
+        fileName: this.options.dotenv.fileName,
+      },
       defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
@@ -270,28 +283,19 @@ class NuxtDevServer extends EventEmitter {
       )
     }
 
-    await this._currentNuxt.hooks.callHook(
-      'listen',
-      this.listener.server,
-      this.listener,
-    )
+    await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
     // Sync internal server info to the internals
     // It is important for vite-node to use the internal URL but public proto
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = _getAddressURL(
-      addr,
-      !!this.listener.https,
-    )
+    this._currentNuxt.options.devServer.url = _getAddressURL(addr, !!this.listener.https)
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      logger.warn(
-        'You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.',
-      )
+      logger.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
     await Promise.all([
@@ -300,10 +304,10 @@ class NuxtDevServer extends EventEmitter {
     ])
 
     // Watch dist directory
-    this._distWatcher = chokidar.watch(
-      resolve(this._currentNuxt.options.buildDir, 'dist'),
-      { ignoreInitial: true, depth: 0 },
-    )
+    this._distWatcher = chokidar.watch(resolve(this._currentNuxt.options.buildDir, 'dist'), {
+      ignoreInitial: true,
+      depth: 0,
+    })
     this._distWatcher.on('unlinkDir', () => {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
@@ -313,19 +317,16 @@ class NuxtDevServer extends EventEmitter {
   }
 
   async _watchConfig() {
-    const configWatcher = chokidar.watch(
-      [this.options.cwd, join(this.options.cwd, '.config')],
-      {
-        ignoreInitial: true,
-        depth: 0,
-      },
-    )
+    const configWatcher = chokidar.watch([this.options.cwd, join(this.options.cwd, '.config')], {
+      ignoreInitial: true,
+      depth: 0,
+    })
     configWatcher.on('all', (event, _file) => {
       if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw') {
         return
       }
       const file = relative(this.options.cwd, _file)
-      if (file === (this.options.dotenv || '.env')) {
+      if (file === (this.options.dotenv.fileName || '.env')) {
         this.emit('restart')
       }
       if (RESTART_RE.test(file)) {
