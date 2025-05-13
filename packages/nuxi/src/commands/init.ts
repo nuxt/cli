@@ -1,3 +1,4 @@
+import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
@@ -168,13 +169,31 @@ export default defineCommand({
       process.exit(1)
     }
 
+    function detectCurrentPackageManager() {
+      const userAgent = process.env.npm_config_user_agent
+      if (!userAgent) {
+        return
+      }
+      const [name] = userAgent.split('/')
+      if (packageManagerOptions.includes(name as PackageManagerName)) {
+        return name as PackageManagerName
+      }
+    }
+
+    const currentPackageManager = detectCurrentPackageManager()
     // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
+    const packageManagerSelectOptions = packageManagerOptions.map(pm => ({
+      label: pm,
+      value: pm,
+      hint: currentPackageManager === pm ? 'current' : undefined,
+    } satisfies SelectPromptOptions['options'][number]))
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
         type: 'select',
-        options: packageManagerOptions,
+        options: packageManagerSelectOptions,
+        initial: currentPackageManager,
         cancel: 'reject',
       }).catch(() => process.exit(1))
 
@@ -264,8 +283,28 @@ export default defineCommand({
         process.exit(1)
       }
 
-      if (selectedOfficialModules.length > 0) {
-        modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
+      if (selectedOfficialModules.length) {
+        const modules = selectedOfficialModules as unknown as string[]
+        if (!modules.includes('@nuxt/ui')) {
+          modulesToAdd.push(...modules)
+        }
+        else {
+          const implicit = new Set(['@nuxt/fonts', '@nuxt/icon'])
+          const toInstall = []
+          const skipped = []
+          for (const mod of modules) {
+            if (mod === '@nuxt/ui' || !implicit.has(mod)) {
+              toInstall.push(mod)
+            }
+            else {
+              skipped.push(mod)
+            }
+          }
+          if (skipped.length) {
+            logger.info(`The following modules are already included in @nuxt/ui and will not be installed separately: ${skipped.join(', ')}`)
+          }
+          modulesToAdd.push(...toInstall)
+        }
       }
     }
 
