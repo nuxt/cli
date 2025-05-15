@@ -45,4 +45,14 @@ some-other-setting=value
     expect(getRegistryFromContent('', null)).toBeNull()
     expect(getRegistryFromContent('', '@myorg')).toBeNull()
   })
+
+  it('extracts registry from line with comments', () => {
+    const content = `
+registry=https://registry.npmjs.org/ # with comment
+@myorg:registry=https://my-registry.org/ # another comment
+    `
+
+    expect(getRegistryFromContent(content, null)).toBe('https://registry.npmjs.org/')
+    expect(getRegistryFromContent(content, '@myorg')).toBe('https://my-registry.org/')
+  })
 })

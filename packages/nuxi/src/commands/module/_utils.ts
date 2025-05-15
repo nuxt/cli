@@ -1,3 +1,4 @@
+import { parseINI } from 'confbox'
 import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
 import { coerce, satisfies } from 'semver'
@@ -126,20 +127,23 @@ export async function getNuxtVersion(cwd: string) {
 }
 
 export function getRegistryFromContent(content: string, scope: string | null) {
-  if (scope) {
-    const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
-    const scopedMatch = content.match(scopedRegex)?.[1]
-    if (scopedMatch) {
-      return scopedMatch.trim()
+  try {
+    const npmConfig = parseINI<Record<string, string | undefined>>(content)
+
+    if (scope) {
+      const scopeKey = `${scope}:registry`
+      if (npmConfig[scopeKey]) {
+        return npmConfig[scopeKey].trim()
+      }
     }
-  }
 
-  // If no scoped registry found or no scope provided, look for the default registry
-  const defaultRegex = /^\s*registry=(.+)$/m
-  const defaultMatch = content.match(defaultRegex)?.[1]
-  if (defaultMatch) {
-    return defaultMatch.trim()
-  }
+    if (npmConfig.registry) {
+      return npmConfig.registry.trim()
+    }
 
-  return null
+    return null
+  }
+  catch {
+    return null
+  }
 }
