@@ -124,3 +124,22 @@ export async function getNuxtVersion(cwd: string) {
   const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
 }
+
+export function getRegistryFromContent(content: string, scope: string | null) {
+  if (scope) {
+    const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
+    const scopedMatch = content.match(scopedRegex)?.[1]
+    if (scopedMatch) {
+      return scopedMatch.trim()
+    }
+  }
+
+  // If no scoped registry found or no scope provided, look for the default registry
+  const defaultRegex = /^\s*registry=(.+)$/m
+  const defaultMatch = content.match(defaultRegex)?.[1]
+  if (defaultMatch) {
+    return defaultMatch.trim()
+  }
+
+  return null
+}
