@@ -124,6 +124,9 @@ importers:
       clipboardy:
         specifier: ^4.0.0
         version: 4.0.0
+      confbox:
+        specifier: ^0.2.2
+        version: 0.2.2
       consola:
         specifier: ^3.4.2
         version: 3.4.2
@@ -153,7 +156,7 @@ importers:
         version: 0.3.5
       nitropack:
         specifier: npm:nitropack-nightly
-        version: nitropack-nightly@2.11.12-20250501-152448.ab1cd033
+        version: nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d
       nypm:
         specifier: ^0.6.0
         version: 0.6.0
@@ -3812,8 +3815,8 @@ packages:
     resolution: {integrity: sha512-Nc3loyVASW59W+8fLDZT1lncpG7llffyZ2o0UQLx/Fr20i7P8oP+lE7+TEcFvXj9IUWU6LjB9P3BH+iFGyp+mg==}
     engines: {node: ^14.16.0 || >=16.0.0}
 
-  nitropack-nightly@2.11.12-20250501-152448.ab1cd033:
-    resolution: {integrity: sha512-ItrUA9p+JQpGvg86/VGUwsc5BMdgNujnfufFXR39QtHPxo9e9KSVkGE4bAxuHc1xFZ32/Tt2YtXVciOwKKE2pA==}
+  nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d:
+    resolution: {integrity: sha512-PxoClhSQJeInvi3e5gQBVoFRQyheQCsnl1wXYB7G3amzpIbPv7FJyxG7j8HZpzOjk4jQP7+kQLq6m+0vBsl9FA==}
     engines: {node: ^16.11.0 || >=17.0.0}
     hasBin: true
     peerDependencies:
@@ -4958,6 +4961,9 @@ packages:
 
   unenv@2.0.0-rc.15:
     resolution: {integrity: sha512-J/rEIZU8w6FOfLNz/hNKsnY+fFHWnu9MH4yRbSZF3xbbGHovcetXPs7sD+9p8L6CeNC//I9bhRYAOsBt2u7/OA==}
+
+  unenv@2.0.0-rc.17:
+    resolution: {integrity: sha512-B06u0wXkEd+o5gOCMl/ZHl5cfpYbDZKAT+HWTL+Hws6jWu7dCiqBBXXXzMFcFVJb8D4ytAnYmxJA83uwOQRSsg==}
 
   unhead@2.0.8:
     resolution: {integrity: sha512-63WR+y08RZE7ChiFdgNY64haAkhCtUS5/HM7xo4Q83NA63txWbEh2WGmrKbArdQmSct+XlqbFN8ZL1yWpQEHEA==}
@@ -9544,7 +9550,7 @@ snapshots:
       p-wait-for: 5.0.2
       qs: 6.14.0
 
-  nitropack-nightly@2.11.12-20250501-152448.ab1cd033:
+  nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d:
     dependencies:
       '@cloudflare/kv-asset-handler': 0.4.0
       '@netlify/functions': 3.1.8(rollup@4.40.2)
@@ -9609,7 +9615,7 @@ snapshots:
       ultrahtml: 1.6.0
       uncrypto: 0.1.3
       unctx: 2.4.1
-      unenv: 2.0.0-rc.15
+      unenv: 2.0.0-rc.17
       unimport: 5.0.1
       unplugin-utils: 0.2.4
       unstorage: 1.16.0(db0@0.3.2)(ioredis@5.6.1)
@@ -11005,6 +11011,14 @@ snapshots:
   undici@6.21.2: {}
 
   unenv@2.0.0-rc.15:
+    dependencies:
+      defu: 6.1.4
+      exsolve: 1.0.5
+      ohash: 2.0.11
+      pathe: 2.0.3
+      ufo: 1.6.1
+
+  unenv@2.0.0-rc.17:
     dependencies:
       defu: 6.1.4
       exsolve: 1.0.5
