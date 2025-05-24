@@ -85,6 +85,7 @@ export default defineCommand({
       type: 'string',
       required: false,
       description: 'Nuxt modules to install (comma separated without spaces)',
+      negativeDescription: 'Skip module installation prompt',
       alias: 'M',
     },
   },
@@ -249,9 +250,10 @@ export default defineCommand({
     const modulesToAdd: string[] = []
 
     // Get modules from arg (if provided)
-    if (ctx.args.modules) {
+    if (ctx.args.modules !== undefined) {
       modulesToAdd.push(
-        ...ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean),
+        // ctx.args.modules is false when --no-modules is used
+        ...(ctx.args.modules || '').split(',').map(module => module.trim()).filter(Boolean),
       )
     }
     // ...or offer to install official modules (if not offline)
