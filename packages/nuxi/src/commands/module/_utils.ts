@@ -1,3 +1,4 @@
+import { parseINI } from 'confbox'
 import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
 import { coerce, satisfies } from 'semver'
@@ -123,4 +124,26 @@ export async function getNuxtVersion(cwd: string) {
   const pkg = await readPackageJSON(cwd)
   const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
+}
+
+export function getRegistryFromContent(content: string, scope: string | null) {
+  try {
+    const npmConfig = parseINI<Record<string, string | undefined>>(content)
+
+    if (scope) {
+      const scopeKey = `${scope}:registry`
+      if (npmConfig[scopeKey]) {
+        return npmConfig[scopeKey].trim()
+      }
+    }
+
+    if (npmConfig.registry) {
+      return npmConfig.registry.trim()
+    }
+
+    return null
+  }
+  catch {
+    return null
+  }
 }
