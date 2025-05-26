@@ -156,7 +156,7 @@ importers:
         version: 0.3.5
       nitropack:
         specifier: npm:nitropack-nightly
-        version: nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d
+        version: nitropack-nightly@2.11.13-20250521-182135.be404a71
       nypm:
         specifier: ^0.6.0
         version: 0.6.0
@@ -226,6 +226,9 @@ importers:
       clipboardy:
         specifier: ^4.0.0
         version: 4.0.0
+      confbox:
+        specifier: ^0.2.2
+        version: 0.2.2
       consola:
         specifier: ^3.4.2
         version: 3.4.2
@@ -3878,8 +3881,8 @@ packages:
     resolution: {integrity: sha512-Nc3loyVASW59W+8fLDZT1lncpG7llffyZ2o0UQLx/Fr20i7P8oP+lE7+TEcFvXj9IUWU6LjB9P3BH+iFGyp+mg==}
     engines: {node: ^14.16.0 || >=16.0.0}
 
-  nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d:
-    resolution: {integrity: sha512-PxoClhSQJeInvi3e5gQBVoFRQyheQCsnl1wXYB7G3amzpIbPv7FJyxG7j8HZpzOjk4jQP7+kQLq6m+0vBsl9FA==}
+  nitropack-nightly@2.11.13-20250521-182135.be404a71:
+    resolution: {integrity: sha512-LDTCHiI5gMBVlS4ARutezlH7opKnhj1pW4BRiOQGhNjXkUzce0F+/Ggp124WY/CadfedIc6PR2vI0UOqsWwi1A==}
     engines: {node: ^16.11.0 || >=17.0.0}
     hasBin: true
     peerDependencies:
@@ -9623,7 +9626,7 @@ snapshots:
       p-wait-for: 5.0.2
       qs: 6.14.0
 
-  nitropack-nightly@2.11.12-20250512-222705.6e1e4f7d:
+  nitropack-nightly@2.11.13-20250521-182135.be404a71:
     dependencies:
       '@cloudflare/kv-asset-handler': 0.4.0
       '@netlify/functions': 3.1.8(rollup@4.41.1)
