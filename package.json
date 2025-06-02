@@ -23,26 +23,26 @@
   "devDependencies": {
     "@antfu/eslint-config": "^4.13.2",
     "@nuxt/eslint-config": "^1.4.1",
-    "@types/node": "^22.15.21",
+    "@types/node": "^22.15.29",
     "@types/semver": "^7.7.0",
     "@vitest/coverage-v8": "^3.1.4",
     "changelogen": "^0.6.1",
-    "eslint": "^9.27.0",
-    "knip": "^5.58.1",
-    "pkg-pr-new": "^0.0.50",
+    "eslint": "^9.28.0",
+    "knip": "^5.59.1",
+    "pkg-pr-new": "^0.0.51",
     "semver": "^7.7.2",
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4",
-    "vue": "^3.5.15"
+    "vue": "^3.5.16"
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
     "@nuxt/schema": "3.17.4",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
-    "eslint-plugin-jsdoc": "50.6.17",
+    "eslint-plugin-jsdoc": "50.7.1",
     "eslint-plugin-unicorn": "59.0.1",
     "h3": "^1.15.3",
     "nuxi": "workspace:*"

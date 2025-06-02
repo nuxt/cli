@@ -56,16 +56,16 @@
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
     "ufo": "^1.6.1",
-    "youch": "^4.1.0-beta.7"
+    "youch": "^4.1.0-beta.8"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
+    "@types/node": "^22.15.29",
     "rollup": "^4.41.1",
     "rollup-plugin-visualizer": "^6.0.1",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.1.0",
     "vitest": "^3.1.4",
-    "youch": "^4.1.0-beta.7"
+    "youch": "^4.1.0-beta.8"
   }
 }
