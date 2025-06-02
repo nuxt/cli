@@ -255,7 +255,7 @@ export default defineCommand({
       )
     }
     // ...or offer to install official modules (if not offline)
-    else {
+    else if (!ctx.args.offline && !ctx.args.preferOffline) {
       const modulesPromise = $fetch<{
         modules: {
           npm: string
@@ -272,7 +272,7 @@ export default defineCommand({
         },
       ).catch(() => process.exit(1))
 
-      if (!ctx.args.offline && !ctx.args.preferOffline && wantsUserModules) {
+      if (wantsUserModules) {
         const response = await modulesPromise
 
         const officialModules = response.modules
