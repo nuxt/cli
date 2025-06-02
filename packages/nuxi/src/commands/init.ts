@@ -255,8 +255,8 @@ export default defineCommand({
       )
     }
     // ...or offer to install official modules (if not offline)
-    else if (!ctx.args.offline && !ctx.args.preferOffline) {
-      const response = await $fetch<{
+    else {
+      const modulesPromise = $fetch<{
         modules: {
           npm: string
           type: 'community' | 'official'
@@ -264,27 +264,39 @@ export default defineCommand({
         }[]
       }>('https://api.nuxt.com/modules')
 
-      const officialModules = response.modules
-        .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
-
-      const selectedOfficialModules = await logger.prompt(
-        `Would you like to install any of the official modules?`,
+      const wantsUserModules = await logger.prompt(
+        `Would you like to install any Nuxt modules?`,
         {
-          type: 'multiselect',
-          options: officialModules.map(module => ({
-            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-            value: module.npm,
-          })),
-          required: false,
+          type: 'confirm',
+          cancel: 'reject',
         },
-      )
+      ).catch(() => process.exit(1))
 
-      if (selectedOfficialModules === undefined) {
-        process.exit(1)
-      }
+      if (!ctx.args.offline && !ctx.args.preferOffline && wantsUserModules) {
+        const response = await modulesPromise
 
-      if (selectedOfficialModules.length > 0) {
-        modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
+        const officialModules = response.modules
+          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
+
+        const selectedOfficialModules = await logger.prompt(
+          `Would you like to install any of the official modules?`,
+          {
+            type: 'multiselect',
+            options: officialModules.map(module => ({
+              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+              value: module.npm,
+            })),
+            required: false,
+          },
+        )
+
+        if (selectedOfficialModules === undefined) {
+          process.exit(1)
+        }
+
+        if (selectedOfficialModules.length > 0) {
+          modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
+        }
       }
     }
 
