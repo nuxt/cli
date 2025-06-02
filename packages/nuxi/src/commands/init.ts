@@ -279,7 +279,7 @@ export default defineCommand({
           .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
 
         const selectedOfficialModules = await logger.prompt(
-          `Would you like to install any of the official modules?`,
+          'Pick the modules to install:',
           {
             type: 'multiselect',
             options: officialModules.map(module => ({
