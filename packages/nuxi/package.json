@@ -74,7 +74,7 @@
     "ufo": "^1.6.1",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.1.0",
-    "vitest": "^3.1.4",
+    "vitest": "^3.2.0",
     "youch": "^4.1.0-beta.8"
   }
 }
