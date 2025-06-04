@@ -23,7 +23,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-let startTime: number | undefined = Date.now()
+const startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 const listhenArgs = getListhenArgs()
 
