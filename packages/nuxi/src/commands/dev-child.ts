@@ -1,5 +1,6 @@
 import process from 'node:process'
 import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
 import { isTest } from 'std-env'
 
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -26,9 +27,9 @@ export default defineCommand({
       console.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
     }
 
-    const { initialize } = await import('../dev')
+    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    // @ts-expect-error this should not be called
-    await initialize({}, ctx)
+    const { initialize } = await import('../dev')
+    await initialize({ cwd }, ctx)
   },
 })
