@@ -24,6 +24,20 @@ describe('dev', async () => {
     await (result as { listener: any }).listener.close()
   })
 
+  bench('starts dev server in no-fork mode', async () => {
+    const { result } = await runCommand('dev', [fixtureDir, '--no-fork'], {
+      overrides: {
+        builder: {
+          bundle: (nuxt) => {
+            nuxt.hooks.removeAllHooks()
+            return Promise.resolve()
+          },
+        },
+      },
+    })
+    await (result as { listener: any }).listener.close()
+  })
+
   // it.skip('makes requests to dev server', async () => {
   // })
 })
