@@ -2,6 +2,7 @@ import type { Nuxt } from '@nuxt/schema'
 import type { Listener } from 'listhen'
 
 import { rm } from 'node:fs/promises'
+import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -9,7 +10,7 @@ import { bench, describe } from 'vitest'
 
 import { runCommand } from '../../../nuxi/src/run'
 
-describe('dev', async () => {
+describe(`dev [${os.platform()}]`, async () => {
   const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
   await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 
