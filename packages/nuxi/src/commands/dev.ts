@@ -100,13 +100,13 @@ const command = defineCommand({
         ...ctx.data?.overrides,
       },
     })
-    performance.mark('load nuxt config')
 
     // Start Proxy Listener
     const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
 
     if (ctx.args.fork) {
       // Fork Nuxt dev process
+      // TODO: run in no-fork mode, then fall back to prepared fork
       const [devProxy, subprocess] = await Promise.all([
         createDevProxy(nuxtOptions, listenOptions),
         startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions),
@@ -129,7 +129,7 @@ const command = defineCommand({
         proxy: {
           https: listenOptions.https,
         },
-      }, { data: ctx.data })
+      }, { data: ctx.data }, listenOptions)
 
       return { listener }
     }
@@ -216,7 +216,7 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
   }
 }
 
-async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
+async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
   let devProxy: DevProxy
   let ready: Promise<void> | undefined
@@ -236,8 +236,8 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
       context: {
         cwd,
         args,
-        hostname: listenArgs.hostname,
-        public: listenArgs.public,
+        hostname: listenOptions.hostname,
+        public: listenOptions.public,
         publicURLs: urls.map(r => r.url),
         proxy: {
           url: devProxy.listener.url,

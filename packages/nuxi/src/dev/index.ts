@@ -1,4 +1,5 @@
 import type { NuxtConfig } from '@nuxt/schema'
+import type { ListenOptions } from 'listhen'
 import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
@@ -25,7 +26,7 @@ interface InitializeOptions {
   }
 }
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
   const devServerOverrides = _getDevServerOverrides({
     public: devContext.public,
   })
@@ -46,7 +47,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     envName: devContext.args.envName,
     port: process.env._PORT ?? undefined,
     devContext,
-  })
+  }, listenOptions)
 
   if (process.send) {
     devServer.on('loading:error', (_error) => {
