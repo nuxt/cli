@@ -42,16 +42,14 @@ describe(`dev [${os.platform()}]`, async () => {
     await result.listener.close()
   })
 
+  const { result } = await runCommand('dev', [fixtureDir]) as { result: { listener: Listener } }
+  const url = result.listener.url
+
   bench('makes requests to dev server', async () => {
-    const { result } = await runCommand('dev', [fixtureDir]) as { result: { listener: Listener } }
-    const url = result.listener.url
-    for (let i = 0; i < 10; i++) {
-      const html = await fetch(url).then(r => r.text())
-      if (!html.includes('Welcome to the Nuxt CLI playground!')) {
-        throw new Error('Unexpected response from dev server')
-      }
-      await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
+    const html = await fetch(url).then(r => r.text())
+    if (!html.includes('Welcome to the Nuxt CLI playground!')) {
+      throw new Error('Unexpected response from dev server')
     }
-    await result.listener.close()
-  })
+    await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
+  }, { time: 10_000 })
 })
