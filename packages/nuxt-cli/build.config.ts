@@ -23,8 +23,9 @@ export default defineBuildConfig({
       }
     },
   },
-  entries: ['src/index', 'src/dev.ts'],
+  entries: ['src/index', 'src/dev/index.ts'],
   externals: [
     '@nuxt/test-utils',
+    '@nuxt/schema',
   ],
 })
