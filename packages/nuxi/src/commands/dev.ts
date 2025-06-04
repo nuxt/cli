@@ -103,32 +103,24 @@ const command = defineCommand({
     performance.mark('load nuxt config')
 
     // Start Proxy Listener
-    const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
+    const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
 
     if (ctx.args.fork) {
       // Fork Nuxt dev process
+      const [devProxy, subprocess] = await Promise.all([
+        createDevProxy(nuxtOptions, listenOptions),
+        startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions),
+      ])
 
-      const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      performance.mark('create dev proxy')
+      await subprocess.initialize(devProxy)
 
-      _startSubprocess(devProxy, cwd, ctx.args, ctx.rawArgs, listenOptions)
-        .finally(() => {
-          performance.mark('start subprocess')
-          let lastTime
-          for (const entry of performance.getEntries()) {
-            lastTime ||= entry.startTime
-            console.log(entry.name, `${(entry.startTime - lastTime).toFixed(2)}ms`)
-            lastTime = entry.startTime
-          }
-          console.log('total time', Date.now() - startTime)
-        })
       return { listener: devProxy.listener }
     }
     else {
       // Directly start Nuxt dev
       const { initialize } = await import('../dev/index')
 
-      const { listener } = await initialize({ data: ctx.data }, {
+      const { listener } = await initialize({
         cwd,
         args: ctx.args,
         hostname: listenOptions.hostname,
@@ -137,7 +129,7 @@ const command = defineCommand({
         proxy: {
           https: listenOptions.https,
         },
-      })
+      }, { data: ctx.data })
 
       return { listener }
     }
@@ -153,9 +145,9 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
+type DevProxy = Awaited<ReturnType<typeof createDevProxy>>
 
-async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
+async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   let loadingMessage = 'Nuxt dev server is starting...'
   let error: Error | undefined
   let address: string | undefined
@@ -224,8 +216,10 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, listenArgs: Partial<ListenOptions>) {
+async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
+  let devProxy: DevProxy
+  let ready: Promise<void> | undefined
   const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
       childProc.kill(signal)
@@ -233,8 +227,29 @@ async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLeve
     }
   }
 
-  const restart = async () => {
-    devProxy.clearError()
+  async function initialize(proxy: DevProxy) {
+    devProxy = proxy
+    const urls = await devProxy.listener.getURLs()
+    await ready
+    childProc!.send({
+      type: 'nuxt:internal:dev:context',
+      context: {
+        cwd,
+        args,
+        hostname: listenArgs.hostname,
+        public: listenArgs.public,
+        publicURLs: urls.map(r => r.url),
+        proxy: {
+          url: devProxy.listener.url,
+          urls,
+          https: devProxy.listener.https,
+        },
+      } satisfies NuxtDevContext,
+    })
+  }
+
+  async function restart() {
+    devProxy?.clearError()
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -244,25 +259,8 @@ async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLeve
     }
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__.devEntry, rawArgs, {
-      execArgv: [
-        '--enable-source-maps',
-        process.argv.find((a: string) => a.includes('--inspect')),
-      ].filter(Boolean) as string[],
-      env: {
-        ...process.env,
-        __NUXT_DEV__: JSON.stringify({
-          cwd,
-          args,
-          hostname: listenArgs.hostname,
-          public: listenArgs.public,
-          publicURLs: await devProxy.listener.getURLs().then(r => r.map(r => r.url)),
-          proxy: {
-            url: devProxy.listener.url,
-            urls: await devProxy.listener.getURLs(),
-            https: devProxy.listener.https,
-          },
-        } satisfies NuxtDevContext),
-      },
+      execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
+      env: process.env,
     })
 
     // Close main process on child exit with error
@@ -273,30 +271,36 @@ async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLeve
     })
 
     // Listen for IPC messages
-    childProc.on('message', (message: NuxtDevIPCMessage) => {
-      if (message.type === 'nuxt:internal:dev:ready') {
-        devProxy.setAddress(`http://127.0.0.1:${message.port}`)
-        if (startTime) {
-          logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
-          startTime = undefined
+    ready = new Promise((resolve, reject) => {
+      childProc!.on('error', reject)
+      childProc!.on('message', (message: NuxtDevIPCMessage) => {
+        if (message.type === 'nuxt:internal:dev:fork-ready') {
+          resolve()
         }
-      }
-      else if (message.type === 'nuxt:internal:dev:loading') {
-        devProxy.setAddress(undefined)
-        devProxy.setLoadingMessage(message.message)
-        devProxy.clearError()
-      }
-      else if (message.type === 'nuxt:internal:dev:loading:error') {
-        devProxy.setAddress(undefined)
-        devProxy.setError(message.error)
-      }
-      else if (message.type === 'nuxt:internal:dev:restart') {
-        restart()
-      }
-      else if (message.type === 'nuxt:internal:dev:rejection') {
-        logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
-        restart()
-      }
+        else if (message.type === 'nuxt:internal:dev:ready') {
+          devProxy.setAddress(`http://127.0.0.1:${message.port}`)
+          performance.mark('dev ready')
+          if (startTime) {
+            logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+          }
+        }
+        else if (message.type === 'nuxt:internal:dev:loading') {
+          devProxy.setAddress(undefined)
+          devProxy.setLoadingMessage(message.message)
+          devProxy.clearError()
+        }
+        else if (message.type === 'nuxt:internal:dev:loading:error') {
+          devProxy.setAddress(undefined)
+          devProxy.setError(message.error)
+        }
+        else if (message.type === 'nuxt:internal:dev:restart') {
+          restart()
+        }
+        else if (message.type === 'nuxt:internal:dev:rejection') {
+          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
+          restart()
+        }
+      })
     })
   }
 
@@ -315,12 +319,13 @@ async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLeve
   await restart()
 
   return {
+    initialize,
     restart,
     kill,
   }
 }
 
-function _resolveListenOptions(
+function resolveListenOptions(
   nuxtOptions: NuxtOptions,
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {

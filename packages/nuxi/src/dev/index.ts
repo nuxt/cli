@@ -1,5 +1,5 @@
 import type { NuxtConfig } from '@nuxt/schema'
-import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
+import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 import defu from 'defu'
@@ -31,7 +31,7 @@ interface InitializeOptions {
   }
 }
 
-export async function initialize(ctx: InitializeOptions = {}, devContext: NuxtDevContext = JSON.parse(process.env.__NUXT_DEV__ || '{}')) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}) {
   const args = devContext.args || ctx.args || {} as NonNullable<Partial<NuxtDevContext['args']>>
 
   const devServerOverrides = _getDevServerOverrides({
@@ -44,7 +44,7 @@ export async function initialize(ctx: InitializeOptions = {}, devContext: NuxtDe
   }, devContext.publicURLs)
 
   // Init Nuxt dev
-  const nuxtDev = await createNuxtDevServer({
+  const devServer = await createNuxtDevServer({
     cwd: devContext.cwd,
     overrides: defu(ctx.data?.overrides, devServerOverrides),
     defaults: devServerDefaults,
@@ -57,7 +57,7 @@ export async function initialize(ctx: InitializeOptions = {}, devContext: NuxtDe
   })
 
   if (process.send) {
-    nuxtDev.on('loading:error', (_error) => {
+    devServer.on('loading:error', (_error) => {
       sendIPCMessage({
         type: 'nuxt:internal:dev:loading:error',
         error: {
@@ -68,29 +68,33 @@ export async function initialize(ctx: InitializeOptions = {}, devContext: NuxtDe
         },
       })
     })
-    nuxtDev.on('loading', (message) => {
+    devServer.on('loading', (message) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
     })
-    nuxtDev.on('restart', () => {
+    devServer.on('restart', () => {
       sendIPCMessage({ type: 'nuxt:internal:dev:restart' })
     })
-    nuxtDev.on('ready', (payload) => {
+    devServer.on('ready', (payload) => {
       sendIPCMessage({ type: 'nuxt:internal:dev:ready', port: payload.port })
     })
   }
 
   // Init server
-  await nuxtDev.init()
+  await devServer.init()
 
   if (process.env.DEBUG) {
     // eslint-disable-next-line no-console
     console.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
   }
 
-  return { listener: nuxtDev.listener }
+  return { listener: devServer.listener }
 }
 
 if (process.send) {
-  // eslint-disable-next-line antfu/no-top-level-await
-  await initialize()
+  sendIPCMessage({ type: 'nuxt:internal:dev:fork-ready' })
+  process.on('message', (message: NuxtParentIPCMessage) => {
+    if (message.type === 'nuxt:internal:dev:context') {
+      initialize(message.context)
+    }
+  })
 }

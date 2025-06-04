@@ -28,6 +28,7 @@ export default defineCommand({
 
     const { initialize } = await import('../dev')
 
-    await initialize(ctx)
+    // @ts-expect-error this should not be called
+    await initialize({}, ctx)
   },
 })

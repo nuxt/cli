@@ -23,7 +23,11 @@ import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../uti
 
 import { renderError } from './error'
 
+export type NuxtParentIPCMessage =
+  | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
+
 export type NuxtDevIPCMessage =
+  | { type: 'nuxt:internal:dev:fork-ready' }
   | { type: 'nuxt:internal:dev:ready', port: number }
   | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
