@@ -287,6 +287,9 @@ importers:
         specifier: ^4.1.0-beta.8
         version: 4.1.0-beta.8
     devDependencies:
+      '@nuxt/schema':
+        specifier: ^3.17.5
+        version: 3.17.5
       '@types/node':
         specifier: ^22.15.29
         version: 22.15.29

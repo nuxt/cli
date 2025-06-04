@@ -1,3 +1,5 @@
+import type { Nuxt } from '@nuxt/schema'
+
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,7 +16,7 @@ describe('dev', async () => {
     const { result } = await runCommand('dev', [fixtureDir], {
       overrides: {
         builder: {
-          bundle: (nuxt) => {
+          bundle: (nuxt: Nuxt) => {
             nuxt.hooks.removeAllHooks()
             return Promise.resolve()
           },
@@ -28,7 +30,7 @@ describe('dev', async () => {
     const { result } = await runCommand('dev', [fixtureDir, '--no-fork'], {
       overrides: {
         builder: {
-          bundle: (nuxt) => {
+          bundle: (nuxt: Nuxt) => {
             nuxt.hooks.removeAllHooks()
             return Promise.resolve()
           },

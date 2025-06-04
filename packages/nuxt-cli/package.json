@@ -59,6 +59,7 @@
     "youch": "^4.1.0-beta.8"
   },
   "devDependencies": {
+    "@nuxt/schema": "^3.17.5",
     "@types/node": "^22.15.29",
     "rollup": "^4.41.1",
     "rollup-plugin-visualizer": "^6.0.1",
