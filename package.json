@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.13.2",
+    "@codspeed/vitest-plugin": "^4.0.1",
     "@nuxt/eslint-config": "^1.4.1",
     "@types/node": "^22.15.29",
     "@types/semver": "^7.7.0",
