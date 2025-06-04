@@ -24,6 +24,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
+let startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 const listhenArgs = getListhenArgs()
 
@@ -271,6 +272,10 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
     childProc.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:ready') {
         devProxy.setAddress(`http://127.0.0.1:${message.port}`)
+        if (startTime) {
+          logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+          startTime = undefined
+        }
       }
       else if (message.type === 'nuxt:internal:dev:loading') {
         devProxy.setAddress(undefined)
