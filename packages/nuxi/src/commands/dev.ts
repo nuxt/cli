@@ -258,7 +258,7 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
       kill('SIGHUP')
     }
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__.devEntry, rawArgs, {
+    childProc = fork(globalThis.__nuxt_cli__.devEntry!, rawArgs, {
       execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
       env: process.env,
     })
