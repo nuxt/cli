@@ -10,12 +10,14 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import defu from 'defu'
+import { createProxyServer } from 'httpxy'
 import { createJiti } from 'jiti'
+import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-
 import { isBun, isTest } from 'std-env'
+
 import { showVersions } from '../utils/banner'
 import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
@@ -108,8 +110,8 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
-      return { listener: devProxy?.listener }
+      _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
+      return { listener: devProxy.listener }
     }
     else {
       // Directly start Nuxt dev
@@ -142,7 +144,7 @@ const command = defineCommand({
         listenOptions,
       )
       await devServer.init()
-      return { listener: devServer?.listener }
+      return { listener: devServer.listener }
     }
   },
 })
@@ -159,24 +161,15 @@ type ArgsT = Exclude<
 type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
 
 async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
-  const jiti = createJiti(nuxtOptions.rootDir)
   let loadingMessage = 'Nuxt dev server is starting...'
   let error: Error | undefined
-  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
-  for (const url of nuxtOptions.modulesDir) {
-    // @ts-expect-error this is for backwards compatibility
-    if (loadingTemplate) {
-      break
-    }
-    loadingTemplate = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates', { parentURL: url }).then(r => r.loading)
-  }
-
-  const { createProxyServer } = await import('httpxy')
-  const proxy = createProxyServer({})
-
   let address: string | undefined
 
-  const handler = (req: IncomingMessage, res: ServerResponse) => {
+  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
+
+  const proxy = createProxyServer({})
+
+  const listener = await listen((req: IncomingMessage, res: ServerResponse) => {
     if (error) {
       renderError(req, res, error)
       return
@@ -184,28 +177,34 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
     if (!address) {
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
-      res.end(loadingTemplate({ loading: loadingMessage }))
+      if (loadingTemplate) {
+        res.end(loadingTemplate({ loading: loadingMessage }))
+        return
+      }
+      // older versions of Nuxt did not have the loading template defined in the schema
+      const jiti = createJiti(nuxtOptions.rootDir)
+      Promise.race(nuxtOptions.modulesDir.map(async (url) => {
+        return await jiti.import<{ loading: (opts?: { loading?: string }) => string }>('@nuxt/ui-templates', { parentURL: url })
+      })).then((r) => {
+        loadingTemplate = r.loading
+        res.end(r.loading({ loading: loadingMessage }))
+      })
       return
     }
-    return proxy.web(req, res, { target: address })
-  }
+    proxy.web(req, res, { target: address })
+  }, listenOptions)
 
-  const wsHandler = (req: IncomingMessage, socket: any, head: any) => {
+  listener.server.on('upgrade', (req, socket, head) => {
     if (!address) {
       socket.destroy()
       return
     }
+    // @ts-expect-error TODO: fix socket type in httpxy
     return proxy.ws(req, socket, { target: address }, head)
-  }
-
-  const { listen } = await import('listhen')
-  const listener = await listen(handler, listenOptions)
-  listener.server.on('upgrade', wsHandler)
+  })
 
   return {
     listener,
-    handler,
-    wsHandler,
     setAddress: (_addr: string | undefined) => {
       address = _addr
     },
@@ -241,7 +240,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       kill('SIGHUP')
     }
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
+    childProc = fork(globalThis.__nuxt_cli__.entry, ['_dev', ...rawArgs], {
       execArgv: [
         '--enable-source-maps',
         process.argv.find((a: string) => a.includes('--inspect')),

@@ -78,10 +78,7 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
   }
   if (options.devContext.proxy?.urls) {
     const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
-    devServer.listener.getURLs = async () =>
-      Array.from(
-        new Set([...options.devContext.proxy!.urls!, ...(await _getURLs())]),
-      )
+    devServer.listener.getURLs = async () => Array.from(new Set([...options.devContext.proxy?.urls || [], ...(await _getURLs())]))
   }
 
   return devServer

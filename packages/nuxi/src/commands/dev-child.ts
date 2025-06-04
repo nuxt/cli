@@ -25,6 +25,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
   },
   async run(ctx) {
+    const start = Date.now()
     if (!process.send && !isTest) {
       logger.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
     }
@@ -98,5 +99,6 @@ export default defineCommand({
 
     // Init server
     await nuxtDev.init()
+    logger.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
   },
 })
