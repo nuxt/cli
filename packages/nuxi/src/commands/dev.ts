@@ -11,7 +11,6 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import defu from 'defu'
 import { createProxyServer } from 'httpxy'
-import { createJiti } from 'jiti'
 import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
@@ -109,7 +108,7 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      _startSubprocess(devProxy, cwd, ctx.args, listenOptions)
+      _startSubprocess(devProxy, cwd, ctx.args, ctx.rawArgs, listenOptions)
       return { listener: devProxy.listener }
     }
     else {
@@ -181,14 +180,23 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
         return
       }
       // older versions of Nuxt did not have the loading template defined in the schema
-      const jiti = createJiti(nuxtOptions.rootDir)
-      Promise.race(nuxtOptions.modulesDir.map(async (url) => {
-        return await jiti.import<{ loading: (opts?: { loading?: string }) => string }>('@nuxt/ui-templates', { parentURL: url })
-      })).then((r) => {
-        loadingTemplate = r.loading
-        res.end(r.loading({ loading: loadingMessage }))
-      })
-      return
+
+      async function resolveLoadingMessage() {
+        const { createJiti } = await import('jiti')
+        const jiti = createJiti(nuxtOptions.rootDir)
+        for (const url of nuxtOptions.modulesDir) {
+          const r = await jiti.import<{ loading: (opts?: { loading?: string }) => string }>('@nuxt/ui-templates', {
+            parentURL: url,
+            try: true,
+          })
+          if (r) {
+            loadingTemplate = r.loading
+            res.end(r.loading({ loading: loadingMessage }))
+            break
+          }
+        }
+      }
+      return resolveLoadingMessage()
     }
     proxy.web(req, res, { target: address })
   }, listenOptions)
@@ -238,7 +246,7 @@ async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLeve
       kill('SIGHUP')
     }
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__.devEntry, [], {
+    childProc = fork(globalThis.__nuxt_cli__.devEntry, rawArgs, {
       execArgv: [
         '--enable-source-maps',
         process.argv.find((a: string) => a.includes('--inspect')),

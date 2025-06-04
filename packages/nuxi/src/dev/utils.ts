@@ -1,7 +1,6 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { FSWatcher } from 'chokidar'
-import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -12,7 +11,6 @@ import process from 'node:process'
 import chokidar from 'chokidar'
 import defu from 'defu'
 import { toNodeListener } from 'h3'
-import { createJiti } from 'jiti'
 import { listen } from 'listhen'
 import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
@@ -99,8 +97,8 @@ class NuxtDevServer extends EventEmitter {
   private _distWatcher?: FSWatcher
   private _currentNuxt?: Nuxt
   private _loadingMessage?: string
-  private _jiti: Jiti
   private _loadingError?: Error
+  private cwd: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -119,7 +117,7 @@ class NuxtDevServer extends EventEmitter {
       _initResolve()
     })
 
-    this._jiti = createJiti(options.cwd)
+    this.cwd = options.cwd
 
     this.handler = async (req, res) => {
       if (this._loadingError) {
@@ -143,14 +141,20 @@ class NuxtDevServer extends EventEmitter {
     renderError(req, res, this._loadingError)
   }
 
+  async resolveLoadingTemplate() {
+    const { createJiti } = await import('jiti')
+    const jiti = createJiti(this.cwd)
+    const loading = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
+
+    return loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+  }
+
   async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
-    const loadingTemplate
-      = this.options.loadingTemplate
-        || this._currentNuxt?.options.devServer.loadingTemplate
-        || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
-        || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+    const loadingTemplate = this.options.loadingTemplate
+      || this._currentNuxt?.options.devServer.loadingTemplate
+      || await this.resolveLoadingTemplate()
     res.end(
       loadingTemplate({
         loading: this._loadingMessage || 'Loading...',

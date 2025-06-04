@@ -133,6 +133,9 @@ importers:
       defu:
         specifier: ^6.1.4
         version: 6.1.4
+      exsolve:
+        specifier: ^1.0.5
+        version: 1.0.5
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
@@ -235,6 +238,9 @@ importers:
       defu:
         specifier: ^6.1.4
         version: 6.1.4
+      exsolve:
+        specifier: ^1.0.5
+        version: 1.0.5
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
