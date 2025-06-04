@@ -9,7 +9,6 @@ import { fork } from 'node:child_process'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import defu from 'defu'
 import { createProxyServer } from 'httpxy'
 import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
@@ -101,48 +100,46 @@ const command = defineCommand({
         ...ctx.data?.overrides,
       },
     })
+    performance.mark('load nuxt config')
 
     // Start Proxy Listener
     const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
 
     if (ctx.args.fork) {
       // Fork Nuxt dev process
+
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
+      performance.mark('create dev proxy')
+
       _startSubprocess(devProxy, cwd, ctx.args, ctx.rawArgs, listenOptions)
+        .finally(() => {
+          performance.mark('start subprocess')
+          let lastTime
+          for (const entry of performance.getEntries()) {
+            lastTime ||= entry.startTime
+            console.log(entry.name, `${(entry.startTime - lastTime).toFixed(2)}ms`)
+            lastTime = entry.startTime
+          }
+          console.log('total time', Date.now() - startTime)
+        })
       return { listener: devProxy.listener }
     }
     else {
       // Directly start Nuxt dev
-      const { createNuxtDevServer, _getDevServerDefaults, _getDevServerOverrides } = await import('../dev/utils')
+      const { initialize } = await import('../dev/index')
 
-      const devServerOverrides = _getDevServerOverrides({
-        public: listenOptions.public,
-      })
-
-      const devServerDefaults = _getDevServerDefaults({
+      const { listener } = await initialize({ data: ctx.data }, {
+        cwd,
+        args: ctx.args,
         hostname: listenOptions.hostname,
-        https: listenOptions.https,
+        public: listenOptions.public,
+        publicURLs: undefined,
+        proxy: {
+          https: listenOptions.https,
+        },
       })
 
-      const devServer = await createNuxtDevServer(
-        {
-          cwd,
-          overrides: defu(ctx.data?.overrides, devServerOverrides),
-          defaults: devServerDefaults,
-          logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-          clear: ctx.args.clear,
-          dotenv: {
-            cwd,
-            fileName: ctx.args.dotenv,
-          },
-          envName: ctx.args.envName,
-          loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-          devContext: { cwd },
-        },
-        listenOptions,
-      )
-      await devServer.init()
-      return { listener: devServer.listener }
+      return { listener }
     }
   },
 })
