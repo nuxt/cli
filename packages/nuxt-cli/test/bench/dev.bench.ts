@@ -1,4 +1,5 @@
 import type { Nuxt } from '@nuxt/schema'
+import type { Listener } from 'listhen'
 
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -40,6 +41,16 @@ describe('dev', async () => {
     await (result as { listener: any }).listener.close()
   })
 
-  // it.skip('makes requests to dev server', async () => {
-  // })
+  bench('makes requests to dev server', async () => {
+    const { result } = await runCommand('dev', [fixtureDir]) as { result: { listener: Listener } }
+    const url = result.listener.url
+    for (let i = 0; i < 10; i++) {
+      const html = await fetch(url).then(r => r.text())
+      if (!html.includes('Welcome to the Nuxt CLI playground!')) {
+        throw new Error('Unexpected response from dev server')
+      }
+      await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
+    }
+    await result.listener.close()
+  })
 })
