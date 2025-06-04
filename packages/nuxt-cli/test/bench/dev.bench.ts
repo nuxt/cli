@@ -23,8 +23,8 @@ describe('dev', async () => {
           },
         },
       },
-    })
-    await (result as { listener: any }).listener.close()
+    }) as { result: { listener: Listener } }
+    await result.listener.close()
   })
 
   bench('starts dev server in no-fork mode', async () => {
@@ -37,8 +37,8 @@ describe('dev', async () => {
           },
         },
       },
-    })
-    await (result as { listener: any }).listener.close()
+    }) as { result: { listener: Listener } }
+    await result.listener.close()
   })
 
   bench('makes requests to dev server', async () => {
