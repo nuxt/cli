@@ -21,8 +21,8 @@ import { joinURL } from 'ufo'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { logger } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+
 import { renderError } from './error'
 
 export type NuxtDevIPCMessage =
@@ -33,9 +33,16 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
 export interface NuxtDevContext {
+  cwd: string
   public?: boolean
   hostname?: string
   publicURLs?: string[]
+  args?: {
+    clear: boolean
+    logLevel: string
+    dotenv: string
+    envName: string
+  }
   proxy?: {
     url?: string
     urls?: ListenURL[]
@@ -162,7 +169,7 @@ class NuxtDevServer extends EventEmitter {
       this._loadingError = undefined
     }
     catch (error) {
-      logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
+      console.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingError = error as Error
       this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
@@ -176,7 +183,8 @@ class NuxtDevServer extends EventEmitter {
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
-      logger.info(this._loadingMessage)
+      // eslint-disable-next-line no-console
+      console.info(this._loadingMessage)
     }
 
     if (this._currentNuxt) {
@@ -292,7 +300,7 @@ class NuxtDevServer extends EventEmitter {
       ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      logger.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
+      console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
     await Promise.all([
@@ -348,7 +356,7 @@ export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions
     return {
       devServer: { cors: { origin: '*' } },
       vite: { server: { allowedHosts: true } },
-    }
+    } as const
   }
 
   return {}

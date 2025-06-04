@@ -27,7 +27,10 @@ export default defineBuildConfig({
       exportConditions: ['production', 'node'],
     },
   },
-  entries: ['src/index'],
+  entries: [
+    'src/index',
+    'src/dev/index.ts',
+  ],
   externals: [
     '@nuxt/test-utils',
     'fsevents',

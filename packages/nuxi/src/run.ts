@@ -17,6 +17,14 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
       import.meta.url,
     ),
   ),
+  devEntry: fileURLToPath(
+    new URL(
+      import.meta.url.endsWith('.ts')
+        ? '../dist/dev/index.mjs'
+        : '../../src/dev.ts',
+      import.meta.url,
+    ),
+  ),
 }
 
 export const runMain = () => _runMain(main)

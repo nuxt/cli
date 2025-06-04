@@ -3,7 +3,7 @@ import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../dev/utils'
 
 import { fork } from 'node:child_process'
 import process from 'node:process'
@@ -18,10 +18,9 @@ import { resolve } from 'pathe'
 import { satisfies } from 'semver'
 import { isBun, isTest } from 'std-env'
 
+import { renderError } from '../dev/error'
 import { showVersions } from '../utils/banner'
-import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
-import { renderError } from '../utils/error'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -110,12 +109,12 @@ const command = defineCommand({
     if (ctx.args.fork) {
       // Fork Nuxt dev process
       const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
+      _startSubprocess(devProxy, cwd, ctx.args, listenOptions)
       return { listener: devProxy.listener }
     }
     else {
       // Directly start Nuxt dev
-      const { createNuxtDevServer } = await import('../utils/dev')
+      const { createNuxtDevServer, _getDevServerDefaults, _getDevServerOverrides } = await import('../dev/utils')
 
       const devServerOverrides = _getDevServerOverrides({
         public: listenOptions.public,
@@ -139,7 +138,7 @@ const command = defineCommand({
           },
           envName: ctx.args.envName,
           loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-          devContext: {},
+          devContext: { cwd },
         },
         listenOptions,
       )
@@ -220,9 +219,8 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
+async function _startSubprocess(devProxy: DevProxy, cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, listenArgs: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
-
   const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
       childProc.kill(signal)
@@ -240,7 +238,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       kill('SIGHUP')
     }
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__.entry, ['_dev', ...rawArgs], {
+    childProc = fork(globalThis.__nuxt_cli__.devEntry, [], {
       execArgv: [
         '--enable-source-maps',
         process.argv.find((a: string) => a.includes('--inspect')),
@@ -248,6 +246,8 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       env: {
         ...process.env,
         __NUXT_DEV__: JSON.stringify({
+          cwd,
+          args,
           hostname: listenArgs.hostname,
           public: listenArgs.public,
           publicURLs: await devProxy.listener.getURLs().then(r => r.map(r => r.url)),
