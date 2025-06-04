@@ -30,6 +30,6 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const { initialize } = await import('../dev')
-    await initialize({ cwd }, ctx)
+    await initialize({ cwd, args: ctx.args }, ctx)
   },
 })

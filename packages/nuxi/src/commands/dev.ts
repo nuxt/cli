@@ -86,7 +86,7 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    await showVersions(cwd)
+    showVersions(cwd)
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
@@ -279,7 +279,6 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
         }
         else if (message.type === 'nuxt:internal:dev:ready') {
           devProxy.setAddress(`http://127.0.0.1:${message.port}`)
-          performance.mark('dev ready')
           if (startTime) {
             logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
           }

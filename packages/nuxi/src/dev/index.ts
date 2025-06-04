@@ -12,7 +12,7 @@ process.env.NODE_ENV = 'development'
 
 // IPC Hooks
 // eslint-disable-next-line no-console
-const sendIPCMessage = <T extends NuxtDevIPCMessage>(message: T) => process.send?.(message) ?? console.log
+const sendIPCMessage = <T extends NuxtDevIPCMessage>(message: T) => process.send?.(message) ?? console.log(message)
 
 process.once('unhandledRejection', (reason) => {
   sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
@@ -23,17 +23,9 @@ interface InitializeOptions {
   data?: {
     overrides?: NuxtConfig
   }
-  args?: {
-    clear: boolean
-    logLevel: string
-    dotenv: string
-    envName: string
-  }
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}) {
-  const args = devContext.args || ctx.args || {} as NonNullable<Partial<NuxtDevContext['args']>>
-
   const devServerOverrides = _getDevServerOverrides({
     public: devContext.public,
   })
@@ -48,10 +40,10 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     cwd: devContext.cwd,
     overrides: defu(ctx.data?.overrides, devServerOverrides),
     defaults: devServerDefaults,
-    logLevel: args.logLevel as 'silent' | 'info' | 'verbose',
-    clear: !!args.clear,
-    dotenv: { cwd: devContext.cwd, fileName: args.dotenv },
-    envName: args.envName,
+    logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
+    clear: !!devContext.args.clear,
+    dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
+    envName: devContext.args.envName,
     port: process.env._PORT ?? undefined,
     devContext,
   })

@@ -39,7 +39,7 @@ export interface NuxtDevContext {
   public?: boolean
   hostname?: string
   publicURLs?: string[]
-  args?: {
+  args: {
     clear: boolean
     logLevel: string
     dotenv: string
