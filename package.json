@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "nuxi": "node ./packages/nuxi/bin/nuxi.mjs",
+    "nuxt": "node ./packages/nuxt-cli/bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./packages/nuxi/bin/nuxi.mjs",
     "prepack": "pnpm -r build",
     "test:types": "tsc --noEmit",
