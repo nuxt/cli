@@ -265,7 +265,7 @@ export default defineCommand({
       }>('https://api.nuxt.com/modules')
 
       const wantsUserModules = await logger.prompt(
-        `Would you like to install any Nuxt modules?`,
+        `Would you like to install any of the official modules?`,
         {
           type: 'confirm',
           cancel: 'reject',
