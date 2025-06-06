@@ -4,7 +4,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 
 import process from 'node:process'
 import defu from 'defu'
-import { _getDevServerDefaults, _getDevServerOverrides, createNuxtDevServer } from './utils'
+import { createNuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
 
 const start = Date.now()
 
@@ -31,11 +31,11 @@ interface InitializeOptions {
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
-  const devServerOverrides = _getDevServerOverrides({
+  const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })
 
-  const devServerDefaults = _getDevServerDefaults({
+  const devServerDefaults = resolveDevServerDefaults({
     hostname: devContext.hostname,
     https: devContext.proxy?.https,
   }, devContext.publicURLs)

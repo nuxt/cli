@@ -2,6 +2,7 @@ import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { FSWatcher } from 'chokidar'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { NitroDevServer } from 'nitropack'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -96,10 +97,12 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
+type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
+
 class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
-  private _currentNuxt?: Nuxt
+  private _currentNuxt?: NuxtWithServer
   private _loadingMessage?: string
   private _loadingError?: Error
   private cwd: string
@@ -204,7 +207,7 @@ class NuxtDevServer extends EventEmitter {
 
     const kit = await loadKit(this.options.cwd)
 
-    const devServerDefaults = _getDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
+    const devServerDefaults = resolveDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
 
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
@@ -278,22 +281,19 @@ class NuxtDevServer extends EventEmitter {
     })
 
     if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
-      this.listener.server.on(
-        'upgrade',
-        async (req: any, socket: any, head: any) => {
-          const nuxt = this._currentNuxt
-          if (!nuxt)
-            return
-          const viteHmrPath = joinURL(
-            nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
-            nuxt.options.app.buildAssetsDir,
-          )
-          if (req.url.startsWith(viteHmrPath)) {
-            return // Skip for Vite HMR
-          }
-          await nuxt.server.upgrade(req, socket, head)
-        },
-      )
+      this.listener.server.on('upgrade', (req, socket, head) => {
+        const nuxt = this._currentNuxt
+        if (!nuxt || !nuxt.server)
+          return
+        const viteHmrPath = joinURL(
+          nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
+          nuxt.options.app.buildAssetsDir,
+        )
+        if (req.url?.startsWith(viteHmrPath)) {
+          return // Skip for Vite HMR
+        }
+        nuxt.server.upgrade(req, socket, head)
+      })
     }
 
     await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
@@ -303,7 +303,7 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = _getAddressURL(addr, !!this.listener.https)
+    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string, cert: string }
 
@@ -315,6 +315,10 @@ class NuxtDevServer extends EventEmitter {
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])
+
+    if (!this._currentNuxt.server) {
+      throw new Error('Nitro server has not been initialized.')
+    }
 
     // Watch dist directory
     this._distWatcher = chokidar.watch(resolve(this._currentNuxt.options.buildDir, 'dist'), {
@@ -349,7 +353,7 @@ class NuxtDevServer extends EventEmitter {
   }
 }
 
-function _getAddressURL(addr: AddressInfo, https: boolean) {
+function getAddressURL(addr: AddressInfo, https: boolean) {
   const proto = https ? 'https' : 'http'
   let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
   if (host === '[::]') {
@@ -359,7 +363,7 @@ function _getAddressURL(addr: AddressInfo, https: boolean) {
   return `${proto}://${host}:${port}/`
 }
 
-export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
+export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
   if (listenOptions.public || provider === 'codesandbox') {
     return {
       devServer: { cors: { origin: '*' } },
@@ -370,7 +374,7 @@ export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions
   return {}
 }
 
-export function _getDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
+export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
   const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls) {
