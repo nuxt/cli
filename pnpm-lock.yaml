@@ -323,6 +323,10 @@ importers:
       nuxt:
         specifier: ^3.16.1
         version: 3.17.4(@parcel/watcher@2.5.1)(@types/node@22.15.29)(db0@0.3.2)(eslint@9.28.0(jiti@2.4.2))(ioredis@5.6.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.41.1)(terser@5.40.0)(typescript@5.8.3)(vite@6.3.5(@types/node@22.15.29)(jiti@2.4.2)(terser@5.40.0)(yaml@2.8.0))(yaml@2.8.0)
+    devDependencies:
+      '@nuxt/test-utils':
+        specifier: ^3.19.1
+        version: 3.19.1(@types/node@22.15.29)(jiti@2.4.2)(magicast@0.3.5)(terser@5.40.0)(typescript@5.8.3)(vitest@3.2.0(@types/debug@4.1.12)(@types/node@22.15.29)(jiti@2.4.2)(terser@5.40.0)(yaml@2.8.0))(yaml@2.8.0)
 
 packages:
 
