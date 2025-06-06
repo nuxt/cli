@@ -11,6 +11,7 @@
     },
     "packages/nuxt-cli/playground": {
       "ignoreDependencies": [
+        "@nuxt/test-utils",
         "nuxt"
       ]
     },
