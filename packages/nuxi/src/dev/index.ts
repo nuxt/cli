@@ -13,7 +13,11 @@ process.env.NODE_ENV = 'development'
 
 // IPC Hooks
 // eslint-disable-next-line no-console
-const sendIPCMessage = <T extends NuxtDevIPCMessage>(message: T) => process.send?.(message) ?? console.log(message)
+const sendIPCMessage = <T extends NuxtDevIPCMessage> (message: T) => process.send?.(message) ?? console.log(message)
+
+function isChildProcess() {
+  return !!process.send && !process.title.includes('vitest')
+}
 
 process.once('unhandledRejection', (reason) => {
   sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
@@ -49,7 +53,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     devContext,
   }, listenOptions)
 
-  if (process.send) {
+  if (isChildProcess()) {
     devServer.on('loading:error', (_error) => {
       sendIPCMessage({
         type: 'nuxt:internal:dev:loading:error',
@@ -83,7 +87,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   return { listener: devServer.listener }
 }
 
-if (process.send) {
+if (isChildProcess()) {
   sendIPCMessage({ type: 'nuxt:internal:dev:fork-ready' })
   process.on('message', (message: NuxtParentIPCMessage) => {
     if (message.type === 'nuxt:internal:dev:context') {
