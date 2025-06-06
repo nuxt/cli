@@ -4,7 +4,6 @@ import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
-
 import { fork } from 'node:child_process'
 import process from 'node:process'
 
@@ -16,12 +15,14 @@ import { resolve } from 'pathe'
 import { satisfies } from 'semver'
 
 import { isBun, isTest } from 'std-env'
+
 import { showVersions } from '../utils/banner'
 import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
 import { renderError } from '../utils/error'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { generateSocketPath, HybridIPCManager } from '../utils/socket-ipc'
 import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 let startTime: number | undefined = Date.now()
@@ -223,8 +224,10 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
 
 async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
+  let ipcManager: HybridIPCManager
 
   const kill = (signal: NodeJS.Signals | number) => {
+    ipcManager?.cleanup()
     if (childProc) {
       childProc.kill(signal)
       childProc = undefined
@@ -233,6 +236,10 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
 
   const restart = async () => {
     devProxy.clearError()
+
+    // Clean up previous IPC
+    await ipcManager?.cleanup()
+
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -240,6 +247,11 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
     else {
       kill('SIGHUP')
     }
+
+    // Create new IPC manager and socket path
+    const socketPath = generateSocketPath()
+    ipcManager = new HybridIPCManager(true, socketPath)
+
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
       execArgv: [
@@ -248,6 +260,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       ].filter(Boolean) as string[],
       env: {
         ...process.env,
+        __NUXT_DEV_SOCKET_PATH__: socketPath,
         __NUXT_DEV__: JSON.stringify({
           hostname: listenArgs.hostname,
           public: listenArgs.public,
@@ -261,6 +274,8 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       },
     })
 
+    await ipcManager.initialize(childProc)
+
     // Close main process on child exit with error
     childProc.on('close', (errorCode) => {
       if (errorCode) {
@@ -269,7 +284,7 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
     })
 
     // Listen for IPC messages
-    childProc.on('message', (message: NuxtDevIPCMessage) => {
+    ipcManager.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:ready') {
         devProxy.setAddress(`http://127.0.0.1:${message.port}`)
         if (startTime) {
