@@ -56,7 +56,7 @@ jobs:
 
       - name: 🛠 Build project
         run: pnpm build
-      
+
       - name: Prepare playground
         run: pnpm --filter nuxt-cli-playground dev:prepare
 

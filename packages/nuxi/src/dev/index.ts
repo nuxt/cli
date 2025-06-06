@@ -34,7 +34,9 @@ class IPC {
   }
 
   send<T extends NuxtDevIPCMessage>(message: T) {
-    process.send?.(message)
+    if (this.enabled) {
+      process.send?.(message)
+    }
   }
 }
 
