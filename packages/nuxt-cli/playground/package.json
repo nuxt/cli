@@ -4,7 +4,8 @@
   "private": true,
   "packageManager": "pnpm@10.11.1",
   "scripts": {
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "nuxt": "^3.16.1"
