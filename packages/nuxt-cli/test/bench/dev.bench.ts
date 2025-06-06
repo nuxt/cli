@@ -15,7 +15,7 @@ describe(`dev [${os.platform()}]`, async () => {
   await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 
   bench('starts dev server', async () => {
-    const { result } = await runCommand('dev', [fixtureDir], {
+    const { result } = await runCommand('dev', [fixtureDir, '--fork'], {
       overrides: {
         builder: {
           bundle: (nuxt: Nuxt) => {
