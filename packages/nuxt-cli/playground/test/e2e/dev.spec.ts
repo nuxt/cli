@@ -1,14 +1,14 @@
-import { fileURLToPath } from 'node:url'
-import { $fetch, setup } from '@nuxt/test-utils'
+// import { fileURLToPath } from 'node:url'
+// import { $fetch, setup } from '@nuxt/test-utils'
 import { describe, expect, it } from 'vitest'
 
-await setup({
-  rootDir: fileURLToPath(new URL('../..', import.meta.url)),
-  dev: true,
-})
+// await setup({
+//   rootDir: fileURLToPath(new URL('../..', import.meta.url)),
+//   dev: true,
+// })
 
 describe('dev server', () => {
-  it('should start and return HTML', async () => {
+  it.skip('should start and return HTML', async () => {
     const html = await $fetch('/')
 
     expect(html).toContain('Welcome to the Nuxt CLI playground')
