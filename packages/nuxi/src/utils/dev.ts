@@ -173,7 +173,7 @@ class NuxtDevServer extends EventEmitter {
     }
   }
 
-  async close () {
+  async close() {
     if (this._currentNuxt) {
       await this._currentNuxt.close()
     }
