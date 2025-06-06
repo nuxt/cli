@@ -11,24 +11,34 @@ const start = Date.now()
 // Prepare
 process.env.NODE_ENV = 'development'
 
-// IPC Hooks
-// eslint-disable-next-line no-console
-const sendIPCMessage = <T extends NuxtDevIPCMessage> (message: T) => process.send?.(message) ?? console.log(message)
-
-function isChildProcess() {
-  return !!process.send && !process.title.includes('vitest')
-}
-
-process.once('unhandledRejection', (reason) => {
-  sendIPCMessage({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
-  process.exit()
-})
-
 interface InitializeOptions {
   data?: {
     overrides?: NuxtConfig
   }
 }
+
+// IPC Hooks
+class IPC {
+  enabled = !!process.send && !process.title.includes('vitest') && process.env.__NUXT__FORK
+  constructor() {
+    process.once('unhandledRejection', (reason) => {
+      this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+      process.exit()
+    })
+    process.on('message', (message: NuxtParentIPCMessage) => {
+      if (message.type === 'nuxt:internal:dev:context') {
+        initialize(message.context)
+      }
+    })
+    this.send({ type: 'nuxt:internal:dev:fork-ready' })
+  }
+
+  send<T extends NuxtDevIPCMessage>(message: T) {
+    process.send?.(message)
+  }
+}
+
+const ipc = new IPC()
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
   const devServerOverrides = resolveDevServerOverrides({
@@ -55,9 +65,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   let port: number
 
-  if (isChildProcess()) {
+  if (ipc.enabled) {
     devServer.on('loading:error', (_error) => {
-      sendIPCMessage({
+      ipc.send({
         type: 'nuxt:internal:dev:loading:error',
         error: {
           message: _error.message,
@@ -68,13 +78,13 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       })
     })
     devServer.on('loading', (message) => {
-      sendIPCMessage({ type: 'nuxt:internal:dev:loading', message })
+      ipc.send({ type: 'nuxt:internal:dev:loading', message })
     })
     devServer.on('restart', () => {
-      sendIPCMessage({ type: 'nuxt:internal:dev:restart' })
+      ipc.send({ type: 'nuxt:internal:dev:restart' })
     })
     devServer.on('ready', (payload) => {
-      sendIPCMessage({ type: 'nuxt:internal:dev:ready', port: payload.port })
+      ipc.send({ type: 'nuxt:internal:dev:ready', port: payload.port })
     })
   }
   else {
@@ -105,13 +115,4 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       devServer.once('restart', () => callback(devServer))
     },
   }
-}
-
-if (isChildProcess()) {
-  sendIPCMessage({ type: 'nuxt:internal:dev:fork-ready' })
-  process.on('message', (message: NuxtParentIPCMessage) => {
-    if (message.type === 'nuxt:internal:dev:context') {
-      initialize(message.context)
-    }
-  })
 }

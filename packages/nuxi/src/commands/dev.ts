@@ -275,7 +275,10 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
     // Start new process
     childProc = fork(globalThis.__nuxt_cli__.devEntry!, rawArgs, {
       execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
-      env: process.env,
+      env: {
+        ...process.env,
+        __NUXT__FORK: 'true',
+      },
     })
 
     // Close main process on child exit with error
