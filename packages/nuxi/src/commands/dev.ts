@@ -16,6 +16,7 @@ import { resolve } from 'pathe'
 import { satisfies } from 'semver'
 import { isBun, isTest } from 'std-env'
 
+import { initialize } from '../dev'
 import { renderError } from '../dev/error'
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
@@ -101,25 +102,9 @@ const command = defineCommand({
       },
     })
 
-    // Start Proxy Listener
     const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
-
-    if (ctx.args.fork) {
-      // Fork Nuxt dev process
-      // TODO: run in no-fork mode, then fall back to prepared fork
-      const [devProxy, subprocess] = await Promise.all([
-        createDevProxy(nuxtOptions, listenOptions),
-        startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions),
-      ])
-
-      await subprocess.initialize(devProxy)
-
-      return { listener: devProxy.listener }
-    }
-    else {
+    if (!ctx.args.fork) {
       // Directly start Nuxt dev
-      const { initialize } = await import('../dev/index')
-
       const { listener } = await initialize({
         cwd,
         args: ctx.args,
@@ -133,6 +118,36 @@ const command = defineCommand({
 
       return { listener }
     }
+
+    // Start proxy Listener
+    const devProxy = await createDevProxy(nuxtOptions, listenOptions)
+
+    const urls = await devProxy.listener.getURLs()
+    // run initially in in no-fork mode
+    const { onRestart, onReady } = await initialize({
+      cwd,
+      args: ctx.args,
+      hostname: listenOptions.hostname,
+      public: listenOptions.public,
+      publicURLs: urls.map(r => r.url),
+      proxy: {
+        url: devProxy.listener.url,
+        urls,
+        https: devProxy.listener.https,
+      },
+    })
+
+    onReady(port => devProxy.setAddress(`http://127.0.0.1:${port}`))
+
+    // ... then fall back to pre-warmed fork if a hard restart is required
+    const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
+    onRestart(async (devServer) => {
+      await devServer.close()
+      const subprocess = await fork
+      await subprocess.initialize(devProxy)
+    })
+
+    return { listener: devProxy.listener }
   },
 })
 

@@ -99,7 +99,7 @@ const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/
 
 type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
 
-class NuxtDevServer extends EventEmitter {
+export class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
   private _currentNuxt?: NuxtWithServer
@@ -350,6 +350,10 @@ class NuxtDevServer extends EventEmitter {
         this.loadDebounced(true, `${file} updated`)
       }
     })
+  }
+
+  async close() {
+    await this._currentNuxt?.close()
   }
 }
 

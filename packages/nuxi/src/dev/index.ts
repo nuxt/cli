@@ -1,6 +1,6 @@
 import type { NuxtConfig } from '@nuxt/schema'
 import type { ListenOptions } from 'listhen'
-import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
+import type { NuxtDevContext, NuxtDevIPCMessage, NuxtDevServer, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 import defu from 'defu'
@@ -53,6 +53,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     devContext,
   }, listenOptions)
 
+  let port: number
+
   if (isChildProcess()) {
     devServer.on('loading:error', (_error) => {
       sendIPCMessage({
@@ -75,6 +77,11 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       sendIPCMessage({ type: 'nuxt:internal:dev:ready', port: payload.port })
     })
   }
+  else {
+    devServer.on('ready', (payload) => {
+      port = payload.port
+    })
+  }
 
   // Init server
   await devServer.init()
@@ -84,7 +91,20 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     console.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
   }
 
-  return { listener: devServer.listener }
+  return {
+    listener: devServer.listener,
+    onReady: (callback: (port: number) => void) => {
+      if (port) {
+        callback(port)
+      }
+      else {
+        devServer.once('ready', payload => callback(payload.port))
+      }
+    },
+    onRestart: (callback: (devServer: NuxtDevServer) => void) => {
+      devServer.once('restart', () => callback(devServer))
+    },
+  }
 }
 
 if (isChildProcess()) {
