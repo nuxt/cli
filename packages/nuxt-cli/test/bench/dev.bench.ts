@@ -24,8 +24,8 @@ describe(`dev [${os.platform()}]`, async () => {
           },
         },
       },
-    }) as { result: { listener: Listener } }
-    await result.listener.close()
+    }) as { result: { close: () => Promise<void> } }
+    await result.close()
   })
 
   bench('starts dev server in no-fork mode', async () => {
@@ -38,11 +38,11 @@ describe(`dev [${os.platform()}]`, async () => {
           },
         },
       },
-    }) as { result: { listener: Listener } }
-    await result.listener.close()
+    }) as { result: { listener: Listener, close: () => Promise<void> } }
+    await result.close()
   })
 
-  const { result } = await runCommand('dev', [fixtureDir]) as { result: { listener: Listener } }
+  const { result } = await runCommand('dev', [fixtureDir]) as { result: { listener: Listener, close: () => Promise<void> } }
   const url = result.listener.url
 
   bench('makes requests to dev server', async () => {

@@ -105,6 +105,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
+    close: () => devServer.close(),
     onReady: (callback: (port: number) => void) => {
       if (port) {
         callback(port)

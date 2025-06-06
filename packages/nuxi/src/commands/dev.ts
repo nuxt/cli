@@ -105,7 +105,7 @@ const command = defineCommand({
     const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
     if (!ctx.args.fork) {
       // Directly start Nuxt dev
-      const { listener } = await initialize({
+      const { listener, close } = await initialize({
         cwd,
         args: ctx.args,
         hostname: listenOptions.hostname,
@@ -116,7 +116,13 @@ const command = defineCommand({
         },
       }, { data: ctx.data }, listenOptions)
 
-      return { listener }
+      return {
+        listener,
+        async close() {
+          await close()
+          await listener.close()
+        },
+      }
     }
 
     // Start proxy Listener
@@ -124,7 +130,7 @@ const command = defineCommand({
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
-    const { onRestart, onReady } = await initialize({
+    const { onRestart, onReady, close } = await initialize({
       cwd,
       args: ctx.args,
       hostname: listenOptions.hostname,
@@ -147,7 +153,13 @@ const command = defineCommand({
       await subprocess.initialize(devProxy)
     })
 
-    return { listener: devProxy.listener }
+    return {
+      listener: devProxy.listener,
+      async close() {
+        await close()
+        await devProxy.listener.close()
+      },
+    }
   },
 })
 
