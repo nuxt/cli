@@ -41,7 +41,6 @@ describe(`dev [${os.platform()}] requests`, () => {
 
   bench('makes requests to dev server', async () => {
     if (!url) {
-      await clearDirectory()
       const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
       url = result.listener.url
     }
