@@ -6,7 +6,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { afterAll, beforeEach, bench, describe } from 'vitest'
+import { afterAll, bench, describe } from 'vitest'
 
 import { runCommand } from '../../../nuxi/src/run'
 
@@ -21,7 +21,7 @@ async function clearDirectory() {
 
 describe.each(['--fork', '--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
   const teardown: Array<() => Promise<void>> = []
-  beforeEach(() => clearDirectory())
+  await clearDirectory()
 
   bench(`starts dev server with ${fork}`, async () => {
     const { result } = await runCommand('dev', [fixtureDir, fork], {
