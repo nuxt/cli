@@ -18,7 +18,7 @@ async function clearDirectory() {
   await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 }
 
-describe.each(['--no-fork', '--fork'])(`dev [${os.platform()}]`, async (fork) => {
+describe.each(['--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
   await clearDirectory()
 
   bench(`starts dev server with ${fork}`, async () => {
