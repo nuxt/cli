@@ -21,7 +21,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
     new URL(
       import.meta.url.endsWith('.ts')
         ? '../dist/dev/index.mjs'
-        : '../../src/dev.ts',
+        : '../../src/dev/index.ts',
       import.meta.url,
     ),
   ),

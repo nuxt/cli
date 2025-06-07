@@ -54,6 +54,9 @@ describe(`dev [${os.platform()}] requests`, () => {
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
   }, {
     warmupIterations: 1,
+    async teardown() {
+      await close()
+    },
     time: 10_000,
   })
 })
