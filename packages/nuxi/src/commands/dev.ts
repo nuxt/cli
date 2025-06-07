@@ -112,8 +112,8 @@ const command = defineCommand({
       return {
         listener: devProxy?.listener,
         async close() {
-          subprocess?.kill(0)
           await devProxy?.listener.close()
+          subprocess?.kill(0)
         },
       }
     }
@@ -151,8 +151,8 @@ const command = defineCommand({
       return {
         listener: devServer?.listener,
         async close() {
-          await devServer.close()
           await devServer.listener.close()
+          await devServer.close()
         },
       }
     }
