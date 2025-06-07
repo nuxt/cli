@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 
 import { bench, describe } from 'vitest'
 
-import { runCommand } from '../../../nuxi/src/run'
+import { runCommand } from '../../../nuxi'
 
 interface RunResult {
   result: { listener: Listener, close: () => Promise<void> }
