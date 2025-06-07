@@ -34,7 +34,9 @@ describe.each(['--no-fork', '--fork'])(`dev [${os.platform()}]`, async (fork) =>
     }) as RunResult
     await result.close()
   })
+})
 
+describe(`dev [${os.platform()}] requests`, () => {
   let url: string
   let close: () => Promise<void>
 
