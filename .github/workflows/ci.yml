@@ -51,27 +51,17 @@ jobs:
       - name: 📦 Install dependencies
         run: pnpm install
 
-      - name: 💪 Test types
-        run: pnpm test:types
-
       - name: 🛠 Build project
         run: pnpm build
 
-      - name: Prepare playground
-        run: pnpm --filter nuxt-cli-playground dev:prepare
+      - name: 💪 Test types
+        run: pnpm test:types
 
       - name: 🧪 Test built `nuxi`
         run: pnpm test:dist
 
       - name: 🧪 Test (unit)
         run: pnpm test:unit
-
-      - name: Run benchmarks
-        if: matrix.os == 'ubuntu-latest'
-        uses: CodSpeedHQ/action@0010eb0ca6e89b80c88e8edaaa07cfe5f3e6664d # v3.5.0
-        with:
-          run: pnpm vitest bench
-          token: ${{ secrets.CODSPEED_TOKEN }}
 
       - if: matrix.os != 'windows-latest'
         uses: codecov/codecov-action@v5

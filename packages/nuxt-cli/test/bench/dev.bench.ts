@@ -6,9 +6,8 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { afterAll, bench, describe } from 'vitest'
-
-import { runCommand } from '../../../nuxi/src/run'
+import { runCommand } from '@nuxt/cli'
+import { bench, describe } from 'vitest'
 
 interface RunResult {
   result: { listener: Listener, close: () => Promise<void> }
@@ -19,11 +18,11 @@ async function clearDirectory() {
   await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 }
 
-describe(`dev [${os.platform()}]`, async () => {
+describe.each(['--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
   await clearDirectory()
 
-  bench(`starts dev server with --fork`, async () => {
-    const { result } = await runCommand('dev', [fixtureDir, '--fork'], {
+  bench(`starts dev server with ${fork}`, async () => {
+    const { result } = await runCommand('dev', [fixtureDir, fork], {
       overrides: {
         builder: {
           bundle: (nuxt: Nuxt) => {
@@ -39,7 +38,7 @@ describe(`dev [${os.platform()}]`, async () => {
 
 describe(`dev requests [${os.platform()}]`, async () => {
   await clearDirectory()
-  const { result } = await runCommand('dev', [fixtureDir]) as RunResult
+  const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
   const url = result.listener.url
 
   bench('makes requests to dev server', async () => {
@@ -49,6 +48,4 @@ describe(`dev requests [${os.platform()}]`, async () => {
     }
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
   }, { time: 10_000 })
-
-  afterAll(result.close)
 })
