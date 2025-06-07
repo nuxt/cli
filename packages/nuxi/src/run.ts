@@ -13,7 +13,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
     new URL('../../bin/nuxi.mjs', import.meta.url),
   ),
   devEntry: fileURLToPath(
-    new URL('../dist/dev/index.mjs', import.meta.url),
+    new URL('../dev/index.mjs', import.meta.url),
   ),
 }
 
