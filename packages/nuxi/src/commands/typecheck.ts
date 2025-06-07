@@ -2,7 +2,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { defineCommand } from 'citty'
-import { createJiti } from 'jiti'
+import { resolveModulePath } from 'exsolve'
 import { resolve } from 'pathe'
 import { isBun } from 'std-env'
 import { x } from 'tinyexec'
@@ -41,12 +41,10 @@ export default defineCommand({
     await buildNuxt(nuxt)
     await nuxt.close()
 
-    const jiti = createJiti(cwd)
-
     // Prefer local install if possible
     const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
-      jiti.esmResolve('typescript', { try: true }),
-      jiti.esmResolve('vue-tsc/bin/vue-tsc.js', { try: true }),
+      resolveModulePath('typescript', { try: true }),
+      resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
       await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {

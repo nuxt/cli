@@ -6,6 +6,7 @@ declare global {
     | undefined
     | {
       entry: string
+      devEntry: string
       startTime: number
     }
 }
