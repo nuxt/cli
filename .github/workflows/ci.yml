@@ -60,6 +60,9 @@ jobs:
       - name: 🧪 Test built `nuxi`
         run: pnpm test:dist
 
+      - name: 👷‍♂️ Prepare playground
+        run: pnpm nuxt prepare packages/nuxt-cli/playground
+
       - name: 🧪 Test (unit)
         run: pnpm test:unit
 
