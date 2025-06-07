@@ -1,9 +1,7 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { Listener } from 'listhen'
 
-import { rm } from 'node:fs/promises'
 import os from 'node:os'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { runCommand } from '@nuxt/cli'
@@ -14,15 +12,10 @@ interface RunResult {
 }
 
 const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
-async function clearDirectory() {
-  await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
-}
 
-describe.each(['--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
-  await clearDirectory()
-
-  bench(`starts dev server with ${fork}`, async () => {
-    const { result } = await runCommand('dev', [fixtureDir, fork], {
+describe(`dev [${os.platform()}]`, () => {
+  bench(`starts dev server with --no-fork`, async () => {
+    const { result } = await runCommand('dev', [fixtureDir, '--no-fork'], {
       overrides: {
         builder: {
           bundle: (nuxt: Nuxt) => {
@@ -34,18 +27,12 @@ describe.each(['--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
     }) as RunResult
     await result.close()
   })
-})
 
-describe(`dev [${os.platform()}] requests`, () => {
   let url: string
-  let close: () => Promise<void>
-
   bench('makes requests to dev server', async () => {
     if (!url) {
-      await clearDirectory()
       const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
       url = result.listener.url
-      close = result.close
     }
     const html = await fetch(url).then(r => r.text())
     if (!html.includes('Welcome to the Nuxt CLI playground!')) {
@@ -54,9 +41,6 @@ describe(`dev [${os.platform()}] requests`, () => {
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
   }, {
     warmupIterations: 1,
-    async teardown() {
-      await close()
-    },
     time: 10_000,
   })
 })
