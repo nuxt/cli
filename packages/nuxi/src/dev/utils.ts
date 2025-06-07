@@ -188,6 +188,15 @@ export class NuxtDevServer extends EventEmitter {
     }
   }
 
+  async close() {
+    if (this._currentNuxt) {
+      await this._currentNuxt.close()
+    }
+    if (this._distWatcher) {
+      await this._distWatcher.close()
+    }
+  }
+
   async _load(reload?: boolean, reason?: string) {
     const action = reload ? 'Restarting' : 'Starting'
     this._loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
@@ -198,12 +207,7 @@ export class NuxtDevServer extends EventEmitter {
       console.info(this._loadingMessage)
     }
 
-    if (this._currentNuxt) {
-      await this._currentNuxt.close()
-    }
-    if (this._distWatcher) {
-      await this._distWatcher.close()
-    }
+    await this.close()
 
     const kit = await loadKit(this.options.cwd)
 
