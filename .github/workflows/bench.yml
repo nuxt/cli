@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: codspeed-macro
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -26,6 +26,9 @@ jobs:
 
       - name: 📦 Install dependencies
         run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@0010eb0ca6e89b80c88e8edaaa07cfe5f3e6664d # v3.5.0
