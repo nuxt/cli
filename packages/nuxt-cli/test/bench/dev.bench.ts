@@ -19,11 +19,11 @@ async function clearDirectory() {
   await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
 }
 
-describe(`dev [${os.platform()}]`, async () => {
+describe.each(['--fork', '--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
   await clearDirectory()
 
-  bench(`starts dev server with --fork`, async () => {
-    const { result } = await runCommand('dev', [fixtureDir, '--fork'], {
+  bench(`starts dev server with ${fork}`, async () => {
+    const { result } = await runCommand('dev', [fixtureDir, fork], {
       overrides: {
         builder: {
           bundle: (nuxt: Nuxt) => {
