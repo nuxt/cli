@@ -6,7 +6,7 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { afterAll, bench, describe } from 'vitest'
+import { bench, describe } from 'vitest'
 
 import { runCommand } from '../../../nuxi/src/run'
 
@@ -49,6 +49,4 @@ describe(`dev requests [${os.platform()}]`, async () => {
     }
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
   }, { time: 10_000 })
-
-  afterAll(result.close)
 })
