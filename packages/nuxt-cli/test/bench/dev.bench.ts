@@ -34,18 +34,27 @@ describe.each(['--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
     }) as RunResult
     await result.close()
   })
-})
 
-describe(`dev requests [${os.platform()}]`, async () => {
-  await clearDirectory()
-  const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
-  const url = result.listener.url
+  let url: string
+  let close: () => Promise<void>
 
   bench('makes requests to dev server', async () => {
+    if (!url) {
+      await clearDirectory()
+      const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
+      url = result.listener.url
+      close = result.close
+    }
     const html = await fetch(url).then(r => r.text())
     if (!html.includes('Welcome to the Nuxt CLI playground!')) {
       throw new Error('Unexpected response from dev server')
     }
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
-  }, { time: 10_000 })
+  }, {
+    warmupIterations: 1,
+    async teardown() {
+      await close()
+    },
+    time: 10_000,
+  })
 })
