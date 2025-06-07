@@ -157,6 +157,8 @@ const command = defineCommand({
       listener: devProxy.listener,
       async close() {
         await close()
+        const subprocess = await fork
+        subprocess.kill(0)
         await devProxy.listener.close()
       },
     }

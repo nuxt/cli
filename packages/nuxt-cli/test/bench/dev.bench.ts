@@ -20,7 +20,6 @@ async function clearDirectory() {
 }
 
 describe.each(['--fork', '--no-fork'])(`dev [${os.platform()}]`, async (fork) => {
-  const teardown: Array<() => Promise<void>> = []
   await clearDirectory()
 
   bench(`starts dev server with ${fork}`, async () => {
@@ -34,13 +33,7 @@ describe.each(['--fork', '--no-fork'])(`dev [${os.platform()}]`, async (fork) =>
         },
       },
     }) as RunResult
-    teardown.push(result.close)
-  })
-
-  afterAll(async () => {
-    for (const close of teardown) {
-      await close()
-    }
+    await result.close()
   })
 })
 
