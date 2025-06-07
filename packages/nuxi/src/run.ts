@@ -10,12 +10,10 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback
   startTime: Date.now(),
   entry: fileURLToPath(
-    new URL(
-      import.meta.url.endsWith('.ts')
-        ? '../bin/nuxi.mjs'
-        : '../../bin/nuxi.mjs',
-      import.meta.url,
-    ),
+    new URL('../../bin/nuxi.mjs', import.meta.url),
+  ),
+  devEntry: fileURLToPath(
+    new URL('../dev/index.mjs', import.meta.url),
   ),
 }
 

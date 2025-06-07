@@ -1,8 +1,8 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { FSWatcher } from 'chokidar'
-import type { Jiti } from 'jiti'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { NitroDevServer } from 'nitropack'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
@@ -12,7 +12,6 @@ import process from 'node:process'
 import chokidar from 'chokidar'
 import defu from 'defu'
 import { toNodeListener } from 'h3'
-import { createJiti } from 'jiti'
 import { listen } from 'listhen'
 import { join, relative, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
@@ -21,11 +20,15 @@ import { joinURL } from 'ufo'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { logger } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+
 import { renderError } from './error'
 
+export type NuxtParentIPCMessage =
+  | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
+
 export type NuxtDevIPCMessage =
+  | { type: 'nuxt:internal:dev:fork-ready' }
   | { type: 'nuxt:internal:dev:ready', port: number }
   | { type: 'nuxt:internal:dev:loading', message: string }
   | { type: 'nuxt:internal:dev:restart' }
@@ -33,9 +36,16 @@ export type NuxtDevIPCMessage =
   | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
 export interface NuxtDevContext {
+  cwd: string
   public?: boolean
   hostname?: string
   publicURLs?: string[]
+  args: {
+    clear: boolean
+    logLevel: string
+    dotenv: string
+    envName: string
+  }
   proxy?: {
     url?: string
     urls?: ListenURL[]
@@ -78,10 +88,7 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
   }
   if (options.devContext.proxy?.urls) {
     const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
-    devServer.listener.getURLs = async () =>
-      Array.from(
-        new Set([...options.devContext.proxy!.urls!, ...(await _getURLs())]),
-      )
+    devServer.listener.getURLs = async () => Array.from(new Set([...options.devContext.proxy?.urls || [], ...(await _getURLs())]))
   }
 
   return devServer
@@ -90,13 +97,15 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
-class NuxtDevServer extends EventEmitter {
+type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
+
+export class NuxtDevServer extends EventEmitter {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
-  private _currentNuxt?: Nuxt
+  private _currentNuxt?: NuxtWithServer
   private _loadingMessage?: string
-  private _jiti: Jiti
   private _loadingError?: Error
+  private cwd: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -115,7 +124,7 @@ class NuxtDevServer extends EventEmitter {
       _initResolve()
     })
 
-    this._jiti = createJiti(options.cwd)
+    this.cwd = options.cwd
 
     this.handler = async (req, res) => {
       if (this._loadingError) {
@@ -139,14 +148,20 @@ class NuxtDevServer extends EventEmitter {
     renderError(req, res, this._loadingError)
   }
 
+  async resolveLoadingTemplate() {
+    const { createJiti } = await import('jiti')
+    const jiti = createJiti(this.cwd)
+    const loading = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
+
+    return loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+  }
+
   async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
-    const loadingTemplate
-      = this.options.loadingTemplate
-        || this._currentNuxt?.options.devServer.loadingTemplate
-        || await this._jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
-        || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+    const loadingTemplate = this.options.loadingTemplate
+      || this._currentNuxt?.options.devServer.loadingTemplate
+      || await this.resolveLoadingTemplate()
     res.end(
       loadingTemplate({
         loading: this._loadingMessage || 'Loading...',
@@ -165,7 +180,7 @@ class NuxtDevServer extends EventEmitter {
       this._loadingError = undefined
     }
     catch (error) {
-      logger.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
+      console.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
       this._handler = undefined
       this._loadingError = error as Error
       this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
@@ -188,14 +203,15 @@ class NuxtDevServer extends EventEmitter {
     this._handler = undefined
     this.emit('loading', this._loadingMessage)
     if (reload) {
-      logger.info(this._loadingMessage)
+      // eslint-disable-next-line no-console
+      console.info(this._loadingMessage)
     }
 
     await this.close()
 
     const kit = await loadKit(this.options.cwd)
 
-    const devServerDefaults = _getDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
+    const devServerDefaults = resolveDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
 
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
@@ -269,22 +285,19 @@ class NuxtDevServer extends EventEmitter {
     })
 
     if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
-      this.listener.server.on(
-        'upgrade',
-        async (req: any, socket: any, head: any) => {
-          const nuxt = this._currentNuxt
-          if (!nuxt)
-            return
-          const viteHmrPath = joinURL(
-            nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
-            nuxt.options.app.buildAssetsDir,
-          )
-          if (req.url.startsWith(viteHmrPath)) {
-            return // Skip for Vite HMR
-          }
-          await nuxt.server.upgrade(req, socket, head)
-        },
-      )
+      this.listener.server.on('upgrade', (req, socket, head) => {
+        const nuxt = this._currentNuxt
+        if (!nuxt || !nuxt.server)
+          return
+        const viteHmrPath = joinURL(
+          nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
+          nuxt.options.app.buildAssetsDir,
+        )
+        if (req.url?.startsWith(viteHmrPath)) {
+          return // Skip for Vite HMR
+        }
+        nuxt.server.upgrade(req, socket, head)
+      })
     }
 
     await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
@@ -294,18 +307,22 @@ class NuxtDevServer extends EventEmitter {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = _getAddressURL(addr, !!this.listener.https)
+    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy
       ?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      logger.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
+      console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
     await Promise.all([
       kit.writeTypes(this._currentNuxt).catch(console.error),
       kit.buildNuxt(this._currentNuxt),
     ])
+
+    if (!this._currentNuxt.server) {
+      throw new Error('Nitro server has not been initialized.')
+    }
 
     // Watch dist directory
     this._distWatcher = chokidar.watch(resolve(this._currentNuxt.options.buildDir, 'dist'), {
@@ -340,7 +357,7 @@ class NuxtDevServer extends EventEmitter {
   }
 }
 
-function _getAddressURL(addr: AddressInfo, https: boolean) {
+function getAddressURL(addr: AddressInfo, https: boolean) {
   const proto = https ? 'https' : 'http'
   let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
   if (host === '[::]') {
@@ -350,18 +367,18 @@ function _getAddressURL(addr: AddressInfo, https: boolean) {
   return `${proto}://${host}:${port}/`
 }
 
-export function _getDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
+export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
   if (listenOptions.public || provider === 'codesandbox') {
     return {
       devServer: { cors: { origin: '*' } },
       vite: { server: { allowedHosts: true } },
-    }
+    } as const
   }
 
   return {}
 }
 
-export function _getDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
+export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
   const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls) {
