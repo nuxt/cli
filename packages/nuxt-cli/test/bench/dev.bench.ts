@@ -6,9 +6,8 @@ import os from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { runCommand } from '@nuxt/cli'
 import { bench, describe } from 'vitest'
-
-import { runCommand } from '../../../nuxi'
 
 interface RunResult {
   result: { listener: Listener, close: () => Promise<void> }
