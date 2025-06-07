@@ -355,10 +355,6 @@ export class NuxtDevServer extends EventEmitter {
       }
     })
   }
-
-  async close() {
-    await this._currentNuxt?.close()
-  }
 }
 
 function getAddressURL(addr: AddressInfo, https: boolean) {
