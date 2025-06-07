@@ -38,14 +38,12 @@ describe.each(['--no-fork', '--fork'])(`dev [${os.platform()}]`, async (fork) =>
 
 describe(`dev [${os.platform()}] requests`, () => {
   let url: string
-  let close: () => Promise<void>
 
   bench('makes requests to dev server', async () => {
     if (!url) {
       await clearDirectory()
       const { result } = await runCommand('dev', [fixtureDir, '--no-fork']) as RunResult
       url = result.listener.url
-      close = result.close
     }
     const html = await fetch(url).then(r => r.text())
     if (!html.includes('Welcome to the Nuxt CLI playground!')) {
@@ -54,9 +52,6 @@ describe(`dev [${os.platform()}] requests`, () => {
     await fetch(`${url}_nuxt/@vite/client`).then(r => r.text())
   }, {
     warmupIterations: 1,
-    async teardown() {
-      await close()
-    },
     time: 10_000,
   })
 })
