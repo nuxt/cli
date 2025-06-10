@@ -259,11 +259,11 @@ export default defineCommand({
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
-        type: 'select',
-        options: packageManagerSelectOptions,
-        initial: currentPackageManager,
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+          type: 'select',
+          options: packageManagerSelectOptions,
+          initial: currentPackageManager,
+          cancel: 'reject',
+        }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
