@@ -24,16 +24,16 @@ import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../uti
 
 import { renderError } from './error'
 
-export type NuxtParentIPCMessage =
-  | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
+export type NuxtParentIPCMessage
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
 
-export type NuxtDevIPCMessage =
-  | { type: 'nuxt:internal:dev:fork-ready' }
-  | { type: 'nuxt:internal:dev:ready', port: number }
-  | { type: 'nuxt:internal:dev:loading', message: string }
-  | { type: 'nuxt:internal:dev:restart' }
-  | { type: 'nuxt:internal:dev:rejection', message: string }
-  | { type: 'nuxt:internal:dev:loading:error', error: Error }
+export type NuxtDevIPCMessage
+  = | { type: 'nuxt:internal:dev:fork-ready' }
+    | { type: 'nuxt:internal:dev:ready', port: number }
+    | { type: 'nuxt:internal:dev:loading', message: string }
+    | { type: 'nuxt:internal:dev:restart' }
+    | { type: 'nuxt:internal:dev:rejection', message: string }
+    | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
 export interface NuxtDevContext {
   cwd: string
