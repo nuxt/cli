@@ -36,7 +36,7 @@ jobs:
   ci:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -51,14 +51,17 @@ jobs:
       - name: 📦 Install dependencies
         run: pnpm install
 
-      - name: 💪 Test types
-        run: pnpm test:types
-
       - name: 🛠 Build project
         run: pnpm build
 
+      - name: 💪 Test types
+        run: pnpm test:types
+
       - name: 🧪 Test built `nuxi`
         run: pnpm test:dist
+
+      - name: 👷‍♂️ Prepare playground
+        run: pnpm nuxt prepare packages/nuxt-cli/playground
 
       - name: 🧪 Test (unit)
         run: pnpm test:unit

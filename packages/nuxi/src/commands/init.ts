@@ -122,6 +122,7 @@ export default defineCommand({
       type: 'string',
       required: false,
       description: 'Nuxt modules to install (comma separated without spaces)',
+      negativeDescription: 'Skip module installation prompt',
       alias: 'M',
     },
   },
@@ -228,11 +229,11 @@ export default defineCommand({
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
-        type: 'select',
-        options: packageManagerSelectOptions,
-        initial: currentPackageManager,
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+          type: 'select',
+          options: packageManagerSelectOptions,
+          initial: currentPackageManager,
+          cancel: 'reject',
+        }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -286,14 +287,15 @@ export default defineCommand({
     const modulesToAdd: string[] = []
 
     // Get modules from arg (if provided)
-    if (ctx.args.modules) {
+    if (ctx.args.modules !== undefined) {
       modulesToAdd.push(
-        ...ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean),
+        // ctx.args.modules is false when --no-modules is used
+        ...(ctx.args.modules || '').split(',').map(module => module.trim()).filter(Boolean),
       )
     }
     // ...or offer to install official modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
-      const response = await $fetch<{
+      const modulesPromise = $fetch<{
         modules: {
           npm: string
           type: 'community' | 'official'
@@ -301,39 +303,51 @@ export default defineCommand({
         }[]
       }>('https://api.nuxt.com/modules')
 
-      const officialModules = response.modules
-        .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
-
-      const selectedOfficialModules = await logger.prompt(
+      const wantsUserModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
         {
-          type: 'multiselect',
-          options: officialModules.map(module => ({
-            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-            value: module.npm,
-          })),
-          required: false,
+          type: 'confirm',
+          cancel: 'reject',
         },
-      )
+      ).catch(() => process.exit(1))
 
-      if (selectedOfficialModules === undefined) {
-        process.exit(1)
-      }
+      if (wantsUserModules) {
+        const response = await modulesPromise
 
-      if (selectedOfficialModules.length) {
-        const modules = selectedOfficialModules as unknown as string[]
+        const officialModules = response.modules
+          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
 
-        const allDependencies: Record<string, string[]> = {}
-        for (const module of modules) {
-          allDependencies[module] = await getModuleDependencies(module)
+        const selectedOfficialModules = await logger.prompt(
+          'Pick the modules to install:',
+          {
+            type: 'multiselect',
+            options: officialModules.map(module => ({
+              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+              value: module.npm,
+            })),
+            required: false,
+          },
+        )
+
+        if (selectedOfficialModules === undefined) {
+          process.exit(1)
         }
 
-        const { toInstall, skipped } = filterModules(modules, allDependencies)
+        if (selectedOfficialModules.length > 0) {
+          const modules = selectedOfficialModules as unknown as string[]
 
-        if (skipped.length) {
-          logger.info(`The following modules are already included as dependencies and will not be installed: ${skipped.join(', ')}`)
+          const allDependencies: Record<string, string[]> = {}
+          for (const module of modules) {
+            allDependencies[module] = await getModuleDependencies(module)
+          }
+
+          const { toInstall, skipped } = filterModules(modules, allDependencies)
+
+          if (skipped.length) {
+            logger.info(`The following modules are already included as dependencies and will not be installed: ${skipped.join(', ')}`)
+          }
+          modulesToAdd.push(...toInstall)
         }
-        modulesToAdd.push(...toInstall)
       }
     }
 
