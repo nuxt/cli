@@ -336,10 +336,11 @@ export default defineCommand({
         if (selectedOfficialModules.length > 0) {
           const modules = selectedOfficialModules as unknown as string[]
 
-          const allDependencies: Record<string, string[]> = {}
-          for (const module of modules) {
-            allDependencies[module] = await getModuleDependencies(module)
-          }
+          const allDependencies = Object.fromEntries(
+            await Promise.all(modules.map(async module =>
+              [module, await getModuleDependencies(module)] as const,
+            )),
+          )
 
           const { toInstall, skipped } = filterModules(modules, allDependencies)
 
