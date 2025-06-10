@@ -20,7 +20,7 @@ import { joinURL } from 'ufo'
 import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { cwdArgs, logLevelArgs } from '../_shared'
-import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
+import { checkNuxtCompatibility, fetchModules, getNuxtVersion, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
   registry: string
@@ -406,20 +406,10 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
       fd = await fs.promises.open(npmrcPath, 'r')
       if (await fd.stat().then(r => r.isFile())) {
         const npmrcContent = await fd.readFile('utf-8')
+        const registry = getRegistryFromContent(npmrcContent, scope)
 
-        if (scope) {
-          const scopedRegex = new RegExp(`^${scope}:registry=(.+)$`, 'm')
-          const scopedMatch = npmrcContent.match(scopedRegex)?.[1]
-          if (scopedMatch) {
-            return scopedMatch.trim()
-          }
-        }
-
-        // If no scoped registry found or no scope provided, look for the default registry
-        const defaultRegex = /^\s*registry=(.+)$/m
-        const defaultMatch = npmrcContent.match(defaultRegex)?.[1]
-        if (defaultMatch) {
-          return defaultMatch.trim()
+        if (registry) {
+          return registry
         }
       }
     }
