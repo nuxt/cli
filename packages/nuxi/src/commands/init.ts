@@ -70,6 +70,36 @@ function filterModules(modules: string[], allDependencies: Record<string, string
   return result
 }
 
+async function getTemplateDependencies(templateDir: string) {
+  try {
+    const packageJsonPath = join(templateDir, 'package.json')
+    if (!existsSync(packageJsonPath)) {
+      return []
+    }
+    const packageJson = await import(packageJsonPath)
+    const directDeps = {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    }
+    const directDepNames = Object.keys(directDeps)
+    const allDeps = new Set(directDepNames)
+
+    const transitiveDepsResults = await Promise.all(
+      directDepNames.map(dep => getModuleDependencies(dep)),
+    )
+
+    transitiveDepsResults.forEach((deps) => {
+      deps.forEach(dep => allDeps.add(dep))
+    })
+
+    return Array.from(allDeps)
+  }
+  catch (err) {
+    logger.warn(`Could not read template dependencies: ${err}`)
+    return []
+  }
+}
+
 export default defineCommand({
   meta: {
     name: 'init',
@@ -229,11 +259,11 @@ export default defineCommand({
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
-          type: 'select',
-          options: packageManagerSelectOptions,
-          initial: currentPackageManager,
-          cancel: 'reject',
-        }).catch(() => process.exit(1))
+        type: 'select',
+        options: packageManagerSelectOptions,
+        initial: currentPackageManager,
+        cancel: 'reject',
+      }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -312,42 +342,51 @@ export default defineCommand({
       ).catch(() => process.exit(1))
 
       if (wantsUserModules) {
-        const response = await modulesPromise
+        const [response, templateDeps] = await Promise.all([
+          modulesPromise,
+          getTemplateDependencies(template.dir),
+        ])
 
         const officialModules = response.modules
           .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
+          .filter(module => !templateDeps.includes(module.npm))
 
-        const selectedOfficialModules = await logger.prompt(
-          'Pick the modules to install:',
-          {
-            type: 'multiselect',
-            options: officialModules.map(module => ({
-              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-              value: module.npm,
-            })),
-            required: false,
-          },
-        )
-
-        if (selectedOfficialModules === undefined) {
-          process.exit(1)
+        if (officialModules.length === 0) {
+          logger.info('All official modules are already included in this template.')
         }
-
-        if (selectedOfficialModules.length > 0) {
-          const modules = selectedOfficialModules as unknown as string[]
-
-          const allDependencies = Object.fromEntries(
-            await Promise.all(modules.map(async module =>
-              [module, await getModuleDependencies(module)] as const,
-            )),
+        else {
+          const selectedOfficialModules = await logger.prompt(
+            'Pick the modules to install:',
+            {
+              type: 'multiselect',
+              options: officialModules.map(module => ({
+                label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+                value: module.npm,
+              })),
+              required: false,
+            },
           )
 
-          const { toInstall, skipped } = filterModules(modules, allDependencies)
-
-          if (skipped.length) {
-            logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+          if (selectedOfficialModules === undefined) {
+            process.exit(1)
           }
-          modulesToAdd.push(...toInstall)
+
+          if (selectedOfficialModules.length > 0) {
+            const modules = selectedOfficialModules as unknown as string[]
+
+            const allDependencies = Object.fromEntries(
+              await Promise.all(modules.map(async module =>
+                [module, await getModuleDependencies(module)] as const,
+              )),
+            )
+
+            const { toInstall, skipped } = filterModules(modules, allDependencies)
+
+            if (skipped.length) {
+              logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+            }
+            modulesToAdd.push(...toInstall)
+          }
         }
       }
     }
