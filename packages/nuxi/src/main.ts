@@ -33,6 +33,7 @@ export const main = defineCommand({
   subCommands: commands,
   async setup(ctx) {
     const command = ctx.args._[0]
+    logger.debug(`Running \`nuxt ${command}\` command`)
     const dev = command === 'dev'
     setupGlobalConsole({ dev })
 

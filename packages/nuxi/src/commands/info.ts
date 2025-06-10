@@ -40,7 +40,7 @@ export default defineCommand({
     const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     // Utils to query a dependency version
-    const nuxtPath = await tryResolveNuxt(cwd)
+    const nuxtPath = tryResolveNuxt(cwd)
     async function getDepVersion(name: string) {
       for (const url of [cwd, nuxtPath]) {
         if (!url) {

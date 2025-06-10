@@ -11,6 +11,7 @@
     },
     "packages/nuxt-cli/playground": {
       "ignoreDependencies": [
+        "@nuxt/test-utils",
         "nuxt"
       ]
     },
@@ -22,6 +23,7 @@
         "confbox",
         "consola",
         "defu",
+        "exsolve",
         "fuse.js",
         "giget",
         "h3",

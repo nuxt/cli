@@ -40,6 +40,7 @@
     "confbox": "^0.2.2",
     "consola": "^3.4.2",
     "defu": "^6.1.4",
+    "exsolve": "^1.0.5",
     "fuse.js": "^7.1.0",
     "giget": "^2.0.0",
     "h3": "^1.15.3",
@@ -57,16 +58,17 @@
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
     "ufo": "^1.6.1",
-    "youch": "^4.1.0-beta.7"
+    "youch": "^4.1.0-beta.8"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
-    "rollup": "^4.41.1",
-    "rollup-plugin-visualizer": "^5.14.0",
+    "@nuxt/schema": "^3.17.5",
+    "@types/node": "^22.15.31",
+    "rollup": "^4.42.0",
+    "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
     "unplugin-purge-polyfills": "^0.1.0",
-    "vitest": "^3.1.4",
-    "youch": "^4.1.0-beta.7"
+    "vitest": "^3.2.3",
+    "youch": "^4.1.0-beta.8"
   }
 }
