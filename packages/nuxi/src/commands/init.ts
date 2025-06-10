@@ -345,7 +345,7 @@ export default defineCommand({
           const { toInstall, skipped } = filterModules(modules, allDependencies)
 
           if (skipped.length) {
-            logger.info(`The following modules are already included as dependencies and will not be installed: ${skipped.join(', ')}`)
+            logger.info(`The following modules are already included as dependencies and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
           }
           modulesToAdd.push(...toInstall)
         }
