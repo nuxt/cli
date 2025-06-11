@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url'
 // https://github.com/nodejs/node/pull/54501
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
   try {
-    nodeModule.enableCompileCache()
+    const { directory } = nodeModule.enableCompileCache()
+    // allow child process to share the same cache directory
+    process.env.NODE_COMPILE_CACHE ||= directory
   }
   catch {
     // Ignore errors
