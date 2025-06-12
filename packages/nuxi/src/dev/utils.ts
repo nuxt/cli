@@ -29,7 +29,7 @@ export type NuxtParentIPCMessage
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
-    | { type: 'nuxt:internal:dev:ready', port: number }
+    | { type: 'nuxt:internal:dev:ready', address: string }
     | { type: 'nuxt:internal:dev:loading', message: string }
     | { type: 'nuxt:internal:dev:restart' }
     | { type: 'nuxt:internal:dev:rejection', message: string }
@@ -81,7 +81,6 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
   )
 
   // Merge interface with public context
-  // @ts-expect-error private property
   devServer.listener._url = devServer.listener.url
   if (options.devContext.proxy?.url) {
     devServer.listener.url = options.devContext.proxy.url
@@ -99,7 +98,14 @@ const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/
 
 type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
 
-export class NuxtDevServer extends EventEmitter {
+interface DevServerEventMap {
+  'loading:error': [error: Error]
+  'loading': [loadingMessage: string]
+  'ready': [address: string]
+  'restart': []
+}
+
+export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
   private _currentNuxt?: NuxtWithServer
@@ -109,7 +115,10 @@ export class NuxtDevServer extends EventEmitter {
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
-  listener: Listener
+  listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
+    _url?: string
+    address: AddressInfo & { socketPath?: string }
+  }
 
   constructor(private options: NuxtDevServerOptions) {
     super()
@@ -184,7 +193,7 @@ export class NuxtDevServer extends EventEmitter {
       this._handler = undefined
       this._loadingError = error as Error
       this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
-      this.emit('loading:error', error)
+      this.emit('loading:error', error as Error)
     }
   }
 
@@ -334,7 +343,7 @@ export class NuxtDevServer extends EventEmitter {
     })
 
     this._handler = toNodeListener(this._currentNuxt.server.app)
-    this.emit('ready', addr)
+    this.emit('ready', `http://127.0.0.1:${addr.port}`)
   }
 
   async _watchConfig() {

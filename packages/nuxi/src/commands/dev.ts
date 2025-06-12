@@ -143,7 +143,7 @@ const command = defineCommand({
       },
     })
 
-    onReady(port => devProxy.setAddress(`http://127.0.0.1:${port}`))
+    onReady(address => devProxy.setAddress(address))
 
     // ... then fall back to pre-warmed fork if a hard restart is required
     const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
@@ -310,7 +310,7 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
           resolve()
         }
         else if (message.type === 'nuxt:internal:dev:ready') {
-          devProxy.setAddress(`http://127.0.0.1:${message.port}`)
+          devProxy.setAddress(message.address)
           if (startTime) {
             logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
           }
@@ -357,7 +357,7 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
 }
 
 function resolveListenOptions(
-  nuxtOptions: NuxtOptions,
+  nuxtOptions: { devServer: NuxtOptions['devServer'], app: NuxtOptions['app'] },
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
   const _port = args.port

@@ -65,7 +65,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     devContext,
   }, listenOptions)
 
-  let port: number
+  let address: string
 
   if (ipc.enabled) {
     devServer.on('loading:error', (_error) => {
@@ -75,7 +75,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
           message: _error.message,
           stack: _error.stack,
           name: _error.name,
-          code: _error.code,
+          code: 'code' in _error ? _error.code : undefined,
         },
       })
     })
@@ -86,12 +86,12 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       ipc.send({ type: 'nuxt:internal:dev:restart' })
     })
     devServer.on('ready', (payload) => {
-      ipc.send({ type: 'nuxt:internal:dev:ready', port: payload.port })
+      ipc.send({ type: 'nuxt:internal:dev:ready', address: payload })
     })
   }
   else {
     devServer.on('ready', (payload) => {
-      port = payload.port
+      address = payload
     })
   }
 
@@ -106,12 +106,12 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   return {
     listener: devServer.listener,
     close: () => devServer.close(),
-    onReady: (callback: (port: number) => void) => {
-      if (port) {
-        callback(port)
+    onReady: (callback: (address: string) => void) => {
+      if (address) {
+        callback(address)
       }
       else {
-        devServer.once('ready', payload => callback(payload.port))
+        devServer.once('ready', payload => callback(payload))
       }
     },
     onRestart: (callback: (devServer: NuxtDevServer) => void) => {
