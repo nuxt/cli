@@ -18,7 +18,6 @@
     "packages/nuxt-cli": {
       "ignoreDependencies": [
         "c12",
-        "chokidar",
         "clipboardy",
         "confbox",
         "consola",

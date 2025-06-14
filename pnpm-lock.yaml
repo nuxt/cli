@@ -118,9 +118,6 @@ importers:
       c12:
         specifier: ^3.0.4
         version: 3.0.4(magicast@0.3.5)
-      chokidar:
-        specifier: ^4.0.3
-        version: 4.0.3
       citty:
         specifier: ^0.1.6
         version: 0.1.6
@@ -223,9 +220,6 @@ importers:
       c12:
         specifier: ^3.0.4
         version: 3.0.4(magicast@0.3.5)
-      chokidar:
-        specifier: ^4.0.3
-        version: 4.0.3
       citty:
         specifier: ^0.1.6
         version: 0.1.6
