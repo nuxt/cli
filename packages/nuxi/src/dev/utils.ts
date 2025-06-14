@@ -1,19 +1,19 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
-import type { FSWatcher } from 'chokidar'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
 import type { NitroDevServer } from 'nitropack'
+import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
+import { watch } from 'node:fs'
 import process from 'node:process'
 
-import chokidar from 'chokidar'
 import defu from 'defu'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
-import { join, relative, resolve } from 'pathe'
+import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
@@ -108,6 +108,7 @@ interface DevServerEventMap {
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
+  private _configWatcher?: FSWatcher
   private _currentNuxt?: NuxtWithServer
   private _loadingMessage?: string
   private _loadingError?: Error
@@ -198,11 +199,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async close() {
+    this._distWatcher?.close()
+    this._configWatcher?.close()
     if (this._currentNuxt) {
       await this._currentNuxt.close()
-    }
-    if (this._distWatcher) {
-      await this._distWatcher.close()
     }
   }
 
@@ -334,11 +334,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Watch dist directory
-    this._distWatcher = chokidar.watch(resolve(this._currentNuxt.options.buildDir, 'dist'), {
-      ignoreInitial: true,
-      depth: 0,
-    })
-    this._distWatcher.on('unlinkDir', () => {
+    this._distWatcher = watch(resolve(this._currentNuxt.options.buildDir, 'dist'))
+    this._distWatcher.on('change', () => {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
@@ -347,18 +344,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async _watchConfig() {
-    const configWatcher = chokidar.watch([this.options.cwd, join(this.options.cwd, '.config')], {
-      ignoreInitial: true,
-      depth: 0,
-    })
-    configWatcher.on('all', (event, _file) => {
-      if (event === 'all' || event === 'ready' || event === 'error' || event === 'raw') {
-        return
-      }
-      const file = relative(this.options.cwd, _file)
+    this._configWatcher = watch(this.options.cwd, { recursive: true })
+
+    this._configWatcher.on('change', (_event, file: string) => {
       if (file === (this.options.dotenv.fileName || '.env')) {
         this.emit('restart')
       }
+
       if (RESTART_RE.test(file)) {
         this.loadDebounced(true, `${file} updated`)
       }
