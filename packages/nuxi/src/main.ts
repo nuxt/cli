@@ -14,7 +14,7 @@ import { logger } from './utils/logger'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
-  globalThis.crypto = nodeCrypto as unknown as Crypto
+  globalThis.crypto = nodeCrypto.webcrypto as unknown as Crypto
 }
 
 export const main = defineCommand({
