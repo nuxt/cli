@@ -9,7 +9,7 @@ overrides:
   '@nuxt/schema': 3.17.5
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 50.8.0
+  eslint-plugin-jsdoc: 51.0.1
   eslint-plugin-unicorn: 59.0.1
   h3: ^1.15.3
   nuxi: workspace:*
@@ -2079,9 +2079,9 @@ packages:
     resolution: {integrity: sha512-ZcbTaIqJOfCc03QwD468Unz/5Ir8ATtvAHsK+FdXbDIbGfihqh9mrvdcYunQzqn4HrvWWaFyaxJhGZagaJJpPQ==}
     engines: {node: '>= 14'}
 
-  are-docs-informative@0.0.2:
-    resolution: {integrity: sha512-ixiS0nLNNG5jNQzgZJNoUpBKdo9yTYZMGJ+QgT2jmjR7G7+QHRCc4v6LQ3NgE7EBJq+o0ams3waJwkrlBom8Ig==}
-    engines: {node: '>=14'}
+  are-docs-informative@0.1.1:
+    resolution: {integrity: sha512-sqRsNQBwbKLRX0jV5Cu5uzmtflf892n4Vukz7T659ebL4pz3mpOqCMU7lxMoBTFwnp10E3YB5ZcyHM41W5bcDA==}
+    engines: {node: '>=18'}
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -2814,9 +2814,9 @@ packages:
       eslint-import-resolver-node:
         optional: true
 
-  eslint-plugin-jsdoc@50.8.0:
-    resolution: {integrity: sha512-UyGb5755LMFWPrZTEqqvTJ3urLz1iqj+bYOHFNag+sw3NvaMWP9K2z+uIn37XfNALmQLQyrBlJ5mkiVPL7ADEg==}
-    engines: {node: '>=18'}
+  eslint-plugin-jsdoc@51.0.1:
+    resolution: {integrity: sha512-nnH6O8uk0Wp5EvHlVEPESKdGWTlu5g1tfBUZmL/jMZLBpUtttxxW+9hPzTMCYmYsQ3HwDsJdHJAiaDRKsP6iUg==}
+    engines: {node: '>=22'}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
 
@@ -5540,7 +5540,7 @@ snapshots:
       eslint-merge-processors: 2.0.0(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-antfu: 3.1.1(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-command: 3.2.1(eslint@9.29.0(jiti@2.4.2))
-      eslint-plugin-jsdoc: 50.8.0(eslint@9.29.0(jiti@2.4.2))
+      eslint-plugin-jsdoc: 51.0.1(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-jsonc: 2.20.1(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-n: 17.19.0(eslint@9.29.0(jiti@2.4.2))(typescript@5.8.3)
       eslint-plugin-no-only-tests: 3.3.0
@@ -6311,7 +6311,7 @@ snapshots:
       eslint-flat-config-utils: 2.1.0
       eslint-merge-processors: 2.0.0(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-import-x: 4.15.0(@typescript-eslint/utils@8.34.0(eslint@9.29.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.29.0(jiti@2.4.2))
-      eslint-plugin-jsdoc: 50.8.0(eslint@9.29.0(jiti@2.4.2))
+      eslint-plugin-jsdoc: 51.0.1(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-regexp: 2.9.0(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-unicorn: 59.0.1(eslint@9.29.0(jiti@2.4.2))
       eslint-plugin-vue: 10.2.0(eslint@9.29.0(jiti@2.4.2))(vue-eslint-parser@10.1.3(eslint@9.29.0(jiti@2.4.2)))
@@ -7438,7 +7438,7 @@ snapshots:
       tar-stream: 3.1.7
       zip-stream: 6.0.1
 
-  are-docs-informative@0.0.2: {}
+  are-docs-informative@0.1.1: {}
 
   argparse@2.0.1: {}
 
@@ -8184,15 +8184,15 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-jsdoc@50.8.0(eslint@9.29.0(jiti@2.4.2)):
+  eslint-plugin-jsdoc@51.0.1(eslint@9.29.0(jiti@2.4.2)):
     dependencies:
       '@es-joy/jsdoccomment': 0.50.2
-      are-docs-informative: 0.0.2
+      are-docs-informative: 0.1.1
       comment-parser: 1.4.1
       debug: 4.4.1
       escape-string-regexp: 4.0.0
       eslint: 9.29.0(jiti@2.4.2)
-      espree: 10.3.0
+      espree: 10.4.0
       esquery: 1.6.0
       parse-imports-exports: 0.2.4
       semver: 7.7.2
