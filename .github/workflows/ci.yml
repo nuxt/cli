@@ -61,7 +61,7 @@ jobs:
         run: pnpm test:dist
 
       - name: 👷‍♂️ Prepare playground
-        run: pnpm nuxt prepare packages/nuxt-cli/playground
+        run: pnpm nuxt prepare playground
 
       - name: 🧪 Test (unit)
         run: pnpm test:unit

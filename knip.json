@@ -9,7 +9,7 @@
         "scripts/*"
       ]
     },
-    "packages/nuxt-cli/playground": {
+    "playground": {
       "ignoreDependencies": [
         "@nuxt/test-utils",
         "nuxt"

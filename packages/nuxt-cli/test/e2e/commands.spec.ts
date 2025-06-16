@@ -11,7 +11,7 @@ import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
-const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
+const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 describe('commands', () => {
