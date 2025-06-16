@@ -33,7 +33,7 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@types/node": "^22.15.31",
+    "@types/node": "^22.15.32",
     "rollup": "^4.43.0",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.8.3",

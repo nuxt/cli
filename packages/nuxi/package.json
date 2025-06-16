@@ -42,7 +42,7 @@
     "@nuxt/kit": "^3.17.5",
     "@nuxt/schema": "^3.17.5",
     "@nuxt/test-utils": "^3.19.1",
-    "@types/node": "^22.15.31",
+    "@types/node": "^22.15.32",
     "@types/semver": "^7.7.0",
     "c12": "^3.0.4",
     "citty": "^0.1.6",
