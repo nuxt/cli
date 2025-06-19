@@ -8,22 +8,22 @@ import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
 import { watch } from 'node:fs'
-import process from 'node:process'
+import { mkdir } from 'node:fs/promises'
 
+import process from 'node:process'
 import defu from 'defu'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
-import { joinURL } from 'ufo'
 
+import { joinURL } from 'ufo'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
+import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
-import { mkdir } from 'node:fs/promises'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
