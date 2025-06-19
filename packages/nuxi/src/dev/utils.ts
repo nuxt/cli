@@ -8,20 +8,21 @@ import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
 import { watch } from 'node:fs'
-import process from 'node:process'
+import { mkdir } from 'node:fs/promises'
 
+import process from 'node:process'
 import defu from 'defu'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
-import { joinURL } from 'ufo'
 
+import { joinURL } from 'ufo'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
+import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
 import { createSocketListener, formatSocketURL } from './socket'
 
@@ -331,7 +332,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Watch dist directory
-    this._distWatcher = watch(resolve(this._currentNuxt.options.buildDir, 'dist'))
+    const distDir = resolve(this._currentNuxt.options.buildDir, 'dist')
+    await mkdir(distDir, { recursive: true })
+    this._distWatcher = watch(distDir)
     this._distWatcher.on('change', () => {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
