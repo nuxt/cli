@@ -3,7 +3,7 @@ import { existsSync, unlinkSync } from 'node:fs'
 import { Server } from 'node:http'
 import process from 'node:process'
 
-export function generateSocketPath(prefix: string): string {
+function generateSocketPath(prefix: string): string {
   const timestamp = Date.now()
   const random = Math.random().toString(36).slice(2, 8)
 

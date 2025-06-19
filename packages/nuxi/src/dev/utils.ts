@@ -67,13 +67,13 @@ interface NuxtDevServerOptions {
   devContext: NuxtDevContext
 }
 
-export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: Partial<ListenOptions>) {
+export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: true | Partial<ListenOptions>) {
   // Initialize dev server
   const devServer = new NuxtDevServer(options)
 
   // Attach internal listener
   devServer.listener = listenOptions
-    ? await listen(devServer.handler, listenOptions)
+    ? await listen(devServer.handler, typeof listenOptions === 'object' ? listenOptions : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
     : await createSocketListener(devServer.handler)
 
   // Merge interface with public context
@@ -114,7 +114,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   handler: RequestListener
   listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
     _url?: string
-    address: { socketPath: string, port?: number, address?: string } | AddressInfo
+    address: { socketPath: string, port: number, address: string } | AddressInfo
   }
 
   constructor(private options: NuxtDevServerOptions) {
@@ -310,11 +310,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     // Sync internal server info to the internals
     // It is important for vite-node to use the internal URL but public proto
     const addr = this.listener.address
-    this._currentNuxt.options.devServer.host = addr.address || 'localhost'
-    this._currentNuxt.options.devServer.port = addr.port || 0
-    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
-    this._currentNuxt.options.devServer.https = this.options.devContext.proxy
-      ?.https as boolean | { key: string, cert: string }
+    this._currentNuxt.options.devServer.host = addr.address
+    this._currentNuxt.options.devServer.port = addr.port
+    this._currentNuxt.options.devServer.url = 'socketPath' in addr
+      ? this.options.devContext.proxy?.url || getAddressURL(addr, !!this.listener.https)
+      : getAddressURL(addr, !!this.listener.https)
+    this._currentNuxt.options.devServer.https = this.options.devContext.proxy?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
@@ -354,7 +355,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 }
 
-function getAddressURL(addr: AddressInfo, https: boolean) {
+function getAddressURL(addr: Pick<AddressInfo, 'address' | 'port'>, https: boolean) {
   const proto = https ? 'https' : 'http'
   let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
   if (host === '[::]') {
