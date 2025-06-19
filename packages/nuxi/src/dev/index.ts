@@ -42,7 +42,7 @@ class IPC {
 
 const ipc = new IPC()
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: true | Partial<ListenOptions>) {
   const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })
