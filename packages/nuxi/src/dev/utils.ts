@@ -23,6 +23,7 @@ import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 
 import { renderError } from './error'
+import { mkdir } from 'node:fs/promises'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
@@ -334,7 +335,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Watch dist directory
-    this._distWatcher = watch(resolve(this._currentNuxt.options.buildDir, 'dist'))
+    const distDir = resolve(this._currentNuxt.options.buildDir, 'dist')
+    await mkdir(distDir, { recursive: true })
+    this._distWatcher = watch(distDir)
     this._distWatcher.on('change', () => {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
