@@ -44,7 +44,7 @@
     "@nuxt/schema": "3.17.5",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
-    "eslint-plugin-jsdoc": "51.2.1",
+    "eslint-plugin-jsdoc": "51.2.2",
     "eslint-plugin-unicorn": "59.0.1",
     "h3": "^1.15.3",
     "nuxi": "workspace:*"
