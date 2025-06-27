@@ -1,5 +1,4 @@
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
@@ -51,7 +50,7 @@ export default defineCommand({
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
-      await x(fileURLToPath(resolvedVueTsc), typeCheckArgs, {
+      await x(resolvedVueTsc, typeCheckArgs, {
         throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
