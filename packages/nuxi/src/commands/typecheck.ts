@@ -1,9 +1,9 @@
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
 import { resolve } from 'pathe'
+import { readTSConfig } from 'pkg-types'
 import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
@@ -41,13 +41,16 @@ export default defineCommand({
     await buildNuxt(nuxt)
     await nuxt.close()
 
+    const supportsProjects = await readTSConfig(cwd).then(r => !!(r.references?.length))
+    const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']
+
     // Prefer local install if possible
     const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
       resolveModulePath('typescript', { try: true }),
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
     ])
     if (resolvedTypeScript && resolvedVueTsc) {
-      await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
+      await x(resolvedVueTsc, typeCheckArgs, {
         throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
@@ -66,7 +69,7 @@ export default defineCommand({
           },
         )
 
-        await x('bunx', 'vue-tsc --noEmit'.split(' '), {
+        await x('bunx', ['vue-tsc', ...typeCheckArgs], {
           throwOnError: true,
           nodeOptions: {
             stdio: 'inherit',
@@ -77,7 +80,7 @@ export default defineCommand({
       else {
         await x(
           'npx',
-          '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
+          ['-p', 'vue-tsc', '-p', 'typescript', 'vue-tsc', ...typeCheckArgs],
           {
             throwOnError: true,
             nodeOptions: { stdio: 'inherit', cwd },
