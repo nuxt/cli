@@ -18,6 +18,7 @@ import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
+import { isSocketURL, parseSocketURL } from '../dev/socket'
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
@@ -216,7 +217,8 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
       }
       return resolveLoadingMessage()
     }
-    proxy.web(req, res, { target: address })
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
+    proxy.web(req, res, { target })
   }, listenOptions)
 
   listener.server.on('upgrade', (req, socket, head) => {
@@ -224,8 +226,9 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
       socket.destroy()
       return
     }
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
     // @ts-expect-error TODO: fix socket type in httpxy
-    return proxy.ws(req, socket, { target: address }, head)
+    return proxy.ws(req, socket, { target }, head)
   })
 
   return {
