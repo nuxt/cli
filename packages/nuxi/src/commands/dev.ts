@@ -3,6 +3,7 @@ import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { TLSSocket } from 'node:tls'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../dev/utils'
 
 import { fork } from 'node:child_process'
@@ -190,6 +191,25 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
 
   const proxy = createProxyServer({})
 
+  proxy.on('proxyReq', (proxyReq, req) => {
+    if (!proxyReq.hasHeader('x-forwarded-for')) {
+      const address = req.socket.remoteAddress
+      if (address) {
+        proxyReq.appendHeader('x-forwarded-for', address)
+      }
+    }
+    if (!proxyReq.hasHeader('x-forwarded-port')) {
+      const localPort = req?.socket?.localPort
+      if (localPort) {
+        proxyReq.setHeader('x-forwarded-port', req.socket.localPort)
+      }
+    }
+    if (!proxyReq.hasHeader('x-forwarded-Proto')) {
+      const encrypted = (req?.connection as TLSSocket)?.encrypted
+      proxyReq.setHeader('x-forwarded-proto', encrypted ? 'https' : 'http')
+    }
+  })
+
   const listener = await listen((req: IncomingMessage, res: ServerResponse) => {
     if (error) {
       renderError(req, res, error)
@@ -232,7 +252,7 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
     }
     const target = isSocketURL(address) ? parseSocketURL(address) : address
     // @ts-expect-error TODO: fix socket type in httpxy
-    return proxy.ws(req, socket, { target }, head)
+    return proxy.ws(req, socket, { target, xfwd: true }, head)
   })
 
   return {
