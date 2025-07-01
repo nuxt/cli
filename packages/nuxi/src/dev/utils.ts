@@ -27,7 +27,7 @@ import { renderError } from './error'
 import { createSocketListener, formatSocketURL } from './socket'
 
 export type NuxtParentIPCMessage
-  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
@@ -78,6 +78,11 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
         ? listenOptions
         : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
     : await createSocketListener(devServer.handler)
+
+  if (process.env.DEBUG) {
+    // eslint-disable-next-line no-console
+    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
+  }
 
   // Merge interface with public context
   devServer.listener._url = devServer.listener.url

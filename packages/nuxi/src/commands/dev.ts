@@ -129,6 +129,8 @@ const command = defineCommand({
     // Start proxy Listener
     const devProxy = await createDevProxy(nuxtOptions, listenOptions)
 
+    const useSocket = nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
+
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
     const { onRestart, onReady, close } = await initialize({
@@ -144,7 +146,7 @@ const command = defineCommand({
       },
       // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
       // otherwise pass 'true' to listen on a random port instead
-    }, {}, nuxtOptions._majorVersion === 4 || process.env.NUXT_SOCKET ? undefined : true)
+    }, {}, useSocket ? undefined : true)
 
     onReady(address => devProxy.setAddress(address))
 
@@ -153,7 +155,7 @@ const command = defineCommand({
     onRestart(async (devServer) => {
       await devServer.close()
       const subprocess = await fork
-      await subprocess.initialize(devProxy)
+      await subprocess.initialize(devProxy, useSocket)
     })
 
     return {
@@ -261,12 +263,13 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
     }
   }
 
-  async function initialize(proxy: DevProxy) {
+  async function initialize(proxy: DevProxy, socket: boolean) {
     devProxy = proxy
     const urls = await devProxy.listener.getURLs()
     await ready
     childProc!.send({
       type: 'nuxt:internal:dev:context',
+      socket,
       context: {
         cwd,
         args,
