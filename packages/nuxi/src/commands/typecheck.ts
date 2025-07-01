@@ -8,7 +8,7 @@ import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
