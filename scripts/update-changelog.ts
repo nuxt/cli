@@ -221,13 +221,13 @@ export async function getContributors() {
     if (emails.has(commit.author.email) || commit.author.name === 'renovate[bot]') {
       continue
     }
-    const { author } = await $fetch<{ author: { login: string, email: string } }>(`https://api.github.com/repos/${repo}/commits/${commit.shortHash}`, {
+    const { author } = await fetch(`https://api.github.com/repos/${repo}/commits/${commit.shortHash}`, {
       headers: {
         'User-Agent': `${repo} github action automation`,
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': `token ${process.env.GITHUB_TOKEN}`,
       },
-    })
+    }).then(r => r.json() as Promise<{ author: { login: string, email: string } | null }>)
     if (!author) {
       continue
     }
