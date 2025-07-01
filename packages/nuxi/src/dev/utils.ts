@@ -47,6 +47,7 @@ export interface NuxtDevContext {
     logLevel: string
     dotenv: string
     envName: string
+    extends?: string
   }
   proxy?: {
     url?: string
@@ -238,6 +239,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
+        ...(this.options.devContext.args.extends && { extends: this.options.devContext.args.extends }),
         ...this.options.overrides,
         vite: {
           clearScreen: this.options.clear,

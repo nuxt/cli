@@ -274,7 +274,7 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
   }
 }
 
-async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
+async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string, extends?: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
   let devProxy: DevProxy
   let ready: Promise<void> | undefined
