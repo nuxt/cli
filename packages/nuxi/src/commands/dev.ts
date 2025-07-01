@@ -142,7 +142,9 @@ const command = defineCommand({
         urls,
         https: devProxy.listener.https,
       },
-    })
+      // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
+      // otherwise pass 'true' to listen on a random port instead
+    }, {}, nuxtOptions._majorVersion === 4 || process.env.NUXT_SOCKET ? undefined : true)
 
     onReady(address => devProxy.setAddress(address))
 

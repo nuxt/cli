@@ -74,7 +74,9 @@ export async function createNuxtDevServer(options: NuxtDevServerOptions, listenO
 
   // Attach internal listener
   devServer.listener = listenOptions
-    ? await listen(devServer.handler, typeof listenOptions === 'object' ? listenOptions : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
+    ? await listen(devServer.handler, typeof listenOptions === 'object'
+        ? listenOptions
+        : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
     : await createSocketListener(devServer.handler)
 
   // Merge interface with public context
