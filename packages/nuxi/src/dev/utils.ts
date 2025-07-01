@@ -7,7 +7,7 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
-import { watch } from 'node:fs'
+import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 
 import process from 'node:process'
@@ -112,7 +112,7 @@ interface DevServerEventMap {
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   private _handler?: RequestListener
   private _distWatcher?: FSWatcher
-  private _configWatcher?: FSWatcher
+  private _configWatcher?: () => void
   private _currentNuxt?: NuxtWithServer
   private _loadingMessage?: string
   private _loadingError?: Error
@@ -185,7 +185,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   async init() {
     await this.load()
-    await this._watchConfig()
+    this._watchConfig()
   }
 
   async load(reload?: boolean, reason?: string) {
@@ -204,7 +204,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   async close() {
     this._distWatcher?.close()
-    this._configWatcher?.close()
+    this._configWatcher?.()
     if (this._currentNuxt) {
       await this._currentNuxt.close()
     }
@@ -350,18 +350,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
   }
 
-  async _watchConfig() {
-    this._configWatcher = watch(this.options.cwd, { recursive: true })
-
-    this._configWatcher.on('change', (_event, file: string) => {
-      if (file === (this.options.dotenv.fileName || '.env')) {
-        this.emit('restart')
-      }
-
-      if (RESTART_RE.test(file)) {
-        this.loadDebounced(true, `${file} updated`)
-      }
-    })
+  _watchConfig() {
+    this._configWatcher = createConfigWatcher(
+      this.cwd,
+      this.options.dotenv.fileName,
+      () => this.emit('restart'),
+      file => this.loadDebounced(true, `${file} updated`),
+    )
   }
 }
 
@@ -401,4 +396,41 @@ export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptio
   }
 
   return defaultConfig
+}
+
+function createConfigWatcher(cwd: string, dotenvFileName = '.env', onRestart: () => void, onReload: (file: string) => void) {
+  const configWatcher = watch(cwd)
+  let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+
+  configWatcher.on('change', (_event, file: string) => {
+    if (file === dotenvFileName) {
+      onRestart()
+    }
+
+    if (RESTART_RE.test(file)) {
+      onReload(file)
+    }
+
+    if (file === '.config') {
+      configDirWatcher ||= createConfigDirWatcher(cwd, onReload)
+    }
+  })
+
+  return () => {
+    configWatcher.close()
+    configDirWatcher?.()
+  }
+}
+
+function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
+  const configDir = resolve(cwd, '.config')
+
+  const configDirWatcher = watch(configDir)
+  configDirWatcher.on('change', (_event, file: string) => {
+    if (RESTART_RE.test(file)) {
+      onReload(file)
+    }
+  })
+
+  return () => configDirWatcher.close()
 }
