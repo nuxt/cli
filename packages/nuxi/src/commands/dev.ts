@@ -18,6 +18,7 @@ import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
+import { isSocketURL, parseSocketURL } from '../dev/socket'
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
@@ -128,6 +129,8 @@ const command = defineCommand({
     // Start proxy Listener
     const devProxy = await createDevProxy(nuxtOptions, listenOptions)
 
+    const useSocket = nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
+
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
     const { onRestart, onReady, close } = await initialize({
@@ -141,7 +144,9 @@ const command = defineCommand({
         urls,
         https: devProxy.listener.https,
       },
-    })
+      // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
+      // otherwise pass 'true' to listen on a random port instead
+    }, {}, useSocket ? undefined : true)
 
     onReady(address => devProxy.setAddress(address))
 
@@ -150,7 +155,7 @@ const command = defineCommand({
     onRestart(async (devServer) => {
       await devServer.close()
       const subprocess = await fork
-      await subprocess.initialize(devProxy)
+      await subprocess.initialize(devProxy, useSocket)
     })
 
     return {
@@ -216,7 +221,8 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
       }
       return resolveLoadingMessage()
     }
-    proxy.web(req, res, { target: address })
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
+    proxy.web(req, res, { target })
   }, listenOptions)
 
   listener.server.on('upgrade', (req, socket, head) => {
@@ -224,8 +230,9 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
       socket.destroy()
       return
     }
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
     // @ts-expect-error TODO: fix socket type in httpxy
-    return proxy.ws(req, socket, { target: address }, head)
+    return proxy.ws(req, socket, { target }, head)
   })
 
   return {
@@ -256,12 +263,13 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
     }
   }
 
-  async function initialize(proxy: DevProxy) {
+  async function initialize(proxy: DevProxy, socket: boolean) {
     devProxy = proxy
     const urls = await devProxy.listener.getURLs()
     await ready
     childProc!.send({
       type: 'nuxt:internal:dev:context',
+      socket,
       context: {
         cwd,
         args,

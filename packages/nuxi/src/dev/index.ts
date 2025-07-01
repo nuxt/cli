@@ -27,7 +27,7 @@ class IPC {
     })
     process.on('message', (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
-        initialize(message.context)
+        initialize(message.context, {}, message.socket ? undefined : true)
       }
     })
     this.send({ type: 'nuxt:internal:dev:fork-ready' })
@@ -42,7 +42,7 @@ class IPC {
 
 const ipc = new IPC()
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: true | Partial<ListenOptions>) {
   const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })

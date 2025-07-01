@@ -24,9 +24,10 @@ import { loadKit } from '../utils/kit'
 
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
+import { createSocketListener, formatSocketURL } from './socket'
 
 export type NuxtParentIPCMessage
-  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext }
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
@@ -67,19 +68,21 @@ interface NuxtDevServerOptions {
   devContext: NuxtDevContext
 }
 
-export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: Partial<ListenOptions>) {
+export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: true | Partial<ListenOptions>) {
   // Initialize dev server
   const devServer = new NuxtDevServer(options)
 
   // Attach internal listener
-  devServer.listener = await listen(
-    devServer.handler,
-    listenOptions || {
-      port: options.port ?? 0,
-      hostname: '127.0.0.1',
-      showURL: false,
-    },
-  )
+  devServer.listener = listenOptions
+    ? await listen(devServer.handler, typeof listenOptions === 'object'
+        ? listenOptions
+        : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
+    : await createSocketListener(devServer.handler)
+
+  if (process.env.DEBUG) {
+    // eslint-disable-next-line no-console
+    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
+  }
 
   // Merge interface with public context
   devServer.listener._url = devServer.listener.url
@@ -119,7 +122,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   handler: RequestListener
   listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
     _url?: string
-    address: AddressInfo & { socketPath?: string }
+    address: { socketPath: string, port: number, address: string } | AddressInfo
   }
 
   constructor(private options: NuxtDevServerOptions) {
@@ -317,9 +320,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
-    this._currentNuxt.options.devServer.https = this.options.devContext.proxy
-      ?.https as boolean | { key: string, cert: string }
+    this._currentNuxt.options.devServer.url = 'socketPath' in addr
+      ? this.options.devContext.proxy?.url || getAddressURL(addr, !!this.listener.https)
+      : getAddressURL(addr, !!this.listener.https)
+    this._currentNuxt.options.devServer.https = this.options.devContext.proxy?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
@@ -343,7 +347,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this._handler = toNodeListener(this._currentNuxt.server.app)
-    this.emit('ready', `http://127.0.0.1:${addr.port}`)
+    this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
   }
 
   async _watchConfig() {
@@ -361,7 +365,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 }
 
-function getAddressURL(addr: AddressInfo, https: boolean) {
+function getAddressURL(addr: Pick<AddressInfo, 'address' | 'port'>, https: boolean) {
   const proto = https ? 'https' : 'http'
   let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
   if (host === '[::]') {
