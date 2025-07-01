@@ -8,7 +8,7 @@ import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -19,6 +19,7 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...dotEnvArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -31,7 +32,7 @@ export default defineCommand({
       // Prefer local install if possible
       resolveModulePath('typescript', { try: true }),
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose'),
+      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', ctx.args.extends),
     ])
 
     const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']
@@ -67,7 +68,7 @@ export default defineCommand({
   },
 })
 
-async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose') {
+async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', extendsValue?: string) {
   const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
   const nuxt = await loadNuxt({
     cwd,
@@ -75,6 +76,7 @@ async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'i
     overrides: {
       _prepare: true,
       logLevel,
+      ...(extendsValue && { extends: extendsValue }),
     },
   })
 

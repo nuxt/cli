@@ -10,7 +10,7 @@ import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -30,6 +30,7 @@ export default defineCommand({
     },
     ...dotEnvArgs,
     ...envNameArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -56,6 +57,7 @@ export default defineCommand({
           static: ctx.args.prerender,
           preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
         },
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })

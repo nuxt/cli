@@ -24,7 +24,7 @@ import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
@@ -41,6 +41,7 @@ const command = defineCommand({
     ...dotEnvArgs,
     ...legacyRootDirArgs,
     ...envNameArgs,
+    ...extendsArgs,
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
@@ -100,6 +101,7 @@ const command = defineCommand({
       overrides: {
         dev: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })

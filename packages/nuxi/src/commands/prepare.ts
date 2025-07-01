@@ -6,7 +6,7 @@ import { relative, resolve } from 'pathe'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -18,6 +18,7 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...envNameArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -36,6 +37,7 @@ export default defineCommand({
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })
