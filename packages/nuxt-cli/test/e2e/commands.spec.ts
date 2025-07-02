@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
-import { isWindows } from 'std-env'
+import { isCI, isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
@@ -174,7 +174,7 @@ async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttem
       // Ignore errors and retry
     }
     attempts++
-    await new Promise(resolve => setTimeout(resolve, interval))
+    await new Promise(resolve => setTimeout(resolve, isCI ? interval * 10 : interval))
   }
   return response
 }
