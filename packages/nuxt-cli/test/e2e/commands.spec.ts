@@ -7,7 +7,8 @@ import { readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { isWindows } from 'std-env'
+import { getPort } from 'get-port-please'
+import { isCI, isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
@@ -28,18 +29,89 @@ describe('commands', () => {
       await rm(file, { force: true })
     },
     analyze: 'todo',
-    build: 'todo',
-    cleanup: 'todo',
+    build: async () => {
+      const res = await x(nuxi, ['build'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, '.output'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.output/server'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.output/public'))).toBeTruthy()
+    },
+    cleanup: async () => {
+      const res = await x(nuxi, ['cleanup'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+    },
     devtools: 'todo',
     module: 'todo',
-    prepare: 'todo',
-    preview: 'todo',
+    prepare: async () => {
+      const res = await x(nuxi, ['prepare'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, '.nuxt'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.nuxt/types'))).toBeTruthy()
+    },
+    preview: async () => {
+      await x(nuxi, ['build'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      const port = await getPort({ host: '127.0.0.1', port: 3002 })
+      const previewProcess = x(nuxi, ['preview', `--host=127.0.0.1`, `--port=${port}`], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      // Test that server responds
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`)
+      expect.soft(response?.status).toBe(200)
+
+      previewProcess.kill()
+    },
     start: 'todo',
     test: 'todo',
-    typecheck: 'todo',
+    typecheck: async () => {
+      const res = await x(nuxi, ['typecheck'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+    },
     upgrade: 'todo',
-    dev: 'todo',
-    generate: 'todo',
+    dev: async () => {
+      const controller = new AbortController()
+      const port = await getPort({ host: '127.0.0.1', port: 3001 })
+      const devProcess = x(nuxi, ['dev', `--host=127.0.0.1`, `--port=${port}`], {
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+        signal: controller.signal,
+      })
+
+      // Test that server responds
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`, {}, 30, 300)
+      expect.soft(response?.status).toBe(200)
+
+      controller.abort()
+      try {
+        await devProcess
+      }
+      catch {}
+    },
+    generate: async () => {
+      const res = await x(nuxi, ['generate'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, 'dist'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, 'dist/index.html'))).toBeTruthy()
+    },
     init: async () => {
       const dir = tmpdir()
       const pm = 'pnpm'
@@ -87,3 +159,22 @@ describe('commands', () => {
     }
   }
 })
+
+async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response | null> {
+  let response: Response | null = null
+  let attempts = 0
+  while (attempts < maxAttempts) {
+    try {
+      response = await fetch(url, options)
+      if (response.ok) {
+        return response
+      }
+    }
+    catch {
+      // Ignore errors and retry
+    }
+    attempts++
+    await new Promise(resolve => setTimeout(resolve, isCI ? interval * 10 : interval))
+  }
+  return response
+}
