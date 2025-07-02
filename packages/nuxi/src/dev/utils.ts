@@ -429,7 +429,7 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
   return () => configDirWatcher.close()
 }
 
-// Nuxt <3.7 did not have the loading template defined in the schema
+// Nuxt <3.6 did not have the loading template defined in the schema
 export async function resolveLoadingTemplate(cwd: string) {
   const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
   const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })

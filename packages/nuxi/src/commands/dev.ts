@@ -225,7 +225,7 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
         return
       }
 
-      // Nuxt <3.7 did not have the loading template defined in the schema
+      // Nuxt <3.6 did not have the loading template defined in the schema
       async function resolveLoadingMessage() {
         loadingTemplate = await resolveLoadingTemplate(cwd)
         res.end(loadingTemplate({ loading: loadingMessage }))
