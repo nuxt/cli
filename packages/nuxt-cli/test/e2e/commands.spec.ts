@@ -7,6 +7,7 @@ import { readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { getPort } from 'get-port-please'
 import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
@@ -62,14 +63,15 @@ describe('commands', () => {
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
 
-      const previewProcess = x(nuxi, ['preview', '--port=3002'], {
+      const port = await getPort({ host: 'localhost', port: 3002 })
+      const previewProcess = x(nuxi, ['preview', `--port=${port}`], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
 
       // Test that server responds
-      const response = await fetchWithPolling('http://localhost:3002').catch(() => null)
-      expect.soft(response?.status).toBe(200)
+      const response = await fetchWithPolling(`http://localhost:${port}`)
+      expect.soft(response.status).toBe(200)
 
       previewProcess.kill()
     },
@@ -85,13 +87,14 @@ describe('commands', () => {
     upgrade: 'todo',
     dev: async () => {
       const controller = new AbortController()
-      const devProcess = x(nuxi, ['dev', '--port=3001'], {
+      const port = await getPort({ host: 'localhost', port: 3001 })
+      const devProcess = x(nuxi, ['dev', `--port=${port}`], {
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
         signal: controller.signal,
       })
 
       // Test that server responds
-      const response = await fetchWithPolling('http://localhost:3001', {}, 30, 300)
+      const response = await fetchWithPolling(`http://localhost:${port}`, {}, 30, 300)
       expect.soft(response.status).toBe(200)
 
       controller.abort()
