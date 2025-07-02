@@ -28,18 +28,87 @@ describe('commands', () => {
       await rm(file, { force: true })
     },
     analyze: 'todo',
-    build: 'todo',
-    cleanup: 'todo',
+    build: async () => {
+      const res = await x(nuxi, ['build'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, '.output'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.output/server'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.output/public'))).toBeTruthy()
+    },
+    cleanup: async () => {
+      const res = await x(nuxi, ['cleanup'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+    },
     devtools: 'todo',
     module: 'todo',
-    prepare: 'todo',
-    preview: 'todo',
+    prepare: async () => {
+      const res = await x(nuxi, ['prepare'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, '.nuxt'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, '.nuxt/types'))).toBeTruthy()
+    },
+    preview: async () => {
+      await x(nuxi, ['build'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      const previewProcess = x(nuxi, ['preview', '--port=3002'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      // Test that server responds
+      const response = await fetchWithPolling('http://localhost:3002').catch(() => null)
+      expect.soft(response?.status).toBe(200)
+
+      previewProcess.kill()
+    },
     start: 'todo',
     test: 'todo',
-    typecheck: 'todo',
+    typecheck: async () => {
+      const res = await x(nuxi, ['typecheck'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+    },
     upgrade: 'todo',
-    dev: 'todo',
-    generate: 'todo',
+    dev: async () => {
+      const controller = new AbortController()
+      const devProcess = x(nuxi, ['dev', '--port=3001'], {
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+        signal: controller.signal,
+      })
+
+      // Test that server responds
+      const response = await fetchWithPolling('http://localhost:3001', {}, 30, 300)
+      expect.soft(response.status).toBe(200)
+
+      controller.abort()
+      try {
+        await devProcess
+      }
+      catch {}
+    },
+    generate: async () => {
+      const res = await x(nuxi, ['generate'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(existsSync(join(fixtureDir, 'dist'))).toBeTruthy()
+      expect(existsSync(join(fixtureDir, 'dist/index.html'))).toBeTruthy()
+    },
     init: async () => {
       const dir = tmpdir()
       const pm = 'pnpm'
@@ -87,3 +156,22 @@ describe('commands', () => {
     }
   }
 })
+
+async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response> {
+  let response: Response | null = null
+  let attempts = 0
+  while (attempts < maxAttempts) {
+    try {
+      response = await fetch(url, options)
+      if (response.ok) {
+        return response
+      }
+    }
+    catch {
+      // Ignore errors and retry
+    }
+    attempts++
+    await new Promise(resolve => setTimeout(resolve, interval))
+  }
+  return response as Response
+}
