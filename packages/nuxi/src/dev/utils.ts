@@ -9,16 +9,18 @@ import type { AddressInfo } from 'node:net'
 import EventEmitter from 'node:events'
 import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
+
 import defu from 'defu'
+import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
-
 import { joinURL } from 'ufo'
+
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
@@ -162,20 +164,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     renderError(req, res, this._loadingError)
   }
 
-  async resolveLoadingTemplate() {
-    const { createJiti } = await import('jiti')
-    const jiti = createJiti(this.cwd)
-    const loading = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates').then(r => r.loading).catch(() => {})
-
-    return loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
-  }
-
   async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate = this.options.loadingTemplate
       || this._currentNuxt?.options.devServer.loadingTemplate
-      || await this.resolveLoadingTemplate()
+      || await resolveLoadingTemplate(this.cwd)
     res.end(
       loadingTemplate({
         loading: this._loadingMessage || 'Loading...',
@@ -433,4 +427,13 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
   })
 
   return () => configDirWatcher.close()
+}
+
+// Nuxt <3.6 did not have the loading template defined in the schema
+export async function resolveLoadingTemplate(cwd: string) {
+  const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
+  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })
+  const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)
+
+  return r.loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
 }
