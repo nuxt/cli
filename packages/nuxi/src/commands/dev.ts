@@ -220,7 +220,6 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
       res.setHeader('Cache-Control', 'no-store')
-      res.setHeader('Refresh', '3')
       if (loadingTemplate) {
         res.end(loadingTemplate({ loading: loadingMessage }))
         return
