@@ -63,15 +63,15 @@ describe('commands', () => {
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
 
-      const port = await getPort({ host: 'localhost', port: 3002 })
-      const previewProcess = x(nuxi, ['preview', `--port=${port}`], {
+      const port = await getPort({ host: '127.0.0.1', port: 3002 })
+      const previewProcess = x(nuxi, ['preview', `--host=127.0.0.1`, `--port=${port}`], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
 
       // Test that server responds
-      const response = await fetchWithPolling(`http://localhost:${port}`)
-      expect.soft(response.status).toBe(200)
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`)
+      expect.soft(response?.status).toBe(200)
 
       previewProcess.kill()
     },
@@ -87,15 +87,15 @@ describe('commands', () => {
     upgrade: 'todo',
     dev: async () => {
       const controller = new AbortController()
-      const port = await getPort({ host: 'localhost', port: 3001 })
-      const devProcess = x(nuxi, ['dev', `--port=${port}`], {
+      const port = await getPort({ host: '127.0.0.1', port: 3001 })
+      const devProcess = x(nuxi, ['dev', `--host=127.0.0.1`, `--port=${port}`], {
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
         signal: controller.signal,
       })
 
       // Test that server responds
-      const response = await fetchWithPolling(`http://localhost:${port}`, {}, 30, 300)
-      expect.soft(response.status).toBe(200)
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`, {}, 30, 300)
+      expect.soft(response?.status).toBe(200)
 
       controller.abort()
       try {
@@ -160,7 +160,7 @@ describe('commands', () => {
   }
 })
 
-async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response> {
+async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response | null> {
   let response: Response | null = null
   let attempts = 0
   while (attempts < maxAttempts) {
@@ -176,5 +176,5 @@ async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttem
     attempts++
     await new Promise(resolve => setTimeout(resolve, interval))
   }
-  return response as Response
+  return response
 }
