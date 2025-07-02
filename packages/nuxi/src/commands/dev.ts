@@ -20,6 +20,7 @@ import { isBun, isTest } from 'std-env'
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
 import { isSocketURL, parseSocketURL } from '../dev/socket'
+import { resolveLoadingTemplate } from '../dev/utils'
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
@@ -128,7 +129,7 @@ const command = defineCommand({
     }
 
     // Start proxy Listener
-    const devProxy = await createDevProxy(nuxtOptions, listenOptions)
+    const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
 
     const useSocket = nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
 
@@ -182,7 +183,7 @@ type ArgsT = Exclude<
 
 type DevProxy = Awaited<ReturnType<typeof createDevProxy>>
 
-async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
+async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   let loadingMessage = 'Nuxt dev server is starting...'
   let error: Error | undefined
   let address: string | undefined
@@ -218,26 +219,17 @@ async function createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<L
     if (!address) {
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
+      res.setHeader('Cache-Control', 'no-store')
+      res.setHeader('Refresh', '3')
       if (loadingTemplate) {
         res.end(loadingTemplate({ loading: loadingMessage }))
         return
       }
-      // older versions of Nuxt did not have the loading template defined in the schema
 
+      // Nuxt <3.7 did not have the loading template defined in the schema
       async function resolveLoadingMessage() {
-        const { createJiti } = await import('jiti')
-        const jiti = createJiti(nuxtOptions.rootDir)
-        for (const url of nuxtOptions.modulesDir) {
-          const r = await jiti.import<{ loading: (opts?: { loading?: string }) => string }>('@nuxt/ui-templates', {
-            parentURL: url,
-            try: true,
-          })
-          if (r) {
-            loadingTemplate = r.loading
-            res.end(r.loading({ loading: loadingMessage }))
-            break
-          }
-        }
+        loadingTemplate = await resolveLoadingTemplate(cwd)
+        res.end(loadingTemplate({ loading: loadingMessage }))
       }
       return resolveLoadingMessage()
     }
