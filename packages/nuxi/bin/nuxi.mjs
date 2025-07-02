@@ -9,8 +9,10 @@ import { fileURLToPath } from 'node:url'
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
   try {
     const { directory } = nodeModule.enableCompileCache()
-    // allow child process to share the same cache directory
-    process.env.NODE_COMPILE_CACHE ||= directory
+    if (directory) {
+      // allow child process to share the same cache directory
+      process.env.NODE_COMPILE_CACHE ||= directory
+    }
   }
   catch {
     // Ignore errors
