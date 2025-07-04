@@ -12,7 +12,7 @@ import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const command = defineCommand({
   meta: {
@@ -23,6 +23,7 @@ const command = defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...envNameArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
     port: getListhenArgs().port,
     ...dotEnvArgs,
@@ -40,6 +41,7 @@ const command = defineCommand({
         envName: ctx.args.envName, // c12 will fall back to NODE_ENV
         ready: true,
         overrides: {
+          ...(ctx.args.extends && { extends: ctx.args.extends }),
           modules: [
             function (_, nuxt) {
               nuxt.hook('nitro:init', (nitro) => {
