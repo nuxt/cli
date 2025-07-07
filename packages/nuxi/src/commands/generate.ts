@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
 
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 import buildCommand from './build'
 
 export default defineCommand({
@@ -17,6 +17,7 @@ export default defineCommand({
     },
     ...dotEnvArgs,
     ...envNameArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
