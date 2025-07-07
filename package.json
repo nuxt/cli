@@ -19,7 +19,7 @@
     "test:types": "tsc --noEmit",
     "test:knip": "knip",
     "test:dist": "pnpm -r test:dist",
-    "test:unit": "vitest --coverage"
+    "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^4.16.2",

@@ -4,10 +4,9 @@ import { describe, expect, it } from 'vitest'
 
 await setup({
   rootDir: fileURLToPath(new URL('../..', import.meta.url)),
-  dev: true,
 })
 
-describe('dev server', () => {
+describe('built server', () => {
   it('should start and return HTML', async () => {
     const html = await $fetch('/')
 
