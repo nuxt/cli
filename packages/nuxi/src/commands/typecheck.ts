@@ -32,7 +32,10 @@ export default defineCommand({
       // Prefer local install if possible
       resolveModulePath('typescript', { try: true }),
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', ctx.args.extends),
+      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
+        ...ctx.data?.overrides,
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
+      }),
     ])
 
     const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']
@@ -68,7 +71,7 @@ export default defineCommand({
   },
 })
 
-async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', extendsValue?: string) {
+async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
   const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
   const nuxt = await loadNuxt({
     cwd,
@@ -76,7 +79,7 @@ async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'i
     overrides: {
       _prepare: true,
       logLevel,
-      ...(extendsValue && { extends: extendsValue }),
+      ...overrides,
     },
   })
 
