@@ -13,7 +13,7 @@ import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -25,6 +25,7 @@ export default defineCommand({
     ...logLevelArgs,
     ...legacyRootDirArgs,
     ...dotEnvArgs,
+    ...extendsArgs,
     name: {
       type: 'string',
       description: 'Name of the analysis',
@@ -56,6 +57,7 @@ export default defineCommand({
         fileName: ctx.args.dotenv,
       },
       overrides: defu(ctx.data?.overrides, {
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
         build: {
           analyze: {
             enabled: true,

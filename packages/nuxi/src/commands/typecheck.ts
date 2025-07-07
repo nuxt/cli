@@ -8,7 +8,7 @@ import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -19,6 +19,7 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...dotEnvArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -31,7 +32,10 @@ export default defineCommand({
       // Prefer local install if possible
       resolveModulePath('typescript', { try: true }),
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', ctx.data?.overrides),
+      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
+        ...ctx.data?.overrides,
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
+      }),
     ])
 
     const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']

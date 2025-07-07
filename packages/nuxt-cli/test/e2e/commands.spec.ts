@@ -8,9 +8,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
-import { isCI, isWindows } from 'std-env'
+import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
+import { fetchWithPolling } from '../utils'
 
 const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
@@ -160,21 +161,24 @@ describe('commands', () => {
   }
 })
 
-async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response | null> {
-  let response: Response | null = null
-  let attempts = 0
-  while (attempts < maxAttempts) {
+describe('extends support', () => {
+  it('works with dev server', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const controller = new AbortController()
+    const port = await getPort({ host: '127.0.0.1', port: 3003 })
+    const devProcess = x(nuxi, ['dev', `--host=127.0.0.1`, `--port=${port}`, '--extends=some-layer'], {
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      signal: controller.signal,
+    })
+
+    // Test that server responds
+    const response = await fetchWithPolling(`http://127.0.0.1:${port}/extended`, {}, 30, 300)
+    expect.soft(response?.status).toBe(200)
+    expect(await response?.text()).toContain('This is an extended page from a layer.')
+
+    controller.abort()
     try {
-      response = await fetch(url, options)
-      if (response.ok) {
-        return response
-      }
+      await devProcess
     }
-    catch {
-      // Ignore errors and retry
-    }
-    attempts++
-    await new Promise(resolve => setTimeout(resolve, isCI ? interval * 10 : interval))
-  }
-  return response
-}
+    catch {}
+  })
+})
