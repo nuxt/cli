@@ -10,6 +10,12 @@
       ]
     },
     "playground": {
+      "entry": [
+        "test/**",
+        "pages/**",
+        "server/**",
+        "some-layer/**"
+      ],
       "ignoreDependencies": [
         "@nuxt/test-utils",
         "nuxt"
