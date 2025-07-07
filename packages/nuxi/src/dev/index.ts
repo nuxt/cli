@@ -42,7 +42,7 @@ class IPC {
 
 const ipc = new IPC()
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: true | Partial<ListenOptions>) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, _listenOptions?: true | Partial<ListenOptions>) {
   const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })
@@ -51,6 +51,11 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     hostname: devContext.hostname,
     https: devContext.proxy?.https,
   }, devContext.publicURLs)
+
+  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
+  const listenOptions = _listenOptions === true || process.env._PORT
+    ? { port: process.env._PORT ?? 0, hostname: '127.0.0.1', showURL: false }
+    : _listenOptions
 
   // Init Nuxt dev
   const devServer = await createNuxtDevServer({
@@ -61,7 +66,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     clear: !!devContext.args.clear,
     dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
     envName: devContext.args.envName,
-    port: process.env._PORT ?? undefined,
     devContext,
   }, listenOptions)
 
