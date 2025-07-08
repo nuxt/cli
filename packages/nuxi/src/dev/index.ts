@@ -19,7 +19,7 @@ interface InitializeOptions {
 
 // IPC Hooks
 class IPC {
-  enabled = !!process.send && (!!process.title && !process.title.includes('vitest')) && process.env.__NUXT__FORK
+  enabled = !!process.send && !process.title?.includes('vitest') && process.env.__NUXT__FORK
   constructor() {
     process.once('unhandledRejection', (reason) => {
       this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
