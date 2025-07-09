@@ -133,7 +133,7 @@ const command = defineCommand({
     // Start proxy Listener
     const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
 
-    const useSocket = nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
+    const useSocket = false // nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
