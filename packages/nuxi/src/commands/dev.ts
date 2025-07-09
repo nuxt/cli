@@ -15,7 +15,7 @@ import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { isBun, isTest } from 'std-env'
+import { isBun, isTest, provider } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
@@ -133,7 +133,9 @@ const command = defineCommand({
     // Start proxy Listener
     const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
 
-    const useSocket = nuxtOptions._majorVersion === 4 || !!process.env.NUXT_SOCKET
+    const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
+
+    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && provider !== 'stackblitz')
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
