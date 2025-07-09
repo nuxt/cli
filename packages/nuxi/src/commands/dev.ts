@@ -133,7 +133,9 @@ const command = defineCommand({
     // Start proxy Listener
     const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
 
-    const useSocket = (nuxtOptions._majorVersion === 4 || (!!process.env.NUXT_SOCKET && process.env.NUXT_SOCKET !== '0')) && provider !== 'stackblitz'
+    const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
+
+    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && provider !== 'stackblitz')
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
