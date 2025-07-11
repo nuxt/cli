@@ -10,12 +10,13 @@ import { fork } from 'node:child_process'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { isSocketSupported } from 'get-port-please'
 import { createProxyServer } from 'httpxy'
 import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { isBun, isTest, provider } from 'std-env'
+import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
@@ -135,7 +136,7 @@ const command = defineCommand({
 
     const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
 
-    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && provider !== 'stackblitz')
+    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && isSocketSupported())
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode

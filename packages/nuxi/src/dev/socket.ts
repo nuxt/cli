@@ -3,18 +3,7 @@ import { existsSync, unlinkSync } from 'node:fs'
 import { Server } from 'node:http'
 import process from 'node:process'
 
-function generateSocketPath(prefix: string): string {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).slice(2, 8)
-
-  if (process.platform === 'win32') {
-    // Windows named pipes
-    return `\\\\.\\pipe\\nuxt-${prefix}-${timestamp}-${random}`
-  }
-
-  // Unix domain sockets
-  return `/tmp/nuxt-${prefix}-${timestamp}-${random}.sock`
-}
+import { getSocketAddress } from 'get-port-please'
 
 export function formatSocketURL(socketPath: string, ssl = false): string {
   const protocol = ssl ? 'https' : 'http'
@@ -45,7 +34,10 @@ export function parseSocketURL(url: string): { socketPath: string, protocol: 'ht
 }
 
 export async function createSocketListener(handler: RequestListener, ssl = false) {
-  const socketPath = generateSocketPath('nuxt-dev')
+  const socketPath = getSocketAddress({
+    name: 'nuxt-dev',
+    random: true,
+  })
   const server = new Server(handler)
 
   if (process.platform !== 'win32' && existsSync(socketPath)) {

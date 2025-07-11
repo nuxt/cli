@@ -139,6 +139,9 @@ importers:
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
+      get-port-please:
+        specifier: ^3.2.0
+        version: 3.2.0
       giget:
         specifier: ^2.0.0
         version: 2.0.0
@@ -241,6 +244,9 @@ importers:
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
+      get-port-please:
+        specifier: ^3.2.0
+        version: 3.2.0
       giget:
         specifier: ^2.0.0
         version: 2.0.0
@@ -299,9 +305,6 @@ importers:
       '@types/node':
         specifier: ^22.16.0
         version: 22.16.0
-      get-port-please:
-        specifier: ^3.2.0
-        version: 3.2.0
       rollup:
         specifier: ^4.44.2
         version: 4.44.2
