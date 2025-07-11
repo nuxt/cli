@@ -41,6 +41,7 @@
     "defu": "^6.1.4",
     "exsolve": "^1.0.7",
     "fuse.js": "^7.1.0",
+    "get-port-please": "^3.2.0",
     "giget": "^2.0.0",
     "h3": "^1.15.3",
     "httpxy": "^0.1.7",
@@ -62,7 +63,6 @@
   "devDependencies": {
     "@nuxt/schema": "^3.17.6",
     "@types/node": "^22.16.0",
-    "get-port-please": "^3.2.0",
     "rollup": "^4.44.2",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.8.3",
