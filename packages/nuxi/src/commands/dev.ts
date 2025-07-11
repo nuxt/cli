@@ -136,7 +136,7 @@ const command = defineCommand({
 
     const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
 
-    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && isSocketSupported())
+    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && await isSocketSupported())
 
     const urls = await devProxy.listener.getURLs()
     // run initially in in no-fork mode
