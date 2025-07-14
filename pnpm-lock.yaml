@@ -6,7 +6,7 @@ settings:
 
 overrides:
   '@nuxt/cli': workspace:*
-  '@nuxt/schema': 3.17.6
+  '@nuxt/schema': 3.17.7
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
   eslint-plugin-jsdoc: 51.3.4
@@ -101,11 +101,11 @@ importers:
   packages/nuxi:
     devDependencies:
       '@nuxt/kit':
-        specifier: ^3.17.6
+        specifier: ^3.17.7
         version: 3.17.7(magicast@0.3.5)
       '@nuxt/schema':
-        specifier: 3.17.6
-        version: 3.17.6
+        specifier: 3.17.7
+        version: 3.17.7
       '@nuxt/test-utils':
         specifier: ^3.19.2
         version: 3.19.2(magicast@0.3.5)(typescript@5.8.3)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.16.3)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))
@@ -300,8 +300,8 @@ importers:
         version: 4.1.0-beta.10
     devDependencies:
       '@nuxt/schema':
-        specifier: 3.17.6
-        version: 3.17.6
+        specifier: 3.17.7
+        version: 3.17.7
       '@types/node':
         specifier: ^22.16.3
         version: 22.16.3
@@ -327,7 +327,7 @@ importers:
   playground:
     dependencies:
       nuxt:
-        specifier: ^3.17.6
+        specifier: ^3.17.7
         version: 3.17.7(@parcel/watcher@2.5.1)(@types/node@22.16.3)(@vue/compiler-sfc@3.5.17)(db0@0.3.2)(eslint@9.31.0(jiti@2.4.2))(ioredis@5.6.1)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.45.0)(terser@5.43.1)(typescript@5.8.3)(vite@6.3.5(@types/node@22.16.3)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))(yaml@2.8.0)
     devDependencies:
       '@nuxt/test-utils':
@@ -1098,8 +1098,8 @@ packages:
     resolution: {integrity: sha512-JLno3ur7Pix2o/StxIMlEHRkMawA6h7uzjZBDgxdeKXRWTYY8ID9YekSkN4PBlEFGXBfCBOcPd5+YqcyBUAMkw==}
     engines: {node: '>=18.12.0'}
 
-  '@nuxt/schema@3.17.6':
-    resolution: {integrity: sha512-ahm0yz6CrSaZ4pS0iuVod9lVRXNDNIidKWLLBx2naGNM6rW+sdFV9gxjvUS3+rLW+swa4HCKE6J5bjOl//oyqQ==}
+  '@nuxt/schema@3.17.7':
+    resolution: {integrity: sha512-c22IE/ECvjUScFyOJH/0VnSf5izDLmwkrCRlZKNhHzcNZUBFe5mCE5BM28QSVRSLGcC/mqg5POyNjf2tRwf+/w==}
     engines: {node: ^14.18.0 || >=16.10.0}
 
   '@nuxt/telemetry@2.6.6':
@@ -6309,7 +6309,7 @@ snapshots:
     transitivePeerDependencies:
       - magicast
 
-  '@nuxt/schema@3.17.6':
+  '@nuxt/schema@3.17.7':
     dependencies:
       '@vue/shared': 3.5.17
       consola: 3.4.2
@@ -9626,7 +9626,7 @@ snapshots:
       '@nuxt/devalue': 2.0.2
       '@nuxt/devtools': 2.6.2(vite@6.3.5(@types/node@22.16.3)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))(vue@3.5.17(typescript@5.8.3))
       '@nuxt/kit': 3.17.7(magicast@0.3.5)
-      '@nuxt/schema': 3.17.6
+      '@nuxt/schema': 3.17.7
       '@nuxt/telemetry': 2.6.6(magicast@0.3.5)
       '@nuxt/vite-builder': 3.17.7(@types/node@22.16.3)(eslint@9.31.0(jiti@2.4.2))(magicast@0.3.5)(optionator@0.9.4)(rollup@4.45.0)(terser@5.43.1)(typescript@5.8.3)(vue@3.5.17(typescript@5.8.3))(yaml@2.8.0)
       '@unhead/vue': 2.0.12(vue@3.5.17(typescript@5.8.3))
