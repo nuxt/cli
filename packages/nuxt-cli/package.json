@@ -33,7 +33,7 @@
     "prepack": "unbuild"
   },
   "dependencies": {
-    "c12": "^3.0.4",
+    "c12": "^3.1.0",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",
     "confbox": "^0.2.2",
@@ -62,8 +62,8 @@
   },
   "devDependencies": {
     "@nuxt/schema": "^3.17.6",
-    "@types/node": "^22.16.0",
-    "rollup": "^4.44.2",
+    "@types/node": "^22.16.3",
+    "rollup": "^4.45.0",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.8.3",
     "unbuild": "^3.5.0",
