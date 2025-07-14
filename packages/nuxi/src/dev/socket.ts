@@ -1,8 +1,22 @@
 import type { RequestListener } from 'node:http'
+import { existsSync, unlinkSync } from 'node:fs'
 import { Server } from 'node:http'
+import os from 'node:os'
 import process from 'node:process'
+import { join } from 'pathe'
 
-import { cleanSocket, getSocketAddress } from 'get-port-please'
+function generateSocketPath(prefix: string): string {
+  const timestamp = Date.now()
+  const random = Math.random().toString(36).slice(2, 8)
+
+  if (process.platform === 'win32') {
+    // Windows named pipes
+    return `\\\\.\\pipe\\${prefix}-${timestamp}-${random}`
+  }
+
+  // Unix domain sockets
+  return join(os.tmpdir(), `${prefix}-${timestamp}-${random}.sock`)
+}
 
 export function formatSocketURL(socketPath: string, ssl = false): string {
   const protocol = ssl ? 'https' : 'http'
@@ -30,12 +44,17 @@ export function parseSocketURL(url: string): { socketPath: string, protocol: 'ht
 }
 
 export async function createSocketListener(handler: RequestListener, ssl = false) {
-  const socketPath = getSocketAddress({
-    name: 'nuxt-dev',
-    random: true,
-  })
+  const socketPath = generateSocketPath('nuxt-dev')
   const server = new Server(handler)
-  await cleanSocket(socketPath)
+
+  if (process.platform !== 'win32' && existsSync(socketPath)) {
+    try {
+      unlinkSync(socketPath)
+    }
+    catch {
+      // suppress errors if the socket file cannot be removed
+    }
+  }
   await new Promise<void>(resolve => server.listen({ path: socketPath }, resolve))
   const url = formatSocketURL(socketPath, ssl)
   return {
@@ -51,7 +70,15 @@ export async function createSocketListener(handler: RequestListener, ssl = false
         await new Promise<void>((resolve, reject) => server.close(err => err ? reject(err) : resolve()))
       }
       finally {
-        await cleanSocket(socketPath)
+        // Clean up socket file on Unix systems
+        if (process.platform !== 'win32') {
+          try {
+            unlinkSync(socketPath)
+          }
+          catch {
+            // suppress errors
+          }
+        }
       }
     },
     getURLs: async () => [{ url, type: 'network' as const }],
