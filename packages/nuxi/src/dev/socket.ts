@@ -6,14 +6,11 @@ import { cleanSocket, getSocketAddress } from 'get-port-please'
 
 export function formatSocketURL(socketPath: string, ssl = false): string {
   const protocol = ssl ? 'https' : 'http'
-  if (process.platform === 'win32') {
-    // Windows named pipes need special encoding
-    const encodedPath = encodeURIComponent(socketPath)
-    return `${protocol}+unix://${encodedPath}`
-  }
-
-  // Unix sockets can use the unix: protocol
-  return `${protocol}+unix://${socketPath.replace(/\//g, '%2F')}`
+  // Windows named pipes need special encoding
+  const encodedPath = process.platform === 'win32'
+    ? encodeURIComponent(socketPath)
+    : socketPath.replace(/\//g, '%2F')
+  return `${protocol}+unix://${encodedPath}`
 }
 
 export function isSocketURL(url: string): boolean {
