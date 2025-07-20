@@ -137,9 +137,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
-    close: () => {
+    close: async () => {
       devServer.closeWatchers()
-      devServer.close()
+      await devServer.close()
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {
