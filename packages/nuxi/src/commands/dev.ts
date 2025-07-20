@@ -16,7 +16,7 @@ import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { isBun, isTest } from 'std-env'
+import { isBun, isDeno, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
@@ -275,7 +275,7 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
   let ready: Promise<void> | undefined
   const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
-      childProc.kill(signal)
+      childProc.kill(signal === 0 && isDeno ? 'SIGTERM' : signal)
       childProc = undefined
     }
   }
