@@ -55,6 +55,7 @@ export interface NuxtDevContext {
     url?: string
     urls?: ListenURL[]
     https?: boolean | HTTPSOptions
+    addr?: AddressInfo
   }
 }
 
@@ -125,7 +126,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   handler: RequestListener
   listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
     _url?: string
-    address: { socketPath: string, port: number, address: string } | AddressInfo
+    address: { socketPath: string } | AddressInfo
   }
 
   constructor(private options: NuxtDevServerOptions) {
@@ -313,7 +314,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     // Sync internal server info to the internals
     // It is important for vite-node to use the internal URL but public proto
-    const addr = this.listener.address
+    const addr = {
+      port: 3000,
+      address: 'localhost',
+      ...this.options.devContext.proxy?.addr,
+      ...this.listener.address,
+    }
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
     this._currentNuxt.options.devServer.url = 'socketPath' in addr

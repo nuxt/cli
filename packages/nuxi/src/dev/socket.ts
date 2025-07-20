@@ -59,11 +59,7 @@ export async function createSocketListener(handler: RequestListener, ssl = false
   const url = formatSocketURL(socketPath, ssl)
   return {
     url,
-    address: {
-      socketPath,
-      address: 'localhost',
-      port: 3000,
-    },
+    address: { socketPath },
     async close() {
       try {
         server.removeAllListeners()

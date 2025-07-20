@@ -1,0 +1,12 @@
+{
+  "name": "fixtures-dev",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:prepare": "nuxt prepare",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "nuxt": "^4.0.0"
+  }
+}
