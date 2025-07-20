@@ -150,7 +150,16 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
     },
     onRestart: (callback: (devServer: NuxtDevServer) => void) => {
-      devServer.once('restart', () => callback(devServer))
+      let restarted = false
+      function restart() {
+        if (!restarted) {
+          restarted = true
+          callback(devServer)
+        }
+      }
+      devServer.once('restart', restart)
+      process.once('uncaughtException', restart)
+      process.once('unhandledRejection', restart)
     },
   }
 }
