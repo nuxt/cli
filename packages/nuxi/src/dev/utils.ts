@@ -181,11 +181,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   async init() {
     await this.load()
     this._watchConfig()
+  }
 
-    process.on('exit', () => {
-      this._distWatcher?.close()
-      this._configWatcher?.()
-    })
+  closeWatchers() {
+    this._distWatcher?.close()
+    this._configWatcher?.()
   }
 
   async load(reload?: boolean, reason?: string) {
