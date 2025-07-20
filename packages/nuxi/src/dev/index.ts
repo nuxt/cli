@@ -1,10 +1,12 @@
 import type { NuxtConfig } from '@nuxt/schema'
 import type { ListenOptions } from 'listhen'
-import type { NuxtDevContext, NuxtDevIPCMessage, NuxtDevServer, NuxtParentIPCMessage } from './utils'
+import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 import defu from 'defu'
-import { createNuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
+import { listen } from 'listhen'
+import { createSocketListener } from './socket'
+import { NuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
 
 const start = Date.now()
 
@@ -52,22 +54,48 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     https: devContext.proxy?.https,
   }, devContext.publicURLs)
 
-  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
-  const listenOptions = _listenOptions === true || process.env._PORT
-    ? { port: process.env._PORT ?? 0, hostname: '127.0.0.1', showURL: false }
-    : _listenOptions
-
-  // Init Nuxt dev
-  const devServer = await createNuxtDevServer({
+  // Initialize dev server
+  const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
-    overrides: defu(ctx.data?.overrides, devServerOverrides),
+    overrides: defu(
+      ctx.data?.overrides,
+      ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
+      devServerOverrides,
+    ),
     defaults: devServerDefaults,
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: !!devContext.args.clear,
     dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
     envName: devContext.args.envName,
-    devContext,
-  }, listenOptions)
+    devContext: {
+      proxy: devContext.proxy,
+    },
+  })
+
+  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
+  const listenOptions = _listenOptions === true || process.env._PORT
+    ? { port: process.env._PORT ?? 0, hostname: '127.0.0.1', showURL: false }
+    : _listenOptions
+
+  // Attach internal listener
+  devServer.listener = listenOptions
+    ? await listen(devServer.handler, listenOptions)
+    : await createSocketListener(devServer.handler, devContext.proxy?.addr)
+
+  if (process.env.DEBUG) {
+    // eslint-disable-next-line no-console
+    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
+  }
+
+  // Merge interface with public context
+  devServer.listener._url = devServer.listener.url
+  if (devContext.proxy?.url) {
+    devServer.listener.url = devContext.proxy.url
+  }
+  if (devContext.proxy?.urls) {
+    const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
+    devServer.listener.getURLs = async () => Array.from(new Set([...devContext.proxy?.urls || [], ...(await _getURLs())]))
+  }
 
   let address: string
 

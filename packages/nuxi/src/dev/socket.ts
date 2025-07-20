@@ -1,4 +1,5 @@
 import type { RequestListener } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { existsSync, unlinkSync } from 'node:fs'
 import { Server } from 'node:http'
 import os from 'node:os'
@@ -43,7 +44,7 @@ export function parseSocketURL(url: string): { socketPath: string, protocol: 'ht
   return { socketPath, protocol: ssl ? 'https' : 'http' }
 }
 
-export async function createSocketListener(handler: RequestListener, ssl = false) {
+export async function createSocketListener(handler: RequestListener, proxyAddress?: AddressInfo) {
   const socketPath = generateSocketPath('nuxt-dev')
   const server = new Server(handler)
 
@@ -56,10 +57,10 @@ export async function createSocketListener(handler: RequestListener, ssl = false
     }
   }
   await new Promise<void>(resolve => server.listen({ path: socketPath }, resolve))
-  const url = formatSocketURL(socketPath, ssl)
+  const url = formatSocketURL(socketPath)
   return {
     url,
-    address: { socketPath },
+    address: { address: 'localhost', port: 3000, ...proxyAddress, socketPath },
     async close() {
       try {
         server.removeAllListeners()
