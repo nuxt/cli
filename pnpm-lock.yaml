@@ -294,6 +294,9 @@ importers:
         specifier: ^4.1.0-beta.10
         version: 4.1.0-beta.10
     devDependencies:
+      '@nuxt/kit':
+        specifier: ^4.0.0
+        version: 4.0.0(magicast@0.3.5)
       '@nuxt/schema':
         specifier: 4.0.0
         version: 4.0.0

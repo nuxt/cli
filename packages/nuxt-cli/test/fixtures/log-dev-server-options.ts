@@ -1,6 +1,5 @@
-import { writeFile } from 'node:fs/promises'
-import process from 'node:process'
-import { defineNuxtModule, useNuxt } from 'nuxt/kit'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { defineNuxtModule, useNuxt } from '@nuxt/kit'
 
 export default defineNuxtModule({
   meta: {
@@ -10,9 +9,9 @@ export default defineNuxtModule({
     const nuxt = useNuxt()
 
     nuxt.hook('build:before', async () => {
+      await mkdir('.nuxt', { recursive: true })
       await writeFile('.nuxt/dev-server.json', JSON.stringify(nuxt.options.devServer))
       await nuxt.close()
-      process.exit(0)
     })
   },
 })
