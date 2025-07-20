@@ -25,7 +25,7 @@ import { loadKit } from '../utils/kit'
 
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
-import { formatSocketURL } from './socket'
+import { formatSocketURL, isSocketURL } from './socket'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
@@ -351,7 +351,11 @@ export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptio
   const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls) {
-    defaultConfig.vite = { server: { allowedHosts: urls.map(u => new URL(u).hostname) } }
+    defaultConfig.vite = {
+      server: {
+        allowedHosts: urls.filter(u => !isSocketURL(u)).map(u => new URL(u).hostname),
+      },
+    }
   }
 
   // defined hostname
