@@ -15,7 +15,6 @@ import { pathToFileURL } from 'node:url'
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
-import { listen } from 'listhen'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { provider } from 'std-env'
@@ -26,7 +25,7 @@ import { loadKit } from '../utils/kit'
 
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
-import { createSocketListener, formatSocketURL } from './socket'
+import { formatSocketURL } from './socket'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
@@ -55,6 +54,7 @@ export interface NuxtDevContext {
     url?: string
     urls?: ListenURL[]
     https?: boolean | HTTPSOptions
+    addr?: AddressInfo
   }
 }
 
@@ -66,38 +66,8 @@ interface NuxtDevServerOptions {
   clear?: boolean
   defaults: NuxtConfig
   overrides: NuxtConfig
-  port?: string | number
   loadingTemplate?: ({ loading }: { loading: string }) => string
-  devContext: NuxtDevContext
-}
-
-export async function createNuxtDevServer(options: NuxtDevServerOptions, listenOptions?: true | Partial<ListenOptions>) {
-  // Initialize dev server
-  const devServer = new NuxtDevServer(options)
-
-  // Attach internal listener
-  devServer.listener = listenOptions
-    ? await listen(devServer.handler, typeof listenOptions === 'object'
-        ? listenOptions
-        : { port: options.port ?? 0, hostname: '127.0.0.1', showURL: false })
-    : await createSocketListener(devServer.handler)
-
-  if (process.env.DEBUG) {
-    // eslint-disable-next-line no-console
-    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
-  }
-
-  // Merge interface with public context
-  devServer.listener._url = devServer.listener.url
-  if (options.devContext.proxy?.url) {
-    devServer.listener.url = options.devContext.proxy.url
-  }
-  if (options.devContext.proxy?.urls) {
-    const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
-    devServer.listener.getURLs = async () => Array.from(new Set([...options.devContext.proxy?.urls || [], ...(await _getURLs())]))
-  }
-
-  return devServer
+  devContext: Pick<NuxtDevContext, 'proxy'>
 }
 
 // https://regex101.com/r/7HkR5c/1
@@ -125,7 +95,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   handler: RequestListener
   listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
     _url?: string
-    address: { socketPath: string, port: number, address: string } | AddressInfo
+    address: Omit<AddressInfo, 'family'> & { socketPath: string } | AddressInfo
   }
 
   constructor(private options: NuxtDevServerOptions) {
@@ -236,7 +206,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
-        ...(this.options.devContext.args.extends && { extends: this.options.devContext.args.extends }),
         ...this.options.overrides,
         vite: {
           clearScreen: this.options.clear,
@@ -319,9 +288,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const addr = this.listener.address
     this._currentNuxt.options.devServer.host = addr.address
     this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = 'socketPath' in addr
-      ? this.options.devContext.proxy?.url || getAddressURL(addr, !!this.listener.https)
-      : getAddressURL(addr, !!this.listener.https)
+    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy?.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {

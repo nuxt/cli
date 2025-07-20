@@ -15,13 +15,13 @@
         "pages/**",
         "server/**",
         "some-layer/**"
-      ],
-      "ignoreDependencies": [
-        "@nuxt/test-utils",
-        "nuxt"
       ]
     },
     "packages/nuxt-cli": {
+      "entry": [
+        "src/index.ts",
+        "test/fixtures/*"
+      ],
       "ignoreDependencies": [
         "c12",
         "clipboardy",
@@ -34,7 +34,6 @@
         "h3",
         "httpxy",
         "jiti",
-        "listhen",
         "nypm",
         "ofetch",
         "ohash",
