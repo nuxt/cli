@@ -28,6 +28,7 @@ describe('dev server', () => {
     })
   })
 
+  // TODO: fix this test
   it.fails('should respect configured devServer options', { timeout: 50_000 }, async () => {
     await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     const host = '127.0.0.1'
@@ -43,7 +44,7 @@ describe('dev server', () => {
         ],
       },
     }).catch(() => null)
-    const options = await readFile(join(fixtureDir, '.nuxt', 'dev-server.json'), 'utf-8').then(JSON.parse)
+    const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
     expect(options).toMatchObject({
       https: false,
       host,
