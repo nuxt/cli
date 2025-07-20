@@ -12,13 +12,14 @@ describe('dev server', () => {
     await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     const host = '127.0.0.1'
     const port = await getPort({ host, port: 3031 })
-    await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`], {
+    const { result: { close } } = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`], {
       overrides: {
         modules: [
           fileURLToPath(new URL('../fixtures/log-dev-server-options.ts', import.meta.url)),
         ],
       },
-    }).catch(() => null)
+    }) as any
+    await close()
     const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
     expect(options).toMatchObject({
       https: false,
@@ -32,7 +33,7 @@ describe('dev server', () => {
     await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     const host = '127.0.0.1'
     const port = await getPort({ host, port: 3050 })
-    await runCommand('dev', [`--cwd=${fixtureDir}`], {
+    const { result: { close } } = await runCommand('dev', [`--cwd=${fixtureDir}`], {
       overrides: {
         devServer: {
           host,
@@ -42,7 +43,8 @@ describe('dev server', () => {
           fileURLToPath(new URL('../fixtures/log-dev-server-options.ts', import.meta.url)),
         ],
       },
-    }).catch(() => null)
+    }) as any
+    await close()
     const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
     expect(options).toMatchObject({
       https: false,
