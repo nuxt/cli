@@ -393,12 +393,13 @@ function resolveListenOptions(
 
   const _hostname = typeof args.host === 'string'
     ? args.host
-    : (args.host === true ? '' : undefined)
-      ?? process.env.NUXT_HOST
-      ?? process.env.NITRO_HOST
-      ?? process.env.HOST
-      ?? (nuxtOptions.devServer?.host || undefined /* for backwards compatibility with previous '' default */)
-      ?? undefined
+    : args.host === true
+      ? ''
+      : process.env.NUXT_HOST
+        ?? process.env.NITRO_HOST
+        ?? process.env.HOST
+        ?? (nuxtOptions.devServer?.host || undefined /* for backwards compatibility with previous '' default */)
+        ?? undefined
 
   const _public: boolean | undefined = args.public
     ?? (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
