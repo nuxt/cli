@@ -47,6 +47,7 @@
     "eslint-plugin-jsdoc": "51.3.4",
     "eslint-plugin-unicorn": "59.0.1",
     "h3": "^1.15.3",
+    "nitropack": "latest",
     "nuxi": "workspace:*"
   }
 }
