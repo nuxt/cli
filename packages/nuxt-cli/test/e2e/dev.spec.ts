@@ -18,7 +18,7 @@ describe('dev server', () => {
         ],
       },
     }).catch(() => null)
-    const options = await readFile(join(fixtureDir, '.nuxt', 'dev-server.json'), 'utf-8').then(JSON.parse)
+    const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
     expect(options).toMatchObject({
       https: false,
       host,
