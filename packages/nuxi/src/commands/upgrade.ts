@@ -49,7 +49,7 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     {
       type: 'select',
       options: ['3.x', '4.x'] as const,
-      default: '3.x',
+      default: '4.x',
       cancel: 'reject',
     },
   ).catch(() => process.exit(1))
@@ -64,7 +64,7 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
     return getNightlyVersion(packageNames)
   }
 
-  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '3' }
+  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4' }
 }
 
 export default defineCommand({
