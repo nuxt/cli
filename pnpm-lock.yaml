@@ -9,7 +9,7 @@ overrides:
   '@nuxt/schema': 4.0.0
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 51.3.4
+  eslint-plugin-jsdoc: 51.4.1
   eslint-plugin-unicorn: 59.0.1
   h3: ^1.15.3
   nitropack: latest
@@ -20,16 +20,16 @@ importers:
   .:
     devDependencies:
       '@antfu/eslint-config':
-        specifier: ^4.16.2
+        specifier: ^4.17.0
         version: 4.17.0(@vue/compiler-sfc@3.5.17)(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.16.5)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))
       '@codspeed/vitest-plugin':
         specifier: ^4.0.1
         version: 4.0.1(vite@7.0.5(@types/node@22.16.5)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.16.5)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))
       '@nuxt/eslint-config':
-        specifier: ^1.5.2
+        specifier: ^1.6.0
         version: 1.6.0(@typescript-eslint/utils@8.37.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3))(@vue/compiler-sfc@3.5.17)(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)
       '@types/node':
-        specifier: ^22.16.3
+        specifier: ^22.16.5
         version: 22.16.5
       '@types/semver':
         specifier: ^7.7.0
@@ -44,7 +44,7 @@ importers:
         specifier: ^9.31.0
         version: 9.31.0(jiti@2.4.2)
       knip:
-        specifier: ^5.61.3
+        specifier: ^5.62.0
         version: 5.62.0(@types/node@22.16.5)(typescript@5.8.3)
       pkg-pr-new:
         specifier: ^0.0.54
@@ -75,10 +75,10 @@ importers:
         version: 0.1.6
     devDependencies:
       '@types/node':
-        specifier: ^22.16.3
+        specifier: ^22.16.5
         version: 22.16.5
       rollup:
-        specifier: ^4.45.0
+        specifier: ^4.45.1
         version: 4.45.1
       rollup-plugin-visualizer:
         specifier: ^6.0.3
@@ -111,7 +111,7 @@ importers:
         specifier: ^3.19.2
         version: 3.19.2(magicast@0.3.5)(typescript@5.8.3)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.16.5)(jiti@2.4.2)(terser@5.43.1)(yaml@2.8.0))
       '@types/node':
-        specifier: ^22.16.3
+        specifier: ^22.16.5
         version: 22.16.5
       '@types/semver':
         specifier: ^7.7.0
@@ -183,7 +183,7 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0
       rollup:
-        specifier: ^4.45.0
+        specifier: ^4.45.1
         version: 4.45.1
       rollup-plugin-visualizer:
         specifier: ^6.0.3
@@ -307,10 +307,10 @@ importers:
         specifier: 4.0.0
         version: 4.0.0
       '@types/node':
-        specifier: ^22.16.3
+        specifier: ^22.16.5
         version: 22.16.5
       rollup:
-        specifier: ^4.45.0
+        specifier: ^4.45.1
         version: 4.45.1
       rollup-plugin-visualizer:
         specifier: ^6.0.3
@@ -3067,8 +3067,8 @@ packages:
       eslint-import-resolver-node:
         optional: true
 
-  eslint-plugin-jsdoc@51.3.4:
-    resolution: {integrity: sha512-maz6qa95+sAjMr9m5oRyfejc+mnyQWsWSe9oyv9371bh4/T0kWOMryJNO4h8rEd97wo/9lbzwi3OOX4rDhnAzg==}
+  eslint-plugin-jsdoc@51.4.1:
+    resolution: {integrity: sha512-y4CA9OkachG8v5nAtrwvcvjIbdcKgSyS6U//IfQr4FZFFyeBFwZFf/tfSsMr46mWDJgidZjBTqoCRlXywfFBMg==}
     engines: {node: '>=20.11.0'}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
@@ -5781,7 +5781,7 @@ snapshots:
       eslint-plugin-antfu: 3.1.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-command: 3.3.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-import-lite: 0.3.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)
-      eslint-plugin-jsdoc: 51.3.4(eslint@9.31.0(jiti@2.4.2))
+      eslint-plugin-jsdoc: 51.4.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-jsonc: 2.20.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-n: 17.21.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)
       eslint-plugin-no-only-tests: 3.3.0
@@ -6573,7 +6573,7 @@ snapshots:
       eslint-merge-processors: 2.0.0(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-import-lite: 0.3.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3)
       eslint-plugin-import-x: 4.16.1(@typescript-eslint/utils@8.37.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.31.0(jiti@2.4.2))
-      eslint-plugin-jsdoc: 51.3.4(eslint@9.31.0(jiti@2.4.2))
+      eslint-plugin-jsdoc: 51.4.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-regexp: 2.9.0(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-unicorn: 59.0.1(eslint@9.31.0(jiti@2.4.2))
       eslint-plugin-vue: 10.3.0(@typescript-eslint/parser@8.37.0(eslint@9.31.0(jiti@2.4.2))(typescript@5.8.3))(eslint@9.31.0(jiti@2.4.2))(vue-eslint-parser@10.2.0(eslint@9.31.0(jiti@2.4.2)))
@@ -8570,7 +8570,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-jsdoc@51.3.4(eslint@9.31.0(jiti@2.4.2)):
+  eslint-plugin-jsdoc@51.4.1(eslint@9.31.0(jiti@2.4.2)):
     dependencies:
       '@es-joy/jsdoccomment': 0.52.0
       are-docs-informative: 0.0.2
