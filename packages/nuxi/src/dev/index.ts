@@ -23,10 +23,13 @@ interface InitializeOptions {
 class IPC {
   enabled = !!process.send && !process.title?.includes('vitest') && process.env.__NUXT__FORK
   constructor() {
-    process.once('unhandledRejection', (reason) => {
-      this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
-      process.exit()
-    })
+    // only kill process if it is a fork
+    if (this.enabled) {
+      process.once('unhandledRejection', (reason) => {
+        this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+        process.exit()
+      })
+    }
     process.on('message', (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
         initialize(message.context, {}, message.socket ? undefined : true)
@@ -150,7 +153,16 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
     },
     onRestart: (callback: (devServer: NuxtDevServer) => void) => {
-      devServer.once('restart', () => callback(devServer))
+      let restarted = false
+      function restart() {
+        if (!restarted) {
+          restarted = true
+          callback(devServer)
+        }
+      }
+      devServer.once('restart', restart)
+      process.once('uncaughtException', restart)
+      process.once('unhandledRejection', restart)
     },
   }
 }

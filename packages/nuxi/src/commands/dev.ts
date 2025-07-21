@@ -161,8 +161,10 @@ const command = defineCommand({
     // ... then fall back to pre-warmed fork if a hard restart is required
     const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
     onRestart(async (devServer) => {
-      await devServer.close()
-      const subprocess = await fork
+      const [subprocess] = await Promise.all([
+        fork,
+        devServer.close().catch(() => {}),
+      ])
       await subprocess.initialize(devProxy, useSocket)
     })
 
