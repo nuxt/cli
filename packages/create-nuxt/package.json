@@ -34,10 +34,10 @@
   },
   "devDependencies": {
     "@types/node": "^22.16.5",
-    "rollup": "^4.45.1",
+    "rollup": "^4.46.1",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.8.3",
-    "unbuild": "^3.5.0",
+    "unbuild": "^3.6.0",
     "unplugin-purge-polyfills": "^0.1.0"
   }
 }
