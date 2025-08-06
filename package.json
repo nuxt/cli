@@ -2,7 +2,7 @@
   "name": "nuxi-workspace",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.12.1",
+  "packageManager": "pnpm@10.13.1",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
@@ -19,34 +19,35 @@
     "test:types": "tsc --noEmit",
     "test:knip": "knip",
     "test:dist": "pnpm -r test:dist",
-    "test:unit": "vitest --coverage"
+    "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^4.14.1",
+    "@antfu/eslint-config": "^5.0.0",
     "@codspeed/vitest-plugin": "^4.0.1",
-    "@nuxt/eslint-config": "^1.4.1",
-    "@types/node": "^22.15.31",
+    "@nuxt/eslint-config": "^1.7.1",
+    "@types/node": "^22.16.5",
     "@types/semver": "^7.7.0",
-    "@vitest/coverage-v8": "^3.2.3",
-    "changelogen": "^0.6.1",
-    "eslint": "^9.28.0",
-    "knip": "^5.60.2",
-    "pkg-pr-new": "^0.0.51",
+    "@vitest/coverage-v8": "^3.2.4",
+    "changelogen": "^0.6.2",
+    "eslint": "^9.32.0",
+    "knip": "^5.62.0",
+    "pkg-pr-new": "^0.0.54",
     "semver": "^7.7.2",
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.3",
-    "vue": "^3.5.16"
+    "vitest": "^3.2.4",
+    "vue": "^3.5.18"
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "3.17.5",
+    "@nuxt/schema": "4.0.3",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
-    "eslint-plugin-jsdoc": "50.7.1",
-    "eslint-plugin-unicorn": "59.0.1",
+    "eslint-plugin-jsdoc": "52.0.0",
+    "eslint-plugin-unicorn": "60.0.0",
     "h3": "^1.15.3",
+    "nitropack": "latest",
     "nuxi": "workspace:*"
   }
 }

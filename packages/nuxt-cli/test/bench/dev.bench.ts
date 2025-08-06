@@ -11,7 +11,7 @@ interface RunResult {
   result: { listener: Listener, close: () => Promise<void> }
 }
 
-const fixtureDir = fileURLToPath(new URL('../../playground', import.meta.url))
+const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 
 describe(`dev [${os.platform()}]`, () => {
   bench(`starts dev server with --no-fork`, async () => {

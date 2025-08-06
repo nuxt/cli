@@ -6,7 +6,6 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import clipboardy from 'clipboardy'
-import { createJiti } from 'jiti'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
@@ -168,6 +167,7 @@ function normalizeConfigModule(
 
 async function getNuxtConfig(rootDir: string) {
   try {
+    const { createJiti } = await import('jiti')
     const jiti = createJiti(rootDir, {
       interopDefault: true,
       // allow using `~` and `@` in `nuxt.config`

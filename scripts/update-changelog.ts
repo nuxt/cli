@@ -227,7 +227,10 @@ export async function getContributors() {
         'Accept': 'application/vnd.github.v3+json',
         'Authorization': `token ${process.env.GITHUB_TOKEN}`,
       },
-    }).then(r => r.json() as Promise<{ author: { login: string, email: string } }>)
+    }).then(r => r.json() as Promise<{ author: { login: string, email: string } | null }>)
+    if (!author) {
+      continue
+    }
     if (!contributors.some(c => c.username === author.login)) {
       contributors.push({ name: commit.author.name, username: author.login })
     }

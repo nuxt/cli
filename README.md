@@ -16,7 +16,7 @@ pnpm i
 pnpm dev:prepare
 
 # Go to the playground directory
-cd packages/nuxt-cli/playground
+cd playground
 
 # And run any commands
 pnpm nuxi <command>

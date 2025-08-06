@@ -20,7 +20,7 @@ import { logger } from '../utils/logger'
 import { cwdArgs, logLevelArgs } from './_shared'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
-const DEFAULT_TEMPLATE_NAME = 'v3'
+const DEFAULT_TEMPLATE_NAME = 'v4'
 
 const pms: Record<PackageManagerName, undefined> = {
   npm: undefined,

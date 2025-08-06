@@ -9,16 +9,21 @@
         "scripts/*"
       ]
     },
-    "packages/nuxt-cli/playground": {
-      "ignoreDependencies": [
-        "@nuxt/test-utils",
-        "nuxt"
+    "playground": {
+      "entry": [
+        "test/**",
+        "pages/**",
+        "server/**",
+        "some-layer/**"
       ]
     },
     "packages/nuxt-cli": {
+      "entry": [
+        "src/index.ts",
+        "test/fixtures/*"
+      ],
       "ignoreDependencies": [
         "c12",
-        "chokidar",
         "clipboardy",
         "confbox",
         "consola",
@@ -29,7 +34,6 @@
         "h3",
         "httpxy",
         "jiti",
-        "listhen",
         "nypm",
         "ofetch",
         "ohash",

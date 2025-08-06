@@ -3,7 +3,7 @@ import { resolve } from 'pathe'
 
 const layer: Template = ({ name, nuxtOptions }) => {
   return {
-    path: resolve(nuxtOptions.srcDir, `layers/${name}/nuxt.config.ts`),
+    path: resolve(nuxtOptions.rootDir, `layers/${name}/nuxt.config.ts`),
     contents: `
 export default defineNuxtConfig({})
 `,

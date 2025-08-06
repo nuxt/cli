@@ -1,14 +1,14 @@
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
 import { resolve } from 'pathe'
+import { readTSConfig } from 'pkg-types'
 import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { cwdArgs, dotEnvArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -19,6 +19,7 @@ export default defineCommand({
     ...cwdArgs,
     ...logLevelArgs,
     ...dotEnvArgs,
+    ...extendsArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -26,28 +27,20 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
-    const nuxt = await loadNuxt({
-      cwd,
-      dotenv: { cwd, fileName: ctx.args.dotenv },
-      overrides: {
-        _prepare: true,
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-      },
-    })
-
-    // Generate types and build Nuxt instance
-    await writeTypes(nuxt)
-    await buildNuxt(nuxt)
-    await nuxt.close()
-
-    // Prefer local install if possible
-    const [resolvedTypeScript, resolvedVueTsc] = await Promise.all([
+    const [supportsProjects, resolvedTypeScript, resolvedVueTsc] = await Promise.all([
+      readTSConfig(cwd).then(r => !!(r.references?.length)),
+      // Prefer local install if possible
       resolveModulePath('typescript', { try: true }),
       resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
+      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
+        ...ctx.data?.overrides,
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
+      }),
     ])
+
+    const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']
     if (resolvedTypeScript && resolvedVueTsc) {
-      await x(fileURLToPath(resolvedVueTsc), ['--noEmit'], {
+      return await x(resolvedVueTsc, typeCheckArgs, {
         throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
@@ -55,35 +48,43 @@ export default defineCommand({
         },
       })
     }
-    else {
-      if (isBun) {
-        await x(
-          'bun',
-          'install typescript vue-tsc --global --silent'.split(' '),
-          {
-            throwOnError: true,
-            nodeOptions: { stdio: 'inherit', cwd },
-          },
-        )
 
-        await x('bunx', 'vue-tsc --noEmit'.split(' '), {
-          throwOnError: true,
-          nodeOptions: {
-            stdio: 'inherit',
-            cwd,
-          },
-        })
-      }
-      else {
-        await x(
-          'npx',
-          '-p vue-tsc -p typescript vue-tsc --noEmit'.split(' '),
-          {
-            throwOnError: true,
-            nodeOptions: { stdio: 'inherit', cwd },
-          },
-        )
-      }
+    if (isBun) {
+      await x('bun', ['install', 'typescript', 'vue-tsc', '--global', '--silent'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'inherit', cwd },
+      })
+
+      return await x('bunx', ['vue-tsc', ...typeCheckArgs], {
+        throwOnError: true,
+        nodeOptions: {
+          stdio: 'inherit',
+          cwd,
+        },
+      })
     }
+
+    await x('npx', ['-p', 'vue-tsc', '-p', 'typescript', 'vue-tsc', ...typeCheckArgs], {
+      throwOnError: true,
+      nodeOptions: { stdio: 'inherit', cwd },
+    })
   },
 })
+
+async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
+  const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
+  const nuxt = await loadNuxt({
+    cwd,
+    dotenv: { cwd, fileName: dotenv },
+    overrides: {
+      _prepare: true,
+      logLevel,
+      ...overrides,
+    },
+  })
+
+  // Generate types and build Nuxt instance
+  await writeTypes(nuxt)
+  await buildNuxt(nuxt)
+  await nuxt.close()
+}

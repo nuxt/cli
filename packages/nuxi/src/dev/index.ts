@@ -1,10 +1,12 @@
 import type { NuxtConfig } from '@nuxt/schema'
 import type { ListenOptions } from 'listhen'
-import type { NuxtDevContext, NuxtDevIPCMessage, NuxtDevServer, NuxtParentIPCMessage } from './utils'
+import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 import defu from 'defu'
-import { createNuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
+import { listen } from 'listhen'
+import { createSocketListener } from './socket'
+import { NuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
 
 const start = Date.now()
 
@@ -19,15 +21,18 @@ interface InitializeOptions {
 
 // IPC Hooks
 class IPC {
-  enabled = !!process.send && !process.title.includes('vitest') && process.env.__NUXT__FORK
+  enabled = !!process.send && !process.title?.includes('vitest') && process.env.__NUXT__FORK
   constructor() {
-    process.once('unhandledRejection', (reason) => {
-      this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
-      process.exit()
-    })
+    // only kill process if it is a fork
+    if (this.enabled) {
+      process.once('unhandledRejection', (reason) => {
+        this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+        process.exit()
+      })
+    }
     process.on('message', (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
-        initialize(message.context)
+        initialize(message.context, {}, message.socket ? undefined : true)
       }
     })
     this.send({ type: 'nuxt:internal:dev:fork-ready' })
@@ -42,7 +47,7 @@ class IPC {
 
 const ipc = new IPC()
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, listenOptions?: Partial<ListenOptions>) {
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, _listenOptions?: true | Partial<ListenOptions>) {
   const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })
@@ -52,20 +57,50 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     https: devContext.proxy?.https,
   }, devContext.publicURLs)
 
-  // Init Nuxt dev
-  const devServer = await createNuxtDevServer({
+  // Initialize dev server
+  const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
-    overrides: defu(ctx.data?.overrides, devServerOverrides),
+    overrides: defu(
+      ctx.data?.overrides,
+      ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
+      devServerOverrides,
+    ),
     defaults: devServerDefaults,
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: !!devContext.args.clear,
     dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
     envName: devContext.args.envName,
-    port: process.env._PORT ?? undefined,
-    devContext,
-  }, listenOptions)
+    devContext: {
+      proxy: devContext.proxy,
+    },
+  })
 
-  let port: number
+  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
+  const listenOptions = _listenOptions === true || process.env._PORT
+    ? { port: process.env._PORT ?? 0, hostname: '127.0.0.1', showURL: false }
+    : _listenOptions
+
+  // Attach internal listener
+  devServer.listener = listenOptions
+    ? await listen(devServer.handler, listenOptions)
+    : await createSocketListener(devServer.handler, devContext.proxy?.addr)
+
+  if (process.env.DEBUG) {
+    // eslint-disable-next-line no-console
+    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
+  }
+
+  // Merge interface with public context
+  devServer.listener._url = devServer.listener.url
+  if (devContext.proxy?.url) {
+    devServer.listener.url = devContext.proxy.url
+  }
+  if (devContext.proxy?.urls) {
+    const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
+    devServer.listener.getURLs = async () => Array.from(new Set([...devContext.proxy?.urls || [], ...(await _getURLs())]))
+  }
+
+  let address: string
 
   if (ipc.enabled) {
     devServer.on('loading:error', (_error) => {
@@ -75,7 +110,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
           message: _error.message,
           stack: _error.stack,
           name: _error.name,
-          code: _error.code,
+          code: 'code' in _error ? _error.code : undefined,
         },
       })
     })
@@ -86,12 +121,12 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       ipc.send({ type: 'nuxt:internal:dev:restart' })
     })
     devServer.on('ready', (payload) => {
-      ipc.send({ type: 'nuxt:internal:dev:ready', port: payload.port })
+      ipc.send({ type: 'nuxt:internal:dev:ready', address: payload })
     })
   }
   else {
     devServer.on('ready', (payload) => {
-      port = payload.port
+      address = payload
     })
   }
 
@@ -105,17 +140,29 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
-    close: () => devServer.close(),
-    onReady: (callback: (port: number) => void) => {
-      if (port) {
-        callback(port)
+    close: async () => {
+      devServer.closeWatchers()
+      await devServer.close()
+    },
+    onReady: (callback: (address: string) => void) => {
+      if (address) {
+        callback(address)
       }
       else {
-        devServer.once('ready', payload => callback(payload.port))
+        devServer.once('ready', payload => callback(payload))
       }
     },
     onRestart: (callback: (devServer: NuxtDevServer) => void) => {
-      devServer.once('restart', () => callback(devServer))
+      let restarted = false
+      function restart() {
+        if (!restarted) {
+          restarted = true
+          callback(devServer)
+        }
+      }
+      devServer.once('restart', restart)
+      process.once('uncaughtException', restart)
+      process.once('unhandledRejection', restart)
     },
   }
 }
