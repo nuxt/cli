@@ -357,7 +357,7 @@ export default defineCommand({
       const args: string[] = [
         'add',
         ...modulesToAdd,
-        `--cwd=${join(ctx.args.cwd, ctx.args.dir)}`,
+        `--cwd=${templateDownloadPath}`,
         ctx.args.install ? '' : '--skipInstall',
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
