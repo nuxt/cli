@@ -10,7 +10,7 @@ import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
-import { join, relative, resolve } from 'pathe'
+import { relative, resolve } from 'pathe'
 import { hasTTY } from 'std-env'
 
 import { x } from 'tinyexec'
