@@ -49,7 +49,7 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     {
       type: 'select',
       options: ['3.x', '4.x'] as const,
-      default: '3.x',
+      default: '4.x',
       cancel: 'reject',
     },
   ).catch(() => process.exit(1))
@@ -64,7 +64,7 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
     return getNightlyVersion(packageNames)
   }
 
-  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '3' }
+  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4' }
 }
 
 export default defineCommand({
@@ -161,6 +161,15 @@ export default defineCommand({
       },
     ).catch(() => process.exit(1))
 
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
+
+    await addDependency(npmPackages, {
+      cwd,
+      packageManager,
+      dev: nuxtDependencyType === 'devDependencies',
+    })
+
     if (method === 'force') {
       logger.info(
         `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
@@ -172,15 +181,6 @@ export default defineCommand({
       logger.info('Try deduping dependencies...')
       await dedupeDependencies()
     }
-
-    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
-    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
-
-    await addDependency(npmPackages, {
-      cwd,
-      packageManager,
-      dev: nuxtDependencyType === 'devDependencies',
-    })
 
     // Clean up after upgrade
     let buildDir: string = '.nuxt'

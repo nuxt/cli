@@ -3,27 +3,32 @@ import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { NuxtDevContext, NuxtDevIPCMessage } from '../utils/dev'
+import type { TLSSocket } from 'node:tls'
+import type { NuxtDevContext, NuxtDevIPCMessage } from '../dev/utils'
 
 import { fork } from 'node:child_process'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import defu from 'defu'
-import { createJiti } from 'jiti'
+import { isSocketSupported } from 'get-port-please'
+import { createProxyServer } from 'httpxy'
+import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
+import { isBun, isDeno, isTest } from 'std-env'
 
-import { isBun, isTest } from 'std-env'
+import { initialize } from '../dev'
+import { renderError } from '../dev/error'
+import { isSocketURL, parseSocketURL } from '../dev/socket'
+import { resolveLoadingTemplate } from '../dev/utils'
 import { showVersions } from '../utils/banner'
-import { _getDevServerDefaults, _getDevServerOverrides } from '../utils/dev'
 import { overrideEnv } from '../utils/env'
-import { renderError } from '../utils/error'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
+const startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 const listhenArgs = getListhenArgs()
 
@@ -38,6 +43,7 @@ const command = defineCommand({
     ...dotEnvArgs,
     ...legacyRootDirArgs,
     ...envNameArgs,
+    ...extendsArgs,
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
@@ -65,7 +71,7 @@ const command = defineCommand({
       'host': {
         ...listhenArgs.host,
         alias: ['h'],
-        description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions._layers?.[0]?.devServer?.host`)',
+        description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
       },
       'clipboard': { ...listhenArgs.clipboard, default: false },
       'https.domains': {
@@ -86,7 +92,7 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    await showVersions(cwd)
+    showVersions(cwd)
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
@@ -97,51 +103,79 @@ const command = defineCommand({
       overrides: {
         dev: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })
 
-    // Start Proxy Listener
-    const listenOptions = _resolveListenOptions(nuxtOptions, ctx.args)
-
-    if (ctx.args.fork) {
-      // Fork Nuxt dev process
-      const devProxy = await _createDevProxy(nuxtOptions, listenOptions)
-      await _startSubprocess(devProxy, ctx.rawArgs, listenOptions)
-      return { listener: devProxy?.listener }
-    }
-    else {
+    const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
+    if (!ctx.args.fork) {
       // Directly start Nuxt dev
-      const { createNuxtDevServer } = await import('../utils/dev')
-
-      const devServerOverrides = _getDevServerOverrides({
-        public: listenOptions.public,
-      })
-
-      const devServerDefaults = _getDevServerDefaults({
+      const { listener, close } = await initialize({
+        cwd,
+        args: ctx.args,
         hostname: listenOptions.hostname,
-        https: listenOptions.https,
-      })
-
-      const devServer = await createNuxtDevServer(
-        {
-          cwd,
-          overrides: defu(ctx.data?.overrides, devServerOverrides),
-          defaults: devServerDefaults,
-          logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-          clear: ctx.args.clear,
-          dotenv: {
-            cwd,
-            fileName: ctx.args.dotenv,
-          },
-          envName: ctx.args.envName,
-          loadingTemplate: nuxtOptions.devServer.loadingTemplate,
-          devContext: {},
+        public: listenOptions.public,
+        publicURLs: undefined,
+        proxy: {
+          https: listenOptions.https,
         },
-        listenOptions,
-      )
-      await devServer.init()
-      return { listener: devServer?.listener }
+      }, { data: ctx.data }, listenOptions)
+
+      return {
+        listener,
+        async close() {
+          await close()
+          await listener.close()
+        },
+      }
+    }
+
+    // Start proxy Listener
+    const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
+
+    const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
+
+    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && await isSocketSupported())
+
+    const urls = await devProxy.listener.getURLs()
+    // run initially in in no-fork mode
+    const { onRestart, onReady, close } = await initialize({
+      cwd,
+      args: ctx.args,
+      hostname: listenOptions.hostname,
+      public: listenOptions.public,
+      publicURLs: urls.map(r => r.url),
+      proxy: {
+        url: devProxy.listener.url,
+        urls,
+        https: devProxy.listener.https,
+        addr: devProxy.listener.address,
+      },
+      // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
+      // otherwise pass 'true' to listen on a random port instead
+    }, {}, useSocket ? undefined : true)
+
+    onReady(address => devProxy.setAddress(address))
+
+    // ... then fall back to pre-warmed fork if a hard restart is required
+    const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
+    onRestart(async (devServer) => {
+      const [subprocess] = await Promise.all([
+        fork,
+        devServer.close().catch(() => {}),
+      ])
+      await subprocess.initialize(devProxy, useSocket)
+    })
+
+    return {
+      listener: devProxy.listener,
+      async close() {
+        await close()
+        const subprocess = await fork
+        subprocess.kill(0)
+        await devProxy.listener.close()
+      },
     }
   },
 })
@@ -155,27 +189,37 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-type DevProxy = Awaited<ReturnType<typeof _createDevProxy>>
+type DevProxy = Awaited<ReturnType<typeof createDevProxy>>
 
-async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
-  const jiti = createJiti(nuxtOptions.rootDir)
+async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   let loadingMessage = 'Nuxt dev server is starting...'
   let error: Error | undefined
-  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
-  for (const url of nuxtOptions.modulesDir) {
-    // @ts-expect-error this is for backwards compatibility
-    if (loadingTemplate) {
-      break
-    }
-    loadingTemplate = await jiti.import<{ loading: () => string }>('@nuxt/ui-templates', { parentURL: url }).then(r => r.loading)
-  }
-
-  const { createProxyServer } = await import('httpxy')
-  const proxy = createProxyServer({})
-
   let address: string | undefined
 
-  const handler = (req: IncomingMessage, res: ServerResponse) => {
+  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
+
+  const proxy = createProxyServer({})
+
+  proxy.on('proxyReq', (proxyReq, req) => {
+    if (!proxyReq.hasHeader('x-forwarded-for')) {
+      const address = req.socket.remoteAddress
+      if (address) {
+        proxyReq.appendHeader('x-forwarded-for', address)
+      }
+    }
+    if (!proxyReq.hasHeader('x-forwarded-port')) {
+      const localPort = req?.socket?.localPort
+      if (localPort) {
+        proxyReq.setHeader('x-forwarded-port', req.socket.localPort)
+      }
+    }
+    if (!proxyReq.hasHeader('x-forwarded-Proto')) {
+      const encrypted = (req?.connection as TLSSocket)?.encrypted
+      proxyReq.setHeader('x-forwarded-proto', encrypted ? 'https' : 'http')
+    }
+  })
+
+  const listener = await listen((req: IncomingMessage, res: ServerResponse) => {
     if (error) {
       renderError(req, res, error)
       return
@@ -183,28 +227,35 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
     if (!address) {
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
-      res.end(loadingTemplate({ loading: loadingMessage }))
-      return
-    }
-    return proxy.web(req, res, { target: address })
-  }
+      res.setHeader('Cache-Control', 'no-store')
+      if (loadingTemplate) {
+        res.end(loadingTemplate({ loading: loadingMessage }))
+        return
+      }
 
-  const wsHandler = (req: IncomingMessage, socket: any, head: any) => {
+      // Nuxt <3.6 did not have the loading template defined in the schema
+      async function resolveLoadingMessage() {
+        loadingTemplate = await resolveLoadingTemplate(cwd)
+        res.end(loadingTemplate({ loading: loadingMessage }))
+      }
+      return resolveLoadingMessage()
+    }
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
+    proxy.web(req, res, { target })
+  }, listenOptions)
+
+  listener.server.on('upgrade', (req, socket, head) => {
     if (!address) {
       socket.destroy()
       return
     }
-    return proxy.ws(req, socket, { target: address }, head)
-  }
-
-  const { listen } = await import('listhen')
-  const listener = await listen(handler, listenOptions)
-  listener.server.on('upgrade', wsHandler)
+    const target = isSocketURL(address) ? parseSocketURL(address) : address
+    // @ts-expect-error TODO: fix socket type in httpxy
+    return proxy.ws(req, socket, { target, xfwd: true }, head)
+  })
 
   return {
     listener,
-    handler,
-    wsHandler,
     setAddress: (_addr: string | undefined) => {
       address = _addr
     },
@@ -220,18 +271,41 @@ async function _createDevProxy(nuxtOptions: NuxtOptions, listenOptions: Partial<
   }
 }
 
-async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArgs: Partial<ListenOptions>) {
+async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string, extends?: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
-
+  let devProxy: DevProxy
+  let ready: Promise<void> | undefined
   const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
-      childProc.kill(signal)
+      childProc.kill(signal === 0 && isDeno ? 'SIGTERM' : signal)
       childProc = undefined
     }
   }
 
-  const restart = async () => {
-    devProxy.clearError()
+  async function initialize(proxy: DevProxy, socket: boolean) {
+    devProxy = proxy
+    const urls = await devProxy.listener.getURLs()
+    await ready
+    childProc!.send({
+      type: 'nuxt:internal:dev:context',
+      socket,
+      context: {
+        cwd,
+        args,
+        hostname: listenOptions.hostname,
+        public: listenOptions.public,
+        publicURLs: urls.map(r => r.url),
+        proxy: {
+          url: devProxy.listener.url,
+          urls,
+          https: devProxy.listener.https,
+        },
+      } satisfies NuxtDevContext,
+    })
+  }
+
+  async function restart() {
+    devProxy?.clearError()
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -240,23 +314,11 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
       kill('SIGHUP')
     }
     // Start new process
-    childProc = fork(globalThis.__nuxt_cli__!.entry!, ['_dev', ...rawArgs], {
-      execArgv: [
-        '--enable-source-maps',
-        process.argv.find((a: string) => a.includes('--inspect')),
-      ].filter(Boolean) as string[],
+    childProc = fork(globalThis.__nuxt_cli__.devEntry!, rawArgs, {
+      execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
       env: {
         ...process.env,
-        __NUXT_DEV__: JSON.stringify({
-          hostname: listenArgs.hostname,
-          public: listenArgs.public,
-          publicURLs: await devProxy.listener.getURLs().then(r => r.map(r => r.url)),
-          proxy: {
-            url: devProxy.listener.url,
-            urls: await devProxy.listener.getURLs(),
-            https: devProxy.listener.https,
-          },
-        } satisfies NuxtDevContext),
+        __NUXT__FORK: 'true',
       },
     })
 
@@ -268,26 +330,35 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
     })
 
     // Listen for IPC messages
-    childProc.on('message', (message: NuxtDevIPCMessage) => {
-      if (message.type === 'nuxt:internal:dev:ready') {
-        devProxy.setAddress(`http://127.0.0.1:${message.port}`)
-      }
-      else if (message.type === 'nuxt:internal:dev:loading') {
-        devProxy.setAddress(undefined)
-        devProxy.setLoadingMessage(message.message)
-        devProxy.clearError()
-      }
-      else if (message.type === 'nuxt:internal:dev:loading:error') {
-        devProxy.setAddress(undefined)
-        devProxy.setError(message.error)
-      }
-      else if (message.type === 'nuxt:internal:dev:restart') {
-        restart()
-      }
-      else if (message.type === 'nuxt:internal:dev:rejection') {
-        logger.withTag('nuxi').info(`Restarting Nuxt due to error: \`${message.message}\``)
-        restart()
-      }
+    ready = new Promise((resolve, reject) => {
+      childProc!.on('error', reject)
+      childProc!.on('message', (message: NuxtDevIPCMessage) => {
+        if (message.type === 'nuxt:internal:dev:fork-ready') {
+          resolve()
+        }
+        else if (message.type === 'nuxt:internal:dev:ready') {
+          devProxy.setAddress(message.address)
+          if (startTime) {
+            logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+          }
+        }
+        else if (message.type === 'nuxt:internal:dev:loading') {
+          devProxy.setAddress(undefined)
+          devProxy.setLoadingMessage(message.message)
+          devProxy.clearError()
+        }
+        else if (message.type === 'nuxt:internal:dev:loading:error') {
+          devProxy.setAddress(undefined)
+          devProxy.setError(message.error)
+        }
+        else if (message.type === 'nuxt:internal:dev:restart') {
+          restart()
+        }
+        else if (message.type === 'nuxt:internal:dev:rejection') {
+          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
+          restart()
+        }
+      })
     })
   }
 
@@ -306,13 +377,14 @@ async function _startSubprocess(devProxy: DevProxy, rawArgs: string[], listenArg
   await restart()
 
   return {
+    initialize,
     restart,
     kill,
   }
 }
 
-function _resolveListenOptions(
-  nuxtOptions: NuxtOptions,
+function resolveListenOptions(
+  nuxtOptions: { devServer: NuxtOptions['devServer'], app: NuxtOptions['app'] },
   args: ParsedArgs<ArgsT>,
 ): Partial<ListenOptions> {
   const _port = args.port
@@ -324,13 +396,13 @@ function _resolveListenOptions(
 
   const _hostname = typeof args.host === 'string'
     ? args.host
-    : (args.host === true ? '' : undefined)
-      ?? process.env.NUXT_HOST
-      ?? process.env.NITRO_HOST
-      ?? process.env.HOST
-      // TODO: Default host in schema should be undefined instead of ''
-      ?? nuxtOptions._layers?.[0]?.config?.devServer?.host
-      ?? undefined
+    : args.host === true
+      ? ''
+      : process.env.NUXT_HOST
+        ?? process.env.NITRO_HOST
+        ?? process.env.HOST
+        ?? (nuxtOptions.devServer?.host || undefined /* for backwards compatibility with previous '' default */)
+        ?? undefined
 
   const _public: boolean | undefined = args.public
     ?? (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))

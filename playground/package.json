@@ -1,0 +1,15 @@
+{
+  "name": "nuxt-cli-playground",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:prepare": "nuxt prepare",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "nuxt": "^4.0.3"
+  },
+  "devDependencies": {
+    "@nuxt/test-utils": "^3.19.2"
+  }
+}

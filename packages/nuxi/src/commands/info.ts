@@ -6,7 +6,6 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import clipboardy from 'clipboardy'
-import { createJiti } from 'jiti'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
@@ -40,7 +39,7 @@ export default defineCommand({
     const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     // Utils to query a dependency version
-    const nuxtPath = await tryResolveNuxt(cwd)
+    const nuxtPath = tryResolveNuxt(cwd)
     async function getDepVersion(name: string) {
       for (const url of [cwd, nuxtPath]) {
         if (!url) {
@@ -168,6 +167,7 @@ function normalizeConfigModule(
 
 async function getNuxtConfig(rootDir: string) {
   try {
+    const { createJiti } = await import('jiti')
     const jiti = createJiti(rootDir, {
       interopDefault: true,
       // allow using `~` and `@` in `nuxt.config`

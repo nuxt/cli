@@ -21,7 +21,7 @@ import { logger } from '../utils/logger'
 import { cwdArgs, logLevelArgs } from './_shared'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
-const DEFAULT_TEMPLATE_NAME = 'v3'
+const DEFAULT_TEMPLATE_NAME = 'v4'
 
 const pms: Record<PackageManagerName, undefined> = {
   npm: undefined,
@@ -33,6 +33,73 @@ const pms: Record<PackageManagerName, undefined> = {
 
 // this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
 const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
+
+async function getModuleDependencies(moduleName: string) {
+  try {
+    const response = await $fetch(`https://registry.npmjs.org/${moduleName}/latest`)
+    const dependencies = response.dependencies || {}
+    return Object.keys(dependencies)
+  }
+  catch (err) {
+    logger.warn(`Could not get dependencies for ${moduleName}: ${err}`)
+    return []
+  }
+}
+
+function filterModules(modules: string[], allDependencies: Record<string, string[]>) {
+  const result = {
+    toInstall: [] as string[],
+    skipped: [] as string[],
+  }
+
+  for (const module of modules) {
+    const isDependency = modules.some((otherModule) => {
+      if (otherModule === module)
+        return false
+      const deps = allDependencies[otherModule] || []
+      return deps.includes(module)
+    })
+
+    if (isDependency) {
+      result.skipped.push(module)
+    }
+    else {
+      result.toInstall.push(module)
+    }
+  }
+
+  return result
+}
+
+async function getTemplateDependencies(templateDir: string) {
+  try {
+    const packageJsonPath = join(templateDir, 'package.json')
+    if (!existsSync(packageJsonPath)) {
+      return []
+    }
+    const packageJson = await import(packageJsonPath)
+    const directDeps = {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    }
+    const directDepNames = Object.keys(directDeps)
+    const allDeps = new Set(directDepNames)
+
+    const transitiveDepsResults = await Promise.all(
+      directDepNames.map(dep => getModuleDependencies(dep)),
+    )
+
+    transitiveDepsResults.forEach((deps) => {
+      deps.forEach(dep => allDeps.add(dep))
+    })
+
+    return Array.from(allDeps)
+  }
+  catch (err) {
+    logger.warn(`Could not read template dependencies: ${err}`)
+    return []
+  }
+}
 
 export default defineCommand({
   meta: {
@@ -86,6 +153,7 @@ export default defineCommand({
       type: 'string',
       required: false,
       description: 'Nuxt modules to install (comma separated without spaces)',
+      negativeDescription: 'Skip module installation prompt',
       alias: 'M',
     },
     nightly: {
@@ -236,11 +304,11 @@ export default defineCommand({
     const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
       ? packageManagerArg
       : await logger.prompt('Which package manager would you like to use?', {
-        type: 'select',
-        options: packageManagerSelectOptions,
-        initial: currentPackageManager,
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+          type: 'select',
+          options: packageManagerSelectOptions,
+          initial: currentPackageManager,
+          cancel: 'reject',
+        }).catch(() => process.exit(1))
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -294,14 +362,15 @@ export default defineCommand({
     const modulesToAdd: string[] = []
 
     // Get modules from arg (if provided)
-    if (ctx.args.modules) {
+    if (ctx.args.modules !== undefined) {
       modulesToAdd.push(
-        ...ctx.args.modules.split(',').map(module => module.trim()).filter(Boolean),
+        // ctx.args.modules is false when --no-modules is used
+        ...(ctx.args.modules || '').split(',').map(module => module.trim()).filter(Boolean),
       )
     }
     // ...or offer to install official modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
-      const response = await $fetch<{
+      const modulesPromise = $fetch<{
         modules: {
           npm: string
           type: 'community' | 'official'
@@ -309,27 +378,61 @@ export default defineCommand({
         }[]
       }>('https://api.nuxt.com/modules')
 
-      const officialModules = response.modules
-        .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
-
-      const selectedOfficialModules = await logger.prompt(
+      const wantsUserModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
         {
-          type: 'multiselect',
-          options: officialModules.map(module => ({
-            label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-            value: module.npm,
-          })),
-          required: false,
+          type: 'confirm',
+          cancel: 'reject',
         },
-      )
+      ).catch(() => process.exit(1))
 
-      if (selectedOfficialModules === undefined) {
-        process.exit(1)
-      }
+      if (wantsUserModules) {
+        const [response, templateDeps] = await Promise.all([
+          modulesPromise,
+          getTemplateDependencies(template.dir),
+        ])
 
-      if (selectedOfficialModules.length > 0) {
-        modulesToAdd.push(...(selectedOfficialModules as unknown as string[]))
+        const officialModules = response.modules
+          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
+          .filter(module => !templateDeps.includes(module.npm))
+
+        if (officialModules.length === 0) {
+          logger.info('All official modules are already included in this template.')
+        }
+        else {
+          const selectedOfficialModules = await logger.prompt(
+            'Pick the modules to install:',
+            {
+              type: 'multiselect',
+              options: officialModules.map(module => ({
+                label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+                value: module.npm,
+              })),
+              required: false,
+            },
+          )
+
+          if (selectedOfficialModules === undefined) {
+            process.exit(1)
+          }
+
+          if (selectedOfficialModules.length > 0) {
+            const modules = selectedOfficialModules as unknown as string[]
+
+            const allDependencies = Object.fromEntries(
+              await Promise.all(modules.map(async module =>
+                [module, await getModuleDependencies(module)] as const,
+              )),
+            )
+
+            const { toInstall, skipped } = filterModules(modules, allDependencies)
+
+            if (skipped.length) {
+              logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+            }
+            modulesToAdd.push(...toInstall)
+          }
+        }
       }
     }
 
@@ -338,7 +441,7 @@ export default defineCommand({
       const args: string[] = [
         'add',
         ...modulesToAdd,
-        `--cwd=${join(ctx.args.cwd, ctx.args.dir)}`,
+        `--cwd=${templateDownloadPath}`,
         ctx.args.install ? '' : '--skipInstall',
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)

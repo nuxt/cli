@@ -31,6 +31,15 @@ export const dotEnvArgs = {
   },
 } as const satisfies Record<string, ArgDef>
 
+export const extendsArgs = {
+  extends: {
+    type: 'string',
+    description: 'Extend from a Nuxt layer',
+    valueHint: 'layer-name',
+    alias: ['e'],
+  },
+} as const satisfies Record<string, ArgDef>
+
 export const legacyRootDirArgs = {
   // cwd falls back to rootDir's default (indirect default)
   cwd: {

@@ -1,13 +1,11 @@
-import { createJiti } from 'jiti'
+import { pathToFileURL } from 'node:url'
+import { resolveModulePath } from 'exsolve'
 
 export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit')> {
-  const jiti = createJiti(rootDir)
   try {
-    // Without PNP (or if users have a local install of kit, we bypass resolving from Nuxt)
-    const localKit = jiti.esmResolve('@nuxt/kit', { try: true })
-    // Otherwise, we resolve Nuxt _first_ as it is Nuxt's kit dependency that will be used
-    const rootURL = localKit ? rootDir : (await tryResolveNuxt(rootDir)) || rootDir
-    let kit: typeof import('@nuxt/kit') = await jiti.import('@nuxt/kit', { parentURL: rootURL })
+    const kitPath = resolveModulePath('@nuxt/kit', { from: tryResolveNuxt(rootDir) || rootDir })
+
+    let kit: typeof import('@nuxt/kit') = await import(pathToFileURL(kitPath).href)
     if (!kit.writeTypes) {
       kit = {
         ...kit,
@@ -21,17 +19,16 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
   catch (e: any) {
     if (e.toString().includes('Cannot find module \'@nuxt/kit\'')) {
       throw new Error(
-        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3 or `@nuxt/bridge` first.',
+        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ or `@nuxt/bridge` first.',
       )
     }
     throw e
   }
 }
 
-export async function tryResolveNuxt(rootDir: string) {
-  const jiti = createJiti(rootDir)
+export function tryResolveNuxt(rootDir: string) {
   for (const pkg of ['nuxt-nightly', 'nuxt', 'nuxt3', 'nuxt-edge']) {
-    const path = jiti.esmResolve(pkg, { try: true })
+    const path = resolveModulePath(pkg, { from: rootDir, try: true })
     if (path) {
       return path
     }

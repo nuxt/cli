@@ -1,9 +1,0 @@
-{
-  "name": "nuxt-cli-playground",
-  "version": "1.0.0",
-  "private": true,
-  "packageManager": "pnpm@10.7.1",
-  "dependencies": {
-    "nuxt": "^3.16.1"
-  }
-}
