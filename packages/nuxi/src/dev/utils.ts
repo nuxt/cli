@@ -368,12 +368,13 @@ export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptio
   return defaultConfig
 }
 
-function createConfigWatcher(cwd: string, dotenvFileName = '.env', onRestart: () => void, onReload: (file: string) => void) {
+function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void) {
   const configWatcher = watch(cwd)
   let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+  const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
   configWatcher.on('change', (_event, file: string) => {
-    if (file === dotenvFileName) {
+    if (dotenvFileNames.has(file)) {
       onRestart()
     }
 
