@@ -11,6 +11,7 @@ import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { join, relative, resolve } from 'pathe'
+import { readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 
 import { x } from 'tinyexec'
@@ -155,6 +156,10 @@ export default defineCommand({
       negativeDescription: 'Skip module installation prompt',
       alias: 'M',
     },
+    nightly: {
+      type: 'string',
+      description: 'Use Nuxt nightly release channel (3x or latest)',
+    },
   },
   async run(ctx) {
     if (hasTTY) {
@@ -235,6 +240,46 @@ export default defineCommand({
       }
       logger.error((err as Error).toString())
       process.exit(1)
+    }
+
+    if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
+      const response = await $fetch<{
+        'dist-tags': {
+          [key: string]: string
+        }
+      }>('https://registry.npmjs.org/nuxt-nightly')
+
+      const nightlyChannelTag = ctx.args.nightly
+        || Object.keys(response['dist-tags'])
+          .filter(key => /^\d+x$/.test(key))
+          .sort()
+          .reverse()[0]
+
+      if (!nightlyChannelTag) {
+        logger.error(`Error getting nightly channel tag.`)
+        process.exit(1)
+      }
+
+      const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
+
+      if (!nightlyChannelVersion) {
+        logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
+        process.exit(1)
+      }
+
+      const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
+      const packageJsonPath = resolve(cwd, ctx.args.dir)
+
+      const packageJson = await readPackageJSON(packageJsonPath)
+
+      if (packageJson.dependencies && 'nuxt' in packageJson.dependencies) {
+        packageJson.dependencies.nuxt = nightlyNuxtPackageJsonVersion
+      }
+      else if (packageJson.devDependencies && 'nuxt' in packageJson.devDependencies) {
+        packageJson.devDependencies.nuxt = nightlyNuxtPackageJsonVersion
+      }
+
+      await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
     }
 
     function detectCurrentPackageManager() {
