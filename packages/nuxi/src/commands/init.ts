@@ -249,11 +249,7 @@ export default defineCommand({
         }
       }>('https://registry.npmjs.org/nuxt-nightly')
 
-      const nightlyChannelTag = ctx.args.nightly
-        || Object.keys(response['dist-tags'])
-          .filter(key => /^\d+x$/.test(key))
-          .sort()
-          .reverse()[0]
+      const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
         logger.error(`Error getting nightly channel tag.`)
