@@ -13,20 +13,8 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { getPackageManagerVersion } from '../utils/packageManagers'
+import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
-
-async function getNuxtVersion(path: string): Promise<string | null> {
-  try {
-    const pkg = await readPackageJSON('nuxt', { url: path })
-    if (!pkg.version) {
-      logger.warn('Cannot find any installed Nuxt versions in ', path)
-    }
-    return pkg.version || null
-  }
-  catch {
-    return null
-  }
-}
 
 function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
   if (pkg.dependencies?.nuxt) {
@@ -109,7 +97,7 @@ export default defineCommand({
     logger.info('Package manager:', packageManagerName, packageManagerVersion)
 
     // Check currently installed Nuxt version
-    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
+    const currentVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
     logger.info('Current Nuxt version:', currentVersion)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
@@ -195,7 +183,7 @@ export default defineCommand({
     await cleanupNuxtDirs(cwd, buildDir)
 
     // Check installed Nuxt version again
-    const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
+    const upgradedVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
     logger.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === '[unknown]') {
@@ -203,7 +191,7 @@ export default defineCommand({
     }
 
     if (upgradedVersion === currentVersion) {
-      logger.success('You\'re already using the latest version of Nuxt.')
+      logger.success('You\'re using the latest version of Nuxt.')
     }
     else {
       logger.success(

@@ -1,7 +1,6 @@
 import { parseINI } from 'confbox'
 import { $fetch } from 'ofetch'
-import { readPackageJSON } from 'pkg-types'
-import { coerce, satisfies } from 'semver'
+import { satisfies } from 'semver'
 
 export const categories = [
   'Analytics',
@@ -114,16 +113,6 @@ export function checkNuxtCompatibility(
   return satisfies(nuxtVersion, module.compatibility.nuxt, {
     includePrerelease: true,
   })
-}
-
-export async function getNuxtVersion(cwd: string) {
-  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd }).catch(() => null)
-  if (nuxtPkg) {
-    return nuxtPkg.version!
-  }
-  const pkg = await readPackageJSON(cwd)
-  const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
-  return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
 }
 
 export function getRegistryFromContent(content: string, scope: string | null) {
