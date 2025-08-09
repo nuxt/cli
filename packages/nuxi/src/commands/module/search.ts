@@ -4,8 +4,9 @@ import Fuse from 'fuse.js'
 import { kebabCase, upperFirst } from 'scule'
 
 import { logger } from '../../utils/logger'
+import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs } from '../_shared'
-import { checkNuxtCompatibility, fetchModules, getNuxtVersion } from './_utils'
+import { checkNuxtCompatibility, fetchModules } from './_utils'
 
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
   notation: 'compact',
