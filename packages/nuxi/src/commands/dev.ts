@@ -246,12 +246,18 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
 
   listener.server.on('upgrade', (req, socket, head) => {
     if (!address) {
-      socket.destroy()
+      if (!socket.destroyed) {
+        socket.end()
+      }
       return
     }
     const target = isSocketURL(address) ? parseSocketURL(address) : address
     // @ts-expect-error TODO: fix socket type in httpxy
-    return proxy.ws(req, socket, { target, xfwd: true }, head)
+    return proxy.ws(req, socket, { target, xfwd: true }, head).catch(() => {
+      if (!socket.destroyed) {
+        socket.end()
+      }
+    })
   })
 
   return {
