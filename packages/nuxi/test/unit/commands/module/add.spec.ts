@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
 import * as runCommands from '../../../../src/run'
+import * as versions from '../../../../src/utils/versions'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const addDependency = vi.fn(() => Promise.resolve())
@@ -80,7 +81,7 @@ describe('module add', () => {
   })
   applyMocks()
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
-  vi.spyOn(utils, 'getNuxtVersion').mockResolvedValue('3.0.0')
+  vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([
     {
       name: 'content',
