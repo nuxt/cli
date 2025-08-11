@@ -79,7 +79,7 @@ jobs:
         package: [nuxi, nuxt-cli, create-nuxt]
     steps:
       - name: ⏬ Download stats.json
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
       - uses: twk3/rollup-size-compare-action@v1.2.0
         with:
           title: ${{ matrix.package }} size comparison
