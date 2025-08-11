@@ -63,7 +63,7 @@
   "devDependencies": {
     "@nuxt/kit": "^4.0.3",
     "@nuxt/schema": "^4.0.3",
-    "@types/node": "^22.17.0",
+    "@types/node": "^22.17.1",
     "rollup": "^4.46.2",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.9.2",
