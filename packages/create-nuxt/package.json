@@ -33,11 +33,11 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@types/node": "^22.17.1",
-    "rollup": "^4.46.2",
+    "@types/node": "^22.17.2",
+    "rollup": "^4.46.3",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.9.2",
-    "unbuild": "^3.6.0",
+    "unbuild": "^3.6.1",
     "unplugin-purge-polyfills": "^0.1.0"
   }
 }
