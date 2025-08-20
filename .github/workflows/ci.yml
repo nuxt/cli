@@ -82,7 +82,7 @@ jobs:
       - run: corepack enable
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: lts/*
+          node-version: latest
           cache: pnpm
 
       - name: 📦 Install dependencies
@@ -96,10 +96,6 @@ jobs:
 
       - name: 📦 release nightly
         if: github.event_name == 'push'
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> ~/.npmrc &&
-          node ./scripts/release.mjs
+        run: node ./scripts/release.mjs
         env:
           RELEASE_TYPE: nightly
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
