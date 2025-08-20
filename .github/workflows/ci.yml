@@ -92,7 +92,6 @@ jobs:
         run: pnpm build
 
       - name: 📦 release pkg.pr.new
-        if: github.event_name != 'push'
         run: pnpm pkg-pr-new publish --compact --template './playground' ./packages/create-nuxt ./packages/nuxi ./packages/nuxt-cli
 
       - name: 📦 release nightly
