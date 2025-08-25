@@ -37,7 +37,7 @@
     "tinyexec": "^1.0.1",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4",
-    "vue": "^3.5.19"
+    "vue": "^3.5.20"
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
