@@ -92,7 +92,7 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    await showVersions(cwd)
+    showVersions(cwd)
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
