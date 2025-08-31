@@ -23,6 +23,16 @@ export function showVersions(cwd: string) {
   }
   const nuxtVersion = getPkgVersion('nuxt') || getPkgVersion('nuxt-nightly') || getPkgVersion('nuxt3') || getPkgVersion('nuxt-edge')
   const nitroVersion = getPkgVersion('nitropack') || getPkgVersion('nitropack-nightly') || getPkgVersion('nitropack-edge')
+  const viteVersion = getPkgVersion('rolldown-vite') || getPkgVersion('vite') || null
+  const isRolldown = viteVersion?.includes('rolldown')
+  const vueVersion = getPkgVersion('vue') || null
 
-  logger.log(gray(green(`Nuxt ${bold(nuxtVersion)}`) + (nitroVersion ? ` with Nitro ${bold(nitroVersion)}` : '')))
+  logger.log(
+    green(`Nuxt ${bold(nuxtVersion)}`)
+    + gray(' (with: ')
+    + (nitroVersion ? gray(`Nitro ${bold(nitroVersion)}`) : '')
+    + (viteVersion ? gray(`, ${isRolldown ? 'Rolldown-Vite' : 'Vite'} ${bold(viteVersion)}`) : '')
+    + (vueVersion ? gray(`, Vue ${bold(vueVersion)}`) : '')
+    + gray(')'),
+  )
 }
