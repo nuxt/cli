@@ -34,7 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
-    "rollup": "^4.48.1",
+    "rollup": "^4.50.0",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.9.2",
     "unbuild": "^3.6.1",

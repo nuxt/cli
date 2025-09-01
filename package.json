@@ -31,7 +31,7 @@
     "changelogen": "^0.6.2",
     "eslint": "^9.34.0",
     "knip": "^5.63.0",
-    "pkg-pr-new": "^0.0.57",
+    "pkg-pr-new": "^0.0.58",
     "semver": "^7.7.2",
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
