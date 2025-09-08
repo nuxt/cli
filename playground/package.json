@@ -7,7 +7,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "nuxt": "^4.0.3"
+    "nuxt": "^4.1.1"
   },
   "devDependencies": {
     "@nuxt/test-utils": "^3.19.2"
