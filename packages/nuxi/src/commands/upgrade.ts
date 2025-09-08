@@ -62,7 +62,7 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
     case 'v3-nightly':
       return { npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')), nuxtVersion: '3.x' }
     case 'v4':
-      return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4.x' }
+      return { npmPackages: packageNames.map(p => `${p}@4`), nuxtVersion: '4.x' }
     case 'v4-nightly':
       return { npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')), nuxtVersion: '4.x' }
     case 'stable':
