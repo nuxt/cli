@@ -36,4 +36,5 @@ jobs:
           NUXT_SOCKET: 1
         with:
           run: pnpm vitest bench
+          mode: instrumentation
           token: ${{ secrets.CODSPEED_TOKEN }}
