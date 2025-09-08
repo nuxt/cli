@@ -22,7 +22,7 @@
     "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^5.2.2",
+    "@antfu/eslint-config": "^5.3.0",
     "@codspeed/vitest-plugin": "^4.0.1",
     "@nuxt/eslint-config": "^1.9.0",
     "@types/node": "^22.18.1",
@@ -44,7 +44,7 @@
     "@nuxt/schema": "4.1.1",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
-    "eslint-plugin-jsdoc": "54.5.0",
+    "eslint-plugin-jsdoc": "54.7.0",
     "eslint-plugin-unicorn": "61.0.2",
     "h3": "^1.15.4",
     "nitropack": "latest",
