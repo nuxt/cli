@@ -31,8 +31,14 @@ const nuxtVersionTags = {
   '4.x': 'latest',
 }
 
-async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: string }> {
-  const nuxtVersion = await logger.prompt(
+type NuxtVersionTag = keyof typeof nuxtVersionTags
+
+function getNightlyDependency(dep: string, nuxtVersion: NuxtVersionTag) {
+  return `${dep}@npm:${dep}-nightly@${nuxtVersionTags[nuxtVersion]}`
+}
+
+async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
+  const nuxtVersion: NuxtVersionTag = await logger.prompt(
     'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
     {
       type: 'select',
@@ -42,17 +48,27 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     },
   ).catch(() => process.exit(1))
 
-  const npmPackages = packageNames.map(p => `${p}@npm:${p}-nightly@${nuxtVersionTags[nuxtVersion]}`)
+  const npmPackages = packageNames.map(p => getNightlyDependency(p, nuxtVersion))
 
   return { npmPackages, nuxtVersion }
 }
 
-async function getRequiredNewVersion(packageNames: string[], channel: string): Promise<{ npmPackages: string[], nuxtVersion: string }> {
-  if (channel === 'nightly') {
-    return getNightlyVersion(packageNames)
+async function getRequiredNewVersion(packageNames: string[], channel: string): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
+  switch (channel) {
+    case 'nightly':
+      return getNightlyVersion(packageNames)
+    case 'v3':
+      return { npmPackages: packageNames.map(p => `${p}@3`), nuxtVersion: '3.x' }
+    case 'v3-nightly':
+      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')), nuxtVersion: '3.x' }
+    case 'v4':
+      return { npmPackages: packageNames.map(p => `${p}@4`), nuxtVersion: '4.x' }
+    case 'v4-nightly':
+      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')), nuxtVersion: '4.x' }
+    case 'stable':
+    default:
+      return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4.x' }
   }
-
-  return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4' }
 }
 
 export default defineCommand({
@@ -78,7 +94,7 @@ export default defineCommand({
       alias: 'ch',
       default: 'stable',
       description: 'Specify a channel to install from (default: stable)',
-      valueHint: 'stable|nightly',
+      valueHint: 'stable|nightly|v3|v4|v4-nightly|v3-nightly',
     },
   },
   async run(ctx) {
@@ -149,7 +165,7 @@ export default defineCommand({
       },
     ).catch(() => process.exit(1))
 
-    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : 'latest stable'
+    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
     logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
     await addDependency(npmPackages, {
