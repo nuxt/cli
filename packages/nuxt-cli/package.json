@@ -33,7 +33,7 @@
     "prepack": "unbuild"
   },
   "dependencies": {
-    "c12": "^3.2.0",
+    "c12": "^3.3.0",
     "citty": "^0.1.6",
     "clipboardy": "^4.0.0",
     "confbox": "^0.2.2",
@@ -47,7 +47,7 @@
     "httpxy": "^0.1.7",
     "jiti": "^2.5.1",
     "listhen": "^1.9.0",
-    "nypm": "^0.6.1",
+    "nypm": "^0.6.2",
     "ofetch": "^1.4.1",
     "ohash": "^2.0.11",
     "pathe": "^2.0.3",
@@ -63,8 +63,8 @@
   "devDependencies": {
     "@nuxt/kit": "^4.1.1",
     "@nuxt/schema": "^4.1.1",
-    "@types/node": "^22.18.3",
-    "rollup": "^4.50.1",
+    "@types/node": "^22.18.4",
+    "rollup": "^4.50.2",
     "rollup-plugin-visualizer": "^6.0.3",
     "typescript": "^5.9.2",
     "unbuild": "^3.6.1",
