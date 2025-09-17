@@ -16,6 +16,7 @@ import { hasTTY } from 'std-env'
 
 import { x } from 'tinyexec'
 import { runCommand } from '../run'
+import addModuleCommand from './module/add'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs, logLevelArgs } from './_shared'
@@ -435,14 +436,13 @@ export default defineCommand({
     // Add modules
     if (modulesToAdd.length > 0) {
       const args: string[] = [
-        'add',
         ...modulesToAdd,
         `--cwd=${templateDownloadPath}`,
         ctx.args.install ? '' : '--skipInstall',
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
 
-      await runCommand('module', args)
+      await runCommand(addModuleCommand, args)
     }
 
     // Display next steps
