@@ -21,5 +21,3 @@ export const commands = {
   typecheck: () => import('./typecheck').then(_rDefault),
   upgrade: () => import('./upgrade').then(_rDefault),
 } as const
-
-

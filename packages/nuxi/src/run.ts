@@ -1,7 +1,8 @@
+import type { ArgsDef, CommandDef } from 'citty'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
-import { runCommand as _runCommand, ArgsDef, CommandDef } from 'citty'
+import { fileURLToPath } from 'node:url'
+import { runCommand as _runCommand } from 'citty'
 
 import { isNuxiCommand } from './commands/_utils'
 
@@ -23,12 +24,13 @@ export async function runCommand<T extends ArgsDef = ArgsDef>(
   data: { overrides?: Record<string, any> } = {},
 ) {
   argv.push('--no-clear') // Dev
-  if (command.meta && "name" in command.meta && typeof command.meta.name === 'string') {
+  if (command.meta && 'name' in command.meta && typeof command.meta.name === 'string') {
     const name = command.meta.name
     if (!(isNuxiCommand(name))) {
       throw new Error(`Invalid command ${name}`)
     }
-  } else {
+  }
+  else {
     throw new Error(`Invalid command, must be named`)
   }
 

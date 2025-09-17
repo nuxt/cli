@@ -21,8 +21,8 @@ import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
-import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 import prepareCommand from '../prepare'
+import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
   registry: string

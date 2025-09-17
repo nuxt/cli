@@ -2,7 +2,7 @@ import nodeCrypto from 'node:crypto'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
-import { defineCommand, runMain as _runMain } from 'citty'
+import { runMain as _runMain, defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'

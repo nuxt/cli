@@ -16,10 +16,10 @@ import { hasTTY } from 'std-env'
 
 import { x } from 'tinyexec'
 import { runCommand } from '../run'
-import addModuleCommand from './module/add'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs, logLevelArgs } from './_shared'
+import addModuleCommand from './module/add'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v4'
