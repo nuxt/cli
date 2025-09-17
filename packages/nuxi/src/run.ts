@@ -3,8 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 import { runCommand as _runCommand, ArgsDef, CommandDef } from 'citty'
 
-import { isNuxiCommand } from './commands'
-import { main } from './main'
+import { isNuxiCommand } from './commands/_utils'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback

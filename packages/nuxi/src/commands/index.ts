@@ -23,27 +23,3 @@ export const commands = {
 } as const
 
 
-// Inlined to avoid importing commands as it has sideeffects
-export const nuxiCommands = [
-  'add',
-  'analyze',
-  'build',
-  'cleanup',
-  '_dev',
-  'dev',
-  'devtools',
-  'generate',
-  'info',
-  'init',
-  'module',
-  'prepare',
-  'preview',
-  'start',
-  'test',
-  'typecheck',
-  'upgrade',
-] as const satisfies (keyof typeof commands)[]
-
-export function isNuxiCommand(command: string) {
-  return (nuxiCommands as string[]).includes(command)
-}
