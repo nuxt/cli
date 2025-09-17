@@ -357,6 +357,7 @@ export default defineCommand({
 
     const modulesToAdd: string[] = []
 
+    // Get modules from arg (if provided)
     if (ctx.args.modules !== undefined) {
       modulesToAdd.push(
         // ctx.args.modules is false when --no-modules is used
