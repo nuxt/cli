@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { runCommand as _runCommand, runMain as _runMain, ArgsDef, CommandDef } from 'citty'
+import { runCommand as _runCommand, ArgsDef, CommandDef } from 'citty'
 
 import { isNuxiCommand } from './commands'
 import { main } from './main'
@@ -16,8 +16,6 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
     new URL('../dev/index.mjs', import.meta.url),
   ),
 }
-
-export const runMain = () => _runMain(main)
 
 // To provide subcommands call it as `runCommand(<command>, [<subcommand>, ...])`
 export async function runCommand<T extends ArgsDef = ArgsDef>(
