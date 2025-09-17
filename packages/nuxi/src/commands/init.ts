@@ -77,7 +77,7 @@ async function getTemplateDependencies(templateDir: string) {
     if (!existsSync(packageJsonPath)) {
       return []
     }
-    const packageJson = await readPackageJSON(templateDir)
+    const packageJson = await readPackageJSON(packageJsonPath)
     const directDeps = {
       ...packageJson.dependencies,
       ...packageJson.devDependencies,
