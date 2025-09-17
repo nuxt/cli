@@ -77,7 +77,7 @@ async function getTemplateDependencies(templateDir: string) {
     if (!existsSync(packageJsonPath)) {
       return []
     }
-    const packageJson = await import(packageJsonPath)
+    const packageJson = await readPackageJSON(templateDir)
     const directDeps = {
       ...packageJson.dependencies,
       ...packageJson.devDependencies,
@@ -356,15 +356,8 @@ export default defineCommand({
     }
 
     const modulesToAdd: string[] = []
-    const packageJson = await readPackageJSON(template.dir)
-    const hasNuxtDependency = packageJson.dependencies?.nuxt || packageJson.devDependencies?.nuxt
 
-    // Get modules from arg (if provided)
-    if (!hasNuxtDependency) {
-      // Do nothing is nuxt is not a dependency of the template
-      // For example, cloning a vite template
-    }
-    else if (ctx.args.modules !== undefined) {
+    if (ctx.args.modules !== undefined) {
       modulesToAdd.push(
         // ctx.args.modules is false when --no-modules is used
         ...(ctx.args.modules || '').split(',').map(module => module.trim()).filter(Boolean),
@@ -453,7 +446,7 @@ export default defineCommand({
 
     // Display next steps
     logger.log(
-      `\n✨ ${hasNuxtDependency ? 'Nuxt project' : 'Project'} has been created with the \`${template.name}\` template. Next steps:`,
+      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
     )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
