@@ -2,7 +2,7 @@ import nodeCrypto from 'node:crypto'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
-import { defineCommand } from 'citty'
+import { runMain as _runMain, defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'
@@ -71,3 +71,5 @@ export const main = defineCommand({
     }
   },
 })
+
+export const runMain = () => _runMain(main)

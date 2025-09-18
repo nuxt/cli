@@ -19,6 +19,7 @@ import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { cwdArgs, logLevelArgs } from './_shared'
+import addModuleCommand from './module/add'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'v4'
@@ -435,14 +436,13 @@ export default defineCommand({
     // Add modules
     if (modulesToAdd.length > 0) {
       const args: string[] = [
-        'add',
         ...modulesToAdd,
         `--cwd=${templateDownloadPath}`,
         ctx.args.install ? '' : '--skipInstall',
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
 
-      await runCommand('module', args)
+      await runCommand(addModuleCommand, args)
     }
 
     // Display next steps
