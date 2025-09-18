@@ -21,6 +21,7 @@ import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
+import prepareCommand from '../prepare'
 import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
@@ -95,7 +96,7 @@ export default defineCommand({
     if (!ctx.args.skipInstall) {
       const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
 
-      await runCommand('prepare', args)
+      await runCommand(prepareCommand, args)
     }
   },
 })
