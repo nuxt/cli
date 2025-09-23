@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { getPort, waitForPort } from 'get-port-please'
 import { isCI } from 'std-env'
+import { WebSocket } from 'undici'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
