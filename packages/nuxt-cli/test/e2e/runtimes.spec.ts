@@ -173,7 +173,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   }, 20_000)
 
   // TODO: fix websockets in bun + deno
-  it.skipIf(runtime === 'bun' || (runtime === 'deno' && !isLinux))('should handle multiple concurrent websocket connections', async () => {
+  it.skipIf(runtime === 'bun' || runtime === 'deno')('should handle multiple concurrent websocket connections', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
     const connectionCount = 3
 
@@ -210,7 +210,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   }, 15000)
 
   // TODO: fix websockets in bun + deno
-  it.skipIf(runtime === 'bun' || (runtime === 'deno' && !isLinux))('should handle websocket connection close gracefully', async () => {
+  it.skipIf(runtime === 'bun' || runtime === 'deno')('should handle websocket connection close gracefully', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     const wsTest = new Promise<void>((resolve, reject) => {
