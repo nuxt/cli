@@ -378,6 +378,7 @@ export default defineCommand({
       const wantsUserModules = await logger.prompt(
         `Would you like to install any of the official modules?`,
         {
+          initial: false,
           type: 'confirm',
           cancel: 'reject',
         },
