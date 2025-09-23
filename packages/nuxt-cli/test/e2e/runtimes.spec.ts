@@ -30,8 +30,10 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
 
   const cwd = resolve(playgroundDir, `../playground-${runtime}`)
   beforeAll(async () => {
-    await cp(playgroundDir, cwd, { recursive: true })
-    await rm(join(cwd, '.nuxt'), { recursive: true, force: true })
+    await cp(playgroundDir, cwd, {
+      recursive: true,
+      filter: src => !src.includes('.nuxt') && !src.includes('.output'),
+    })
     server = await startDevServer({ cwd, runtime })
   }, isCI ? 60_000 : 30_000)
 
