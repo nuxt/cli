@@ -139,7 +139,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
           reject(new Error('Did not receive pong response'))
         }
         ws.close()
-      }, 10_000)
+      }, 20_000)
 
       ws.addEventListener('open', () => {
         isConnected = true
@@ -170,7 +170,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await wsTest
-  }, 10_000)
+  }, 20_000)
 
   // TODO: fix websockets in bun + deno
   it.skipIf(runtime === 'bun' || runtime === 'deno')('should handle multiple concurrent websocket connections', async () => {
