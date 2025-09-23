@@ -2,8 +2,6 @@ import type { NuxtOptions } from '@nuxt/schema'
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions, ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
-import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { TLSSocket } from 'node:tls'
 import type { NuxtDevContext, NuxtDevIPCMessage } from '../dev/utils'
 
 import { fork } from 'node:child_process'
@@ -11,7 +9,6 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import { isSocketSupported } from 'get-port-please'
-import { createProxyServer } from 'httpxy'
 import { listen } from 'listhen'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
@@ -20,8 +17,10 @@ import { isBun, isDeno, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { renderError } from '../dev/error'
+import { createFetchHandler } from '../dev/fetch'
 import { isSocketURL, parseSocketURL } from '../dev/socket'
 import { resolveLoadingTemplate } from '../dev/utils'
+import { connectToChildNetwork, connectToChildSocket } from '../dev/websocket'
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
@@ -131,14 +130,14 @@ const command = defineCommand({
       }
     }
 
-    // Start proxy Listener
-    const devProxy = await createDevProxy(cwd, nuxtOptions, listenOptions)
+    // Start listener
+    const devHandler = await createDevHandler(cwd, nuxtOptions, listenOptions)
 
     const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
 
     const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && await isSocketSupported())
 
-    const urls = await devProxy.listener.getURLs()
+    const urls = await devHandler.listener.getURLs()
     // run initially in in no-fork mode
     const { onRestart, onReady, close } = await initialize({
       cwd,
@@ -147,16 +146,16 @@ const command = defineCommand({
       public: listenOptions.public,
       publicURLs: urls.map(r => r.url),
       proxy: {
-        url: devProxy.listener.url,
+        url: devHandler.listener.url,
         urls,
-        https: devProxy.listener.https,
-        addr: devProxy.listener.address,
+        https: devHandler.listener.https,
+        addr: devHandler.listener.address,
       },
       // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
       // otherwise pass 'true' to listen on a random port instead
     }, {}, useSocket ? undefined : true)
 
-    onReady(address => devProxy.setAddress(address))
+    onReady(address => devHandler.setAddress(address))
 
     // ... then fall back to pre-warmed fork if a hard restart is required
     const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
@@ -165,16 +164,16 @@ const command = defineCommand({
         fork,
         devServer.close().catch(() => {}),
       ])
-      await subprocess.initialize(devProxy, useSocket)
+      await subprocess.initialize(devHandler, useSocket)
     })
 
     return {
-      listener: devProxy.listener,
+      listener: devHandler.listener,
       async close() {
         await close()
         const subprocess = await fork
         subprocess.kill(0)
-        await devProxy.listener.close()
+        await devHandler.listener.close()
       },
     }
   },
@@ -189,42 +188,46 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-type DevProxy = Awaited<ReturnType<typeof createDevProxy>>
+type DevHandler = Awaited<ReturnType<typeof createDevHandler>>
 
-async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
+async function createDevHandler(cwd: string, nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
   let loadingMessage = 'Nuxt dev server is starting...'
   let error: Error | undefined
   let address: string | undefined
 
   let loadingTemplate = nuxtOptions.devServer.loadingTemplate
 
-  const proxy = createProxyServer({})
-
-  proxy.on('proxyReq', (proxyReq, req) => {
-    if (!proxyReq.hasHeader('x-forwarded-for')) {
-      const address = req.socket.remoteAddress
-      if (address) {
-        proxyReq.appendHeader('x-forwarded-for', address)
+  // Create fetch-based handler
+  const fetchHandler = createFetchHandler(
+    () => {
+      if (!address) {
+        return undefined
       }
-    }
-    if (!proxyReq.hasHeader('x-forwarded-port')) {
-      const localPort = req?.socket?.localPort
-      if (localPort) {
-        proxyReq.setHeader('x-forwarded-port', req.socket.localPort)
-      }
-    }
-    if (!proxyReq.hasHeader('x-forwarded-Proto')) {
-      const encrypted = (req?.connection as TLSSocket)?.encrypted
-      proxyReq.setHeader('x-forwarded-proto', encrypted ? 'https' : 'http')
-    }
-  })
 
-  const listener = await listen((req: IncomingMessage, res: ServerResponse) => {
-    if (error) {
+      // Convert address string to DevAddress format
+      if (isSocketURL(address)) {
+        const { socketPath } = parseSocketURL(address)
+        return { socketPath }
+      }
+
+      // Parse network address
+      try {
+        const url = new URL(address)
+        return {
+          host: url.hostname,
+          port: Number.parseInt(url.port) || 80,
+        }
+      }
+      catch {
+        return undefined
+      }
+    },
+    // Error handler
+    async (req, res) => {
       renderError(req, res, error)
-      return
-    }
-    if (!address) {
+    },
+    // Loading handler
+    async (req, res) => {
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
       res.setHeader('Cache-Control', 'no-store')
@@ -239,10 +242,10 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
         res.end(loadingTemplate({ loading: loadingMessage }))
       }
       return resolveLoadingMessage()
-    }
-    const target = isSocketURL(address) ? parseSocketURL(address) : address
-    proxy.web(req, res, { target })
-  }, listenOptions)
+    },
+  )
+
+  const listener = await listen(fetchHandler, listenOptions)
 
   listener.server.on('upgrade', (req, socket, head) => {
     if (!address) {
@@ -251,13 +254,23 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
       }
       return
     }
-    const target = isSocketURL(address) ? parseSocketURL(address) : address
-    // @ts-expect-error TODO: fix socket type in httpxy
-    return proxy.ws(req, socket, { target, xfwd: true }, head).catch(() => {
-      if (!socket.destroyed) {
-        socket.end()
+    if (isSocketURL(address)) {
+      const { socketPath } = parseSocketURL(address)
+      connectToChildSocket(socketPath, req, socket, head)
+    }
+    else {
+      try {
+        const url = new URL(address)
+        const host = url.hostname
+        const port = Number.parseInt(url.port) || 80
+        connectToChildNetwork(host, port, req, socket, head)
       }
-    })
+      catch {
+        if (!socket.destroyed) {
+          socket.end()
+        }
+      }
+    }
   })
 
   return {
@@ -279,7 +292,7 @@ async function createDevProxy(cwd: string, nuxtOptions: NuxtOptions, listenOptio
 
 async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string, extends?: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
   let childProc: ChildProcess | undefined
-  let devProxy: DevProxy
+  let devHandler: DevHandler
   let ready: Promise<void> | undefined
   const kill = (signal: NodeJS.Signals | number) => {
     if (childProc) {
@@ -288,9 +301,9 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
     }
   }
 
-  async function initialize(proxy: DevProxy, socket: boolean) {
-    devProxy = proxy
-    const urls = await devProxy.listener.getURLs()
+  async function initialize(handler: DevHandler, socket: boolean) {
+    devHandler = handler
+    const urls = await devHandler.listener.getURLs()
     await ready
     childProc!.send({
       type: 'nuxt:internal:dev:context',
@@ -302,16 +315,16 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
         public: listenOptions.public,
         publicURLs: urls.map(r => r.url),
         proxy: {
-          url: devProxy.listener.url,
+          url: devHandler.listener.url,
           urls,
-          https: devProxy.listener.https,
+          https: devHandler.listener.https,
         },
       } satisfies NuxtDevContext,
     })
   }
 
   async function restart() {
-    devProxy?.clearError()
+    devHandler?.clearError()
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')
@@ -343,19 +356,19 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
           resolve()
         }
         else if (message.type === 'nuxt:internal:dev:ready') {
-          devProxy.setAddress(message.address)
+          devHandler.setAddress(message.address)
           if (startTime) {
             logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
           }
         }
         else if (message.type === 'nuxt:internal:dev:loading') {
-          devProxy.setAddress(undefined)
-          devProxy.setLoadingMessage(message.message)
-          devProxy.clearError()
+          devHandler.setAddress(undefined)
+          devHandler.setLoadingMessage(message.message)
+          devHandler.clearError()
         }
         else if (message.type === 'nuxt:internal:dev:loading:error') {
-          devProxy.setAddress(undefined)
-          devProxy.setError(message.error)
+          devHandler.setAddress(undefined)
+          devHandler.setError(message.error)
         }
         else if (message.type === 'nuxt:internal:dev:restart') {
           restart()
