@@ -14,7 +14,7 @@ const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nux
 const hasBun = spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0
 const hasDeno = spawnSync('deno', ['--version'], { stdio: 'ignore' }).status === 0
 
-describe.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (runtime) => {
+describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (runtime) => {
   let server: DevServerInstance
 
   if (runtime === 'bun' && !hasBun && !isCI) {
