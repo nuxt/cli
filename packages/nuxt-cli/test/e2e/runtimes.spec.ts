@@ -290,7 +290,7 @@ async function startDevServer(options: {
       if (res.status === 503) {
         throw new Error('Server not ready')
       }
-    })
+    }, { timeout: isCI ? 60_000 : 30_000 })
   }
   catch (error) {
     child.kill()
