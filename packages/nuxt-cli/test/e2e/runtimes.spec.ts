@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { getPort, waitForPort } from 'get-port-please'
 import { isCI } from 'std-env'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
@@ -285,6 +285,12 @@ async function startDevServer(options: {
 
   try {
     await waitForPort(port, { delay: 1000, retries: 25, host })
+    await vi.waitFor(async () => {
+      const res = await fetch(url)
+      if (res.status === 503) {
+        throw new Error('Server not ready')
+      }
+    })
   }
   catch (error) {
     child.kill()
