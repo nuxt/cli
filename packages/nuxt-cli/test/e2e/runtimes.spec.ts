@@ -8,6 +8,7 @@ import { getPort, waitForPort } from 'get-port-please'
 import { isCI, isLinux, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { cpSync, rmSync } from 'node:fs'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
@@ -30,7 +31,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
 
   const cwd = resolve(playgroundDir, `../playground-${runtime}`)
   beforeAll(async () => {
-    await cp(playgroundDir, cwd, {
+    rmSync(cwd, { recursive: true, force: true })
+    cpSync(playgroundDir, cwd, {
       recursive: true,
       filter: src => !src.includes('.nuxt') && !src.includes('.output'),
     })
