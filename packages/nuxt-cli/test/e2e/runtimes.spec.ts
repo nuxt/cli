@@ -35,7 +35,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
 
   afterAll(() => server?.close())
 
-  it('should serve the main page with socket fetch', async () => {
+  it('should serve the main page', async () => {
     const response = await fetch(server.url)
     expect(response.status).toBe(200)
 
@@ -69,7 +69,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     const response = await fetch(`${server.url}/`, {
       headers: {
         'X-Custom-Header': 'test-value',
-        'User-Agent': 'socket-fetch-test',
+        'User-Agent': 'vitest',
       },
     })
 
@@ -89,7 +89,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   })
 
   it('should handle large request payloads', async () => {
-    const largePayload = { data: 'x'.repeat(10000) } // 10KB payload
+    const largePayload = { data: 'x'.repeat(10000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
