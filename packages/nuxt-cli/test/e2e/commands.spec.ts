@@ -152,7 +152,7 @@ describe('commands', () => {
   })
 
   const testsToRun = Object.entries(tests).filter(([_, value]) => value !== 'todo')
-  it.sequential.each(testsToRun)(`%s`, { timeout: isWindows ? 200000 : 50000 }, (_, test) => (test as () => Promise<void>)())
+  it.each(testsToRun)(`%s`, { timeout: isWindows ? 200000 : 50000 }, (_, test) => (test as () => Promise<void>)())
 
   for (const [command, value] of Object.entries(tests)) {
     if (value === 'todo') {

@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'node:child_process'
 import { spawn, spawnSync } from 'node:child_process'
-import { rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { cp, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { getPort, waitForPort } from 'get-port-please'
@@ -28,12 +28,17 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     return
   }
 
+  const cwd = resolve(playgroundDir, `..`, runtime)
   beforeAll(async () => {
-    await rm(join(playgroundDir, '.nuxt'), { recursive: true, force: true })
-    server = await startDevServer({ cwd: playgroundDir, runtime })
+    await cp(playgroundDir, cwd, { recursive: true })
+    await rm(join(cwd, '.nuxt'), { recursive: true, force: true })
+    server = await startDevServer({ cwd, runtime })
   }, isCI ? 60_000 : 30_000)
 
-  afterAll(() => server?.close())
+  afterAll(async () => {
+    await server?.close()
+    await rm(cwd, { recursive: true, force: true })
+  })
 
   it('should serve the main page', async () => {
     const response = await fetch(server.url)
