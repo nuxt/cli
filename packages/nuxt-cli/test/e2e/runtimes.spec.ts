@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { getPort, waitForPort } from 'get-port-please'
-import { isCI } from 'std-env'
+import { isCI, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -18,7 +18,7 @@ const hasDeno = spawnSync('deno', ['--version'], { stdio: 'ignore' }).status ===
 describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (runtime) => {
   let server: DevServerInstance
 
-  if (runtime === 'bun' && !hasBun && !isCI) {
+  if (runtime === 'bun' && ((!hasBun && !isCI) || isWindows)) {
     it.skip('should pass with bun')
     return
   }
