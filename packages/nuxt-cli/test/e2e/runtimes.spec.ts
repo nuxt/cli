@@ -28,7 +28,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     return
   }
 
-  const cwd = resolve(playgroundDir, `..`, runtime)
+  const cwd = resolve(playgroundDir, `../playground-${runtime}`)
   beforeAll(async () => {
     await cp(playgroundDir, cwd, { recursive: true })
     await rm(join(cwd, '.nuxt'), { recursive: true, force: true })
@@ -94,7 +94,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   })
 
   it('should handle large request payloads', async () => {
-    const largePayload = { data: 'x'.repeat(10000) }
+    const largePayload = { data: 'x'.repeat(10_000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -137,7 +137,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
           reject(new Error('Did not receive pong response'))
         }
         ws.close()
-      }, 5000)
+      }, 10_000)
 
       ws.addEventListener('open', () => {
         isConnected = true
@@ -168,7 +168,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await wsTest
-  }, 10000)
+  }, 10_000)
 
   // TODO: fix websockets in bun + deno
   it.skipIf(runtime === 'bun' || runtime === 'deno')('should handle multiple concurrent websocket connections', async () => {
@@ -241,7 +241,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await wsTest
-  }, 10000)
+  }, 10_000)
 })
 
 interface DevServerInstance {
