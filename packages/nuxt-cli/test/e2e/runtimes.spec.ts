@@ -1,14 +1,14 @@
 import type { ChildProcess } from 'node:child_process'
 import { spawn, spawnSync } from 'node:child_process'
-import { cp, rm } from 'node:fs/promises'
+import { cpSync, rmSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
+import { fileURLToPath } from 'node:url'
 import { getPort, waitForPort } from 'get-port-please'
 import { isCI, isLinux, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { cpSync, rmSync } from 'node:fs'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
