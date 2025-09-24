@@ -12,7 +12,7 @@
     "playground": {
       "entry": [
         "test/**",
-        "pages/**",
+        "app/pages/**",
         "server/**",
         "some-layer/**"
       ]

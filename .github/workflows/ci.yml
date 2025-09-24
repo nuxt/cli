@@ -48,6 +48,12 @@ jobs:
         with:
           node-version: lts/-1
           cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v2.x
 
       - name: 📦 Install dependencies
         run: pnpm install
