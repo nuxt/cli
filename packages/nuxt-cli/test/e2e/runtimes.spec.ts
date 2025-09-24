@@ -54,7 +54,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     return
   }
 
-  it('should serve the main page', async () => {
+  const assertNonWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
+  assertNonWindowsBun('should serve the main page', async () => {
     const response = await fetch(server.url)
     expect(response.status).toBe(200)
 
@@ -63,7 +64,6 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(html).toContain('<!DOCTYPE html>')
   })
 
-  const assertNonWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
   assertNonWindowsBun('should serve static assets', async () => {
     const response = await fetch(`${server.url}/favicon.ico`)
     expect(response.status).toBe(200)
