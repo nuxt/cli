@@ -160,7 +160,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   async load(reload?: boolean, reason?: string) {
     try {
+      this.closeWatchers();
       await this._load(reload, reason)
+      this._watchConfig();
       this._loadingError = undefined
     }
     catch (error) {
