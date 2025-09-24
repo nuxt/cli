@@ -1,0 +1,55 @@
+name: release
+
+on:
+  pull_request_target:
+    types: [closed]
+    branches:
+      - main
+
+# Remove default permissions of GITHUB_TOKEN for security
+# https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs
+permissions: {}
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'v')
+    concurrency:
+      group: release
+    permissions:
+      contents: write
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: latest
+          registry-url: 'https://registry.npmjs.org/'
+          cache: pnpm
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠 Build project
+        run: pnpm build
+
+      - name: 📦 Release
+        run: node ./scripts/release.mjs
+
+      - name: 🏷️ Create tag
+        run: |
+          TAG_NAME=${{ github.event.pull_request.head.ref }}
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+
+      - name: 🛳️ Create GitHub release
+        run: gh release create $TAG_NAME --title "$RELEASE_NAME" --notes "$BODY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.pull_request.head.ref }}
+          RELEASE_NAME: ${{ github.event.pull_request.head.ref }}
+          BODY: ${{ github.event.pull_request.body }}

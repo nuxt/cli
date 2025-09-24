@@ -1,9 +1,9 @@
-name: autofix.ci  # needed to securely identify the workflow
+name: autofix.ci # needed to securely identify the workflow
 
 on:
   pull_request:
   push:
-    branches: [ "main" ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -12,13 +12,19 @@ jobs:
   autofix:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
-          node-version: 18
-          cache: "pnpm"
-      - run: pnpm install
-      - name: Fix lint issues
+          fetch-depth: 0
+      - run: corepack enable
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🔠 Lint project (+ fix)
         run: pnpm run lint:fix
-      - uses: autofix-ci/action@dd55f44df8f7cdb7a6bf74c78677eb8acd40cd0a
+
+      - uses: autofix-ci/action@635ffb0c9798bd160680f18fd73371e355b85f27

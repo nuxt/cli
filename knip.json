@@ -1,0 +1,50 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "ignoreDependencies": [
+        "vue"
+      ],
+      "entry": [
+        "scripts/*"
+      ]
+    },
+    "playground": {
+      "entry": [
+        "test/**",
+        "pages/**",
+        "server/**",
+        "some-layer/**"
+      ]
+    },
+    "packages/nuxt-cli": {
+      "entry": [
+        "src/index.ts",
+        "test/fixtures/*"
+      ],
+      "ignoreDependencies": [
+        "c12",
+        "clipboardy",
+        "confbox",
+        "consola",
+        "defu",
+        "exsolve",
+        "fuse.js",
+        "giget",
+        "h3",
+        "httpxy",
+        "jiti",
+        "nypm",
+        "ofetch",
+        "ohash",
+        "pathe",
+        "perfect-debounce",
+        "pkg-types",
+        "scule",
+        "semver",
+        "ufo",
+        "youch"
+      ]
+    }
+  }
+}

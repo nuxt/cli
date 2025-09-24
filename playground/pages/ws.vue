@@ -1,16 +1,16 @@
 <script setup lang="ts">
 const logs = ref<string[]>([])
 
-const log = (...args: any[]) => {
+function log(...args: any[]) {
   console.log('[ws]', ...args)
   logs.value.push(args.join(' '))
 }
 
 let ws: WebSocket | undefined
 
-const connect = async () => {
+async function connect() {
   const isSecure = location.protocol === 'https:'
-  const url = (isSecure ? 'wss://' : 'ws://') + location.host + '/_ws'
+  const url = `${(isSecure ? 'wss://' : 'ws://') + location.host}/_ws`
 
   if (ws) {
     log('Closing...')
@@ -36,17 +36,17 @@ const connect = async () => {
   await new Promise(resolve => ws!.addEventListener('open', resolve))
 }
 
-const clearLogs = () => {
+function clearLogs() {
   logs.value = []
 }
 
-const sendPing = () => {
+function sendPing() {
   log('Sending ping...')
   ws?.send('ping')
 }
 
 const message = ref<string>('ping')
-const sendMessage = () => {
+function sendMessage() {
   ws?.send(message.value)
 }
 

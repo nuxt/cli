@@ -1,0 +1,4 @@
+packages:
+  - packages/*
+  - packages/nuxt-cli/test/fixtures/*
+  - playground

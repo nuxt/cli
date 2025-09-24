@@ -1,18 +1,20 @@
 {
   "compilerOptions": {
-    "esModuleInterop": false,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
     "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "allowJs": true,
     "strict": true,
     "noImplicitAny": true,
-    "allowJs": true,
-    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
-    "resolveJsonModule": true,
-    "types": ["node", "./types"],
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": false,
+    "skipLibCheck": true
   },
-  "include": ["src"]
+  "exclude": [
+    "playground/**/*"
+  ]
 }
