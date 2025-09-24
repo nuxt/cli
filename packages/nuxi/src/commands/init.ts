@@ -10,8 +10,8 @@ import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
-import { join, relative, resolve } from 'pathe'
-import { readPackageJSON, writePackageJSON } from 'pkg-types'
+import { basename, join, relative, resolve } from 'pathe'
+import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 
 import { x } from 'tinyexec'
@@ -236,10 +236,23 @@ export default defineCommand({
       })
 
       if (ctx.args.dir.length > 0) {
-        const pkg = await readPackageJSON(template.dir)
-        // Handles paths like ../some/dir with sane fallback
-        pkg.name = ctx.args.dir.split('/').at(-1) || pkg.name
-        await writePackageJSON(join(template.dir, 'package.json'), pkg)
+        const path = await findFile('package.json', {
+          startingFrom: join(templateDownloadPath, 'package.json'),
+          reverse: true,
+        })
+        if (path) {
+          const pkg = await readPackageJSON(path, { try: true })
+          if (pkg && pkg.name) {
+            const slug = basename(templateDownloadPath)
+              .replace(/[^\w-]/g, '-')
+              .replace(/-{2,}/g, '-')
+              .replace(/^-|-$/g, '')
+            if (slug) {
+              pkg.name = slug
+              await writePackageJSON(path, pkg)
+            }
+          }
+        }
       }
     }
     catch (err) {
