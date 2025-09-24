@@ -37,9 +37,9 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     rmSync(cwd, { recursive: true, force: true })
   })
 
-  const isWindowsNonNode = isWindows && (runtime === 'bun' || runtime === 'deno')
-  const assertNonBun = isWindowsNonNode ? it.fails : it
-  assertNonBun('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
+  const isWindowsNonDeno = isWindows && runtime === 'deno'
+  const assertNonDeno = isWindowsNonDeno ? it.fails : it
+  assertNonDeno('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
       recursive: true,
@@ -48,7 +48,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     server = await startDevServer({ cwd, runtime })
   })
 
-  if (isWindowsNonNode) {
+  if (isWindowsNonDeno) {
     it.todo('should run rest of tests on windows')
     return
   }
