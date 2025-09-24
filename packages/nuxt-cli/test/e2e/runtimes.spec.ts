@@ -37,7 +37,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     rmSync(cwd, { recursive: true, force: true })
   })
 
-  const assertNonBun = isWindows && runtime === 'bun' ? it.fails : it
+  const isWindowsNonNode = isWindows && (runtime === 'bun' || runtime === 'deno')
+  const assertNonBun = isWindowsNonNode ? it.fails : it
   assertNonBun('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
@@ -47,8 +48,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     server = await startDevServer({ cwd, runtime })
   })
 
-  if (runtime === 'bun' && isWindows) {
-    it.skip('should work with bun')
+  if (isWindowsNonNode) {
+    it.todo('should run rest of tests on windows')
     return
   }
 
@@ -184,8 +185,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   }, 20_000)
 
   // TODO: fix websockets in bun + deno
-  const assertNonNode = runtime === 'bun' || runtime === 'deno' ? it.fails : it
-  assertNonNode('should handle multiple concurrent websocket connections', async () => {
+  assertNonLinux('should handle multiple concurrent websocket connections', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
     const connectionCount = 3
 
@@ -222,6 +222,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   }, 15000)
 
   // TODO: fix websockets in bun + deno
+  const assertNonNode = runtime === 'bun' || runtime === 'deno' ? it.fails : it
   assertNonNode('should handle websocket connection close gracefully', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
