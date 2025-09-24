@@ -47,7 +47,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     server = await startDevServer({ cwd, runtime })
   })
 
-  if (runtime === 'bun' && isCI && isWindows) {
+  if (runtime === 'bun' && isWindows) {
     it.skip('should work with bun')
     return
   }
