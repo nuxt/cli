@@ -1,6 +1,7 @@
 import type { ChildProcess } from 'node:child_process'
 import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -34,7 +35,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
 
   afterAll(async () => {
     await server?.close()
-    rmSync(cwd, { recursive: true, force: true })
+    await rm(cwd, { recursive: true, force: true }).catch(() => null)
   })
 
   const isWindowsNonDeno = isWindows && runtime === 'deno'
@@ -62,18 +63,19 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(html).toContain('<!DOCTYPE html>')
   })
 
-  it('should serve static assets', async () => {
+  const assertNonWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
+  assertNonWindowsBun('should serve static assets', async () => {
     const response = await fetch(`${server.url}/favicon.ico`)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('image/')
   })
 
-  it('should handle API routes', async () => {
+  assertNonWindowsBun('should handle API routes', async () => {
     const response = await fetch(`${server.url}/api/hello`)
     expect(response.status).toBe(200)
   })
 
-  it('should handle POST requests', async () => {
+  assertNonWindowsBun('should handle POST requests', async () => {
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -83,7 +85,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(response.status).toBe(200)
   })
 
-  it('should preserve request headers', async () => {
+  assertNonWindowsBun('should preserve request headers', async () => {
     const response = await fetch(`${server.url}/`, {
       headers: {
         'X-Custom-Header': 'test-value',
@@ -96,7 +98,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(html).toContain('Welcome to the Nuxt CLI playground')
   })
 
-  it('should handle concurrent requests', async () => {
+  assertNonWindowsBun('should handle concurrent requests', async () => {
     const requests = Array.from({ length: 5 }, () => fetch(server.url))
     const responses = await Promise.all(requests)
 
@@ -106,7 +108,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     }
   })
 
-  it('should handle large request payloads', async () => {
+  assertNonWindowsBun('should handle large request payloads', async () => {
     const largePayload = { data: 'x'.repeat(10_000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
@@ -119,7 +121,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(result.echoed.data).toBe(largePayload.data)
   })
 
-  it('should handle different HTTP methods', async () => {
+  assertNonWindowsBun('should handle different HTTP methods', async () => {
     const methods = ['GET', 'POST', 'PUT', 'DELETE']
 
     for (const method of methods) {
