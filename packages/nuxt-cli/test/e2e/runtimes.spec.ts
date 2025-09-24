@@ -242,10 +242,15 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
 
       ws.addEventListener('close', (event) => {
         clearTimeout(timeout)
-        expect(isConnected).toBe(true)
-        expect(event.code).toBe(1000)
-        expect(event.reason).toBe('Test close')
-        resolve()
+        try {
+          expect(isConnected).toBe(true)
+          expect(event.code).toBe(1000)
+          expect(event.reason).toBe('Test close')
+          resolve()
+        }
+        catch (error) {
+          reject(error)
+        }
       })
 
       ws.addEventListener('error', (error) => {
