@@ -7,3 +7,6 @@ nuxt-app
 .pnpm-store
 coverage
 stats.json
+playground-bun
+playground-deno
+playground-node

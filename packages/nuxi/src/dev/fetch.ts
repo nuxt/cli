@@ -1,7 +1,7 @@
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import { Agent } from 'undici'
 
-export interface DevAddress {
+interface DevAddress {
   socketPath?: string
   host?: string
   port?: number
@@ -11,7 +11,7 @@ export interface DevAddress {
  * Create fetch options for socket-based communication
  * Based on Nitro's fetchSocketOptions implementation
  */
-export function fetchSocketOptions(socketPath: string) {
+function fetchSocketOptions(socketPath: string) {
   if ('Bun' in globalThis) {
     // https://bun.sh/guides/http/fetch-unix
     return { unix: socketPath }
@@ -35,7 +35,7 @@ export function fetchSocketOptions(socketPath: string) {
  * Fetch to a specific address (socket or network)
  * Based on Nitro's fetchAddress implementation
  */
-export function fetchAddress(
+function fetchAddress(
   addr: DevAddress,
   input: string | URL | Request,
   inputInit?: RequestInit,
@@ -79,7 +79,7 @@ export function fetchAddress(
 /**
  * Convert Node.js IncomingMessage to Web API Request
  */
-export function nodeRequestToWebRequest(req: IncomingMessage): Request {
+function nodeRequestToWebRequest(req: IncomingMessage): Request {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
 
   const headers = new Headers()
@@ -113,7 +113,7 @@ export function nodeRequestToWebRequest(req: IncomingMessage): Request {
 /**
  * Send Web API Response to Node.js ServerResponse
  */
-export async function sendWebResponse(res: ServerResponse, webResponse: Response): Promise<void> {
+async function sendWebResponse(res: ServerResponse, webResponse: Response): Promise<void> {
   // Set status
   res.statusCode = webResponse.status
   res.statusMessage = webResponse.statusText
