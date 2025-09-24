@@ -53,10 +53,10 @@ export async function showVersions(cwd: string) {
 
   logger.log(
     green(`Nuxt ${bold(nuxtVersion)}`)
-    + gray(' (with: ')
+    + gray(' (with ')
     + (nitroVersion ? gray(`Nitro ${bold(nitroVersion)}`) : '')
     + gray(`, ${builder.name} ${bold(builder.version)}`)
-    + (vueVersion ? gray(`, Vue ${bold(vueVersion)}`) : '')
+    + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
     + gray(')'),
   )
 }
