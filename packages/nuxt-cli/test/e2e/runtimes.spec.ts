@@ -223,7 +223,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     await Promise.all(connectionPromises)
   }, 15000)
 
-  failsWithBunOrNonLinuxDeno('should handle websocket connection close gracefully', async () => {
+  const failsWithBunOrDeno = runtime === 'bun' || runtime === 'deno' ? it.fails : it
+  failsWithBunOrDeno('should handle websocket connection close gracefully', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     const wsTest = new Promise<void>((resolve, reject) => {
