@@ -41,6 +41,7 @@
         "pkg-types",
         "scule",
         "semver",
+        "srvx",
         "ufo",
         "youch"
       ]
