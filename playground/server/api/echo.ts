@@ -4,6 +4,7 @@ export default defineEventHandler(async (event) => {
   return {
     message: 'Echo API endpoint',
     echoed: body,
+    headers: getRequestHeaders(event),
     method: event.method,
     timestamp: new Date().toISOString(),
   }

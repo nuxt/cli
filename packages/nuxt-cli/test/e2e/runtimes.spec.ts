@@ -86,16 +86,20 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   })
 
   assertNonWindowsBun('should preserve request headers', async () => {
-    const response = await fetch(`${server.url}/`, {
-      headers: {
-        'X-Custom-Header': 'test-value',
-        'User-Agent': 'vitest',
-      },
+    const headers = {
+      'X-Custom-Header': 'test-value',
+      'User-Agent': 'vitest',
+    }
+
+    const { status, headers: receivedHeaders } = await await fetch(`${server.url}/api/echo`, { headers })
+      .then(r => r.json())
+
+    expect(receivedHeaders).toMatchObject({
+      'user-agent': 'vitest',
+      'x-custom-header': 'test-value',
     })
 
-    expect(response.status).toBe(200)
-    const html = await response.text()
-    expect(html).toContain('Welcome to the Nuxt CLI playground')
+    expect(status).toBe(200)
   })
 
   assertNonWindowsBun('should handle concurrent requests', async () => {
