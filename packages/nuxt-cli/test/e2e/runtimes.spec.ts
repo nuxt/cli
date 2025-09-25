@@ -91,15 +91,15 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
       'User-Agent': 'vitest',
     }
 
-    const { status, headers: receivedHeaders } = await await fetch(`${server.url}/api/echo`, { headers })
-      .then(r => r.json())
+    const res = await fetch(`${server.url}/api/echo`, { headers })
+    const { headers: receivedHeaders } = await res.json()
 
     expect(receivedHeaders).toMatchObject({
       'user-agent': 'vitest',
       'x-custom-header': 'test-value',
     })
 
-    expect(status).toBe(200)
+    expect(res.status).toBe(200)
   })
 
   assertNonWindowsBun('should handle concurrent requests', async () => {
