@@ -67,7 +67,9 @@ export default defineCommand({
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
       nitro = kit.useNitro?.()
-      logger.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
+      if (nitro) {
+        logger.info(`Building for Nitro preset: \`${nitro.options.preset}\``)
+      }
     }
     catch {
       //
