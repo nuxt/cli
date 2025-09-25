@@ -191,6 +191,9 @@ importers:
       semver:
         specifier: ^7.7.2
         version: 7.7.2
+      srvx:
+        specifier: ^0.8.7
+        version: 0.8.7
       std-env:
         specifier: ^3.9.0
         version: 3.9.0
@@ -284,6 +287,9 @@ importers:
       semver:
         specifier: ^7.7.2
         version: 7.7.2
+      srvx:
+        specifier: ^0.8.7
+        version: 0.8.7
       std-env:
         specifier: ^3.9.0
         version: 3.9.0
@@ -4619,6 +4625,11 @@ packages:
   split-on-first@3.0.0:
     resolution: {integrity: sha512-qxQJTx2ryR0Dw0ITYyekNQWpz6f8dGd7vffGNflQQ3Iqj9NJ6qiZ7ELpZsJ/QBhIVAiDfXdag3+Gp8RvWa62AA==}
     engines: {node: '>=12'}
+
+  srvx@0.8.7:
+    resolution: {integrity: sha512-g3+15LlwVOGL2QpoTPZlvRjg+9a5Tx/69CatXjFP6txvhIaW2FmGyzJfb8yft5wyfGddvJmP/Yx+e/uNDMRSLQ==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
 
   stable-hash-x@0.2.0:
     resolution: {integrity: sha512-o3yWv49B/o4QZk5ZcsALc6t0+eCelPc44zZsLtCQnZPDwFpDYSWcDnrv2TtMmMbQ7uKo3J0HTURCqckw23czNQ==}
@@ -10173,6 +10184,10 @@ snapshots:
   speakingurl@14.0.1: {}
 
   split-on-first@3.0.0: {}
+
+  srvx@0.8.7:
+    dependencies:
+      cookie-es: 2.0.0
 
   stable-hash-x@0.2.0: {}
 

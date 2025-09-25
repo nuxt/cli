@@ -1,4 +1,5 @@
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import { NodeRequest } from 'srvx/node'
 import { Agent } from 'undici'
 
 interface DevAddress {
@@ -77,40 +78,6 @@ function fetchAddress(
 }
 
 /**
- * Convert Node.js IncomingMessage to Web API Request
- */
-function nodeRequestToWebRequest(req: IncomingMessage): Request {
-  const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
-
-  const headers = new Headers()
-  for (const [key, value] of Object.entries(req.headers)) {
-    if (value !== undefined) {
-      if (Array.isArray(value)) {
-        for (const v of value) {
-          headers.append(key, v)
-        }
-      }
-      else {
-        headers.set(key, value)
-      }
-    }
-  }
-
-  const init: RequestInit & { duplex?: string } = {
-    method: req.method || 'GET',
-    headers,
-  }
-
-  // Add body for non-GET methods
-  if (req.method && req.method !== 'GET' && req.method !== 'HEAD') {
-    init.body = req as any // Node.js readable stream
-    init.duplex = 'half'
-  }
-
-  return new Request(url, init)
-}
-
-/**
  * Send Web API Response to Node.js ServerResponse
  */
 async function sendWebResponse(res: ServerResponse, webResponse: Response): Promise<void> {
@@ -157,7 +124,7 @@ export function createFetchHandler(
         return
       }
 
-      const webRequest = nodeRequestToWebRequest(req)
+      const webRequest = new NodeRequest({ req, res })
       const webResponse = await fetchAddress(address, webRequest)
       await sendWebResponse(res, webResponse)
     }
