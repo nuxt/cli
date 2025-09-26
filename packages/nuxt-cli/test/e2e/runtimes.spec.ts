@@ -35,26 +35,27 @@ type SupportStatus = boolean | {
   websocketClose: boolean
 }
 
-const supports: Record<typeof runtimes[number], SupportStatus> = {
-  node: true,
-  bun: {
-    start: true,
-    fetching: !platform.windows,
-    websockets: false,
-    websocketClose: false,
-  },
-  deno: {
-    start: !platform.windows,
-    fetching: !platform.windows,
-    websockets: platform.linux && !platform.windows,
-    websocketClose: false,
-  },
-}
-
-function createIt(status: SupportStatus) {
+function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean) {
   function it(description: string, fn: () => Promise<void>): void
   function it(description: string, options: TestOptions, fn: () => Promise<void>): void
   function it(description: string, _options: TestOptions | (() => Promise<void>), _fn?: () => Promise<void>): void {
+    const supportMatrix: Record<typeof runtimes[number], SupportStatus> = {
+      node: true,
+      bun: {
+        start: true,
+        fetching: !platform.windows,
+        websockets: false,
+        websocketClose: false,
+      },
+      deno: {
+        start: !platform.windows || !socketsEnabled,
+        fetching: !platform.windows || !socketsEnabled,
+        websockets: platform.linux || !socketsEnabled,
+        websocketClose: false || !socketsEnabled,
+      },
+    }
+    const status = supportMatrix[runtimeName]
+
     const fn = typeof _options === 'function' ? _options : _fn!
     const options = typeof _options === 'function' ? {} : _options
 
@@ -117,7 +118,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       await rm(cwd, { recursive: true, force: true }).catch(() => null)
     })
 
-    const it = createIt(supports[runtimeName])
+    const it = createIt(runtimeName, socketsEnabled)
 
     it('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
       rmSync(cwd, { recursive: true, force: true })
