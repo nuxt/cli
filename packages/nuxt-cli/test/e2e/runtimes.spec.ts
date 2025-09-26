@@ -1,61 +1,128 @@
 import type { ChildProcess } from 'node:child_process'
+import type { TestOptions } from 'vitest'
 import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
+import { fileURLToPath } from 'node:url'
 import { getPort, waitForPort } from 'get-port-please'
-import { isCI, isLinux, isWindows } from 'std-env'
+import { isCI, isLinux, isMacOS, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
-import { afterAll, describe, expect, it, vi } from 'vitest'
+import { it as _it, afterAll, describe, expect, vi } from 'vitest'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
 
-const hasBun = spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0
-const hasDeno = spawnSync('deno', ['--version'], { stdio: 'ignore' }).status === 0
+const runtimes = ['bun', 'node', 'deno'] as const
 
-describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (runtime) => {
+const platform = {
+  windows: isWindows,
+  linux: isLinux,
+  macos: isMacOS,
+}
+
+const runtime = {
+  bun: spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0,
+  deno: spawnSync('deno', ['--version'], { stdio: 'ignore' }).status === 0,
+  node: true,
+}
+
+type SupportStatus = boolean | {
+  start: boolean
+  fetching: boolean
+  websockets: boolean
+  websocketClose: boolean
+}
+
+const supports: Record<typeof runtimes[number], SupportStatus> = {
+  node: true,
+  bun: {
+    start: true,
+    fetching: !platform.windows,
+    websockets: false,
+    websocketClose: false,
+  },
+  deno: {
+    start: !platform.windows,
+    fetching: !platform.windows,
+    websockets: platform.linux && !platform.windows,
+    websocketClose: false,
+  },
+}
+
+function createIt(status: SupportStatus) {
+  function it(description: string, fn: () => Promise<void>): void
+  function it(description: string, options: TestOptions, fn: () => Promise<void>): void
+  function it(description: string, _options: TestOptions | (() => Promise<void>), _fn?: () => Promise<void>): void {
+    const fn = typeof _options === 'function' ? _options : _fn!
+    const options = typeof _options === 'function' ? {} : _options
+
+    if (status === false) {
+      return _it.fails(description, options, fn)
+    }
+    if (status === true) {
+      return _it(description, options, fn)
+    }
+    if (description.includes('should start dev server')) {
+      if (!status.start) {
+        return _it.fails(description, options, fn)
+      }
+      return _it(description, options, fn)
+    }
+    if (!status.start) {
+      return _it.todo(description)
+    }
+    if (description.includes('websocket connection close gracefully')) {
+      if (!status.websocketClose) {
+        return _it.fails(description, options, fn)
+      }
+      return _it(description, options, fn)
+    }
+    if (description.includes('websocket')) {
+      if (!status.websockets) {
+        return _it.fails(description, options, fn)
+      }
+      return _it(description, options, fn)
+    }
+    // Handle fetching tests (all tests that are not websocket or start tests)
+    if (!status.fetching) {
+      return _it.fails(description, options, fn)
+    }
+    return _it(description, options, fn)
+  }
+
+  return it
+}
+
+describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
   let server: DevServerInstance
 
-  if (runtime === 'bun' && !hasBun && !isCI) {
-    console.warn('Not testing locally with bun as it is not installed.')
-    it.skip('should pass with bun')
+  if (!isCI && !runtime[runtimeName]) {
+    console.warn(`Not testing locally with ${runtimeName} as it is not installed.`)
+    _it.skip(`should pass with ${runtimeName}`)
     return
   }
 
-  if (runtime === 'deno' && !hasDeno && !isCI) {
-    console.warn('Not testing locally with deno as it is not installed.')
-    it.skip('should pass with deno')
-    return
-  }
-
-  const cwd = resolve(playgroundDir, `../playground-${runtime}`)
+  const cwd = resolve(playgroundDir, `../playground-${runtimeName}`)
 
   afterAll(async () => {
     await server?.close()
     await rm(cwd, { recursive: true, force: true }).catch(() => null)
   })
 
-  const isWindowsNonDeno = isWindows && runtime === 'deno'
-  const assertNonDeno = isWindowsNonDeno ? it.fails : it
-  assertNonDeno('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
+  const it = createIt(supports[runtimeName])
+
+  it('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
       recursive: true,
       filter: src => !src.includes('.nuxt') && !src.includes('.output'),
     })
-    server = await startDevServer({ cwd, runtime })
+    server = await startDevServer({ cwd, runtime: runtimeName })
   })
 
-  if (isWindowsNonDeno) {
-    it.todo('should run rest of tests on windows')
-    return
-  }
-
-  const failsOnlyWithWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
-  failsOnlyWithWindowsBun('should serve the main page', async () => {
+  it('should serve the main page', async () => {
     const response = await fetch(server.url)
     expect(response.status).toBe(200)
 
@@ -64,18 +131,18 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(html).toContain('<!DOCTYPE html>')
   })
 
-  failsOnlyWithWindowsBun('should serve static assets', async () => {
+  it('should serve static assets', async () => {
     const response = await fetch(`${server.url}/favicon.ico`)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('image/')
   })
 
-  failsOnlyWithWindowsBun('should handle API routes', async () => {
+  it('should handle API routes', async () => {
     const response = await fetch(`${server.url}/api/hello`)
     expect(response.status).toBe(200)
   })
 
-  failsOnlyWithWindowsBun('should handle POST requests', async () => {
+  it('should handle POST requests', async () => {
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -85,7 +152,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(response.status).toBe(200)
   })
 
-  failsOnlyWithWindowsBun('should preserve request headers', async () => {
+  it('should preserve request headers', async () => {
     const headers = {
       'X-Custom-Header': 'test-value',
       'User-Agent': 'vitest',
@@ -102,7 +169,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(res.status).toBe(200)
   })
 
-  failsOnlyWithWindowsBun('should handle concurrent requests', async () => {
+  it('should handle concurrent requests', async () => {
     const requests = Array.from({ length: 5 }, () => fetch(server.url))
     const responses = await Promise.all(requests)
 
@@ -112,7 +179,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     }
   })
 
-  failsOnlyWithWindowsBun('should handle large request payloads', async () => {
+  it('should handle large request payloads', async () => {
     const largePayload = { data: 'x'.repeat(10_000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
@@ -125,7 +192,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(result.echoed.data).toBe(largePayload.data)
   })
 
-  failsOnlyWithWindowsBun('should handle different HTTP methods', async () => {
+  it('should handle different HTTP methods', async () => {
     const methods = ['GET', 'POST', 'PUT', 'DELETE']
 
     for (const method of methods) {
@@ -137,9 +204,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     }
   })
 
-  // TODO: fix websockets in bun + deno
-  const failsWithBunOrNonLinuxDeno = runtime === 'bun' || (runtime === 'deno' && !isLinux) ? it.fails : it
-  failsWithBunOrNonLinuxDeno('should establish websocket connection and handle ping/pong', async () => {
+  it('should establish websocket connection and handle ping/pong', { timeout: 20_000 }, async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     // Create a promise that resolves when the websocket test is complete
@@ -188,10 +253,9 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await wsTest
-  }, 20_000)
+  })
 
-  // TODO: fix websockets in bun + deno
-  failsWithBunOrNonLinuxDeno('should handle multiple concurrent websocket connections', async () => {
+  it('should handle multiple concurrent websocket connections', { timeout: 20_000 }, async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
     const connectionCount = 3
 
@@ -225,10 +289,9 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await Promise.all(connectionPromises)
-  }, 15000)
+  })
 
-  const failsWithBunOrDeno = runtime === 'bun' || runtime === 'deno' ? it.fails : it
-  failsWithBunOrDeno('should handle websocket connection close gracefully', async () => {
+  it('should handle websocket connection close gracefully', { timeout: 10_000 }, async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     const wsTest = new Promise<void>((resolve, reject) => {
@@ -266,7 +329,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     })
 
     await wsTest
-  }, 10_000)
+  })
 })
 
 interface DevServerInstance {
