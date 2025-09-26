@@ -32,7 +32,6 @@
         "fuse.js",
         "giget",
         "h3",
-        "httpxy",
         "jiti",
         "nypm",
         "ofetch",
@@ -42,6 +41,7 @@
         "pkg-types",
         "scule",
         "semver",
+        "srvx",
         "ufo",
         "youch"
       ]

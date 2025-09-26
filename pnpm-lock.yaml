@@ -61,9 +61,6 @@ importers:
       typescript:
         specifier: ^5.9.2
         version: 5.9.2
-      undici:
-        specifier: ^7.16.0
-        version: 7.16.0
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@22.18.6)(jiti@2.6.0)(terser@5.43.1)(yaml@2.8.1)
@@ -152,9 +149,6 @@ importers:
       h3:
         specifier: ^1.15.4
         version: 1.15.4
-      httpxy:
-        specifier: ^0.1.7
-        version: 0.1.7
       jiti:
         specifier: ^2.6.0
         version: 2.6.0
@@ -197,6 +191,9 @@ importers:
       semver:
         specifier: ^7.7.2
         version: 7.7.2
+      srvx:
+        specifier: ^0.8.7
+        version: 0.8.7
       std-env:
         specifier: ^3.9.0
         version: 3.9.0
@@ -212,6 +209,9 @@ importers:
       unbuild:
         specifier: ^3.6.1
         version: 3.6.1(typescript@5.9.2)(vue@3.5.21(typescript@5.9.2))
+      undici:
+        specifier: ^6.21.3
+        version: 6.21.3
       unplugin-purge-polyfills:
         specifier: ^0.1.0
         version: 0.1.0
@@ -257,9 +257,6 @@ importers:
       h3:
         specifier: ^1.15.4
         version: 1.15.4
-      httpxy:
-        specifier: ^0.1.7
-        version: 0.1.7
       jiti:
         specifier: ^2.6.0
         version: 2.6.0
@@ -290,6 +287,9 @@ importers:
       semver:
         specifier: ^7.7.2
         version: 7.7.2
+      srvx:
+        specifier: ^0.8.7
+        version: 0.8.7
       std-env:
         specifier: ^3.9.0
         version: 3.9.0
@@ -299,6 +299,9 @@ importers:
       ufo:
         specifier: ^1.6.1
         version: 1.6.1
+      undici:
+        specifier: ^6.21.3
+        version: 6.21.3
       youch:
         specifier: ^4.1.0-beta.11
         version: 4.1.0-beta.11
@@ -4623,6 +4626,11 @@ packages:
     resolution: {integrity: sha512-qxQJTx2ryR0Dw0ITYyekNQWpz6f8dGd7vffGNflQQ3Iqj9NJ6qiZ7ELpZsJ/QBhIVAiDfXdag3+Gp8RvWa62AA==}
     engines: {node: '>=12'}
 
+  srvx@0.8.7:
+    resolution: {integrity: sha512-g3+15LlwVOGL2QpoTPZlvRjg+9a5Tx/69CatXjFP6txvhIaW2FmGyzJfb8yft5wyfGddvJmP/Yx+e/uNDMRSLQ==}
+    engines: {node: '>=20.16.0'}
+    hasBin: true
+
   stable-hash-x@0.2.0:
     resolution: {integrity: sha512-o3yWv49B/o4QZk5ZcsALc6t0+eCelPc44zZsLtCQnZPDwFpDYSWcDnrv2TtMmMbQ7uKo3J0HTURCqckw23czNQ==}
     engines: {node: '>=12.0.0'}
@@ -4873,10 +4881,6 @@ packages:
   undici@6.21.3:
     resolution: {integrity: sha512-gBLkYIlEnSp8pFbT64yFgGE6UIB9tAkhukC23PmMDCe5Nd+cRqKxSjw5y54MK2AZMgZfJWMaNE4nYUHgi1XEOw==}
     engines: {node: '>=18.17'}
-
-  undici@7.16.0:
-    resolution: {integrity: sha512-QEg3HPMll0o3t2ourKwOeUAZ159Kn9mx5pnzHRQO8+Wixmh88YdZRiIwat0iNzNNXn0yoEtXJqFpyW7eM8BV7g==}
-    engines: {node: '>=20.18.1'}
 
   unenv@2.0.0-rc.21:
     resolution: {integrity: sha512-Wj7/AMtE9MRnAXa6Su3Lk0LNCfqDYgfwVjwRFVum9U7wsto1imuHqk4kTm7Jni+5A0Hn7dttL6O/zjvUvoo+8A==}
@@ -10181,6 +10185,10 @@ snapshots:
 
   split-on-first@3.0.0: {}
 
+  srvx@0.8.7:
+    dependencies:
+      cookie-es: 2.0.0
+
   stable-hash-x@0.2.0: {}
 
   stackback@0.0.2: {}
@@ -10429,8 +10437,6 @@ snapshots:
       '@fastify/busboy': 2.1.1
 
   undici@6.21.3: {}
-
-  undici@7.16.0: {}
 
   unenv@2.0.0-rc.21:
     dependencies:

@@ -54,8 +54,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     return
   }
 
-  const assertNonWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
-  assertNonWindowsBun('should serve the main page', async () => {
+  const failsOnlyWithWindowsBun = runtime === 'bun' && isWindows ? it.fails : it
+  failsOnlyWithWindowsBun('should serve the main page', async () => {
     const response = await fetch(server.url)
     expect(response.status).toBe(200)
 
@@ -64,18 +64,18 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(html).toContain('<!DOCTYPE html>')
   })
 
-  assertNonWindowsBun('should serve static assets', async () => {
+  failsOnlyWithWindowsBun('should serve static assets', async () => {
     const response = await fetch(`${server.url}/favicon.ico`)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('image/')
   })
 
-  assertNonWindowsBun('should handle API routes', async () => {
+  failsOnlyWithWindowsBun('should handle API routes', async () => {
     const response = await fetch(`${server.url}/api/hello`)
     expect(response.status).toBe(200)
   })
 
-  assertNonWindowsBun('should handle POST requests', async () => {
+  failsOnlyWithWindowsBun('should handle POST requests', async () => {
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -85,7 +85,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(response.status).toBe(200)
   })
 
-  assertNonWindowsBun('should preserve request headers', async () => {
+  failsOnlyWithWindowsBun('should preserve request headers', async () => {
     const headers = {
       'X-Custom-Header': 'test-value',
       'User-Agent': 'vitest',
@@ -102,7 +102,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(res.status).toBe(200)
   })
 
-  assertNonWindowsBun('should handle concurrent requests', async () => {
+  failsOnlyWithWindowsBun('should handle concurrent requests', async () => {
     const requests = Array.from({ length: 5 }, () => fetch(server.url))
     const responses = await Promise.all(requests)
 
@@ -112,7 +112,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     }
   })
 
-  assertNonWindowsBun('should handle large request payloads', async () => {
+  failsOnlyWithWindowsBun('should handle large request payloads', async () => {
     const largePayload = { data: 'x'.repeat(10_000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
@@ -125,7 +125,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     expect(result.echoed.data).toBe(largePayload.data)
   })
 
-  assertNonWindowsBun('should handle different HTTP methods', async () => {
+  failsOnlyWithWindowsBun('should handle different HTTP methods', async () => {
     const methods = ['GET', 'POST', 'PUT', 'DELETE']
 
     for (const method of methods) {
@@ -138,8 +138,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   })
 
   // TODO: fix websockets in bun + deno
-  const assertNonLinux = runtime === 'bun' || (runtime === 'deno' && !isLinux) ? it.fails : it
-  assertNonLinux('should establish websocket connection and handle ping/pong', async () => {
+  const failsWithBunOrNonLinuxDeno = runtime === 'bun' || (runtime === 'deno' && !isLinux) ? it.fails : it
+  failsWithBunOrNonLinuxDeno('should establish websocket connection and handle ping/pong', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     // Create a promise that resolves when the websocket test is complete
@@ -191,7 +191,7 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
   }, 20_000)
 
   // TODO: fix websockets in bun + deno
-  assertNonLinux('should handle multiple concurrent websocket connections', async () => {
+  failsWithBunOrNonLinuxDeno('should handle multiple concurrent websocket connections', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
     const connectionCount = 3
 
@@ -227,9 +227,8 @@ describe.sequential.each(['bun', 'node', 'deno'] as const)('dev server (%s)', (r
     await Promise.all(connectionPromises)
   }, 15000)
 
-  // TODO: fix websockets in bun + deno
-  const assertNonNode = runtime === 'bun' || runtime === 'deno' ? it.fails : it
-  assertNonNode('should handle websocket connection close gracefully', async () => {
+  const failsWithBunOrDeno = runtime === 'bun' || runtime === 'deno' ? it.fails : it
+  failsWithBunOrDeno('should handle websocket connection close gracefully', async () => {
     const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
     const wsTest = new Promise<void>((resolve, reject) => {
