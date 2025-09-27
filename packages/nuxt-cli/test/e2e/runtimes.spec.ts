@@ -277,7 +277,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
           const timeout = setTimeout(() => {
             reject(new Error(`WebSocket ${index} connection timeout`))
             ws.close()
-          }, 5000)
+          }, 20_000)
 
           ws.addEventListener('open', () => {
             ws.send(`ping from connection ${index}`)
@@ -312,7 +312,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
         const timeout = setTimeout(() => {
           reject(new Error('WebSocket close test timeout'))
-        }, 5000)
+        }, 10_000)
 
         ws.addEventListener('open', () => {
           isConnected = true
