@@ -49,7 +49,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
       },
       deno: {
         start: !platform.windows || !socketsEnabled,
-        fetching: !platform.windows || !socketsEnabled,
+        fetching: !platform.windows,
         websockets: platform.linux,
         websocketClose: false,
       },
