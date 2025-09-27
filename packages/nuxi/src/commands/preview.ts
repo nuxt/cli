@@ -25,7 +25,7 @@ const command = defineCommand({
     ...envNameArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
-    port: getListhenArgs().port,
+    port: { ...getListhenArgs().port, alias: ['p'] },
     ...dotEnvArgs,
   },
   async run(ctx) {
@@ -144,7 +144,6 @@ type ArgsT = Exclude<
 
 function _resolveListenOptions(args: ParsedArgs<ArgsT>) {
   const _port = args.port
-    ?? args.p
     ?? process.env.NUXT_PORT
     ?? process.env.NITRO_PORT
     ?? process.env.PORT
