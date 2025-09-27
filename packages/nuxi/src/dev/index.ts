@@ -67,7 +67,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     ),
     defaults: devServerDefaults,
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
-    clear: !!devContext.args.clear,
+    clear: devContext.args.clear,
     dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
     envName: devContext.args.envName,
     devContext: {
