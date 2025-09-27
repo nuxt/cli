@@ -47,6 +47,7 @@ const command = defineCommand({
       type: 'boolean',
       description: 'Clear console on restart',
       negativeDescription: 'Disable clear console on restart',
+      default: false,
     },
     fork: {
       type: 'boolean',
