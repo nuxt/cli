@@ -58,7 +58,7 @@
     "std-env": "^3.9.0",
     "tinyexec": "^1.0.1",
     "ufo": "^1.6.1",
-    "undici": "^6.21.3",
+    "undici": "^7.16.0",
     "youch": "^4.1.0-beta.11"
   },
   "devDependencies": {
