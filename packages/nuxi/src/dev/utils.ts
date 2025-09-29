@@ -7,7 +7,7 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
-import { existsSync, watch } from 'node:fs'
+import { existsSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -73,6 +73,28 @@ interface NuxtDevServerOptions {
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
+export class FileChangeTracker {
+  private mtimes = new Map<string, number>()
+
+  shouldEmitChange(filePath: string): boolean {
+    try {
+      const stats = statSync(filePath)
+      const currentMtime = stats.mtimeMs
+      const lastMtime = this.mtimes.get(filePath)
+
+      this.mtimes.set(filePath, currentMtime)
+
+      // emit change for new file or mtime has changed
+      return lastMtime === undefined || currentMtime !== lastMtime
+    }
+    catch {
+      // remove from cache if it has been deleted or is inaccessible
+      this.mtimes.delete(filePath)
+      return true
+    }
+  }
+}
+
 type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
 
 interface DevServerEventMap {
@@ -89,6 +111,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   private _currentNuxt?: NuxtWithServer
   private _loadingMessage?: string
   private _loadingError?: Error
+  private _fileChangeTracker = new FileChangeTracker()
   private cwd: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
@@ -310,7 +333,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const distDir = resolve(this._currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
     this._distWatcher = watch(distDir)
-    this._distWatcher.on('change', () => {
+    this._distWatcher.on('change', (_event, file: string) => {
+      if (!this._fileChangeTracker.shouldEmitChange(resolve(distDir, file || ''))) {
+        return
+      }
+
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
@@ -374,8 +401,13 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
   const configWatcher = watch(cwd)
   let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
+  const fileWatcher = new FileChangeTracker()
 
   configWatcher.on('change', (_event, file: string) => {
+    if (!fileWatcher.shouldEmitChange(resolve(cwd, file))) {
+      return
+    }
+
     if (dotenvFileNames.has(file)) {
       onRestart()
     }
@@ -397,9 +429,14 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
 
 function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
   const configDir = resolve(cwd, '.config')
+  const fileWatcher = new FileChangeTracker()
 
   const configDirWatcher = watch(configDir)
   configDirWatcher.on('change', (_event, file: string) => {
+    if (!fileWatcher.shouldEmitChange(resolve(configDir, file))) {
+      return
+    }
+
     if (RESTART_RE.test(file)) {
       onReload(file)
     }
