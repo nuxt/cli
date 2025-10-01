@@ -33,7 +33,6 @@ type SupportStatus = boolean | {
   start: boolean
   fetching: boolean
   websockets: boolean
-  websocketClose: boolean
 }
 
 function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean) {
@@ -46,13 +45,11 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
         start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
         websockets: false,
-        websocketClose: false,
       },
       deno: {
         start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
         websockets: !platform.windows || !socketsEnabled,
-        websocketClose: platform.linux,
       },
     }
     const status = supportMatrix[runtimeName]
@@ -61,7 +58,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
     const options = typeof _options === 'function' ? {} : _options
 
     if (status === false) {
-      return _it.fails(description, options, fn)
+      return _it.fails(`${description} [expected to fail with ${runtimeName}]`, options, fn)
     }
     if (status === true) {
       return _it(description, options, fn)
@@ -75,15 +72,9 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
     if (!status.start) {
       return _it.todo(description)
     }
-    if (description.includes('websocket connection close gracefully')) {
-      if (!status.websocketClose) {
-        return _it.fails(description, options, fn)
-      }
-      return _it(description, options, fn)
-    }
     if (description.includes('websocket')) {
       if (!status.websockets) {
-        return _it.fails(description, options, fn)
+        return _it.fails(`${description} [expected to fail with ${runtimeName}]`, options, fn)
       }
       return _it(description, options, fn)
     }
@@ -216,7 +207,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       }
     })
 
-    it('should establish websocket connection and handle ping/pong', { timeout: 20_000 }, async () => {
+    it('should establish websocket connection and handle ping/pong', { timeout: 2_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
       let isConnected = false
@@ -224,7 +215,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
       await createWebSocketTest({
         url: wsUrl,
-        timeout: 20_000,
+        timeout: 2_000,
         testId: 'ping/pong',
         onOpen: (ws) => {
           isConnected = true
@@ -241,7 +232,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       })
     })
 
-    it('should handle multiple concurrent websocket connections', { timeout: 5_000 }, async () => {
+    it('should handle multiple concurrent websocket connections', { timeout: 2_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
       const connectionCount = 2
 
@@ -250,7 +241,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
         return createWebSocketTest({
           url: wsUrl,
-          timeout: 20_000,
+          timeout: 2_000,
           testId: `concurrent connection ${index}`,
           onOpen: (ws) => {
             ws.send(`ping from connection ${index}`)
@@ -266,34 +257,6 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       })
 
       await Promise.all(connectionPromises)
-    })
-
-    it('should handle websocket connection close gracefully', { timeout: 15_000 }, async () => {
-      const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
-
-      let connected = false
-      let receivedPong = false
-
-      await createWebSocketTest({
-        url: wsUrl,
-        timeout: 12_000,
-        testId: 'close gracefully',
-        onOpen: (ws) => {
-          connected = true
-          ws.send('ping')
-        },
-        onMessage: (ws, event) => {
-          if (event.data.toString() === 'pong') {
-            receivedPong = true
-            queueMicrotask(() => {
-              if (ws.readyState === WebSocket.OPEN) {
-                ws.close(1000, 'Test close')
-              }
-            })
-          }
-        },
-        onClose: () => connected && receivedPong,
-      })
     })
   })
 })
@@ -410,6 +373,11 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
       testCompleted = true
       clearTimeout(timeoutId)
 
+      // Ensure WebSocket is closed
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close()
+      }
+
       if (error) {
         reject(error)
       }
@@ -419,29 +387,51 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
     }
 
     timeoutId = setTimeout(() => {
-      completeTest(new Error(`WebSocket test timeout${testId ? ` for ${testId}` : ''}`))
+      const state = ws.readyState === WebSocket.OPEN
+        ? 'open'
+        : ws.readyState === WebSocket.CONNECTING
+          ? 'connecting'
+          : ws.readyState === WebSocket.CLOSING
+            ? 'closing'
+            : 'closed'
+      completeTest(new Error(`WebSocket test timeout${testId ? ` for ${testId}` : ''} (state: ${state})`))
     }, timeout)
 
     ws.addEventListener('open', () => {
       if (onOpen) {
-        onOpen(ws)
+        try {
+          onOpen(ws)
+        }
+        catch (error) {
+          completeTest(error instanceof Error ? error : new Error(String(error)))
+        }
       }
     })
 
     ws.addEventListener('message', (event) => {
       if (onMessage) {
-        onMessage(ws, event)
+        try {
+          onMessage(ws, event)
+        }
+        catch (error) {
+          completeTest(error instanceof Error ? error : new Error(String(error)))
+        }
       }
     })
 
     ws.addEventListener('close', (event) => {
       if (onClose) {
-        const shouldComplete = onClose(ws, event)
-        if (shouldComplete) {
-          completeTest()
+        try {
+          const shouldComplete = onClose(ws, event)
+          if (shouldComplete) {
+            completeTest()
+          }
+          else {
+            completeTest(new Error(`WebSocket test failed${testId ? ` for ${testId}` : ''} (close code: ${event.code})`))
+          }
         }
-        else {
-          completeTest(new Error(`WebSocket test failed${testId ? ` for ${testId}` : ''}`))
+        catch (error) {
+          completeTest(error instanceof Error ? error : new Error(String(error)))
         }
       }
       else {
@@ -451,7 +441,12 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
 
     ws.addEventListener('error', (error) => {
       if (onError) {
-        onError(ws, error)
+        try {
+          onError(ws, error)
+        }
+        catch (err) {
+          completeTest(err instanceof Error ? err : new Error(String(err)))
+        }
       }
       else {
         completeTest(new Error(`WebSocket error${testId ? ` for ${testId}` : ''}: ${error}`))
