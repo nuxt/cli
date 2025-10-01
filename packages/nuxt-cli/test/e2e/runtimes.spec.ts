@@ -42,7 +42,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
     const supportMatrix: Record<typeof runtimes[number], SupportStatus> = {
       node: true,
       bun: {
-        start: true,
+        start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
         websockets: false,
         websocketClose: false,
@@ -50,7 +50,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
       deno: {
         start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
-        websockets: platform.linux,
+        websockets: platform.linux || (!socketsEnabled && platform.windows),
         websocketClose: false,
       },
     }
