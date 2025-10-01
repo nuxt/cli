@@ -38,7 +38,7 @@ type SupportStatus = boolean | {
 const supports: Record<typeof runtimes[number], SupportStatus> = {
   node: true,
   bun: {
-    start: true,
+    start: !platform.windows,
     fetching: !platform.windows,
     websockets: false,
     websocketClose: false,
