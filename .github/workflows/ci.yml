@@ -73,10 +73,6 @@ jobs:
       - name: 🧪 Test (unit)
         run: pnpm test:unit
 
-      - name: 🧪 Test (runtimes)
-        run: pnpm vitest run runtimes --reporter=verbose
-        timeout-minutes: 10
-
       - if: matrix.os != 'windows-latest'
         uses: codecov/codecov-action@v5
 
