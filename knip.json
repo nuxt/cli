@@ -3,6 +3,8 @@
   "workspaces": {
     ".": {
       "ignoreDependencies": [
+        "@nuxt/test-utils",
+        "nuxt",
         "vue"
       ],
       "entry": [
