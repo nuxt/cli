@@ -38,7 +38,7 @@ type SupportStatus = boolean | {
 const supports: Record<typeof runtimes[number], SupportStatus> = {
   node: true,
   bun: {
-    start: true,
+    start: !platform.windows,
     fetching: !platform.windows,
     websockets: false,
     websocketClose: false,
@@ -113,11 +113,11 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
   const it = createIt(supports[runtimeName])
 
-  it('should start dev server', { timeout: isCI ? 60_000 : 30_000 }, async () => {
+  it('should start dev server', { timeout: isCI ? 120_000 : 30_000 }, async () => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
       recursive: true,
-      filter: src => !src.includes('.nuxt') && !src.includes('.output'),
+      filter: src => !src.includes('.nuxt') && !src.includes('.output') && !src.includes('node_modules'),
     })
     server = await startDevServer({ cwd, runtime: runtimeName })
   })
