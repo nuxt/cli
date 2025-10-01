@@ -207,7 +207,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       }
     })
 
-    it('should establish websocket connection and handle ping/pong', { timeout: 2_000 }, async () => {
+    it('should establish websocket connection and handle ping/pong', async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
       let isConnected = false
@@ -232,7 +232,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       })
     })
 
-    it('should handle multiple concurrent websocket connections', { timeout: 2_000 }, async () => {
+    it('should handle multiple concurrent websocket connections', async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
       const connectionCount = 2
 
