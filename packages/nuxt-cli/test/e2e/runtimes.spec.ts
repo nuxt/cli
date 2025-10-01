@@ -1,11 +1,12 @@
 import type { ChildProcess } from 'node:child_process'
+import type { MessageEvent } from 'undici'
 import type { TestOptions } from 'vitest'
 import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 
+import { fileURLToPath } from 'node:url'
 import { getPort, waitForPort } from 'get-port-please'
 import { isCI, isLinux, isMacOS, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
