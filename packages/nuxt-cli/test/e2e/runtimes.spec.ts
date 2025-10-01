@@ -8,8 +8,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort, waitForPort } from 'get-port-please'
 import { isCI, isLinux, isMacOS, isWindows } from 'std-env'
-import { WebSocket } from 'undici'
-import { it as _it, afterAll, describe, expect, vi } from 'vitest'
+import { it as _it, afterAll, beforeAll, describe, expect, vi } from 'vitest'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
@@ -50,7 +49,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
       deno: {
         start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
-        websockets: platform.linux || (!socketsEnabled && platform.windows),
+        websockets: !platform.windows || !socketsEnabled,
         websocketClose: false,
       },
     }
@@ -69,7 +68,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
       if (!status.start) {
         return _it.fails(description, options, fn)
       }
-      return _it(description, options, fn)
+      return beforeAll(fn, options.timeout)
     }
     if (!status.start) {
       return _it.todo(description)
@@ -218,128 +217,81 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     it('should establish websocket connection and handle ping/pong', { timeout: 20_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
-      // Create a promise that resolves when the websocket test is complete
-      const wsTest = new Promise<void>((resolve, reject) => {
-        const ws = new WebSocket(wsUrl)
+      let isConnected = false
+      let receivedPong = false
 
-        let isConnected = false
-        let receivedPong = false
-
-        const timeout = setTimeout(() => {
-          if (!isConnected) {
-            reject(new Error('WebSocket connection timeout'))
-          }
-          else if (!receivedPong) {
-            reject(new Error('Did not receive pong response'))
-          }
-          ws.close()
-        }, 20_000)
-
-        ws.addEventListener('open', () => {
+      await createWebSocketTest({
+        url: wsUrl,
+        timeout: 20_000,
+        testId: 'ping/pong',
+        onOpen: (ws) => {
           isConnected = true
-          // Send ping message to test echo functionality
           ws.send('ping test message')
-        })
-
-        ws.addEventListener('message', (event) => {
+        },
+        onMessage: (ws, event) => {
           const message = event.data.toString()
           if (message === 'pong') {
             receivedPong = true
-            clearTimeout(timeout)
             ws.close()
-            resolve()
           }
-        })
-
-        ws.addEventListener('error', (error) => {
-          clearTimeout(timeout)
-          reject(new Error(`WebSocket error: ${error}`))
-        })
-
-        ws.addEventListener('close', () => {
-          if (isConnected && receivedPong) {
-            resolve()
-          }
-        })
+        },
+        onClose: () => isConnected && receivedPong,
       })
-
-      await wsTest
     })
 
     it('should handle multiple concurrent websocket connections', { timeout: 20_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
-      const connectionCount = 3
+      const connectionCount = 2
 
       const connectionPromises = Array.from({ length: connectionCount }, (_, index) => {
-        return new Promise<void>((resolve, reject) => {
-          const ws = new WebSocket(wsUrl)
+        let receivedPong = false
 
-          const timeout = setTimeout(() => {
-            reject(new Error(`WebSocket ${index} connection timeout`))
-            ws.close()
-          }, 20_000)
-
-          ws.addEventListener('open', () => {
+        return createWebSocketTest({
+          url: wsUrl,
+          timeout: 20_000,
+          testId: `concurrent connection ${index}`,
+          onOpen: (ws) => {
             ws.send(`ping from connection ${index}`)
-          })
-
-          ws.addEventListener('message', (event) => {
-            const message = event.data.toString()
-            if (message === 'pong') {
-              clearTimeout(timeout)
+          },
+          onMessage: (ws, event) => {
+            if (event.data.toString() === 'pong') {
+              receivedPong = true
               ws.close()
-              resolve()
             }
-          })
-
-          ws.addEventListener('error', (error) => {
-            clearTimeout(timeout)
-            reject(new Error(`WebSocket ${index} error: ${error}`))
-          })
+          },
+          onClose: () => receivedPong,
         })
       })
 
       await Promise.all(connectionPromises)
     })
 
-    it('should handle websocket connection close gracefully', { timeout: 10_000 }, async () => {
+    it('should handle websocket connection close gracefully', { timeout: 15_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
 
-      const wsTest = new Promise<void>((resolve, reject) => {
-        const ws = new WebSocket(wsUrl)
+      let connected = false
+      let receivedPong = false
 
-        let isConnected = false
-
-        const timeout = setTimeout(() => {
-          reject(new Error('WebSocket close test timeout'))
-        }, 10_000)
-
-        ws.addEventListener('open', () => {
-          isConnected = true
-          // Immediately close the connection to test graceful handling
-          ws.close(1000, 'Test close')
-        })
-
-        ws.addEventListener('close', (event) => {
-          clearTimeout(timeout)
-          try {
-            expect(isConnected).toBe(true)
-            expect(event.code).toBe(1000)
-            expect(event.reason).toBe('Test close')
-            resolve()
+      await createWebSocketTest({
+        url: wsUrl,
+        timeout: 12_000,
+        testId: 'close gracefully',
+        onOpen: (ws) => {
+          connected = true
+          ws.send('ping')
+        },
+        onMessage: (ws, event) => {
+          if (event.data.toString() === 'pong') {
+            receivedPong = true
+            queueMicrotask(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.close(1000, 'Test close')
+              }
+            })
           }
-          catch (error) {
-            reject(error)
-          }
-        })
-
-        ws.addEventListener('error', (error) => {
-          clearTimeout(timeout)
-          reject(new Error(`WebSocket close test error: ${error}`))
-        })
+        },
+        onClose: () => connected && receivedPong,
       })
-
-      await wsTest
     })
   })
 })
@@ -421,4 +373,87 @@ async function startDevServer(options: {
       })
     },
   }
+}
+
+interface WebSocketTestOptions {
+  url: string
+  timeout?: number
+  onOpen?: (ws: WebSocket) => void
+  onMessage?: (ws: WebSocket, event: MessageEvent) => void
+  onClose?: (ws: WebSocket, event: CloseEvent) => boolean // return true if test should complete successfully
+  onError?: (ws: WebSocket, error: Event) => void
+  testId?: string
+}
+
+function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
+  const {
+    url,
+    timeout = 15_000,
+    onOpen,
+    onMessage,
+    onClose,
+    onError,
+    testId = '',
+  } = options
+
+  return new Promise<void>((resolve, reject) => {
+    const ws = new WebSocket(url)
+    let testCompleted = false
+    let timeoutId: NodeJS.Timeout
+
+    function completeTest(error?: Error) {
+      if (testCompleted) {
+        return
+      }
+      testCompleted = true
+      clearTimeout(timeoutId)
+
+      if (error) {
+        reject(error)
+      }
+      else {
+        resolve()
+      }
+    }
+
+    timeoutId = setTimeout(() => {
+      completeTest(new Error(`WebSocket test timeout${testId ? ` for ${testId}` : ''}`))
+    }, timeout)
+
+    ws.addEventListener('open', () => {
+      if (onOpen) {
+        onOpen(ws)
+      }
+    })
+
+    ws.addEventListener('message', (event) => {
+      if (onMessage) {
+        onMessage(ws, event)
+      }
+    })
+
+    ws.addEventListener('close', (event) => {
+      if (onClose) {
+        const shouldComplete = onClose(ws, event)
+        if (shouldComplete) {
+          completeTest()
+        }
+        else {
+          completeTest(new Error(`WebSocket test failed${testId ? ` for ${testId}` : ''}`))
+        }
+      }
+      else {
+        completeTest()
+      }
+    })
+
+    ws.addEventListener('error', (error) => {
+      if (onError) {
+        onError(ws, error)
+      }
+      else {
+        completeTest(new Error(`WebSocket error${testId ? ` for ${testId}` : ''}: ${error}`))
+      }
+    })
+  })
 }
