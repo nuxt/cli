@@ -42,7 +42,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
     const supportMatrix: Record<typeof runtimes[number], SupportStatus> = {
       node: true,
       bun: {
-        start: !platform.windows || !socketsEnabled,
+        start: !platform.windows,
         fetching: !platform.windows,
         websockets: false,
       },
@@ -397,9 +397,10 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
       completeTest(new Error(`WebSocket test timeout${testId ? ` for ${testId}` : ''} (state: ${state})`))
     }, timeout)
 
-    ws.addEventListener('open', () => {
+    ws.addEventListener('open', async () => {
       if (onOpen) {
         try {
+          await vi.waitFor(() => ws.readyState === WebSocket.OPEN)
           onOpen(ws)
         }
         catch (error) {
