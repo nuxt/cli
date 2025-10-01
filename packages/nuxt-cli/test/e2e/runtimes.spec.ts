@@ -52,7 +52,7 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
         start: !platform.windows || !socketsEnabled,
         fetching: !platform.windows,
         websockets: !platform.windows || !socketsEnabled,
-        websocketClose: false,
+        websocketClose: platform.linux,
       },
     }
     const status = supportMatrix[runtimeName]
@@ -241,7 +241,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
       })
     })
 
-    it('should handle multiple concurrent websocket connections', { timeout: 20_000 }, async () => {
+    it('should handle multiple concurrent websocket connections', { timeout: 5_000 }, async () => {
       const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
       const connectionCount = 2
 
