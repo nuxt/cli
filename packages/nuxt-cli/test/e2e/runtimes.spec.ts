@@ -117,7 +117,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
       recursive: true,
-      filter: src => !src.includes('.nuxt') && !src.includes('.output'),
+      filter: src => !src.includes('.nuxt') && !src.includes('.output') && !src.includes('node_modules'),
     })
     server = await startDevServer({ cwd, runtime: runtimeName })
   })

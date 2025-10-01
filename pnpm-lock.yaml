@@ -28,6 +28,9 @@ importers:
       '@nuxt/eslint-config':
         specifier: ^1.9.0
         version: 1.9.0(@typescript-eslint/utils@8.44.0(eslint@9.36.0(jiti@2.6.0))(typescript@5.9.2))(@vue/compiler-sfc@3.5.21)(eslint@9.36.0(jiti@2.6.0))(typescript@5.9.2)
+      '@nuxt/test-utils':
+        specifier: ^3.19.2
+        version: 3.19.2(magicast@0.3.5)(typescript@5.9.2)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@22.18.6)(jiti@2.6.0)(terser@5.43.1)(yaml@2.8.1))
       '@types/node':
         specifier: ^22.18.6
         version: 22.18.6
@@ -46,6 +49,9 @@ importers:
       knip:
         specifier: ^5.64.0
         version: 5.64.0(@types/node@22.18.6)(typescript@5.9.2)
+      nuxt:
+        specifier: ^4.1.2
+        version: 4.1.2(@netlify/blobs@9.1.2)(@parcel/watcher@2.5.1)(@types/node@22.18.6)(@vue/compiler-sfc@3.5.21)(db0@0.3.2)(eslint@9.36.0(jiti@2.6.0))(ioredis@5.7.0)(magicast@0.3.5)(optionator@0.9.4)(rollup@4.52.1)(terser@5.43.1)(typescript@5.9.2)(vite@7.1.7(@types/node@22.18.6)(jiti@2.6.0)(terser@5.43.1)(yaml@2.8.1))(yaml@2.8.1)
       pkg-pr-new:
         specifier: ^0.0.60
         version: 0.0.60
