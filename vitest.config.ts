@@ -1,8 +1,9 @@
 import codspeed from '@codspeed/vitest-plugin'
+import { isCI, isWindows } from 'std-env'
 import { defaultExclude, defineConfig } from 'vitest/config'
 
 export default defineConfig({
-  plugins: [codspeed()],
+  plugins: isCI && !isWindows ? [codspeed()] : [],
   test: {
     coverage: {},
     exclude: [
