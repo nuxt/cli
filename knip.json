@@ -45,6 +45,7 @@
         "semver",
         "srvx",
         "ufo",
+        "undici",
         "youch"
       ]
     }
