@@ -35,7 +35,7 @@ type SupportStatus = boolean | {
   websockets: boolean
 }
 
-function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean) {
+function createIt(runtimeName: typeof runtimes[number], _socketsEnabled: boolean) {
   function it(description: string, fn: () => Promise<void>): void
   function it(description: string, options: TestOptions, fn: () => Promise<void>): void
   function it(description: string, _options: TestOptions | (() => Promise<void>), _fn?: () => Promise<void>): void {
