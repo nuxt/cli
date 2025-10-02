@@ -47,9 +47,9 @@ function createIt(runtimeName: typeof runtimes[number], socketsEnabled: boolean)
         websockets: false,
       },
       deno: {
-        start: !platform.windows || !socketsEnabled,
+        start: !platform.windows,
         fetching: !platform.windows,
-        websockets: !platform.windows || !socketsEnabled,
+        websockets: !platform.windows && !platform.macos,
       },
     }
     const status = supportMatrix[runtimeName]
