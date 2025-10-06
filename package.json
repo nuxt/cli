@@ -31,7 +31,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "changelogen": "^0.6.2",
     "eslint": "^9.37.0",
-    "knip": "^5.64.1",
+    "knip": "^5.64.2",
     "nuxt": "^4.1.2",
     "pkg-pr-new": "^0.0.60",
     "semver": "^7.7.2",
