@@ -37,47 +37,29 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+      
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        if: steps.pr.outputs.result
+        with:
+          sparse-checkout: scripts/parse-sizes.ts
+          sparse-checkout-cone-mode: false
+      
+      - name: 📊 Generate size comparison
+        if: steps.pr.outputs.result
+        id: sizes
+        run: |
+          COMMENT=$(node scripts/parse-sizes.ts nuxi nuxt-cli create-nuxt)
+          echo "comment<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: 📊 Compare and comment on sizes
+      - name: 💬 Post or update comment
         if: steps.pr.outputs.result
         uses: actions/github-script@v8
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
             const prNumber = ${{ steps.pr.outputs.result }};
-
-            if (!prNumber) {
-              console.log('No PR number found, skipping comment');
-              return;
-            }
-
-            const packages = ['nuxi', 'nuxt-cli', 'create-nuxt'];
-            let commentBody = '## 📦 Bundle Size Comparison\n\n';
-
-            for (const pkg of packages) {
-              try {
-                const headStats = JSON.parse(fs.readFileSync(`./head-stats/${pkg}/stats.json`, 'utf8'));
-                const baseStats = JSON.parse(fs.readFileSync(`./base-stats/${pkg}/stats.json`, 'utf8'));
-                
-                // Simple size comparison - adjust based on your stats.json structure
-                const headSize = headStats.bundleSize || headStats.size || 0;
-                const baseSize = baseStats.bundleSize || baseStats.size || 0;
-                const diff = headSize - baseSize;
-                const diffPercent = baseSize ? ((diff / baseSize) * 100).toFixed(2) : 0;
-                
-                const icon = diff > 0 ? '📈' : diff < 0 ? '📉' : '➡️';
-                const sign = diff > 0 ? '+' : '';
-                
-                commentBody += `### ${icon} ${pkg}\n`;
-                commentBody += `- Base: ${(baseSize / 1024).toFixed(2)} KB\n`;
-                commentBody += `- Head: ${(headSize / 1024).toFixed(2)} KB\n`;
-                commentBody += `- Diff: ${sign}${(diff / 1024).toFixed(2)} KB (${sign}${diffPercent}%)\n\n`;
-              } catch (error) {
-                console.log(`Error processing ${pkg}:`, error.message);
-                commentBody += `### ⚠️ ${pkg}\nCould not compare sizes\n\n`;
-              }
-            }
+            const commentBody = `${{ steps.sizes.outputs.comment }}`;
 
             // Find existing comment
             const comments = await github.rest.issues.listComments({
@@ -86,8 +68,8 @@ jobs:
               issue_number: prNumber,
             });
 
-            const botComment = comments.data.find(comment => 
-              comment.user.type === 'Bot' && 
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
               comment.body.includes('Bundle Size Comparison')
             );
 
@@ -98,6 +80,16 @@ jobs:
                 repo: context.repo.repo,
                 comment_id: botComment.id,
                 body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+            }
               });
             } else {
               // Create new comment

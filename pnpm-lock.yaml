@@ -9,7 +9,7 @@ overrides:
   '@nuxt/schema': 4.1.2
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 60.8.2
+  eslint-plugin-jsdoc: 60.8.3
   eslint-plugin-unicorn: 61.0.2
   h3: ^1.15.4
   nitropack: latest
@@ -586,8 +586,8 @@ packages:
     resolution: {integrity: sha512-YAdE/IJSpwbOTiaURNCKECdAwqrJuFiZhylmesBcIRawtYKnBR2wxPhoIewMg+Yu+QuYvHfJNReWpoxGBKOChA==}
     engines: {node: '>=18'}
 
-  '@es-joy/jsdoccomment@0.69.0':
-    resolution: {integrity: sha512-7UgbKSStPxf2RF2fqKqJq3u1QN4kFzhE/lofHtEuptRjQPdYZOLGsqGcKzQGYWoPG5p8PyxUOoc3/Ca+UcFkdA==}
+  '@es-joy/jsdoccomment@0.71.0':
+    resolution: {integrity: sha512-2p9+dXWNQnp5Kq/V0XVWZiVAabzlX6rUW8vXXvtX8Yc1CkKgD93IPDEnv1sYZFkkS6HMvg6H0RMZfob/Co0YXA==}
     engines: {node: '>=20.11.0'}
 
   '@esbuild/aix-ppc64@0.25.10':
@@ -1820,6 +1820,10 @@ packages:
     resolution: {integrity: sha512-WugXLuOIq67BMgQInIxxnsSyRLFxdkJEJu8r4ngLR56q/4Q5LrbfkFRH27vMTjxEK8Pyz7QfzuZe/G15qQnVRA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@typescript-eslint/types@8.46.0':
+    resolution: {integrity: sha512-bHGGJyVjSE4dJJIO5yyEWt/cHyNwga/zXGJbJJ8TiO01aVREK6gCTu3L+5wrkb1FbDkQ+TKjMNe9R/QQQP9+rA==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
   '@typescript-eslint/typescript-estree@8.45.0':
     resolution: {integrity: sha512-GfE1NfVbLam6XQ0LcERKwdTTPlLvHvXXhOeUGC1OXi4eQBoyy1iVsW+uzJ/J9jtCz6/7GCQ9MtrQ0fml/jWCnA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -2804,8 +2808,8 @@ packages:
       eslint-import-resolver-node:
         optional: true
 
-  eslint-plugin-jsdoc@60.8.2:
-    resolution: {integrity: sha512-ebEYZiAVL/ejjNQKO7Q1+FumDjGfs0T3+arQ3U54xomFiySUjKnZOzVZQAWhu+mlZXB4oeoizI4wRH+3i+knDg==}
+  eslint-plugin-jsdoc@60.8.3:
+    resolution: {integrity: sha512-4191bTMvnd5WUtopCdzNhQchvv/MxtPD86ZGl3vem8Ibm22xJhKuIyClmgSxw+YERtorVc/NhG+bGjfFVa6+VQ==}
     engines: {node: '>=20.11.0'}
     peerDependencies:
       eslint: ^7.0.0 || ^8.0.0 || ^9.0.0
@@ -3440,8 +3444,8 @@ packages:
     resolution: {integrity: sha512-iZ8Bdb84lWRuGHamRXFyML07r21pcwBrLkHEuHgEY5UbCouBwv7ECknDRKzsQIXMiqpPymqtIf8TC/shYKB5rw==}
     engines: {node: '>=12.0.0'}
 
-  jsdoc-type-pratt-parser@6.4.0:
-    resolution: {integrity: sha512-tVwTg612vD9h2w5hoRFRNOni7xITDYZigHwBDieLUf4IYPQtk6IFXe/NqJc/hGYteFAeIM+Ld6ZvmLuizKAZ7A==}
+  jsdoc-type-pratt-parser@6.6.0:
+    resolution: {integrity: sha512-3hSD14nXx66Rspx1RMnz1Pj4JacrMBAsC0CrF9lZYO/Qsp5/oIr6KqujVUNhQu94B6mMip2ukki8MpEWZwyhKA==}
     engines: {node: '>=20.0.0'}
 
   jsesc@3.0.2:
@@ -5316,7 +5320,7 @@ snapshots:
       eslint-plugin-antfu: 3.1.1(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-command: 3.3.1(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-import-lite: 0.3.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
-      eslint-plugin-jsdoc: 60.8.2(eslint@9.37.0(jiti@2.6.1))
+      eslint-plugin-jsdoc: 60.8.3(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-jsonc: 2.21.0(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-n: 17.23.1(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
       eslint-plugin-no-only-tests: 3.3.0
@@ -5574,13 +5578,13 @@ snapshots:
       esquery: 1.6.0
       jsdoc-type-pratt-parser: 4.1.0
 
-  '@es-joy/jsdoccomment@0.69.0':
+  '@es-joy/jsdoccomment@0.71.0':
     dependencies:
       '@types/estree': 1.0.8
-      '@typescript-eslint/types': 8.45.0
+      '@typescript-eslint/types': 8.46.0
       comment-parser: 1.4.1
       esquery: 1.6.0
-      jsdoc-type-pratt-parser: 6.4.0
+      jsdoc-type-pratt-parser: 6.6.0
 
   '@esbuild/aix-ppc64@0.25.10':
     optional: true
@@ -5932,7 +5936,7 @@ snapshots:
       eslint-merge-processors: 2.0.0(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-import-lite: 0.3.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3)
       eslint-plugin-import-x: 4.16.1(@typescript-eslint/utils@8.45.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3))(eslint@9.37.0(jiti@2.6.1))
-      eslint-plugin-jsdoc: 60.8.2(eslint@9.37.0(jiti@2.6.1))
+      eslint-plugin-jsdoc: 60.8.3(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-regexp: 2.10.0(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-unicorn: 61.0.2(eslint@9.37.0(jiti@2.6.1))
       eslint-plugin-vue: 10.5.0(@stylistic/eslint-plugin@5.4.0(eslint@9.37.0(jiti@2.6.1)))(@typescript-eslint/parser@8.45.0(eslint@9.37.0(jiti@2.6.1))(typescript@5.9.3))(eslint@9.37.0(jiti@2.6.1))(vue-eslint-parser@10.2.0(eslint@9.37.0(jiti@2.6.1)))
@@ -6738,6 +6742,8 @@ snapshots:
       - supports-color
 
   '@typescript-eslint/types@8.45.0': {}
+
+  '@typescript-eslint/types@8.46.0': {}
 
   '@typescript-eslint/typescript-estree@8.45.0(typescript@5.9.3)':
     dependencies:
@@ -7767,9 +7773,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-jsdoc@60.8.2(eslint@9.37.0(jiti@2.6.1)):
+  eslint-plugin-jsdoc@60.8.3(eslint@9.37.0(jiti@2.6.1)):
     dependencies:
-      '@es-joy/jsdoccomment': 0.69.0
+      '@es-joy/jsdoccomment': 0.71.0
       are-docs-informative: 0.0.2
       comment-parser: 1.4.1
       debug: 4.4.3
@@ -8469,7 +8475,7 @@ snapshots:
 
   jsdoc-type-pratt-parser@4.8.0: {}
 
-  jsdoc-type-pratt-parser@6.4.0: {}
+  jsdoc-type-pratt-parser@6.6.0: {}
 
   jsesc@3.0.2: {}
 
