@@ -92,8 +92,6 @@ jobs:
                 issue_number: prNumber,
                 body: commentBody
               });
-            }
-              });
             } else {
               // Create new comment
               await github.rest.issues.createComment({
