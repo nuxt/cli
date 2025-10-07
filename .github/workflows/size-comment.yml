@@ -26,6 +26,17 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           path: .
 
+      - name: 🔍 Debug downloaded artifacts
+        run: |
+          echo "=== Downloaded artifacts structure ==="
+          ls -la
+          echo "=== head-stats contents ==="
+          ls -la head-stats/ || echo "head-stats not found"
+          echo "=== base-stats contents ==="
+          ls -la base-stats/ || echo "base-stats not found"
+          echo "=== pr-number contents ==="
+          ls -la pr-number/ || echo "pr-number not found"
+
       - name: 🔍 Get PR number from artifact
         id: pr
         run: |

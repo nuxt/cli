@@ -107,8 +107,8 @@ export function generateSizeComment(packages: string[], statsDir = '.'): string 
   let commentBody = '## 📦 Bundle Size Comparison\n\n'
 
   for (const pkg of packages) {
-    const headPath = `${statsDir}/head-stats/${pkg}/stats.json`
-    const basePath = `${statsDir}/base-stats/${pkg}/stats.json`
+    const headPath = `${statsDir}/head-stats/packages/${pkg}/stats.json`
+    const basePath = `${statsDir}/base-stats/packages/${pkg}/stats.json`
 
     const comparison = comparePackage(pkg, headPath, basePath)
 
