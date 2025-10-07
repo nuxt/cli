@@ -15,6 +15,9 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: latest
       - name: 🔍 Get PR number
         id: pr
         uses: actions/github-script@v8
@@ -37,13 +40,13 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-      
+
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         if: steps.pr.outputs.result
         with:
           sparse-checkout: scripts/parse-sizes.ts
           sparse-checkout-cone-mode: false
-      
+
       - name: 📊 Generate size comparison
         if: steps.pr.outputs.result
         id: sizes
