@@ -32,7 +32,7 @@ jobs:
 
       - name: 🛠 Build project
         run: pnpm build
-      
+
       - name: 💾 Save PR number
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
@@ -41,7 +41,7 @@ jobs:
         with:
           name: head-stats
           path: ./packages/*/stats.json
-      
+
       - name: ⏫ Upload PR number
         uses: actions/upload-artifact@v4
         with:
