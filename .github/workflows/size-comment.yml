@@ -18,37 +18,32 @@ jobs:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: latest
-      - name: 🔍 Get PR number
-        id: pr
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const pulls = await github.rest.repos.listPullRequestsAssociatedWithCommit({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.payload.workflow_run.head_sha,
-            });
-
-            if (pulls.data.length > 0) {
-              return pulls.data[0].number;
-            }
-            return null;
-
+      
       - name: ⏬ Download artifacts from workflow run
-        if: steps.pr.outputs.result
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+          path: .
+      
+      - name: 🔍 Get PR number from artifact
+        id: pr
+        run: |
+          if [ -f pr-number/pr-number.txt ]; then
+            PR_NUMBER=$(cat pr-number/pr-number.txt)
+            echo "result=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "Found PR number: $PR_NUMBER"
+          else
+            echo "PR number file not found"
+            echo "result=" >> $GITHUB_OUTPUT
+          fi
 
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
-        if: steps.pr.outputs.result
         with:
           sparse-checkout: scripts/parse-sizes.ts
           sparse-checkout-cone-mode: false
 
       - name: 📊 Generate size comparison
-        if: steps.pr.outputs.result
         id: sizes
         run: |
           COMMENT=$(node scripts/parse-sizes.ts nuxi nuxt-cli create-nuxt)
@@ -57,7 +52,6 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: 💬 Post or update comment
-        if: steps.pr.outputs.result
         uses: actions/github-script@v8
         with:
           script: |
@@ -77,7 +71,7 @@ jobs:
             );
 
             if (botComment) {
-              // Update existing comment
+              console.log(`Updating existing comment ${botComment.id}`);
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -85,15 +79,7 @@ jobs:
                 body: commentBody
               });
             } else {
-              // Create new comment
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body: commentBody
-              });
-            } else {
-              // Create new comment
+              console.log('Creating new comment');
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
