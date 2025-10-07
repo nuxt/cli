@@ -185,7 +185,15 @@ async function sendWebResponse(res: ServerResponse, webResponse: Response | Node
   if (webResponse.body) {
     // handle node readable stream (from Windows named pipe fetch)
     if (webResponse.body instanceof Readable) {
-      await pipeline(webResponse.body, res, { end: true })
+      try {
+        await pipeline(webResponse.body, res, { end: true })
+      }
+      catch (error) {
+        if (!res.writableEnded) {
+          res.end()
+        }
+        throw error
+      }
       return
     }
 
@@ -201,6 +209,14 @@ async function sendWebResponse(res: ServerResponse, webResponse: Response | Node
           await new Promise<void>(resolve => res.once('drain', resolve))
         }
       }
+    }
+    catch (error) {
+      // If streaming fails, clean up and end the response
+      reader.releaseLock()
+      if (!res.writableEnded) {
+        res.end()
+      }
+      throw error
     }
     finally {
       reader.releaseLock()

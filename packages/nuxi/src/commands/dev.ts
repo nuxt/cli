@@ -229,6 +229,13 @@ async function createDevHandler(cwd: string, nuxtOptions: NuxtOptions, listenOpt
     },
     // Loading handler
     async (req, res) => {
+      if (res.headersSent) {
+        if (!res.writableEnded) {
+          res.end()
+        }
+        return
+      }
+
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
       res.setHeader('Cache-Control', 'no-store')
