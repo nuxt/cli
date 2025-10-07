@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 interface RollupStatsNode {
   renderedLength?: number
@@ -103,7 +104,7 @@ function comparePackage(name: string, headPath: string, basePath: string): Packa
 /**
  * Generate markdown comment for size comparison
  */
-export function generateSizeComment(packages: string[], statsDir = '.'): string {
+export function generateSizeComment(packages: string[], statsDir = process.cwd()): string {
   let commentBody = '## 📦 Bundle Size Comparison\n\n'
 
   for (const pkg of packages) {
@@ -151,6 +152,7 @@ if (isMainModule) {
     process.exit(1)
   }
 
-  const comment = generateSizeComment(packages)
+  const rootDir = fileURLToPath(new URL('..', import.meta.url))
+  const comment = generateSizeComment(packages, rootDir)
   console.log(comment)
 }
