@@ -1,12 +1,42 @@
 import type { NuxtConfig } from '@nuxt/schema'
-import type { ListenOptions } from 'listhen'
-import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
+import type { DevServerListener, ListenOptions, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
+import { Server } from 'node:http'
 import process from 'node:process'
 import defu from 'defu'
-import { listen } from 'listhen'
 import { createSocketListener } from './socket'
 import { NuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
+
+async function createNetworkListener(handler: any, options: Partial<ListenOptions>): Promise<DevServerListener> {
+  const server = new Server(handler)
+  await new Promise<void>((resolve) => {
+    server.listen({
+      port: options.port,
+      host: options.hostname,
+    }, resolve)
+  })
+
+  const address = server.address() as any
+  const protocol = options.https ? 'https' : 'http'
+  const url = address
+    ? `${protocol}://${address.address}:${address.port}`
+    : ''
+
+  return {
+    server,
+    url,
+    https: options.https,
+    address: address || { address: 'localhost', port: Number(options.port) || 3000, family: 'IPv4' },
+    async close() {
+      await new Promise<void>((resolve, reject) => {
+        server.close((err: Error | undefined) => err ? reject(err) : resolve())
+      })
+    },
+    async getURLs() {
+      return [{ url, https: !!options.https }]
+    },
+  }
+}
 
 const start = Date.now()
 
@@ -82,7 +112,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   // Attach internal listener
   devServer.listener = listenOptions
-    ? await listen(devServer.handler, listenOptions)
+    ? await createNetworkListener(devServer.handler, listenOptions)
     : await createSocketListener(devServer.handler, devContext.proxy?.addr)
 
   if (process.env.DEBUG) {

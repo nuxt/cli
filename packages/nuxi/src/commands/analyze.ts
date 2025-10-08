@@ -5,15 +5,34 @@ import process from 'node:process'
 
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
-import { createApp, eventHandler, lazyEventHandler, toNodeListener } from 'h3'
-import { listen } from 'listhen'
+import { eventHandler, H3 } from 'h3-next'
 import { join, resolve } from 'pathe'
+import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+
+const indexHtml = `
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <title>Nuxt Bundle Stats (experimental)</title>
+  </head>
+    <h1>Nuxt Bundle Stats (experimental)</h1>
+    <ul>
+      <li>
+        <a href="/nitro">Nitro server bundle stats</a>
+      </li>
+      <li>
+        <a href="/client">Client bundle stats</a>
+      </li>
+    </ul>
+  </html>
+`.trim()
 
 export default defineCommand({
   meta: {
@@ -112,13 +131,13 @@ export default defineCommand({
     logger.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
 
     if (ctx.args.serve !== false && !process.env.CI) {
-      const app = createApp()
+      const app = new H3()
 
       const serveFile = (filePath: string) =>
-        lazyEventHandler(async () => {
+        eventHandler(async () => {
           const contents = await fsp.readFile(filePath, 'utf-8')
-          return eventHandler((event) => {
-            event.node.res.end(contents)
+          return new Response(contents, {
+            headers: { 'Content-Type': 'text/html' },
           })
         })
 
@@ -128,27 +147,13 @@ export default defineCommand({
       app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))
       app.use(
         eventHandler(
-          () => `<!DOCTYPE html>
-        <html lang="en">
-        <head>
-        <meta charset="utf-8">
-        <title>Nuxt Bundle Stats (experimental)</title>
-        </head>
-          <h1>Nuxt Bundle Stats (experimental)</h1>
-          <ul>
-            <li>
-              <a href="/nitro">Nitro server bundle stats</a>
-            </li>
-            <li>
-              <a href="/client">Client bundle stats</a>
-            </li>
-          </ul>
-        </html>
-      `,
+          () => new Response(indexHtml, {
+            headers: { 'Content-Type': 'text/html' },
+          }),
         ),
       )
 
-      await listen(toNodeListener(app))
+      await serve(app).ready()
     }
   },
 })

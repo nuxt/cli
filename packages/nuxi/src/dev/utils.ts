@@ -1,6 +1,5 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
-import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
@@ -17,6 +16,7 @@ import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
+import { FastURL } from 'srvx'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
@@ -26,6 +26,38 @@ import { loadKit } from '../utils/kit'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
 import { formatSocketURL, isSocketURL } from './socket'
+
+export interface HTTPSOptions {
+  cert?: string
+  key?: string
+  pfx?: string
+  passphrase?: string
+  [key: string]: any
+}
+
+export interface ListenURL {
+  url: string
+  https?: boolean
+  [key: string]: any
+}
+
+export interface DevServerListener {
+  server: IncomingMessage['socket'] extends { server: infer S } ? S : any
+  url: string
+  https?: boolean | HTTPSOptions
+  address: AddressInfo
+  getURLs: () => Promise<ListenURL[]>
+  close: () => Promise<void>
+  _url?: string
+}
+
+export interface ListenOptions {
+  port?: string | number
+  hostname?: string
+  public?: boolean
+  https?: boolean | HTTPSOptions
+  [key: string]: any
+}
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
@@ -54,7 +86,7 @@ export interface NuxtDevContext {
     url?: string
     urls?: ListenURL[]
     https?: boolean | HTTPSOptions
-    addr?: AddressInfo
+    addr?: AddressInfo | { socketPath: string }
   }
 }
 
@@ -116,7 +148,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
-  listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
+  listener: DevServerListener & {
     _url?: string
     address: Omit<AddressInfo, 'family'> & { socketPath: string } | AddressInfo
   }
@@ -224,7 +256,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const kit = await loadKit(this.options.cwd)
 
-    const devServerDefaults = resolveDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
+    const devServerDefaults = resolveDevServerDefaults({}, await this.listener.getURLs().then((r: ListenURL[]) => r.map((r: ListenURL) => r.url)))
 
     this._currentNuxt = await kit.loadNuxt({
       cwd: this.options.cwd,
@@ -298,7 +330,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
-      this.listener.server.on('upgrade', (req, socket, head) => {
+      this.listener.server.on('upgrade', (req: IncomingMessage, socket: any, head: any) => {
         const nuxt = this._currentNuxt
         if (!nuxt || !nuxt.server)
           return
@@ -389,7 +421,7 @@ export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptio
   if (urls) {
     defaultConfig.vite = {
       server: {
-        allowedHosts: urls.filter(u => !isSocketURL(u)).map(u => new URL(u).hostname),
+        allowedHosts: urls.filter(u => !isSocketURL(u)).map(u => new FastURL(u).hostname),
       },
     }
   }

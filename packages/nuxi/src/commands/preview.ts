@@ -6,7 +6,6 @@ import process from 'node:process'
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { box, colors } from 'consola/utils'
-import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
@@ -25,7 +24,11 @@ const command = defineCommand({
     ...envNameArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
-    port: { ...getListhenArgs().port, alias: ['p'] },
+    port: {
+      type: 'string',
+      description: 'Port to listen on',
+      alias: ['p'],
+    },
     ...dotEnvArgs,
   },
   async run(ctx) {

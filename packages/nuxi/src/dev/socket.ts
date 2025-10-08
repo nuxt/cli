@@ -30,7 +30,7 @@ export function parseSocketURL(url: string): { socketPath: string, protocol: 'ht
   return { socketPath, protocol: ssl ? 'https' : 'http' }
 }
 
-export async function createSocketListener(handler: RequestListener, proxyAddress?: AddressInfo) {
+export async function createSocketListener(handler: RequestListener, proxyAddress?: AddressInfo | { socketPath: string }) {
   const socketPath = getSocketAddress({
     name: 'nuxt-dev',
     random: true,
@@ -41,7 +41,7 @@ export async function createSocketListener(handler: RequestListener, proxyAddres
   const url = formatSocketURL(socketPath)
   return {
     url,
-    address: { address: 'localhost', port: 3000, ...proxyAddress, socketPath },
+    address: { address: 'localhost', port: 3000, family: 'IPv4', ...proxyAddress, socketPath },
     async close() {
       try {
         server.removeAllListeners()
