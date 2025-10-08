@@ -474,11 +474,11 @@ export default defineCommand({
     const nextSteps = [
       !ctx.args.shell
       && relativeTemplateDir.length > 1
-      && `cd ${colors.blue(relativeTemplateDir)}`,
-      `Start development server with ${colors.blue(selectedPackageManager)} ${colors.blue(`${runCmd} dev`)}`,
+      && `cd ${themeColor}${relativeTemplateDir}\x1B[0m`,
+      `Start development server with ${themeColor}${selectedPackageManager}\x1B[0m ${themeColor}${runCmd} dev\x1B[0m`,
     ].filter(Boolean)
 
-    box(`Next steps:\n${nextSteps.map(step => ` › ${step}`).join('\n')}`, ` ✨ Nuxt project created with ${colors.blue(template.name)} template `, {
+    box(`Next steps:\n${nextSteps.map(step => ` › ${step}`).join('\n')}`, ` ✨ Nuxt project created with ${themeColor}${template.name}\x1B[0m template `, {
       contentAlign: 'left',
       titleAlign: 'left',
       width: 'auto',
@@ -486,7 +486,7 @@ export default defineCommand({
       contentPadding: 2,
       rounded: true,
       includePrefix: true,
-      formatBorder: (text: string) => colors.green(text),
+      formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
     })
 
     if (ctx.args.shell) {
