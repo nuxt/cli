@@ -53,4 +53,43 @@ describe('dev server', () => {
       url: `http://${host}:${port}/`,
     })
   })
+
+  it('should handle multiple set-cookie headers correctly', { timeout: 50_000 }, async () => {
+    await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3032 })
+
+    const { result: { close } } = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`]) as any
+
+    try {
+      // Wait for server to be ready
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Make request to endpoint that sets multiple cookies
+      const response = await fetch(`http://${host}:${port}/api/test-cookies`)
+
+      // Get all set-cookie headers
+      const setCookies = response.headers.getSetCookie()
+
+      // Should have 3 separate cookies
+      expect(setCookies).toHaveLength(3)
+
+      // Each cookie should be separate (not joined with comma)
+      expect(setCookies[0]).toContain('XSRF-TOKEN')
+      expect(setCookies[1]).toContain('app-session')
+      expect(setCookies[2]).toContain('user-pref')
+
+      // Cookies should NOT contain each other (would happen if joined with comma)
+      expect(setCookies[0]).not.toContain('app-session')
+      expect(setCookies[1]).not.toContain('user-pref')
+      expect(setCookies[0]).not.toContain('user-pref')
+
+      // Verify response body
+      const data = await response.json()
+      expect(data).toEqual({ ok: true, cookies: 3 })
+    }
+    finally {
+      await close()
+    }
+  })
 })
