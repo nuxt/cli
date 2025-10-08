@@ -33,6 +33,7 @@
     "prepack": "unbuild"
   },
   "dependencies": {
+    "@clack/prompts": "^1.0.0-alpha.6",
     "c12": "^3.3.0",
     "citty": "^0.1.6",
     "clipboardy": "^5.0.0",

@@ -80,6 +80,9 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6
     devDependencies:
+      '@clack/prompts':
+        specifier: ^1.0.0-alpha.6
+        version: 1.0.0-alpha.6
       '@types/node':
         specifier: ^22.18.8
         version: 22.18.8
@@ -108,7 +111,7 @@ importers:
   packages/nuxi:
     devDependencies:
       '@clack/prompts':
-        specifier: 1.0.0-alpha.6
+        specifier: ^1.0.0-alpha.6
         version: 1.0.0-alpha.6
       '@nuxt/kit':
         specifier: ^4.1.3
@@ -233,6 +236,9 @@ importers:
 
   packages/nuxt-cli:
     dependencies:
+      '@clack/prompts':
+        specifier: ^1.0.0-alpha.6
+        version: 1.0.0-alpha.6
       c12:
         specifier: ^3.3.0
         version: 3.3.0(magicast@0.3.5)

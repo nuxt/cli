@@ -33,7 +33,6 @@ export default defineBuildConfig({
   ],
   externals: [
     '@nuxt/test-utils',
-    '@clack/prompts',
     'fsevents',
     'node:url',
     'node:buffer',
