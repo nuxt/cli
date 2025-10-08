@@ -5,9 +5,9 @@ import type { PackageManagerName } from 'nypm'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import { box, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { box, spinner } from '@clack/prompts'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
@@ -475,13 +475,13 @@ export default defineCommand({
       !ctx.args.shell
       && relativeTemplateDir.length > 1
       && `cd ${colors.blue(relativeTemplateDir)}`,
-      `Start development server with ${colors.blue(selectedPackageManager)} ${colors.blue(runCmd + " dev")}`,
+      `Start development server with ${colors.blue(selectedPackageManager)} ${colors.blue(`${runCmd} dev`)}`,
     ].filter(Boolean)
 
     box(`Next steps:\n${nextSteps.map(step => ` › ${step}`).join('\n')}`, ` ✨ Nuxt project created with ${colors.blue(template.name)} template `, {
-      contentAlign: "left",
-      titleAlign: "left",
-      width: "auto",
+      contentAlign: 'left',
+      titleAlign: 'left',
+      width: 'auto',
       titlePadding: 2,
       contentPadding: 2,
       rounded: true,
