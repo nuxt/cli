@@ -49,6 +49,7 @@
     "clipboardy": "^5.0.0",
     "confbox": "^0.2.2",
     "consola": "^3.4.2",
+    "@clack/prompts": "1.0.0-alpha.6",
     "defu": "^6.1.4",
     "exsolve": "^1.0.7",
     "fuse.js": "^7.1.0",

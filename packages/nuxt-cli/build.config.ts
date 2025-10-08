@@ -27,5 +27,6 @@ export default defineBuildConfig({
   externals: [
     '@nuxt/test-utils',
     '@nuxt/schema',
+    '@clack/prompts',
   ],
 })
