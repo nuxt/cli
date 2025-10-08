@@ -21,7 +21,7 @@ import { createFetchHandler } from '../dev/fetch'
 import { isSocketURL, parseSocketURL } from '../dev/socket'
 import { resolveLoadingTemplate } from '../dev/utils'
 import { connectToChildNetwork, connectToChildSocket } from '../dev/websocket'
-import { showVersions } from '../utils/banner'
+import { showVersionsFromConfig } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -91,7 +91,6 @@ const command = defineCommand({
     // Prepare
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    showVersions(cwd)
 
     // Load Nuxt Config
     const { loadNuxtConfig } = await loadKit(cwd)
@@ -106,6 +105,8 @@ const command = defineCommand({
         ...ctx.data?.overrides,
       },
     })
+
+    showVersionsFromConfig(cwd, nuxtOptions)
 
     const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
     if (!ctx.args.fork) {
@@ -228,6 +229,13 @@ async function createDevHandler(cwd: string, nuxtOptions: NuxtOptions, listenOpt
     },
     // Loading handler
     async (req, res) => {
+      if (res.headersSent) {
+        if (!res.writableEnded) {
+          res.end()
+        }
+        return
+      }
+
       res.statusCode = 503
       res.setHeader('Content-Type', 'text/html')
       res.setHeader('Cache-Control', 'no-store')

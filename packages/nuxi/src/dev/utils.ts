@@ -159,6 +159,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
+    if (res.headersSent) {
+      if (!res.writableEnded) {
+        res.end()
+      }
+      return
+    }
+
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate = this.options.loadingTemplate

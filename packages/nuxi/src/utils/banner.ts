@@ -1,20 +1,17 @@
-import { readFileSync } from 'node:fs'
+import type { NuxtOptions } from '@nuxt/schema'
 
+import { readFileSync } from 'node:fs'
 import { colors } from 'consola/utils'
 import { resolveModulePath } from 'exsolve'
 
-import { loadKit, tryResolveNuxt } from './kit'
+import { tryResolveNuxt } from './kit'
 import { logger } from './logger'
 
-export async function showVersions(cwd: string) {
+export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
   const { bold, gray, green } = colors
-  const nuxtDir = tryResolveNuxt(cwd)
-
-  const kit = await loadKit(cwd)
-  const config = await kit.loadNuxtConfig({ cwd })
 
   function getBuilder(): { name: string, version: string } {
-    switch (config.builder) {
+    switch (config!.builder) {
       case '@nuxt/rspack-builder':
         return { name: 'Rspack', version: getPkgVersion('@rspack/core') }
       case '@nuxt/webpack-builder':
@@ -29,7 +26,7 @@ export async function showVersions(cwd: string) {
   }
 
   function getPkgJSON(pkg: string) {
-    for (const url of [cwd, nuxtDir]) {
+    for (const url of [cwd, tryResolveNuxt(cwd)]) {
       if (!url) {
         continue
       }
@@ -59,4 +56,10 @@ export async function showVersions(cwd: string) {
     + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
     + gray(')'),
   )
+}
+
+export async function showVersions(cwd: string, kit: typeof import('@nuxt/kit')) {
+  const config = await kit.loadNuxtConfig({ cwd })
+
+  return showVersionsFromConfig(cwd, config)
 }

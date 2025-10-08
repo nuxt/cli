@@ -1,7 +1,7 @@
 name: size
+
 on:
-  # this action will error unless run in a pr context
-  pull_request_target:
+  pull_request:
     branches:
       - main
 
@@ -33,11 +33,20 @@ jobs:
       - name: 🛠 Build project
         run: pnpm build
 
+      - name: 💾 Save PR number
+        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
+
       - name: ⏫ Upload stats.json
         uses: actions/upload-artifact@v4
         with:
           name: head-stats
           path: ./packages/*/stats.json
+
+      - name: ⏫ Upload PR number
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-number
+          path: pr-number.txt
 
   # Build base for comparison and upload stats.json
   # You may replace this with your own build method. All that
@@ -66,23 +75,3 @@ jobs:
         with:
           name: base-stats
           path: ./packages/*/stats.json
-
-  # run the action against the stats.json files
-  compare:
-    runs-on: ubuntu-latest
-    needs: [build-base, build-head]
-    permissions:
-      pull-requests: write
-      issues: write
-    strategy:
-      matrix:
-        package: [nuxi, nuxt-cli, create-nuxt]
-    steps:
-      - name: ⏬ Download stats.json
-        uses: actions/download-artifact@v5
-      - uses: twk3/rollup-size-compare-action@v1.2.0
-        with:
-          title: ${{ matrix.package }} size comparison
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          current-stats-json-path: ./head-stats/${{ matrix.package }}/stats.json
-          base-stats-json-path: ./base-stats/${{ matrix.package }}/stats.json

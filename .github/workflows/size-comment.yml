@@ -1,0 +1,89 @@
+name: size-comment
+
+on:
+  workflow_run:
+    workflows: [size]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    # Only run if the build workflow succeeded
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: latest
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+        with:
+          sparse-checkout: scripts/parse-sizes.ts
+          sparse-checkout-cone-mode: false
+
+      - name: ⏬ Download artifacts from workflow run
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: .
+
+      - name: 🔍 Get PR number from artifact
+        id: pr
+        run: |
+          if [ -f pr-number/pr-number.txt ]; then
+            PR_NUMBER=$(cat pr-number/pr-number.txt)
+            echo "result=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "Found PR number: $PR_NUMBER"
+          else
+            echo "PR number file not found"
+            echo "result=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 📊 Generate size comparison
+        id: sizes
+        run: |
+          COMMENT=$(node scripts/parse-sizes.ts nuxi nuxt-cli create-nuxt)
+          echo "comment<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: 💬 Post or update comment
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const prNumber = ${{ steps.pr.outputs.result }};
+            const commentBody = `${{ steps.sizes.outputs.comment }}`;
+
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const botComment = comments.data.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Bundle Size Comparison')
+            );
+
+            if (botComment) {
+              console.log(`Updating existing comment ${botComment.id}`);
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              console.log('Creating new comment');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+            }
