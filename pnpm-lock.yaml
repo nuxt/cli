@@ -80,9 +80,6 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6
     devDependencies:
-      '@clack/prompts':
-        specifier: ^1.0.0-alpha.6
-        version: 1.0.0-alpha.6
       '@types/node':
         specifier: ^22.18.8
         version: 22.18.8

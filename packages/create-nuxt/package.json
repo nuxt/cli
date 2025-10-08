@@ -33,7 +33,6 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@clack/prompts": "^1.0.0-alpha.6",
     "@types/node": "^22.18.8",
     "rollup": "^4.52.4",
     "rollup-plugin-visualizer": "^6.0.4",
