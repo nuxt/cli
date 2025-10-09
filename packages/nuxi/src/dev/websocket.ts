@@ -11,21 +11,30 @@ export function connectToChildSocket(
 ): void {
   const childSocket = connect(socketPath)
 
+  let isConnected = false
+
   childSocket.on('error', (error) => {
-    console.error('Child socket connection error:', error)
+    const errorMessage = error.message || ''
+    if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('EPIPE') && !errorMessage.includes('premature close')) {
+      console.error('Child socket connection error:', error)
+    }
     if (!clientSocket.destroyed) {
       clientSocket.destroy()
     }
   })
 
   clientSocket.on('error', (error) => {
-    console.error('Client socket error:', error)
+    const errorMessage = error.message || ''
+    if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('EPIPE') && !isConnected) {
+      console.error('Client socket error:', error)
+    }
     if (!childSocket.destroyed) {
       childSocket.destroy()
     }
   })
 
   childSocket.on('connect', () => {
+    isConnected = true
     // Forward the HTTP upgrade request
     const requestLine = `${req.method} ${req.url} HTTP/${req.httpVersion}\r\n`
     const headers = Object.entries(req.headers)
@@ -79,21 +88,30 @@ export function connectToChildNetwork(
 ): void {
   const childSocket = connect(port, host)
 
+  let isConnected = false
+
   childSocket.on('error', (error) => {
-    console.error('Child network connection error:', error)
+    const errorMessage = error.message || ''
+    if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('EPIPE') && !errorMessage.includes('premature close')) {
+      console.error('Child network connection error:', error)
+    }
     if (!clientSocket.destroyed) {
       clientSocket.destroy()
     }
   })
 
   clientSocket.on('error', (error) => {
-    console.error('Client socket error:', error)
+    const errorMessage = error.message || ''
+    if (!errorMessage.includes('ECONNRESET') && !errorMessage.includes('EPIPE') && !isConnected) {
+      console.error('Client socket error:', error)
+    }
     if (!childSocket.destroyed) {
       childSocket.destroy()
     }
   })
 
   childSocket.on('connect', () => {
+    isConnected = true
     // Forward the HTTP upgrade request
     const requestLine = `${req.method} ${req.url} HTTP/${req.httpVersion}\r\n`
     const headers = Object.entries(req.headers)

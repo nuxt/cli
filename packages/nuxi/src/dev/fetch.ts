@@ -92,6 +92,13 @@ function fetchWithNodeHttp(socketPath: string, url: URL, init?: RequestInit & { 
         }
       }
 
+      res.on('error', (err) => {
+        // Only reject if we haven't resolved yet
+        if (err && err.message && !err.message.includes('aborted')) {
+          reject(err)
+        }
+      })
+
       resolve({
         status: res.statusCode || 200,
         statusText: res.statusMessage || 'OK',
@@ -265,13 +272,33 @@ export function createFetchHandler(
         return
       }
 
+      const isWebSocketUpgrade = req.headers.upgrade?.toLowerCase() === 'websocket'
+      if (isWebSocketUpgrade) {
+        res.statusCode = 426
+        res.setHeader('Connection', 'close')
+        res.end('Upgrade Required')
+        return
+      }
+
       const webRequest = new NodeRequest({ req, res })
       const webResponse = await fetchAddress(address, webRequest)
       await sendWebResponse(res, webResponse)
     }
     catch (error) {
-      console.error('Fetch handler error:', error)
-      await onError(req, res)
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const isWebSocketError = errorMessage.toLowerCase().includes('websocket')
+        || errorMessage.toLowerCase().includes('upgrade')
+
+      if (!isWebSocketError) {
+        console.error('Fetch handler error:', error)
+      }
+
+      if (!res.headersSent) {
+        await onError(req, res)
+      }
+      else if (!res.writableEnded) {
+        res.end()
+      }
     }
   }
 }
