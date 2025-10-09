@@ -74,7 +74,21 @@ function fetchWithNodeHttp(socketPath: string, url: URL, init?: RequestInit & { 
       const responseHeaders = new Headers()
       for (const [key, value] of Object.entries(res.headers)) {
         if (value !== undefined) {
-          responseHeaders.set(key, Array.isArray(value) ? value.join(', ') : value)
+          if (key.toLowerCase() === 'set-cookie') {
+            // `set-cookie` must never be joined! (RFC 6265)
+            if (Array.isArray(value)) {
+              for (const cookie of value) {
+                responseHeaders.append('set-cookie', cookie)
+              }
+            }
+            else {
+              responseHeaders.append('set-cookie', value)
+            }
+          }
+          else {
+            // Other headers can be joined with comma (per HTTP spec)
+            responseHeaders.set(key, Array.isArray(value) ? value.join(', ') : value)
+          }
         }
       }
 
@@ -176,9 +190,20 @@ async function sendWebResponse(res: ServerResponse, webResponse: Response | Node
   res.statusCode = webResponse.status
   res.statusMessage = webResponse.statusText
 
-  // Set headers
+  // Special handling for set-cookie header
+  const setCookies = webResponse.headers.getSetCookie?.()
+  if (setCookies && setCookies.length > 0) {
+    // Use appendHeader to add multiple set-cookie headers
+    for (const cookie of setCookies) {
+      res.appendHeader('set-cookie', cookie)
+    }
+  }
+
+  // Set all other headers (skip set-cookie as it's handled above)
   for (const [key, value] of webResponse.headers.entries()) {
-    res.setHeader(key, value)
+    if (key.toLowerCase() !== 'set-cookie') {
+      res.setHeader(key, value)
+    }
   }
 
   // Stream body
