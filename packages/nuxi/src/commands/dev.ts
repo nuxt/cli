@@ -11,7 +11,7 @@ import { defineCommand } from 'citty'
 import { isSocketSupported } from 'get-port-please'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { FastURL, serve } from 'srvx'
+import { FastURL, serve } from 'srvx/node'
 import { isBun, isDeno, isTest } from 'std-env'
 
 import { Youch } from 'youch'
@@ -286,6 +286,8 @@ async function createDevHandler(cwd: string, nuxtOptions: NuxtOptions, listenOpt
         }
       : undefined,
   })
+
+  server.node!.handler = toNodeListener(server.fetch)
 
   await server.ready()
 

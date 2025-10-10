@@ -1,8 +1,9 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
+import type { H3 } from 'h3-next'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
-import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { IncomingMessage } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
@@ -13,18 +14,16 @@ import { pathToFileURL } from 'node:url'
 
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
-import { toNodeListener } from 'h3'
+import { NodeListener, toNodeListener } from 'h3'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
-import { FastURL } from 'srvx'
+import { FastURL, NodeRequest } from 'srvx/node'
 import { provider } from 'std-env'
-import { joinURL } from 'ufo'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { renderError } from './error'
 import { formatSocketURL, isSocketURL } from './socket'
 
 export interface HTTPSOptions {
@@ -44,11 +43,9 @@ export interface ListenURL {
 export interface DevServerListener {
   server: IncomingMessage['socket'] extends { server: infer S } ? S : any
   url: string
-  https?: boolean | HTTPSOptions
-  address: AddressInfo
+  address: AddressInfo | { socketPath: string }
   getURLs: () => Promise<ListenURL[]>
   close: () => Promise<void>
-  _url?: string
 }
 
 export interface ListenOptions {
@@ -127,7 +124,13 @@ export class FileChangeTracker {
   }
 }
 
-type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
+type NuxtWithServer = Omit<Nuxt, 'server'> & {
+  server?:
+    // h3 v1
+    | NitroDevServer
+    // h3 v2
+    | { app: H3 }
+}
 
 interface DevServerEventMap {
   'loading:error': [error: Error]
@@ -137,7 +140,7 @@ interface DevServerEventMap {
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
-  private _handler?: RequestListener
+  private _handler?: NodeListener | ((request: Request) => Response | Promise<Response>)
   private _distWatcher?: FSWatcher
   private _configWatcher?: () => void
   private _currentNuxt?: NuxtWithServer
@@ -147,7 +150,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   private cwd: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
-  handler: RequestListener
+  handler: (request: Request) => Promise<Response>
   listener: DevServerListener & {
     _url?: string
     address: Omit<AddressInfo, 'family'> & { socketPath: string } | AddressInfo
@@ -168,17 +171,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     this.cwd = options.cwd
 
-    this.handler = async (req, res) => {
+    this.handler = async (request: Request): Promise<Response> => {
       if (this._loadingError) {
-        this._renderError(req, res)
-        return
+        return this._renderError()
       }
       await _initPromise
       if (this._handler) {
-        this._handler(req, res)
+        const nodeRequest = new NodeRequest({ })
+        return this._handler(request)
       }
       else {
-        this._renderLoadingScreen(req, res)
+        return this._renderLoadingScreen()
       }
     }
 
@@ -186,27 +189,31 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.listener = undefined
   }
 
-  _renderError(req: IncomingMessage, res: ServerResponse) {
-    renderError(req, res, this._loadingError)
+  _renderError(): Response {
+    const errorMessage = this._loadingError?.message || 'An error occurred'
+    const errorStack = this._loadingError?.stack || ''
+    return new Response(`<h1>Error</h1><pre>${errorMessage}\n\n${errorStack}</pre>`, {
+      status: 500,
+      headers: { 'Content-Type': 'text/html' },
+    })
   }
 
-  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
-    if (res.headersSent) {
-      if (!res.writableEnded) {
-        res.end()
-      }
-      return
-    }
-
-    res.statusCode = 503
-    res.setHeader('Content-Type', 'text/html')
+  async _renderLoadingScreen(): Promise<Response> {
     const loadingTemplate = this.options.loadingTemplate
       || this._currentNuxt?.options.devServer.loadingTemplate
       || await resolveLoadingTemplate(this.cwd)
-    res.end(
+
+    return new Response(
       loadingTemplate({
         loading: this._loadingMessage || 'Loading...',
       }),
+      {
+        status: 503,
+        headers: {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store',
+        },
+      },
     )
   }
 
@@ -329,33 +336,37 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       await this.load(true)
     })
 
-    if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
-      this.listener.server.on('upgrade', (req: IncomingMessage, socket: any, head: any) => {
-        const nuxt = this._currentNuxt
-        if (!nuxt || !nuxt.server)
-          return
-        const viteHmrPath = joinURL(
-          nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
-          nuxt.options.app.buildAssetsDir,
-        )
-        if (req.url?.startsWith(viteHmrPath)) {
-          return // Skip for Vite HMR
-        }
-        nuxt.server.upgrade(req, socket, head)
-      })
-    }
+    // if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
+    //   this.listener.server.on('upgrade', (req: IncomingMessage, socket: any, head: any) => {
+    //     const nuxt = this._currentNuxt
+    //     if (!nuxt || !nuxt.server)
+    //       return
+    //     const viteHmrPath = joinURL(
+    //       nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
+    //       nuxt.options.app.buildAssetsDir,
+    //     )
+    //     if (req.url?.startsWith(viteHmrPath)) {
+    //       return // Skip for Vite HMR
+    //     }
+    //     nuxt.server.upgrade(req, socket, head)
+    //   })
+    // }
 
     await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
     // Sync internal server info to the internals
     // It is important for vite-node to use the internal URL but public proto
     const addr = this.listener.address
-    this._currentNuxt.options.devServer.host = addr.address
-    this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
+    const devServerUrl = 'socketPath' in addr
+      ? formatSocketURL(addr.socketPath, !!this.options.devContext.proxy?.https)
+      : getAddressURL(addr, !!this.options.devContext.proxy?.https)
+
+    this._currentNuxt.options.devServer.host = 'address' in addr ? addr.address : undefined
+    this._currentNuxt.options.devServer.port = 'port' in addr ? addr.port : 3000
+    this._currentNuxt.options.devServer.url = devServerUrl
     this._currentNuxt.options.devServer.https = this.options.devContext.proxy?.https as boolean | { key: string, cert: string }
 
-    if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
+    if (this.options.devContext.proxy?.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
@@ -380,8 +391,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
-    this._handler = toNodeListener(this._currentNuxt.server.app)
-    this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
+    // Convert h3 v1 Node.js handler to a Web fetch handler
+    const app = this._currentNuxt.server.app
+    if ('fetch' in app) {
+      // h3 v2
+      this._handler = (request: Request) => app.fetch(request)
+    }
+    else {
+      const listener = toNodeListener(app)
+      this._handler = listener
+    }
+    this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.options.devContext.proxy?.https) : `http://127.0.0.1:${addr.port}`)
   }
 
   _watchConfig() {

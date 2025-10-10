@@ -21,6 +21,10 @@
     "test:dist": "pnpm -r test:dist",
     "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
+  "dependencies": {
+    "h3": "^1.15.4",
+    "h3-next": "npm:h3@2.0.0-beta.5"
+  },
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
     "@codspeed/vitest-plugin": "^5.0.1",

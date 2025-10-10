@@ -18,6 +18,13 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      h3:
+        specifier: ^1.15.4
+        version: 1.15.4
+      h3-next:
+        specifier: npm:h3@2.0.0-beta.5
+        version: h3@2.0.0-beta.5
     devDependencies:
       '@antfu/eslint-config':
         specifier: ^5.4.1

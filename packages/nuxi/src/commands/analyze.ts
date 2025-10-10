@@ -7,7 +7,7 @@ import { defineCommand } from 'citty'
 import { defu } from 'defu'
 import { eventHandler, H3 } from 'h3-next'
 import { join, resolve } from 'pathe'
-import { serve } from 'srvx'
+import { serve } from 'srvx/node'
 
 import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'

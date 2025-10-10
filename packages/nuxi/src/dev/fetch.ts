@@ -1,6 +1,6 @@
 import { request as httpRequest } from 'node:http'
 import { Readable } from 'node:stream'
-import { FastURL } from 'srvx'
+import { FastURL } from 'srvx/node'
 import { isWindows } from 'std-env'
 import { Agent } from 'undici'
 
