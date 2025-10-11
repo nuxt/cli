@@ -79,5 +79,9 @@
     "unplugin-purge-polyfills": "^0.1.0",
     "vitest": "^3.2.4",
     "youch": "^4.1.0-beta.11"
+  },
+  "dependencies": {
+    "@bomb.sh/tab": "^0.0.4",
+    "nuxi": "3.16.0"
   }
 }
