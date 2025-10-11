@@ -8,7 +8,7 @@ All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Shell Autocompletions
 
-Nuxi now supports shell autocompletions for `zsh`, `bash`, `fish`, and `powershell`, powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab). 
+Nuxi now supports shell autocompletions for `zsh`, `bash`, `fish`, and `powershell`, powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
 
 For permanent setup in zsh, add this to your `~/.zshrc`:
 
