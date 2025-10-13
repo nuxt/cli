@@ -26,14 +26,13 @@
       ],
       "ignoreDependencies": [
         "c12",
-        "clipboardy",
         "confbox",
         "consola",
+        "copy-paste",
         "defu",
         "exsolve",
         "fuse.js",
         "giget",
-        "h3",
         "jiti",
         "nypm",
         "ofetch",
@@ -45,7 +44,6 @@
         "semver",
         "srvx",
         "ufo",
-        "undici",
         "youch"
       ]
     }
