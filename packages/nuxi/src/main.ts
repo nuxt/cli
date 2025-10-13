@@ -84,7 +84,7 @@ export const main = defineCommand({
   },
 })
 
-export const runMain = async () => {
+export async function runMain() {
   const { initCompletions } = await import('./completions')
   await initCompletions(main as any)
 
