@@ -5,6 +5,7 @@ import type { PackageManagerName } from 'nypm'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import { box, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -333,8 +334,9 @@ export default defineCommand({
       logger.info('Skipping install dependencies step.')
     }
     else {
-      logger.start('Installing dependencies...')
+      const spin = spinner()
 
+      spin.start('Installing dependencies...')
       try {
         await installDependencies({
           cwd: template.dir,
@@ -343,16 +345,16 @@ export default defineCommand({
             command: selectedPackageManager,
           },
         })
+        spin.stop('Dependencies installed successfully')
       }
       catch (err) {
+        spin.stop('Failed to install dependencies')
         if (process.env.DEBUG) {
           throw err
         }
         logger.error((err as Error).toString())
         process.exit(1)
       }
-
-      logger.success('Installation completed.')
     }
 
     if (ctx.args.gitInit === undefined) {
@@ -467,21 +469,25 @@ export default defineCommand({
     }
 
     // Display next steps
-    logger.log(
-      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
-    )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
     const nextSteps = [
       !ctx.args.shell
       && relativeTemplateDir.length > 1
-      && `\`cd ${relativeTemplateDir}\``,
-      `Start development server with \`${selectedPackageManager} ${runCmd} dev\``,
+      && `cd ${themeColor}${relativeTemplateDir}\x1B[0m`,
+      `Start development server with ${themeColor}${selectedPackageManager}\x1B[0m ${themeColor}${runCmd} dev\x1B[0m`,
     ].filter(Boolean)
 
-    for (const step of nextSteps) {
-      logger.log(` › ${step}`)
-    }
+    box(`Next steps:\n${nextSteps.map(step => ` › ${step}`).join('\n')}`, ` ✨ Nuxt project created with ${themeColor}${template.name}\x1B[0m template `, {
+      contentAlign: 'left',
+      titleAlign: 'left',
+      width: 'auto',
+      titlePadding: 2,
+      contentPadding: 2,
+      rounded: true,
+      includePrefix: true,
+      formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
+    })
 
     if (ctx.args.shell) {
       startShell(template.dir)
