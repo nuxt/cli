@@ -1,8 +1,8 @@
-import type { CommandDef } from 'citty'
+import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
 
-export async function initCompletions(command: CommandDef) {
-  const completion = await tab(command as any)
+export async function initCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
+  const completion = await tab(command)
 
   const devCommand = completion.commands.get('dev')
   if (devCommand) {

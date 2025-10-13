@@ -9,6 +9,7 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
+import { initCompletions } from './completions'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { logger } from './utils/logger'
@@ -85,8 +86,7 @@ export const main = defineCommand({
 })
 
 export async function runMain() {
-  const { initCompletions } = await import('./completions')
-  await initCompletions(main as any)
+  await initCompletions(main)
 
   return _runMain(main)
 }
