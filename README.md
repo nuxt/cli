@@ -8,15 +8,30 @@ All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Shell Autocompletions
 
-Nuxi now supports shell autocompletions for `zsh`, `bash`, `fish`, and `powershell`, powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab). 
+Nuxi provides shell autocompletions for commands, options, and option values powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
+
+### Setup
 
 For permanent setup in zsh, add this to your `~/.zshrc`:
 
 ```bash
-source <(vitest complete zsh)
-# same can be done for other shells
+# Add to ~/.zshrc for permanent autocompletions (same can be done for other shells)
+source <(nuxi complete zsh)
 ```
-For more information, see [bomb.sh/tab](https://bomb.sh/docs/tab/).
+
+### Package Manager Integration
+
+`@bomb.sh/tab` integrates with [package managers](https://github.com/bombshell-dev/tab?tab=readme-ov-file#package-manager-completions). Autocompletions work when running nuxi directly:
+
+```bash
+npx nuxi <Tab>
+npm exec nuxi <Tab>
+pnpm nuxi <Tab>
+yarn nuxi <Tab>
+bun nuxi <Tab>
+```
+
+For package manager autocompletions, you should install [tab's package manager completions](https://github.com/bombshell-dev/tab?tab=readme-ov-file#package-manager-completions) separately.
 
 ## Contributing
 
