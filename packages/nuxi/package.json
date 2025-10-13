@@ -39,7 +39,7 @@
     "test:dist": "node ./bin/nuxi.mjs info ./playground"
   },
   "devDependencies": {
-    "@bomb.sh/tab": "^0.0.4",
+    "@bomb.sh/tab": "^0.0.5",
     "@nuxt/kit": "^4.1.2",
     "@nuxt/schema": "^4.1.2",
     "@nuxt/test-utils": "^3.19.2",
