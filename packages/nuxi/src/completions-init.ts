@@ -1,6 +1,6 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
-import { templates } from './completions-data'
+import { templates } from './utils/completions-data'
 
 export async function setupInitCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
     const completion = await tab(command)

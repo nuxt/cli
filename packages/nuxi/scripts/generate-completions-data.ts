@@ -1,11 +1,11 @@
 /** generate completion data from nitropack and Nuxt starter repo */
 
 import { writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
-// @ts-expect-error: internal nitropack file
-import allPresets from '../node_modules/nitropack/dist/presets/_all.gen.mjs'
+import { dirname, join, resolve } from 'node:path'
 
+const require = createRequire(import.meta.url)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface PresetMeta {
@@ -21,7 +21,11 @@ async function generateCompletionData() {
         templates: [],
     }
 
-    data.nitroPresets = (allPresets as PresetMeta[])
+    const nitropackPath = dirname(require.resolve('nitropack/package.json'))
+    const presetsPath = join(nitropackPath, 'dist/presets/_all.gen.mjs')
+    const { default: allPresets } = await import(presetsPath) as { default: PresetMeta[] }
+
+    data.nitroPresets = allPresets
         .map(preset => preset._meta?.name)
         .filter((name): name is string => Boolean(name))
         .filter(name => !['base-worker', 'nitro-dev', 'nitro-prerender'].includes(name))
@@ -52,7 +56,7 @@ async function generateCompletionData() {
         .filter(name => name !== 'community')
         .sort()
 
-    const outputPath = resolve(__dirname, '../src/completions-data.ts')
+    const outputPath = resolve(__dirname, '../src/utils/completions-data.ts')
     const content = `/** Auto-generated file */
 
 export const nitroPresets = ${JSON.stringify(data.nitroPresets, null, 2)} as const
