@@ -16,19 +16,18 @@ For permanent setup in zsh, add this to your `~/.zshrc`:
 
 ```bash
 # Add to ~/.zshrc for permanent autocompletions (same can be done for other shells)
-source <(nuxi complete zsh)
+source <(nuxt complete zsh)
 ```
 
 ### Package Manager Integration
 
-`@bomb.sh/tab` integrates with [package managers](https://github.com/bombshell-dev/tab?tab=readme-ov-file#package-manager-completions). Autocompletions work when running nuxi directly:
+`@bomb.sh/tab` integrates with [package managers](https://github.com/bombshell-dev/tab?tab=readme-ov-file#package-manager-completions). Autocompletions work when running `nuxt` directly within a Nuxt project:
 
 ```bash
-npx nuxi <Tab>
-npm exec nuxi <Tab>
-pnpm nuxi <Tab>
-yarn nuxi <Tab>
-bun nuxi <Tab>
+pnpm nuxt <Tab>
+npm run nuxt <Tab>
+yarn nuxt <Tab>
+bun nuxt <Tab>
 ```
 
 For package manager autocompletions, you should install [tab's package manager completions](https://github.com/bombshell-dev/tab?tab=readme-ov-file#package-manager-completions) separately.

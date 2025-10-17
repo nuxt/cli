@@ -1,5 +1,6 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
+import { nitroPresets, templates } from './completions-data'
 
 export async function initCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
   const completion = await tab(command)
@@ -30,16 +31,9 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     const presetOption = buildCommand.options.get('preset')
     if (presetOption) {
       presetOption.handler = (complete) => {
-        complete('node-server', 'Node.js server')
-        complete('static', 'Static hosting')
-        complete('cloudflare-pages', 'Cloudflare Pages')
-        complete('vercel', 'Vercel')
-        complete('netlify', 'Netlify')
-        complete('aws-lambda', 'AWS Lambda')
-        complete('azure', 'Azure')
-        complete('firebase', 'Firebase')
-        complete('deno-deploy', 'Deno Deploy')
-        complete('bun', 'Bun runtime')
+        for (const preset of nitroPresets) {
+          complete(preset, '')
+        }
       }
     }
   }
@@ -49,8 +43,9 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     const templateOption = initCommand.options.get('template')
     if (templateOption) {
       templateOption.handler = (complete) => {
-        complete('v3', 'Nuxt 3 template')
-        complete('v4', 'Nuxt 4 template')
+        for (const template of templates) {
+          complete(template, '')
+        }
       }
     }
   }
@@ -65,7 +60,7 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     }
   }
 
-  const logLevelCommands = ['dev', 'build', 'generate', 'preview', 'prepare']
+  const logLevelCommands = ['dev', 'build', 'generate', 'preview', 'prepare', 'init']
   for (const cmdName of logLevelCommands) {
     const cmd = completion.commands.get(cmdName)
     if (cmd) {

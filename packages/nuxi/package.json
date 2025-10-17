@@ -29,17 +29,18 @@
   },
   "scripts": {
     "dev:prepare": "unbuild --stub",
-    "build": "unbuild",
+    "build": "pnpm generate:completions-data && unbuild",
     "build:stub": "unbuild --stub",
     "dev": "node ./bin/nuxi.mjs dev ./playground",
     "dev:bun": "bun --bun ./bin/nuxi.mjs dev ./playground",
+    "generate:completions-data": "tsx ./scripts/generate-completions-data.ts",
     "nuxi": "node ./bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./bin/nuxi.mjs",
     "prepack": "unbuild",
     "test:dist": "node ./bin/nuxi.mjs info ./playground"
   },
   "devDependencies": {
-    "@bomb.sh/tab": "^0.0.5",
+    "@bomb.sh/tab": "^0.0.6",
     "@nuxt/kit": "^4.1.3",
     "@nuxt/schema": "^4.1.3",
     "@nuxt/test-utils": "^3.19.2",
