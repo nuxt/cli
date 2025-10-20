@@ -22,7 +22,7 @@
     "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^5.4.1",
+    "@antfu/eslint-config": "^6.0.0",
     "@codspeed/vitest-plugin": "^5.0.1",
     "@nuxt/eslint-config": "^1.9.0",
     "@nuxt/test-utils": "^3.19.2",
