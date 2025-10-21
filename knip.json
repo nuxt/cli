@@ -25,6 +25,7 @@
         "test/fixtures/*"
       ],
       "ignoreDependencies": [
+        "@clack/prompts",
         "c12",
         "clipboardy",
         "confbox",
@@ -45,7 +46,6 @@
         "semver",
         "srvx",
         "ufo",
-        "undici",
         "youch"
       ]
     }
