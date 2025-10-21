@@ -9,14 +9,12 @@
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
-    "declaration": true,
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": false,
     "skipLibCheck": true
   },
   "exclude": [
-    "playground/**/*",
-    "**/dist/**"
+    "playground/**/*"
   ]
 }
