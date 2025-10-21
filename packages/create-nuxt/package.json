@@ -25,9 +25,8 @@
     "node": "^16.10.0 || >=18.0.0"
   },
   "scripts": {
-    "dev:prepare": "unbuild --stub",
-    "build": "unbuild",
-    "prepack": "unbuild"
+    "build": "tsdown",
+    "prepack": "tsdown"
   },
   "dependencies": {
     "citty": "^0.1.6"
@@ -36,8 +35,8 @@
     "@types/node": "^22.18.12",
     "rollup": "^4.52.5",
     "rollup-plugin-visualizer": "^6.0.5",
+    "tsdown": "^0.15.9",
     "typescript": "^5.9.3",
-    "unbuild": "^3.6.1",
     "unplugin-purge-polyfills": "^0.1.0"
   }
 }
