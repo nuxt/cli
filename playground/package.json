@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "nuxi dev",
-    "dev:prepare": "nuxt prepare",
+    "dev": "nuxt dev",
+    "prepare": "nuxt prepare",
     "test": "vitest"
   },
   "dependencies": {
