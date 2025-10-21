@@ -154,11 +154,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.listener = undefined
   }
 
-  _renderError(req: IncomingMessage, res: ServerResponse) {
+  _renderError(req: IncomingMessage, res: ServerResponse): void {
     renderError(req, res, this._loadingError)
   }
 
-  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse) {
+  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (res.headersSent) {
       if (!res.writableEnded) {
         res.end()
@@ -178,17 +178,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     )
   }
 
-  async init() {
+  async init(): Promise<void> {
     await this.load()
     this._watchConfig()
   }
 
-  closeWatchers() {
+  closeWatchers(): void {
     this._distWatcher?.close()
     this._configWatcher?.()
   }
 
-  async load(reload?: boolean, reason?: string) {
+  async load(reload?: boolean, reason?: string): Promise<void> {
     try {
       this.closeWatchers()
       await this._load(reload, reason)
@@ -204,13 +204,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
   }
 
-  async close() {
+  async close(): Promise<void> {
     if (this._currentNuxt) {
       await this._currentNuxt.close()
     }
   }
 
-  async _load(reload?: boolean, reason?: string) {
+  async _load(reload?: boolean, reason?: string): Promise<void> {
     const action = reload ? 'Restarting' : 'Starting'
     this._loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
     this._handler = undefined
@@ -352,7 +352,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
   }
 
-  _watchConfig() {
+  _watchConfig(): void {
     this._configWatcher = createConfigWatcher(
       this.cwd,
       this.options.dotenv.fileName,
@@ -372,7 +372,7 @@ function getAddressURL(addr: Pick<AddressInfo, 'address' | 'port'>, https: boole
   return `${proto}://${host}:${port}/`
 }
 
-export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>) {
+export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>): Partial<Pick<NuxtConfig, 'devServer' | 'vite'>> {
   if (listenOptions.public || provider === 'codesandbox') {
     return {
       devServer: { cors: { origin: '*' } },
@@ -383,7 +383,7 @@ export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOpti
   return {}
 }
 
-export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []) {
+export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []): Partial<NuxtConfig> {
   const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls) {
@@ -453,7 +453,7 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
 }
 
 // Nuxt <3.6 did not have the loading template defined in the schema
-export async function resolveLoadingTemplate(cwd: string) {
+export async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
   const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
   const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })
   const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)

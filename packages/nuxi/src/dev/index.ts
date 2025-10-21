@@ -1,5 +1,6 @@
 import type { NuxtConfig } from '@nuxt/schema'
-import type { ListenOptions } from 'listhen'
+import type { Listener, ListenOptions } from 'listhen'
+import type { AddressInfo } from 'node:net'
 import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
@@ -47,7 +48,20 @@ class IPC {
 
 const ipc = new IPC()
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, _listenOptions?: true | Partial<ListenOptions>) {
+interface InitializeReturn {
+  listener: Pick<Listener, 'https' | 'server' | 'url' | 'getURLs' | 'close'> & {
+    _url?: string
+    address: (Omit<AddressInfo, 'family'> & {
+      socketPath: string
+    }) | AddressInfo
+  }
+  close: () => Promise<void>
+  onReady: (callback: (address: string) => void) => void
+  onRestart: (callback: (devServer: NuxtDevServer) => void) => void
+
+}
+
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, _listenOptions?: true | Partial<ListenOptions>): Promise<InitializeReturn> {
   const devServerOverrides = resolveDevServerOverrides({
     public: devContext.public,
   })

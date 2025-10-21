@@ -333,6 +333,9 @@ async function startSubprocess(cwd: string, args: { logLevel: string, clear: boo
 
   async function restart() {
     devHandler?.clearError()
+    if (!globalThis.__nuxt_cli__) {
+      return
+    }
     // Kill previous process with restart signal (not supported on Windows)
     if (process.platform === 'win32') {
       kill('SIGTERM')

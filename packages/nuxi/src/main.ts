@@ -1,3 +1,4 @@
+import type { CommandDef } from 'citty'
 import nodeCrypto from 'node:crypto'
 import { builtinModules, createRequire } from 'node:module'
 import { resolve } from 'node:path'
@@ -29,7 +30,7 @@ if (!process.getBuiltinModule) {
   }
 }
 
-export const main = defineCommand({
+const _main = defineCommand({
   meta: {
     name: name.endsWith('nightly') ? name : 'nuxi',
     version,
@@ -84,4 +85,6 @@ export const main = defineCommand({
   },
 })
 
-export const runMain = () => _runMain(main)
+export const main = _main as CommandDef<any>
+
+export const runMain = (): Promise<void> => _runMain(main)
