@@ -25,6 +25,7 @@
     "node": "^16.10.0 || >=18.0.0"
   },
   "scripts": {
+    "build": "tsdown",
     "prepack": "tsdown"
   },
   "dependencies": {
