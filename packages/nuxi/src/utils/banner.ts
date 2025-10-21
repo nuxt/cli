@@ -44,7 +44,7 @@ export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
   }
 
   const nuxtVersion = getPkgVersion('nuxt') || getPkgVersion('nuxt-nightly') || getPkgVersion('nuxt3') || getPkgVersion('nuxt-edge')
-  const nitroVersion = getPkgVersion('nitropack') || getPkgVersion('nitropack-nightly') || getPkgVersion('nitropack-edge')
+  const nitroVersion = getPkgVersion('nitropack') || getPkgVersion('nitro') || getPkgVersion('nitropack-nightly') || getPkgVersion('nitropack-edge')
   const builder = getBuilder()
   const vueVersion = getPkgVersion('vue') || null
 

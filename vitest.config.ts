@@ -1,3 +1,4 @@
+import type { ViteUserConfig } from 'vitest/config'
 import codspeed from '@codspeed/vitest-plugin'
 import { isCI, isWindows } from 'std-env'
 import { defaultExclude, defineConfig } from 'vitest/config'
@@ -11,4 +12,4 @@ export default defineConfig({
       'playground/**',
     ],
   },
-})
+}) satisfies ViteUserConfig as ViteUserConfig

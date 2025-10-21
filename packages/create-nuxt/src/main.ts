@@ -1,3 +1,4 @@
+import type { CommandDef } from 'citty'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
@@ -8,7 +9,7 @@ import { checkEngines } from '../../nuxi/src/utils/engines'
 import { logger } from '../../nuxi/src/utils/logger'
 import { description, name, version } from '../package.json'
 
-export const main = defineCommand({
+const _main = defineCommand({
   meta: {
     name,
     version,
@@ -32,4 +33,6 @@ export const main = defineCommand({
   },
 })
 
-await setupInitCompletions(main)
+await setupInitCompletions(_main)
+
+export const main = _main as CommandDef<any>

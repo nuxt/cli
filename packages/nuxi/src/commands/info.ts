@@ -5,7 +5,7 @@ import os from 'node:os'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import clipboardy from 'clipboardy'
+import { copy as copyToClipboard } from 'copy-paste'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
@@ -120,10 +120,7 @@ export default defineCommand({
         }\n`
     }
 
-    const copied = !isMinimal && await clipboardy
-      .write(infoStr)
-      .then(() => true)
-      .catch(() => false)
+    const copied = !isMinimal && await new Promise(resolve => copyToClipboard(infoStr, err => resolve(!err)))
 
     const isNuxt3 = !isLegacy
     const isBridge = !isNuxt3 && infoObj.BuildModules.includes('bridge')

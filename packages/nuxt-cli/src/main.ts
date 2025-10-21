@@ -1,3 +1,4 @@
+import type { CommandDef } from 'citty'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
@@ -12,7 +13,7 @@ import { logger } from '../../nuxi/src/utils/logger'
 
 import { description, name, version } from '../package.json'
 
-export const main = defineCommand({
+const _main = defineCommand({
   meta: {
     name: name.endsWith('nightly') ? name : 'nuxi',
     version,
@@ -65,3 +66,5 @@ export const main = defineCommand({
     }
   },
 })
+
+export const main = _main as CommandDef<any>

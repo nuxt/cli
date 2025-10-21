@@ -22,7 +22,7 @@ export async function runCommand<T extends ArgsDef = ArgsDef>(
   command: CommandDef<T>,
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
-) {
+): Promise<{ result: unknown }> {
   argv.push('--no-clear') // Dev
   if (command.meta && 'name' in command.meta && typeof command.meta.name === 'string') {
     const name = command.meta.name

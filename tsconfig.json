@@ -15,6 +15,7 @@
     "skipLibCheck": true
   },
   "exclude": [
-    "playground/**/*"
+    "playground/**/*",
+    "**/dist/**"
   ]
 }

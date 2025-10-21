@@ -18,7 +18,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   ),
 }
 
-export const runMain = async () => {
+export const runMain = async (): Promise<void> => {
   await initCompletions(main)
   return _runMain(main)
 }
@@ -27,7 +27,7 @@ export async function runCommand(
   name: string,
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
-) {
+): Promise<{ result: unknown }> {
   argv.push('--no-clear') // Dev
 
   if (!(name in commands)) {
