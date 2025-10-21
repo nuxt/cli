@@ -14,7 +14,7 @@
       ]
     }
   },
-  "postStartCommand": "corepack enable && pnpm install && pnpm build --stub",
+  "postStartCommand": "corepack enable && pnpm install",
   "mounts": [
     "type=volume,target=${containerWorkspaceFolder}/node_modules",
     "type=volume,target=${containerWorkspaceFolder}/dist"
