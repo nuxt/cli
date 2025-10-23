@@ -25,7 +25,7 @@ source <(nuxt complete zsh)
 
 ```bash
 pnpm nuxt <Tab>
-npm run nuxt <Tab>
+npm exec nuxt <Tab>
 yarn nuxt <Tab>
 bun nuxt <Tab>
 ```
