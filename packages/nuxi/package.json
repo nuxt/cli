@@ -30,7 +30,7 @@
   "scripts": {
     "build": "pnpm generate:completions-data && tsdown",
     "prepack": "pnpm build",
-    "generate:completions-data": "tsx ./scripts/generate-completions-data.ts"
+    "generate:completions-data": "node ./scripts/generate-completions-data.ts"
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.6",
