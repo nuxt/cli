@@ -10,6 +10,7 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
+import { initCompletions } from './completions'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { logger } from './utils/logger'
@@ -87,4 +88,8 @@ const _main = defineCommand({
 
 export const main = _main as CommandDef<any>
 
-export const runMain = (): Promise<void> => _runMain(main)
+export async function runMain(): Promise<void> {
+  await initCompletions(main)
+
+  return _runMain(main)
+}
