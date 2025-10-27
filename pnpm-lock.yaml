@@ -161,6 +161,9 @@ importers:
       h3-next:
         specifier: npm:h3@^2.0.1-rc.4
         version: h3@2.0.1-rc.4(crossws@0.4.1(srvx@0.8.16))
+      http-proxy-3:
+        specifier: ^1.22.0
+        version: 1.22.0
       jiti:
         specifier: ^2.6.1
         version: 2.6.1
@@ -172,10 +175,10 @@ importers:
         version: 0.3.5
       nitro:
         specifier: ^3.0.1-alpha.0
-        version: 3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.1)(rolldown@1.0.0-beta.44)(vite@7.1.9(@types/node@22.18.12)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1))
+        version: 3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.2)(rolldown@1.0.0-beta.44)(vite@7.1.9(@types/node@22.18.12)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1))
       nitropack:
         specifier: latest
-        version: 2.12.7(rolldown@1.0.0-beta.44)
+        version: 2.12.8(rolldown@1.0.0-beta.44)
       nypm:
         specifier: ^0.6.2
         version: 0.6.2
@@ -224,9 +227,6 @@ importers:
       ufo:
         specifier: ^1.6.1
         version: 1.6.1
-      undici:
-        specifier: ^7.16.0
-        version: 7.16.0
       unplugin-purge-polyfills:
         specifier: ^0.1.0
         version: 0.1.0
@@ -269,6 +269,9 @@ importers:
       giget:
         specifier: ^2.0.0
         version: 2.0.0
+      http-proxy-3:
+        specifier: ^1.22.0
+        version: 1.22.0
       jiti:
         specifier: ^2.6.1
         version: 2.6.1
@@ -311,9 +314,6 @@ importers:
       ufo:
         specifier: ^1.6.1
         version: 1.6.1
-      undici:
-        specifier: ^7.16.0
-        version: 7.16.0
       youch:
         specifier: ^4.1.0-beta.11
         version: 4.1.0-beta.11
@@ -351,6 +351,9 @@ importers:
       typescript:
         specifier: ^5.9.3
         version: 5.9.3
+      undici:
+        specifier: ^7.16.0
+        version: 7.16.0
       unplugin-purge-polyfills:
         specifier: ^0.1.0
         version: 0.1.0
@@ -1808,15 +1811,6 @@ packages:
       rollup:
         optional: true
 
-  '@rollup/plugin-commonjs@28.0.6':
-    resolution: {integrity: sha512-XSQB1K7FUU5QP+3lOQmVCE3I0FcbbNvmNT4VJSj93iUjayaARrTQeoRdiYQoftAJBLrR9t2agwAd3ekaTgHNlw==}
-    engines: {node: '>=16.0.0 || 14 >= 14.17'}
-    peerDependencies:
-      rollup: ^2.68.0||^3.0.0||^4.0.0
-    peerDependenciesMeta:
-      rollup:
-        optional: true
-
   '@rollup/plugin-commonjs@28.0.9':
     resolution: {integrity: sha512-PIR4/OHZ79romx0BVVll/PkwWpJ7e5lsqFa3gFfcrFPWwLXLV39JVUzQV9RKjWerE7B845Hqjj9VYlQeieZ2dA==}
     engines: {node: '>=16.0.0 || 14 >= 14.17'}
@@ -1840,15 +1834,6 @@ packages:
     engines: {node: '>=14.0.0'}
     peerDependencies:
       rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
-    peerDependenciesMeta:
-      rollup:
-        optional: true
-
-  '@rollup/plugin-node-resolve@16.0.2':
-    resolution: {integrity: sha512-tCtHJ2BlhSoK4cCs25NMXfV7EALKr0jyasmqVCq3y9cBrKdmJhtsy1iTz36Xhk/O+pDJbzawxF4K6ZblqCnITQ==}
-    engines: {node: '>=14.0.0'}
-    peerDependencies:
-      rollup: ^2.78.0||^3.0.0||^4.0.0
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -2221,11 +2206,6 @@ packages:
     resolution: {integrity: sha512-lrW200hZdbfRtztbygyaq/6jP6AKE8qQN2KvPcJ+x7wiD038YtnYtZ82IMNJ69GJibV7bwL3y9FgK+5w/pYt6g==}
     cpu: [x64]
     os: [win32]
-
-  '@vercel/nft@0.30.2':
-    resolution: {integrity: sha512-pquXF3XZFg/T3TBor08rUhIGgOhdSilbn7WQLVP/aVSSO+25Rs4H/m3nxNDQ2x3znX7Z3yYjryN8xaLwypcwQg==}
-    engines: {node: '>=18'}
-    hasBin: true
 
   '@vercel/nft@0.30.3':
     resolution: {integrity: sha512-UEq+eF0ocEf9WQCV1gktxKhha36KDs7jln5qii6UpPf5clMqDc0p3E7d9l2Smx0i9Pm1qpq4S4lLfNl97bbv6w==}
@@ -3532,6 +3512,10 @@ packages:
     resolution: {integrity: sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==}
     engines: {node: '>= 0.8'}
 
+  http-proxy-3@1.22.0:
+    resolution: {integrity: sha512-qyYYKjmPW7kDiRBGzydmD5f5ckuniL9fY45EWP05YVDoR/02JjrVMGqdrO5O+OURU7imhF3WyiKwp++4A3KEbw==}
+    engines: {node: '>=18'}
+
   http-shutdown@1.2.2:
     resolution: {integrity: sha512-S9wWkJ/VSY9/k4qcjG318bqJNruzE4HySUhFYknwmu6LBP97KLLfwNf+n4V1BHurvFNkSKLFnK/RsuUnRTf9Vw==}
     engines: {iojs: '>= 1.0.0', node: '>= 0.12.0'}
@@ -3586,10 +3570,6 @@ packages:
   ini@4.1.1:
     resolution: {integrity: sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g==}
     engines: {node: ^14.17.0 || ^16.13.0 || >=18.0.0}
-
-  ioredis@5.8.1:
-    resolution: {integrity: sha512-Qho8TgIamqEPdgiMadJwzRMW3TudIg6vpg4YONokGDudy4eqRIJtDbVX72pfLBcWxvbn3qm/40TyGUObdW4tLQ==}
-    engines: {node: '>=12.22.0'}
 
   ioredis@5.8.2:
     resolution: {integrity: sha512-C6uC+kleiIMmjViJINWk80sOQw5lEzse1ZmvD+S/s8p8CWapftSaC+kocGTx6xrbrJ4WmYQGC08ffHLr6ToR6Q==}
@@ -4136,16 +4116,6 @@ packages:
         optional: true
       vite:
         optional: true
-      xml2js:
-        optional: true
-
-  nitropack@2.12.7:
-    resolution: {integrity: sha512-HWyzMBj2d8b14J6Cfnxv97ztnuHIgXNcrGiWCruLfb2ZfKsp6OCbZYJm5T9sv/ZKl8LedhatrMKG66HWJux9Rg==}
-    engines: {node: ^20.19.0 || >=22.12.0}
-    hasBin: true
-    peerDependencies:
-      xml2js: ^0.6.2
-    peerDependenciesMeta:
       xml2js:
         optional: true
 
@@ -7044,18 +7014,6 @@ snapshots:
     optionalDependencies:
       rollup: 4.52.5
 
-  '@rollup/plugin-commonjs@28.0.6(rollup@4.52.5)':
-    dependencies:
-      '@rollup/pluginutils': 5.3.0(rollup@4.52.5)
-      commondir: 1.0.1
-      estree-walker: 2.0.2
-      fdir: 6.5.0(picomatch@4.0.3)
-      is-reference: 1.2.1
-      magic-string: 0.30.19
-      picomatch: 4.0.3
-    optionalDependencies:
-      rollup: 4.52.5
-
   '@rollup/plugin-commonjs@28.0.9(rollup@4.52.5)':
     dependencies:
       '@rollup/pluginutils': 5.3.0(rollup@4.52.5)
@@ -7079,16 +7037,6 @@ snapshots:
   '@rollup/plugin-json@6.1.0(rollup@4.52.5)':
     dependencies:
       '@rollup/pluginutils': 5.3.0(rollup@4.52.5)
-    optionalDependencies:
-      rollup: 4.52.5
-
-  '@rollup/plugin-node-resolve@16.0.2(rollup@4.52.5)':
-    dependencies:
-      '@rollup/pluginutils': 5.3.0(rollup@4.52.5)
-      '@types/resolve': 1.20.2
-      deepmerge: 4.3.1
-      is-module: 1.0.0
-      resolve: 1.22.10
     optionalDependencies:
       rollup: 4.52.5
 
@@ -7407,25 +7355,6 @@ snapshots:
 
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
-
-  '@vercel/nft@0.30.2(rollup@4.52.5)':
-    dependencies:
-      '@mapbox/node-pre-gyp': 2.0.0
-      '@rollup/pluginutils': 5.3.0(rollup@4.52.5)
-      acorn: 8.15.0
-      acorn-import-attributes: 1.9.5(acorn@8.15.0)
-      async-sema: 3.1.1
-      bindings: 1.5.0
-      estree-walker: 2.0.2
-      glob: 10.4.5
-      graceful-fs: 4.2.11
-      node-gyp-build: 4.8.4
-      picomatch: 4.0.3
-      resolve-from: 5.0.0
-    transitivePeerDependencies:
-      - encoding
-      - rollup
-      - supports-color
 
   '@vercel/nft@0.30.3(rollup@4.52.5)':
     dependencies:
@@ -7781,7 +7710,7 @@ snapshots:
 
   axios@1.12.2:
     dependencies:
-      follow-redirects: 1.15.11
+      follow-redirects: 1.15.11(debug@4.4.3)
       form-data: 4.0.4
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -8718,7 +8647,9 @@ snapshots:
 
   flatted@3.3.3: {}
 
-  follow-redirects@1.15.11: {}
+  follow-redirects@1.15.11(debug@4.4.3):
+    optionalDependencies:
+      debug: 4.4.3
 
   foreground-child@3.3.1:
     dependencies:
@@ -8893,6 +8824,13 @@ snapshots:
       statuses: 2.0.1
       toidentifier: 1.0.1
 
+  http-proxy-3@1.22.0:
+    dependencies:
+      debug: 4.4.3
+      follow-redirects: 1.15.11(debug@4.4.3)
+    transitivePeerDependencies:
+      - supports-color
+
   http-shutdown@1.2.2: {}
 
   https-proxy-agent@7.0.6:
@@ -8938,20 +8876,6 @@ snapshots:
   inherits@2.0.4: {}
 
   ini@4.1.1: {}
-
-  ioredis@5.8.1:
-    dependencies:
-      '@ioredis/commands': 1.4.0
-      cluster-key-slot: 1.1.2
-      debug: 4.4.3
-      denque: 2.1.0
-      lodash.defaults: 4.2.0
-      lodash.isarguments: 3.1.0
-      redis-errors: 1.2.0
-      redis-parser: 3.0.0
-      standard-as-callback: 2.1.0
-    transitivePeerDependencies:
-      - supports-color
 
   ioredis@5.8.2:
     dependencies:
@@ -9633,57 +9557,6 @@ snapshots:
 
   nf3@0.1.1: {}
 
-  nitro@3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.1)(rolldown@1.0.0-beta.44)(vite@7.1.9(@types/node@22.18.12)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)):
-    dependencies:
-      consola: 3.4.2
-      cookie-es: 2.0.0
-      crossws: 0.4.1(srvx@0.8.16)
-      db0: 0.3.4
-      esbuild: 0.25.11
-      fetchdts: 0.1.7
-      h3: 1.15.4
-      jiti: 2.6.1
-      nf3: 0.1.1
-      ofetch: 1.4.1
-      ohash: 2.0.11
-      rendu: 0.0.6
-      rollup: 4.52.5
-      srvx: 0.8.16
-      undici: 7.16.0
-      unenv: 2.0.0-rc.21
-      unstorage: 2.0.0-alpha.3(chokidar@4.0.3)(db0@0.3.4)(ioredis@5.8.1)(ofetch@1.4.1)
-    optionalDependencies:
-      rolldown: 1.0.0-beta.44
-      vite: 7.1.9(@types/node@22.18.12)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)
-    transitivePeerDependencies:
-      - '@azure/app-configuration'
-      - '@azure/cosmos'
-      - '@azure/data-tables'
-      - '@azure/identity'
-      - '@azure/keyvault-secrets'
-      - '@azure/storage-blob'
-      - '@capacitor/preferences'
-      - '@deno/kv'
-      - '@electric-sql/pglite'
-      - '@libsql/client'
-      - '@netlify/blobs'
-      - '@planetscale/database'
-      - '@upstash/redis'
-      - '@vercel/blob'
-      - '@vercel/functions'
-      - '@vercel/kv'
-      - aws4fetch
-      - better-sqlite3
-      - chokidar
-      - drizzle-orm
-      - idb-keyval
-      - ioredis
-      - lru-cache
-      - mongodb
-      - mysql2
-      - sqlite3
-      - uploadthing
-
   nitro@3.0.1-alpha.0(chokidar@4.0.3)(ioredis@5.8.2)(rolldown@1.0.0-beta.44)(vite@7.1.9(@types/node@22.18.12)(jiti@2.6.1)(terser@5.44.0)(yaml@2.8.1)):
     dependencies:
       consola: 3.4.2
@@ -9733,107 +9606,6 @@ snapshots:
       - mongodb
       - mysql2
       - sqlite3
-      - uploadthing
-
-  nitropack@2.12.7(rolldown@1.0.0-beta.44):
-    dependencies:
-      '@cloudflare/kv-asset-handler': 0.4.0
-      '@rollup/plugin-alias': 5.1.1(rollup@4.52.5)
-      '@rollup/plugin-commonjs': 28.0.6(rollup@4.52.5)
-      '@rollup/plugin-inject': 5.0.5(rollup@4.52.5)
-      '@rollup/plugin-json': 6.1.0(rollup@4.52.5)
-      '@rollup/plugin-node-resolve': 16.0.2(rollup@4.52.5)
-      '@rollup/plugin-replace': 6.0.2(rollup@4.52.5)
-      '@rollup/plugin-terser': 0.4.4(rollup@4.52.5)
-      '@vercel/nft': 0.30.2(rollup@4.52.5)
-      archiver: 7.0.1
-      c12: 3.3.1(magicast@0.3.5)
-      chokidar: 4.0.3
-      citty: 0.1.6
-      compatx: 0.2.0
-      confbox: 0.2.2
-      consola: 3.4.2
-      cookie-es: 2.0.0
-      croner: 9.1.0
-      crossws: 0.3.5
-      db0: 0.3.4
-      defu: 6.1.4
-      destr: 2.0.5
-      dot-prop: 10.1.0
-      esbuild: 0.25.10
-      escape-string-regexp: 5.0.0
-      etag: 1.8.1
-      exsolve: 1.0.7
-      globby: 15.0.0
-      gzip-size: 7.0.0
-      h3: 1.15.4
-      hookable: 5.5.3
-      httpxy: 0.1.7
-      ioredis: 5.8.1
-      jiti: 2.6.1
-      klona: 2.0.6
-      knitwork: 1.2.0
-      listhen: 1.9.0
-      magic-string: 0.30.19
-      magicast: 0.3.5
-      mime: 4.1.0
-      mlly: 1.8.0
-      node-fetch-native: 1.6.7
-      node-mock-http: 1.0.3
-      ofetch: 1.4.1
-      ohash: 2.0.11
-      pathe: 2.0.3
-      perfect-debounce: 2.0.0
-      pkg-types: 2.3.0
-      pretty-bytes: 7.1.0
-      radix3: 1.1.2
-      rollup: 4.52.5
-      rollup-plugin-visualizer: 6.0.5(rolldown@1.0.0-beta.44)(rollup@4.52.5)
-      scule: 1.3.0
-      semver: 7.7.3
-      serve-placeholder: 2.0.2
-      serve-static: 2.2.0
-      source-map: 0.7.6
-      std-env: 3.10.0
-      ufo: 1.6.1
-      ultrahtml: 1.6.0
-      uncrypto: 0.1.3
-      unctx: 2.4.1
-      unenv: 2.0.0-rc.21
-      unimport: 5.4.1
-      unplugin-utils: 0.3.1
-      unstorage: 1.17.1(db0@0.3.4)(ioredis@5.8.1)
-      untyped: 2.0.0
-      unwasm: 0.3.11
-      youch: 4.1.0-beta.11
-      youch-core: 0.3.3
-    transitivePeerDependencies:
-      - '@azure/app-configuration'
-      - '@azure/cosmos'
-      - '@azure/data-tables'
-      - '@azure/identity'
-      - '@azure/keyvault-secrets'
-      - '@azure/storage-blob'
-      - '@capacitor/preferences'
-      - '@deno/kv'
-      - '@electric-sql/pglite'
-      - '@libsql/client'
-      - '@netlify/blobs'
-      - '@planetscale/database'
-      - '@upstash/redis'
-      - '@vercel/blob'
-      - '@vercel/functions'
-      - '@vercel/kv'
-      - aws4fetch
-      - better-sqlite3
-      - drizzle-orm
-      - encoding
-      - idb-keyval
-      - mysql2
-      - react-native-b4a
-      - rolldown
-      - sqlite3
-      - supports-color
       - uploadthing
 
   nitropack@2.12.8(rolldown@1.0.0-beta.44):
@@ -10009,7 +9781,7 @@ snapshots:
       mlly: 1.8.0
       mocked-exports: 0.1.1
       nanotar: 0.2.0
-      nitropack: 2.12.7(rolldown@1.0.0-beta.44)
+      nitropack: 2.12.8(rolldown@1.0.0-beta.44)
       nypm: 0.6.2
       ofetch: 1.4.1
       ohash: 2.0.11
@@ -11236,20 +11008,6 @@ snapshots:
       '@unrs/resolver-binding-win32-ia32-msvc': 1.11.1
       '@unrs/resolver-binding-win32-x64-msvc': 1.11.1
 
-  unstorage@1.17.1(db0@0.3.4)(ioredis@5.8.1):
-    dependencies:
-      anymatch: 3.1.3
-      chokidar: 4.0.3
-      destr: 2.0.5
-      h3: 1.15.4
-      lru-cache: 10.4.3
-      node-fetch-native: 1.6.7
-      ofetch: 1.4.1
-      ufo: 1.6.1
-    optionalDependencies:
-      db0: 0.3.4
-      ioredis: 5.8.1
-
   unstorage@1.17.1(db0@0.3.4)(ioredis@5.8.2):
     dependencies:
       anymatch: 3.1.3
@@ -11263,13 +11021,6 @@ snapshots:
     optionalDependencies:
       db0: 0.3.4
       ioredis: 5.8.2
-
-  unstorage@2.0.0-alpha.3(chokidar@4.0.3)(db0@0.3.4)(ioredis@5.8.1)(ofetch@1.4.1):
-    optionalDependencies:
-      chokidar: 4.0.3
-      db0: 0.3.4
-      ioredis: 5.8.1
-      ofetch: 1.4.1
 
   unstorage@2.0.0-alpha.3(chokidar@4.0.3)(db0@0.3.4)(ioredis@5.8.2)(ofetch@1.4.1):
     optionalDependencies:
