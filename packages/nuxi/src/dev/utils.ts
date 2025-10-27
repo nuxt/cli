@@ -1,6 +1,7 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { createDevServer } from 'nitro'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
@@ -17,6 +18,7 @@ import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
+import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
@@ -95,7 +97,7 @@ export class FileChangeTracker {
   }
 }
 
-type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer }
+type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer | ReturnType<typeof createDevServer> }
 
 interface DevServerEventMap {
   'loading:error': [error: Error]
@@ -348,7 +350,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
-    this._handler = toNodeListener(this._currentNuxt.server.app)
+    if ('fetch' in this._currentNuxt.server) {
+      this._handler = toNodeHandler(this._currentNuxt.server.fetch)
+    }
+    else {
+      this._handler = toNodeListener(this._currentNuxt.server.app)
+    }
     this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
   }
 
