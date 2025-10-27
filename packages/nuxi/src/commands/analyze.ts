@@ -6,15 +6,33 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
 import { H3, lazyEventHandler } from 'h3-next'
-import { listen } from 'listhen'
 import { join, resolve } from 'pathe'
-import { toNodeHandler } from 'srvx/node'
+import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+
+const indexHtml = `
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <title>Nuxt Bundle Stats (experimental)</title>
+  </head>
+    <h1>Nuxt Bundle Stats (experimental)</h1>
+    <ul>
+      <li>
+        <a href="/nitro">Nitro server bundle stats</a>
+      </li>
+      <li>
+        <a href="/client">Client bundle stats</a>
+      </li>
+    </ul>
+  </html>
+`.trim()
 
 export default defineCommand({
   meta: {
@@ -125,29 +143,9 @@ export default defineCommand({
 
       app.use('/client', serveFile(join(analyzeDir, 'client.html')))
       app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))
-      app.use(() => new Response(
-        `<!DOCTYPE html>
-         <html lang="en">
-         <head>
-           <meta charset="utf-8">
-           <title>Nuxt Bundle Stats (experimental)</title>
-         </head>
-           <h1>Nuxt Bundle Stats (experimental)</h1>
-           <ul>
-             <li>
-               <a href="/nitro">Nitro server bundle stats</a>
-             </li>
-             <li>
-               <a href="/client">Client bundle stats</a>
-             </li>
-           </ul>
-         </html>
-        `,
-        opts,
-      ),
-      )
+      app.use(() => new Response(indexHtml, opts))
 
-      await listen(toNodeHandler(app.fetch))
+      await serve(app).serve()
     }
   },
 })
