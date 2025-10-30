@@ -3,14 +3,13 @@
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 
 interface PresetMeta {
   _meta?: { name: string }
 }
 
-const outputPath = fileURLToPath(new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url))
+const outputPath = new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url)
 
 export async function generateCompletionData() {
   const data = { nitroPresets: [] as string[], templates: [] as string[] }
