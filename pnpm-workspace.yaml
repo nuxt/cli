@@ -7,3 +7,5 @@ ignoredBuiltDependencies:
   - '@parcel/watcher'
   - esbuild
   - unrs-resolver
+
+verifyDepsBeforeRun: install
