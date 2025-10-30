@@ -7,7 +7,7 @@ import * as versions from '../../../../src/utils/versions'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const addDependency = vi.fn(() => Promise.resolve())
-const detectPackageManager = vi.fn(() => Promise.resolve())
+const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
 let v3 = '3.0.0'
 interface CommandsType {
   subCommands: {
@@ -124,6 +124,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      workspace: false,
     })
   })
 
@@ -140,6 +141,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      workspace: false,
     })
   })
 
@@ -156,6 +158,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      workspace: false,
     })
   })
 
@@ -172,6 +175,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      workspace: false,
     })
   })
 })
