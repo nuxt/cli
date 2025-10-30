@@ -28,9 +28,8 @@
     "node": "^16.10.0 || >=18.0.0"
   },
   "scripts": {
-    "build": "pnpm generate:completions-data && tsdown",
-    "prepack": "pnpm build",
-    "generate:completions-data": "node ./scripts/generate-completions-data.ts"
+    "build": "tsdown",
+    "prepack": "pnpm build"
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.7",

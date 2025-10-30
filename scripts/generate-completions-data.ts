@@ -1,19 +1,14 @@
 /** generate completion data from nitropack and Nuxt starter repo */
 
 import { writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { dirname, join, resolve } from 'node:path'
-import process from 'node:process'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-const require = createRequire(import.meta.url)
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 interface PresetMeta {
   _meta?: { name: string }
 }
 
-async function generateCompletionData() {
+export async function generateCompletionData() {
   const data: {
     nitroPresets: string[]
     templates: string[]
@@ -58,7 +53,7 @@ async function generateCompletionData() {
     .filter(name => name !== 'community')
     .sort()
 
-  const outputPath = resolve(__dirname, '../src/utils/completions-data.ts')
+  const outputPath = fileURLToPath(new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url))
   const content = `/** Auto-generated file */
 
 export const nitroPresets = ${JSON.stringify(data.nitroPresets, null, 2)} as const
@@ -68,8 +63,3 @@ export const templates = ${JSON.stringify(data.templates, null, 2)} as const
 
   await writeFile(outputPath, content, 'utf-8')
 }
-
-generateCompletionData().catch((error) => {
-  console.error('Failed to generate completion data:', error)
-  process.exit(1)
-})
