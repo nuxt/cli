@@ -33,6 +33,7 @@ const _main = defineCommand({
   },
 })
 
+// eslint-disable-next-line antfu/no-top-level-await
 await setupInitCompletions(_main)
 
 export const main = _main as CommandDef<any>
