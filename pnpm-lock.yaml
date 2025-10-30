@@ -84,8 +84,8 @@ importers:
         version: 0.1.6
     devDependencies:
       '@bomb.sh/tab':
-        specifier: ^0.0.7
-        version: 0.0.7(cac@6.7.14)(citty@0.1.6)
+        specifier: ^0.0.8
+        version: 0.0.8(cac@6.7.14)(citty@0.1.6)
       '@types/node':
         specifier: ^22.18.12
         version: 22.18.12
@@ -114,8 +114,8 @@ importers:
   packages/nuxi:
     devDependencies:
       '@bomb.sh/tab':
-        specifier: ^0.0.7
-        version: 0.0.7(cac@6.7.14)(citty@0.1.6)
+        specifier: ^0.0.8
+        version: 0.0.8(cac@6.7.14)(citty@0.1.6)
       '@nuxt/kit':
         specifier: ^4.1.3
         version: 4.1.3(magicast@0.4.0)
@@ -243,8 +243,8 @@ importers:
   packages/nuxt-cli:
     dependencies:
       '@bomb.sh/tab':
-        specifier: ^0.0.7
-        version: 0.0.7(cac@6.7.14)(citty@0.1.6)
+        specifier: ^0.0.8
+        version: 0.0.8(cac@6.7.14)(citty@0.1.6)
       c12:
         specifier: ^3.3.1
         version: 3.3.1(magicast@0.3.5)
@@ -594,8 +594,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@bomb.sh/tab@0.0.7':
-    resolution: {integrity: sha512-/9fTHWWYFl0m2nmfNT9ngI8XEVCvwh7ggAkeHtQybM2CrlIWyakTjbESBpxIFjT8ckpuH3oA2ROyjxoglVtOGQ==}
+  '@bomb.sh/tab@0.0.8':
+    resolution: {integrity: sha512-IN/y/PcDosB0hpWUvaTEkvtZyx3zqJ77mwg/O+DJFpz+quq4IioxFGdUtoZ/CyKcWBGlz9pCW/8Rwwd3sN1r5w==}
     hasBin: true
     peerDependencies:
       cac: ^6.7.14
@@ -6011,7 +6011,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@bomb.sh/tab@0.0.7(cac@6.7.14)(citty@0.1.6)':
+  '@bomb.sh/tab@0.0.8(cac@6.7.14)(citty@0.1.6)':
     optionalDependencies:
       cac: 6.7.14
       citty: 0.1.6

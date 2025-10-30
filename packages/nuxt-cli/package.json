@@ -33,7 +33,7 @@
     "prepack": "tsdown"
   },
   "dependencies": {
-    "@bomb.sh/tab": "^0.0.7",
+    "@bomb.sh/tab": "^0.0.8",
     "c12": "^3.3.1",
     "citty": "^0.1.6",
     "confbox": "^0.2.2",
