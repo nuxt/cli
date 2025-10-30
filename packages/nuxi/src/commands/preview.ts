@@ -1,4 +1,3 @@
-import type { ParsedArgs } from 'citty'
 import { existsSync, promises as fsp } from 'node:fs'
 import { dirname, relative } from 'node:path'
 import process from 'node:process'
@@ -6,7 +5,6 @@ import process from 'node:process'
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { box, colors } from 'consola/utils'
-import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
@@ -25,7 +23,11 @@ const command = defineCommand({
     ...envNameArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
-    port: { ...getListhenArgs().port, alias: ['p'] },
+    port: {
+      type: 'string',
+      description: 'Port to listen on',
+      alias: ['p'],
+    },
     ...dotEnvArgs,
   },
   async run(ctx) {
@@ -115,7 +117,10 @@ const command = defineCommand({
       logger.error(`Cannot find \`${envFileName}\`.`)
     }
 
-    const { port } = _resolveListenOptions(ctx.args)
+    const port = ctx.args.port
+      ?? process.env.NUXT_PORT
+      ?? process.env.NITRO_PORT
+      ?? process.env.PORT
 
     logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
@@ -136,19 +141,3 @@ const command = defineCommand({
 })
 
 export default command
-
-type ArgsT = Exclude<
-  Awaited<typeof command.args>,
-  undefined | ((...args: unknown[]) => unknown)
->
-
-function _resolveListenOptions(args: ParsedArgs<ArgsT>) {
-  const _port = args.port
-    ?? process.env.NUXT_PORT
-    ?? process.env.NITRO_PORT
-    ?? process.env.PORT
-
-  return {
-    port: _port,
-  }
-}

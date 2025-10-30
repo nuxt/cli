@@ -35,7 +35,7 @@ type SupportStatus = boolean | {
   websockets: boolean
 }
 
-function createIt(runtimeName: typeof runtimes[number], _socketsEnabled: boolean) {
+function createIt(runtimeName: typeof runtimes[number]) {
   function it(description: string, fn: () => Promise<void>): void
   function it(description: string, options: TestOptions, fn: () => Promise<void>): void
   function it(description: string, _options: TestOptions | (() => Promise<void>), _fn?: () => Promise<void>): void {
@@ -44,12 +44,13 @@ function createIt(runtimeName: typeof runtimes[number], _socketsEnabled: boolean
       bun: {
         start: !platform.windows,
         fetching: !platform.windows,
+        // https://github.com/nitrojs/nitro/issues/2721
         websockets: false,
       },
       deno: {
         start: !platform.windows,
         fetching: !platform.windows,
-        websockets: !platform.windows && !platform.macos,
+        websockets: !platform.windows,
       },
     }
     const status = supportMatrix[runtimeName]
@@ -88,176 +89,168 @@ function createIt(runtimeName: typeof runtimes[number], _socketsEnabled: boolean
   return it
 }
 
-const socketConfigs = [
-  { enabled: true, label: 'with sockets' },
-  { enabled: false, label: 'without sockets' },
-] as const
-
 describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
-  describe.sequential.each(socketConfigs)('$label', ({ enabled: socketsEnabled }) => {
-    let server: DevServerInstance
+  let server: DevServerInstance
 
-    if (!isCI && !runtime[runtimeName]) {
-      console.warn(`Not testing locally with ${runtimeName} as it is not installed.`)
-      _it.skip(`should pass with ${runtimeName}`)
-      return
+  if (!isCI && !runtime[runtimeName]) {
+    console.warn(`Not testing locally with ${runtimeName} as it is not installed.`)
+    _it.skip(`should pass with ${runtimeName}`)
+    return
+  }
+
+  const cwd = resolve(playgroundDir, `../playground-${runtimeName}`)
+
+  afterAll(async () => {
+    await server?.close()
+    await rm(cwd, { recursive: true, force: true }).catch(() => null)
+  })
+
+  const it = createIt(runtimeName)
+
+  it('should start dev server', { timeout: isCI ? 120_000 : 30_000 }, async () => {
+    rmSync(cwd, { recursive: true, force: true })
+    cpSync(playgroundDir, cwd, {
+      recursive: true,
+      filter: src => !src.includes('.nuxt') && !src.includes('.output') && !src.includes('node_modules'),
+    })
+    server = await startDevServer({
+      cwd,
+      runtime: runtimeName,
+    })
+  })
+
+  it('should serve the main page', async () => {
+    const response = await fetch(server.url)
+    expect(response.status).toBe(200)
+
+    const html = await response.text()
+    expect(html).toContain('Welcome to the Nuxt CLI playground')
+    expect(html).toContain('<!DOCTYPE html>')
+  })
+
+  it('should serve static assets', async () => {
+    const response = await fetch(`${server.url}/favicon.ico`)
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('image/')
+  })
+
+  it('should handle API routes', async () => {
+    const response = await fetch(`${server.url}/api/hello`)
+    expect(response.status).toBe(200)
+  })
+
+  it('should handle POST requests', async () => {
+    const response = await fetch(`${server.url}/api/echo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ test: 'data' }),
+    })
+
+    expect(response.status).toBe(200)
+  })
+
+  it('should preserve request headers', async () => {
+    const headers = {
+      'X-Custom-Header': 'test-value',
+      'User-Agent': 'vitest',
     }
 
-    const cwd = resolve(playgroundDir, `../playground-${runtimeName}-${socketsEnabled ? 'sockets' : 'nosockets'}`)
+    const res = await fetch(`${server.url}/api/echo`, { headers })
+    const { headers: receivedHeaders } = await res.json()
 
-    afterAll(async () => {
-      await server?.close()
-      await rm(cwd, { recursive: true, force: true }).catch(() => null)
+    expect(receivedHeaders).toMatchObject({
+      'user-agent': 'vitest',
+      'x-custom-header': 'test-value',
     })
 
-    const it = createIt(runtimeName, socketsEnabled)
+    expect(res.status).toBe(200)
+  })
 
-    it('should start dev server', { timeout: isCI ? 120_000 : 30_000 }, async () => {
-      rmSync(cwd, { recursive: true, force: true })
-      cpSync(playgroundDir, cwd, {
-        recursive: true,
-        filter: src => !src.includes('.nuxt') && !src.includes('.output') && !src.includes('node_modules'),
-      })
-      server = await startDevServer({
-        cwd,
-        runtime: runtimeName,
-        socketsEnabled,
-      })
+  it('should handle concurrent requests', async () => {
+    const requests = Array.from({ length: 5 }, () => fetch(server.url))
+    const responses = await Promise.all(requests)
+
+    for (const response of responses) {
+      expect(response.status).toBe(200)
+      expect(await response.text()).toContain('Welcome to the Nuxt CLI playground')
+    }
+  })
+
+  it('should handle large request payloads', async () => {
+    const largePayload = { data: 'x'.repeat(10_000) }
+    const response = await fetch(`${server.url}/api/echo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(largePayload),
     })
 
-    it('should serve the main page', async () => {
-      const response = await fetch(server.url)
+    expect(response.status).toBe(200)
+    const result = await response.json()
+    expect(result.echoed.data).toBe(largePayload.data)
+  })
+
+  it('should handle different HTTP methods', async () => {
+    const methods = ['GET', 'POST', 'PUT', 'DELETE']
+
+    for (const method of methods) {
+      const response = await fetch(`${server.url}/api/hello`, { method })
       expect(response.status).toBe(200)
 
-      const html = await response.text()
-      expect(html).toContain('Welcome to the Nuxt CLI playground')
-      expect(html).toContain('<!DOCTYPE html>')
-    })
-
-    it('should serve static assets', async () => {
-      const response = await fetch(`${server.url}/favicon.ico`)
-      expect(response.status).toBe(200)
-      expect(response.headers.get('content-type')).toContain('image/')
-    })
-
-    it('should handle API routes', async () => {
-      const response = await fetch(`${server.url}/api/hello`)
-      expect(response.status).toBe(200)
-    })
-
-    it('should handle POST requests', async () => {
-      const response = await fetch(`${server.url}/api/echo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ test: 'data' }),
-      })
-
-      expect(response.status).toBe(200)
-    })
-
-    it('should preserve request headers', async () => {
-      const headers = {
-        'X-Custom-Header': 'test-value',
-        'User-Agent': 'vitest',
-      }
-
-      const res = await fetch(`${server.url}/api/echo`, { headers })
-      const { headers: receivedHeaders } = await res.json()
-
-      expect(receivedHeaders).toMatchObject({
-        'user-agent': 'vitest',
-        'x-custom-header': 'test-value',
-      })
-
-      expect(res.status).toBe(200)
-    })
-
-    it('should handle concurrent requests', async () => {
-      const requests = Array.from({ length: 5 }, () => fetch(server.url))
-      const responses = await Promise.all(requests)
-
-      for (const response of responses) {
-        expect(response.status).toBe(200)
-        expect(await response.text()).toContain('Welcome to the Nuxt CLI playground')
-      }
-    })
-
-    it('should handle large request payloads', async () => {
-      const largePayload = { data: 'x'.repeat(10_000) }
-      const response = await fetch(`${server.url}/api/echo`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(largePayload),
-      })
-
-      expect(response.status).toBe(200)
       const result = await response.json()
-      expect(result.echoed.data).toBe(largePayload.data)
+      expect(result.method).toBe(method)
+    }
+  })
+
+  it('should establish websocket connection and handle ping/pong', async () => {
+    const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
+
+    let isConnected = false
+    let receivedPong = false
+
+    await createWebSocketTest({
+      url: wsUrl,
+      timeout: 2_000,
+      testId: 'ping/pong',
+      onOpen: (ws) => {
+        isConnected = true
+        ws.send('ping test message')
+      },
+      onMessage: (ws, event) => {
+        const message = event.data.toString()
+        if (message === 'pong') {
+          receivedPong = true
+          ws.close()
+        }
+      },
+      onClose: () => isConnected && receivedPong,
     })
+  })
 
-    it('should handle different HTTP methods', async () => {
-      const methods = ['GET', 'POST', 'PUT', 'DELETE']
+  it('should handle multiple concurrent websocket connections', async () => {
+    const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
+    const connectionCount = 2
 
-      for (const method of methods) {
-        const response = await fetch(`${server.url}/api/hello`, { method })
-        expect(response.status).toBe(200)
-
-        const result = await response.json()
-        expect(result.method).toBe(method)
-      }
-    })
-
-    it('should establish websocket connection and handle ping/pong', async () => {
-      const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
-
-      let isConnected = false
+    const connectionPromises = Array.from({ length: connectionCount }, (_, index) => {
       let receivedPong = false
 
-      await createWebSocketTest({
+      return createWebSocketTest({
         url: wsUrl,
         timeout: 2_000,
-        testId: 'ping/pong',
+        testId: `concurrent connection ${index}`,
         onOpen: (ws) => {
-          isConnected = true
-          ws.send('ping test message')
+          ws.send(`ping from connection ${index}`)
         },
         onMessage: (ws, event) => {
-          const message = event.data.toString()
-          if (message === 'pong') {
+          if (event.data.toString() === 'pong') {
             receivedPong = true
             ws.close()
           }
         },
-        onClose: () => isConnected && receivedPong,
+        onClose: () => receivedPong,
       })
     })
 
-    it('should handle multiple concurrent websocket connections', async () => {
-      const wsUrl = `${server.url.replace('http', 'ws')}/_ws`
-      const connectionCount = 2
-
-      const connectionPromises = Array.from({ length: connectionCount }, (_, index) => {
-        let receivedPong = false
-
-        return createWebSocketTest({
-          url: wsUrl,
-          timeout: 2_000,
-          testId: `concurrent connection ${index}`,
-          onOpen: (ws) => {
-            ws.send(`ping from connection ${index}`)
-          },
-          onMessage: (ws, event) => {
-            if (event.data.toString() === 'pong') {
-              receivedPong = true
-              ws.close()
-            }
-          },
-          onClose: () => receivedPong,
-        })
-      })
-
-      await Promise.all(connectionPromises)
-    })
+    await Promise.all(connectionPromises)
   })
 })
 
@@ -273,9 +266,8 @@ async function startDevServer(options: {
   port?: number
   runtime?: 'node' | 'bun' | 'deno'
   env?: Record<string, string>
-  socketsEnabled?: boolean
 }): Promise<DevServerInstance> {
-  const { cwd, port: preferredPort, runtime = 'node', env = {}, socketsEnabled = true } = options
+  const { cwd, port: preferredPort, runtime = 'node', env = {} } = options
   const port = preferredPort || await getPort({ port: 3100 })
   const host = '127.0.0.1'
   const url = `http://${host}:${port}`
@@ -304,7 +296,6 @@ async function startDevServer(options: {
       NUXT_TELEMETRY_DISABLED: '1',
       PORT: String(port),
       HOST: host,
-      NUXT_SOCKET: socketsEnabled ? '1' : '0',
     },
   })
 
