@@ -18,7 +18,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   ),
 }
 
-export const runMain = async (): Promise<void> => {
+export async function runMain(): Promise<void> {
   await initCompletions(main)
   return _runMain(main)
 }
