@@ -106,6 +106,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #loadingError?: Error
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
+  #websocketConnections = new Set<any>()
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -329,6 +330,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     // Remove websocket handlers on close
     this.#currentNuxt.hooks.hookOnce('close', () => {
+      this.#closeWebSocketConnections()
       this.listener.server.removeAllListeners('upgrade')
     })
 
@@ -376,6 +378,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           return // Skip for Vite HMR
         }
         nuxt.server.upgrade(req, socket, head)
+
+        // Track WebSocket connections
+        this.#websocketConnections.add(socket)
+        socket.on('close', () => {
+          this.#websocketConnections.delete(socket)
+        })
       })
     }
 
@@ -431,6 +439,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
+  }
+
+  #closeWebSocketConnections(): void {
+    for (const socket of this.#websocketConnections) {
+      socket.destroy()
+    }
+    this.#websocketConnections.clear()
   }
 
   async #load(reload?: boolean, reason?: string): Promise<void> {
