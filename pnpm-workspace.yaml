@@ -3,4 +3,9 @@ packages:
   - packages/nuxt-cli/test/fixtures/*
   - playground
 
+ignoredBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - unrs-resolver
+
 verifyDepsBeforeRun: install
