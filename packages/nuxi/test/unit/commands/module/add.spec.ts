@@ -7,6 +7,7 @@ import * as versions from '../../../../src/utils/versions'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const addDependency = vi.fn(() => Promise.resolve())
+const detectPackageManager = vi.fn(() => Promise.resolve())
 let v3 = '3.0.0'
 interface CommandsType {
   subCommands: {
@@ -23,6 +24,7 @@ function applyMocks() {
   vi.mock('nypm', async () => {
     return {
       addDependency,
+      detectPackageManager,
     }
   })
   vi.mock('pkg-types', async () => {
