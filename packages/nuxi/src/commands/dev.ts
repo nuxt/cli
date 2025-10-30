@@ -1,5 +1,4 @@
 import type { ParsedArgs } from 'citty'
-import type { ListenOptions } from 'listhen'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
@@ -192,46 +191,32 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-function resolveListenOverrides(args: ParsedArgs<ArgsT>): Partial<ListenOptions> {
-  const httpsEnv = resolveHttpsFromEnv()
-
-  const _httpsCert = args['https.cert']
-    || (args.sslCert as string)
-    || httpsEnv.cert
-
-  const _httpsKey = args['https.key']
-    || (args.sslKey as string)
-    || httpsEnv.key
-
-  const overrides = {
-    ...args,
-    'open': (args.o as boolean) || args.open,
-    'https': args.https,
-    'https.cert': _httpsCert || '',
-    'https.key': _httpsKey || '',
-    'https.pfx': args['https.pfx'] || '',
-    'https.passphrase': args['https.passphrase'] || '',
-  }
-
+function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
   // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
-  // It takes highest priority over all other port sources
   if (process.env._PORT) {
     return {
-      ...overrides,
       port: process.env._PORT || 0,
       hostname: '127.0.0.1',
       showURL: false,
-    }
+    } as const
   }
 
-  return overrides
-}
+  const _httpsCert = args['https.cert']
+    || args.sslCert
+    || process.env.NUXT_SSL_CERT
+    || process.env.NITRO_SSL_CERT
 
-// Helper to resolve HTTPS certificate and key from environment variables
-function resolveHttpsFromEnv() {
-  const cert = process.env.NUXT_SSL_CERT || process.env.NITRO_SSL_CERT || ''
-  const key = process.env.NUXT_SSL_KEY || process.env.NITRO_SSL_KEY || ''
-  return { cert, key }
+  const _httpsKey = args['https.key']
+    || args.sslKey
+    || process.env.NUXT_SSL_KEY
+    || process.env.NITRO_SSL_KEY
+
+  return {
+    ...args,
+    'open': (args.o as boolean) || args.open,
+    'https.cert': _httpsCert || '',
+    'https.key': _httpsKey || '',
+  } as const
 }
 
 function isBunForkSupported() {
