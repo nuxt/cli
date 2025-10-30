@@ -8,16 +8,7 @@ All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Shell Autocompletions
 
-Nuxi provides shell autocompletions for commands, options, and option values powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
-
-### Setup
-
-For permanent setup in zsh, add this to your `~/.zshrc`:
-
-```bash
-# Add to ~/.zshrc for permanent autocompletions (same can be done for other shells)
-source <(nuxt complete zsh)
-```
+`nuxt/cli` provides shell autocompletions for commands, options, and option values &ndash; powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
 
 ### Package Manager Integration
 
