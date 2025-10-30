@@ -46,6 +46,9 @@ importers:
       eslint:
         specifier: ^9.38.0
         version: 9.38.0(jiti@2.6.1)
+      exsolve:
+        specifier: ^1.0.7
+        version: 1.0.7
       knip:
         specifier: ^5.66.3
         version: 5.66.3(@types/node@22.18.12)(typescript@5.9.3)

@@ -2,22 +2,20 @@
 
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { resolveModulePath } from 'exsolve'
 
 interface PresetMeta {
   _meta?: { name: string }
 }
 
-export async function generateCompletionData() {
-  const data: {
-    nitroPresets: string[]
-    templates: string[]
-  } = {
-    nitroPresets: [],
-    templates: [],
-  }
+const outputPath = fileURLToPath(new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url))
 
-  const nitropackPath = dirname(require.resolve('nitropack/package.json'))
+export async function generateCompletionData() {
+  const data = { nitroPresets: [] as string[], templates: [] as string[] }
+
+  const nitropackPath = dirname(resolveModulePath('nitropack/package.json', { from: outputPath }))
   const presetsPath = join(nitropackPath, 'dist/presets/_all.gen.mjs')
   const { default: allPresets } = await import(presetsPath) as { default: PresetMeta[] }
 
@@ -53,7 +51,6 @@ export async function generateCompletionData() {
     .filter(name => name !== 'community')
     .sort()
 
-  const outputPath = fileURLToPath(new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url))
   const content = `/** Auto-generated file */
 
 export const nitroPresets = ${JSON.stringify(data.nitroPresets, null, 2)} as const
@@ -63,3 +60,8 @@ export const templates = ${JSON.stringify(data.templates, null, 2)} as const
 
   await writeFile(outputPath, content, 'utf-8')
 }
+
+generateCompletionData().catch((error) => {
+  console.error('Failed to generate completion data:', error)
+  process.exit(1)
+})
