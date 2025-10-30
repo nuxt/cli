@@ -12,6 +12,9 @@ export async function renderError(req: IncomingMessage, res: ServerResponse, err
   const youch = new Youch()
   res.statusCode = 500
   res.setHeader('Content-Type', 'text/html')
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('Refresh', '3')
+
   const html = await youch.toHTML(error, {
     request: {
       url: req.url,

@@ -1,13 +1,10 @@
 import type { NuxtConfig } from '@nuxt/schema'
 import type { Listener, ListenOptions } from 'listhen'
-import type { AddressInfo } from 'node:net'
 import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 import defu from 'defu'
-import { listen } from 'listhen'
-import { createSocketListener } from './socket'
-import { NuxtDevServer, resolveDevServerDefaults, resolveDevServerOverrides } from './utils'
+import { NuxtDevServer } from './utils'
 
 const start = Date.now()
 
@@ -18,6 +15,8 @@ interface InitializeOptions {
   data?: {
     overrides?: NuxtConfig
   }
+  listenOverrides?: Partial<ListenOptions>
+  showBanner?: boolean
 }
 
 // IPC Hooks
@@ -33,7 +32,7 @@ class IPC {
     }
     process.on('message', (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
-        initialize(message.context, {}, message.socket ? undefined : true)
+        initialize(message.context, { listenOverrides: message.listenOverrides })
       }
     })
     this.send({ type: 'nuxt:internal:dev:fork-ready' })
@@ -49,70 +48,26 @@ class IPC {
 const ipc = new IPC()
 
 interface InitializeReturn {
-  listener: Pick<Listener, 'https' | 'server' | 'url' | 'getURLs' | 'close'> & {
-    _url?: string
-    address: (Omit<AddressInfo, 'family'> & {
-      socketPath: string
-    }) | AddressInfo
-  }
+  listener: Listener
   close: () => Promise<void>
   onReady: (callback: (address: string) => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
-
 }
 
-export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}, _listenOptions?: true | Partial<ListenOptions>): Promise<InitializeReturn> {
-  const devServerOverrides = resolveDevServerOverrides({
-    public: devContext.public,
-  })
-
-  const devServerDefaults = resolveDevServerDefaults({
-    hostname: devContext.hostname,
-    https: devContext.proxy?.https,
-  }, devContext.publicURLs)
-
-  // Initialize dev server
+export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
   const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
     overrides: defu(
       ctx.data?.overrides,
       ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
-      devServerOverrides,
     ),
-    defaults: devServerDefaults,
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: devContext.args.clear,
     dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
     envName: devContext.args.envName,
-    devContext: {
-      proxy: devContext.proxy,
-    },
+    showBanner: ctx.showBanner !== false && !ipc.enabled,
+    listenOverrides: ctx.listenOverrides,
   })
-
-  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
-  const listenOptions = _listenOptions === true || process.env._PORT
-    ? { port: process.env._PORT ?? 0, hostname: '127.0.0.1', showURL: false }
-    : _listenOptions
-
-  // Attach internal listener
-  devServer.listener = listenOptions
-    ? await listen(devServer.handler, listenOptions)
-    : await createSocketListener(devServer.handler, devContext.proxy?.addr)
-
-  if (process.env.DEBUG) {
-    // eslint-disable-next-line no-console
-    console.debug(`Using ${listenOptions ? 'network' : 'socket'} listener for Nuxt dev server.`)
-  }
-
-  // Merge interface with public context
-  devServer.listener._url = devServer.listener.url
-  if (devContext.proxy?.url) {
-    devServer.listener.url = devContext.proxy.url
-  }
-  if (devContext.proxy?.urls) {
-    const _getURLs = devServer.listener.getURLs.bind(devServer.listener)
-    devServer.listener.getURLs = async () => Array.from(new Set([...devContext.proxy?.urls || [], ...(await _getURLs())]))
-  }
 
   let address: string
 
@@ -156,7 +111,10 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     listener: devServer.listener,
     close: async () => {
       devServer.closeWatchers()
-      await devServer.close()
+      await Promise.all([
+        devServer.listener.close(),
+        devServer.close(),
+      ])
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {
