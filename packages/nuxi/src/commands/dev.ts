@@ -82,41 +82,24 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    if (!ctx.args.fork) {
-      // No-fork mode: everything runs in-process with direct listening
-      const { listener, close } = await initialize({
-        cwd,
-        args: ctx.args,
-      }, {
-        data: ctx.data,
-        listenOverrides,
-        showBanner: true,
-      })
+    // Start the initial dev server in-process with listener
+    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+      data: ctx.data,
+      listenOverrides,
+      showBanner: true,
+    })
 
+    if (!ctx.args.fork) {
       return {
         listener,
-        async close() {
-          await close()
-          await listener.close()
-        },
+        close,
       }
     }
 
-    // Fork mode: use pool of pre-warmed forks
     const pool = new ForkPool({
       rawArgs: ctx.rawArgs,
       poolSize: 2,
       listenOverrides,
-    })
-
-    // Start the initial dev server in-process with listener
-    const { listener, close, onRestart, onReady } = await initialize({
-      cwd,
-      args: ctx.args,
-    }, {
-      data: ctx.data,
-      listenOverrides,
-      showBanner: true,
     })
 
     // When ready, start warming up the fork pool
@@ -132,15 +115,10 @@ const command = defineCommand({
 
     async function restartWithFork() {
       // Get a fork from the pool (warm if available, cold otherwise)
-      const context: NuxtDevContext = {
-        cwd,
-        args: ctx.args,
-      }
+      const context: NuxtDevContext = { cwd, args: ctx.args }
 
       // Clean up previous fork if any
-      if (cleanupCurrentFork) {
-        cleanupCurrentFork()
-      }
+      cleanupCurrentFork?.()
 
       cleanupCurrentFork = await pool.getFork(context, (message) => {
         // Handle IPC messages from the fork
@@ -160,23 +138,19 @@ const command = defineCommand({
       })
     }
 
-    onRestart(async (devServer) => {
+    onRestart(async () => {
       // Close the in-process dev server
-      await Promise.all([
-        listener.close(),
-        devServer.close().catch(() => {}),
-        close(),
-      ])
-
+      await close()
       await restartWithFork()
     })
 
     return {
-      listener,
       async close() {
         cleanupCurrentFork?.()
-        await close()
-        await listener.close()
+        await Promise.all([
+          listener.close(),
+          close(),
+        ])
       },
     }
   },
