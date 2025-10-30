@@ -1,10 +1,10 @@
 import type { CommandDef } from 'citty'
 import nodeCrypto from 'node:crypto'
 import { builtinModules, createRequire } from 'node:module'
-import { resolve } from 'node:path'
 import process from 'node:process'
-
 import { runMain as _runMain, defineCommand } from 'citty'
+
+import { resolve } from 'pathe'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'

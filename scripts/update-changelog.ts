@@ -2,10 +2,10 @@ import type { ResolvedChangelogConfig } from 'changelogen'
 
 import { execSync } from 'node:child_process'
 import { promises as fsp } from 'node:fs'
-import { join, resolve } from 'node:path'
 import process from 'node:process'
-
 import { determineSemverChange, generateMarkDown, getCurrentGitBranch, getGitDiff, loadChangelogConfig, parseCommits } from 'changelogen'
+
+import { join, resolve } from 'pathe'
 import { inc } from 'semver'
 
 const repo = `nuxt/cli`

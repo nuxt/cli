@@ -1,11 +1,10 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, relative } from 'node:path'
 import process from 'node:process'
 
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { box, colors } from 'consola/utils'
-import { resolve } from 'pathe'
+import { dirname, relative, resolve } from 'pathe'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'

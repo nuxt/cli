@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import { defineNuxtModule, useNuxt } from '@nuxt/kit'
+import { join } from 'pathe'
 
 export default defineNuxtModule({
   meta: {
