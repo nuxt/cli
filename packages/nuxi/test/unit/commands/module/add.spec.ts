@@ -124,6 +124,9 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
       workspace: false,
     })
   })
@@ -141,6 +144,9 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
       workspace: false,
     })
   })
@@ -158,6 +164,9 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
       workspace: false,
     })
   })
@@ -175,6 +184,9 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
       workspace: false,
     })
   })
