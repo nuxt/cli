@@ -4,10 +4,10 @@ import type { TestOptions } from 'vitest'
 import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
-
 import { fileURLToPath } from 'node:url'
+
 import { getPort, waitForPort } from 'get-port-please'
+import { join, resolve } from 'pathe'
 import { isCI, isLinux, isMacOS, isWindows } from 'std-env'
 import { WebSocket } from 'undici'
 import { it as _it, afterAll, beforeAll, describe, expect, vi } from 'vitest'

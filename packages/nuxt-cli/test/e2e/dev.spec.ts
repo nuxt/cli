@@ -1,7 +1,7 @@
 import { readFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
+import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 import { runCommand } from '../../src'
 
