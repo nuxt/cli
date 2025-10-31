@@ -3,6 +3,7 @@ import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import init from '../../nuxi/src/commands/init'
+import { setupInitCompletions } from '../../nuxi/src/completions-init'
 import { setupGlobalConsole } from '../../nuxi/src/utils/console'
 import { checkEngines } from '../../nuxi/src/utils/engines'
 import { logger } from '../../nuxi/src/utils/logger'
@@ -16,6 +17,11 @@ const _main = defineCommand({
   },
   args: init.args,
   async setup(ctx) {
+    const isCompletionRequest = ctx.args._?.[0] === 'complete'
+    if (isCompletionRequest) {
+      return
+    }
+
     setupGlobalConsole({ dev: false })
 
     // Check Node.js version and CLI updates in background
@@ -26,5 +32,8 @@ const _main = defineCommand({
     await init.run?.(ctx)
   },
 })
+
+// eslint-disable-next-line antfu/no-top-level-await
+await setupInitCompletions(_main)
 
 export const main = _main as CommandDef<any>
