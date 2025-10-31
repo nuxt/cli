@@ -143,6 +143,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
         cwd,
         dev: isDev,
         installPeerDependencies: true,
+        packageManager,
         workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
       }).then(() => true).catch(
         (error) => {
