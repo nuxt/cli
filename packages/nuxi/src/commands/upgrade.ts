@@ -172,6 +172,7 @@ export default defineCommand({
       cwd,
       packageManager,
       dev: nuxtDependencyType === 'devDependencies',
+      workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
     })
 
     if (method === 'force') {

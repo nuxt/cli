@@ -7,6 +7,7 @@ import * as versions from '../../../../src/utils/versions'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const addDependency = vi.fn(() => Promise.resolve())
+const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
 let v3 = '3.0.0'
 interface CommandsType {
   subCommands: {
@@ -23,6 +24,7 @@ function applyMocks() {
   vi.mock('nypm', async () => {
     return {
       addDependency,
+      detectPackageManager,
     }
   })
   vi.mock('pkg-types', async () => {
@@ -122,6 +124,10 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
+      workspace: false,
     })
   })
 
@@ -138,6 +144,10 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
+      workspace: false,
     })
   })
 
@@ -154,6 +164,10 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
+      workspace: false,
     })
   })
 
@@ -170,6 +184,10 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dev: true,
       installPeerDependencies: true,
+      packageManager: {
+        name: 'npm',
+      },
+      workspace: false,
     })
   })
 })
