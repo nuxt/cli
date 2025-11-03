@@ -1,11 +1,10 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
-import type { HTTPSOptions, Listener, ListenOptions, ListenURL } from 'listhen'
+import type { Listener, ListenOptions } from 'listhen'
 import type { createDevServer } from 'nitro'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
-import type { AddressInfo } from 'node:net'
 
 import EventEmitter from 'node:events'
 import { existsSync, statSync, watch } from 'node:fs'
@@ -16,21 +15,22 @@ import { pathToFileURL } from 'node:url'
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
+import { listen } from 'listhen'
 import { resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
+import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError } from './error'
-import { formatSocketURL, isSocketURL } from './socket'
 
 export type NuxtParentIPCMessage
-  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, socket?: boolean }
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: Partial<ListenOptions> }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
@@ -42,21 +42,12 @@ export type NuxtDevIPCMessage
 
 export interface NuxtDevContext {
   cwd: string
-  public?: boolean
-  hostname?: string
-  publicURLs?: string[]
   args: {
     clear: boolean
     logLevel: string
     dotenv: string
     envName: string
     extends?: string
-  }
-  proxy?: {
-    url?: string
-    urls?: ListenURL[]
-    https?: boolean | HTTPSOptions
-    addr?: AddressInfo
   }
 }
 
@@ -66,10 +57,10 @@ interface NuxtDevServerOptions {
   dotenv: DotenvOptions
   envName?: string
   clear?: boolean
-  defaults: NuxtConfig
   overrides: NuxtConfig
   loadingTemplate?: ({ loading }: { loading: string }) => string
-  devContext: Pick<NuxtDevContext, 'proxy'>
+  showBanner?: boolean
+  listenOverrides?: Partial<ListenOptions>
 }
 
 // https://regex101.com/r/7HkR5c/1
@@ -107,21 +98,19 @@ interface DevServerEventMap {
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
-  private _handler?: RequestListener
-  private _distWatcher?: FSWatcher
-  private _configWatcher?: () => void
-  private _currentNuxt?: NuxtWithServer
-  private _loadingMessage?: string
-  private _loadingError?: Error
-  private _fileChangeTracker = new FileChangeTracker()
-  private cwd: string
+  #handler?: RequestListener
+  #distWatcher?: FSWatcher
+  #configWatcher?: () => void
+  #currentNuxt?: NuxtWithServer
+  #loadingMessage?: string
+  #loadingError?: Error
+  #fileChangeTracker = new FileChangeTracker()
+  #cwd: string
+  #websocketConnections = new Set<any>()
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
-  listener: Pick<Listener, 'server' | 'getURLs' | 'https' | 'url' | 'close'> & {
-    _url?: string
-    address: Omit<AddressInfo, 'family'> & { socketPath: string } | AddressInfo
-  }
+  listener!: Listener
 
   constructor(private options: NuxtDevServerOptions) {
     super()
@@ -136,31 +125,24 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       _initResolve()
     })
 
-    this.cwd = options.cwd
+    this.#cwd = options.cwd
 
     this.handler = async (req, res) => {
-      if (this._loadingError) {
-        this._renderError(req, res)
+      if (this.#loadingError) {
+        renderError(req, res, this.#loadingError)
         return
       }
       await _initPromise
-      if (this._handler) {
-        this._handler(req, res)
+      if (this.#handler) {
+        this.#handler(req, res)
       }
       else {
-        this._renderLoadingScreen(req, res)
+        this.#renderLoadingScreen(req, res)
       }
     }
-
-    // @ts-expect-error we set it in wrapper function
-    this.listener = undefined
   }
 
-  _renderError(req: IncomingMessage, res: ServerResponse): void {
-    renderError(req, res, this._loadingError)
-  }
-
-  async _renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  async #renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (res.headersSent) {
       if (!res.writableEnded) {
         res.end()
@@ -171,64 +153,60 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate = this.options.loadingTemplate
-      || this._currentNuxt?.options.devServer.loadingTemplate
-      || await resolveLoadingTemplate(this.cwd)
+      || this.#currentNuxt?.options.devServer.loadingTemplate
+      || await resolveLoadingTemplate(this.#cwd)
     res.end(
       loadingTemplate({
-        loading: this._loadingMessage || 'Loading...',
+        loading: this.#loadingMessage || 'Loading...',
       }),
     )
   }
 
   async init(): Promise<void> {
-    await this.load()
-    this._watchConfig()
+    const action = 'Starting'
+    this.#loadingMessage = `${action} Nuxt...`
+    this.#handler = undefined
+    this.emit('loading', this.#loadingMessage)
+
+    await this.#loadNuxtInstance()
+
+    if (this.options.showBanner) {
+      showVersionsFromConfig(this.options.cwd, this.#currentNuxt!.options)
+    }
+
+    await this.#createListener()
+    await this.#initializeNuxt(false)
+    this.#watchConfig()
   }
 
   closeWatchers(): void {
-    this._distWatcher?.close()
-    this._configWatcher?.()
+    this.#distWatcher?.close()
+    this.#configWatcher?.()
   }
 
   async load(reload?: boolean, reason?: string): Promise<void> {
     try {
       this.closeWatchers()
-      await this._load(reload, reason)
-      this._watchConfig()
-      this._loadingError = undefined
+
+      // For reloads, we already have a listener, so use the existing flow
+      await this.#load(reload, reason)
+
+      this.#loadingError = undefined
     }
     catch (error) {
       console.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
-      this._handler = undefined
-      this._loadingError = error as Error
-      this._loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
+      this.#handler = undefined
+      this.#loadingError = error as Error
+      this.#loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
       this.emit('loading:error', error as Error)
     }
+    this.#watchConfig()
   }
 
-  async close(): Promise<void> {
-    if (this._currentNuxt) {
-      await this._currentNuxt.close()
-    }
-  }
-
-  async _load(reload?: boolean, reason?: string): Promise<void> {
-    const action = reload ? 'Restarting' : 'Starting'
-    this._loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
-    this._handler = undefined
-    this.emit('loading', this._loadingMessage)
-    if (reload) {
-      // eslint-disable-next-line no-console
-      console.info(this._loadingMessage)
-    }
-
-    await this.close()
-
+  async #loadNuxtInstance(urls?: string[]): Promise<void> {
     const kit = await loadKit(this.options.cwd)
 
-    const devServerDefaults = resolveDevServerDefaults({}, await this.listener.getURLs().then(r => r.map(r => r.url)))
-
-    this._currentNuxt = await kit.loadNuxt({
+    const loadOptions: Parameters<typeof kit.loadNuxt>[0] = {
       cwd: this.options.cwd,
       dev: true,
       ready: false,
@@ -237,7 +215,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         cwd: this.options.cwd,
         fileName: this.options.dotenv.fileName,
       },
-      defaults: defu(this.options.defaults, devServerDefaults),
       overrides: {
         logLevel: this.options.logLevel as 'silent' | 'info' | 'verbose',
         ...this.options.overrides,
@@ -246,11 +223,99 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           ...this.options.overrides.vite,
         },
       },
-    })
+    }
+
+    if (urls) {
+      // Pass hostname and https info for proper CORS and allowedHosts setup
+      const overrides = this.options.listenOverrides || {}
+      const hostname = overrides.hostname ?? (overrides as any).host
+      const https = overrides.https
+
+      loadOptions.defaults = resolveDevServerDefaults({ hostname, https }, urls)
+    }
+
+    this.#currentNuxt = await kit.loadNuxt(loadOptions)
+  }
+
+  async #createListener(): Promise<void> {
+    if (!this.#currentNuxt) {
+      throw new Error('Nuxt must be loaded before creating listener')
+    }
+
+    // Merge config values with CLI overrides
+    const listenOptions = this.#resolveListenOptions()
+    this.listener = await listen(this.handler, listenOptions)
+
+    // Apply devServer overrides based on whether listener is public
+    if (listenOptions.public) {
+      this.#currentNuxt.options.devServer.cors = { origin: '*' }
+      if (this.#currentNuxt.options.vite?.server) {
+        this.#currentNuxt.options.vite.server.allowedHosts = true
+      }
+      return
+    }
+
+    // Get listener URLs for configuring allowed hosts
+    const urls = await this.listener.getURLs().then(r => r.map(r => r.url))
+    if (urls && urls.length > 0) {
+      this.#currentNuxt.options.vite = defu(this.#currentNuxt.options.vite, {
+        server: {
+          allowedHosts: urls.map(u => new URL(u).hostname),
+        },
+      })
+    }
+  }
+
+  #resolveListenOptions(): Partial<ListenOptions> {
+    if (!this.#currentNuxt) {
+      throw new Error('Nuxt must be loaded before resolving listen options')
+    }
+
+    const nuxtConfig = this.#currentNuxt.options
+    const overrides = this.options.listenOverrides || {}
+
+    const port = overrides.port ?? nuxtConfig.devServer?.port
+    // CLI args use 'host', but ListenOptions uses 'hostname'
+    const hostname = overrides.hostname ?? (overrides as any).host ?? nuxtConfig.devServer?.host
+
+    // Resolve public flag
+    const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
+
+    // Resolve HTTPS options
+    const httpsFromConfig = typeof nuxtConfig.devServer?.https !== 'boolean' && nuxtConfig.devServer?.https
+      ? nuxtConfig.devServer.https
+      : {}
+
+    const httpsEnabled = !!(overrides.https ?? nuxtConfig.devServer?.https)
+
+    const httpsOptions = httpsEnabled && {
+      ...httpsFromConfig,
+      ...(typeof overrides.https === 'object' ? overrides.https : {}),
+    }
+
+    // Resolve baseURL
+    const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
+      ? nuxtConfig.app.baseURL.slice(1)
+      : nuxtConfig.app?.baseURL
+
+    return {
+      ...overrides,
+      port,
+      hostname,
+      public: isPublic,
+      https: httpsOptions || undefined,
+      baseURL,
+    }
+  }
+
+  async #initializeNuxt(reload: boolean): Promise<void> {
+    if (!this.#currentNuxt) {
+      throw new Error('Nuxt must be loaded before configuration')
+    }
 
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
-      this._currentNuxt.hooks.hook('vite:extend', ({ config }) => {
+      this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
           config.server.hmr = {
             protocol: undefined,
@@ -264,18 +329,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Remove websocket handlers on close
-    this._currentNuxt.hooks.hookOnce('close', () => {
+    this.#currentNuxt.hooks.hookOnce('close', () => {
+      this.#closeWebSocketConnections()
       this.listener.server.removeAllListeners('upgrade')
     })
 
     // Write manifest and also check if we need cache invalidation
     if (!reload) {
-      const previousManifest = await loadNuxtManifest(this._currentNuxt.options.buildDir)
-      const newManifest = resolveNuxtManifest(this._currentNuxt)
+      const previousManifest = await loadNuxtManifest(this.#currentNuxt.options.buildDir)
+      const newManifest = resolveNuxtManifest(this.#currentNuxt)
 
       // we deliberately do not block initialising Nuxt on creation of the manifest
-      const promise = writeNuxtManifest(this._currentNuxt, newManifest)
-      this._currentNuxt.hooks.hookOnce('ready', async () => {
+      const promise = writeNuxtManifest(this.#currentNuxt, newManifest)
+      this.#currentNuxt.hooks.hookOnce('ready', async () => {
         await promise
       })
 
@@ -284,13 +350,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         && newManifest
         && previousManifest._hash !== newManifest._hash
       ) {
-        await clearBuildDir(this._currentNuxt.options.buildDir)
+        await clearBuildDir(this.#currentNuxt.options.buildDir)
       }
     }
 
-    await this._currentNuxt.ready()
+    await this.#currentNuxt.ready()
 
-    const unsub = this._currentNuxt.hooks.hook('restart', async (options) => {
+    const unsub = this.#currentNuxt.hooks.hook('restart', async (options) => {
       unsub() // We use this instead of `hookOnce` for Nuxt Bridge support
       if (options?.hard) {
         this.emit('restart')
@@ -299,9 +365,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       await this.load(true)
     })
 
-    if (this._currentNuxt.server && 'upgrade' in this._currentNuxt.server) {
+    if (this.#currentNuxt.server && 'upgrade' in this.#currentNuxt.server) {
       this.listener.server.on('upgrade', (req, socket, head) => {
-        const nuxt = this._currentNuxt
+        const nuxt = this.#currentNuxt
         if (!nuxt || !nuxt.server)
           return
         const viteHmrPath = joinURL(
@@ -312,56 +378,99 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           return // Skip for Vite HMR
         }
         nuxt.server.upgrade(req, socket, head)
+
+        // Track WebSocket connections
+        this.#websocketConnections.add(socket)
+        socket.on('close', () => {
+          this.#websocketConnections.delete(socket)
+        })
       })
     }
 
-    await this._currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
+    await this.#currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
-    // Sync internal server info to the internals
-    // It is important for vite-node to use the internal URL but public proto
+    // Sync internal server info to the internals BEFORE building
+    // This prevents Nitro from trying to create its own listener
     const addr = this.listener.address
-    this._currentNuxt.options.devServer.host = addr.address
-    this._currentNuxt.options.devServer.port = addr.port
-    this._currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
-    this._currentNuxt.options.devServer.https = this.options.devContext.proxy?.https as boolean | { key: string, cert: string }
+    this.#currentNuxt.options.devServer.host = addr.address
+    this.#currentNuxt.options.devServer.port = addr.port
+    this.#currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
+    this.#currentNuxt.options.devServer.https = this.listener.https as boolean | { key: string, cert: string }
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
     }
 
+    const kit = await loadKit(this.options.cwd)
     await Promise.all([
-      kit.writeTypes(this._currentNuxt).catch(console.error),
-      kit.buildNuxt(this._currentNuxt),
+      kit.writeTypes(this.#currentNuxt).catch(console.error),
+      kit.buildNuxt(this.#currentNuxt),
     ])
 
-    if (!this._currentNuxt.server) {
+    if (!this.#currentNuxt.server) {
       throw new Error('Nitro server has not been initialized.')
     }
 
     // Watch dist directory
-    const distDir = resolve(this._currentNuxt.options.buildDir, 'dist')
+    const distDir = resolve(this.#currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
-    this._distWatcher = watch(distDir)
-    this._distWatcher.on('change', (_event, file: string) => {
-      if (!this._fileChangeTracker.shouldEmitChange(resolve(distDir, file || ''))) {
+    this.#distWatcher = watch(distDir)
+    this.#distWatcher.on('change', (_event, file: string) => {
+      if (!this.#fileChangeTracker.shouldEmitChange(resolve(distDir, file || ''))) {
         return
       }
 
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
-    if ('fetch' in this._currentNuxt.server) {
-      this._handler = toNodeHandler(this._currentNuxt.server.fetch)
+    if ('fetch' in this.#currentNuxt.server) {
+      this.#handler = toNodeHandler(this.#currentNuxt.server.fetch)
     }
     else {
-      this._handler = toNodeListener(this._currentNuxt.server.app)
+      this.#handler = toNodeListener(this.#currentNuxt.server.app)
     }
-    this.emit('ready', 'socketPath' in addr ? formatSocketURL(addr.socketPath, !!this.listener.https) : `http://127.0.0.1:${addr.port}`)
+
+    // Emit ready with the server URL
+    const proto = this.listener.https ? 'https' : 'http'
+    this.emit('ready', `${proto}://127.0.0.1:${addr.port}`)
   }
 
-  _watchConfig(): void {
-    this._configWatcher = createConfigWatcher(
-      this.cwd,
+  async close(): Promise<void> {
+    if (this.#currentNuxt) {
+      await this.#currentNuxt.close()
+    }
+  }
+
+  #closeWebSocketConnections(): void {
+    for (const socket of this.#websocketConnections) {
+      socket.destroy()
+    }
+    this.#websocketConnections.clear()
+  }
+
+  async #load(reload?: boolean, reason?: string): Promise<void> {
+    const action = reload ? 'Restarting' : 'Starting'
+    this.#loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
+    this.#handler = undefined
+    this.emit('loading', this.#loadingMessage)
+    if (reload) {
+      // eslint-disable-next-line no-console
+      console.info(this.#loadingMessage)
+    }
+
+    await this.close()
+
+    const urls = await this.listener.getURLs().then(r => r.map(r => r.url))
+
+    await this.#loadNuxtInstance(urls)
+
+    // Configure the Nuxt instance (shared logic with initial load)
+    await this.#initializeNuxt(!!reload)
+  }
+
+  #watchConfig(): void {
+    this.#configWatcher = createConfigWatcher(
+      this.#cwd,
       this.options.dotenv.fileName,
       () => this.emit('restart'),
       file => this.loadDebounced(true, `${file} updated`),
@@ -369,7 +478,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 }
 
-function getAddressURL(addr: Pick<AddressInfo, 'address' | 'port'>, https: boolean) {
+function getAddressURL(addr: { address: string, port: number }, https: boolean) {
   const proto = https ? 'https' : 'http'
   let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
   if (host === '[::]') {
@@ -379,24 +488,13 @@ function getAddressURL(addr: Pick<AddressInfo, 'address' | 'port'>, https: boole
   return `${proto}://${host}:${port}/`
 }
 
-export function resolveDevServerOverrides(listenOptions: Partial<Pick<ListenOptions, 'public'>>): Partial<Pick<NuxtConfig, 'devServer' | 'vite'>> {
-  if (listenOptions.public || provider === 'codesandbox') {
-    return {
-      devServer: { cors: { origin: '*' } },
-      vite: { server: { allowedHosts: true } },
-    } as const
-  }
-
-  return {}
-}
-
-export function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []): Partial<NuxtConfig> {
+function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []): Partial<NuxtConfig> {
   const defaultConfig: Partial<NuxtConfig> = {}
 
-  if (urls) {
+  if (urls && urls.length > 0) {
     defaultConfig.vite = {
       server: {
-        allowedHosts: urls.filter(u => !isSocketURL(u)).map(u => new URL(u).hostname),
+        allowedHosts: urls.map(u => new URL(u).hostname),
       },
     }
   }
@@ -460,10 +558,14 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
 }
 
 // Nuxt <3.6 did not have the loading template defined in the schema
-export async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
+async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
   const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
   const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })
   const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)
 
   return r.loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
+}
+
+function isPublicHostname(hostname: string | undefined): boolean {
+  return !!hostname && !['localhost', '127.0.0.1', '::1'].includes(hostname)
 }

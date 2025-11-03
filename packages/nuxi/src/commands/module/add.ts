@@ -3,6 +3,7 @@ import type { PackageJson } from 'pkg-types'
 
 import type { NuxtModule } from './_utils'
 import * as fs from 'node:fs'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -10,7 +11,7 @@ import process from 'node:process'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { addDependency } from 'nypm'
+import { addDependency, detectPackageManager } from 'nypm'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
@@ -136,10 +137,14 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       const a = notInstalledModules.length > 1 ? '' : ' a'
       logger.info(`Installing \`${notInstalledModulesList}\` as${a}${isDev ? ' development' : ''} ${dependency}`)
 
+      const packageManager = await detectPackageManager(cwd)
+
       const res = await addDependency(notInstalledModules.map(module => module.pkg), {
         cwd,
         dev: isDev,
         installPeerDependencies: true,
+        packageManager,
+        workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
       }).then(() => true).catch(
         (error) => {
           logger.error(error)
