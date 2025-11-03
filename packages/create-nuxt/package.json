@@ -32,10 +32,10 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@types/node": "^22.18.12",
+    "@types/node": "^22.19.0",
     "rollup": "^4.52.5",
     "rollup-plugin-visualizer": "^6.0.5",
-    "tsdown": "^0.15.11",
+    "tsdown": "^0.15.12",
     "typescript": "^5.9.3",
     "unplugin-purge-polyfills": "^0.1.0"
   }
