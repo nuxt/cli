@@ -29,6 +29,7 @@
       ],
       "ignoreDependencies": [
         "@bomb.sh/tab",
+        "@clack/prompts",
         "c12",
         "confbox",
         "consola",
