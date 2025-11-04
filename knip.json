@@ -5,7 +5,8 @@
       "ignoreDependencies": [
         "@nuxt/test-utils",
         "nuxt",
-        "vue"
+        "vue",
+        "vue-router"
       ],
       "entry": [
         "scripts/*"
@@ -17,25 +18,29 @@
         "app/pages/**",
         "server/**",
         "some-layer/**"
+      ],
+      "ignoreDependencies": [
+        "vue-router"
       ]
     },
     "packages/nuxt-cli": {
       "entry": [
-        "src/index.ts",
         "test/fixtures/*"
       ],
       "ignoreDependencies": [
         "@clack/prompts",
         "c12",
-        "clipboardy",
         "confbox",
         "consola",
+        "copy-paste",
         "defu",
         "exsolve",
         "fuse.js",
         "giget",
-        "h3",
+        "h3-next",
         "jiti",
+        "nitro",
+        "nitropack",
         "nypm",
         "ofetch",
         "ohash",

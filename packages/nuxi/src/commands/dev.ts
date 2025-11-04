@@ -1,29 +1,17 @@
-import type { NuxtOptions } from '@nuxt/schema'
 import type { ParsedArgs } from 'citty'
-import type { HTTPSOptions, ListenOptions } from 'listhen'
-import type { ChildProcess } from 'node:child_process'
-import type { NuxtDevContext, NuxtDevIPCMessage } from '../dev/utils'
+import type { NuxtDevContext } from '../dev/utils'
 
-import { fork } from 'node:child_process'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { isSocketSupported } from 'get-port-please'
-import { listen } from 'listhen'
-import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
+import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { isBun, isDeno, isTest } from 'std-env'
+import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
-import { renderError } from '../dev/error'
-import { createFetchHandler } from '../dev/fetch'
-import { isSocketURL, parseSocketURL } from '../dev/socket'
-import { resolveLoadingTemplate } from '../dev/utils'
-import { connectToChildNetwork, connectToChildSocket } from '../dev/websocket'
-import { showVersionsFromConfig } from '../utils/banner'
+import { ForkPool } from '../dev/pool'
 import { overrideEnv } from '../utils/env'
-import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
@@ -92,89 +80,77 @@ const command = defineCommand({
     overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    // Load Nuxt Config
-    const { loadNuxtConfig } = await loadKit(cwd)
-    const nuxtOptions = await loadNuxtConfig({
-      cwd,
-      dotenv: { cwd, fileName: ctx.args.dotenv },
-      envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-      overrides: {
-        dev: true,
-        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
-        ...ctx.data?.overrides,
-      },
+    const listenOverrides = resolveListenOverrides(ctx.args)
+
+    // Start the initial dev server in-process with listener
+    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+      data: ctx.data,
+      listenOverrides,
+      showBanner: true,
     })
 
-    showVersionsFromConfig(cwd, nuxtOptions)
-
-    const listenOptions = resolveListenOptions(nuxtOptions, ctx.args)
     if (!ctx.args.fork) {
-      // Directly start Nuxt dev
-      const { listener, close } = await initialize({
-        cwd,
-        args: ctx.args,
-        hostname: listenOptions.hostname,
-        public: listenOptions.public,
-        publicURLs: undefined,
-        proxy: {
-          https: listenOptions.https,
-        },
-      }, { data: ctx.data }, listenOptions)
-
       return {
         listener,
-        async close() {
-          await close()
-          await listener.close()
-        },
+        close,
       }
     }
 
-    // Start listener
-    const devHandler = await createDevHandler(cwd, nuxtOptions, listenOptions)
+    const pool = new ForkPool({
+      rawArgs: ctx.rawArgs,
+      poolSize: 2,
+      listenOverrides,
+    })
 
-    const nuxtSocketEnv = process.env.NUXT_SOCKET ? process.env.NUXT_SOCKET === '1' : undefined
+    // When ready, start warming up the fork pool
+    onReady((_address) => {
+      pool.startWarming()
+      if (startTime) {
+        logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+      }
+    })
 
-    const useSocket = nuxtSocketEnv ?? (nuxtOptions._majorVersion === 4 && await isSocketSupported())
+    // On hard restart, use a fork from the pool
+    let cleanupCurrentFork: (() => void) | undefined
 
-    const urls = await devHandler.listener.getURLs()
-    // run initially in in no-fork mode
-    const { onRestart, onReady, close } = await initialize({
-      cwd,
-      args: ctx.args,
-      hostname: listenOptions.hostname,
-      public: listenOptions.public,
-      publicURLs: urls.map(r => r.url),
-      proxy: {
-        url: devHandler.listener.url,
-        urls,
-        https: devHandler.listener.https,
-        addr: devHandler.listener.address,
-      },
-      // if running with nuxt v4 or `NUXT_SOCKET=1`, we use the socket listener
-      // otherwise pass 'true' to listen on a random port instead
-    }, {}, useSocket ? undefined : true)
+    async function restartWithFork() {
+      // Get a fork from the pool (warm if available, cold otherwise)
+      const context: NuxtDevContext = { cwd, args: ctx.args }
 
-    onReady(address => devHandler.setAddress(address))
+      // Clean up previous fork if any
+      cleanupCurrentFork?.()
 
-    // ... then fall back to pre-warmed fork if a hard restart is required
-    const fork = startSubprocess(cwd, ctx.args, ctx.rawArgs, listenOptions)
-    onRestart(async (devServer) => {
-      const [subprocess] = await Promise.all([
-        fork,
-        devServer.close().catch(() => {}),
-      ])
-      await subprocess.initialize(devHandler, useSocket)
+      cleanupCurrentFork = await pool.getFork(context, (message) => {
+        // Handle IPC messages from the fork
+        if (message.type === 'nuxt:internal:dev:ready') {
+          if (startTime) {
+            logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+          }
+        }
+        else if (message.type === 'nuxt:internal:dev:restart') {
+          // Fork is requesting another restart
+          void restartWithFork()
+        }
+        else if (message.type === 'nuxt:internal:dev:rejection') {
+          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
+          void restartWithFork()
+        }
+      })
+    }
+
+    onRestart(async () => {
+      // Close the in-process dev server
+      await close()
+      await restartWithFork()
     })
 
     return {
-      listener: devHandler.listener,
       async close() {
-        await close()
-        const subprocess = await fork
-        subprocess.kill(0)
-        await devHandler.listener.close()
+        cleanupCurrentFork?.()
+        await Promise.all([
+          listener.close(),
+          close(),
+        ])
       },
     }
   },
@@ -189,300 +165,32 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-type DevHandler = Awaited<ReturnType<typeof createDevHandler>>
-
-async function createDevHandler(cwd: string, nuxtOptions: NuxtOptions, listenOptions: Partial<ListenOptions>) {
-  let loadingMessage = 'Nuxt dev server is starting...'
-  let error: Error | undefined
-  let address: string | undefined
-
-  let loadingTemplate = nuxtOptions.devServer.loadingTemplate
-
-  // Create fetch-based handler
-  const fetchHandler = createFetchHandler(
-    () => {
-      if (!address) {
-        return undefined
-      }
-
-      // Convert address string to DevAddress format
-      if (isSocketURL(address)) {
-        const { socketPath } = parseSocketURL(address)
-        return { socketPath }
-      }
-
-      // Parse network address
-      try {
-        const url = new URL(address)
-        return {
-          host: url.hostname,
-          port: Number.parseInt(url.port) || 80,
-        }
-      }
-      catch {
-        return undefined
-      }
-    },
-    // Error handler
-    async (req, res) => {
-      renderError(req, res, error)
-    },
-    // Loading handler
-    async (req, res) => {
-      if (res.headersSent) {
-        if (!res.writableEnded) {
-          res.end()
-        }
-        return
-      }
-
-      res.statusCode = 503
-      res.setHeader('Content-Type', 'text/html')
-      res.setHeader('Cache-Control', 'no-store')
-      if (loadingTemplate) {
-        res.end(loadingTemplate({ loading: loadingMessage }))
-        return
-      }
-
-      // Nuxt <3.6 did not have the loading template defined in the schema
-      async function resolveLoadingMessage() {
-        loadingTemplate = await resolveLoadingTemplate(cwd)
-        res.end(loadingTemplate({ loading: loadingMessage }))
-      }
-      return resolveLoadingMessage()
-    },
-  )
-
-  const listener = await listen(fetchHandler, listenOptions)
-
-  listener.server.on('upgrade', (req, socket, head) => {
-    if (!address) {
-      if (!socket.destroyed) {
-        socket.end()
-      }
-      return
-    }
-    if (isSocketURL(address)) {
-      const { socketPath } = parseSocketURL(address)
-      connectToChildSocket(socketPath, req, socket, head)
-    }
-    else {
-      try {
-        const url = new URL(address)
-        const host = url.hostname
-        const port = Number.parseInt(url.port) || 80
-        connectToChildNetwork(host, port, req, socket, head)
-      }
-      catch {
-        if (!socket.destroyed) {
-          socket.end()
-        }
-      }
-    }
-  })
-
-  return {
-    listener,
-    setAddress: (_addr: string | undefined) => {
-      address = _addr
-    },
-    setLoadingMessage: (_msg: string) => {
-      loadingMessage = _msg
-    },
-    setError: (_error: Error) => {
-      error = _error
-    },
-    clearError() {
-      error = undefined
-    },
+function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
+  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
+  if (process.env._PORT) {
+    return {
+      port: process.env._PORT || 0,
+      hostname: '127.0.0.1',
+      showURL: false,
+    } as const
   }
-}
-
-async function startSubprocess(cwd: string, args: { logLevel: string, clear: boolean, dotenv: string, envName: string, extends?: string }, rawArgs: string[], listenOptions: Partial<ListenOptions>) {
-  let childProc: ChildProcess | undefined
-  let devHandler: DevHandler
-  let ready: Promise<void> | undefined
-  const kill = (signal: NodeJS.Signals | number) => {
-    if (childProc) {
-      childProc.kill(signal === 0 && isDeno ? 'SIGTERM' : signal)
-      childProc = undefined
-    }
-  }
-
-  async function initialize(handler: DevHandler, socket: boolean) {
-    devHandler = handler
-    const urls = await devHandler.listener.getURLs()
-    await ready
-    childProc!.send({
-      type: 'nuxt:internal:dev:context',
-      socket,
-      context: {
-        cwd,
-        args,
-        hostname: listenOptions.hostname,
-        public: listenOptions.public,
-        publicURLs: urls.map(r => r.url),
-        proxy: {
-          url: devHandler.listener.url,
-          urls,
-          https: devHandler.listener.https,
-        },
-      } satisfies NuxtDevContext,
-    })
-  }
-
-  async function restart() {
-    devHandler?.clearError()
-    // Kill previous process with restart signal (not supported on Windows)
-    if (process.platform === 'win32') {
-      kill('SIGTERM')
-    }
-    else {
-      kill('SIGHUP')
-    }
-    // Start new process
-    childProc = fork(globalThis.__nuxt_cli__.devEntry!, rawArgs, {
-      execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
-      env: {
-        ...process.env,
-        __NUXT__FORK: 'true',
-      },
-    })
-
-    // Close main process on child exit with error
-    childProc.on('close', (errorCode) => {
-      if (errorCode) {
-        process.exit(errorCode)
-      }
-    })
-
-    // Listen for IPC messages
-    ready = new Promise((resolve, reject) => {
-      childProc!.on('error', reject)
-      childProc!.on('message', (message: NuxtDevIPCMessage) => {
-        if (message.type === 'nuxt:internal:dev:fork-ready') {
-          resolve()
-        }
-        else if (message.type === 'nuxt:internal:dev:ready') {
-          devHandler.setAddress(message.address)
-          if (startTime) {
-            logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
-          }
-        }
-        else if (message.type === 'nuxt:internal:dev:loading') {
-          devHandler.setAddress(undefined)
-          devHandler.setLoadingMessage(message.message)
-          devHandler.clearError()
-        }
-        else if (message.type === 'nuxt:internal:dev:loading:error') {
-          devHandler.setAddress(undefined)
-          devHandler.setError(message.error)
-        }
-        else if (message.type === 'nuxt:internal:dev:restart') {
-          restart()
-        }
-        else if (message.type === 'nuxt:internal:dev:rejection') {
-          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
-          restart()
-        }
-      })
-    })
-  }
-
-  // Graceful shutdown
-  for (const signal of [
-    'exit',
-    'SIGTERM' /* Graceful shutdown */,
-    'SIGINT' /* Ctrl-C */,
-    'SIGQUIT' /* Ctrl-\ */,
-  ] as const) {
-    process.once(signal, () => {
-      kill(signal === 'exit' ? 0 : signal)
-    })
-  }
-
-  await restart()
-
-  return {
-    initialize,
-    restart,
-    kill,
-  }
-}
-
-function resolveListenOptions(
-  nuxtOptions: { devServer: NuxtOptions['devServer'], app: NuxtOptions['app'] },
-  args: ParsedArgs<ArgsT>,
-): Partial<ListenOptions> {
-  const _port = args.port
-    ?? args.p
-    ?? process.env.NUXT_PORT
-    ?? process.env.NITRO_PORT
-    ?? process.env.PORT
-    ?? nuxtOptions.devServer.port
-
-  const _hostname = typeof args.host === 'string'
-    ? args.host
-    : args.host === true
-      ? ''
-      : process.env.NUXT_HOST
-        ?? process.env.NITRO_HOST
-        ?? process.env.HOST
-        ?? (nuxtOptions.devServer?.host || undefined /* for backwards compatibility with previous '' default */)
-        ?? undefined
-
-  const _public: boolean | undefined = args.public
-    ?? (_hostname && !['localhost', '127.0.0.1', '::1'].includes(_hostname))
-    ? true
-    : undefined
 
   const _httpsCert = args['https.cert']
-    || (args.sslCert as string)
+    || args.sslCert
     || process.env.NUXT_SSL_CERT
     || process.env.NITRO_SSL_CERT
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'cert' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.cert)
-    || ''
 
   const _httpsKey = args['https.key']
-    || (args.sslKey as string)
+    || args.sslKey
     || process.env.NUXT_SSL_KEY
     || process.env.NITRO_SSL_KEY
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'key' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.key)
-    || ''
-
-  const _httpsPfx = args['https.pfx']
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'pfx' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.pfx)
-    || ''
-
-  const _httpsPassphrase = args['https.passphrase']
-    || (typeof nuxtOptions.devServer.https !== 'boolean' && nuxtOptions.devServer.https && 'passphrase' in nuxtOptions.devServer.https && nuxtOptions.devServer.https.passphrase)
-    || ''
-
-  const httpsEnabled = !!(args.https ?? nuxtOptions.devServer.https)
-
-  const _listhenOptions = parseListhenArgs({
-    ...args,
-    'open': (args.o as boolean) || args.open,
-    'https': httpsEnabled,
-    'https.cert': _httpsCert,
-    'https.key': _httpsKey,
-    'https.pfx': _httpsPfx,
-    'https.passphrase': _httpsPassphrase,
-  })
-
-  const httpsOptions = httpsEnabled && {
-    ...(nuxtOptions.devServer.https as HTTPSOptions),
-    ...(_listhenOptions.https as HTTPSOptions),
-  }
 
   return {
-    ..._listhenOptions,
-    port: _port,
-    hostname: _hostname,
-    public: _public,
-    https: httpsOptions,
-    baseURL: nuxtOptions.app.baseURL.startsWith('./') ? nuxtOptions.app.baseURL.slice(1) : nuxtOptions.app.baseURL,
-  }
+    ...args,
+    'open': (args.o as boolean) || args.open,
+    'https.cert': _httpsCert || '',
+    'https.key': _httpsKey || '',
+  } as const
 }
 
 function isBunForkSupported() {

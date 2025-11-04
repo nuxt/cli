@@ -17,13 +17,13 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   ),
 }
 
-export const runMain = () => _runMain(main)
+export const runMain = (): Promise<void> => _runMain(main)
 
 export async function runCommand(
   name: string,
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
-) {
+): Promise<{ result: unknown }> {
   argv.push('--no-clear') // Dev
 
   if (!(name in commands)) {

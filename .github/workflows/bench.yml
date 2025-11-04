@@ -19,7 +19,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: corepack enable
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: lts/*
           cache: pnpm
@@ -31,9 +31,7 @@ jobs:
         run: pnpm build
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@6b43a0cd438f6ca5ad26f9ed03ed159ed2df7da9 # v4.1.1
-        env:
-          NUXT_SOCKET: 1
+        uses: CodSpeedHQ/action@4348f634fa7309fe23aac9502e88b999ec90a164 # v4.3.1
         with:
           run: pnpm vitest bench
           mode: instrumentation

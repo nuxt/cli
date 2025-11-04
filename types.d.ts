@@ -4,7 +4,7 @@ declare global {
     | undefined
     | {
       entry: string
-      devEntry: string
+      devEntry?: string
       startTime: number
     }
 }

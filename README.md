@@ -12,14 +12,14 @@ All commands are listed on https://nuxt.com/docs/api/commands.
 # Install dependencies
 pnpm i
 
-# Generate type stubs
-pnpm dev:prepare
+# Build project and start watcher
+pnpm dev
 
 # Go to the playground directory
 cd playground
 
 # And run any commands
-pnpm nuxi <command>
+pnpm nuxt <command>
 ```
 
 ## License
