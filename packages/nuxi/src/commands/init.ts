@@ -5,6 +5,7 @@ import type { PackageManagerName } from 'nypm'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import * as clack from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -466,22 +467,28 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
+    logger.log(`\n✨ Nuxt project has been created with the \`${template.name}\` template.\n`)
+
     // Display next steps
-    logger.log(
-      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
-    )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
     const nextSteps = [
       !ctx.args.shell
       && relativeTemplateDir.length > 1
-      && `\`cd ${relativeTemplateDir}\``,
-      `Start development server with \`${selectedPackageManager} ${runCmd} dev\``,
+      && colors.cyan(`cd ${relativeTemplateDir}`),
+      colors.cyan(`${selectedPackageManager} ${runCmd} dev`),
     ].filter(Boolean)
 
-    for (const step of nextSteps) {
-      logger.log(` › ${step}`)
-    }
+    clack.box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {
+      contentAlign: 'left',
+      titleAlign: 'left',
+      width: 'auto',
+      titlePadding: 2,
+      contentPadding: 2,
+      rounded: true,
+      includePrefix: false,
+      formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
+    })
 
     if (ctx.args.shell) {
       startShell(template.dir)
