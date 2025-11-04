@@ -3,6 +3,7 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import { cancel, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
@@ -38,15 +39,21 @@ function getNightlyDependency(dep: string, nuxtVersion: NuxtVersionTag) {
 }
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
-  const nuxtVersion: NuxtVersionTag = await logger.prompt(
-    'Which nightly Nuxt release channel do you want to install? (3.x or 4.x)',
-    {
-      type: 'select',
-      options: ['3.x', '4.x'] as const,
-      default: '4.x',
-      cancel: 'reject',
-    },
-  ).catch(() => process.exit(1))
+  const result = await select({
+    message: 'Which nightly Nuxt release channel do you want to install?',
+    options: [
+      { value: '3.x' as const, label: '3.x' },
+      { value: '4.x' as const, label: '4.x' },
+    ],
+    initialValue: '4.x' as const,
+  })
+
+  if (isCancel(result)) {
+    cancel('Operation cancelled.')
+    process.exit(1)
+  }
+
+  const nuxtVersion = result as NuxtVersionTag
 
   const npmPackages = packageNames.map(p => getNightlyDependency(p, nuxtVersion))
 
@@ -141,12 +148,9 @@ export default defineCommand({
 
     let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
 
-    method ||= await logger.prompt(
-      `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
-      {
-        type: 'select',
-        initial: 'dedupe',
-        cancel: 'reject',
+    if (!method) {
+      const result = await select({
+        message: `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
         options: [
           {
             label: 'dedupe lockfile',
@@ -162,8 +166,16 @@ export default defineCommand({
             value: 'skip' as const,
           },
         ],
-      },
-    ).catch(() => process.exit(1))
+        initialValue: 'dedupe' as const,
+      })
+
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      method = result
+    }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
     logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
