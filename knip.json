@@ -28,6 +28,7 @@
         "test/fixtures/*"
       ],
       "ignoreDependencies": [
+        "@clack/prompts",
         "c12",
         "confbox",
         "consola",
