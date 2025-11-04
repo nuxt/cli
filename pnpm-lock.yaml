@@ -46,6 +46,9 @@ importers:
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
+      exsolve:
+        specifier: ^1.0.7
+        version: 1.0.7
       knip:
         specifier: ^5.67.1
         version: 5.67.1(@types/node@24.10.0)(typescript@5.9.3)
@@ -83,6 +86,9 @@ importers:
         specifier: ^0.1.6
         version: 0.1.6
     devDependencies:
+      '@bomb.sh/tab':
+        specifier: ^0.0.9
+        version: 0.0.9(cac@6.7.14)(citty@0.1.6)
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.0
@@ -110,6 +116,9 @@ importers:
 
   packages/nuxi:
     devDependencies:
+      '@bomb.sh/tab':
+        specifier: ^0.0.9
+        version: 0.0.9(cac@6.7.14)(citty@0.1.6)
       '@clack/prompts':
         specifier: ^1.0.0-alpha.6
         version: 1.0.0-alpha.6
@@ -239,6 +248,9 @@ importers:
 
   packages/nuxt-cli:
     dependencies:
+      '@bomb.sh/tab':
+        specifier: ^0.0.9
+        version: 0.0.9(cac@6.7.14)(citty@0.1.6)
       '@clack/prompts':
         specifier: ^1.0.0-alpha.6
         version: 1.0.0-alpha.6
@@ -576,6 +588,21 @@ packages:
   '@bcoe/v8-coverage@1.0.2':
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
+
+  '@bomb.sh/tab@0.0.9':
+    resolution: {integrity: sha512-HUJ0b+LkZpLsyn0u7G/H5aJioAdSLqWMWX5ryuFS6n70MOEFu+SGrF8d8u6HzI1gINVQTvsfoxDLcjWkmI0AWg==}
+    hasBin: true
+    peerDependencies:
+      cac: ^6.7.14
+      citty: ^0.1.6
+      commander: ^13.1.0
+    peerDependenciesMeta:
+      cac:
+        optional: true
+      citty:
+        optional: true
+      commander:
+        optional: true
 
   '@clack/core@0.5.0':
     resolution: {integrity: sha512-p3y0FIOwaYRUPRcMO7+dlmLh8PSRcrjuTndsiA0WAFbWES0mLZlrjVoBRZ9DzkPFJZG6KGkJmoEAY0ZcVWTkow==}
@@ -5769,6 +5796,11 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@bcoe/v8-coverage@1.0.2': {}
+
+  '@bomb.sh/tab@0.0.9(cac@6.7.14)(citty@0.1.6)':
+    optionalDependencies:
+      cac: 6.7.14
+      citty: 0.1.6
 
   '@clack/core@0.5.0':
     dependencies:

@@ -28,6 +28,7 @@
         "test/fixtures/*"
       ],
       "ignoreDependencies": [
+        "@bomb.sh/tab",
         "@clack/prompts",
         "c12",
         "confbox",
@@ -52,6 +53,11 @@
         "srvx",
         "ufo",
         "youch"
+      ]
+    },
+    "packages/create-nuxt": {
+      "ignoreDependencies": [
+        "@bomb.sh/tab"
       ]
     }
   }

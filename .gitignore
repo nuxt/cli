@@ -10,3 +10,4 @@ stats.json
 playground-bun*
 playground-deno*
 playground-node*
+packages/nuxi/src/utils/completions-data.ts

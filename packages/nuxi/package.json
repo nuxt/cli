@@ -29,9 +29,10 @@
   },
   "scripts": {
     "build": "tsdown",
-    "prepack": "tsdown"
+    "prepack": "pnpm build"
   },
   "devDependencies": {
+    "@bomb.sh/tab": "^0.0.9",
     "@clack/prompts": "^1.0.0-alpha.6",
     "@nuxt/kit": "^4.2.0",
     "@nuxt/schema": "^4.2.0",
