@@ -3,7 +3,7 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import * as clack from '@clack/prompts'
+import { cancel, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
@@ -39,7 +39,7 @@ function getNightlyDependency(dep: string, nuxtVersion: NuxtVersionTag) {
 }
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
-  const result = await clack.select({
+  const result = await select({
     message: 'Which nightly Nuxt release channel do you want to install?',
     options: [
       { value: '3.x' as const, label: '3.x' },
@@ -48,8 +48,8 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     initialValue: '4.x' as const,
   })
 
-  if (clack.isCancel(result)) {
-    clack.cancel('Operation cancelled.')
+  if (isCancel(result)) {
+    cancel('Operation cancelled.')
     process.exit(1)
   }
 
@@ -149,7 +149,7 @@ export default defineCommand({
     let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
 
     if (!method) {
-      const result = await clack.select({
+      const result = await select({
         message: `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
         options: [
           {
@@ -169,8 +169,8 @@ export default defineCommand({
         initialValue: 'dedupe' as const,
       })
 
-      if (clack.isCancel(result)) {
-        clack.cancel('Operation cancelled.')
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
         process.exit(1)
       }
 

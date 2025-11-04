@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import * as clack from '@clack/prompts'
+import { confirm, isCancel, select } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -73,12 +73,12 @@ export default defineCommand({
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
       logger.warn(`No \`nuxt\` dependency detected in \`${cwd}\`.`)
 
-      const shouldContinue = await clack.confirm({
+      const shouldContinue = await confirm({
         message: `Do you want to continue anyway?`,
         initialValue: false,
       })
 
-      if (clack.isCancel(shouldContinue) || shouldContinue !== true) {
+      if (isCancel(shouldContinue) || shouldContinue !== true) {
         process.exit(1)
       }
     }
@@ -148,12 +148,12 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
 
           const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join('\`, \`')
           const s = notInstalledModules.length > 1 ? 's' : ''
-          const result = await clack.confirm({
+          const result = await confirm({
             message: `Install failed for \`${failedModulesList}\`. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`,
             initialValue: false,
           })
 
-          if (clack.isCancel(result)) {
+          if (isCancel(result)) {
             return false
           }
 
@@ -257,11 +257,11 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
       logger.warn(
         `The module \`${pkgName}\` is not compatible with Nuxt \`${nuxtVersion}\` (requires \`${matchedModule.compatibility.nuxt}\`)`,
       )
-      const shouldContinue = await clack.confirm({
+      const shouldContinue = await confirm({
         message: 'Do you want to continue installing incompatible version?',
         initialValue: false,
       })
-      if (clack.isCancel(shouldContinue) || !shouldContinue) {
+      if (isCancel(shouldContinue) || !shouldContinue) {
         return false
       }
     }
@@ -278,14 +278,14 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
             logger.warn(
               `Recommended version of \`${pkgName}\` for Nuxt \`${nuxtVersion}\` is \`${_moduleVersion}\` but you have requested \`${pkgVersion}\``,
             )
-            const result = await clack.select({
+            const result = await select({
               message: 'Choose a version:',
               options: [
                 { value: _moduleVersion, label: _moduleVersion },
                 { value: pkgVersion, label: pkgVersion },
               ],
             })
-            if (clack.isCancel(result)) {
+            if (isCancel(result)) {
               return false
             }
             pkgVersion = result
@@ -328,11 +328,11 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     && !pkgDependencies['@nuxt/kit']
   ) {
     logger.warn(`It seems that \`${pkgName}\` is not a Nuxt module.`)
-    const shouldContinue = await clack.confirm({
+    const shouldContinue = await confirm({
       message: `Do you want to continue installing ${colors.cyan(pkgName)} anyway?`,
       initialValue: false,
     })
-    if (clack.isCancel(shouldContinue) || !shouldContinue) {
+    if (isCancel(shouldContinue) || !shouldContinue) {
       return false
     }
   }
