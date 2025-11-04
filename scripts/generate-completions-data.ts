@@ -3,7 +3,7 @@
 import { writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
-import { resolveModulePath } from 'exsolve'
+import { resolveModuleURL } from 'exsolve'
 
 interface PresetMeta {
   _meta?: { name: string }
@@ -14,7 +14,7 @@ const outputPath = new URL('../packages/nuxi/src/utils/completions-data.ts', imp
 export async function generateCompletionData() {
   const data = { nitroPresets: [] as string[], templates: [] as string[] }
 
-  const nitropackPath = dirname(resolveModulePath('nitropack/package.json', { from: outputPath }))
+  const nitropackPath = dirname(resolveModuleURL('nitropack/package.json', { from: outputPath }))
   const presetsPath = join(nitropackPath, 'dist/presets/_all.gen.mjs')
   const { default: allPresets } = await import(presetsPath) as { default: PresetMeta[] }
 
