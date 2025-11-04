@@ -5,7 +5,8 @@
       "ignoreDependencies": [
         "@nuxt/test-utils",
         "nuxt",
-        "vue"
+        "vue",
+        "vue-router"
       ],
       "entry": [
         "scripts/*"
@@ -17,6 +18,9 @@
         "app/pages/**",
         "server/**",
         "some-layer/**"
+      ],
+      "ignoreDependencies": [
+        "vue-router"
       ]
     },
     "packages/nuxt-cli": {
