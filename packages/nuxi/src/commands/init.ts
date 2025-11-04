@@ -1,10 +1,10 @@
-import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import * as clack from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -170,12 +170,18 @@ export default defineCommand({
     logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     if (ctx.args.dir === '') {
-      ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
+      const result = await clack.text({
+        message: 'Where would you like to create your project?',
         placeholder: './nuxt-app',
-        type: 'text',
-        default: 'nuxt-app',
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+        defaultValue: 'nuxt-app',
+      })
+
+      if (clack.isCancel(result)) {
+        clack.cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      ctx.args.dir = result
     }
 
     const cwd = resolve(ctx.args.cwd)
@@ -196,28 +202,41 @@ export default defineCommand({
     // when no `--force` flag is provided
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
-      const selectedAction = await logger.prompt(
-        `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
-        {
-          type: 'select',
-          options: ['Override its contents', 'Select different directory', 'Abort'],
-        },
-      )
+      const selectedAction = await clack.select({
+        message: `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
+        options: [
+          { value: 'override', label: 'Override its contents' },
+          { value: 'different', label: 'Select different directory' },
+          { value: 'abort', label: 'Abort' },
+        ],
+      })
+
+      if (clack.isCancel(selectedAction)) {
+        clack.cancel('Operation cancelled.')
+        process.exit(1)
+      }
 
       switch (selectedAction) {
-        case 'Override its contents':
+        case 'override':
           shouldForce = true
           break
 
-        case 'Select different directory': {
-          templateDownloadPath = resolve(cwd, await logger.prompt('Please specify a different directory:', {
-            type: 'text',
-            cancel: 'reject',
-          }).catch(() => process.exit(1)))
+        case 'different': {
+          const result = await clack.text({
+            message: 'Please specify a different directory:',
+          })
+
+          if (clack.isCancel(result)) {
+            clack.cancel('Operation cancelled.')
+            process.exit(1)
+          }
+
+          templateDownloadPath = resolve(cwd, result)
           break
         }
 
-        // 'Abort' or Ctrl+C
+        // 'Abort'
+        case 'abort':
         default:
           process.exit(1)
       }
@@ -317,15 +336,26 @@ export default defineCommand({
       label: pm,
       value: pm,
       hint: currentPackageManager === pm ? 'current' : undefined,
-    } satisfies SelectPromptOptions['options'][number]))
-    const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
-      ? packageManagerArg
-      : await logger.prompt('Which package manager would you like to use?', {
-          type: 'select',
-          options: packageManagerSelectOptions,
-          initial: currentPackageManager,
-          cancel: 'reject',
-        }).catch(() => process.exit(1))
+    }))
+
+    let selectedPackageManager: PackageManagerName
+    if (packageManagerOptions.includes(packageManagerArg)) {
+      selectedPackageManager = packageManagerArg
+    }
+    else {
+      const result = await clack.select({
+        message: 'Which package manager would you like to use?',
+        options: packageManagerSelectOptions,
+        initialValue: currentPackageManager,
+      })
+
+      if (clack.isCancel(result)) {
+        clack.cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      selectedPackageManager = result
+    }
 
     // Install project dependencies
     // or skip installation based on the '--no-install' flag
@@ -356,10 +386,16 @@ export default defineCommand({
     }
 
     if (ctx.args.gitInit === undefined) {
-      ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
-        type: 'confirm',
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+      const result = await clack.confirm({
+        message: 'Initialize git repository?',
+      })
+
+      if (clack.isCancel(result)) {
+        clack.cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      ctx.args.gitInit = result
     }
     if (ctx.args.gitInit) {
       logger.info('Initializing git repository...\n')
@@ -395,14 +431,15 @@ export default defineCommand({
         }[]
       }>('https://api.nuxt.com/modules')
 
-      const wantsUserModules = await logger.prompt(
-        `Would you like to install any of the official modules?`,
-        {
-          initial: false,
-          type: 'confirm',
-          cancel: 'reject',
-        },
-      ).catch(() => process.exit(1))
+      const wantsUserModules = await clack.confirm({
+        message: `Would you like to install any of the official modules?`,
+        initialValue: false,
+      })
+
+      if (clack.isCancel(wantsUserModules)) {
+        clack.cancel('Operation cancelled.')
+        process.exit(1)
+      }
 
       if (wantsUserModules) {
         const [response, templateDeps] = await Promise.all([
@@ -418,19 +455,16 @@ export default defineCommand({
           logger.info('All official modules are already included in this template.')
         }
         else {
-          const selectedOfficialModules = await logger.prompt(
-            'Pick the modules to install:',
-            {
-              type: 'multiselect',
-              options: officialModules.map(module => ({
-                label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-                value: module.npm,
-              })),
-              required: false,
-            },
-          )
+          const selectedOfficialModules = await clack.multiselect({
+            message: 'Pick the modules to install:',
+            options: officialModules.map(module => ({
+              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+              value: module.npm,
+            })),
+            required: false,
+          })
 
-          if (selectedOfficialModules === undefined) {
+          if (clack.isCancel(selectedOfficialModules)) {
             process.exit(1)
           }
 
