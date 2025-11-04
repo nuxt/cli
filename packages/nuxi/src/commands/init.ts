@@ -4,7 +4,7 @@ import type { PackageManagerName } from 'nypm'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, isCancel, multiselect, select, text } from '@clack/prompts'
+import { box, cancel, confirm, isCancel, multiselect, outro, select, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -500,7 +500,7 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
-    logger.log(`\n✨ Nuxt project has been created with the \`${template.name}\` template.\n`)
+    outro(`✨ Nuxt project has been created with the \`${template.name}\` template.`)
 
     // Display next steps
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
