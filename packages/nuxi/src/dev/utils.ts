@@ -275,8 +275,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const overrides = this.options.listenOverrides || {}
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
+
     // CLI args use 'host', but ListenOptions uses 'hostname'
-    const hostname = overrides.hostname ?? (overrides as any).host ?? nuxtConfig.devServer?.host
+    const rawHost = overrides.hostname ?? (overrides as any).host
+    const hostname = (rawHost === true ? '' : rawHost) ?? nuxtConfig.devServer?.host
 
     // Resolve public flag
     const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
