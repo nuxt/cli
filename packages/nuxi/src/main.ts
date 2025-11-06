@@ -11,9 +11,9 @@ import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
 import { initCompletions } from './completions'
+import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
-import { setupGlobalConsole } from './utils/console'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
