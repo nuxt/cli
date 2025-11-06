@@ -204,7 +204,7 @@ export default defineCommand({
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       const selectedAction = await select({
-        message: `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
+        message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
           { value: 'override', label: 'Override its contents' },
           { value: 'different', label: 'Select different directory' },
