@@ -1,7 +1,6 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'pathe'
-
-import { logger } from '../utils/logger'
+import { debug } from '../utils/logger'
 
 export async function clearDir(path: string, exclude?: string[]) {
   if (!exclude) {
@@ -29,7 +28,7 @@ export async function rmRecursive(paths: string[]) {
     paths
       .filter(p => typeof p === 'string')
       .map(async (path) => {
-        logger.debug('Removing recursive path', path)
+        debug(`Removing recursive path: ${path}`)
         await fsp.rm(path, { recursive: true, force: true }).catch(() => {})
       }),
   )

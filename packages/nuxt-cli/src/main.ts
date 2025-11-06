@@ -7,7 +7,6 @@ import { provider } from 'std-env'
 
 import { commands } from '../../nuxi/src/commands'
 import { cwdArgs } from '../../nuxi/src/commands/_shared'
-import { setupGlobalConsole } from '../../nuxi/src/utils/console'
 import { checkEngines } from '../../nuxi/src/utils/engines'
 import { logger } from '../../nuxi/src/utils/logger'
 
@@ -29,8 +28,6 @@ const _main = defineCommand({
   subCommands: commands,
   async setup(ctx) {
     const command = ctx.args._[0]
-    const dev = command === 'dev'
-    setupGlobalConsole({ dev })
 
     // Check Node.js version and CLI updates in background
     let backgroundTasks: Promise<any> | undefined

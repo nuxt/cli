@@ -4,7 +4,6 @@ import { provider } from 'std-env'
 
 import init from '../../nuxi/src/commands/init'
 import { setupInitCompletions } from '../../nuxi/src/completions-init'
-import { setupGlobalConsole } from '../../nuxi/src/utils/console'
 import { checkEngines } from '../../nuxi/src/utils/engines'
 import { logger } from '../../nuxi/src/utils/logger'
 import { description, name, version } from '../package.json'
@@ -21,8 +20,6 @@ const _main = defineCommand({
     if (isCompletionRequest) {
       return
     }
-
-    setupGlobalConsole({ dev: false })
 
     // Check Node.js version and CLI updates in background
     if (provider !== 'stackblitz') {

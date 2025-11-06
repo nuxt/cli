@@ -134,6 +134,9 @@ importers:
       '@types/copy-paste':
         specifier: ^2.1.0
         version: 2.1.0
+      '@types/debug':
+        specifier: ^4.1.12
+        version: 4.1.12
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.0
@@ -149,12 +152,12 @@ importers:
       confbox:
         specifier: ^0.2.2
         version: 0.2.2
-      consola:
-        specifier: ^3.4.2
-        version: 3.4.2
       copy-paste:
         specifier: ^2.2.0
         version: 2.2.0
+      debug:
+        specifier: ^4.4.3
+        version: 4.4.3
       defu:
         specifier: ^6.1.4
         version: 6.1.4
@@ -203,6 +206,9 @@ importers:
       perfect-debounce:
         specifier: ^2.0.0
         version: 2.0.0
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
       pkg-types:
         specifier: ^2.3.0
         version: 2.3.0
@@ -263,12 +269,12 @@ importers:
       confbox:
         specifier: ^0.2.2
         version: 0.2.2
-      consola:
-        specifier: ^3.4.2
-        version: 3.4.2
       copy-paste:
         specifier: ^2.2.0
         version: 2.2.0
+      debug:
+        specifier: ^4.4.3
+        version: 4.4.3
       defu:
         specifier: ^6.1.4
         version: 6.1.4
@@ -302,6 +308,9 @@ importers:
       perfect-debounce:
         specifier: ^2.0.0
         version: 2.0.0
+      picocolors:
+        specifier: ^1.1.1
+        version: 1.1.1
       pkg-types:
         specifier: ^2.3.0
         version: 2.3.0
@@ -333,6 +342,9 @@ importers:
       '@nuxt/schema':
         specifier: 4.2.0
         version: 4.2.0
+      '@types/debug':
+        specifier: ^4.1.12
+        version: 4.1.12
       '@types/node':
         specifier: ^24.10.0
         version: 24.10.0

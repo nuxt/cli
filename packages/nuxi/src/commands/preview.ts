@@ -1,15 +1,17 @@
 import { existsSync, promises as fsp } from 'node:fs'
-import { dirname, relative } from 'node:path'
+import { dirname } from 'node:path'
 import process from 'node:process'
 
+import { box, outro } from '@clack/prompts'
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
-import { box, colors } from 'consola/utils'
 import { resolve } from 'pathe'
+import colors from 'picocolors'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const command = defineCommand({
@@ -61,8 +63,7 @@ const command = defineCommand({
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
-        'Cannot find `nitro.json`. Did you run `nuxi build` first? Search path:\n',
-        nitroJSONPaths,
+        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
       )
       process.exit(1)
     }
@@ -76,31 +77,35 @@ const command = defineCommand({
 
     const info = [
       ['Node.js:', `v${process.versions.node}`],
-      ['Nitro Preset:', nitroJSON.preset],
-      ['Working directory:', relative(process.cwd(), outputPath)],
+      ['Nitro preset:', nitroJSON.preset],
+      ['Working directory:', relativeToProcess(outputPath)],
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
-    logger.log(
-      box(
-        [
-          'You are running Nuxt production build in preview mode.',
-          `For production deployments, please directly use ${colors.cyan(
-            nitroJSON.commands.preview,
-          )} command.`,
-          '',
-          ...info.map(
-            ([label, value]) =>
-              `${label.padEnd(_infoKeyLen, ' ')} ${colors.cyan(value)}`,
-          ),
-        ].join('\n'),
-        {
-          title: colors.yellow('Preview Mode'),
-          style: {
-            borderColor: 'yellow',
-          },
-        },
-      ),
+    logger.message('')
+    box(
+      [
+        '',
+        'You are previewing a Nuxt app. In production, do not use this CLI. ',
+        `Instead, run ${colors.cyan(nitroJSON.commands.preview)} directly.`,
+        '',
+        ...info.map(
+          ([label, value]) =>
+            `${label.padEnd(_infoKeyLen, ' ')} ${colors.cyan(value)}`,
+        ),
+        '',
+      ].join('\n'),
+      colors.yellow(' Previewing Nuxt app '),
+      {
+        contentAlign: 'left',
+        titleAlign: 'left',
+        width: 'auto',
+        titlePadding: 2,
+        contentPadding: 2,
+        rounded: true,
+        includePrefix: true,
+        formatBorder: (text: string) => colors.yellow(text),
+      },
     )
 
     const envFileName = ctx.args.dotenv || '.env'
@@ -122,9 +127,9 @@ const command = defineCommand({
       ?? process.env.NITRO_PORT
       ?? process.env.PORT
 
-    logger.info(`Starting preview command: \`${nitroJSON.commands.preview}\``)
+    outro(`Running ${colors.cyan(nitroJSON.commands.preview)} in ${colors.cyan(relativeToProcess(outputPath))}`)
+
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
-    logger.log('')
     await x(command, commandArgs, {
       throwOnError: true,
       nodeOptions: {
