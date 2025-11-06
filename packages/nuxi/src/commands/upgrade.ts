@@ -8,7 +8,7 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
-import { readPackageJSON } from 'pkg-types'
+import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -108,7 +108,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     // Check package manager
-    const packageManager = await detectPackageManager(cwd)
+    const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
     if (!packageManager) {
       logger.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
@@ -137,7 +137,7 @@ export default defineCommand({
     // Force install
     const toRemove = ['node_modules']
 
-    const lockFile = normaliseLockFile(cwd, lockFileCandidates)
+    const lockFile = normaliseLockFile(workspaceDir, lockFileCandidates)
     if (lockFile) {
       toRemove.push(lockFile)
     }
