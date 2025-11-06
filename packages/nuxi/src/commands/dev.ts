@@ -4,9 +4,9 @@ import type { NuxtDevContext } from '../dev/utils'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { satisfies } from 'semver'
 import { isBun, isTest } from 'std-env'
 

@@ -5,9 +5,9 @@ import process from 'node:process'
 
 import { cancel, intro, isCancel, note, outro, select, spinner, tasks } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
 import { loadKit } from '../utils/kit'

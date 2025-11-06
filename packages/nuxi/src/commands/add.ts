@@ -3,8 +3,8 @@ import process from 'node:process'
 
 import { cancel, intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { dirname, extname, resolve } from 'pathe'
-import colors from 'picocolors'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'

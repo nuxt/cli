@@ -5,10 +5,10 @@ import process from 'node:process'
 
 import { intro, note, outro, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { defu } from 'defu'
 import { H3, lazyEventHandler } from 'h3-next'
 import { join, resolve } from 'pathe'
-import colors from 'picocolors'
 import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'

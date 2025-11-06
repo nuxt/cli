@@ -13,6 +13,7 @@ import { cwdArgs } from './commands/_shared'
 import { initCompletions } from './completions'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
+import { setupGlobalConsole } from './utils/console'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
@@ -46,6 +47,7 @@ const _main = defineCommand({
   subCommands: commands,
   async setup(ctx) {
     const command = ctx.args._[0]
+    setupGlobalConsole({ dev: command === 'dev' })
     debug(`Running \`nuxt ${command}\` command`)
 
     // Check Node.js version and CLI updates in background

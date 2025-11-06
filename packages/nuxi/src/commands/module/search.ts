@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import Fuse from 'fuse.js'
-import colors from 'picocolors'
 import { kebabCase, upperFirst } from 'scule'
 
 import { logger } from '../../utils/logger'

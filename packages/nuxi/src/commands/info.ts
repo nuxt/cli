@@ -7,10 +7,10 @@ import { stripVTControlCharacters } from 'node:util'
 
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { copy as copyToClipboard } from 'copy-paste'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 import { isBun, isDeno, isMinimal } from 'std-env'
 

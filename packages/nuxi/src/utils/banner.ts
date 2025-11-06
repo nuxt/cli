@@ -1,6 +1,6 @@
 import type { NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 
-import colors from 'picocolors'
+import { colors } from 'consola/utils'
 
 import { logger } from './logger'
 import { getPkgJSON, getPkgVersion } from './versions'

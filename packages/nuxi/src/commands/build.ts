@@ -4,8 +4,8 @@ import process from 'node:process'
 
 import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
-import colors from 'picocolors'
 
 import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'

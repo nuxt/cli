@@ -1,5 +1,5 @@
 import process from 'node:process'
-import colors from 'picocolors'
+import { colors } from 'consola/utils'
 
 import { logger } from './logger'
 

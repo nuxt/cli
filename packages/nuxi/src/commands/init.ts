@@ -6,11 +6,11 @@ import process from 'node:process'
 
 import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
-import colors from 'picocolors'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 

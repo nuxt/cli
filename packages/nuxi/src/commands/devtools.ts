@@ -1,8 +1,8 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { x } from 'tinyexec'
 
 import { logger } from '../utils/logger'
