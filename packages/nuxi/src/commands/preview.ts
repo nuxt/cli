@@ -114,12 +114,12 @@ const command = defineCommand({
 
     if (envExists) {
       logger.info(
-        `Loading \`${envFileName}\`. This will not be loaded when running the server in production.`,
+        `Loading ${colors.cyan(envFileName)}. This will not be loaded when running the server in production.`,
       )
       await setupDotenv({ cwd, fileName: envFileName })
     }
     else if (ctx.args.dotenv) {
-      logger.error(`Cannot find \`${envFileName}\`.`)
+      logger.error(`Cannot find ${colors.cyan(envFileName)}.`)
     }
 
     const port = ctx.args.port

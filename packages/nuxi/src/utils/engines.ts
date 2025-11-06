@@ -1,4 +1,5 @@
 import process from 'node:process'
+import colors from 'picocolors'
 
 import { logger } from './logger'
 
@@ -12,7 +13,7 @@ export async function checkEngines() {
 
   if (!satisfies(currentNode, nodeRange)) {
     logger.warn(
-      `Current version of Node.js (\`${currentNode}\`) is unsupported and might cause issues.\n       Please upgrade to a compatible version \`${nodeRange}\`.`,
+      `Current version of Node.js (${colors.cyan(currentNode)}) is unsupported and might cause issues.\n       Please upgrade to a compatible version ${colors.cyan(nodeRange)}.`,
     )
   }
 }

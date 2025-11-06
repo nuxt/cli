@@ -6,6 +6,7 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
+import colors from 'picocolors'
 import { satisfies } from 'semver'
 import { isBun, isTest } from 'std-env'
 
@@ -132,7 +133,7 @@ const command = defineCommand({
           void restartWithFork()
         }
         else if (message.type === 'nuxt:internal:dev:rejection') {
-          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
+          logger.info(`Restarting Nuxt due to error: ${colors.cyan(message.message)}`)
           void restartWithFork()
         }
       })

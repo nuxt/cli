@@ -43,7 +43,7 @@ async function getModuleDependencies(moduleName: string) {
     return Object.keys(dependencies)
   }
   catch (err) {
-    logger.warn(`Could not get dependencies for ${moduleName}: ${err}`)
+    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
     return []
   }
 }
@@ -301,7 +301,7 @@ export default defineCommand({
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
-        logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
+        logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
         process.exit(1)
       }
 
