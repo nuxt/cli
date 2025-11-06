@@ -122,11 +122,15 @@ export default defineCommand({
     logger.info(`Nuxt root directory: ${colors.cyan(nuxtConfig.rootDir || cwd)}\n`)
 
     let firstColumnLength = 0
+    let secondColumnLength = 0
     let ansiFirstColumnLength = 0
     const entries = Object.entries(infoObj).map(([label, val]) => {
       if (label.length > firstColumnLength) {
         ansiFirstColumnLength = colors.bold(colors.whiteBright(label)).length + 4
         firstColumnLength = label.length + 4
+      }
+      if ((val || '').length > secondColumnLength) {
+        secondColumnLength = (val || '').length + 2
       }
       return [label, val || '-'] as const
     })
@@ -135,11 +139,11 @@ export default defineCommand({
     const terminalWidth = Math.max(process.stdout.columns || 80, firstColumnLength) - 4 /* box padding */
 
     // formatted for copy-pasting into an issue
-    let copyStr = '|     |     |\n| --- | --- |\n'
+    let copyStr = `| ${' '.repeat(firstColumnLength)} | ${' '.repeat(secondColumnLength)} |\n| ${'-'.repeat(firstColumnLength)} | ${'-'.repeat(secondColumnLength)} |\n`
     let boxStr = ''
     for (const [label, value] of entries) {
       if (!isMinimal) {
-        copyStr += `| **${label}** | ${value.includes('`') ? value : `\`${value}\``} |\n`
+        copyStr += `| ${`**${label}**`.padEnd(firstColumnLength)} | ${(value.includes('`') ? value : `\`${value}\``).padEnd(secondColumnLength)} |\n`
       }
       const formattedValue = value
         .replace(/\b@([^, ]+)/g, (_, r) => colors.gray(` ${r}`))
