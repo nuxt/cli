@@ -126,7 +126,7 @@ export default defineCommand({
     const copied = !isMinimal && await new Promise(resolve => copyToClipboard(infoStr, err => resolve(!err)))
 
     const isNuxt3 = !isLegacy
-    const isBridge = !isNuxt3 && infoObj.BuildModules.includes('bridge')
+    const isBridge = !isNuxt3 && infoObj.BuildModules?.includes('bridge')
 
     const repo = isBridge ? 'nuxt/bridge' : 'nuxt/nuxt'
 
