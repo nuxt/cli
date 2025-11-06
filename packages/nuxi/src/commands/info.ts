@@ -86,19 +86,22 @@ export default defineCommand({
       packageManager += `@${getPackageManagerVersion(packageManager)}`
     }
 
-    const infoObj = {
+    const infoObj: Record<string, string | undefined> = {
       OperatingSystem: os.type(),
       NodeVersion: process.version,
       NuxtVersion: nuxtVersion,
       CLIVersion: nuxiVersion,
-      NitroVersion: await getDepVersion('nitropack'),
+      NitroVersion: await getDepVersion('nitropack') || await getDepVersion('nitro'),
       PackageManager: packageManager ?? 'unknown',
       Builder: typeof builder === 'string' ? builder : 'custom',
       UserConfig: Object.keys(nuxtConfig)
         .map(key => `\`${key}\``)
         .join(', '),
-      RuntimeModules: await listModules(nuxtConfig.modules),
-      BuildModules: await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []),
+      Modules: await listModules(nuxtConfig.modules),
+    }
+
+    if (isLegacy) {
+      infoObj.BuildModules = await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || [])
     }
 
     logger.log('Working directory:', cwd)
