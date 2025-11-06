@@ -47,6 +47,7 @@
         "ohash",
         "pathe",
         "perfect-debounce",
+        "picocolors",
         "pkg-types",
         "scule",
         "semver",
