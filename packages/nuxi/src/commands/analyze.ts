@@ -137,7 +137,7 @@ export default defineCommand({
     await nuxt.callHook('build:analyze:done', meta)
     await fsp.writeFile(join(analyzeDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
-    note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${colors.cyan('nuxt build')} before deploying.`, 'Analyze results')
+    note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${colors.cyan('nuxt build')} before deploying.`, 'Build location')
 
     if (ctx.args.serve !== false && !process.env.CI) {
       const app = new H3()
@@ -157,7 +157,7 @@ export default defineCommand({
       await serve(app).serve()
     }
     else {
-      outro('✨ Analysis complete!')
+      outro('✨ Analysis build complete!')
     }
   },
 })
