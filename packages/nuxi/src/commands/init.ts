@@ -515,7 +515,7 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
-    outro(`✨ Nuxt project has been created with the \`${template.name}\` template.`)
+    outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
 
     // Display next steps
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
