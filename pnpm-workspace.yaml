@@ -9,5 +9,4 @@ ignoredBuiltDependencies:
   - unrs-resolver
 
 verifyDepsBeforeRun: install
-trustPolicy: no-downgrade
 
