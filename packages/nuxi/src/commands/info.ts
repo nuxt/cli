@@ -3,7 +3,6 @@ import type { PackageJson } from 'pkg-types'
 
 import os from 'node:os'
 import process from 'node:process'
-import { stripVTControlCharacters } from 'node:util'
 
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
@@ -17,6 +16,7 @@ import { isBun, isDeno, isMinimal } from 'std-env'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
+import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { getPackageManagerVersion } from '../utils/packageManagers'
@@ -121,12 +121,12 @@ export default defineCommand({
 
     logger.info(`Nuxt root directory: ${colors.cyan(nuxtConfig.rootDir || cwd)}\n`)
 
+    const boxStr = formatInfoBox(infoObj)
+
     let firstColumnLength = 0
     let secondColumnLength = 0
-    let ansiFirstColumnLength = 0
     const entries = Object.entries(infoObj).map(([label, val]) => {
       if (label.length > firstColumnLength) {
-        ansiFirstColumnLength = colors.bold(colors.whiteBright(label)).length + 4
         firstColumnLength = label.length + 4
       }
       if ((val || '').length > secondColumnLength) {
@@ -135,33 +135,12 @@ export default defineCommand({
       return [label, val || '-'] as const
     })
 
-    // get maximum width of terminal
-    const terminalWidth = Math.max(process.stdout.columns || 80, firstColumnLength) - 4 /* box padding */
-
     // formatted for copy-pasting into an issue
     let copyStr = `| ${' '.repeat(firstColumnLength)} | ${' '.repeat(secondColumnLength)} |\n| ${'-'.repeat(firstColumnLength)} | ${'-'.repeat(secondColumnLength)} |\n`
-    let boxStr = ''
     for (const [label, value] of entries) {
       if (!isMinimal) {
         copyStr += `| ${`**${label}**`.padEnd(firstColumnLength)} | ${(value.includes('`') ? value : `\`${value}\``).padEnd(secondColumnLength)} |\n`
       }
-      const formattedValue = value
-        .replace(/\b@([^, ]+)/g, (_, r) => colors.gray(` ${r}`))
-        .replace(/`([^`]*)`/g, (_, r) => r)
-
-      boxStr += (`${colors.bold(colors.whiteBright(label))}: `).padEnd(ansiFirstColumnLength)
-
-      let boxRowLength = firstColumnLength
-      for (const item of formattedValue.split(', ')) {
-        const itemLength = stripVTControlCharacters(item).length + 2
-        if (boxRowLength + itemLength > terminalWidth) {
-          boxStr += `\n${' '.repeat(firstColumnLength)}`
-          boxRowLength = firstColumnLength
-        }
-        boxStr += `${item}, `
-        boxRowLength += itemLength
-      }
-      boxStr = `${boxStr.slice(0, -2)}\n`
     }
 
     const copied = !isMinimal && await new Promise(resolve => copyToClipboard(copyStr, err => resolve(!err)))
