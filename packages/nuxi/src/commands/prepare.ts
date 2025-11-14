@@ -1,11 +1,13 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { relative, resolve } from 'pathe'
+import { colors } from 'consola/utils'
+import { resolve } from 'pathe'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
@@ -45,9 +47,6 @@ export default defineCommand({
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
-    logger.success(
-      'Types generated in',
-      relative(process.cwd(), nuxt.options.buildDir),
-    )
+    logger.success(`Types generated in ${colors.cyan(relativeToProcess(nuxt.options.buildDir))}.`)
   },
 })

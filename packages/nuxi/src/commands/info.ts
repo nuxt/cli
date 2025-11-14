@@ -4,16 +4,19 @@ import type { PackageJson } from 'pkg-types'
 import os from 'node:os'
 import process from 'node:process'
 
+import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { copy as copyToClipboard } from 'copy-paste'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
-import { splitByCase } from 'scule'
-import { isMinimal } from 'std-env'
+import { isBun, isDeno, isMinimal } from 'std-env'
 
 import { version as nuxiVersion } from '../../package.json'
 
+import { getBuilder } from '../utils/banner'
+import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { getPackageManagerVersion } from '../utils/packageManagers'
@@ -73,7 +76,7 @@ export default defineCommand({
     const nuxtVersion = await getDepVersion('nuxt') || await getDepVersion('nuxt-nightly') || await getDepVersion('nuxt-edge') || await getDepVersion('nuxt3') || '-'
     const isLegacy = nuxtVersion.startsWith('2')
     const builder = !isLegacy
-      ? nuxtConfig.builder /* latest schema */ || '-'
+      ? nuxtConfig.builder /* latest schema */ || 'vite'
       : (nuxtConfig as any /* nuxt v2 */).bridge?.vite
           ? 'vite' /* bridge vite implementation */
           : (nuxtConfig as any /* nuxt v2 */).buildModules?.includes('nuxt-vite')
@@ -86,58 +89,88 @@ export default defineCommand({
       packageManager += `@${getPackageManagerVersion(packageManager)}`
     }
 
-    const infoObj: Record<string, string | undefined> = {
-      OperatingSystem: os.type(),
-      NodeVersion: process.version,
-      NuxtVersion: nuxtVersion,
-      CLIVersion: nuxiVersion,
-      NitroVersion: await getDepVersion('nitropack') || await getDepVersion('nitro'),
-      PackageManager: packageManager ?? 'unknown',
-      Builder: typeof builder === 'string' ? builder : 'custom',
-      UserConfig: Object.keys(nuxtConfig)
+    const osType = os.type()
+    const builderInfo = typeof builder === 'string'
+      ? getBuilder(cwd, builder)
+      : { name: 'custom', version: '0.0.0' }
+
+    const infoObj = {
+      'Operating system': osType === 'Darwin' ? `macOS ${os.release()}` : osType === 'Windows_NT' ? `Windows ${os.release()}` : `${osType} ${os.release()}`,
+      'CPU': `${os.cpus()[0]?.model || 'unknown'} (${os.cpus().length} cores)`,
+      ...isBun
+        // @ts-expect-error Bun global
+        ? { 'Bun version': Bun?.version as string }
+        : isDeno
+          // @ts-expect-error Deno global
+          ? { 'Deno version': Deno?.version.deno as string }
+          : { 'Node.js version': process.version as string },
+      'nuxt/cli version': nuxiVersion,
+      'Package manager': packageManager ?? 'unknown',
+      'Nuxt version': nuxtVersion,
+      'Nitro version': await getDepVersion('nitropack') || await getDepVersion('nitro'),
+      'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
+      'Config': Object.keys(nuxtConfig)
         .map(key => `\`${key}\``)
+        .sort()
         .join(', '),
-      Modules: await listModules(nuxtConfig.modules),
+      'Modules': await listModules(nuxtConfig.modules),
+      ...isLegacy
+        ? { 'Build modules': await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []) }
+        : {},
     }
 
-    if (isLegacy) {
-      infoObj.BuildModules = await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || [])
-    }
+    logger.info(`Nuxt root directory: ${colors.cyan(nuxtConfig.rootDir || cwd)}\n`)
 
-    logger.log('Working directory:', cwd)
+    const boxStr = formatInfoBox(infoObj)
 
-    let maxLength = 0
-    const entries = Object.entries(infoObj).map(([key, val]) => {
-      const label = splitByCase(key).join(' ')
-      if (label.length > maxLength) {
-        maxLength = label.length
+    let firstColumnLength = 0
+    let secondColumnLength = 0
+    const entries = Object.entries(infoObj).map(([label, val]) => {
+      if (label.length > firstColumnLength) {
+        firstColumnLength = label.length + 4
+      }
+      if ((val || '').length > secondColumnLength) {
+        secondColumnLength = (val || '').length + 2
       }
       return [label, val || '-'] as const
     })
-    let infoStr = ''
+
+    // formatted for copy-pasting into an issue
+    let copyStr = `| ${' '.repeat(firstColumnLength)} | ${' '.repeat(secondColumnLength)} |\n| ${'-'.repeat(firstColumnLength)} | ${'-'.repeat(secondColumnLength)} |\n`
     for (const [label, value] of entries) {
-      infoStr
-        += `- ${
-          (`${label}: `).padEnd(maxLength + 2)
-        }${value.includes('`') ? value : `\`${value}\``
-        }\n`
+      if (!isMinimal) {
+        copyStr += `| ${`**${label}**`.padEnd(firstColumnLength)} | ${(value.includes('`') ? value : `\`${value}\``).padEnd(secondColumnLength)} |\n`
+      }
     }
 
-    const copied = !isMinimal && await new Promise(resolve => copyToClipboard(infoStr, err => resolve(!err)))
+    const copied = !isMinimal && await new Promise(resolve => copyToClipboard(copyStr, err => resolve(!err)))
+
+    box(
+      `\n${boxStr}`,
+      ` Nuxt project info ${copied ? colors.gray('(copied to clipboard) ') : ''}`,
+      {
+        contentAlign: 'left',
+        titleAlign: 'left',
+        width: 'auto',
+        titlePadding: 2,
+        contentPadding: 2,
+        rounded: true,
+      },
+    )
 
     const isNuxt3 = !isLegacy
-    const isBridge = !isNuxt3 && infoObj.BuildModules?.includes('bridge')
-
+    const isBridge = !isNuxt3 && infoObj['Build modules']?.includes('bridge')
     const repo = isBridge ? 'nuxt/bridge' : 'nuxt/nuxt'
-
-    const log = [
-      (isNuxt3 || isBridge) && `👉 Report an issue: https://github.com/${repo}/issues/new?template=bug-report.yml`,
-      (isNuxt3 || isBridge) && `👉 Suggest an improvement: https://github.com/${repo}/discussions/new`,
-      `👉 Read documentation: ${(isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'}`,
-    ].filter(Boolean).join('\n')
-
-    const splitter = '------------------------------'
-    logger.log(`Nuxt project info: ${copied ? '(copied to clipboard)' : ''}\n\n${splitter}\n${infoStr}${splitter}\n\n${log}\n`)
+    const docsURL = (isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'
+    logger.info(`👉 Read documentation: ${colors.cyan(docsURL)}`)
+    if (isNuxt3 || isBridge) {
+      logger.info(`👉 Report an issue: ${colors.cyan(`https://github.com/${repo}/issues/new?template=bug-report.yml`)}`, {
+        spacing: 0,
+      })
+      logger.info(`👉 Suggest an improvement: ${colors.cyan(`https://github.com/${repo}/discussions/new`)}`, {
+        spacing: 0,
+      })
+    }
   },
 })
 

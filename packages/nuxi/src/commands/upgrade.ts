@@ -3,7 +3,7 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { cancel, isCancel, select } from '@clack/prompts'
+import { cancel, intro, isCancel, note, outro, select, spinner, tasks } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
@@ -14,6 +14,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { getPackageManagerVersion } from '../utils/packageManagers'
+import { relativeToProcess } from '../utils/paths'
 import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
@@ -39,7 +40,7 @@ function getNightlyDependency(dep: string, nuxtVersion: NuxtVersionTag) {
 }
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
-  const result = await select({
+  const nuxtVersion = await select({
     message: 'Which nightly Nuxt release channel do you want to install?',
     options: [
       { value: '3.x' as const, label: '3.x' },
@@ -48,12 +49,10 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
     initialValue: '4.x' as const,
   })
 
-  if (isCancel(result)) {
+  if (isCancel(nuxtVersion)) {
     cancel('Operation cancelled.')
     process.exit(1)
   }
-
-  const nuxtVersion = result as NuxtVersionTag
 
   const npmPackages = packageNames.map(p => getNightlyDependency(p, nuxtVersion))
 
@@ -107,21 +106,24 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
+    intro(colors.cyan('Upgrading Nuxt ...'))
+
     // Check package manager
     const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
     if (!packageManager) {
       logger.error(
-        `Unable to determine the package manager used by this project.\n\nNo lock files found in \`${cwd}\`, and no \`packageManager\` field specified in \`package.json\`.\n\nPlease either add the \`packageManager\` field to \`package.json\` or execute the installation command for your package manager. For example, you can use \`pnpm i\`, \`npm i\`, \`bun i\`, or \`yarn i\`, and then try again.`,
+        `Unable to determine the package manager used by this project.\n\nNo lock files found in ${colors.cyan(relativeToProcess(cwd))}, and no ${colors.cyan('packageManager')} field specified in ${colors.cyan('package.json')}.`,
       )
+      logger.info(`Please either add the ${colors.cyan('packageManager')} field to ${colors.cyan('package.json')} or execute the installation command for your package manager. For example, you can use ${colors.cyan('pnpm i')}, ${colors.cyan('npm i')}, ${colors.cyan('bun i')}, or ${colors.cyan('yarn i')}, and then try again.`)
       process.exit(1)
     }
     const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
-    logger.info('Package manager:', packageManagerName, packageManagerVersion)
+    logger.step(`Package manager: ${colors.cyan(packageManagerName)} ${packageManagerVersion}`)
 
     // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
-    logger.info('Current Nuxt version:', currentVersion)
+    logger.step(`Current Nuxt version: ${colors.cyan(currentVersion)}`)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
 
@@ -150,7 +152,7 @@ export default defineCommand({
 
     if (!method) {
       const result = await select({
-        message: `Would you like to dedupe your lockfile (recommended) or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
+        message: `Would you like to dedupe your lockfile, or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
         options: [
           {
             label: 'dedupe lockfile',
@@ -178,56 +180,78 @@ export default defineCommand({
     }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
-    logger.info(`Installing ${versionType} Nuxt ${nuxtVersion} release...`)
 
-    await addDependency(npmPackages, {
-      cwd,
-      packageManager,
-      dev: nuxtDependencyType === 'devDependencies',
-      workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
-    })
+    const spin = spinner()
+    spin.start('Upgrading Nuxt')
+
+    await tasks([
+      {
+        title: `Installing ${versionType} Nuxt ${nuxtVersion} release`,
+        task: async () => {
+          await addDependency(npmPackages, {
+            cwd,
+            packageManager,
+            dev: nuxtDependencyType === 'devDependencies',
+            workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
+          })
+          return 'Nuxt packages installed'
+        },
+      },
+      ...(method === 'force'
+        ? [{
+            title: `Recreating ${forceRemovals}`,
+            task: async () => {
+              await dedupeDependencies({ recreateLockfile: true })
+              return 'Lockfile recreated'
+            },
+          }]
+        : []),
+      ...(method === 'dedupe'
+        ? [{
+            title: 'Deduping dependencies',
+            task: async () => {
+              await dedupeDependencies()
+              return 'Dependencies deduped'
+            },
+          }]
+        : []),
+      {
+        title: 'Cleaning up build directories',
+        task: async () => {
+          let buildDir: string = '.nuxt'
+          try {
+            const { loadNuxtConfig } = await loadKit(cwd)
+            const nuxtOptions = await loadNuxtConfig({ cwd })
+            buildDir = nuxtOptions.buildDir
+          }
+          catch {
+            // Use default buildDir (.nuxt)
+          }
+          await cleanupNuxtDirs(cwd, buildDir)
+          return 'Build directories cleaned'
+        },
+      },
+    ])
+
+    spin.stop()
 
     if (method === 'force') {
-      logger.info(
-        `Recreating ${forceRemovals}. If you encounter any issues, revert the changes and try with \`--no-force\``,
-      )
-      await dedupeDependencies({ recreateLockfile: true })
+      logger.info(`If you encounter any issues, revert the changes and try with ${colors.cyan('--no-force')}`)
     }
-
-    if (method === 'dedupe') {
-      logger.info('Try deduping dependencies...')
-      await dedupeDependencies()
-    }
-
-    // Clean up after upgrade
-    let buildDir: string = '.nuxt'
-    try {
-      const { loadNuxtConfig } = await loadKit(cwd)
-      const nuxtOptions = await loadNuxtConfig({ cwd })
-      buildDir = nuxtOptions.buildDir
-    }
-    catch {
-      // Use default buildDir (.nuxt)
-    }
-    await cleanupNuxtDirs(cwd, buildDir)
 
     // Check installed Nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
-    logger.info('Upgraded Nuxt version:', upgradedVersion)
 
     if (upgradedVersion === '[unknown]') {
       return
     }
 
     if (upgradedVersion === currentVersion) {
-      logger.success('You\'re using the latest version of Nuxt.')
+      outro(`You were already using the latest version of Nuxt (${colors.green(currentVersion)})`)
     }
     else {
       logger.success(
-        'Successfully upgraded Nuxt from',
-        currentVersion,
-        'to',
-        upgradedVersion,
+        `Successfully upgraded Nuxt from ${colors.cyan(currentVersion)} to ${colors.green(upgradedVersion)}`,
       )
       if (currentVersion === '[unknown]') {
         return
@@ -235,11 +259,12 @@ export default defineCommand({
       const commitA = nuxtVersionToGitIdentifier(currentVersion)
       const commitB = nuxtVersionToGitIdentifier(upgradedVersion)
       if (commitA && commitB) {
-        logger.info(
-          'Changelog:',
+        note(
           `https://github.com/nuxt/nuxt/compare/${commitA}...${commitB}`,
+          'Changelog',
         )
       }
+      outro('✨ Upgrade complete!')
     }
   },
 })
@@ -253,7 +278,7 @@ function normaliseLockFile(cwd: string, lockFiles: string | Array<string> | unde
   const lockFile = lockFiles?.find(file => existsSync(resolve(cwd, file)))
 
   if (lockFile === undefined) {
-    logger.error(`Unable to find any lock files in ${cwd}`)
+    logger.error(`Unable to find any lock files in ${colors.cyan(relativeToProcess(cwd))}.`)
     return undefined
   }
 

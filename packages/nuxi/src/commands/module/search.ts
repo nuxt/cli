@@ -1,8 +1,10 @@
+import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import Fuse from 'fuse.js'
 import { kebabCase, upperFirst } from 'scule'
 
+import { formatInfoBox } from '../../utils/formatting'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs } from '../_shared'
@@ -58,19 +60,17 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     ],
   })
 
-  const { bold, green, magenta, cyan, gray, yellow } = colors
-
   const results = fuse.search(query).map((result) => {
     const res: Record<string, string> = {
-      name: bold(result.item.name),
-      homepage: cyan(result.item.website),
+      name: result.item.name,
+      package: result.item.npm,
+      homepage: colors.cyan(result.item.website),
       compatibility: `nuxt: ${result.item.compatibility?.nuxt || '*'}`,
-      repository: gray(result.item.github),
-      description: gray(result.item.description),
-      package: gray(result.item.npm),
-      install: cyan(`npx nuxi module add ${result.item.name}`),
-      stars: yellow(formatNumber(result.item.stats.stars)),
-      monthlyDownloads: yellow(formatNumber(result.item.stats.downloads)),
+      repository: result.item.github,
+      description: result.item.description,
+      install: `npx nuxt module add ${result.item.name}`,
+      stars: colors.yellow(formatNumber(result.item.stats.stars)),
+      monthlyDownloads: colors.yellow(formatNumber(result.item.stats.downloads)),
     }
     if (result.item.github === result.item.website) {
       delete res.homepage
@@ -83,31 +83,34 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
 
   if (!results.length) {
     logger.info(
-      `No Nuxt modules found matching query ${magenta(query)} for Nuxt ${cyan(nuxtVersion)}`,
+      `No Nuxt modules found matching query ${colors.magenta(query)} for Nuxt ${colors.cyan(nuxtVersion)}`,
     )
     return
   }
 
   logger.success(
-    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${cyan(query)} ${nuxtVersion ? `for Nuxt ${cyan(nuxtVersion)}` : ''}:\n`,
+    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${colors.cyan(query)} ${nuxtVersion ? `for Nuxt ${colors.cyan(nuxtVersion)}` : ''}:\n`,
   )
   for (const foundModule of results) {
-    let maxLength = 0
-    const entries = Object.entries(foundModule).map(([key, val]) => {
+    const formattedModule: Record<string, string> = {}
+    for (const [key, val] of Object.entries(foundModule)) {
       const label = upperFirst(kebabCase(key)).replace(/-/g, ' ')
-      if (label.length > maxLength) {
-        maxLength = label.length
-      }
-      return [label, val || '-'] as const
-    })
-    let infoStr = ''
-    for (const [label, value] of entries) {
-      infoStr
-        += `${bold(label === 'Install' ? '→ ' : '- ')
-        + green(label.padEnd(maxLength + 2))
-        + value
-        }\n`
+      formattedModule[label] = val
     }
-    logger.log(infoStr)
+    const title = formattedModule.Name || formattedModule.Package
+    delete formattedModule.Name
+    const boxContent = formatInfoBox(formattedModule)
+    box(
+      `\n${boxContent}`,
+      ` ${title} `,
+      {
+        contentAlign: 'left',
+        titleAlign: 'left',
+        width: 'auto',
+        titlePadding: 2,
+        contentPadding: 2,
+        rounded: true,
+      },
+    )
   }
 }

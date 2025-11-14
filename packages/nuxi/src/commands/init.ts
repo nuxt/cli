@@ -4,7 +4,7 @@ import type { PackageManagerName } from 'nypm'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, isCancel, multiselect, outro, select, text } from '@clack/prompts'
+import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -18,6 +18,7 @@ import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
+import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, logLevelArgs } from './_shared'
 import addModuleCommand from './module/add'
 
@@ -42,7 +43,7 @@ async function getModuleDependencies(moduleName: string) {
     return Object.keys(dependencies)
   }
   catch (err) {
-    logger.warn(`Could not get dependencies for ${moduleName}: ${err}`)
+    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
     return []
   }
 }
@@ -167,7 +168,7 @@ export default defineCommand({
       process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
-    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+    intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     if (ctx.args.dir === '') {
       const result = await text({
@@ -186,7 +187,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd)
     let templateDownloadPath = resolve(cwd, ctx.args.dir)
-    logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
+    logger.step(`Creating project in ${colors.cyan(relativeToProcess(templateDownloadPath))}`)
 
     // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
@@ -203,7 +204,7 @@ export default defineCommand({
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       const selectedAction = await select({
-        message: `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
+        message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
           { value: 'override', label: 'Override its contents' },
           { value: 'different', label: 'Select different directory' },
@@ -245,6 +246,9 @@ export default defineCommand({
     // Download template
     let template: DownloadTemplateResult
 
+    const downloadSpinner = spinner()
+    downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
+
     try {
       template = await downloadTemplate(templateName, {
         dir: templateDownloadPath,
@@ -273,8 +277,11 @@ export default defineCommand({
           }
         }
       }
+
+      downloadSpinner.stop(`Downloaded ${colors.cyan(template.name)} template`)
     }
     catch (err) {
+      downloadSpinner.stop('Template download failed', 1)
       if (process.env.DEBUG) {
         throw err
       }
@@ -283,12 +290,7 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
-      const response = await $fetch<{
-        'dist-tags': {
-          [key: string]: string
-        }
-      }>('https://registry.npmjs.org/nuxt-nightly')
-
+      const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
@@ -299,7 +301,7 @@ export default defineCommand({
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
-        logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
+        logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
         process.exit(1)
       }
 
@@ -357,34 +359,7 @@ export default defineCommand({
       selectedPackageManager = result
     }
 
-    // Install project dependencies
-    // or skip installation based on the '--no-install' flag
-    if (ctx.args.install === false) {
-      logger.info('Skipping install dependencies step.')
-    }
-    else {
-      logger.start('Installing dependencies...')
-
-      try {
-        await installDependencies({
-          cwd: template.dir,
-          packageManager: {
-            name: selectedPackageManager,
-            command: selectedPackageManager,
-          },
-        })
-      }
-      catch (err) {
-        if (process.env.DEBUG) {
-          throw err
-        }
-        logger.error((err as Error).toString())
-        process.exit(1)
-      }
-
-      logger.success('Installation completed.')
-    }
-
+    // Determine if we should init git
     if (ctx.args.gitInit === undefined) {
       const result = await confirm({
         message: 'Initialize git repository?',
@@ -397,18 +372,58 @@ export default defineCommand({
 
       ctx.args.gitInit = result
     }
-    if (ctx.args.gitInit) {
-      logger.info('Initializing git repository...\n')
-      try {
-        await x('git', ['init', template.dir], {
-          throwOnError: true,
-          nodeOptions: {
-            stdio: 'inherit',
+
+    // Install project dependencies and initialize git
+    // or skip installation based on the '--no-install' flag
+    if (ctx.args.install === false) {
+      logger.info('Skipping install dependencies step.')
+    }
+    else {
+      const setupTasks: Array<{ title: string, task: () => Promise<string> }> = [
+        {
+          title: `Installing dependencies with ${colors.cyan(selectedPackageManager)}`,
+          task: async () => {
+            await installDependencies({
+              cwd: template.dir,
+              packageManager: {
+                name: selectedPackageManager,
+                command: selectedPackageManager,
+              },
+            })
+            return 'Dependencies installed'
+          },
+        },
+      ]
+
+      if (ctx.args.gitInit) {
+        setupTasks.push({
+          title: 'Initializing git repository',
+          task: async () => {
+            try {
+              await x('git', ['init', template.dir], {
+                throwOnError: true,
+                nodeOptions: {
+                  stdio: 'inherit',
+                },
+              })
+              return 'Git repository initialized'
+            }
+            catch (err) {
+              return `Git initialization failed: ${err}`
+            }
           },
         })
       }
+
+      try {
+        await tasks(setupTasks)
+      }
       catch (err) {
-        logger.warn(`Failed to initialize git repository: ${err}`)
+        if (process.env.DEBUG) {
+          throw err
+        }
+        logger.error((err as Error).toString())
+        process.exit(1)
       }
     }
 
@@ -500,7 +515,7 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
-    outro(`✨ Nuxt project has been created with the \`${template.name}\` template.`)
+    outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
 
     // Display next steps
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'

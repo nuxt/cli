@@ -5,7 +5,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
 import { fork } from 'node:child_process'
 import process from 'node:process'
 import { isDeno } from 'std-env'
-import { logger } from '../utils/logger'
+import { debug } from '../utils/logger'
 
 interface ForkPoolOptions {
   rawArgs: string[]
@@ -94,7 +94,7 @@ export class ForkPool {
     }
 
     // No forks in pool, create a cold fork
-    logger.debug('No pre-warmed forks available, starting cold fork')
+    debug('No pre-warmed forks available, starting cold fork')
     const coldFork = this.createFork()
     await coldFork.ready
     coldFork.state = 'active'

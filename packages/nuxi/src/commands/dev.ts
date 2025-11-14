@@ -4,6 +4,7 @@ import type { NuxtDevContext } from '../dev/utils'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { getArgs as getListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
@@ -12,7 +13,7 @@ import { isBun, isTest } from 'std-env'
 import { initialize } from '../dev'
 import { ForkPool } from '../dev/pool'
 import { overrideEnv } from '../utils/env'
-import { logger } from '../utils/logger'
+import { debug, logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
@@ -106,7 +107,7 @@ const command = defineCommand({
     onReady((_address) => {
       pool.startWarming()
       if (startTime) {
-        logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+        debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
       }
     })
 
@@ -124,7 +125,7 @@ const command = defineCommand({
         // Handle IPC messages from the fork
         if (message.type === 'nuxt:internal:dev:ready') {
           if (startTime) {
-            logger.debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+            debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
           }
         }
         else if (message.type === 'nuxt:internal:dev:restart') {
@@ -132,7 +133,7 @@ const command = defineCommand({
           void restartWithFork()
         }
         else if (message.type === 'nuxt:internal:dev:rejection') {
-          logger.info(`Restarting Nuxt due to error: \`${message.message}\``)
+          logger.info(`Restarting Nuxt due to error: ${colors.cyan(message.message)}`)
           void restartWithFork()
         }
       })
