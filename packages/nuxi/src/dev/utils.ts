@@ -1,7 +1,7 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { Listener, ListenOptions } from 'listhen'
-import type { createDevServer } from 'nitro'
+import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
