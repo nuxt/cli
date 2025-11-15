@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
+import { withNodePath } from './paths'
 
 export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit')> {
   try {
@@ -28,7 +29,7 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
 
 export function tryResolveNuxt(rootDir: string) {
   for (const pkg of ['nuxt-nightly', 'nuxt', 'nuxt3', 'nuxt-edge']) {
-    const path = resolveModulePath(pkg, { from: rootDir, try: true })
+    const path = resolveModulePath(pkg, { from: withNodePath(rootDir), try: true })
     if (path) {
       return path
     }

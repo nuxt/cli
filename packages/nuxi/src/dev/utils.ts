@@ -25,8 +25,8 @@ import { joinURL } from 'ufo'
 import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
 
 export type NuxtParentIPCMessage
@@ -561,8 +561,8 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
 
 // Nuxt <3.6 did not have the loading template defined in the schema
 async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
-  const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
-  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })
+  const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
+  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: withNodePath(nuxtPath || cwd) })
   const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)
 
   return r.loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
