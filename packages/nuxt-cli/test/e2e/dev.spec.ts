@@ -92,4 +92,66 @@ describe('dev server', () => {
       await close()
     }
   })
+
+  it('should expose dev server https options to nuxt options', { timeout: 50_000 }, async () => {
+    await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3034 })
+    const { result: { close } } = await runCommand('dev', [
+      `--https`,
+      `--https.passphrase=pass`,
+      `--host=${host}`,
+      `--port=${port}`,
+      `--cwd=${fixtureDir}`,
+    ], {
+      overrides: {
+        modules: [
+          fileURLToPath(new URL('../fixtures/log-dev-server-options.ts', import.meta.url)),
+        ],
+      },
+    }) as any
+    await close()
+    const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
+    expect(options).toMatchObject({
+      https: { passphrase: 'pass' },
+      host,
+      port,
+      url: `https://${host}:${port}/`,
+    })
+  })
+
+  it('should override devServer options with commandline options', { timeout: 50_000 }, async () => {
+    await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3050 })
+    const { result: { close } } = await runCommand('dev', [
+      `--https=false`,
+      `--host=${host}`,
+      `--port=${port}`,
+      `--cwd=${fixtureDir}`,
+    ], {
+      overrides: {
+        devServer: {
+          host: 'localhost',
+          port: 3000,
+          https: {
+            cert: 'invalid',
+            key: 'invalid',
+            passphrase: 'dev',
+          },
+        },
+        modules: [
+          fileURLToPath(new URL('../fixtures/log-dev-server-options.ts', import.meta.url)),
+        ],
+      },
+    }) as any
+    await close()
+    const options = await readFile(join(fixtureDir, '.nuxt/dev-server.json'), 'utf-8').then(JSON.parse)
+    expect(options).toMatchObject({
+      https: false,
+      host,
+      port,
+      url: `http://${host}:${port}/`,
+    })
+  })
 })

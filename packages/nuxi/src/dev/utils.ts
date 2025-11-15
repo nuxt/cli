@@ -228,7 +228,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (urls) {
       // Pass hostname and https info for proper CORS and allowedHosts setup
       const overrides = this.options.listenOverrides || {}
-      const hostname = overrides.hostname ?? (overrides as any).host
+      const hostname = overrides.hostname
       const https = overrides.https
 
       loadOptions.defaults = resolveDevServerDefaults({ hostname, https }, urls)
@@ -276,9 +276,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
 
-    // CLI args use 'host', but ListenOptions uses 'hostname'
-    const rawHost = overrides.hostname ?? (overrides as any).host
-    const hostname = (rawHost === true ? '' : rawHost) ?? nuxtConfig.devServer?.host
+    const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
     // Resolve public flag
     const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
@@ -288,12 +286,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ? nuxtConfig.devServer.https
       : {}
 
-    const httpsEnabled = !!(overrides.https ?? nuxtConfig.devServer?.https)
+    ;(overrides as any)._https ??= !!nuxtConfig.devServer?.https
 
-    const httpsOptions = httpsEnabled && {
-      ...httpsFromConfig,
-      ...(typeof overrides.https === 'object' ? overrides.https : {}),
-    }
+    const httpsOptions = overrides.https && defu(
+      (typeof overrides.https === 'object' ? overrides.https : {}),
+      httpsFromConfig,
+    )
 
     // Resolve baseURL
     const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
