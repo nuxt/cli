@@ -58,6 +58,6 @@ async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
       err = _err
     }
   }
-  logger.error(err)
+  logger.error(err as string)
   throw new Error('`@nuxt/test-utils` seems missing. Run `npm i -D @nuxt/test-utils` or `yarn add -D @nuxt/test-utils` to install.')
 }

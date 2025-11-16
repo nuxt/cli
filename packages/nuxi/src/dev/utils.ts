@@ -1,7 +1,7 @@
 import type { Nuxt, NuxtConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { Listener, ListenOptions } from 'listhen'
-import type { createDevServer } from 'nitro'
+import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
@@ -25,8 +25,8 @@ import { joinURL } from 'ufo'
 import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
 
 export type NuxtParentIPCMessage
@@ -228,7 +228,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (urls) {
       // Pass hostname and https info for proper CORS and allowedHosts setup
       const overrides = this.options.listenOverrides || {}
-      const hostname = overrides.hostname ?? (overrides as any).host
+      const hostname = overrides.hostname
       const https = overrides.https
 
       loadOptions.defaults = resolveDevServerDefaults({ hostname, https }, urls)
@@ -275,8 +275,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const overrides = this.options.listenOverrides || {}
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
-    // CLI args use 'host', but ListenOptions uses 'hostname'
-    const hostname = overrides.hostname ?? (overrides as any).host ?? nuxtConfig.devServer?.host
+
+    const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
     // Resolve public flag
     const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
@@ -286,12 +286,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ? nuxtConfig.devServer.https
       : {}
 
-    const httpsEnabled = !!(overrides.https ?? nuxtConfig.devServer?.https)
+    ;(overrides as any)._https ??= !!nuxtConfig.devServer?.https
 
-    const httpsOptions = httpsEnabled && {
-      ...httpsFromConfig,
-      ...(typeof overrides.https === 'object' ? overrides.https : {}),
-    }
+    const httpsOptions = overrides.https && defu(
+      (typeof overrides.https === 'object' ? overrides.https : {}),
+      httpsFromConfig,
+    )
 
     // Resolve baseURL
     const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
@@ -559,8 +559,8 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
 
 // Nuxt <3.6 did not have the loading template defined in the schema
 async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
-  const nuxtPath = resolveModulePath('nuxt', { from: cwd, try: true })
-  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: nuxtPath || cwd })
+  const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
+  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: withNodePath(nuxtPath || cwd) })
   const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)
 
   return r.loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)

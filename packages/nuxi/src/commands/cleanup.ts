@@ -2,6 +2,7 @@ import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 
 import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
 import { cleanupNuxtDirs } from '../utils/nuxt'
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
@@ -19,5 +20,7 @@ export default defineCommand({
     const { loadNuxtConfig } = await loadKit(cwd)
     const nuxtOptions = await loadNuxtConfig({ cwd, overrides: { dev: true } })
     await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir)
+
+    logger.success('Cleanup complete!')
   },
 })

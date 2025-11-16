@@ -1,3 +1,5 @@
-import { consola } from 'consola'
+import { log } from '@clack/prompts'
+import createDebug from 'debug'
 
-export const logger = consola.withTag('nuxi')
+export const logger = log
+export const debug = createDebug('nuxi')

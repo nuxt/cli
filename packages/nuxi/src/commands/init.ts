@@ -1,10 +1,10 @@
-import type { SelectPromptOptions } from 'consola'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -18,6 +18,7 @@ import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
+import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, logLevelArgs } from './_shared'
 import addModuleCommand from './module/add'
 
@@ -42,7 +43,7 @@ async function getModuleDependencies(moduleName: string) {
     return Object.keys(dependencies)
   }
   catch (err) {
-    logger.warn(`Could not get dependencies for ${moduleName}: ${err}`)
+    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
     return []
   }
 }
@@ -167,20 +168,26 @@ export default defineCommand({
       process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
-    logger.info(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+    intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     if (ctx.args.dir === '') {
-      ctx.args.dir = await logger.prompt('Where would you like to create your project?', {
+      const result = await text({
+        message: 'Where would you like to create your project?',
         placeholder: './nuxt-app',
-        type: 'text',
-        default: 'nuxt-app',
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
+        defaultValue: 'nuxt-app',
+      })
+
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      ctx.args.dir = result
     }
 
     const cwd = resolve(ctx.args.cwd)
     let templateDownloadPath = resolve(cwd, ctx.args.dir)
-    logger.info(`Creating a new project in ${colors.cyan(relative(cwd, templateDownloadPath) || templateDownloadPath)}.`)
+    logger.step(`Creating project in ${colors.cyan(relativeToProcess(templateDownloadPath))}`)
 
     // Get template name
     const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
@@ -196,28 +203,41 @@ export default defineCommand({
     // when no `--force` flag is provided
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
-      const selectedAction = await logger.prompt(
-        `The directory ${colors.cyan(templateDownloadPath)} already exists. What would you like to do?`,
-        {
-          type: 'select',
-          options: ['Override its contents', 'Select different directory', 'Abort'],
-        },
-      )
+      const selectedAction = await select({
+        message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
+        options: [
+          { value: 'override', label: 'Override its contents' },
+          { value: 'different', label: 'Select different directory' },
+          { value: 'abort', label: 'Abort' },
+        ],
+      })
+
+      if (isCancel(selectedAction)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
 
       switch (selectedAction) {
-        case 'Override its contents':
+        case 'override':
           shouldForce = true
           break
 
-        case 'Select different directory': {
-          templateDownloadPath = resolve(cwd, await logger.prompt('Please specify a different directory:', {
-            type: 'text',
-            cancel: 'reject',
-          }).catch(() => process.exit(1)))
+        case 'different': {
+          const result = await text({
+            message: 'Please specify a different directory:',
+          })
+
+          if (isCancel(result)) {
+            cancel('Operation cancelled.')
+            process.exit(1)
+          }
+
+          templateDownloadPath = resolve(cwd, result)
           break
         }
 
-        // 'Abort' or Ctrl+C
+        // 'Abort'
+        case 'abort':
         default:
           process.exit(1)
       }
@@ -225,6 +245,9 @@ export default defineCommand({
 
     // Download template
     let template: DownloadTemplateResult
+
+    const downloadSpinner = spinner()
+    downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
 
     try {
       template = await downloadTemplate(templateName, {
@@ -254,8 +277,11 @@ export default defineCommand({
           }
         }
       }
+
+      downloadSpinner.stop(`Downloaded ${colors.cyan(template.name)} template`)
     }
     catch (err) {
+      downloadSpinner.stop('Template download failed', 1)
       if (process.env.DEBUG) {
         throw err
       }
@@ -264,12 +290,7 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
-      const response = await $fetch<{
-        'dist-tags': {
-          [key: string]: string
-        }
-      }>('https://registry.npmjs.org/nuxt-nightly')
-
+      const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
@@ -280,7 +301,7 @@ export default defineCommand({
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
-        logger.error(`Nightly channel version for tag '${nightlyChannelTag}' not found.`)
+        logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
         process.exit(1)
       }
 
@@ -317,32 +338,85 @@ export default defineCommand({
       label: pm,
       value: pm,
       hint: currentPackageManager === pm ? 'current' : undefined,
-    } satisfies SelectPromptOptions['options'][number]))
-    const selectedPackageManager = packageManagerOptions.includes(packageManagerArg)
-      ? packageManagerArg
-      : await logger.prompt('Which package manager would you like to use?', {
-          type: 'select',
-          options: packageManagerSelectOptions,
-          initial: currentPackageManager,
-          cancel: 'reject',
-        }).catch(() => process.exit(1))
+    }))
 
-    // Install project dependencies
+    let selectedPackageManager: PackageManagerName
+    if (packageManagerOptions.includes(packageManagerArg)) {
+      selectedPackageManager = packageManagerArg
+    }
+    else {
+      const result = await select({
+        message: 'Which package manager would you like to use?',
+        options: packageManagerSelectOptions,
+        initialValue: currentPackageManager,
+      })
+
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      selectedPackageManager = result
+    }
+
+    // Determine if we should init git
+    if (ctx.args.gitInit === undefined) {
+      const result = await confirm({
+        message: 'Initialize git repository?',
+      })
+
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      ctx.args.gitInit = result
+    }
+
+    // Install project dependencies and initialize git
     // or skip installation based on the '--no-install' flag
     if (ctx.args.install === false) {
       logger.info('Skipping install dependencies step.')
     }
     else {
-      logger.start('Installing dependencies...')
+      const setupTasks: Array<{ title: string, task: () => Promise<string> }> = [
+        {
+          title: `Installing dependencies with ${colors.cyan(selectedPackageManager)}`,
+          task: async () => {
+            await installDependencies({
+              cwd: template.dir,
+              packageManager: {
+                name: selectedPackageManager,
+                command: selectedPackageManager,
+              },
+            })
+            return 'Dependencies installed'
+          },
+        },
+      ]
 
-      try {
-        await installDependencies({
-          cwd: template.dir,
-          packageManager: {
-            name: selectedPackageManager,
-            command: selectedPackageManager,
+      if (ctx.args.gitInit) {
+        setupTasks.push({
+          title: 'Initializing git repository',
+          task: async () => {
+            try {
+              await x('git', ['init', template.dir], {
+                throwOnError: true,
+                nodeOptions: {
+                  stdio: 'inherit',
+                },
+              })
+              return 'Git repository initialized'
+            }
+            catch (err) {
+              return `Git initialization failed: ${err}`
+            }
           },
         })
+      }
+
+      try {
+        await tasks(setupTasks)
       }
       catch (err) {
         if (process.env.DEBUG) {
@@ -350,29 +424,6 @@ export default defineCommand({
         }
         logger.error((err as Error).toString())
         process.exit(1)
-      }
-
-      logger.success('Installation completed.')
-    }
-
-    if (ctx.args.gitInit === undefined) {
-      ctx.args.gitInit = await logger.prompt('Initialize git repository?', {
-        type: 'confirm',
-        cancel: 'reject',
-      }).catch(() => process.exit(1))
-    }
-    if (ctx.args.gitInit) {
-      logger.info('Initializing git repository...\n')
-      try {
-        await x('git', ['init', template.dir], {
-          throwOnError: true,
-          nodeOptions: {
-            stdio: 'inherit',
-          },
-        })
-      }
-      catch (err) {
-        logger.warn(`Failed to initialize git repository: ${err}`)
       }
     }
 
@@ -395,14 +446,15 @@ export default defineCommand({
         }[]
       }>('https://api.nuxt.com/modules')
 
-      const wantsUserModules = await logger.prompt(
-        `Would you like to install any of the official modules?`,
-        {
-          initial: false,
-          type: 'confirm',
-          cancel: 'reject',
-        },
-      ).catch(() => process.exit(1))
+      const wantsUserModules = await confirm({
+        message: `Would you like to install any of the official modules?`,
+        initialValue: false,
+      })
+
+      if (isCancel(wantsUserModules)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
 
       if (wantsUserModules) {
         const [response, templateDeps] = await Promise.all([
@@ -418,19 +470,16 @@ export default defineCommand({
           logger.info('All official modules are already included in this template.')
         }
         else {
-          const selectedOfficialModules = await logger.prompt(
-            'Pick the modules to install:',
-            {
-              type: 'multiselect',
-              options: officialModules.map(module => ({
-                label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-                value: module.npm,
-              })),
-              required: false,
-            },
-          )
+          const selectedOfficialModules = await multiselect({
+            message: 'Pick the modules to install:',
+            options: officialModules.map(module => ({
+              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
+              value: module.npm,
+            })),
+            required: false,
+          })
 
-          if (selectedOfficialModules === undefined) {
+          if (isCancel(selectedOfficialModules)) {
             process.exit(1)
           }
 
@@ -466,22 +515,28 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
+    outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
+
     // Display next steps
-    logger.log(
-      `\n✨ Nuxt project has been created with the \`${template.name}\` template. Next steps:`,
-    )
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
     const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
     const nextSteps = [
       !ctx.args.shell
       && relativeTemplateDir.length > 1
-      && `\`cd ${relativeTemplateDir}\``,
-      `Start development server with \`${selectedPackageManager} ${runCmd} dev\``,
+      && colors.cyan(`cd ${relativeTemplateDir}`),
+      colors.cyan(`${selectedPackageManager} ${runCmd} dev`),
     ].filter(Boolean)
 
-    for (const step of nextSteps) {
-      logger.log(` › ${step}`)
-    }
+    box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {
+      contentAlign: 'left',
+      titleAlign: 'left',
+      width: 'auto',
+      titlePadding: 2,
+      contentPadding: 2,
+      rounded: true,
+      includePrefix: false,
+      formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
+    })
 
     if (ctx.args.shell) {
       startShell(template.dir)

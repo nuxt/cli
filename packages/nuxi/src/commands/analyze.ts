@@ -3,7 +3,9 @@ import type { NuxtAnalyzeMeta } from '@nuxt/schema'
 import { promises as fsp } from 'node:fs'
 import process from 'node:process'
 
+import { intro, note, outro, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { defu } from 'defu'
 import { H3, lazyEventHandler } from 'h3-next'
 import { join, resolve } from 'pathe'
@@ -13,6 +15,7 @@ import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
 const indexHtml = `
@@ -65,6 +68,8 @@ export default defineCommand({
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(/[^\w-]/g, '_')
 
+    intro(colors.cyan('Analyzing bundle size...'))
+
     const startTime = Date.now()
 
     const { loadNuxt, buildNuxt } = await loadKit(cwd)
@@ -105,8 +110,17 @@ export default defineCommand({
       filename: join(analyzeDir, 'client.html'),
     })
 
+    const tasklog = taskLog({
+      title: 'Building Nuxt with analysis enabled',
+      retainLog: false,
+      limit: 1,
+    })
+
+    tasklog.message('Clearing analyze directory...')
     await clearDir(analyzeDir)
+    tasklog.message('Building Nuxt...')
     await buildNuxt(nuxt)
+    tasklog.success('Build complete')
 
     const endTime = Date.now()
 
@@ -121,14 +135,9 @@ export default defineCommand({
     }
 
     await nuxt.callHook('build:analyze:done', meta)
-    await fsp.writeFile(
-      join(analyzeDir, 'meta.json'),
-      JSON.stringify(meta, null, 2),
-      'utf-8',
-    )
+    await fsp.writeFile(join(analyzeDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
-    logger.info(`Analyze results are available at: \`${analyzeDir}\``)
-    logger.warn('Do not deploy analyze results! Use `nuxi build` before deploying.')
+    note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${colors.cyan('nuxt build')} before deploying.`, 'Build location')
 
     if (ctx.args.serve !== false && !process.env.CI) {
       const app = new H3()
@@ -139,13 +148,16 @@ export default defineCommand({
         return () => new Response(contents, opts)
       })
 
-      logger.info('Starting stats server...')
+      logger.step('Starting stats server...')
 
       app.use('/client', serveFile(join(analyzeDir, 'client.html')))
       app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))
       app.use(() => new Response(indexHtml, opts))
 
       await serve(app).serve()
+    }
+    else {
+      outro('✨ Analysis build complete!')
     }
   },
 })

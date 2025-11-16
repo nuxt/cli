@@ -1,6 +1,7 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
@@ -25,7 +26,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     if (!['enable', 'disable'].includes(ctx.args.command)) {
-      logger.error(`Unknown command \`${ctx.args.command}\`.`)
+      logger.error(`Unknown command ${colors.cyan(ctx.args.command)}.`)
       process.exit(1)
     }
 
