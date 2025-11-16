@@ -172,21 +172,25 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
     } as const
   }
 
-  const _httpsCert = args['https.cert']
-    || args.sslCert
-    || process.env.NUXT_SSL_CERT
-    || process.env.NITRO_SSL_CERT
-
-  const _httpsKey = args['https.key']
-    || args.sslKey
-    || process.env.NUXT_SSL_KEY
-    || process.env.NITRO_SSL_KEY
-
   const options = parseListhenArgs({
     ...args,
+    'host': args.host
+      || process.env.NUXT_HOST
+      || process.env.NITRO_HOST
+      || process.env.HOST!,
+    'port': args.port
+      || process.env.NUXT_PORT
+      || process.env.NITRO_PORT
+      || process.env.PORT!,
     'https': args.https !== false,
-    'https.cert': _httpsCert!,
-    'https.key': _httpsKey!,
+    'https.cert': args['https.cert']
+      || args.sslCert
+      || process.env.NUXT_SSL_CERT
+      || process.env.NITRO_SSL_CERT!,
+    'https.key': args['https.key']
+      || args.sslKey
+      || process.env.NUXT_SSL_KEY
+      || process.env.NITRO_SSL_KEY!,
   })
 
   return {
