@@ -36,7 +36,7 @@
     "@types/node": "^24.10.1",
     "rollup": "^4.53.2",
     "rollup-plugin-visualizer": "^6.0.5",
-    "tsdown": "^0.16.4",
+    "tsdown": "^0.16.5",
     "typescript": "^5.9.3",
     "unplugin-purge-polyfills": "^0.1.0"
   }
