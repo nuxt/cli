@@ -70,30 +70,32 @@ export class FileChangeTracker {
   private mtimes = new Map<string, number>()
 
   shouldEmitChange(filePath: string): boolean {
+    const resolved = resolve(filePath)
     try {
-      const stats = statSync(filePath)
+      const stats = statSync(resolved)
       const currentMtime = stats.mtimeMs
-      const lastMtime = this.mtimes.get(filePath)
+      const lastMtime = this.mtimes.get(resolved)
 
-      this.mtimes.set(filePath, currentMtime)
+      this.mtimes.set(resolved, currentMtime)
 
       // emit change for new file or mtime has changed
       return lastMtime === undefined || currentMtime !== lastMtime
     }
     catch {
       // remove from cache if it has been deleted or is inaccessible
-      this.mtimes.delete(filePath)
+      this.mtimes.delete(resolved)
       return true
     }
   }
 
-  prime(directory: string, recursive: boolean = false): void {
-    const stat = statSync(directory)
-    this.mtimes.set(directory, stat.mtimeMs)
+  prime(filePath: string, recursive: boolean = false): void {
+    const resolved = resolve(filePath)
+    const stat = statSync(resolved)
+    this.mtimes.set(resolved, stat.mtimeMs)
     if (stat.isDirectory()) {
-      const entries = readdirSync(directory)
+      const entries = readdirSync(resolved)
       for (const entry of entries) {
-        const fullPath = resolve(directory, entry)
+        const fullPath = resolve(resolved, entry)
         try {
           const stats = statSync(fullPath)
           this.mtimes.set(fullPath, stats.mtimeMs)
