@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -8,12 +8,17 @@ import { FileChangeTracker } from '../../src/dev/utils'
 
 describe('fileWatcher', () => {
   let tempDir: string
+  let tempSubdir: string
   let testFile: string
+  let testSubdirFile: string
   let fileWatcher: FileChangeTracker
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'nuxt-cli-test-'))
+    tempSubdir = join(tempDir, 'subdir')
+    await mkdir(tempSubdir)
     testFile = join(tempDir, 'test-config.js')
+    testSubdirFile = join(tempSubdir, 'test-subdir-config.js')
     fileWatcher = new FileChangeTracker()
   })
 
@@ -36,6 +41,30 @@ describe('fileWatcher', () => {
     fileWatcher.prime(testFile)
     const shouldEmit = fileWatcher.shouldEmitChange(testFile)
     expect(shouldEmit).toBe(false)
+  })
+
+  it('should return false for first check of nested files if primed in recursive mode', async () => {
+    await writeFile(testFile, 'initial content')
+    await writeFile(testSubdirFile, 'initial content in subdir')
+
+    // Prime the directory in recursive mode
+    fileWatcher.prime(tempDir, true)
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+    expect(fileWatcher.shouldEmitChange(testSubdirFile)).toBe(false)
+    expect(fileWatcher.shouldEmitChange(tempDir)).toBe(false)
+    expect(fileWatcher.shouldEmitChange(tempSubdir)).toBe(false)
+  })
+
+  it('should return true for first check of nested files if primed in non-recursive mode', async () => {
+    await writeFile(testFile, 'initial content')
+    await writeFile(testSubdirFile, 'initial content in subdir')
+
+    // Prime the directory in recursive mode
+    fileWatcher.prime(tempDir)
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+    expect(fileWatcher.shouldEmitChange(testSubdirFile)).toBe(true)
+    expect(fileWatcher.shouldEmitChange(tempDir)).toBe(false)
+    expect(fileWatcher.shouldEmitChange(tempSubdir)).toBe(false)
   })
 
   it('should return false for first check of a file if directory is primed', async () => {
