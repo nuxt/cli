@@ -7,7 +7,7 @@ import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
 import EventEmitter from 'node:events'
-import { existsSync, statSync, watch } from 'node:fs'
+import { existsSync, readdirSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -84,6 +84,27 @@ export class FileChangeTracker {
       // remove from cache if it has been deleted or is inaccessible
       this.mtimes.delete(filePath)
       return true
+    }
+  }
+
+  prime(directory: string, recursive: boolean = false): void {
+    const stat = statSync(directory)
+    this.mtimes.set(directory, stat.mtimeMs)
+    if (stat.isDirectory()) {
+      const entries = readdirSync(directory)
+      for (const entry of entries) {
+        const fullPath = resolve(directory, entry)
+        try {
+          const stats = statSync(fullPath)
+          this.mtimes.set(fullPath, stats.mtimeMs)
+          if (recursive && stats.isDirectory()) {
+            this.prime(fullPath, recursive)
+          }
+        }
+        catch {
+          // ignore
+        }
+      }
     }
   }
 }
@@ -414,6 +435,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     // Watch dist directory
     const distDir = resolve(this.#currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
+    this.#fileChangeTracker.prime(distDir)
     this.#distWatcher = watch(distDir)
     this.#distWatcher.on('change', (_event, file: string) => {
       if (!this.#fileChangeTracker.shouldEmitChange(resolve(distDir, file || ''))) {
@@ -510,10 +532,11 @@ function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'ho
 }
 
 function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void) {
+  const fileWatcher = new FileChangeTracker()
+  fileWatcher.prime(cwd)
   const configWatcher = watch(cwd)
   let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
-  const fileWatcher = new FileChangeTracker()
 
   configWatcher.on('change', (_event, file: string) => {
     if (!fileWatcher.shouldEmitChange(resolve(cwd, file))) {
@@ -543,6 +566,7 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
   const configDir = resolve(cwd, '.config')
   const fileWatcher = new FileChangeTracker()
 
+  fileWatcher.prime(configDir)
   const configDirWatcher = watch(configDir)
   configDirWatcher.on('change', (_event, file: string) => {
     if (!fileWatcher.shouldEmitChange(resolve(configDir, file))) {

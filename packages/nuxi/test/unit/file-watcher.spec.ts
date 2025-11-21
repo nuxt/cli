@@ -30,6 +30,25 @@ describe('fileWatcher', () => {
     expect(shouldEmit).toBe(true)
   })
 
+  it('should return false for first check of a file if primed', async () => {
+    await writeFile(testFile, 'initial content')
+
+    fileWatcher.prime(testFile)
+    const shouldEmit = fileWatcher.shouldEmitChange(testFile)
+    expect(shouldEmit).toBe(false)
+  })
+
+  it('should return false for first check of a file if directory is primed', async () => {
+    await writeFile(testFile, 'initial content')
+
+    fileWatcher.prime(tempDir)
+    const shouldEmit = fileWatcher.shouldEmitChange(testFile)
+    expect(shouldEmit).toBe(false)
+    // Also test the directory itself
+    const dirShouldEmit = fileWatcher.shouldEmitChange(tempDir)
+    expect(dirShouldEmit).toBe(false)
+  })
+
   it('should return false when file has not been modified', async () => {
     await writeFile(testFile, 'initial content')
 
@@ -48,6 +67,27 @@ describe('fileWatcher', () => {
 
     // First check
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
+
+    // No modification - should return false
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+
+    // Wait a bit and modify the file
+    await new Promise(resolve => setTimeout(resolve, 10))
+    await writeFile(testFile, 'modified content')
+
+    // Should return true because file was modified
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
+
+    // Subsequent check without modification should return false
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+  })
+
+  it('should return true only when file has been modified, if primed', async () => {
+    await writeFile(testFile, 'initial content')
+    fileWatcher.prime(testFile)
+
+    // First check
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
 
     // No modification - should return false
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
