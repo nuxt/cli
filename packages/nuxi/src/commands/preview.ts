@@ -42,6 +42,10 @@ const command = defineCommand({
     const resolvedOutputDir = await new Promise<string>((res) => {
       loadNuxt({
         cwd,
+        dotenv: {
+          cwd,
+          fileName: ctx.args.dotenv,
+        },
         envName: ctx.args.envName, // c12 will fall back to NODE_ENV
         ready: true,
         overrides: {
