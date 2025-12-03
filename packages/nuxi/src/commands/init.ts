@@ -19,11 +19,13 @@ import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
+import { getTemplates, TemplateData } from '../utils/starter-templates'
 import { cwdArgs, logLevelArgs } from './_shared'
+import { fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
-const DEFAULT_TEMPLATE_NAME = 'v4'
+const DEFAULT_TEMPLATE_NAME = 'minimal'
 
 const pms: Record<PackageManagerName, undefined> = {
   npm: undefined,
@@ -35,73 +37,6 @@ const pms: Record<PackageManagerName, undefined> = {
 
 // this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
 const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
-
-async function getModuleDependencies(moduleName: string) {
-  try {
-    const response = await $fetch(`https://registry.npmjs.org/${moduleName}/latest`)
-    const dependencies = response.dependencies || {}
-    return Object.keys(dependencies)
-  }
-  catch (err) {
-    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
-    return []
-  }
-}
-
-function filterModules(modules: string[], allDependencies: Record<string, string[]>) {
-  const result = {
-    toInstall: [] as string[],
-    skipped: [] as string[],
-  }
-
-  for (const module of modules) {
-    const isDependency = modules.some((otherModule) => {
-      if (otherModule === module)
-        return false
-      const deps = allDependencies[otherModule] || []
-      return deps.includes(module)
-    })
-
-    if (isDependency) {
-      result.skipped.push(module)
-    }
-    else {
-      result.toInstall.push(module)
-    }
-  }
-
-  return result
-}
-
-async function getTemplateDependencies(templateDir: string) {
-  try {
-    const packageJsonPath = join(templateDir, 'package.json')
-    if (!existsSync(packageJsonPath)) {
-      return []
-    }
-    const packageJson = await readPackageJSON(packageJsonPath)
-    const directDeps = {
-      ...packageJson.dependencies,
-      ...packageJson.devDependencies,
-    }
-    const directDepNames = Object.keys(directDeps)
-    const allDeps = new Set(directDepNames)
-
-    const transitiveDepsResults = await Promise.all(
-      directDepNames.map(dep => getModuleDependencies(dep)),
-    )
-
-    transitiveDepsResults.forEach((deps) => {
-      deps.forEach(dep => allDeps.add(dep))
-    })
-
-    return Array.from(allDeps)
-  }
-  catch (err) {
-    logger.warn(`Could not read template dependencies: ${err}`)
-    return []
-  }
-}
 
 export default defineCommand({
   meta: {
@@ -164,17 +99,69 @@ export default defineCommand({
     },
   },
   async run(ctx) {
+    if (!ctx.args.offline && !ctx.args.preferOffline && !ctx.args.template) {
+      getTemplates()
+    }
+
     if (hasTTY) {
       process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
     intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
+    let availableTemplates: Record<string, TemplateData> = {}
+
+    if (!ctx.args.template || !ctx.args.dir) {
+      if (ctx.args.offline || ctx.args.preferOffline) {
+        // In offline mode, use static templates directly
+        availableTemplates = await import('../data/templates').then(r => r.templates)
+      }
+      else {
+        const templatesSpinner = spinner()
+        templatesSpinner.start('Loading available templates')
+
+        availableTemplates = await getTemplates()
+        templatesSpinner.stop('Templates loaded')
+      }
+    }
+
+    let templateName = ctx.args.template
+    if (!templateName) {
+      const result = await select({
+        message: 'Which template would you like to use?',
+        options: Object.entries(availableTemplates).map(([name, data]) => {
+          return {
+            value: name,
+            label: data ? `${colors.whiteBright(name)} – ${data.description}` : name,
+            hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
+          }
+        }),
+        initialValue: DEFAULT_TEMPLATE_NAME,
+      })
+
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      templateName = result
+    }
+
+    // Fallback to default if still not set
+    templateName ||= DEFAULT_TEMPLATE_NAME
+
+    if (typeof templateName !== 'string') {
+      logger.error('Please specify a template!')
+      process.exit(1)
+    }
+
+    
     if (ctx.args.dir === '') {
+      const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
       const result = await text({
         message: 'Where would you like to create your project?',
-        placeholder: './nuxt-app',
-        defaultValue: 'nuxt-app',
+        placeholder: `./${defaultDir}`,
+        defaultValue: defaultDir,
       })
 
       if (isCancel(result)) {
@@ -188,14 +175,6 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd)
     let templateDownloadPath = resolve(cwd, ctx.args.dir)
     logger.step(`Creating project in ${colors.cyan(relativeToProcess(templateDownloadPath))}`)
-
-    // Get template name
-    const templateName = ctx.args.template || DEFAULT_TEMPLATE_NAME
-
-    if (typeof templateName !== 'string') {
-      logger.error('Please specify a template!')
-      process.exit(1)
-    }
 
     let shouldForce = Boolean(ctx.args.force)
 
@@ -290,10 +269,14 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
+      const nightlySpinner = spinner()
+      nightlySpinner.start('Fetching nightly version info')
+
       const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
+        nightlySpinner.stop('Failed to get nightly channel tag', 1)
         logger.error(`Error getting nightly channel tag.`)
         process.exit(1)
       }
@@ -301,6 +284,7 @@ export default defineCommand({
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
+        nightlySpinner.stop('Nightly version not found', 1)
         logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
         process.exit(1)
       }
@@ -318,17 +302,7 @@ export default defineCommand({
       }
 
       await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
-    }
-
-    function detectCurrentPackageManager() {
-      const userAgent = process.env.npm_config_user_agent
-      if (!userAgent) {
-        return
-      }
-      const [name] = userAgent.split('/')
-      if (packageManagerOptions.includes(name as PackageManagerName)) {
-        return name as PackageManagerName
-      }
+      nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
     }
 
     const currentPackageManager = detectCurrentPackageManager()
@@ -431,21 +405,18 @@ export default defineCommand({
 
     // Get modules from arg (if provided)
     if (ctx.args.modules !== undefined) {
-      modulesToAdd.push(
-        // ctx.args.modules is false when --no-modules is used
-        ...(ctx.args.modules || '').split(',').map(module => module.trim()).filter(Boolean),
-      )
+      // ctx.args.modules is false when --no-modules is used
+      for (const segment of (ctx.args.modules || '').split(',')) {
+        const mod = segment.trim()
+        if (mod) {
+          modulesToAdd.push(mod)
+        }
+      }
     }
+
     // ...or offer to install official modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
-      const modulesPromise = $fetch<{
-        modules: {
-          npm: string
-          type: 'community' | 'official'
-          description: string
-        }[]
-      }>('https://api.nuxt.com/modules')
-
+      const modulesPromise = fetchModules()
       const wantsUserModules = await confirm({
         message: `Would you like to install any of the official modules?`,
         initialValue: false,
@@ -457,14 +428,18 @@ export default defineCommand({
       }
 
       if (wantsUserModules) {
+        const modulesSpinner = spinner()
+        modulesSpinner.start('Fetching available modules')
+
         const [response, templateDeps] = await Promise.all([
           modulesPromise,
           getTemplateDependencies(template.dir),
         ])
 
-        const officialModules = response.modules
-          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools')
-          .filter(module => !templateDeps.includes(module.npm))
+        modulesSpinner.stop('Modules loaded')
+
+        const officialModules = response
+          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools' && !templateDeps.includes(module.npm))
 
         if (officialModules.length === 0) {
           logger.info('All official modules are already included in this template.')
@@ -543,3 +518,81 @@ export default defineCommand({
     }
   },
 })
+
+async function getModuleDependencies(moduleName: string) {
+  try {
+    const response = await $fetch(`https://registry.npmjs.org/${moduleName}/latest`)
+    const dependencies = response.dependencies || {}
+    return Object.keys(dependencies)
+  }
+  catch (err) {
+    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
+    return []
+  }
+}
+
+function filterModules(modules: string[], allDependencies: Record<string, string[]>) {
+  const result = {
+    toInstall: [] as string[],
+    skipped: [] as string[],
+  }
+
+  for (const module of modules) {
+    const isDependency = modules.some((otherModule) => {
+      if (otherModule === module)
+        return false
+      const deps = allDependencies[otherModule] || []
+      return deps.includes(module)
+    })
+
+    if (isDependency) {
+      result.skipped.push(module)
+    }
+    else {
+      result.toInstall.push(module)
+    }
+  }
+
+  return result
+}
+
+async function getTemplateDependencies(templateDir: string) {
+  try {
+    const packageJsonPath = join(templateDir, 'package.json')
+    if (!existsSync(packageJsonPath)) {
+      return []
+    }
+    const packageJson = await readPackageJSON(packageJsonPath)
+    const directDeps = {
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    }
+    const directDepNames = Object.keys(directDeps)
+    const allDeps = new Set(directDepNames)
+
+    const transitiveDepsResults = await Promise.all(
+      directDepNames.map(dep => getModuleDependencies(dep)),
+    )
+
+    transitiveDepsResults.forEach((deps) => {
+      deps.forEach(dep => allDeps.add(dep))
+    })
+
+    return Array.from(allDeps)
+  }
+  catch (err) {
+    logger.warn(`Could not read template dependencies: ${err}`)
+    return []
+  }
+}
+
+function detectCurrentPackageManager() {
+  const userAgent = process.env.npm_config_user_agent
+  if (!userAgent) {
+    return
+  }
+  const [name] = userAgent.split('/')
+  if (packageManagerOptions.includes(name as PackageManagerName)) {
+    return name as PackageManagerName
+  }
+}

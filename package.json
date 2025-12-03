@@ -14,7 +14,7 @@
     "nuxi": "node ./packages/nuxi/bin/nuxi.mjs",
     "nuxt": "node ./packages/nuxt-cli/bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./packages/nuxt-cli/bin/nuxi.mjs",
-    "postinstall": "node --experimental-strip-types ./scripts/generate-completions-data.ts && pnpm build",
+    "postinstall": "node --experimental-strip-types ./scripts/generate-data.ts && pnpm build",
     "test:types": "tsc --noEmit",
     "test:knip": "knip",
     "test:dist": "pnpm -r test:dist",
