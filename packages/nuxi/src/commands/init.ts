@@ -123,9 +123,10 @@ export default defineCommand({
         templatesSpinner.start('Loading available templates')
 
         try {
-        availableTemplates = await getTemplates()
+          availableTemplates = await getTemplates()
           templatesSpinner.stop('Templates loaded')
-        } catch {
+        }
+        catch {
           availableTemplates = defaultTemplates
           templatesSpinner.stop('Templates loaded from cache')
         }
