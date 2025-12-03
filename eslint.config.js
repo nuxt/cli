@@ -15,7 +15,7 @@ export default createConfigForNuxt({
   },
 }, await antfu()).append(
   {
-    ignores: ['packages/nuxi/src/data/**']
+    ignores: ['packages/nuxi/src/data/**'],
   },
   {
     rules: {

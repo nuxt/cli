@@ -1,9 +1,10 @@
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 
+import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
-import process from 'node:process'
 
+import process from 'node:process'
 import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -12,14 +13,14 @@ import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
-import { hasTTY } from 'std-env'
 
+import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { getTemplates, TemplateData } from '../utils/starter-templates'
+import { getTemplates } from '../utils/starter-templates'
 import { cwdArgs, logLevelArgs } from './_shared'
 import { fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
@@ -155,7 +156,6 @@ export default defineCommand({
       process.exit(1)
     }
 
-    
     if (ctx.args.dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
       const result = await text({
