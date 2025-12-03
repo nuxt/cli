@@ -101,7 +101,7 @@ export default defineCommand({
   },
   async run(ctx) {
     if (!ctx.args.offline && !ctx.args.preferOffline && !ctx.args.template) {
-      getTemplates()
+      getTemplates().catch(() => null)
     }
 
     if (hasTTY) {
@@ -113,16 +113,22 @@ export default defineCommand({
     let availableTemplates: Record<string, TemplateData> = {}
 
     if (!ctx.args.template || !ctx.args.dir) {
+      const defaultTemplates = await import('../data/templates').then(r => r.templates)
       if (ctx.args.offline || ctx.args.preferOffline) {
         // In offline mode, use static templates directly
-        availableTemplates = await import('../data/templates').then(r => r.templates)
+        availableTemplates = defaultTemplates
       }
       else {
         const templatesSpinner = spinner()
         templatesSpinner.start('Loading available templates')
 
+        try {
         availableTemplates = await getTemplates()
-        templatesSpinner.stop('Templates loaded')
+          templatesSpinner.stop('Templates loaded')
+        } catch {
+          availableTemplates = defaultTemplates
+          templatesSpinner.stop('Templates loaded from cache')
+        }
       }
     }
 
