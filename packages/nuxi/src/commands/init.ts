@@ -1,10 +1,10 @@
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
-
 import type { TemplateData } from '../utils/starter-templates'
-import { existsSync } from 'node:fs'
 
+import { existsSync } from 'node:fs'
 import process from 'node:process'
+
 import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -13,9 +13,9 @@ import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
-
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
+
 import { runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
