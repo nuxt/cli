@@ -437,7 +437,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Watch dist directory
-    const distDir = resolve(this.#currentNuxt.options.buildDir, 'dist')
+    const distDir = join(this.#currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
     this.#fileChangeTracker.prime(distDir)
     this.#distWatcher = watch(distDir)
@@ -539,7 +539,7 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
   const fileWatcher = new FileChangeTracker()
   fileWatcher.prime(cwd)
   const configWatcher = watch(cwd)
-  let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+  let configDirWatcher = existsSync(join(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
   configWatcher.on('change', (_event, file: string) => {
@@ -567,7 +567,7 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
 }
 
 function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
-  const configDir = resolve(cwd, '.config')
+  const configDir = join(cwd, '.config')
   const fileWatcher = new FileChangeTracker()
 
   fileWatcher.prime(configDir)
