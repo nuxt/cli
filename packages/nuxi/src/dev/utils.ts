@@ -16,7 +16,7 @@ import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
-import { resolve } from 'pathe'
+import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
@@ -425,10 +425,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     const kit = await loadKit(this.options.cwd)
-    await Promise.all([
-      kit.writeTypes(this.#currentNuxt).catch(console.error),
-      kit.buildNuxt(this.#currentNuxt),
-    ])
+    // ensure tsconfigs exist before starting the dev server (vite relies on in the initialisation stage)
+    const typesPromise = existsSync(join(this.#currentNuxt.options.buildDir, 'tsconfig.json'))
+      ? kit.writeTypes(this.#currentNuxt).catch(console.error)
+      : await kit.writeTypes(this.#currentNuxt).catch(console.error)
+
+    await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
 
     if (!this.#currentNuxt.server) {
       throw new Error('Nitro server has not been initialized.')
