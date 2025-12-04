@@ -107,7 +107,7 @@ const command = defineCommand({
         titlePadding: 2,
         contentPadding: 2,
         rounded: true,
-        includePrefix: true,
+        withGuide: true,
         formatBorder: (text: string) => colors.yellow(text),
       },
     )
