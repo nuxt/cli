@@ -23,9 +23,9 @@ export default createConfigForNuxt({
       // TODO: remove usage of `any` throughout codebase
       '@typescript-eslint/no-explicit-any': 'off',
       'style/indent-binary-ops': 'off',
-    'pnpm/json-valid-catalog': 'off',
-    'pnpm/json-enforce-catalog': 'off',
-    'pnpm/yaml-enforce-settings': 'off',
+      'pnpm/json-valid-catalog': 'off',
+      'pnpm/json-enforce-catalog': 'off',
+      'pnpm/yaml-enforce-settings': 'off',
     },
   },
   {
