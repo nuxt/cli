@@ -120,7 +120,7 @@ describe('commands', () => {
 
       await rm(installPath, { recursive: true, force: true })
       try {
-        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--gitInit=false', '--preferOffline', '--install=false'], {
+        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
           throwOnError: true,
           nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
         })

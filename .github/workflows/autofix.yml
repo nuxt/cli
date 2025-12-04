@@ -21,6 +21,8 @@ jobs:
 
       - name: 📦 Install dependencies
         run: pnpm install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🔠 Lint project (+ fix)
         run: pnpm run lint:fix

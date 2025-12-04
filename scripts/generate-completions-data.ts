@@ -6,6 +6,8 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 
+import { hiddenTemplates } from '../packages/nuxi/src/utils/starter-templates.ts'
+
 interface PresetMeta {
   _meta?: { name: string }
 }
@@ -13,7 +15,11 @@ interface PresetMeta {
 const outputPath = new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url)
 
 export async function generateCompletionData() {
-  const data = { nitroPresets: [] as string[], templates: [] as string[] }
+  const data = {
+    nitroPresets: [] as string[],
+    templates: {} as Record<string, string>,
+    templateDefaultDirs: {} as Record<string, string>,
+  }
 
   const nitropackPath = dirname(resolveModulePath('nitropack/package.json', { from: outputPath }))
   const presetsPath = join(nitropackPath, 'dist/presets/_all.gen.mjs')
@@ -34,28 +40,39 @@ export async function generateCompletionData() {
     throw new Error(`GitHub API error: ${response.status}`)
   }
 
-  const files = await response.json() as Array<{ name: string, type: string }>
+  const files = await response.json() as Array<{ name: string, type: string, download_url?: string }>
 
-  const templateEntries = files
-    .filter((file) => {
-      if (file.type === 'dir')
-        return true
-      if (file.type === 'file' && file.name.endsWith('.json') && file.name !== 'content.json') {
-        return true
+  const jsonFiles = files.filter(file => file.type === 'file' && file.name.endsWith('.json'))
+
+  for (const file of jsonFiles) {
+    try {
+      const templateName = file.name.replace('.json', '')
+      if (hiddenTemplates.includes(templateName)) {
+        continue
       }
-      return false
-    })
-    .map(file => file.name.replace('.json', ''))
-
-  data.templates = Array.from(new Set(templateEntries))
-    .filter(name => name !== 'community')
-    .sort()
+      data.templates[templateName] = ''
+      const fileResponse = await fetch(file.download_url!)
+      if (fileResponse.ok) {
+        const json = await fileResponse.json() as { description?: string, defaultDir?: string }
+        data.templates[templateName] = json.description || ''
+        if (json.defaultDir) {
+          data.templateDefaultDirs[templateName] = json.defaultDir
+        }
+      }
+    }
+    catch (error) {
+      // Skip if we can't fetch the file
+      console.warn(`Could not fetch description for ${file.name}:`, error)
+    }
+  }
 
   const content = `/** Auto-generated file */
 
 export const nitroPresets = ${JSON.stringify(data.nitroPresets, null, 2)} as const
 
 export const templates = ${JSON.stringify(data.templates, null, 2)} as const
+
+export const templateDefaultDirs = ${JSON.stringify(data.templateDefaultDirs, null, 2)} as const
 `
 
   await writeFile(outputPath, content, 'utf-8')

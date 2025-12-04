@@ -1,6 +1,6 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
-import { templates } from './utils/completions-data'
+import { templates } from './data/templates'
 
 export async function setupInitCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
   const completion = await tab(command)
@@ -8,8 +8,8 @@ export async function setupInitCompletions<T extends ArgsDef = ArgsDef>(command:
   const templateOption = completion.options?.get('template')
   if (templateOption) {
     templateOption.handler = (complete) => {
-      for (const template of templates) {
-        complete(template, '')
+      for (const template in templates) {
+        complete(template, templates[template as 'content']?.description || '')
       }
     }
   }

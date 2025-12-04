@@ -13,24 +13,31 @@ export default createConfigForNuxt({
       './playground',
     ],
   },
-}, await antfu()).append({
-  rules: {
-    'vue/singleline-html-element-content-newline': 'off',
-    // TODO: remove usage of `any` throughout codebase
-    '@typescript-eslint/no-explicit-any': 'off',
-    'style/indent-binary-ops': 'off',
+}, await antfu()).append(
+  {
+    ignores: ['packages/nuxi/src/data/**'],
+  },
+  {
+    rules: {
+      'vue/singleline-html-element-content-newline': 'off',
+      // TODO: remove usage of `any` throughout codebase
+      '@typescript-eslint/no-explicit-any': 'off',
+      'style/indent-binary-ops': 'off',
     'pnpm/json-valid-catalog': 'off',
     'pnpm/json-enforce-catalog': 'off',
     'pnpm/yaml-enforce-settings': 'off',
+    },
   },
-}, {
-  files: ['playground/**'],
-  rules: {
-    'no-console': 'off',
+  {
+    files: ['playground/**'],
+    rules: {
+      'no-console': 'off',
+    },
   },
-}, {
-  files: ['**/*.yml'],
-  rules: {
-    '@stylistic/spaced-comment': 'off',
+  {
+    files: ['**/*.yml'],
+    rules: {
+      '@stylistic/spaced-comment': 'off',
+    },
   },
-})
+)
