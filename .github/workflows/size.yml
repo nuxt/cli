@@ -67,7 +67,7 @@ jobs:
           node-version: lts/*
 
       - name: 📦 Install dependencies
-        run: 
+        run:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
