@@ -43,7 +43,7 @@ function createIt(runtimeName: typeof runtimes[number]) {
       node: true,
       bun: {
         start: true,
-        fetching: !platform.windows,
+        fetching: true,
         // https://github.com/nitrojs/nitro/issues/2721
         websockets: false,
       },
