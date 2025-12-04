@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { $fetch } from 'ofetch'
 
 export const hiddenTemplates = [
@@ -25,6 +26,7 @@ const fetchOptions = {
   responseType: 'json',
   headers: {
     'user-agent': '@nuxt/cli',
+    ...process.env.GITHUB_TOKEN ? { authorization: `token ${process.env.GITHUB_TOKEN}` } : {},
   },
 } as const
 

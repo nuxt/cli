@@ -93,6 +93,8 @@ jobs:
 
       - name: 📦 Install dependencies
         run: pnpm install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🛠 Build project
         run: pnpm build
