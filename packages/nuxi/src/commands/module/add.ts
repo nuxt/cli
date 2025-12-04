@@ -307,6 +307,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     headers.Authorization = `Bearer ${meta.authToken}`
   }
 
+  // TODO: spinner
   const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), { headers })
 
   // fully resolve the version
