@@ -267,7 +267,7 @@ export default defineCommand({
       downloadSpinner.stop(`Downloaded ${colors.cyan(template.name)} template`)
     }
     catch (err) {
-      downloadSpinner.stop('Template download failed', 1)
+      downloadSpinner.error('Template download failed')
       if (process.env.DEBUG) {
         throw err
       }
@@ -283,7 +283,7 @@ export default defineCommand({
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
-        nightlySpinner.stop('Failed to get nightly channel tag', 1)
+        nightlySpinner.error('Failed to get nightly channel tag')
         logger.error(`Error getting nightly channel tag.`)
         process.exit(1)
       }
@@ -291,7 +291,7 @@ export default defineCommand({
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
-        nightlySpinner.stop('Nightly version not found', 1)
+        nightlySpinner.error('Nightly version not found')
         logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
         process.exit(1)
       }
@@ -516,7 +516,7 @@ export default defineCommand({
       titlePadding: 2,
       contentPadding: 2,
       rounded: true,
-      includePrefix: false,
+      withGuide: false,
       formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
     })
 
