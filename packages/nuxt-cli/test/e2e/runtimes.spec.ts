@@ -42,7 +42,7 @@ function createIt(runtimeName: typeof runtimes[number]) {
     const supportMatrix: Record<typeof runtimes[number], SupportStatus> = {
       node: true,
       bun: {
-        start: !platform.windows,
+        start: true,
         fetching: !platform.windows,
         // https://github.com/nitrojs/nitro/issues/2721
         websockets: false,
