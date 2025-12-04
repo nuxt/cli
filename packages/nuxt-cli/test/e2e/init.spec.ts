@@ -19,7 +19,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -47,7 +47,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -74,7 +74,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -100,7 +100,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(nuxi, ['init', installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })

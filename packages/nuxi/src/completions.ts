@@ -1,6 +1,7 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
-import { nitroPresets, templates } from './utils/completions-data'
+import { nitroPresets } from './data/nitro-presets'
+import { templates } from './data/templates'
 
 export async function initCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
   const completion = await tab(command)
@@ -43,8 +44,8 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     const templateOption = initCommand.options.get('template')
     if (templateOption) {
       templateOption.handler = (complete) => {
-        for (const template of templates) {
-          complete(template, '')
+        for (const template in templates) {
+          complete(template, templates[template as 'content']?.description || '')
         }
       }
     }

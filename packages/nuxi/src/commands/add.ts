@@ -9,7 +9,7 @@ import { dirname, extname, resolve } from 'pathe'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { templates } from '../utils/templates'
+import { templates } from '../utils/templates/index'
 import { cwdArgs, logLevelArgs } from './_shared'
 
 const templateNames = Object.keys(templates)

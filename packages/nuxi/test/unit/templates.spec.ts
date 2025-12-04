@@ -1,7 +1,7 @@
 import type { NuxtOptions } from '@nuxt/schema'
 import { describe, expect, it } from 'vitest'
 
-import { templates } from '../../src/utils/templates'
+import { templates } from '../../src/utils/templates/index'
 
 describe('templates', () => {
   it('composables', () => {
