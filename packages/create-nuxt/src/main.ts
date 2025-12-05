@@ -1,4 +1,5 @@
 import type { CommandDef } from 'citty'
+import process from 'node:process'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
@@ -30,7 +31,9 @@ const _main = defineCommand({
   },
 })
 
-// eslint-disable-next-line antfu/no-top-level-await
-await setupInitCompletions(_main)
+if (process.argv[2] === 'complete') {
+  // eslint-disable-next-line antfu/no-top-level-await
+  await setupInitCompletions(_main)
+}
 
 export const main = _main as CommandDef<any>
