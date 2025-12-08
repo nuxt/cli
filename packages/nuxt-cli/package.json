@@ -73,7 +73,7 @@
     "nitropack": "^2.12.9",
     "rollup": "^4.53.3",
     "rollup-plugin-visualizer": "^6.0.5",
-    "tsdown": "^0.16.8",
+    "tsdown": "^0.17.1",
     "typescript": "^5.9.3",
     "undici": "^7.16.0",
     "unplugin-purge-polyfills": "^0.1.0",
