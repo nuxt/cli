@@ -32,11 +32,11 @@
     "citty": "^0.1.6"
   },
   "devDependencies": {
-    "@bomb.sh/tab": "^0.0.9",
-    "@types/node": "^24.10.1",
-    "rollup": "^4.53.3",
+    "@bomb.sh/tab": "^0.0.10",
+    "@types/node": "^24.10.4",
+    "rollup": "^4.53.4",
     "rollup-plugin-visualizer": "^6.0.5",
-    "tsdown": "^0.17.1",
+    "tsdown": "^0.18.0",
     "typescript": "^5.9.3",
     "unplugin-purge-polyfills": "^0.1.0"
   }

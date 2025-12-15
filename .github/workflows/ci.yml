@@ -55,7 +55,7 @@ jobs:
           bun-version: latest
       - uses: denoland/setup-deno@v1
         with:
-          deno-version: 2.5.6
+          deno-version: 2.6.0
 
       - name: 📦 Install dependencies
         run: pnpm install
