@@ -21,8 +21,9 @@ import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { getTemplates } from '../utils/starter-templates'
+import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, logLevelArgs } from './_shared'
-import { fetchModules } from './module/_utils'
+import { checkNuxtCompatibility, fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
@@ -438,15 +439,21 @@ export default defineCommand({
         const modulesSpinner = spinner()
         modulesSpinner.start('Fetching available modules')
 
-        const [response, templateDeps] = await Promise.all([
+        const [response, templateDeps, nuxtVersion] = await Promise.all([
           modulesPromise,
           getTemplateDependencies(template.dir),
+          getNuxtVersion(template.dir),
         ])
 
         modulesSpinner.stop('Modules loaded')
 
         const officialModules = response
-          .filter(module => module.type === 'official' && module.npm !== '@nuxt/devtools' && !templateDeps.includes(module.npm))
+          .filter(module =>
+            module.type === 'official'
+            && module.npm !== '@nuxt/devtools'
+            && !templateDeps.includes(module.npm)
+            && (!module.compatibility.nuxt || checkNuxtCompatibility(module, nuxtVersion)),
+          )
 
         if (officialModules.length === 0) {
           logger.info('All official modules are already included in this template.')
