@@ -4,12 +4,10 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 
 import process from 'node:process'
 import defu from 'defu'
+import { overrideEnv } from '../utils/env.ts'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
-
-// Prepare
-process.env.NODE_ENV = 'development'
 
 interface InitializeOptions {
   data?: {
@@ -55,6 +53,8 @@ interface InitializeReturn {
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
+  overrideEnv('development')
+
   const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
     overrides: defu(
