@@ -11,10 +11,10 @@ import { copy as copyToClipboard } from 'copy-paste'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
+
 import { isBun, isDeno, isMinimal } from 'std-env'
 
 import { version as nuxiVersion } from '../../package.json'
-
 import { getBuilder } from '../utils/banner'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
@@ -145,18 +145,23 @@ export default defineCommand({
 
     const copied = !isMinimal && await new Promise(resolve => copyToClipboard(copyStr, err => resolve(!err)))
 
-    box(
-      `\n${boxStr}`,
-      ` Nuxt project info ${copied ? colors.gray('(copied to clipboard) ') : ''}`,
-      {
-        contentAlign: 'left',
-        titleAlign: 'left',
-        width: 'auto',
-        titlePadding: 2,
-        contentPadding: 2,
-        rounded: true,
-      },
-    )
+    if (copied) {
+      box(
+        `\n${boxStr}`,
+        ` Nuxt project info ${colors.gray('(copied to clipboard) ')}`,
+        {
+          contentAlign: 'left',
+          titleAlign: 'left',
+          width: 'auto',
+          titlePadding: 2,
+          contentPadding: 2,
+          rounded: true,
+        },
+      )
+    }
+    else {
+      logger.info(`Nuxt project info:\n${copyStr}`, { withGuide: false })
+    }
 
     const isNuxt3 = !isLegacy
     const isBridge = !isNuxt3 && infoObj['Build modules']?.includes('bridge')
