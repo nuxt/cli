@@ -343,7 +343,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           config.server.hmr = {
             protocol: undefined,
             ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
-            port: undefined,
             host: undefined,
             server: this.listener.server,
           }
