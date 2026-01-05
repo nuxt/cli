@@ -450,7 +450,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     if ('fetch' in this.#currentNuxt.server) {
-      this.#handler = toNodeHandler(this.#currentNuxt.server.fetch)
+      this.#handler = toNodeHandler(this.#currentNuxt.server.fetch) as RequestListener
     }
     else {
       this.#handler = toNodeListener(this.#currentNuxt.server.app)
