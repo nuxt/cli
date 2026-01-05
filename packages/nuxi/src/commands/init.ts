@@ -371,6 +371,7 @@ export default defineCommand({
                 name: selectedPackageManager,
                 command: selectedPackageManager,
               },
+              silent: true,
             })
             return 'Dependencies installed'
           },
