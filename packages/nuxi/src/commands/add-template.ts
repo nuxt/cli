@@ -10,16 +10,14 @@ import { runCommand } from '../run'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { templates } from '../utils/templates/index'
+import { templateNames, templates } from '../utils/templates/index'
 import { cwdArgs, logLevelArgs } from './_shared'
 import addModuleCommand from './module/add'
 
-const templateNames = Object.keys(templates)
-
 export default defineCommand({
   meta: {
-    name: 'add',
-    description: 'Create a new template file or install a Nuxt module.',
+    name: 'add-template',
+    description: 'Create a new template file.',
   },
   args: {
     ...cwdArgs,

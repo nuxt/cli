@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import { confirm, isCancel, select } from '@clack/prompts'
+import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'

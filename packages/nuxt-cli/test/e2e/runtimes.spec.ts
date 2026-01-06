@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path'
 
 import { fileURLToPath } from 'node:url'
 import { getPort, waitForPort } from 'get-port-please'
-import { isCI, isLinux, isMacOS, isWindows } from 'std-env'
+import { isCI } from 'std-env'
 import { WebSocket } from 'undici'
 import { it as _it, afterAll, beforeAll, describe, expect, vi } from 'vitest'
 
@@ -16,12 +16,6 @@ const playgroundDir = fileURLToPath(new URL('../../../../playground', import.met
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
 
 const runtimes = ['bun', 'node', 'deno'] as const
-
-const platform = {
-  windows: isWindows,
-  linux: isLinux,
-  macos: isMacOS,
-}
 
 const runtime = {
   bun: spawnSync('bun', ['--version'], { stdio: 'ignore' }).status === 0,
@@ -47,11 +41,7 @@ function createIt(runtimeName: typeof runtimes[number]) {
         // https://github.com/nitrojs/nitro/issues/2721
         websockets: false,
       },
-      deno: {
-        start: !platform.windows,
-        fetching: !platform.windows,
-        websockets: !platform.windows,
-      },
+      deno: true,
     }
     const status = supportMatrix[runtimeName]
 
