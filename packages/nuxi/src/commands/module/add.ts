@@ -93,8 +93,8 @@ export default defineCommand({
     }
 
     if (resolvedModules.length === 0) {
-      logger.info(`No modules installed.`)
-      return false
+      cancel('No modules to add.')
+      process.exit(1)
     }
 
     logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.pkgName)).join(', ')}, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
@@ -164,7 +164,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
             initialValue: false,
           })
 
-          if (isCancel(result) || result !== true) {
+          if (isCancel(result)) {
             return false
           }
 
