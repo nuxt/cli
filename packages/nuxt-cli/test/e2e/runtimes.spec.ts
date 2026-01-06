@@ -48,7 +48,7 @@ function createIt(runtimeName: typeof runtimes[number]) {
         websockets: false,
       },
       deno: {
-        start: !platform.windows,
+        start: true,
         fetching: !platform.windows,
         websockets: !platform.windows,
       },
