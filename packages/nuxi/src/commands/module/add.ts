@@ -84,10 +84,15 @@ export default defineCommand({
       }
     }
 
-    const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
-    const resolvedModules = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => !!x)
+    const resolvedModules: ResolvedModule[] = []
+    for (const moduleName of modules) {
+      const resolvedModule = await resolveModule(moduleName, cwd)
+      if (resolvedModule) {
+        resolvedModules.push(resolvedModule)
+      }
+    }
 
-    if (!resolvedModules.length) {
+    if (resolvedModules.length === 0) {
       cancel('No modules to add.')
       process.exit(1)
     }
@@ -313,7 +318,11 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   // TODO: spinner
-  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), { headers })
+  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), { headers }).catch(() => null)
+  if (!pkgDetails) {
+    logger.error(`Failed to fetch package details for ${colors.cyan(pkgName)}.`)
+    return false
+  }
 
   // fully resolve the version
   if (pkgDetails['dist-tags']?.[version]) {
@@ -323,7 +332,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     version = Object.keys(pkgDetails.versions)?.findLast(v => satisfies(v, version)) || version
   }
 
-  const pkg = pkgDetails.versions[version!]
+  const pkg = pkgDetails.versions[version!] || {}
 
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},

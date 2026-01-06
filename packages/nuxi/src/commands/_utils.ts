@@ -3,6 +3,7 @@ import type { commands } from '.'
 // Inlined list of nuxi commands to avoid including `commands` in bundle if possible
 export const nuxiCommands = [
   'add',
+  'add-template',
   'analyze',
   'build',
   'cleanup',
