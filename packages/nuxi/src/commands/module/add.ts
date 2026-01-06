@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import { confirm, isCancel, select } from '@clack/prompts'
+import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -85,7 +85,12 @@ export default defineCommand({
     }
 
     const maybeResolvedModules = await Promise.all(modules.map(moduleName => resolveModule(moduleName, cwd)))
-    const resolvedModules = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => x != null)
+    const resolvedModules = maybeResolvedModules.filter((x: ModuleResolution): x is ResolvedModule => !!x)
+
+    if (!resolvedModules.length) {
+      cancel('No modules to add.')
+      process.exit(1)
+    }
 
     logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.pkgName)).join(', ')}, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
 
