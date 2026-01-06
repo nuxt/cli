@@ -68,7 +68,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       compatibility: `nuxt: ${result.item.compatibility?.nuxt || '*'}`,
       repository: result.item.github,
       description: result.item.description,
-      install: `npx nuxt module add ${result.item.name}`,
+      install: `npx nuxt add ${result.item.name}`,
       stars: colors.yellow(formatNumber(result.item.stats.stars)),
       monthlyDownloads: colors.yellow(formatNumber(result.item.stats.downloads)),
     }

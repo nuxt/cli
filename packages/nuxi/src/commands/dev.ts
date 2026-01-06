@@ -12,7 +12,6 @@ import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { ForkPool } from '../dev/pool'
-import { overrideEnv } from '../utils/env'
 import { debug, logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
@@ -74,7 +73,6 @@ const command = defineCommand({
   },
   async run(ctx) {
     // Prepare
-    overrideEnv('development')
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const listenOverrides = resolveListenOverrides(ctx.args)

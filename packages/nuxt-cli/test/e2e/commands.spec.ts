@@ -18,8 +18,9 @@ const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 describe('commands', () => {
   const tests: Record<keyof typeof commands, 'todo' | TestFunction<object>> = {
-    _dev: 'todo',
-    add: async () => {
+    '_dev': 'todo',
+    'add': 'todo',
+    'add-template': async () => {
       const file = join(fixtureDir, 'server/api/test.ts')
       await rm(file, { force: true })
       await x(nuxi, ['add', 'api', 'test'], {
@@ -29,8 +30,8 @@ describe('commands', () => {
       expect(existsSync(file)).toBeTruthy()
       await rm(file, { force: true })
     },
-    analyze: 'todo',
-    build: async () => {
+    'analyze': 'todo',
+    'build': async () => {
       const res = await x(nuxi, ['build'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -40,16 +41,16 @@ describe('commands', () => {
       expect(existsSync(join(fixtureDir, '.output/server'))).toBeTruthy()
       expect(existsSync(join(fixtureDir, '.output/public'))).toBeTruthy()
     },
-    cleanup: async () => {
+    'cleanup': async () => {
       const res = await x(nuxi, ['cleanup'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
       expect(res.exitCode).toBe(0)
     },
-    devtools: 'todo',
-    module: 'todo',
-    prepare: async () => {
+    'devtools': 'todo',
+    'module': 'todo',
+    'prepare': async () => {
       const res = await x(nuxi, ['prepare'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -58,7 +59,7 @@ describe('commands', () => {
       expect(existsSync(join(fixtureDir, '.nuxt'))).toBeTruthy()
       expect(existsSync(join(fixtureDir, '.nuxt/types'))).toBeTruthy()
     },
-    preview: async () => {
+    'preview': async () => {
       await x(nuxi, ['build'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -76,17 +77,17 @@ describe('commands', () => {
 
       previewProcess.kill()
     },
-    start: 'todo',
-    test: 'todo',
-    typecheck: async () => {
+    'start': 'todo',
+    'test': 'todo',
+    'typecheck': async () => {
       const res = await x(nuxi, ['typecheck'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
       expect(res.exitCode).toBe(0)
     },
-    upgrade: 'todo',
-    dev: async () => {
+    'upgrade': 'todo',
+    'dev': async () => {
       const controller = new AbortController()
       const port = await getPort({ host: '127.0.0.1', port: 3001 })
       const devProcess = x(nuxi, ['dev', `--host=127.0.0.1`, `--port=${port}`], {
@@ -104,7 +105,7 @@ describe('commands', () => {
       }
       catch {}
     },
-    generate: async () => {
+    'generate': async () => {
       const res = await x(nuxi, ['generate'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -113,7 +114,7 @@ describe('commands', () => {
       expect(existsSync(join(fixtureDir, 'dist'))).toBeTruthy()
       expect(existsSync(join(fixtureDir, 'dist/index.html'))).toBeTruthy()
     },
-    init: async () => {
+    'init': async () => {
       const dir = tmpdir()
       const pm = 'pnpm'
       const installPath = join(dir, pm)
@@ -131,7 +132,7 @@ describe('commands', () => {
         await rm(installPath, { recursive: true, force: true })
       }
     },
-    info: 'todo',
+    'info': 'todo',
   }
 
   it('throws error if no command is provided', async () => {

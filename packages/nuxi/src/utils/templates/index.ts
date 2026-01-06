@@ -45,6 +45,27 @@ const templates = {
   'server-util': serverUtil,
 } satisfies Record<string, Template>
 
+const _templateNames: Record<keyof typeof templates, undefined> = {
+  'api': undefined,
+  'app': undefined,
+  'app-config': undefined,
+  'component': undefined,
+  'composable': undefined,
+  'error': undefined,
+  'layer': undefined,
+  'layout': undefined,
+  'middleware': undefined,
+  'module': undefined,
+  'page': undefined,
+  'plugin': undefined,
+  'server-middleware': undefined,
+  'server-plugin': undefined,
+  'server-route': undefined,
+  'server-util': undefined,
+}
+
+export const templateNames = Object.keys(_templateNames)
+
 // -- internal utils --
 
 function applySuffix(

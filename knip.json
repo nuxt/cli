@@ -32,7 +32,6 @@
         "@clack/prompts",
         "c12",
         "confbox",
-        "consola",
         "copy-paste",
         "debug",
         "defu",

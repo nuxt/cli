@@ -8,6 +8,7 @@ const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 
 export default defineConfig({
   entry: ['src/index.ts', 'src/dev/index.ts'],
+  shims: true,
   fixedExtension: true,
   dts: !isAnalysingSize && {
     oxc: true,

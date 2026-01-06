@@ -16,7 +16,7 @@ import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { listen } from 'listhen'
-import { resolve } from 'pathe'
+import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
@@ -425,17 +425,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     const kit = await loadKit(this.options.cwd)
-    await Promise.all([
-      kit.writeTypes(this.#currentNuxt).catch(console.error),
-      kit.buildNuxt(this.#currentNuxt),
-    ])
+    // ensure tsconfigs exist before starting the dev server (vite relies on in the initialisation stage)
+    const typesPromise = existsSync(join(this.#currentNuxt.options.buildDir, 'tsconfig.json'))
+      ? kit.writeTypes(this.#currentNuxt).catch(console.error)
+      : await kit.writeTypes(this.#currentNuxt).catch(console.error)
+
+    await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
 
     if (!this.#currentNuxt.server) {
       throw new Error('Nitro server has not been initialized.')
     }
 
     // Watch dist directory
-    const distDir = resolve(this.#currentNuxt.options.buildDir, 'dist')
+    const distDir = join(this.#currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
     this.#fileChangeTracker.prime(distDir)
     this.#distWatcher = watch(distDir)
@@ -448,7 +450,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     if ('fetch' in this.#currentNuxt.server) {
-      this.#handler = toNodeHandler(this.#currentNuxt.server.fetch)
+      this.#handler = toNodeHandler(this.#currentNuxt.server.fetch) as RequestListener
     }
     else {
       this.#handler = toNodeListener(this.#currentNuxt.server.app)
@@ -537,7 +539,7 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
   const fileWatcher = new FileChangeTracker()
   fileWatcher.prime(cwd)
   const configWatcher = watch(cwd)
-  let configDirWatcher = existsSync(resolve(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+  let configDirWatcher = existsSync(join(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
   configWatcher.on('change', (_event, file: string) => {
@@ -565,7 +567,7 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
 }
 
 function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
-  const configDir = resolve(cwd, '.config')
+  const configDir = join(cwd, '.config')
   const fileWatcher = new FileChangeTracker()
 
   fileWatcher.prime(configDir)
