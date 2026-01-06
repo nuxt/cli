@@ -5,15 +5,18 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 
 import { runMain as _runMain, defineCommand } from 'citty'
+import { colors } from 'consola/utils'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
 import { initCompletions } from './completions'
+import { runCommand } from './run'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
+import { templateNames } from './utils/templates'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
@@ -61,6 +64,17 @@ const _main = defineCommand({
     // Avoid background check to fix prompt issues
     if (command === 'init') {
       await backgroundTasks
+    }
+
+    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1])) {
+      logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
+      logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
+      const addTemplate = await import('./commands/add-template').then(m => m.default || m)
+      await runCommand(addTemplate, [...ctx.rawArgs.slice(1)]).catch((err) => {
+        console.error(err.message)
+        process.exit(1)
+      })
+      process.exit(0)
     }
 
     // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
