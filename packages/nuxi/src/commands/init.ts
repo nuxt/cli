@@ -1,3 +1,4 @@
+import type { Choice } from '@posva/prompts'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 import type { TemplateData } from '../utils/starter-templates'
@@ -5,9 +6,11 @@ import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
+import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
+import prompts from '@posva/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
+import { byLengthAsc, Fzf } from 'fzf'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
@@ -423,11 +426,11 @@ export default defineCommand({
       }
     }
 
-    // ...or offer to install official modules (if not offline)
+    // ...or offer to browse and install modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
       const modulesPromise = fetchModules()
       const wantsUserModules = await confirm({
-        message: `Would you like to install any of the official modules?`,
+        message: `Would you like to browse and install modules?`,
         initialValue: false,
       })
 
@@ -448,33 +451,128 @@ export default defineCommand({
 
         modulesSpinner.stop('Modules loaded')
 
-        const officialModules = response
+        const allModules = response
           .filter(module =>
-            module.type === 'official'
-            && module.npm !== '@nuxt/devtools'
+            module.npm !== '@nuxt/devtools'
             && !templateDeps.includes(module.npm)
             && (!module.compatibility.nuxt || checkNuxtCompatibility(module, nuxtVersion)),
           )
 
-        if (officialModules.length === 0) {
-          logger.info('All official modules are already included in this template.')
+        if (allModules.length === 0) {
+          logger.info('All modules are already included in this template.')
         }
         else {
-          const selectedOfficialModules = await multiselect({
-            message: 'Pick the modules to install:',
-            options: officialModules.map(module => ({
-              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-              value: module.npm,
-            })),
-            required: false,
+          // Sort: official modules first, then alphabetically
+          const sortedModules = [...allModules].sort((a, b) => {
+            if (a.type === 'official' && b.type !== 'official') return -1
+            if (a.type !== 'official' && b.type === 'official') return 1
+            return a.npm.localeCompare(b.npm)
           })
 
-          if (isCancel(selectedOfficialModules)) {
-            process.exit(1)
+          // Setup fzf for fast fuzzy search (prioritize name over description)
+          const fzf = new Fzf(sortedModules, {
+            selector: m => `${m.npm} ${m.name} ${m.category}`,
+            casing: 'case-insensitive',
+            tiebreakers: [byLengthAsc],
+          })
+
+          // Truncate description to fit terminal
+          const terminalWidth = process.stdout?.columns || 80
+          const maxDescLength = Math.max(40, terminalWidth - 35)
+          const truncate = (str: string, max: number) =>
+            str.length > max ? `${str.slice(0, max - 1)}…` : str
+
+          // Track selected modules
+          const selectedModules = new Set<string>()
+
+          // Build choices with checkbox prefix
+          const buildChoices = () => sortedModules.map((m) => {
+            const isSelected = selectedModules.has(m.npm)
+            const check = isSelected ? colors.green('✔') : colors.dim('○')
+            return {
+              title: `${check} ${m.npm}`,
+              value: m.npm,
+              description: truncate(m.description.replace(/\.$/, ''), maxDescLength),
+            }
+          })
+
+          // Loop for multi-select via autocomplete with checkboxes
+          let isExited = false
+          let isDone = false
+          let lastQuery = ''
+
+          // ANSI escapes for terminal control
+          const clearLines = (n: number) => {
+            for (let i = 0; i < n; i++) {
+              process.stdout.write('\x1B[1A\x1B[2K')
+            }
           }
 
-          if (selectedOfficialModules.length > 0) {
-            const modules = selectedOfficialModules as unknown as string[]
+          // Show summary line
+          const showSummary = () => {
+            if (selectedModules.size > 0) {
+              const names = Array.from(selectedModules).map(m => colors.cyan(m.replace(/^@nuxt(js)?\//, ''))).join(', ')
+              process.stdout.write(`${colors.dim('Selected:')} ${names}\n`)
+            }
+          }
+
+          while (!isDone) {
+            const choices = buildChoices()
+
+            // Clear previous prompt and show fresh summary
+            if (lastQuery !== '' || selectedModules.size > 0) {
+              clearLines(selectedModules.size > 0 ? 2 : 1)
+            }
+            showSummary()
+
+            try {
+              const result = await prompts({
+                type: 'autocomplete',
+                name: 'module',
+                message: 'Search modules (Esc to finish):',
+                initial: lastQuery,
+                choices,
+                limit: 10,
+                suggest: async (input: string, choices: Choice[]) => {
+                  lastQuery = input
+                  if (!input) return choices
+                  const results = fzf.find(input)
+                  return results.map((r) => {
+                    const isSelected = selectedModules.has(r.item.npm)
+                    const check = isSelected ? colors.green('✔') : colors.dim('○')
+                    return {
+                      title: `${check} ${r.item.npm}`,
+                      value: r.item.npm,
+                      description: truncate(r.item.description.replace(/\.$/, ''), maxDescLength),
+                    }
+                  })
+                },
+                onState(state: { exited?: boolean }) {
+                  if (state.exited) isExited = true
+                },
+              })
+
+              if (isExited || !result.module) {
+                isDone = true
+              }
+              else {
+                // Toggle selection
+                if (selectedModules.has(result.module)) {
+                  selectedModules.delete(result.module)
+                }
+                else {
+                  selectedModules.add(result.module)
+                }
+              }
+              isExited = false
+            }
+            catch {
+              isDone = true
+            }
+          }
+
+          if (selectedModules.size > 0) {
+            const modules = Array.from(selectedModules)
 
             const allDependencies = Object.fromEntries(
               await Promise.all(modules.map(async module =>
