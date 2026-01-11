@@ -25,6 +25,7 @@ import { relativeToProcess } from '../../utils/paths'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
+import { selectModulesAutocomplete } from './_autocomplete'
 import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
@@ -68,7 +69,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
-    const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
+    let modules = ctx.args._.map(e => e.trim()).filter(Boolean)
     const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
@@ -82,6 +83,27 @@ export default defineCommand({
       if (isCancel(shouldContinue) || shouldContinue !== true) {
         process.exit(1)
       }
+    }
+
+    // If no modules specified, show interactive search
+    if (modules.length === 0) {
+      const nuxtVersion = await getNuxtVersion(cwd)
+      const allModules = await fetchModules()
+      const compatibleModules = allModules.filter(m =>
+        !m.compatibility.nuxt || checkNuxtCompatibility(m, nuxtVersion),
+      )
+
+      const selected = await selectModulesAutocomplete({
+        modules: compatibleModules,
+        message: 'Search modules to add (Esc to finish):',
+      })
+
+      if (selected.length === 0) {
+        cancel('No modules selected.')
+        process.exit(1)
+      }
+
+      modules = selected
     }
 
     const resolvedModules: ResolvedModule[] = []

@@ -1,4 +1,3 @@
-import type { Choice } from '@posva/prompts'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 import type { TemplateData } from '../utils/starter-templates'
@@ -7,10 +6,8 @@ import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
-import prompts from '@posva/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { byLengthAsc, Fzf } from 'fzf'
 import { downloadTemplate, startShell } from 'giget'
 import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
@@ -26,6 +23,7 @@ import { relativeToProcess } from '../utils/paths'
 import { getTemplates } from '../utils/starter-templates'
 import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, logLevelArgs } from './_shared'
+import { selectModulesAutocomplete } from './module/_autocomplete'
 import { checkNuxtCompatibility, fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
@@ -462,117 +460,10 @@ export default defineCommand({
           logger.info('All modules are already included in this template.')
         }
         else {
-          // Sort: official modules first, then alphabetically
-          const sortedModules = [...allModules].sort((a, b) => {
-            if (a.type === 'official' && b.type !== 'official') return -1
-            if (a.type !== 'official' && b.type === 'official') return 1
-            return a.npm.localeCompare(b.npm)
-          })
+          const selectedModules = await selectModulesAutocomplete({ modules: allModules })
 
-          // Setup fzf for fast fuzzy search (prioritize name over description)
-          const fzf = new Fzf(sortedModules, {
-            selector: m => `${m.npm} ${m.name} ${m.category}`,
-            casing: 'case-insensitive',
-            tiebreakers: [byLengthAsc],
-          })
-
-          // Truncate description to fit terminal
-          const terminalWidth = process.stdout?.columns || 80
-          const maxDescLength = Math.max(40, terminalWidth - 35)
-          const truncate = (str: string, max: number) =>
-            str.length > max ? `${str.slice(0, max - 1)}…` : str
-
-          // Track selected modules
-          const selectedModules = new Set<string>()
-
-          // Build choices with checkbox prefix
-          const buildChoices = () => sortedModules.map((m) => {
-            const isSelected = selectedModules.has(m.npm)
-            const check = isSelected ? colors.green('✔') : colors.dim('○')
-            return {
-              title: `${check} ${m.npm}`,
-              value: m.npm,
-              description: truncate(m.description.replace(/\.$/, ''), maxDescLength),
-            }
-          })
-
-          // Loop for multi-select via autocomplete with checkboxes
-          let isExited = false
-          let isDone = false
-          let lastQuery = ''
-
-          // ANSI escapes for terminal control
-          const clearLines = (n: number) => {
-            for (let i = 0; i < n; i++) {
-              process.stdout.write('\x1B[1A\x1B[2K')
-            }
-          }
-
-          // Show summary line
-          const showSummary = () => {
-            if (selectedModules.size > 0) {
-              const names = Array.from(selectedModules).map(m => colors.cyan(m.replace(/^@nuxt(js)?\//, ''))).join(', ')
-              process.stdout.write(`${colors.dim('Selected:')} ${names}\n`)
-            }
-          }
-
-          while (!isDone) {
-            const choices = buildChoices()
-
-            // Clear previous prompt and show fresh summary
-            if (lastQuery !== '' || selectedModules.size > 0) {
-              clearLines(selectedModules.size > 0 ? 2 : 1)
-            }
-            showSummary()
-
-            try {
-              const result = await prompts({
-                type: 'autocomplete',
-                name: 'module',
-                message: 'Search modules (Esc to finish):',
-                initial: lastQuery,
-                choices,
-                limit: 10,
-                suggest: async (input: string, choices: Choice[]) => {
-                  lastQuery = input
-                  if (!input) return choices
-                  const results = fzf.find(input)
-                  return results.map((r) => {
-                    const isSelected = selectedModules.has(r.item.npm)
-                    const check = isSelected ? colors.green('✔') : colors.dim('○')
-                    return {
-                      title: `${check} ${r.item.npm}`,
-                      value: r.item.npm,
-                      description: truncate(r.item.description.replace(/\.$/, ''), maxDescLength),
-                    }
-                  })
-                },
-                onState(state: { exited?: boolean }) {
-                  if (state.exited) isExited = true
-                },
-              })
-
-              if (isExited || !result.module) {
-                isDone = true
-              }
-              else {
-                // Toggle selection
-                if (selectedModules.has(result.module)) {
-                  selectedModules.delete(result.module)
-                }
-                else {
-                  selectedModules.add(result.module)
-                }
-              }
-              isExited = false
-            }
-            catch {
-              isDone = true
-            }
-          }
-
-          if (selectedModules.size > 0) {
-            const modules = Array.from(selectedModules)
+          if (selectedModules.length > 0) {
+            const modules = selectedModules
 
             const allDependencies = Object.fromEntries(
               await Promise.all(modules.map(async module =>
