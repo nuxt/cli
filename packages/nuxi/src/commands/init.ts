@@ -460,10 +460,10 @@ export default defineCommand({
           logger.info('All modules are already included in this template.')
         }
         else {
-          const selectedModules = await selectModulesAutocomplete({ modules: allModules })
+          const result = await selectModulesAutocomplete({ modules: allModules })
 
-          if (selectedModules.length > 0) {
-            const modules = selectedModules
+          if (result.selected.length > 0) {
+            const modules = result.selected
 
             const allDependencies = Object.fromEntries(
               await Promise.all(modules.map(async module =>

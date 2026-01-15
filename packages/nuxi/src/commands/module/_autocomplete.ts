@@ -5,18 +5,31 @@ import process from 'node:process'
 import prompts from '@posva/prompts'
 import { colors } from 'consola/utils'
 import { byLengthAsc, Fzf } from 'fzf'
+import { hasTTY } from 'std-env'
+
+import { logger } from '../../utils/logger'
 
 export interface AutocompleteOptions {
   modules: NuxtModule[]
   message?: string
 }
 
+export interface AutocompleteResult {
+  selected: string[]
+  cancelled: boolean
+}
+
 /**
  * Interactive fuzzy search for selecting Nuxt modules
- * Returns array of selected module npm package names
+ * Returns object with selected module npm package names and cancellation status
  */
-export async function selectModulesAutocomplete(options: AutocompleteOptions): Promise<string[]> {
+export async function selectModulesAutocomplete(options: AutocompleteOptions): Promise<AutocompleteResult> {
   const { modules, message = 'Search modules (Esc to finish):' } = options
+
+  if (!hasTTY) {
+    logger.warn('Interactive module selection requires a TTY. Skipping.')
+    return { selected: [], cancelled: false }
+  }
 
   // Sort: official modules first, then alphabetically
   const sortedModules = [...modules].sort((a, b) => {
@@ -61,6 +74,8 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
 
   // ANSI escapes for terminal control
   const clearLines = (n: number) => {
+    if (!hasTTY)
+      return
     for (let i = 0; i < n; i++) {
       process.stdout.write('\x1B[1A\x1B[2K')
     }
@@ -68,10 +83,10 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
 
   // Show summary line
   const showSummary = () => {
-    if (selectedModules.size > 0) {
-      const names = Array.from(selectedModules).map(m => colors.cyan(m.replace(/^@nuxt(js)?\//, ''))).join(', ')
-      process.stdout.write(`${colors.dim('Selected:')} ${names}\n`)
-    }
+    if (!hasTTY || selectedModules.size === 0)
+      return
+    const names = Array.from(selectedModules).map(m => colors.cyan(m.replace(/^@nuxt(js)?\//, ''))).join(', ')
+    process.stdout.write(`${colors.dim('Selected:')} ${names}\n`)
   }
 
   while (!isDone) {
@@ -131,5 +146,5 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     }
   }
 
-  return Array.from(selectedModules)
+  return { selected: Array.from(selectedModules), cancelled: false }
 }

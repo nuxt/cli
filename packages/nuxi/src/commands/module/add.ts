@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import { cancel, confirm, isCancel, select } from '@clack/prompts'
+import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -87,23 +87,31 @@ export default defineCommand({
 
     // If no modules specified, show interactive search
     if (modules.length === 0) {
-      const nuxtVersion = await getNuxtVersion(cwd)
-      const allModules = await fetchModules()
+      const modulesSpinner = spinner()
+      modulesSpinner.start('Fetching available modules')
+
+      const [allModules, nuxtVersion] = await Promise.all([
+        fetchModules(),
+        getNuxtVersion(cwd),
+      ])
+
       const compatibleModules = allModules.filter(m =>
         !m.compatibility.nuxt || checkNuxtCompatibility(m, nuxtVersion),
       )
 
-      const selected = await selectModulesAutocomplete({
+      modulesSpinner.stop('Modules loaded')
+
+      const result = await selectModulesAutocomplete({
         modules: compatibleModules,
         message: 'Search modules to add (Esc to finish):',
       })
 
-      if (selected.length === 0) {
+      if (result.selected.length === 0) {
         cancel('No modules selected.')
-        process.exit(1)
+        process.exit(0)
       }
 
-      modules = selected
+      modules = result.selected
     }
 
     const resolvedModules: ResolvedModule[] = []
