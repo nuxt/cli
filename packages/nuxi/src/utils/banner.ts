@@ -41,8 +41,11 @@ export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
   )
 }
 
-export async function showVersions(cwd: string, kit: typeof import('@nuxt/kit')) {
-  const config = await kit.loadNuxtConfig({ cwd })
+export async function showVersions(cwd: string, kit: typeof import('@nuxt/kit'), dotenv?: string) {
+  const config = await kit.loadNuxtConfig({
+    cwd,
+    dotenv: dotenv ? { cwd, fileName: dotenv } : undefined,
+  })
 
   return showVersionsFromConfig(cwd, config)
 }

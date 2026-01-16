@@ -44,7 +44,7 @@ export default defineCommand({
 
     const kit = await loadKit(cwd)
 
-    await showVersions(cwd, kit)
+    await showVersions(cwd, kit, ctx.args.dotenv)
     const nuxt = await kit.loadNuxt({
       cwd,
       dotenv: {
