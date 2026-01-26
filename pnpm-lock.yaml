@@ -171,8 +171,8 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0
       giget:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^3.1.1
+        version: 3.1.1
       h3:
         specifier: ^1.15.5
         version: 1.15.5
@@ -288,8 +288,8 @@ importers:
         specifier: ^7.1.0
         version: 7.1.0
       giget:
-        specifier: ^2.0.0
-        version: 2.0.0
+        specifier: ^3.1.1
+        version: 3.1.1
       jiti:
         specifier: ^2.6.1
         version: 2.6.1
@@ -3614,6 +3614,10 @@ packages:
 
   giget@2.0.0:
     resolution: {integrity: sha512-L5bGsVkxJbJgdnwyuheIunkGatUF/zssUoxxjACCseZYAVbaqdh9Tsmmlkl8vYan09H7sbvKt4pS8GqKLBrEzA==}
+    hasBin: true
+
+  giget@3.1.1:
+    resolution: {integrity: sha512-wwGgnwnZuJT7v9RNssirmhWwTo/zeFkbCVF8KDzm0VrH+lPOW0OOl4degdKy6ofNxNjOMpLE0GgCuH/4AJFSzA==}
     hasBin: true
 
   git-up@8.1.1:
@@ -9117,6 +9121,8 @@ snapshots:
       node-fetch-native: 1.6.7
       nypm: 0.6.2
       pathe: 2.0.3
+
+  giget@3.1.1: {}
 
   git-up@8.1.1:
     dependencies:
