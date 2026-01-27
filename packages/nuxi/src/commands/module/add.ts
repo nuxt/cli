@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import { cancel, confirm, isCancel, select } from '@clack/prompts'
+import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -25,6 +25,7 @@ import { relativeToProcess } from '../../utils/paths'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
+import { detectModuleSkills, getSkillNames, installSkills } from './_skills'
 import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
@@ -100,6 +101,27 @@ export default defineCommand({
     logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.pkgName)).join(', ')}, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
 
     await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+
+    // Check for agent skills
+    if (!ctx.args.skipInstall) {
+      const moduleNames = resolvedModules.map(m => m.pkgName)
+      const checkSpinner = spinner()
+      checkSpinner.start('Checking for agent skills...')
+      const skillInfos = await detectModuleSkills(moduleNames, cwd)
+      checkSpinner.stop(skillInfos.length > 0 ? `Found ${skillInfos.length} skill(s)` : 'No skills found')
+
+      if (skillInfos.length > 0) {
+        const skillNames = getSkillNames(skillInfos)
+        const shouldInstall = await confirm({
+          message: `Install agent skill(s): ${skillNames}?`,
+          initialValue: true,
+        })
+
+        if (!isCancel(shouldInstall) && shouldInstall) {
+          await installSkills(skillInfos, cwd)
+        }
+      }
+    }
 
     // Run prepare command if install is not skipped
     if (!ctx.args.skipInstall) {
