@@ -1,4 +1,5 @@
-import type { Nitro } from 'nitropack'
+import type { Nitro as NitroV2 } from 'nitropack/types'
+import type { Nitro as NitroV3 } from 'nitro/types'
 
 import process from 'node:process'
 
@@ -65,7 +66,7 @@ export default defineCommand({
       },
     })
 
-    let nitro: Nitro | undefined
+    let nitro: NitroV2 | NitroV3 | undefined
     // In Bridge, if Nitro is not enabled, useNitro will throw an error
     try {
       // Use ? for backward compatibility for Nuxt <= RC.10
