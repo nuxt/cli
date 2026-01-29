@@ -1,5 +1,5 @@
-import type { Nitro as NitroV2 } from 'nitropack/types'
 import type { Nitro as NitroV3 } from 'nitro/types'
+import type { Nitro as NitroV2 } from 'nitropack/types'
 
 import process from 'node:process'
 
