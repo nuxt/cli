@@ -66,7 +66,7 @@ export default defineCommand({
       }
 
       for (const [agent, skills] of byAgent) {
-        logger.info(`\n${colors.bold(agent)}:`)
+        logger.info(`${colors.bold(agent)}:`)
         for (const skill of skills)
           logger.info(`  ${colors.cyan(skill.name)} ${colors.dim(skill.path)}`)
       }
