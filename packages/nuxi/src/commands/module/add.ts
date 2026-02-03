@@ -206,6 +206,12 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       }).then(() => true).catch(
         async (error) => {
           const message = error instanceof Error ? error.message : String(error)
+          const isExportsPackageJsonError = message.includes('Package subpath \'./package.json\' is not defined by "exports"')
+            || message.includes('ERR_PACKAGE_PATH_NOT_EXPORTED')
+          if (isExportsPackageJsonError) {
+            logger.warn(`Peer dependency scan skipped: ${message}`)
+            return true
+          }
           logger.error(message)
 
           const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
