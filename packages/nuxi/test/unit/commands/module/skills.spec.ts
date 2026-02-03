@@ -106,23 +106,23 @@ describe('module skills', () => {
     installModuleSkills.mockResolvedValue(undefined)
   })
 
-  it('handles --list failures without uncaught stack traces', async () => {
+  it('skips invalid skill entries on --list', async () => {
     listInstalledSkills.mockImplementationOnce(() => {
       throw new Error('ENOENT: no such file or directory')
     })
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
       throw new Error(`process.exit:${code}`)
     }) as never)
-    const errorSpy = vi.spyOn(logger, 'error')
+    const warnSpy = vi.spyOn(logger, 'warn')
 
     await expect(runSkillsCommand({
       cwd: '/fake-dir',
       _: [],
       list: true,
-    })).rejects.toThrow('process.exit:1')
+    })).resolves.toBeUndefined()
 
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to list installed skills'))
-    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping invalid skill entry'))
+    expect(exitSpy).not.toHaveBeenCalled()
   })
 
   it('continues default scan when bundled/meta scanners fail', async () => {

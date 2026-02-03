@@ -80,11 +80,16 @@ export async function installModuleSkills(sources: ModuleSkillSource[]): Promise
         info._spinner?.stop(`${mode} ${skillNames} → ${agentNames}`)
       }
       else {
-        info._spinner?.stop('No skills found')
+        info._spinner?.stop('No skills to install')
       }
     },
     onError: (source: SkillSource, error: string) => {
       const info = source as ModuleSkillSource & { _spinner: ReturnType<typeof spinner> }
+      const isAlreadyInstalled = error.includes('Cannot overwrite directory') || error.includes('EEXIST')
+      if (isAlreadyInstalled) {
+        info._spinner?.stop('Already installed')
+        return
+      }
       info._spinner?.stop('Failed to install skills')
       logger.warn(`Skill installation failed for ${info.moduleName}: ${error}`)
     },

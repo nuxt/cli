@@ -44,6 +44,11 @@ export default defineCommand({
       }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)
+        const isMissingSkillPath = message.includes('ENOENT') || message.includes('no such file or directory')
+        if (isMissingSkillPath) {
+          logger.warn(`Skipping invalid skill entry: ${message}`)
+          return
+        }
         logger.error(`Failed to list installed skills: ${message}`)
         process.exit(1)
       }
@@ -147,7 +152,7 @@ export default defineCommand({
 
     checkSpinner.stop(allSkills.length > 0
       ? `Found skills in ${allSkills.length} package(s)`
-      : 'No agent skills found')
+      : 'Skills scan complete')
 
     if (allSkills.length === 0)
       return

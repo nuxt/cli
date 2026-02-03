@@ -128,7 +128,7 @@ export default defineCommand({
         const remoteOnly = metaSkills.filter(s => !bundledModules.has(s.moduleName))
         skillInfos = [...bundledSkills, ...remoteOnly]
 
-        checkSpinner.stop(skillInfos.length > 0 ? `Found ${skillInfos.length} skill(s)` : 'No skills found')
+        checkSpinner.stop(skillInfos.length > 0 ? `Found ${skillInfos.length} skill(s)` : 'Skills scan complete')
       }
       catch (error) {
         const message = error instanceof Error ? error.message : String(error)
@@ -214,10 +214,8 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
             || message.includes('ERR_PACKAGE_PATH_NOT_EXPORTED')
             || message.includes('Cannot find module')
           )
-          if (isPackageJsonError && modulesInstalled) {
-            logger.warn(`Peer dependency scan skipped: ${message}`)
+          if (isPackageJsonError && modulesInstalled)
             return true
-          }
           logger.error(message)
 
           const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
