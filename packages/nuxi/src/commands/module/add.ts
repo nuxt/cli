@@ -206,9 +206,15 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
       }).then(() => true).catch(
         async (error) => {
           const message = error instanceof Error ? error.message : String(error)
-          const isExportsPackageJsonError = message.includes('Package subpath \'./package.json\' is not defined by "exports"')
+          const modulesInstalled = notInstalledModules.every(module =>
+            existsSync(resolve(cwd, 'node_modules', module.pkgName)),
+          )
+          const isPackageJsonError = message.includes('package.json') && (
+            message.includes('Package subpath \'./package.json\' is not defined by "exports"')
             || message.includes('ERR_PACKAGE_PATH_NOT_EXPORTED')
-          if (isExportsPackageJsonError) {
+            || message.includes('Cannot find module')
+          )
+          if (isPackageJsonError && modulesInstalled) {
             logger.warn(`Peer dependency scan skipped: ${message}`)
             return true
           }
