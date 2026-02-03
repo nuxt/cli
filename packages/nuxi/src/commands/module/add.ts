@@ -205,7 +205,8 @@ async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, 
         workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
       }).then(() => true).catch(
         async (error) => {
-          logger.error(error)
+          const message = error instanceof Error ? error.message : String(error)
+          logger.error(message)
 
           const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
           const s = notInstalledModules.length > 1 ? 's' : ''
