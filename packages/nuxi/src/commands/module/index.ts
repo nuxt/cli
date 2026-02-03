@@ -9,5 +9,6 @@ export default defineCommand({
   subCommands: {
     add: () => import('./add').then(r => r.default || r),
     search: () => import('./search').then(r => r.default || r),
+    skills: () => import('./skills').then(r => r.default || r),
   },
 })

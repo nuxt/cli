@@ -1,5 +1,7 @@
 import type { FileHandle } from 'node:fs/promises'
 import type { PackageJson } from 'pkg-types'
+import type { BundledSkillSource } from 'unagent'
+import type { ModuleSkillSource } from './_skills'
 
 import type { NuxtModule } from './_utils'
 import * as fs from 'node:fs'
@@ -18,6 +20,7 @@ import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
 import { joinURL } from 'ufo'
+import { formatSkillNames, getBundledSkillSources } from 'unagent'
 
 import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
@@ -25,7 +28,7 @@ import { relativeToProcess } from '../../utils/paths'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
-import { detectModuleSkills, getSkillNames, installSkills } from './_skills'
+import { detectModuleSkills, installModuleSkills } from './_skills'
 import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
 
 interface RegistryMeta {
@@ -102,31 +105,56 @@ export default defineCommand({
 
     await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
-    // Check for agent skills
     if (!ctx.args.skipInstall) {
+      let skillInfos: ModuleSkillSource[] = []
       const moduleNames = resolvedModules.map(m => m.pkgName)
       const checkSpinner = spinner()
       checkSpinner.start('Checking for agent skills...')
-      const skillInfos = await detectModuleSkills(moduleNames, cwd)
-      checkSpinner.stop(skillInfos.length > 0 ? `Found ${skillInfos.length} skill(s)` : 'No skills found')
+      try {
+        // Check for agent skills (bundled in node_modules or via module meta)
+        const bundledSources: BundledSkillSource[] = getBundledSkillSources(cwd).filter((s: BundledSkillSource) => moduleNames.includes(s.packageName))
+        const bundledSkills: ModuleSkillSource[] = bundledSources.map((s: BundledSkillSource) => ({
+          source: s.source,
+          skills: s.skills,
+          label: s.packageName,
+          moduleName: s.packageName,
+          isLocal: true,
+          mode: 'symlink' as const,
+        }))
+        const metaSkills = await detectModuleSkills(moduleNames, cwd)
+
+        // Prefer bundled over remote
+        const bundledModules = new Set(bundledSkills.map(s => s.moduleName))
+        const remoteOnly = metaSkills.filter(s => !bundledModules.has(s.moduleName))
+        skillInfos = [...bundledSkills, ...remoteOnly]
+
+        checkSpinner.stop(skillInfos.length > 0 ? `Found ${skillInfos.length} skill(s)` : 'No skills found')
+      }
+      catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        checkSpinner.stop('Skipped agent skills check')
+        logger.warn(`Failed to check agent skills: ${message}`)
+      }
 
       if (skillInfos.length > 0) {
-        const skillNames = getSkillNames(skillInfos)
         const shouldInstall = await confirm({
-          message: `Install agent skill(s): ${skillNames}?`,
+          message: `Install agent skill(s): ${formatSkillNames(skillInfos)}?`,
           initialValue: true,
         })
 
         if (!isCancel(shouldInstall) && shouldInstall) {
-          await installSkills(skillInfos, cwd)
+          try {
+            await installModuleSkills(skillInfos)
+          }
+          catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            logger.warn(`Failed to install agent skills: ${message}`)
+          }
         }
       }
-    }
 
-    // Run prepare command if install is not skipped
-    if (!ctx.args.skipInstall) {
+      // Run prepare command
       const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
-
       await runCommand(prepareCommand, args)
     }
   },

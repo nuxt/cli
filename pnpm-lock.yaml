@@ -242,6 +242,9 @@ importers:
       ufo:
         specifier: ^1.6.3
         version: 1.6.3
+      unagent:
+        specifier: ^0.0.5
+        version: 0.0.5(unstorage@1.17.4(db0@0.3.4)(ioredis@5.9.2))
       unplugin-purge-polyfills:
         specifier: ^0.1.0
         version: 0.1.0
@@ -5213,6 +5216,7 @@ packages:
   tar@7.5.4:
     resolution: {integrity: sha512-AN04xbWGrSTDmVwlI4/GTlIIwMFk/XEv7uL8aa57zuvRy6s4hdBed+lVq2fAZ89XDa7Us3ANXcE3Tvqvja1kTA==}
     engines: {node: '>=18'}
+    deprecated: Old versions of tar are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exhorbitant rates) by contacting i@izs.me
 
   terser@5.46.0:
     resolution: {integrity: sha512-jTwoImyr/QbOWFFso3YoU3ik0jBBDJ6JTOQiy/J2YxVJdZCc+5u7skhNwiOR3FQIygFqVUPHl7qbbxtjW2K3Qg==}
@@ -5350,6 +5354,20 @@ packages:
 
   ultrahtml@1.6.0:
     resolution: {integrity: sha512-R9fBn90VTJrqqLDwyMph+HGne8eqY1iPfYhPzZrvKpIfwkWZbcYlfpsb8B9dTvBfpy1/hqAD7Wi8EKfP9e8zdw==}
+
+  unagent@0.0.5:
+    resolution: {integrity: sha512-k6uvvmeBCeI9i2vKCDBUNTHjRDyvAavc7yno+M9t/HplD51QzuEYPUxVVu8uYPUIFGDNcJ28jT8e71ihRusFUA==}
+    peerDependencies:
+      '@cloudflare/sandbox': '>=0.1.0'
+      '@vercel/sandbox': '>=0.1.0'
+      unstorage: '>=1.10.0'
+    peerDependenciesMeta:
+      '@cloudflare/sandbox':
+        optional: true
+      '@vercel/sandbox':
+        optional: true
+      unstorage:
+        optional: true
 
   unconfig-core@7.4.2:
     resolution: {integrity: sha512-VgPCvLWugINbXvMQDf8Jh0mlbvNjNC6eSUziHsBCMpxR05OPrNrvDnyatdMjRgcHaaNsCqz+wjNXxNw1kRLHUg==}
@@ -11312,6 +11330,15 @@ snapshots:
   ufo@1.6.3: {}
 
   ultrahtml@1.6.0: {}
+
+  unagent@0.0.5(unstorage@1.17.4(db0@0.3.4)(ioredis@5.9.2)):
+    dependencies:
+      hookable: 5.5.3
+      pathe: 2.0.3
+      std-env: 3.10.0
+      yaml: 2.8.2
+    optionalDependencies:
+      unstorage: 1.17.4(db0@0.3.4)(ioredis@5.9.2)
 
   unconfig-core@7.4.2:
     dependencies:
