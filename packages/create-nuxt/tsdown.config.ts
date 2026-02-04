@@ -9,6 +9,7 @@ const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 export default defineConfig({
   entry: ['src/index.ts'],
   fixedExtension: true,
+  inlineOnly: false,
   dts: !isAnalysingSize && {
     oxc: true,
   },

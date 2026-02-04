@@ -10,6 +10,7 @@ export default defineConfig({
   entry: ['src/index.ts', 'src/dev/index.ts'],
   shims: true,
   fixedExtension: true,
+  inlineOnly: false,
   dts: !isAnalysingSize && {
     oxc: true,
   },
