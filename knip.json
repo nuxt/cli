@@ -4,7 +4,7 @@
     ".": {
       "ignoreDependencies": [
         "@nuxt/test-utils",
-        "nuxt",
+        "@nuxt/schema",
         "vue",
         "vue-router"
       ],
