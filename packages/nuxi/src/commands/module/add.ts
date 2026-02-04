@@ -10,7 +10,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import process from 'node:process'
-import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
+import { cancel, confirm, groupMultiselect, isCancel, note, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -20,7 +20,8 @@ import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
 import { joinURL } from 'ufo'
-import { formatSkillNames, getBundledSkillSources } from 'unagent'
+import type { DetectedAgent } from 'unagent'
+import { detectInstalledAgents, formatSkillNames, getAgentDisplayNames, getBundledSkillSources } from 'unagent'
 
 import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
@@ -44,6 +45,93 @@ interface ResolvedModule {
 }
 type UnresolvedModule = false
 type ModuleResolution = ResolvedModule | UnresolvedModule
+
+type InstallMode = 'auto' | 'copy' | 'symlink'
+const SKILL_VALUE_SEPARATOR = '::'
+const SKILL_ALL_TOKEN = '*'
+
+function formatAgentList(agents: DetectedAgent[]): string {
+  if (agents.length === 0)
+    return 'none'
+  return getAgentDisplayNames(agents).join(', ')
+}
+
+function formatSkillPlan(agents: DetectedAgent[], sources: ModuleSkillSource[]): string {
+  const lines = [
+    `Agents: ${formatAgentList(agents)}`,
+    'Mode: auto (symlink local, copy remote)',
+    'Skills:',
+    ...sources.map((source) => {
+      const skills = source.skills?.length ? source.skills.join(', ') : 'all'
+      return `- ${source.moduleName}: ${skills}`
+    }),
+  ]
+  return lines.join('\n')
+}
+
+function buildSkillGroups(sources: ModuleSkillSource[]) {
+  const groups: Record<string, Array<{ label: string, value: string, hint?: string }>> = {}
+  const initialValues: string[] = []
+
+  for (const source of sources) {
+    const skills = source.skills?.length ? source.skills : null
+    const options = skills
+      ? skills.map(skill => ({ label: skill, value: `${source.moduleName}${SKILL_VALUE_SEPARATOR}${skill}` }))
+      : [{ label: 'all', value: `${source.moduleName}${SKILL_VALUE_SEPARATOR}${SKILL_ALL_TOKEN}`, hint: 'includes all skills' }]
+    groups[source.moduleName] = options
+    initialValues.push(...options.map(option => option.value))
+  }
+
+  return { groups, initialValues }
+}
+
+function applySkillSelection(sources: ModuleSkillSource[], selectedValues: string[]) {
+  const selectedByModule = new Map<string, { all: boolean, skills: Set<string> }>()
+
+  for (const value of selectedValues) {
+    const [moduleName, skillName] = value.split(SKILL_VALUE_SEPARATOR)
+    const entry = selectedByModule.get(moduleName) || { all: false, skills: new Set<string>() }
+    if (skillName === SKILL_ALL_TOKEN)
+      entry.all = true
+    else if (skillName)
+      entry.skills.add(skillName)
+    selectedByModule.set(moduleName, entry)
+  }
+
+  const selectedSources: ModuleSkillSource[] = []
+  for (const source of sources) {
+    const selected = selectedByModule.get(source.moduleName)
+    if (!selected)
+      continue
+    if (selected.all) {
+      selectedSources.push({ ...source, skills: undefined })
+      continue
+    }
+    const sourceSkills = source.skills?.length ? source.skills : []
+    const filtered = sourceSkills.filter(skill => selected.skills.has(skill))
+    if (filtered.length === 0)
+      continue
+    selectedSources.push({ ...source, skills: filtered })
+  }
+
+  return selectedSources
+}
+
+function applyInstallMode(sources: ModuleSkillSource[], mode: InstallMode) {
+  if (mode === 'auto')
+    return { sources, forcedCopy: false }
+
+  let forcedCopy = false
+  const next = sources.map((source) => {
+    if (mode === 'symlink' && !source.isLocal) {
+      forcedCopy = true
+      return { ...source, mode: 'copy' as const }
+    }
+    return { ...source, mode }
+  })
+
+  return { sources: next, forcedCopy }
+}
 
 export default defineCommand({
   meta: {
@@ -137,18 +225,92 @@ export default defineCommand({
       }
 
       if (skillInfos.length > 0) {
-        const shouldInstall = await confirm({
-          message: `Install agent skill(s): ${formatSkillNames(skillInfos)}?`,
-          initialValue: true,
-        })
+        const detectedAgents = detectInstalledAgents()
+        if (detectedAgents.length === 0) {
+          logger.warn('No AI coding agents detected')
+        }
+        else {
+          note(formatSkillPlan(detectedAgents, skillInfos), 'Planned install')
 
-        if (!isCancel(shouldInstall) && shouldInstall) {
-          try {
-            await installModuleSkills(skillInfos)
-          }
-          catch (error) {
-            const message = error instanceof Error ? error.message : String(error)
-            logger.warn(`Failed to install agent skills: ${message}`)
+          const action = await select({
+            message: `Install agent skill(s): ${formatSkillNames(skillInfos)}?`,
+            options: [
+              { value: 'yes', label: 'Yes', hint: 'Install with planned settings' },
+              { value: 'config', label: 'Change configuration', hint: 'Choose agent, mode, and skills' },
+              { value: 'no', label: 'No', hint: 'Skip installing skills' },
+            ],
+            initialValue: 'yes',
+          })
+
+          if (!isCancel(action) && action !== 'no') {
+            let selectedSources = skillInfos
+            let selectedAgents: string[] | undefined
+            let selectedMode: InstallMode = 'auto'
+
+            if (action === 'config') {
+              const agentChoice = await select({
+                message: 'Which AI agent should receive the skills?',
+                options: [
+                  { value: '__all__', label: 'All detected agents', hint: 'default' },
+                  ...detectedAgents.map(agent => ({
+                    value: agent.id,
+                    label: `${agent.config.name} (${agent.id})`,
+                  })),
+                ],
+                initialValue: '__all__',
+              })
+
+              if (isCancel(agentChoice))
+                return
+
+              if (agentChoice !== '__all__')
+                selectedAgents = [agentChoice]
+
+              const modeChoice = await select({
+                message: 'Install mode:',
+                options: [
+                  { value: 'auto', label: 'Auto', hint: 'symlink local, copy remote' },
+                  { value: 'copy', label: 'Copy', hint: 'copy into agent skill dir' },
+                  { value: 'symlink', label: 'Symlink', hint: 'link to source (local only)' },
+                ],
+                initialValue: 'auto',
+              })
+
+              if (isCancel(modeChoice))
+                return
+
+              selectedMode = modeChoice as InstallMode
+
+              const { groups, initialValues } = buildSkillGroups(skillInfos)
+              const skillSelection = await groupMultiselect({
+                message: 'Select skills to install:',
+                options: groups,
+                initialValues,
+                required: false,
+              })
+
+              if (isCancel(skillSelection))
+                return
+
+              selectedSources = applySkillSelection(skillInfos, skillSelection as string[])
+              if (selectedSources.length === 0) {
+                logger.info('No skills selected')
+                return
+              }
+            }
+
+            const modeResult = applyInstallMode(selectedSources, selectedMode)
+            selectedSources = modeResult.sources
+            if (modeResult.forcedCopy)
+              logger.warn('Symlink mode applies only to local skills; remote skills will be copied.')
+
+            try {
+              await installModuleSkills(selectedSources, { agents: selectedAgents })
+            }
+            catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              logger.warn(`Failed to install agent skills: ${message}`)
+            }
           }
         }
       }

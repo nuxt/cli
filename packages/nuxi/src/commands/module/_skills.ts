@@ -1,7 +1,7 @@
 import type { BatchInstallCallbacks, InstallSkillResult, SkillSource } from 'unagent'
 import { createRequire } from 'node:module'
 import { spinner } from '@clack/prompts'
-import { detectInstalledAgents, formatDetectedAgentIds, installSkillBatch } from 'unagent'
+import { detectInstalledAgents, formatDetectedAgentIds, installSkill } from 'unagent'
 
 import { logger } from '../../utils/logger'
 
@@ -52,14 +52,27 @@ async function getModuleMeta(pkgName: string, cwd: string): Promise<ModuleMeta |
   }
 }
 
-export async function installModuleSkills(sources: ModuleSkillSource[]): Promise<void> {
+export interface InstallModuleSkillOptions {
+  agents?: string[]
+}
+
+export async function installModuleSkills(sources: ModuleSkillSource[], options: InstallModuleSkillOptions = {}): Promise<void> {
   const installedAgents = detectInstalledAgents()
   if (installedAgents.length === 0) {
     logger.warn('No AI coding agents detected')
     return
   }
 
-  const agentNames = formatDetectedAgentIds()
+  const targetAgents = options.agents?.length
+    ? installedAgents.filter(agent => options.agents!.includes(agent.id))
+    : installedAgents
+
+  if (targetAgents.length === 0) {
+    logger.warn('No matching AI coding agents detected')
+    return
+  }
+
+  const agentNames = formatDetectedAgentIds(targetAgents)
 
   const callbacks: BatchInstallCallbacks = {
     onStart: (source: SkillSource) => {
@@ -95,11 +108,23 @@ export async function installModuleSkills(sources: ModuleSkillSource[]): Promise
     },
   }
 
-  try {
-    await installSkillBatch(sources, callbacks)
-  }
-  catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    logger.warn(`Failed to install agent skills: ${message}`)
+  for (const source of sources) {
+    callbacks.onStart?.(source)
+    try {
+      const result = await installSkill({
+        source: source.source,
+        skills: source.skills,
+        mode: source.mode ?? 'copy',
+        agents: options.agents?.length ? options.agents : undefined,
+      })
+      if (result.installed.length > 0)
+        callbacks.onSuccess?.(source, result)
+      if (result.errors.length > 0)
+        callbacks.onError?.(source, result.errors.map(e => e.error).join(', '))
+    }
+    catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      callbacks.onError?.(source, message)
+    }
   }
 }

@@ -1,17 +1,105 @@
 import type { BundledSkillSource, InstalledSkill, UninstallSkillResult } from 'unagent'
 import type { ModuleSkillSource } from './_skills'
 import process from 'node:process'
-import { confirm, isCancel, spinner } from '@clack/prompts'
+import { groupMultiselect, isCancel, note, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
-import { formatSkillNames, getAgentDisplayNames, getBundledSkillSources, listInstalledSkills, uninstallSkill } from 'unagent'
+import type { DetectedAgent } from 'unagent'
+import { detectInstalledAgents, formatSkillNames, getAgentDisplayNames, getBundledSkillSources, listInstalledSkills, uninstallSkill } from 'unagent'
 
 import { logger } from '../../utils/logger'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import { detectModuleSkills, installModuleSkills } from './_skills'
 import { fetchModules } from './_utils'
+
+type InstallMode = 'auto' | 'copy' | 'symlink'
+const SKILL_VALUE_SEPARATOR = '::'
+const SKILL_ALL_TOKEN = '*'
+
+function formatAgentList(agents: DetectedAgent[]): string {
+  if (agents.length === 0)
+    return 'none'
+  return getAgentDisplayNames(agents).join(', ')
+}
+
+function formatSkillPlan(agents: DetectedAgent[], sources: ModuleSkillSource[]): string {
+  const lines = [
+    `Agents: ${formatAgentList(agents)}`,
+    'Mode: auto (symlink local, copy remote)',
+    'Skills:',
+    ...sources.map((source) => {
+      const skills = source.skills?.length ? source.skills.join(', ') : 'all'
+      return `- ${source.moduleName}: ${skills}`
+    }),
+  ]
+  return lines.join('\n')
+}
+
+function buildSkillGroups(sources: ModuleSkillSource[]) {
+  const groups: Record<string, Array<{ label: string, value: string, hint?: string }>> = {}
+  const initialValues: string[] = []
+
+  for (const source of sources) {
+    const skills = source.skills?.length ? source.skills : null
+    const options = skills
+      ? skills.map(skill => ({ label: skill, value: `${source.moduleName}${SKILL_VALUE_SEPARATOR}${skill}` }))
+      : [{ label: 'all', value: `${source.moduleName}${SKILL_VALUE_SEPARATOR}${SKILL_ALL_TOKEN}`, hint: 'includes all skills' }]
+    groups[source.moduleName] = options
+    initialValues.push(...options.map(option => option.value))
+  }
+
+  return { groups, initialValues }
+}
+
+function applySkillSelection(sources: ModuleSkillSource[], selectedValues: string[]) {
+  const selectedByModule = new Map<string, { all: boolean, skills: Set<string> }>()
+
+  for (const value of selectedValues) {
+    const [moduleName, skillName] = value.split(SKILL_VALUE_SEPARATOR)
+    const entry = selectedByModule.get(moduleName) || { all: false, skills: new Set<string>() }
+    if (skillName === SKILL_ALL_TOKEN)
+      entry.all = true
+    else if (skillName)
+      entry.skills.add(skillName)
+    selectedByModule.set(moduleName, entry)
+  }
+
+  const selectedSources: ModuleSkillSource[] = []
+  for (const source of sources) {
+    const selected = selectedByModule.get(source.moduleName)
+    if (!selected)
+      continue
+    if (selected.all) {
+      selectedSources.push({ ...source, skills: undefined })
+      continue
+    }
+    const sourceSkills = source.skills?.length ? source.skills : []
+    const filtered = sourceSkills.filter(skill => selected.skills.has(skill))
+    if (filtered.length === 0)
+      continue
+    selectedSources.push({ ...source, skills: filtered })
+  }
+
+  return selectedSources
+}
+
+function applyInstallMode(sources: ModuleSkillSource[], mode: InstallMode) {
+  if (mode === 'auto')
+    return { sources, forcedCopy: false }
+
+  let forcedCopy = false
+  const next = sources.map((source) => {
+    if (mode === 'symlink' && !source.isLocal) {
+      forcedCopy = true
+      return { ...source, mode: 'copy' as const }
+    }
+    return { ...source, mode }
+  })
+
+  return { sources: next, forcedCopy }
+}
 
 export default defineCommand({
   meta: {
@@ -29,7 +117,8 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd)
 
     // Show detected agents
-    const agents = getAgentDisplayNames()
+    const detectedAgents = detectInstalledAgents()
+    const agents = getAgentDisplayNames(detectedAgents)
     if (agents.length === 0) {
       logger.warn('No AI coding agents detected')
       return
@@ -164,14 +253,84 @@ export default defineCommand({
       logger.info(`  ${colors.cyan(info.moduleName)}: ${skills} ${source}`)
     }
 
-    const shouldInstall = ctx.args.install || await confirm({
-      message: `Install agent skill(s): ${formatSkillNames(allSkills)}?`,
-      initialValue: true,
-    })
+    let selectedSources = allSkills
+    let selectedAgents: string[] | undefined
+    let selectedMode: InstallMode = 'auto'
 
-    if (isCancel(shouldInstall) || !shouldInstall)
-      return
+    if (!ctx.args.install) {
+      note(formatSkillPlan(detectedAgents, allSkills), 'Planned install')
 
-    await installModuleSkills(allSkills)
+      const action = await select({
+        message: `Install agent skill(s): ${formatSkillNames(allSkills)}?`,
+        options: [
+          { value: 'yes', label: 'Yes', hint: 'Install with planned settings' },
+          { value: 'config', label: 'Change configuration', hint: 'Choose agent, mode, and skills' },
+          { value: 'no', label: 'No', hint: 'Skip installing skills' },
+        ],
+        initialValue: 'yes',
+      })
+
+      if (isCancel(action) || action === 'no')
+        return
+
+      if (action === 'config') {
+        const agentChoice = await select({
+          message: 'Which AI agent should receive the skills?',
+          options: [
+            { value: '__all__', label: 'All detected agents', hint: 'default' },
+            ...detectedAgents.map(agent => ({
+              value: agent.id,
+              label: `${agent.config.name} (${agent.id})`,
+            })),
+          ],
+          initialValue: '__all__',
+        })
+
+        if (isCancel(agentChoice))
+          return
+
+        if (agentChoice !== '__all__')
+          selectedAgents = [agentChoice]
+
+        const modeChoice = await select({
+          message: 'Install mode:',
+          options: [
+            { value: 'auto', label: 'Auto', hint: 'symlink local, copy remote' },
+            { value: 'copy', label: 'Copy', hint: 'copy into agent skill dir' },
+            { value: 'symlink', label: 'Symlink', hint: 'link to source (local only)' },
+          ],
+          initialValue: 'auto',
+        })
+
+        if (isCancel(modeChoice))
+          return
+
+        selectedMode = modeChoice as InstallMode
+
+        const { groups, initialValues } = buildSkillGroups(allSkills)
+        const skillSelection = await groupMultiselect({
+          message: 'Select skills to install:',
+          options: groups,
+          initialValues,
+          required: false,
+        })
+
+        if (isCancel(skillSelection))
+          return
+
+        selectedSources = applySkillSelection(allSkills, skillSelection as string[])
+        if (selectedSources.length === 0) {
+          logger.info('No skills selected')
+          return
+        }
+      }
+    }
+
+    const modeResult = applyInstallMode(selectedSources, selectedMode)
+    selectedSources = modeResult.sources
+    if (modeResult.forcedCopy)
+      logger.warn('Symlink mode applies only to local skills; remote skills will be copied.')
+
+    await installModuleSkills(selectedSources, { agents: selectedAgents })
   },
 })

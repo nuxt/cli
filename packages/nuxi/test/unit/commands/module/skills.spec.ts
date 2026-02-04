@@ -5,8 +5,11 @@ import skillsCommand from '../../../../src/commands/module/skills'
 import { logger } from '../../../../src/utils/logger'
 
 const {
-  confirm,
+  select,
+  groupMultiselect,
+  note,
   detectModuleSkills,
+  detectInstalledAgents,
   fetchModules,
   formatSkillNames,
   getAgentDisplayNames,
@@ -21,8 +24,11 @@ const {
   log,
 } = vi.hoisted(() => {
   return {
-    confirm: vi.fn(async () => true),
+    select: vi.fn(async () => 'yes'),
+    groupMultiselect: vi.fn(async () => []),
+    note: vi.fn(),
     detectModuleSkills: vi.fn(async () => []),
+    detectInstalledAgents: vi.fn(() => [{ id: 'codex', config: { name: 'OpenAI Codex CLI', skillsDir: 'skills' } }]),
     fetchModules: vi.fn(async () => []),
     formatSkillNames: vi.fn(() => 'all'),
     getAgentDisplayNames: vi.fn(() => ['OpenAI Codex CLI (codex)']),
@@ -46,9 +52,11 @@ const {
 
 vi.mock('@clack/prompts', async () => {
   return {
-    confirm,
+    groupMultiselect,
     isCancel,
     log,
+    note,
+    select,
     spinner: () => ({
       start: spinnerStart,
       stop: spinnerStop,
@@ -64,6 +72,7 @@ vi.mock('pkg-types', async () => {
 
 vi.mock('unagent', async () => {
   return {
+    detectInstalledAgents,
     formatSkillNames,
     getAgentDisplayNames,
     getBundledSkillSources,
