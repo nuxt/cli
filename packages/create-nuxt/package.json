@@ -29,12 +29,12 @@
     "prepack": "tsdown"
   },
   "dependencies": {
-    "citty": "^0.1.6"
+    "citty": "^0.2.0"
   },
   "devDependencies": {
-    "@bomb.sh/tab": "^0.0.11",
-    "@types/node": "^24.10.9",
-    "rollup": "^4.55.2",
+    "@bomb.sh/tab": "^0.0.12",
+    "@types/node": "^24.10.10",
+    "rollup": "^4.57.1",
     "rollup-plugin-visualizer": "^6.0.5",
     "tsdown": "^0.20.1",
     "typescript": "^5.9.3",
