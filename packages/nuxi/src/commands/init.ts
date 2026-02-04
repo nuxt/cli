@@ -343,7 +343,7 @@ export default defineCommand({
     }
 
     // Determine if we should init git
-    let gitInit = ctx.args.gitInit
+    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
     if (gitInit === undefined) {
       const result = await confirm({
         message: 'Initialize git repository?',
@@ -359,7 +359,8 @@ export default defineCommand({
 
     // Install project dependencies and initialize git
     // or skip installation based on the '--no-install' flag
-    if (ctx.args.install === false) {
+    // citty v0.2.0 with node:util.parseArgs returns 'false' string for --install=false
+    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false') {
       logger.info('Skipping install dependencies step.')
     }
     else {

@@ -180,7 +180,7 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
       || process.env.NUXT_PORT
       || process.env.NITRO_PORT
       || process.env.PORT!,
-    'https': args.https !== false,
+    'https': args.https !== false && (args.https as boolean | string) !== 'false',
     'https.cert': args['https.cert']
       || args.sslCert
       || process.env.NUXT_SSL_CERT
@@ -197,7 +197,11 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
     // override if https is enabled in devServer config.
     _https: args.https,
     get https(): typeof options['https'] {
-      return this._https ? options.https : false
+      const httpsArg = this._https as boolean | string | undefined
+      if (httpsArg === false || httpsArg === 'false') {
+        return false
+      }
+      return httpsArg ? options.https : false
     },
   } as const
 }
