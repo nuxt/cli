@@ -1,6 +1,6 @@
 import type { FileHandle } from 'node:fs/promises'
 import type { PackageJson } from 'pkg-types'
-import type { BundledSkillSource } from 'unagent'
+import type { BundledSkillSource, DetectedAgent } from 'unagent'
 import type { ModuleSkillSource } from './_skills'
 
 import type { NuxtModule } from './_utils'
@@ -20,7 +20,6 @@ import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { satisfies } from 'semver'
 import { joinURL } from 'ufo'
-import type { DetectedAgent } from 'unagent'
 import { detectInstalledAgents, formatSkillNames, getAgentDisplayNames, getBundledSkillSources } from 'unagent'
 
 import { runCommand } from '../../run'

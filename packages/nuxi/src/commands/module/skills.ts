@@ -1,4 +1,4 @@
-import type { BundledSkillSource, InstalledSkill, UninstallSkillResult } from 'unagent'
+import type { BundledSkillSource, DetectedAgent, InstalledSkill, UninstallSkillResult } from 'unagent'
 import type { ModuleSkillSource } from './_skills'
 import process from 'node:process'
 import { groupMultiselect, isCancel, note, select, spinner } from '@clack/prompts'
@@ -6,7 +6,6 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
-import type { DetectedAgent } from 'unagent'
 import { detectInstalledAgents, formatSkillNames, getAgentDisplayNames, getBundledSkillSources, listInstalledSkills, uninstallSkill } from 'unagent'
 
 import { logger } from '../../utils/logger'
