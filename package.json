@@ -32,7 +32,7 @@
     "eslint": "^9.39.2",
     "exsolve": "^1.0.8",
     "knip": "^5.82.0",
-    "nuxt": "^4.2.2",
+    "nuxt": "^4.3.0",
     "pkg-pr-new": "^0.0.62",
     "semver": "^7.7.3",
     "std-env": "^3.10.0",
@@ -44,7 +44,7 @@
   },
   "resolutions": {
     "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "4.2.2",
+    "@nuxt/schema": "4.3.0",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "eslint-plugin-jsdoc": "62.1.0",
