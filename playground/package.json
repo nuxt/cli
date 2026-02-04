@@ -10,7 +10,7 @@
     "test": "vitest"
   },
   "dependencies": {
-    "nuxt": "^4.2.2",
+    "nuxt": "^4.3.0",
     "vue-router": "^5.0.2"
   },
   "devDependencies": {
