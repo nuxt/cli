@@ -24,15 +24,16 @@ export default defineCommand({
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const command = ctx.args.command
 
-    if (!['enable', 'disable'].includes(ctx.args.command)) {
-      logger.error(`Unknown command ${colors.cyan(ctx.args.command)}.`)
+    if (!command || !['enable', 'disable'].includes(command)) {
+      logger.error(`Unknown command ${colors.cyan(command || '')}.`)
       process.exit(1)
     }
 
     await x(
       'npx',
-      ['@nuxt/devtools-wizard@latest', ctx.args.command, cwd],
+      ['@nuxt/devtools-wizard@latest', command, cwd],
       {
         throwOnError: true,
         nodeOptions: {

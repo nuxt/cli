@@ -189,7 +189,7 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
       || args.sslKey
       || process.env.NUXT_SSL_KEY
       || process.env.NITRO_SSL_KEY!,
-  })
+  } as Parameters<typeof parseListhenArgs>[0])
 
   return {
     ...options,
