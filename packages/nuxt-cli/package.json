@@ -32,6 +32,14 @@
     "dev:prepare": "tsdown --watch",
     "prepack": "tsdown"
   },
+  "peerDependencies": {
+    "@nuxt/schema": "^4.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@nuxt/schema": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@bomb.sh/tab": "^0.0.11",
     "@clack/prompts": "1.0.0-alpha.9",
@@ -60,14 +68,6 @@
     "tinyexec": "^1.0.2",
     "ufo": "^1.6.3",
     "youch": "^4.1.0-beta.13"
-  },
-  "peerDependencies": {
-    "@nuxt/schema": "^4.3.0"
-  },
-  "peerDependenciesMeta": {
-    "@nuxt/schema": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@nuxt/kit": "^4.3.0",
