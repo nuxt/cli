@@ -29,7 +29,8 @@
   },
   "scripts": {
     "build": "tsdown",
-    "prepack": "pnpm build"
+    "prepack": "pnpm build",
+    "test:dist": "node ./bin/nuxi.mjs info ../../playground"
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.12",
