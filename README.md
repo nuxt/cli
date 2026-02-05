@@ -8,7 +8,7 @@ All commands are listed on https://nuxt.com/docs/api/commands.
 
 ## Shell Autocompletions
 
-`nuxt/cli` provides shell autocompletions for commands, options, and option values &ndash; powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
+`nuxt/clix` provides shell autocompletions for commands, options, and option values &ndash; powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
 
 ### Package Manager Integration
 
