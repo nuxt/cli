@@ -75,6 +75,7 @@
     "tsdown": "^0.20.1",
     "typescript": "^5.9.3",
     "ufo": "^1.6.3",
+    "unagent": "^0.0.5",
     "unplugin-purge-polyfills": "^0.1.0",
     "vitest": "^3.2.4",
     "youch": "^4.1.0-beta.13"
