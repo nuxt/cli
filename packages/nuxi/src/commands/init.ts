@@ -5,7 +5,7 @@ import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, intro, isCancel, multiselect, outro, select, spinner, tasks, text } from '@clack/prompts'
+import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -23,6 +23,7 @@ import { relativeToProcess } from '../utils/paths'
 import { getTemplates } from '../utils/starter-templates'
 import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, logLevelArgs } from './_shared'
+import { selectModulesAutocomplete } from './module/_autocomplete'
 import { checkNuxtCompatibility, fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
@@ -426,11 +427,11 @@ export default defineCommand({
       }
     }
 
-    // ...or offer to install official modules (if not offline)
+    // ...or offer to browse and install modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
       const modulesPromise = fetchModules()
       const wantsUserModules = await confirm({
-        message: `Would you like to install any of the official modules?`,
+        message: `Would you like to browse and install modules?`,
         initialValue: false,
       })
 
@@ -451,33 +452,21 @@ export default defineCommand({
 
         modulesSpinner.stop('Modules loaded')
 
-        const officialModules = response
+        const allModules = response
           .filter(module =>
-            module.type === 'official'
-            && module.npm !== '@nuxt/devtools'
+            module.npm !== '@nuxt/devtools'
             && !templateDeps.includes(module.npm)
             && (!module.compatibility.nuxt || checkNuxtCompatibility(module, nuxtVersion)),
           )
 
-        if (officialModules.length === 0) {
-          logger.info('All official modules are already included in this template.')
+        if (allModules.length === 0) {
+          logger.info('All modules are already included in this template.')
         }
         else {
-          const selectedOfficialModules = await multiselect({
-            message: 'Pick the modules to install:',
-            options: officialModules.map(module => ({
-              label: `${colors.bold(colors.greenBright(module.npm))} – ${module.description.replace(/\.$/, '')}`,
-              value: module.npm,
-            })),
-            required: false,
-          })
+          const result = await selectModulesAutocomplete({ modules: allModules })
 
-          if (isCancel(selectedOfficialModules)) {
-            process.exit(1)
-          }
-
-          if (selectedOfficialModules.length > 0) {
-            const modules = selectedOfficialModules as unknown as string[]
+          if (result.selected.length > 0) {
+            const modules = result.selected
 
             const allDependencies = Object.fromEntries(
               await Promise.all(modules.map(async module =>
