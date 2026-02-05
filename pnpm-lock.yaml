@@ -134,9 +134,6 @@ importers:
       '@nuxt/test-utils':
         specifier: ^3.23.0
         version: 3.23.0(crossws@0.4.4(srvx@0.10.1))(magicast@0.5.1)(typescript@5.9.3)(vitest@3.2.4(@types/debug@4.1.12)(@types/node@24.10.11)(jiti@2.6.1)(terser@5.46.0)(yaml@2.8.2))
-      '@posva/prompts':
-        specifier: ^2.4.4
-        version: 2.4.4
       '@types/copy-paste':
         specifier: ^2.1.0
         version: 2.1.0
@@ -296,6 +293,9 @@ importers:
       fuse.js:
         specifier: ^7.1.0
         version: 7.1.0
+      fzf:
+        specifier: ^0.5.2
+        version: 0.5.2
       giget:
         specifier: ^3.1.1
         version: 3.1.1
@@ -1788,10 +1788,6 @@ packages:
 
   '@poppinss/exception@1.2.3':
     resolution: {integrity: sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw==}
-
-  '@posva/prompts@2.4.4':
-    resolution: {integrity: sha512-8aPwklhbSV2VN/NQMBNFkuo8+hlJVdcFRXp4NCIfdcahh3qNEcaSoD8qXjru0OlN1sONJ7le7p6+YUbALaG6Mg==}
-    engines: {node: '>= 14'}
 
   '@quansync/fs@1.0.0':
     resolution: {integrity: sha512-4TJ3DFtlf1L5LDMaM6CanJ/0lckGNtJcMjQ1NAV6zDmA0tEHKZtxNKin8EgPaVX1YzljbxckyT2tJrpQKAtngQ==}
@@ -7248,11 +7244,6 @@ snapshots:
       supports-color: 10.2.2
 
   '@poppinss/exception@1.2.3': {}
-
-  '@posva/prompts@2.4.4':
-    dependencies:
-      kleur: 4.1.5
-      sisteransi: 1.0.5
 
   '@quansync/fs@1.0.0':
     dependencies:

@@ -9,10 +9,13 @@ vi.mock('std-env', () => ({
   hasTTY: mockHasTTY.value,
 }))
 
-// Mock @posva/prompts
-const mockPrompts = vi.hoisted(() => vi.fn())
-vi.mock('@posva/prompts', () => ({
-  default: mockPrompts,
+// Mock @clack/prompts
+const mockAutocompleteMultiselect = vi.hoisted(() => vi.fn())
+const mockIsCancel = vi.hoisted(() => vi.fn(() => false))
+
+vi.mock('@clack/prompts', () => ({
+  autocompleteMultiselect: mockAutocompleteMultiselect,
+  isCancel: mockIsCancel,
 }))
 
 // Mock logger
@@ -57,6 +60,7 @@ describe('selectModulesAutocomplete', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockHasTTY.value = true
+    mockIsCancel.mockReturnValue(false)
 
     // Reset process.stdout.isTTY for each test
     Object.defineProperty(process.stdout, 'isTTY', {
@@ -99,8 +103,8 @@ describe('selectModulesAutocomplete', () => {
         hasTTY: true,
       }))
 
-      // Mock prompts to simulate user pressing Esc immediately
-      mockPrompts.mockResolvedValueOnce({ module: undefined })
+      // Mock autocompleteMultiselect to return empty array
+      mockAutocompleteMultiselect.mockResolvedValueOnce([])
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
@@ -108,7 +112,7 @@ describe('selectModulesAutocomplete', () => {
       const result = await selectModulesAutocomplete({ modules })
 
       expect(result).toEqual({ selected: [], cancelled: false })
-      expect(mockPrompts).toHaveBeenCalled()
+      expect(mockAutocompleteMultiselect).toHaveBeenCalled()
     })
   })
 
@@ -118,11 +122,11 @@ describe('selectModulesAutocomplete', () => {
         hasTTY: true,
       }))
 
-      let capturedChoices: any[] = []
+      let capturedOptions: any[] = []
 
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedChoices = options.choices
-        return { module: undefined }
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedOptions = opts.options
+        return []
       })
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
@@ -137,7 +141,7 @@ describe('selectModulesAutocomplete', () => {
       await selectModulesAutocomplete({ modules })
 
       // Official modules should come first, then sorted alphabetically
-      const npmNames = capturedChoices.map((c: any) => c.value)
+      const npmNames = capturedOptions.map((c: any) => c.value)
       expect(npmNames[0]).toBe('@nuxt/a-module')
       expect(npmNames[1]).toBe('@nuxt/c-module')
       expect(npmNames[2]).toBe('@community/b-module')
@@ -146,15 +150,13 @@ describe('selectModulesAutocomplete', () => {
   })
 
   describe('module selection', () => {
-    it('should return selected modules when user selects and exits', async () => {
+    it('should return selected modules when user selects and confirms', async () => {
       vi.doMock('std-env', () => ({
         hasTTY: true,
       }))
 
-      // Simulate: user selects first module, then presses Esc
-      mockPrompts
-        .mockResolvedValueOnce({ module: '@nuxt/ui' })
-        .mockResolvedValueOnce({ module: undefined })
+      // Simulate: user selects modules and confirms
+      mockAutocompleteMultiselect.mockResolvedValueOnce(['@nuxt/ui'])
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
@@ -167,26 +169,7 @@ describe('selectModulesAutocomplete', () => {
 
       expect(result.selected).toContain('@nuxt/ui')
       expect(result.selected).toHaveLength(1)
-    })
-
-    it('should allow toggling module selection (select then deselect)', async () => {
-      vi.doMock('std-env', () => ({
-        hasTTY: true,
-      }))
-
-      // Simulate: select, deselect same module, then exit
-      mockPrompts
-        .mockResolvedValueOnce({ module: '@nuxt/ui' }) // Select
-        .mockResolvedValueOnce({ module: '@nuxt/ui' }) // Deselect (toggle)
-        .mockResolvedValueOnce({ module: undefined }) // Exit
-
-      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
-
-      const modules = [createMockModule({ npm: '@nuxt/ui', name: 'ui' })]
-
-      const result = await selectModulesAutocomplete({ modules })
-
-      expect(result.selected).toHaveLength(0)
+      expect(result.cancelled).toBe(false)
     })
 
     it('should allow selecting multiple modules', async () => {
@@ -194,11 +177,7 @@ describe('selectModulesAutocomplete', () => {
         hasTTY: true,
       }))
 
-      mockPrompts
-        .mockResolvedValueOnce({ module: '@nuxt/ui' })
-        .mockResolvedValueOnce({ module: '@nuxt/icon' })
-        .mockResolvedValueOnce({ module: '@nuxt/image' })
-        .mockResolvedValueOnce({ module: undefined })
+      mockAutocompleteMultiselect.mockResolvedValueOnce(['@nuxt/ui', '@nuxt/icon', '@nuxt/image'])
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
@@ -217,39 +196,22 @@ describe('selectModulesAutocomplete', () => {
     })
   })
 
-  describe('error handling', () => {
-    it('should handle prompt errors gracefully', async () => {
+  describe('cancellation handling', () => {
+    it('should return cancelled true when user cancels', async () => {
       vi.doMock('std-env', () => ({
         hasTTY: true,
       }))
 
-      mockPrompts.mockRejectedValueOnce(new Error('User interrupted'))
+      const cancelSymbol = Symbol('cancel')
+      mockAutocompleteMultiselect.mockResolvedValueOnce(cancelSymbol)
+      mockIsCancel.mockReturnValueOnce(true)
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       const modules = [createMockModule()]
       const result = await selectModulesAutocomplete({ modules })
 
-      // Should return empty array on error, not throw
-      expect(result).toEqual({ selected: [], cancelled: false })
-    })
-
-    it('should not throw when prompt is interrupted', async () => {
-      vi.doMock('std-env', () => ({
-        hasTTY: true,
-      }))
-
-      mockPrompts.mockRejectedValueOnce(new Error('Interrupted'))
-
-      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
-
-      const modules = [createMockModule()]
-
-      // Should not throw, should return gracefully
-      await expect(selectModulesAutocomplete({ modules })).resolves.toEqual({
-        selected: [],
-        cancelled: false,
-      })
+      expect(result).toEqual({ selected: [], cancelled: true })
     })
   })
 
@@ -260,9 +222,9 @@ describe('selectModulesAutocomplete', () => {
       }))
 
       let capturedMessage = ''
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedMessage = options.message
-        return { module: undefined }
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedMessage = opts.message
+        return []
       })
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
@@ -282,9 +244,9 @@ describe('selectModulesAutocomplete', () => {
       }))
 
       let capturedMessage = ''
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedMessage = options.message
-        return { module: undefined }
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedMessage = opts.message
+        return []
       })
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
@@ -293,53 +255,20 @@ describe('selectModulesAutocomplete', () => {
         modules: [createMockModule()],
       })
 
-      expect(capturedMessage).toBe('Search modules (Esc to finish):')
+      expect(capturedMessage).toBe('Search and select modules:')
     })
   })
 
-  describe('description truncation', () => {
-    it('should truncate long descriptions', async () => {
+  describe('filter function', () => {
+    it('should pass filter function to autocompleteMultiselect', async () => {
       vi.doMock('std-env', () => ({
         hasTTY: true,
       }))
 
-      // Set narrow terminal
-      Object.defineProperty(process.stdout, 'columns', {
-        value: 60,
-        writable: true,
-        configurable: true,
-      })
-
-      let capturedChoices: any[] = []
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedChoices = options.choices
-        return { module: undefined }
-      })
-
-      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
-
-      const longDescription = 'This is a very long description that should be truncated because it exceeds the maximum allowed length for the terminal width'
-      await selectModulesAutocomplete({
-        modules: [createMockModule({ description: longDescription })],
-      })
-
-      // Description should be truncated and end with ellipsis
-      const choice = capturedChoices[0]
-      expect(choice.description.length).toBeLessThan(longDescription.length)
-      expect(choice.description.endsWith('…')).toBe(true)
-    })
-  })
-
-  describe('fuzzy search suggest function', () => {
-    it('should pass suggest function to prompts', async () => {
-      vi.doMock('std-env', () => ({
-        hasTTY: true,
-      }))
-
-      let capturedSuggest: ((input: string, choices: any[]) => Promise<any[]>) | undefined
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedSuggest = options.suggest
-        return { module: undefined }
+      let capturedFilter: ((search: string, option: any) => boolean) | undefined
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedFilter = opts.filter
+        return []
       })
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
@@ -351,22 +280,20 @@ describe('selectModulesAutocomplete', () => {
         ],
       })
 
-      expect(capturedSuggest).toBeDefined()
-      expect(typeof capturedSuggest).toBe('function')
+      expect(capturedFilter).toBeDefined()
+      expect(typeof capturedFilter).toBe('function')
     })
 
-    it('should return all choices when input is empty', async () => {
+    it('should return true for all options when search is empty', async () => {
       vi.doMock('std-env', () => ({
         hasTTY: true,
       }))
 
-      let capturedSuggest: ((input: string, choices: any[]) => Promise<any[]>) | undefined
-      let capturedChoices: any[] = []
+      let capturedFilter: ((search: string, option: any) => boolean) | undefined
 
-      mockPrompts.mockImplementation(async (options: any) => {
-        capturedSuggest = options.suggest
-        capturedChoices = options.choices
-        return { module: undefined }
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedFilter = opts.filter
+        return []
       })
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
@@ -378,9 +305,81 @@ describe('selectModulesAutocomplete', () => {
         ],
       })
 
-      // Test the suggest function with empty input
-      const result = await capturedSuggest!('', capturedChoices)
-      expect(result).toEqual(capturedChoices)
+      // Test the filter function with empty input
+      const result = capturedFilter!('', { value: '@nuxt/a', label: '@nuxt/a' })
+      expect(result).toBe(true)
+    })
+
+    it('should filter options based on fuzzy search', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedFilter: ((search: string, option: any) => boolean) | undefined
+
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedFilter = opts.filter
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [
+          createMockModule({ npm: '@nuxt/tailwind', name: 'tailwind', category: 'UI' }),
+          createMockModule({ npm: '@nuxt/image', name: 'image', category: 'Media' }),
+        ],
+      })
+
+      // Test fuzzy search matches
+      expect(capturedFilter!('tail', { value: '@nuxt/tailwind', label: '@nuxt/tailwind' })).toBe(true)
+      expect(capturedFilter!('tail', { value: '@nuxt/image', label: '@nuxt/image' })).toBe(false)
+    })
+  })
+
+  describe('options structure', () => {
+    it('should create options with correct structure', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedOptions: any[] = []
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedOptions = opts.options
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [createMockModule({ npm: '@nuxt/test', description: 'A test module.' })],
+      })
+
+      expect(capturedOptions[0]).toEqual({
+        value: '@nuxt/test',
+        label: '@nuxt/test',
+        hint: 'A test module', // trailing period removed
+      })
+    })
+
+    it('should set required to false', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedRequired: boolean | undefined
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedRequired = opts.required
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [createMockModule()],
+      })
+
+      expect(capturedRequired).toBe(false)
     })
   })
 })
