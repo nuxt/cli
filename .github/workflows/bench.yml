@@ -33,7 +33,7 @@ jobs:
         run: pnpm build
 
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@dbda7111f8ac363564b0c51b992d4ce76bb89f2f # v4.5.2
+        uses: CodSpeedHQ/action@fa0c9b1770f933c1bc025c83a9b42946b102f4e6 # v4.10.4
         with:
           run: pnpm vitest bench
           mode: instrumentation
