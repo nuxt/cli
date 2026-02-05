@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockLoadNuxt = vi.fn()
 const mockCallHook = vi.fn()
 const mockClose = vi.fn()
+
+const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({
@@ -34,6 +37,7 @@ const mockExit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as
 // Store original process versions to restore after tests
 const originalProcessVersion = process.version
 const originalProcessVersionsNode = process.versions.node
+const originalStdoutIsTTY = (process.stdout as any).isTTY
 
 describe('nuxt doctor command', () => {
   beforeEach(() => {
@@ -46,6 +50,8 @@ describe('nuxt doctor command', () => {
     // Restore process versions in case previous test modified them
     Object.defineProperty(process, 'version', { value: originalProcessVersion, configurable: true })
     Object.defineProperty(process.versions, 'node', { value: originalProcessVersionsNode, configurable: true })
+    // Default tests to non-interactive output unless a test overrides it
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true })
 
     // Default mock for loadNuxt
     mockLoadNuxt.mockResolvedValue({
@@ -58,6 +64,14 @@ describe('nuxt doctor command', () => {
       callHook: mockCallHook,
       close: mockClose,
     })
+  })
+
+  // Restore stdout TTY state for other test files in the same worker
+  afterAll(() => {
+    Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true })
+    mockExit.mockRestore()
+    consoleLogSpy.mockRestore()
+    consoleErrorSpy.mockRestore()
   })
 
   it('should run core checks successfully', async () => {
@@ -216,7 +230,7 @@ describe('nuxt doctor command', () => {
     })
 
     // Check that warning about prerender was shown
-    const output = mockLogMessage.mock.calls.flat().join('\n')
+    const output = consoleLogSpy.mock.calls.flat().join('\n')
     expect(output).toContain('prerender routes defined but SSR is disabled')
     expect(mockExit).not.toHaveBeenCalled()
   })
@@ -243,14 +257,12 @@ describe('nuxt doctor command', () => {
     })
 
     // Check that warning about compatibilityDate was shown
-    const output = mockLogMessage.mock.calls.flat().join('\n')
+    const output = consoleLogSpy.mock.calls.flat().join('\n')
     expect(output).toContain('missing "compatibilityDate"')
     expect(mockExit).not.toHaveBeenCalled()
   })
 
   it('should output clean JSON when --json flag is set (no clack prompts)', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
     mockCallHook.mockImplementation(async (hookName, ctx) => {
       if (hookName === 'doctor:check') {
         ctx.addCheck({
@@ -273,21 +285,18 @@ describe('nuxt doctor command', () => {
     })
 
     // Should only call console.log once with valid JSON
-    expect(consoleSpy).toHaveBeenCalledOnce()
-    expect(consoleSpy.mock.calls[0]).toBeDefined()
-    const rawOutput = consoleSpy.mock.calls[0]![0]
+    expect(consoleLogSpy).toHaveBeenCalledOnce()
+    expect(consoleLogSpy.mock.calls[0]).toBeDefined()
+    const rawOutput = consoleLogSpy.mock.calls[0]![0]
 
     // Verify output is valid JSON (no intro/outro pollution)
     expect(() => JSON.parse(rawOutput)).not.toThrow()
     const output = JSON.parse(rawOutput)
     expect(Array.isArray(output)).toBe(true)
     expect(output.some((c: any) => c.name === 'Test' && c.suggestion === 'Fix it')).toBe(true)
-
-    consoleSpy.mockRestore()
   })
 
   it('should output valid JSON on loadNuxt failure with --json flag', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     mockLoadNuxt.mockRejectedValueOnce(new Error('Config parse error'))
 
     const { default: command } = await import('../../../src/commands/doctor')
@@ -299,20 +308,16 @@ describe('nuxt doctor command', () => {
       data: undefined,
     })
 
-    expect(consoleSpy).toHaveBeenCalledOnce()
-    expect(consoleSpy.mock.calls[0]).toBeDefined()
-    const rawOutput = consoleSpy.mock.calls[0]![0]
+    expect(consoleLogSpy).toHaveBeenCalledOnce()
+    expect(consoleLogSpy.mock.calls[0]).toBeDefined()
+    const rawOutput = consoleLogSpy.mock.calls[0]![0]
     expect(() => JSON.parse(rawOutput)).not.toThrow()
     const output = JSON.parse(rawOutput)
     expect(output[0].status).toBe('error')
     expect(output[0].message).toContain('Failed to load Nuxt')
-
-    consoleSpy.mockRestore()
   })
 
   it('should validate JSON output schema has required fields', async () => {
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
     mockCallHook.mockImplementation(async (hookName, ctx) => {
       if (hookName === 'doctor:check') {
         ctx.addCheck({
@@ -338,8 +343,8 @@ describe('nuxt doctor command', () => {
       data: undefined,
     })
 
-    expect(consoleSpy.mock.calls[0]).toBeDefined()
-    const output = JSON.parse(consoleSpy.mock.calls[0]![0])
+    expect(consoleLogSpy.mock.calls[0]).toBeDefined()
+    const output = JSON.parse(consoleLogSpy.mock.calls[0]![0])
     const testCheck = output.find((c: any) => c.name === 'Test')
     expect(testCheck).toBeDefined()
 
@@ -356,11 +361,10 @@ describe('nuxt doctor command', () => {
     expect(testCheck.suggestion).toBe('Fix it')
     expect(testCheck.url).toBe('https://example.com')
     expect(testCheck.data).toEqual({ key: 'value' })
-
-    consoleSpy.mockRestore()
   })
 
   it('should show verbose fields when --verbose flag is set', async () => {
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
     mockLoadNuxt.mockResolvedValueOnce({
       options: {
         ssr: true,
@@ -400,5 +404,39 @@ describe('nuxt doctor command', () => {
     expect(output).toContain('🔗')
     expect(output).toContain('https://example.com')
     expect(mockClose).toHaveBeenCalled()
+  })
+
+  it('should fall back to ASCII markers when not a TTY', async () => {
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true })
+
+    mockCallHook.mockImplementation(async (hookName, ctx) => {
+      if (hookName === 'doctor:check') {
+        ctx.addCheck({
+          name: 'Test',
+          status: 'warning',
+          message: 'Test warning',
+          details: ['detail1'],
+          suggestion: 'Fix it',
+          url: 'https://example.com',
+        })
+      }
+    })
+
+    const { default: command } = await import('../../../src/commands/doctor')
+
+    await command.run!({
+      args: { cwd: '/fake-dir', rootDir: '/fake-dir', verbose: true, _: [] } as any,
+      rawArgs: [],
+      cmd: command,
+      data: undefined,
+    })
+
+    const output = consoleLogSpy.mock.calls.flat().join('\n')
+    expect(output).toContain('[WARN]')
+    expect(output).toContain('->')
+    expect(output).toContain('Tip:')
+    expect(output).toContain('URL:')
+    expect(output).not.toContain('💡')
+    expect(output).not.toContain('🔗')
   })
 })

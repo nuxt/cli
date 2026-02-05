@@ -81,8 +81,9 @@ export default defineCommand({
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const fancy = Boolean(process.stdout.isTTY)
 
-    if (!ctx.args.json)
+    if (!ctx.args.json && fancy)
       intro(colors.cyan('Running diagnostics...'))
 
     const { loadNuxt } = await loadKit(cwd)
@@ -102,9 +103,13 @@ export default defineCommand({
         // eslint-disable-next-line no-console
         console.log(JSON.stringify([{ name: 'Nuxt', status: 'error', message: `Failed to load Nuxt: ${err instanceof Error ? err.message : String(err)}` }]))
       }
-      else {
+      else if (fancy) {
         log.error(colors.red(`Failed to load Nuxt: ${err instanceof Error ? err.message : String(err)}`))
         outro(colors.red('Diagnostics failed'))
+      }
+      else {
+        // eslint-disable-next-line no-console
+        console.error(`Failed to load Nuxt: ${err instanceof Error ? err.message : String(err)}`)
       }
       return process.exit(1)
     }
@@ -142,7 +147,7 @@ export default defineCommand({
         })
       }
 
-      displayResults(checks, { verbose: ctx.args.verbose, json: ctx.args.json })
+      displayResults(checks, { verbose: ctx.args.verbose, json: ctx.args.json, fancy })
     }
     finally {
       await nuxt.close()
@@ -151,13 +156,17 @@ export default defineCommand({
     const hasErrors = checks.some(c => c.status === 'error')
     const hasWarnings = checks.some(c => c.status === 'warning')
 
-    if (!ctx.args.json) {
+    if (!ctx.args.json && fancy) {
       if (hasErrors)
         outro(colors.red('Diagnostics complete with errors'))
       else if (hasWarnings)
         outro(colors.yellow('Diagnostics complete with warnings'))
       else
         outro(colors.green('All checks passed!'))
+    }
+    else if (!ctx.args.json) {
+      // eslint-disable-next-line no-console
+      console.log(hasErrors ? 'Diagnostics complete with errors' : hasWarnings ? 'Diagnostics complete with warnings' : 'All checks passed!')
     }
 
     if (hasErrors)
@@ -315,20 +324,34 @@ async function checkModuleCompat(checks: DoctorCheck[], nuxt: Nuxt, cwd: string)
 }
 
 const statusStyles = {
-  success: { icon: '✓', color: colors.green, detailColor: colors.dim },
-  warning: { icon: '!', color: colors.yellow, detailColor: colors.yellow },
-  error: { icon: '✗', color: colors.red, detailColor: colors.red },
+  fancy: {
+    success: { icon: '✓', color: colors.green, detailColor: colors.dim },
+    warning: { icon: '!', color: colors.yellow, detailColor: colors.yellow },
+    error: { icon: '✗', color: colors.red, detailColor: colors.red },
+  },
+  plain: {
+    success: { icon: 'OK', color: colors.green, detailColor: colors.dim },
+    warning: { icon: 'WARN', color: colors.yellow, detailColor: colors.yellow },
+    error: { icon: 'ERR', color: colors.red, detailColor: colors.red },
+  },
 } as const
 
-function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?: boolean }): void {
+function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?: boolean, fancy?: boolean }): void {
   if (opts.json) {
     // eslint-disable-next-line no-console
     console.log(JSON.stringify(checks))
     return
   }
 
+  const fancy = opts.fancy !== false
+  const writeLine = fancy ? log.message : (line: string) => console.log(line)
+  const styles = fancy ? statusStyles.fancy : statusStyles.plain
+  const detailMarker = fancy ? '→' : '->'
+  const suggestionMarker = fancy ? '💡' : 'Tip:'
+  const urlMarker = fancy ? '🔗' : 'URL:'
+
   for (const check of checks) {
-    const style = statusStyles[check.status]
+    const style = styles[check.status]
     const icon = style.color(style.icon)
     const source = check.source ? colors.gray(` (via ${check.source})`) : ''
     const name = colors.bold(check.name)
@@ -339,19 +362,19 @@ function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?:
     const details = [check.details ?? []].flat()
     if (details.length) {
       for (const detail of details)
-        output += `\n    ${style.detailColor('→')} ${style.detailColor(detail)}`
+        output += `\n    ${style.detailColor(detailMarker)} ${style.detailColor(detail)}`
     }
 
     // Verbose: show suggestion and url
     if (opts.verbose) {
       if (check.suggestion) {
-        output += `\n    ${colors.cyan('💡')} ${colors.cyan(check.suggestion)}`
+        output += `\n    ${colors.cyan(suggestionMarker)} ${colors.cyan(check.suggestion)}`
       }
       if (check.url) {
-        output += `\n    ${colors.blue('🔗')} ${colors.blue(check.url)}`
+        output += `\n    ${colors.blue(urlMarker)} ${colors.blue(check.url)}`
       }
     }
 
-    log.message(output)
+    writeLine(output)
   }
 }
