@@ -1,7 +1,7 @@
 {
   "name": "@nuxt/cli",
   "type": "module",
-  "version": "3.32.0",
+  "version": "3.33.0",
   "description": "Nuxt CLI",
   "license": "MIT",
   "repository": {
