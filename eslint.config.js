@@ -13,7 +13,10 @@ export default createConfigForNuxt({
       './playground',
     ],
   },
-}, await antfu()).append(
+}, await antfu({
+  // nuxt/eslint already provides it
+  regexp: false,
+})).append(
   {
     ignores: ['packages/nuxi/src/data/**'],
   },

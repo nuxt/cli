@@ -111,7 +111,7 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function addModules(modules: ResolvedModule[], { skipInstall, skipConfig, cwd, dev }: { skipInstall: boolean, skipConfig: boolean, cwd: string, dev: boolean }, projectPkg: PackageJson) {
+async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean }, projectPkg: PackageJson) {
   // Add dependencies
   if (!skipInstall) {
     const installedModules: ResolvedModule[] = []

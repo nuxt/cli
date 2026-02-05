@@ -164,7 +164,8 @@ export default defineCommand({
       process.exit(1)
     }
 
-    if (ctx.args.dir === '') {
+    let dir = ctx.args.dir
+    if (dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
       const result = await text({
         message: 'Where would you like to create your project?',
@@ -177,11 +178,11 @@ export default defineCommand({
         process.exit(1)
       }
 
-      ctx.args.dir = result
+      dir = result
     }
 
     const cwd = resolve(ctx.args.cwd)
-    let templateDownloadPath = resolve(cwd, ctx.args.dir)
+    let templateDownloadPath = resolve(cwd, dir)
     logger.step(`Creating project in ${colors.cyan(relativeToProcess(templateDownloadPath))}`)
 
     let shouldForce = Boolean(ctx.args.force)
@@ -245,7 +246,7 @@ export default defineCommand({
         registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
       })
 
-      if (ctx.args.dir.length > 0) {
+      if (dir.length > 0) {
         const path = await findFile('package.json', {
           startingFrom: join(templateDownloadPath, 'package.json'),
           reverse: true,
@@ -298,7 +299,7 @@ export default defineCommand({
       }
 
       const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
-      const packageJsonPath = resolve(cwd, ctx.args.dir)
+      const packageJsonPath = resolve(cwd, dir)
 
       const packageJson = await readPackageJSON(packageJsonPath)
 
@@ -342,7 +343,8 @@ export default defineCommand({
     }
 
     // Determine if we should init git
-    if (ctx.args.gitInit === undefined) {
+    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
+    if (gitInit === undefined) {
       const result = await confirm({
         message: 'Initialize git repository?',
       })
@@ -352,12 +354,13 @@ export default defineCommand({
         process.exit(1)
       }
 
-      ctx.args.gitInit = result
+      gitInit = result
     }
 
     // Install project dependencies and initialize git
     // or skip installation based on the '--no-install' flag
-    if (ctx.args.install === false) {
+    // citty v0.2.0 with node:util.parseArgs returns 'false' string for --install=false
+    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false') {
       logger.info('Skipping install dependencies step.')
     }
     else {
@@ -378,7 +381,7 @@ export default defineCommand({
         },
       ]
 
-      if (ctx.args.gitInit) {
+      if (gitInit) {
         setupTasks.push({
           title: 'Initializing git repository',
           task: async () => {

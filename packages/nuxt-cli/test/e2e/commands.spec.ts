@@ -149,7 +149,7 @@ describe('commands', () => {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)
-    expect(res.stderr).toBe('[error] Unknown command `foo`\n')
+    expect(res.stderr).toBe('[error] Unknown command foo\n')
   })
 
   const testsToRun = Object.entries(tests).filter(([_, value]) => value !== 'todo')

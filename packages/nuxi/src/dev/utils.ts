@@ -43,10 +43,10 @@ export type NuxtDevIPCMessage
 export interface NuxtDevContext {
   cwd: string
   args: {
-    clear: boolean
-    logLevel: string
-    dotenv: string
-    envName: string
+    clear?: boolean
+    logLevel?: string
+    dotenv?: string
+    envName?: string
     extends?: string
   }
 }
