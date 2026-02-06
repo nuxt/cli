@@ -63,8 +63,9 @@ export async function installModuleSkills(sources: ModuleSkillSource[], options:
     return
   }
 
-  const targetAgents = options.agents?.length
-    ? installedAgents.filter(agent => options.agents!.includes(agent.id))
+  const requested = options.agents?.length ? new Set(options.agents) : null
+  const targetAgents = requested
+    ? installedAgents.filter(agent => requested.has(agent.id))
     : installedAgents
 
   if (targetAgents.length === 0) {
@@ -73,6 +74,7 @@ export async function installModuleSkills(sources: ModuleSkillSource[], options:
   }
 
   const agentNames = formatDetectedAgentIds(targetAgents)
+  const effectiveAgentIds = requested ? targetAgents.map(agent => agent.id) : undefined
 
   const callbacks: BatchInstallCallbacks = {
     onStart: (source: SkillSource) => {
@@ -115,7 +117,7 @@ export async function installModuleSkills(sources: ModuleSkillSource[], options:
         source: source.source,
         skills: source.skills,
         mode: source.mode ?? 'copy',
-        agents: options.agents?.length ? options.agents : undefined,
+        agents: effectiveAgentIds,
       })
       if (result.installed.length > 0)
         callbacks.onSuccess?.(source, result)
