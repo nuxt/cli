@@ -25,7 +25,7 @@
     "@codspeed/vitest-plugin": "^5.1.0",
     "@nuxt/eslint-config": "^1.13.0",
     "@nuxt/nitro-server": "^4.3.0",
-    "@nuxt/test-utils": "^3.23.0",
+    "@nuxt/test-utils": "^4.0.0",
     "@types/node": "^24.10.10",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.18",
@@ -46,7 +46,6 @@
   "resolutions": {
     "@nuxt/cli": "workspace:*",
     "@nuxt/schema": "4.3.0",
-    "@nuxt/test-utils": "https://pkg.pr.new/@nuxt/test-utils@6b88454",
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "eslint-plugin-jsdoc": "62.5.0",
