@@ -7,12 +7,12 @@ import { hasTTY } from 'std-env'
 
 import { logger } from '../../utils/logger'
 
-export interface AutocompleteOptions {
+interface AutocompleteOptions {
   modules: NuxtModule[]
   message?: string
 }
 
-export interface AutocompleteResult {
+interface AutocompleteResult {
   selected: string[]
   cancelled: boolean
 }
