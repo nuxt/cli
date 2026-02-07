@@ -28,6 +28,7 @@
         "test/fixtures/*"
       ],
       "ignoreDependencies": [
+        "@types/debug",
         "@bomb.sh/tab",
         "@clack/prompts",
         "c12",

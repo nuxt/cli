@@ -37,7 +37,7 @@
     "@clack/prompts": "1.0.0",
     "@nuxt/kit": "^4.3.0",
     "@nuxt/schema": "^4.3.0",
-    "@nuxt/test-utils": "^3.23.0",
+    "@nuxt/test-utils": "^4.0.0",
     "@types/copy-paste": "^2.1.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^24.10.10",
@@ -77,7 +77,7 @@
     "typescript": "^5.9.3",
     "ufo": "^1.6.3",
     "unplugin-purge-polyfills": "^0.1.0",
-    "vitest": "^3.2.4",
+    "vitest": "^4.0.18",
     "youch": "^4.1.0-beta.13"
   }
 }
