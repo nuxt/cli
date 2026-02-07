@@ -108,7 +108,6 @@ export default defineCommand({
         outro(colors.red('Diagnostics failed'))
       }
       else {
-        // eslint-disable-next-line no-console
         console.error(`Failed to load Nuxt: ${err instanceof Error ? err.message : String(err)}`)
       }
       return process.exit(1)
@@ -323,6 +322,8 @@ async function checkModuleCompat(checks: DoctorCheck[], nuxt: Nuxt, cwd: string)
   }
 }
 
+const identity = (s: string) => s
+
 const statusStyles = {
   fancy: {
     success: { icon: '✓', color: colors.green, detailColor: colors.dim },
@@ -330,9 +331,9 @@ const statusStyles = {
     error: { icon: '✗', color: colors.red, detailColor: colors.red },
   },
   plain: {
-    success: { icon: 'OK', color: colors.green, detailColor: colors.dim },
-    warning: { icon: 'WARN', color: colors.yellow, detailColor: colors.yellow },
-    error: { icon: 'ERR', color: colors.red, detailColor: colors.red },
+    success: { icon: 'OK', color: identity, detailColor: identity },
+    warning: { icon: 'WARN', color: identity, detailColor: identity },
+    error: { icon: 'ERR', color: identity, detailColor: identity },
   },
 } as const
 
@@ -344,8 +345,17 @@ function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?:
   }
 
   const fancy = opts.fancy !== false
-  const writeLine = fancy ? log.message : (line: string) => console.log(line)
+  const writeLine = fancy
+    ? log.message
+    : (line: string) => {
+        // eslint-disable-next-line no-console
+        console.log(line)
+      }
   const styles = fancy ? statusStyles.fancy : statusStyles.plain
+  const bold = fancy ? colors.bold : identity
+  const gray = fancy ? colors.gray : identity
+  const cyan = fancy ? colors.cyan : identity
+  const blue = fancy ? colors.blue : identity
   const detailMarker = fancy ? '→' : '->'
   const suggestionMarker = fancy ? '💡' : 'Tip:'
   const urlMarker = fancy ? '🔗' : 'URL:'
@@ -353,8 +363,8 @@ function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?:
   for (const check of checks) {
     const style = styles[check.status]
     const icon = style.color(style.icon)
-    const source = check.source ? colors.gray(` (via ${check.source})`) : ''
-    const name = colors.bold(check.name)
+    const source = check.source ? gray(` (via ${check.source})`) : ''
+    const name = bold(check.name)
     const message = check.status === 'success' ? check.message : style.color(check.message)
 
     let output = `[${icon}] ${name}${source} - ${message}`
@@ -368,10 +378,10 @@ function displayResults(checks: DoctorCheck[], opts: { verbose?: boolean, json?:
     // Verbose: show suggestion and url
     if (opts.verbose) {
       if (check.suggestion) {
-        output += `\n    ${colors.cyan(suggestionMarker)} ${colors.cyan(check.suggestion)}`
+        output += `\n    ${cyan(suggestionMarker)} ${cyan(check.suggestion)}`
       }
       if (check.url) {
-        output += `\n    ${colors.blue(urlMarker)} ${colors.blue(check.url)}`
+        output += `\n    ${blue(urlMarker)} ${blue(check.url)}`
       }
     }
 
