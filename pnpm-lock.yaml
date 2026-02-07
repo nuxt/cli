@@ -123,7 +123,7 @@ importers:
         specifier: ^0.0.12
         version: 0.0.12(cac@6.7.14)(citty@0.2.0)
       '@clack/prompts':
-        specifier: 1.0.0
+        specifier: ^1.0.0
         version: 1.0.0
       '@nuxt/kit':
         specifier: ^4.3.0
@@ -264,7 +264,7 @@ importers:
         specifier: ^0.0.12
         version: 0.0.12(cac@6.7.14)(citty@0.2.0)
       '@clack/prompts':
-        specifier: 1.0.0
+        specifier: ^1.0.0
         version: 1.0.0
       c12:
         specifier: ^3.3.3
