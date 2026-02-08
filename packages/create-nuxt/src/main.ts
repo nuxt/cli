@@ -24,7 +24,7 @@ const _main = defineCommand({
 
     // Check Node.js version and CLI updates in background
     if (provider !== 'stackblitz') {
-      await checkEngines().catch(err => logger.error(err))
+      await checkEngines().catch(err => logger.error(String(err)))
     }
 
     await init.run?.(ctx)

@@ -58,7 +58,7 @@ const _main = defineCommand({
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
-      ]).catch(err => logger.error(err))
+      ]).catch(err => logger.error(String(err)))
     }
 
     // Avoid background check to fix prompt issues
