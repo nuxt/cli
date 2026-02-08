@@ -33,7 +33,7 @@
     "prepack": "tsdown"
   },
   "peerDependencies": {
-    "@nuxt/schema": "^4.3.0"
+    "@nuxt/schema": "^4.3.1"
   },
   "peerDependenciesMeta": {
     "@nuxt/schema": {
