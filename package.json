@@ -30,7 +30,7 @@
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.18",
     "changelogen": "^0.6.2",
-    "eslint": "^9.39.2",
+    "eslint": "^10.0.0",
     "exsolve": "^1.0.8",
     "knip": "^5.83.1",
     "nuxt": "^4.3.1",
