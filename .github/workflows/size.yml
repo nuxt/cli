@@ -39,13 +39,13 @@ jobs:
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
       - name: ⏫ Upload stats.json
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: head-stats
           path: ./packages/*/stats.json
 
       - name: ⏫ Upload PR number
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: pr-number
           path: pr-number.txt
@@ -75,7 +75,7 @@ jobs:
         run: pnpm build
 
       - name: ⏫ Upload stats.json
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: base-stats
           path: ./packages/*/stats.json
