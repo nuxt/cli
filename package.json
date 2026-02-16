@@ -49,7 +49,7 @@
     "create-nuxt": "workspace:*",
     "create-nuxt-app": "workspace:*",
     "eslint-plugin-jsdoc": "62.5.4",
-    "eslint-plugin-unicorn": "62.0.0",
+    "eslint-plugin-unicorn": "63.0.0",
     "h3": "^1.15.5",
     "nitropack": "latest",
     "nuxi": "workspace:*"
