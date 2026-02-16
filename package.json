@@ -2,7 +2,7 @@
   "name": "nuxi-workspace",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@10.29.1",
+  "packageManager": "pnpm@10.29.3",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
@@ -21,12 +21,12 @@
     "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
   },
   "devDependencies": {
-    "@antfu/eslint-config": "^7.3.0",
-    "@codspeed/vitest-plugin": "^5.1.0",
-    "@nuxt/eslint-config": "^1.14.0",
+    "@antfu/eslint-config": "^7.4.3",
+    "@codspeed/vitest-plugin": "^5.2.0",
+    "@nuxt/eslint-config": "^1.15.1",
     "@nuxt/nitro-server": "^4.3.1",
     "@nuxt/test-utils": "^4.0.0",
-    "@types/node": "^24.10.12",
+    "@types/node": "^24.10.13",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.18",
     "changelogen": "^0.6.2",
@@ -40,7 +40,7 @@
     "tinyexec": "^1.0.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18",
-    "vue": "^3.5.27",
+    "vue": "^3.5.28",
     "vue-router": "^5.0.2"
   },
   "resolutions": {
