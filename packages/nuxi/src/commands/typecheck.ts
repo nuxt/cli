@@ -8,12 +8,20 @@ import { isBun } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
+import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+
+type Executor = 'vue-tsc' | 'golar'
+
+const executorPackages: Record<Executor, string[]> = {
+  'vue-tsc': ['vue-tsc'],
+  'golar': ['golar', '@golar/vue'],
+}
 
 export default defineCommand({
   meta: {
     name: 'typecheck',
-    description: 'Runs `vue-tsc` to check types throughout your app.',
+    description: 'Runs process to check types throughout your app.',
   },
   args: {
     ...cwdArgs,
@@ -21,17 +29,24 @@ export default defineCommand({
     ...dotEnvArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
+    executor: {
+      type: 'string',
+      description: 'TypeScript type checker executor',
+      valueHint: Object.keys(executorPackages).join('|'),
+      default: 'vue-tsc',
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const executor = isExecutor(ctx.args.executor) ? ctx.args.executor : 'vue-tsc'
 
-    const [supportsProjects, resolvedTypeScript, resolvedVueTsc] = await Promise.all([
+    const [supportsProjects, resolvedTypeScript, resolvedExecutor] = await Promise.all([
       readTSConfig(cwd).then(r => !!(r.references?.length)),
       // Prefer local install if possible
       resolveModulePath('typescript', { try: true }),
-      resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true }),
+      resolveExecutor(executor),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
         ...(ctx.args.extends && { extends: ctx.args.extends }),
@@ -39,8 +54,8 @@ export default defineCommand({
     ])
 
     const typeCheckArgs = supportsProjects ? ['-b', '--noEmit'] : ['--noEmit']
-    if (resolvedTypeScript && resolvedVueTsc) {
-      return await x(resolvedVueTsc, typeCheckArgs, {
+    if (resolvedTypeScript && resolvedExecutor) {
+      return await x(resolvedExecutor, typeCheckArgs, {
         throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
@@ -50,12 +65,12 @@ export default defineCommand({
     }
 
     if (isBun) {
-      await x('bun', ['install', 'typescript', 'vue-tsc', '--global', '--silent'], {
+      await x('bun', ['install', 'typescript', ...executorPackages[executor], '--global', '--silent'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd },
       })
 
-      return await x('bunx', ['vue-tsc', ...typeCheckArgs], {
+      return await x('bunx', [executor, ...typeCheckArgs], {
         throwOnError: true,
         nodeOptions: {
           stdio: 'inherit',
@@ -64,12 +79,34 @@ export default defineCommand({
       })
     }
 
-    await x('npx', ['-p', 'vue-tsc', '-p', 'typescript', 'vue-tsc', ...typeCheckArgs], {
+    await x('npx', [
+      // install executor packages
+      ...executorPackages[executor].flatMap(pkg => ['-p', pkg]),
+      // install typescript
+      '-p',
+      'typescript',
+      // execute type checker
+      executor,
+      ...typeCheckArgs,
+    ], {
       throwOnError: true,
       nodeOptions: { stdio: 'inherit', cwd },
     })
   },
 })
+
+function isExecutor(value: unknown): value is Executor {
+  return value === 'vue-tsc' || value === 'golar'
+}
+
+async function resolveExecutor(executor: Executor) {
+  if (executor === 'golar') {
+    logger.warn('Golar is experimental. Type-checking results may be incomplete or inaccurate.')
+    return resolveModulePath('golar/dist/bin.js', { try: true })
+  }
+
+  return resolveModulePath('vue-tsc/bin/vue-tsc.js', { try: true })
+}
 
 async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
   const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
