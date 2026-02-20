@@ -8,6 +8,7 @@ export const commands = {
   'analyze': () => import('./analyze').then(_rDefault),
   'build': () => import('./build').then(_rDefault),
   'cleanup': () => import('./cleanup').then(_rDefault),
+  'doctor': () => import('./doctor').then(_rDefault),
   '_dev': () => import('./dev-child').then(_rDefault),
   'dev': () => import('./dev').then(_rDefault),
   'devtools': () => import('./devtools').then(_rDefault),
