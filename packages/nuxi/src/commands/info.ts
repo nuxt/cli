@@ -7,12 +7,11 @@ import process from 'node:process'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { copy as copyToClipboard } from 'copy-paste'
 import { detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
-
 import { isBun, isDeno, isMinimal } from 'std-env'
+import { writeText } from 'tinyclip'
 
 import { version as nuxiVersion } from '../../package.json'
 import { getBuilder } from '../utils/banner'
@@ -143,7 +142,7 @@ export default defineCommand({
       }
     }
 
-    const copied = !isMinimal && await new Promise(resolve => copyToClipboard(copyStr, err => resolve(!err)))
+    const copied = !isMinimal && await writeText(copyStr).then(() => true).catch(() => false)
 
     if (copied) {
       box(
