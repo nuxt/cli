@@ -231,8 +231,8 @@ importers:
         specifier: ^3.10.0
         version: 3.10.0
       tinyclip:
-        specifier: ^0.1.8
-        version: 0.1.8
+        specifier: ^0.1.10
+        version: 0.1.10
       tinyexec:
         specifier: ^1.0.2
         version: 1.0.2
@@ -330,8 +330,8 @@ importers:
         specifier: ^3.10.0
         version: 3.10.0
       tinyclip:
-        specifier: ^0.1.8
-        version: 0.1.8
+        specifier: ^0.1.10
+        version: 0.1.10
       tinyexec:
         specifier: ^1.0.2
         version: 1.0.2
@@ -5447,8 +5447,8 @@ packages:
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
-  tinyclip@0.1.8:
-    resolution: {integrity: sha512-dEm6a8LTMgfJCG3pv7DUcKDXyuQviLZVaw+6lXHEAY1xRE6SXFSydIc+sY3D7xKpxNbF/gDuUynBNYbolT4eWA==}
+  tinyclip@0.1.10:
+    resolution: {integrity: sha512-DNZXvIJh/yrejeAxGcXsALXblF8pUGguQrTjqOEltaA4x94qf9F8aXWJzXXY8qcKD1AAILMz9F8dDTLSDyIF9Q==}
 
   tinyexec@1.0.2:
     resolution: {integrity: sha512-W/KYk+NFhkmsYpuHq5JykngiOCnxeVL8v8dFnqxSD8qEEdRfXk1SDM6JzNqcERbcGYj9tMrDQBYV9cjgnunFIg==}
@@ -11507,7 +11507,7 @@ snapshots:
 
   tinybench@2.9.0: {}
 
-  tinyclip@0.1.8: {}
+  tinyclip@0.1.10: {}
 
   tinyexec@1.0.2: {}
 
