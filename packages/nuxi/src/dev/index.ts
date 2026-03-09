@@ -59,7 +59,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   const profileArg = devContext.args.profile
   const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
   const perfOverrides = perfValue
-    ? { debug: { perf: perfValue }, _startTime: start } as NuxtConfig
+    ? { debug: { perf: perfValue } } as NuxtConfig
     : {}
 
   const devServer = new NuxtDevServer({
