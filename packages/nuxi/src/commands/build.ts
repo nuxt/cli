@@ -45,7 +45,6 @@ export default defineCommand({
 
     await showVersions(cwd, kit, ctx.args.dotenv)
     // --profile → CPU profile only (quiet), --profile=verbose → full report
-    const buildStart = Date.now()
     const profileArg = ctx.args.profile
     const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
 

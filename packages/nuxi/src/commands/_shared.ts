@@ -44,7 +44,7 @@ export const profileArgs = {
   profile: {
     type: 'string',
     description: 'Profile performance. Use --profile for CPU only, --profile=verbose for full report.',
-    default: false as unknown as string,
+    default: undefined as string | undefined,
     valueHint: 'verbose',
   },
 } as const satisfies Record<string, ArgDef>
