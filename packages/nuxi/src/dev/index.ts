@@ -55,11 +55,19 @@ interface InitializeReturn {
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
   overrideEnv('development')
 
+  // --profile → CPU profile only (quiet), --profile=verbose → full report
+  const profileArg = devContext.args.profile
+  const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
+  const perfOverrides = perfValue
+    ? { debug: { perf: perfValue }, _startTime: start } as NuxtConfig
+    : {}
+
   const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
     overrides: defu(
       ctx.data?.overrides,
       ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
+      perfOverrides,
     ),
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: devContext.args.clear,

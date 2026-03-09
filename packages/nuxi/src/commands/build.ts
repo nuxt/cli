@@ -10,7 +10,7 @@ import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -31,6 +31,7 @@ export default defineCommand({
     ...dotEnvArgs,
     ...envNameArgs,
     ...extendsArgs,
+    ...profileArgs,
     ...legacyRootDirArgs,
   },
   async run(ctx) {
@@ -43,6 +44,11 @@ export default defineCommand({
     const kit = await loadKit(cwd)
 
     await showVersions(cwd, kit, ctx.args.dotenv)
+    // --profile → CPU profile only (quiet), --profile=verbose → full report
+    const buildStart = Date.now()
+    const profileArg = ctx.args.profile
+    const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
+
     const nuxt = await kit.loadNuxt({
       cwd,
       dotenv: {
@@ -59,6 +65,7 @@ export default defineCommand({
           preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
         },
         ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(perfValue && { debug: { perf: perfValue }, _startTime: buildStart }),
         ...ctx.data?.overrides,
       },
     })
