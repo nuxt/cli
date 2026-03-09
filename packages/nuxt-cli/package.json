@@ -25,7 +25,7 @@
     "dist"
   ],
   "engines": {
-    "node": "^16.10.0 || >=18.0.0"
+    "node": "^16.14.0 || >=18.0.0"
   },
   "scripts": {
     "build": "tsdown",
@@ -47,7 +47,6 @@
     "citty": "^0.2.0",
     "confbox": "^0.2.4",
     "consola": "^3.4.2",
-    "copy-paste": "^2.2.0",
     "debug": "^4.4.3",
     "defu": "^6.1.4",
     "exsolve": "^1.0.8",
@@ -66,6 +65,7 @@
     "semver": "^7.7.4",
     "srvx": "^0.11.2",
     "std-env": "^3.10.0",
+    "tinyclip": "^0.1.10",
     "tinyexec": "^1.0.2",
     "ufo": "^1.6.3",
     "youch": "^4.1.0-beta.13"

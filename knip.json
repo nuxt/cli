@@ -33,7 +33,6 @@
         "@clack/prompts",
         "c12",
         "confbox",
-        "copy-paste",
         "debug",
         "defu",
         "exsolve",
@@ -53,6 +52,7 @@
         "scule",
         "semver",
         "srvx",
+        "tinyclip",
         "ufo",
         "youch"
       ]
