@@ -57,7 +57,7 @@ export function stopCpuProfile(outDir: string): Promise<string | undefined> {
   })
 }
 
-export function stopCpuProfileSync(outDir: string): string | undefined {
+function stopCpuProfileSync(outDir: string): string | undefined {
   if (!session) {
     return
   }
