@@ -449,7 +449,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
-    if ('fetch' in this.#currentNuxt.server) {
+    if ('handler' in this.#currentNuxt.server) {
+      // Prefer a raw Node.js request handler (e.g., Vite's Connect middleware
+      // which handles both static assets and SSR/API via nitro/vite)
+      this.#handler = this.#currentNuxt.server.handler as RequestListener
+    }
+    else if ('fetch' in this.#currentNuxt.server) {
       this.#handler = toNodeHandler(this.#currentNuxt.server.fetch) as RequestListener
     }
     else {
