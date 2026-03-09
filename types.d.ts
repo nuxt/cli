@@ -6,6 +6,7 @@ declare global {
       entry: string
       devEntry?: string
       startTime: number
+      cpuProfileSession?: import('node:inspector').Session
     }
 }
 

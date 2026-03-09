@@ -5,6 +5,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
+import { installSignalHandlers, startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -55,12 +56,16 @@ interface InitializeReturn {
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
   overrideEnv('development')
 
-  // --profile → CPU profile only (quiet), --profile=verbose → full report
   const profileArg = devContext.args.profile
   const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
   const perfOverrides = perfValue
     ? { debug: { perf: perfValue } } as NuxtConfig
     : {}
+
+  if (profileArg) {
+    await startCpuProfile()
+    installSignalHandlers(devContext.cwd)
+  }
 
   const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
@@ -123,6 +128,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
         devServer.listener.close(),
         devServer.close(),
       ])
+      if (profileArg) {
+        await stopCpuProfile(devContext.cwd).catch(() => {})
+      }
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {

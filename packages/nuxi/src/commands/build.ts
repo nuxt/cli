@@ -10,6 +10,7 @@ import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { installSignalHandlers, startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
 
 export default defineCommand({
@@ -39,14 +40,18 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
+    const profileArg = ctx.args.profile
+    const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
+    if (profileArg) {
+      await startCpuProfile()
+      installSignalHandlers(cwd)
+    }
+
     intro(colors.cyan('Building Nuxt for production...'))
 
     const kit = await loadKit(cwd)
 
     await showVersions(cwd, kit, ctx.args.dotenv)
-    // --profile → CPU profile only (quiet), --profile=verbose → full report
-    const profileArg = ctx.args.profile
-    const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
 
     const nuxt = await kit.loadNuxt({
       cwd,
@@ -92,6 +97,10 @@ export default defineCommand({
     })
 
     await kit.buildNuxt(nuxt)
+
+    if (profileArg) {
+      await stopCpuProfile(cwd).catch(() => {})
+    }
 
     if (ctx.args.prerender) {
       if (!nuxt.options.ssr) {
