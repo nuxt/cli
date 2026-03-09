@@ -69,7 +69,12 @@ export default defineCommand({
           preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
         },
         ...(ctx.args.extends && { extends: ctx.args.extends }),
-        ...(perfValue && { debug: { perf: perfValue } }),
+        ...((perfValue || ctx.data?.overrides?.debug) && {
+          debug: {
+            ...ctx.data?.overrides?.debug,
+            ...(perfValue && { perf: perfValue }),
+          },
+        }),
         ...ctx.data?.overrides,
       },
     })
