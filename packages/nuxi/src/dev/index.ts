@@ -5,7 +5,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
-import { installSignalHandlers, startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
+import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -64,7 +64,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   if (profileArg) {
     await startCpuProfile()
-    installSignalHandlers(devContext.cwd)
   }
 
   const devServer = new NuxtDevServer({
@@ -120,6 +119,10 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     console.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
   }
 
+  if (profileArg) {
+    process.once('exit', () => stopCpuProfile(devContext.cwd))
+  }
+
   return {
     listener: devServer.listener,
     close: async () => {
@@ -128,9 +131,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
         devServer.listener.close(),
         devServer.close(),
       ])
-      if (profileArg) {
-        await stopCpuProfile(devContext.cwd).catch(() => {})
-      }
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {

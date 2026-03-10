@@ -1,7 +1,5 @@
 import type { Session } from 'node:inspector'
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
-import process from 'node:process'
 import { colors } from 'consola/utils'
 import { join } from 'pathe'
 import { logger } from './logger'
@@ -10,8 +8,7 @@ let session: Session | undefined
 let profileCount = 0
 
 export async function startCpuProfile(): Promise<void> {
-  // Adopt session started in bin/nuxi.mjs
-  const cli = globalThis.__nuxt_cli__ as typeof globalThis.__nuxt_cli__ & { cpuProfileSession?: import('node:inspector').Session }
+  const cli = globalThis.__nuxt_cli__ as Record<string, any> | undefined
   if (cli?.cpuProfileSession) {
     session = cli.cpuProfileSession
     delete cli.cpuProfileSession
@@ -26,38 +23,15 @@ export async function startCpuProfile(): Promise<void> {
         if (err) {
           rej(err)
         }
-        else { res() }
+        else {
+          res()
+        }
       })
     })
   })
 }
 
-export function stopCpuProfile(outDir: string): Promise<string | undefined> {
-  if (!session) {
-    return Promise.resolve(undefined)
-  }
-  const s = session
-  session = undefined
-  return new Promise((res, rej) => {
-    s.post('Profiler.stop', (err, { profile }) => {
-      if (err) {
-        return rej(err)
-      }
-      const outPath = join(outDir, `profile-${profileCount++}.cpuprofile`)
-      mkdir(outDir, { recursive: true })
-        .then(() => writeFile(outPath, JSON.stringify(profile)))
-        .then(() => {
-          logger.info(`CPU profile written to ${colors.cyan(outPath)}`)
-          logger.info(`Open it in ${colors.cyan('https://www.speedscope.app')} or Chrome DevTools`)
-          s.disconnect()
-          res(outPath)
-        })
-        .catch(rej)
-    })
-  })
-}
-
-function stopCpuProfileSync(outDir: string): string | undefined {
+export function stopCpuProfile(outDir: string): string | undefined {
   if (!session) {
     return
   }
@@ -79,21 +53,4 @@ function stopCpuProfileSync(outDir: string): string | undefined {
     s.disconnect()
   })
   return outPath
-}
-
-/**
- * Install signal handlers that flush the CPU profile before exit.
- * Returns a cleanup function to remove the handlers.
- */
-export function installSignalHandlers(outDir: string): () => void {
-  const onSignal = (signal: NodeJS.Signals) => {
-    stopCpuProfileSync(outDir)
-    process.kill(process.pid, signal)
-  }
-  process.once('SIGINT', onSignal)
-  process.once('SIGTERM', onSignal)
-  return () => {
-    process.off('SIGINT', onSignal)
-    process.off('SIGTERM', onSignal)
-  }
 }
