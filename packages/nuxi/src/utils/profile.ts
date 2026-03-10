@@ -1,7 +1,8 @@
 import type { Session } from 'node:inspector'
 import { mkdirSync, writeFileSync } from 'node:fs'
+import process from 'node:process'
 import { colors } from 'consola/utils'
-import { join } from 'pathe'
+import { join, relative } from 'pathe'
 import { logger } from './logger'
 
 let session: Session | undefined
@@ -39,13 +40,15 @@ export async function startCpuProfile(): Promise<void> {
   }
 }
 
-export async function stopCpuProfile(outDir: string): Promise<string | undefined> {
+export async function stopCpuProfile(outDir: string, command: string): Promise<string | undefined> {
   if (!session) {
     return
   }
   const s = session
   session = undefined
-  const outPath = join(outDir, `profile-${profileCount++}.cpuprofile`)
+  const count = profileCount++
+  const outPath = join(outDir, `nuxt-${command}${count ? `-${count}` : ''}.cpuprofile`)
+  const relativeOutPath = relative(process.cwd(), outPath).replace(/^(?![^.]{1,2}\/)/, './')
   try {
     await new Promise<any>((resolve, reject) => {
       s.post('Profiler.stop', (err, params) => {
@@ -60,8 +63,8 @@ export async function stopCpuProfile(outDir: string): Promise<string | undefined
         try {
           mkdirSync(outDir, { recursive: true })
           writeFileSync(outPath, JSON.stringify(params.profile))
-          logger.info(`CPU profile written to ${colors.cyan(outPath)}`)
-          logger.info(`Open it in ${colors.cyan('https://www.speedscope.app')} or Chrome DevTools`)
+          logger.info(`CPU profile written to ${colors.cyan(relativeOutPath)}`)
+          logger.info(`Open it in a CPU profile viewer like ${colors.cyan('https://discoveryjs.github.io/cpupro')} or your IDE.`)
         }
         catch {}
 

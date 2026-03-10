@@ -96,10 +96,10 @@ export default defineCommand({
 
       await kit.writeTypes(nuxt)
 
-      nuxt.hook('build:error', (err) => {
+      nuxt.hook('build:error', async (err) => {
         logger.error(`Nuxt build error: ${err}`)
         if (profileArg) {
-          stopCpuProfile(cwd)
+          await stopCpuProfile(cwd, 'build')
         }
         process.exit(1)
       })
@@ -122,7 +122,7 @@ export default defineCommand({
     }
     finally {
       if (profileArg) {
-        await stopCpuProfile(cwd)
+        await stopCpuProfile(cwd, 'build')
       }
     }
   },

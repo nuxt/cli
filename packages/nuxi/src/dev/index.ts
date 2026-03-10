@@ -120,7 +120,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   }
 
   if (profileArg) {
-    process.once('exit', () => stopCpuProfile(devContext.cwd))
+    process.once('exit', () => stopCpuProfile(devContext.cwd, 'dev'))
   }
 
   return {
