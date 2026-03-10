@@ -32,13 +32,28 @@ if (
 ) {
   const session = new inspector.Session()
   session.connect()
-  // eslint-disable-next-line antfu/no-top-level-await
-  await new Promise((resolve) => {
-    session.post('Profiler.enable', () => {
-      session.post('Profiler.start', resolve)
+
+  try {
+    // eslint-disable-next-line antfu/no-top-level-await
+    await new Promise((resolve, reject) => {
+      session.post('Profiler.enable', (err) => {
+        if (err) {
+          return reject(err)
+        }
+        session.post('Profiler.start', (err) => {
+          if (err) {
+            return reject(err)
+          }
+          resolve()
+        })
+      })
     })
-  })
-  globalThis.__nuxt_cli__.cpuProfileSession = session
+    globalThis.__nuxt_cli__.cpuProfileSession = session
+  }
+  catch (err) {
+    session.disconnect()
+    throw err
+  }
 }
 
 // eslint-disable-next-line antfu/no-top-level-await

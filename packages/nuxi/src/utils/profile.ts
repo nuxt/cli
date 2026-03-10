@@ -17,40 +17,59 @@ export async function startCpuProfile(): Promise<void> {
   const inspector = await import('node:inspector')
   session = new inspector.Session()
   session.connect()
-  await new Promise<void>((res, rej) => {
-    session!.post('Profiler.enable', () => {
-      session!.post('Profiler.start', (err) => {
+  try {
+    await new Promise<void>((res, rej) => {
+      session!.post('Profiler.enable', (err) => {
         if (err) {
-          rej(err)
+          return rej(err)
         }
-        else {
+        session!.post('Profiler.start', (err) => {
+          if (err) {
+            return rej(err)
+          }
           res()
-        }
+        })
       })
     })
-  })
+  }
+  catch (err) {
+    session.disconnect()
+    session = undefined
+    throw err
+  }
 }
 
-export function stopCpuProfile(outDir: string): string | undefined {
+export async function stopCpuProfile(outDir: string): Promise<string | undefined> {
   if (!session) {
     return
   }
   const s = session
   session = undefined
-  let outPath: string | undefined
-  s.post('Profiler.stop', (_err, params) => {
-    if (_err || !params?.profile) {
-      return
-    }
-    outPath = join(outDir, `profile-${profileCount++}.cpuprofile`)
-    try {
-      mkdirSync(outDir, { recursive: true })
-      writeFileSync(outPath, JSON.stringify(params.profile))
-      logger.info(`CPU profile written to ${colors.cyan(outPath)}`)
-      logger.info(`Open it in ${colors.cyan('https://www.speedscope.app')} or Chrome DevTools`)
-    }
-    catch {}
+  const outPath = join(outDir, `profile-${profileCount++}.cpuprofile`)
+  try {
+    await new Promise<any>((resolve, reject) => {
+      s.post('Profiler.stop', (err, params) => {
+        if (err) {
+          return reject(err)
+        }
+
+        if (!params?.profile) {
+          return resolve(params)
+        }
+
+        try {
+          mkdirSync(outDir, { recursive: true })
+          writeFileSync(outPath, JSON.stringify(params.profile))
+          logger.info(`CPU profile written to ${colors.cyan(outPath)}`)
+          logger.info(`Open it in ${colors.cyan('https://www.speedscope.app')} or Chrome DevTools`)
+        }
+        catch {}
+
+        resolve(params)
+      })
+    })
+  }
+  finally {
     s.disconnect()
-  })
-  return outPath
+  }
 }
