@@ -98,6 +98,9 @@ export default defineCommand({
 
       nuxt.hook('build:error', (err) => {
         logger.error(`Nuxt build error: ${err}`)
+        if (profileArg) {
+          stopCpuProfile(cwd)
+        }
         process.exit(1)
       })
 
