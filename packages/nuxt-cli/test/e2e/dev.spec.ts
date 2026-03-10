@@ -5,6 +5,8 @@ import { getPort } from 'get-port-please'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../../src'
 
+const NEWLINE_RE = /\r?\n/
+
 const fixtureDir = fileURLToPath(new URL('../fixtures/dev', import.meta.url))
 
 const certsDir = fileURLToPath(new URL('../../../../playground/certs', import.meta.url))
@@ -103,8 +105,8 @@ describe('dev server', () => {
   })
 
   describe('https options', async () => {
-    const httpsCertValue = (await readFile(httpsCert, { encoding: 'ascii' })).split(/\r?\n/)
-    const httpsKeyValue = (await readFile(httpsKey, { encoding: 'ascii' })).split(/\r?\n/)
+    const httpsCertValue = (await readFile(httpsCert, { encoding: 'ascii' })).split(NEWLINE_RE)
+    const httpsKeyValue = (await readFile(httpsKey, { encoding: 'ascii' })).split(NEWLINE_RE)
 
     it('should be applied cert and key from commandline', { timeout: 50_000 }, async () => {
       await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
@@ -132,8 +134,8 @@ describe('dev server', () => {
         url: `https://${host}:${port}/`,
       })
       expect(https).toBeTruthy()
-      expect(https.cert.split(/\r?\n/)).toEqual(httpsCertValue)
-      expect(https.key.split(/\r?\n/)).toEqual(httpsKeyValue)
+      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
+      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
     })
 
     it('should be applied pfx and passphrase from commandline', { timeout: 50_000 }, async () => {
@@ -162,8 +164,8 @@ describe('dev server', () => {
         url: `https://${host}:${port}/`,
       })
       expect(https).toBeTruthy()
-      expect(https.cert.split(/\r?\n/)).toEqual(httpsCertValue)
-      expect(https.key.split(/\r?\n/)).toEqual(httpsKeyValue)
+      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
+      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
     })
 
     it('should be override from commandline', { timeout: 50_000 }, async () => {
@@ -199,8 +201,8 @@ describe('dev server', () => {
         url: `https://${host}:${port}/`,
       })
       expect(https).toBeTruthy()
-      expect(https.cert.split(/\r?\n/)).toEqual(httpsCertValue)
-      expect(https.key.split(/\r?\n/)).toEqual(httpsKeyValue)
+      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
+      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
     })
 
     it('should be disabled from commandline', { timeout: 50_000 }, async () => {
@@ -236,8 +238,8 @@ describe('dev server', () => {
   })
 
   describe('applied environment variables', async () => {
-    const httpsCertValue = (await readFile(httpsCert, { encoding: 'ascii' })).split(/\r?\n/)
-    const httpsKeyValue = (await readFile(httpsKey, { encoding: 'ascii' })).split(/\r?\n/)
+    const httpsCertValue = (await readFile(httpsCert, { encoding: 'ascii' })).split(NEWLINE_RE)
+    const httpsKeyValue = (await readFile(httpsKey, { encoding: 'ascii' })).split(NEWLINE_RE)
 
     it('should be applied from NUXT_ environment variables', { timeout: 50_000 }, async () => {
       await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
@@ -267,8 +269,8 @@ describe('dev server', () => {
         url: `https://${host}:${port}/`,
       })
       expect(https).toBeTruthy()
-      expect(https.cert.split(/\r?\n/)).toEqual(httpsCertValue)
-      expect(https.key.split(/\r?\n/)).toEqual(httpsKeyValue)
+      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
+      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
     })
 
     it('should be applied from NITRO_ environment variables', { timeout: 50_000 }, async () => {
@@ -299,8 +301,8 @@ describe('dev server', () => {
         url: `https://${host}:${port}/`,
       })
       expect(https).toBeTruthy()
-      expect(https.cert.split(/\r?\n/)).toEqual(httpsCertValue)
-      expect(https.key.split(/\r?\n/)).toEqual(httpsKeyValue)
+      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
+      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
     })
 
     it('should be applied from HOST and PORT environment variables', { timeout: 50_000 }, async () => {

@@ -6,6 +6,8 @@ import { colors } from 'consola/utils'
 import { join, relative } from 'pathe'
 import { themeColor } from './ascii'
 
+const RELATIVE_PATH_RE = /^(?![^.]{1,2}\/)/
+
 let session: Session | undefined
 let profileCount = 0
 
@@ -49,7 +51,7 @@ export async function stopCpuProfile(outDir: string, command: string): Promise<s
   session = undefined
   const count = profileCount++
   const outPath = join(outDir, `nuxt-${command}${count ? `-${count}` : ''}.cpuprofile`)
-  const relativeOutPath = relative(process.cwd(), outPath).replace(/^(?![^.]{1,2}\/)/, './')
+  const relativeOutPath = relative(process.cwd(), outPath).replace(RELATIVE_PATH_RE, './')
   try {
     await new Promise<any>((resolve, reject) => {
       s.post('Profiler.stop', (err, params) => {

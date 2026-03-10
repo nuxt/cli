@@ -18,6 +18,8 @@ import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
+const NON_WORD_RE = /[^\w-]/g
+
 const indexHtml = `
 <!DOCTYPE html>
   <html lang="en">
@@ -66,7 +68,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
     const name = ctx.args.name || 'default'
-    const slug = name.trim().replace(/[^\w-]/g, '_')
+    const slug = name.trim().replace(NON_WORD_RE, '_')
 
     intro(colors.cyan('Analyzing bundle size...'))
 

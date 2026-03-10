@@ -2,6 +2,9 @@ import process from 'node:process'
 import { stripVTControlCharacters } from 'node:util'
 import { colors } from 'consola/utils'
 
+const AT_MENTION_RE = /\b@([^, ]+)/g
+const BACKTICK_RE = /`([^`]*)`/g
+
 function getStringWidth(str: string): number {
   const stripped = stripVTControlCharacters(str)
   let width = 0
@@ -55,8 +58,8 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
   let boxStr = ''
   for (const [label, value] of entries) {
     const formattedValue = value
-      .replace(/\b@([^, ]+)/g, (_, r) => colors.gray(` ${r}`))
-      .replace(/`([^`]*)`/g, (_, r) => r)
+      .replace(AT_MENTION_RE, (_, r) => colors.gray(` ${r}`))
+      .replace(BACKTICK_RE, (_, r) => r)
 
     boxStr += (`${colors.bold(colors.whiteBright(label))}`).padEnd(ansiFirstColumnLength)
 

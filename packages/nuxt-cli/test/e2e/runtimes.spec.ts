@@ -157,8 +157,13 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
   })
 
   it('should handle concurrent requests', async () => {
-    const requests = Array.from({ length: 5 }, () => fetch(server.url))
-    const responses = await Promise.all(requests)
+    const responses = await Promise.all([
+      fetch(server.url),
+      fetch(server.url),
+      fetch(server.url),
+      fetch(server.url),
+      fetch(server.url),
+    ])
 
     for (const response of responses) {
       expect(response.status).toBe(200)
