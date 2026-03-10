@@ -30,6 +30,7 @@ import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './
 
 const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
+const REGEX_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g
 
 interface RegistryMeta {
   registry: string
@@ -403,7 +404,8 @@ function getNpmrcPaths(): string[] {
 
 async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
   const paths = getNpmrcPaths()
-  const authTokenRegex = new RegExp(`^//${registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '')}/:_authToken=(.+)$`, 'm')
+  const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '').replace(REGEX_SPECIAL_RE, '\\$&')
+  const authTokenRegex = new RegExp(`^//${registryHost}/:_authToken=(.+)$`, 'm')
 
   for (const npmrcPath of paths) {
     let fd: FileHandle | undefined
