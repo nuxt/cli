@@ -5,7 +5,7 @@
 ## Usage
 
 ```bash
-$ nuxi [OPTIONS] [COMMAND]
+$ nuxt [OPTIONS] [COMMAND]
 
 OPTIONS
 
@@ -15,7 +15,7 @@ COMMANDS
 
            add    Add Nuxt modules
   add-template    Create a new template file.
-       analyze    Build nuxt and analyze production bundle (experimental)
+       analyze    Build Nuxt and analyze production bundle (experimental)
          build    Build Nuxt for production deployment
        cleanup    Clean up generated Nuxt files and caches
            dev    Run Nuxt development server

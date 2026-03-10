@@ -42,7 +42,7 @@ const indexHtml = `
 export default defineCommand({
   meta: {
     name: 'analyze',
-    description: 'Build nuxt and analyze production bundle (experimental)',
+    description: 'Build Nuxt and analyze production bundle (experimental)',
   },
   args: {
     ...cwdArgs,
