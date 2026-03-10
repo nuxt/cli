@@ -27,6 +27,10 @@ import { selectModulesAutocomplete } from './module/_autocomplete'
 import { checkNuxtCompatibility, fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
+const NON_WORD_RE = /[^\w-]/g
+const MULTI_DASH_RE = /-{2,}/g
+const LEADING_TRAILING_DASH_RE = /^-|-$/g
+
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'minimal'
 
@@ -256,9 +260,9 @@ export default defineCommand({
           const pkg = await readPackageJSON(path, { try: true })
           if (pkg && pkg.name) {
             const slug = basename(templateDownloadPath)
-              .replace(/[^\w-]/g, '-')
-              .replace(/-{2,}/g, '-')
-              .replace(/^-|-$/g, '')
+              .replace(NON_WORD_RE, '-')
+              .replace(MULTI_DASH_RE, '-')
+              .replace(LEADING_TRAILING_DASH_RE, '')
             if (slug) {
               pkg.name = slug
               await writePackageJSON(path, pkg)
@@ -585,7 +589,7 @@ async function getTemplateDependencies(templateDir: string) {
       deps.forEach(dep => allDeps.add(dep))
     })
 
-    return Array.from(allDeps)
+    return [...allDeps]
   }
   catch (err) {
     logger.warn(`Could not read template dependencies: ${err}`)

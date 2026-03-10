@@ -8,6 +8,10 @@ import process from 'node:process'
 import { determineSemverChange, generateMarkDown, getCurrentGitBranch, getGitDiff, loadChangelogConfig, parseCommits } from 'changelogen'
 import { inc } from 'semver'
 
+const VERSION_HEADING_RE = /^## v.*\n/
+const CHANGELOG_SUFFIX_RE = /### ❤️ Contributors[\s\S]*$/
+const CHANGELOG_SECTION_RE = /## 👉 Changelog[\s\S]*$/
+
 const repo = `nuxt/cli`
 const corePackage = 'nuxi'
 const ignoredPackages = ['create-nuxt-app']
@@ -50,12 +54,12 @@ async function main() {
   const contributors = await getContributors()
 
   const releaseNotes = [
-    currentPR?.body.replace(/## 👉 Changelog[\s\S]*$/, '') || `> ${newVersion} is the next ${bumpType} release.\n>\n> **Timetable**: to be announced.`,
+    currentPR?.body.replace(CHANGELOG_SECTION_RE, '') || `> ${newVersion} is the next ${bumpType} release.\n>\n> **Timetable**: to be announced.`,
     '## 👉 Changelog',
     changelog
-      .replace(/^## v.*\n/, '')
+      .replace(VERSION_HEADING_RE, '')
       .replace(`...${releaseBranch}`, `...v${newVersion}`)
-      .replace(/### ❤️ Contributors[\s\S]*$/, ''),
+      .replace(CHANGELOG_SUFFIX_RE, ''),
     '### ❤️ Contributors',
     contributors.map(c => `- ${c.name} (@${c.username})`).join('\n'),
   ].join('\n')

@@ -10,6 +10,8 @@ import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs } from '../_shared'
 import { checkNuxtCompatibility, fetchModules } from './_utils'
 
+const DASH_RE = /-/g
+
 const { format: formatNumber } = Intl.NumberFormat('en-GB', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -94,7 +96,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   for (const foundModule of results) {
     const formattedModule: Record<string, string> = {}
     for (const [key, val] of Object.entries(foundModule)) {
-      const label = upperFirst(kebabCase(key)).replace(/-/g, ' ')
+      const label = upperFirst(kebabCase(key)).replace(DASH_RE, ' ')
       formattedModule[label] = val
     }
     const title = formattedModule.Name || formattedModule.Package

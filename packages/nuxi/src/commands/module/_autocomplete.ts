@@ -7,6 +7,8 @@ import { hasTTY } from 'std-env'
 
 import { logger } from '../../utils/logger'
 
+const TRAILING_DOT_RE = /\.$/
+
 interface AutocompleteOptions {
   modules: NuxtModule[]
   message?: string
@@ -30,7 +32,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
   }
 
   // Sort: official modules first, then alphabetically
-  const sortedModules = [...modules].sort((a, b) => {
+  const sortedModules = modules.toSorted((a, b) => {
     if (a.type === 'official' && b.type !== 'official')
       return -1
     if (a.type !== 'official' && b.type === 'official')
@@ -49,7 +51,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
   const clackOptions: Option<string>[] = sortedModules.map(m => ({
     value: m.npm,
     label: m.npm,
-    hint: m.description.replace(/\.$/, ''),
+    hint: m.description.replace(TRAILING_DOT_RE, ''),
   }))
 
   // Custom filter function using fzf for fuzzy matching

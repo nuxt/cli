@@ -6,8 +6,8 @@ import * as fs from 'node:fs'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-
 import process from 'node:process'
+
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
@@ -27,6 +27,9 @@ import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
 import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
+
+const PROTOCOL_RE = /^https?:\/\//
+const TRAILING_SLASH_RE = /\/$/
 
 interface RegistryMeta {
   registry: string
@@ -400,7 +403,7 @@ function getNpmrcPaths(): string[] {
 
 async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
   const paths = getNpmrcPaths()
-  const authTokenRegex = new RegExp(`^//${registry.replace(/^https?:\/\//, '').replace(/\/$/, '')}/:_authToken=(.+)$`, 'm')
+  const authTokenRegex = new RegExp(`^//${registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '')}/:_authToken=(.+)$`, 'm')
 
   for (const npmrcPath of paths) {
     let fd: FileHandle | undefined
