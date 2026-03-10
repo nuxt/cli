@@ -85,7 +85,8 @@ const command = defineCommand({
       showBanner: true,
     })
 
-    if (!ctx.args.fork) {
+    // Disable forking when profiling to capture all activity in one process
+    if (!ctx.args.fork || ctx.args.profile) {
       return {
         listener,
         close,

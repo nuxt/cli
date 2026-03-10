@@ -120,7 +120,14 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   }
 
   if (profileArg) {
-    process.once('exit', () => stopCpuProfile(devContext.cwd, 'dev'))
+    for (const signal of [
+      'exit',
+      'SIGTERM' /* Graceful shutdown */,
+      'SIGINT' /* Ctrl-C */,
+      'SIGQUIT' /* Ctrl-\ */,
+    ] as const) {
+      process.once(signal, () => stopCpuProfile(devContext.cwd, 'dev'))
+    }
   }
 
   return {
