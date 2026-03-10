@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "nuxt": "^4.3.1",
-    "vue-router": "^5.0.2"
+    "vue-router": "^5.0.3"
   },
   "devDependencies": {
     "@nuxt/test-utils": "^4.0.0"
