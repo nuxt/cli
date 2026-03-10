@@ -5,6 +5,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
+import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -55,11 +56,22 @@ interface InitializeReturn {
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
   overrideEnv('development')
 
+  const profileArg = devContext.args.profile
+  const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
+  const perfOverrides = perfValue
+    ? { debug: { perf: perfValue } } as NuxtConfig
+    : {}
+
+  if (profileArg) {
+    await startCpuProfile()
+  }
+
   const devServer = new NuxtDevServer({
     cwd: devContext.cwd,
     overrides: defu(
       ctx.data?.overrides,
       ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
+      perfOverrides,
     ),
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: devContext.args.clear,
@@ -105,6 +117,17 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   if (process.env.DEBUG) {
     // eslint-disable-next-line no-console
     console.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
+  }
+
+  if (profileArg) {
+    for (const signal of [
+      'exit',
+      'SIGTERM' /* Graceful shutdown */,
+      'SIGINT' /* Ctrl-C */,
+      'SIGQUIT' /* Ctrl-\ */,
+    ] as const) {
+      process.once(signal, () => stopCpuProfile(devContext.cwd, 'dev'))
+    }
   }
 
   return {
