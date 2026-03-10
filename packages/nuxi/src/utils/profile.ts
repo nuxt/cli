@@ -8,7 +8,7 @@ let session: Session | undefined
 let profileCount = 0
 
 export async function startCpuProfile(): Promise<void> {
-  const cli = globalThis.__nuxt_cli__ as Record<string, any> | undefined
+  const cli = globalThis.__nuxt_cli__
   if (cli?.cpuProfileSession) {
     session = cli.cpuProfileSession
     delete cli.cpuProfileSession

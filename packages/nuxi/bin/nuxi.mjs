@@ -24,6 +24,7 @@ globalThis.__nuxt_cli__ = {
   startTime: Date.now(),
   entry: fileURLToPath(import.meta.url),
   devEntry: fileURLToPath(new URL('../dist/dev/index.mjs', import.meta.url)),
+  cpuProfileSession: undefined,
 }
 
 if (

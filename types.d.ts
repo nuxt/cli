@@ -1,3 +1,5 @@
+import type { Session } from 'node:inspector'
+
 declare global {
   // eslint-disable-next-line vars-on-top
   var __nuxt_cli__:
@@ -6,7 +8,7 @@ declare global {
       entry: string
       devEntry?: string
       startTime: number
-      cpuProfileSession?: import('node:inspector').Session
+      cpuProfileSession?: Session
     }
 }
 
