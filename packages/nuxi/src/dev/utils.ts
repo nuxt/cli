@@ -48,6 +48,7 @@ export interface NuxtDevContext {
     dotenv?: string
     envName?: string
     extends?: string
+    profile?: string | boolean
   }
 }
 

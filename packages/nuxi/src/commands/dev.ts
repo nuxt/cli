@@ -13,7 +13,7 @@ import { isBun, isTest } from 'std-env'
 import { initialize } from '../dev'
 import { ForkPool } from '../dev/pool'
 import { debug, logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
@@ -62,6 +62,7 @@ const command = defineCommand({
       },
       clipboard: { ...listhenArgs.clipboard, default: false },
     },
+    ...profileArgs,
     sslCert: {
       type: 'string',
       description: '(DEPRECATED) Use `--https.cert` instead.',
@@ -84,7 +85,8 @@ const command = defineCommand({
       showBanner: true,
     })
 
-    if (!ctx.args.fork) {
+    // Disable forking when profiling to capture all activity in one process
+    if (!ctx.args.fork || ctx.args.profile) {
       return {
         listener,
         close,

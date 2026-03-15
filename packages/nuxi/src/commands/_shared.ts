@@ -40,6 +40,15 @@ export const extendsArgs = {
   },
 } as const satisfies Record<string, ArgDef>
 
+export const profileArgs = {
+  profile: {
+    type: 'string',
+    description: 'Profile performance. Use --profile for CPU only, --profile=verbose for full report.',
+    default: undefined as string | undefined,
+    valueHint: 'verbose',
+  },
+} as const satisfies Record<string, ArgDef>
+
 export const legacyRootDirArgs = {
   // cwd falls back to rootDir's default (indirect default)
   cwd: {

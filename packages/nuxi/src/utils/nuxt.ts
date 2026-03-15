@@ -8,6 +8,8 @@ import { dirname, resolve } from 'pathe'
 import { logger } from '../utils/logger'
 import { rmRecursive } from './fs'
 
+const GIT_ID_RE = /\.([0-9a-f]{7,8})$/
+
 interface NuxtProjectManifest {
   _hash: string | null
   project: {
@@ -34,7 +36,7 @@ export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
 
 export function nuxtVersionToGitIdentifier(version: string) {
   // match the git identifier in the release, for example: 3.0.0-rc.8-27677607.a3a8706
-  const id = /\.([0-9a-f]{7,8})$/.exec(version)
+  const id = GIT_ID_RE.exec(version)
   if (id?.[1]) {
     return id[1]
   }

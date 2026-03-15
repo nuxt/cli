@@ -21,6 +21,8 @@ import { logger } from '../utils/logger'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { cwdArgs, legacyRootDirArgs } from './_shared'
 
+const LEADING_SLASH_RE = /^\//
+
 export default defineCommand({
   meta: {
     name: 'info',
@@ -191,7 +193,7 @@ function normalizeConfigModule(
       .pop()! // Strip rootDir
       .split('node_modules')
       .pop()! // Strip node_modules
-      .replace(/^\//, '')
+      .replace(LEADING_SLASH_RE, '')
   }
   if (typeof module === 'function') {
     return `${module.name}()`
