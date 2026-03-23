@@ -49,6 +49,13 @@ describe('commands', () => {
       expect(res.exitCode).toBe(0)
     },
     'devtools': 'todo',
+    'doctor': async () => {
+      const res = await x(nuxi, ['doctor'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+    },
     'module': 'todo',
     'prepare': async () => {
       const res = await x(nuxi, ['prepare'], {
