@@ -224,6 +224,13 @@ export default defineCommand({
         ].join('\n'),
         'Available options',
       )
+
+      // No project directory was given — the agent now has all the information
+      // it needs to re-run with explicit flags. Exit without creating anything.
+      if (!ctx.args.dir) {
+        outro('Re-run with a project directory to proceed, e.g: nuxi init <dir>')
+        process.exit(0)
+      }
     }
 
     let templateName = ctx.args.template
