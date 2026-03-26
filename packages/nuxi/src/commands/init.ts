@@ -129,10 +129,10 @@ export default defineCommand({
     // Detect non-interactive environments: agent, CI, no TTY, or explicit flags
     const isNonInteractive
       = ctx.args.defaults === true
-      || ctx.args.interactive === false
-      || isAgent // AI coding agent (Claude, Cursor, Copilot, Devin, Gemini…)
-      || isCI // CI/CD pipeline
-      || !hasTTY // no terminal attached (piped, subprocess, etc.)
+        || ctx.args.interactive === false
+        || isAgent // AI coding agent (Claude, Cursor, Copilot, Devin, Gemini…)
+        || isCI // CI/CD pipeline
+        || !hasTTY // no terminal attached (piped, subprocess, etc.)
 
     if (isNonInteractive) {
       const reason = ctx.args.defaults || ctx.args.interactive === false
@@ -190,8 +190,8 @@ export default defineCommand({
       const effectiveModules = ctx.args.modules === undefined
         ? '(none)'
         : !ctx.args.modules
-          ? '(skipped)'
-          : ctx.args.modules as string
+            ? '(skipped)'
+            : ctx.args.modules as string
 
       const templateLines = Object.entries(availableTemplates).map(([name, data]) =>
         `  ${colors.cyan(name.padEnd(18))} ${data?.description ?? ''}${name === DEFAULT_TEMPLATE_NAME ? colors.dim('  ← default') : ''}`,
