@@ -5,7 +5,7 @@ import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
+import { box, cancel, confirm, intro, isCancel, note, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -13,7 +13,7 @@ import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
-import { hasTTY } from 'std-env'
+import { agent, hasTTY, isAgent, isCI } from 'std-env'
 import { x } from 'tinyexec'
 
 import { runCommand } from '../run'
@@ -104,6 +104,16 @@ export default defineCommand({
       type: 'string',
       description: 'Use Nuxt nightly release channel (3x or latest)',
     },
+    defaults: {
+      type: 'boolean',
+      alias: 'y',
+      description: 'Use defaults for all prompts (useful for CI/agent environments)',
+    },
+    interactive: {
+      type: 'boolean',
+      default: true,
+      negativeDescription: 'Disable interactive prompts and use defaults',
+    },
   },
   async run(ctx) {
     if (!ctx.args.offline && !ctx.args.preferOffline && !ctx.args.template) {
@@ -115,6 +125,28 @@ export default defineCommand({
     }
 
     intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+
+    // Detect non-interactive environments: agent, CI, no TTY, or explicit flags
+    const isNonInteractive
+      = ctx.args.defaults === true
+        || ctx.args.interactive === false
+        || isAgent // AI coding agent (Claude, Cursor, Copilot, Devin, Gemini…)
+        || isCI // CI/CD pipeline
+        || !hasTTY // no terminal attached (piped, subprocess, etc.)
+
+    if (isNonInteractive) {
+      const reason = ctx.args.defaults || ctx.args.interactive === false
+        ? 'flag'
+        : isAgent
+          ? `agent (${agent})`
+          : isCI
+            ? 'CI environment'
+            : 'no TTY'
+      logger.info(`Running in non-interactive mode (${reason}). Prompts will use defaults.`)
+    }
+
+    // Detect current package manager early so it can be shown in the options note
+    const currentPackageManager = detectCurrentPackageManager()
 
     let availableTemplates: Record<string, TemplateData> = {}
 
@@ -139,26 +171,93 @@ export default defineCommand({
       }
     }
 
+    // In non-interactive mode, print all available options and the exact values
+    // that will be used this run, so agents can discover flags and re-run with
+    // custom settings.
+    if (isNonInteractive) {
+      // Compute every effective value upfront so the agent sees the full picture
+      // before any action is taken.
+      const effectiveTemplate = ctx.args.template || DEFAULT_TEMPLATE_NAME
+      const effectiveDir = ctx.args.dir || availableTemplates[effectiveTemplate]?.defaultDir || 'nuxt-app'
+      const effectivePM: PackageManagerName
+        = (packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
+          ? ctx.args.packageManager as PackageManagerName
+          : undefined)
+        ?? currentPackageManager
+        ?? 'npm'
+      const effectiveGitInit = (ctx.args.gitInit as unknown) === 'false' ? false : (ctx.args.gitInit ?? false)
+      const effectiveInstall = ctx.args.install !== false && (ctx.args.install as unknown) !== 'false'
+      const effectiveModules = ctx.args.modules === undefined
+        ? '(none)'
+        : !ctx.args.modules
+            ? '(skipped)'
+            : ctx.args.modules as string
+
+      const templateLines = Object.entries(availableTemplates).map(([name, data]) =>
+        `  ${colors.cyan(name.padEnd(18))} ${data?.description ?? ''}${name === DEFAULT_TEMPLATE_NAME ? colors.dim('  ← default') : ''}`,
+      )
+
+      note(
+        [
+          colors.bold('Re-run with any of these flags to customise:'),
+          '',
+          `${colors.cyan('--template')} <name>`,
+          ...templateLines,
+          '',
+          `${colors.cyan('<dir>')}                        Project directory`,
+          `${colors.cyan('--packageManager')} <pm>        npm | pnpm | yarn | bun | deno`,
+          `${colors.cyan('--gitInit')} / ${colors.cyan('--no-gitInit')}            Initialise git repo`,
+          `${colors.cyan('--install')} / ${colors.cyan('--no-install')}            Install dependencies`,
+          `${colors.cyan('--modules')} <m1,m2,...>        e.g. ${colors.dim('@nuxt/content,@nuxt/ui,@nuxt/image')}`,
+          `${colors.dim('                             Full list: https://nuxt.com/modules')}`,
+          `${colors.cyan('--no-modules')}                Skip module prompt`,
+          `${colors.cyan('--force')}                     Override existing directory`,
+          `${colors.cyan('--offline')}                   Use cached templates`,
+          '',
+          colors.bold('Proceeding with:'),
+          `  template:       ${colors.cyan(effectiveTemplate)}`,
+          `  directory:      ${colors.cyan(effectiveDir)}`,
+          `  packageManager: ${colors.cyan(effectivePM)}`,
+          `  gitInit:        ${colors.cyan(String(effectiveGitInit))}`,
+          `  install:        ${colors.cyan(String(effectiveInstall))}`,
+          `  modules:        ${colors.cyan(effectiveModules)}`,
+        ].join('\n'),
+        'Available options',
+      )
+
+      // No project directory was given — the agent now has all the information
+      // it needs to re-run with explicit flags. Exit without creating anything.
+      if (!ctx.args.dir) {
+        outro('Re-run with a project directory to proceed, e.g: nuxi init <dir>')
+        process.exit(0)
+      }
+    }
+
     let templateName = ctx.args.template
     if (!templateName) {
-      const result = await select({
-        message: 'Which template would you like to use?',
-        options: Object.entries(availableTemplates).map(([name, data]) => {
-          return {
-            value: name,
-            label: data ? `${colors.whiteBright(name)} – ${data.description}` : name,
-            hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
-          }
-        }),
-        initialValue: DEFAULT_TEMPLATE_NAME,
-      })
-
-      if (isCancel(result)) {
-        cancel('Operation cancelled.')
-        process.exit(1)
+      if (isNonInteractive) {
+        templateName = DEFAULT_TEMPLATE_NAME
       }
+      else {
+        const result = await select({
+          message: 'Which template would you like to use?',
+          options: Object.entries(availableTemplates).map(([name, data]) => {
+            return {
+              value: name,
+              label: data ? `${colors.whiteBright(name)} – ${data.description}` : name,
+              hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
+            }
+          }),
+          initialValue: DEFAULT_TEMPLATE_NAME,
+        })
 
-      templateName = result
+        if (isCancel(result)) {
+          cancel('Operation cancelled.')
+          process.exit(1)
+        }
+
+        templateName = result
+      }
     }
 
     // Fallback to default if still not set
@@ -172,18 +271,23 @@ export default defineCommand({
     let dir = ctx.args.dir
     if (dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
-      const result = await text({
-        message: 'Where would you like to create your project?',
-        placeholder: `./${defaultDir}`,
-        defaultValue: defaultDir,
-      })
-
-      if (isCancel(result)) {
-        cancel('Operation cancelled.')
-        process.exit(1)
+      if (isNonInteractive) {
+        dir = defaultDir
       }
+      else {
+        const result = await text({
+          message: 'Where would you like to create your project?',
+          placeholder: `./${defaultDir}`,
+          defaultValue: defaultDir,
+        })
 
-      dir = result
+        if (isCancel(result)) {
+          cancel('Operation cancelled.')
+          process.exit(1)
+        }
+
+        dir = result
+      }
     }
 
     const cwd = resolve(ctx.args.cwd)
@@ -196,6 +300,14 @@ export default defineCommand({
     // when no `--force` flag is provided
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
+      if (isNonInteractive) {
+        logger.error(
+          `Directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. `
+          + `Pass ${colors.cyan('--force')} to override or specify a different directory.`,
+        )
+        process.exit(1)
+      }
+
       const selectedAction = await select({
         message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
@@ -319,7 +431,6 @@ export default defineCommand({
       nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
     }
 
-    const currentPackageManager = detectCurrentPackageManager()
     // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
     const packageManagerSelectOptions = packageManagerOptions.map(pm => ({
@@ -331,6 +442,9 @@ export default defineCommand({
     let selectedPackageManager: PackageManagerName
     if (packageManagerOptions.includes(packageManagerArg)) {
       selectedPackageManager = packageManagerArg
+    }
+    else if (isNonInteractive) {
+      selectedPackageManager = currentPackageManager ?? 'npm'
     }
     else {
       const result = await select({
@@ -350,16 +464,21 @@ export default defineCommand({
     // Determine if we should init git
     let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
     if (gitInit === undefined) {
-      const result = await confirm({
-        message: 'Initialize git repository?',
-      })
-
-      if (isCancel(result)) {
-        cancel('Operation cancelled.')
-        process.exit(1)
+      if (isNonInteractive) {
+        gitInit = false
       }
+      else {
+        const result = await confirm({
+          message: 'Initialize git repository?',
+        })
 
-      gitInit = result
+        if (isCancel(result)) {
+          cancel('Operation cancelled.')
+          process.exit(1)
+        }
+
+        gitInit = result
+      }
     }
 
     // Install project dependencies and initialize git
@@ -433,57 +552,59 @@ export default defineCommand({
 
     // ...or offer to browse and install modules (if not offline)
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
-      const modulesPromise = fetchModules()
-      const wantsUserModules = await confirm({
-        message: `Would you like to browse and install modules?`,
-        initialValue: false,
-      })
+      if (!isNonInteractive) {
+        const modulesPromise = fetchModules()
+        const wantsUserModules = await confirm({
+          message: `Would you like to browse and install modules?`,
+          initialValue: false,
+        })
 
-      if (isCancel(wantsUserModules)) {
-        cancel('Operation cancelled.')
-        process.exit(1)
-      }
-
-      if (wantsUserModules) {
-        const modulesSpinner = spinner()
-        modulesSpinner.start('Fetching available modules')
-
-        const [response, templateDeps, nuxtVersion] = await Promise.all([
-          modulesPromise,
-          getTemplateDependencies(template.dir),
-          getNuxtVersion(template.dir),
-        ])
-
-        modulesSpinner.stop('Modules loaded')
-
-        const allModules = response
-          .filter(module =>
-            module.npm !== '@nuxt/devtools'
-            && !templateDeps.includes(module.npm)
-            && (!module.compatibility.nuxt || checkNuxtCompatibility(module, nuxtVersion)),
-          )
-
-        if (allModules.length === 0) {
-          logger.info('All modules are already included in this template.')
+        if (isCancel(wantsUserModules)) {
+          cancel('Operation cancelled.')
+          process.exit(1)
         }
-        else {
-          const result = await selectModulesAutocomplete({ modules: allModules })
 
-          if (result.selected.length > 0) {
-            const modules = result.selected
+        if (wantsUserModules) {
+          const modulesSpinner = spinner()
+          modulesSpinner.start('Fetching available modules')
 
-            const allDependencies = Object.fromEntries(
-              await Promise.all(modules.map(async module =>
-                [module, await getModuleDependencies(module)] as const,
-              )),
+          const [response, templateDeps, nuxtVersion] = await Promise.all([
+            modulesPromise,
+            getTemplateDependencies(template.dir),
+            getNuxtVersion(template.dir),
+          ])
+
+          modulesSpinner.stop('Modules loaded')
+
+          const allModules = response
+            .filter(module =>
+              module.npm !== '@nuxt/devtools'
+              && !templateDeps.includes(module.npm)
+              && (!module.compatibility.nuxt || checkNuxtCompatibility(module, nuxtVersion)),
             )
 
-            const { toInstall, skipped } = filterModules(modules, allDependencies)
+          if (allModules.length === 0) {
+            logger.info('All modules are already included in this template.')
+          }
+          else {
+            const result = await selectModulesAutocomplete({ modules: allModules })
 
-            if (skipped.length) {
-              logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+            if (result.selected.length > 0) {
+              const modules = result.selected
+
+              const allDependencies = Object.fromEntries(
+                await Promise.all(modules.map(async module =>
+                  [module, await getModuleDependencies(module)] as const,
+                )),
+              )
+
+              const { toInstall, skipped } = filterModules(modules, allDependencies)
+
+              if (skipped.length) {
+                logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+              }
+              modulesToAdd.push(...toInstall)
             }
-            modulesToAdd.push(...toInstall)
           }
         }
       }
