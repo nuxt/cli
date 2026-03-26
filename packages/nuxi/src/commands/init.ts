@@ -150,7 +150,7 @@ export default defineCommand({
 
     let availableTemplates: Record<string, TemplateData> = {}
 
-    if (!ctx.args.template || !ctx.args.dir || isNonInteractive) {
+    if (!ctx.args.template || !ctx.args.dir) {
       const defaultTemplates = await import('../data/templates').then(r => r.templates)
       if (ctx.args.offline || ctx.args.preferOffline) {
         // In offline mode, use static templates directly
