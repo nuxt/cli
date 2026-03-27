@@ -9,6 +9,7 @@ import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { checkLock, formatLockError, writeLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
@@ -46,6 +47,7 @@ export default defineCommand({
       await startCpuProfile()
     }
 
+    let lockCleanup: (() => void) | undefined
     try {
       intro(colors.cyan('Building Nuxt for production...'))
 
@@ -79,6 +81,13 @@ export default defineCommand({
         },
       })
 
+      // Check for an existing process using the lock file (agent-only)
+      const existing = checkLock(nuxt.options.buildDir)
+      if (existing) {
+        console.error(formatLockError(existing, cwd))
+        process.exit(1)
+      }
+
       let nitro: ReturnType<typeof kit.useNitro> | undefined
       // In Bridge, if Nitro is not enabled, useNitro will throw an error
       try {
@@ -93,6 +102,13 @@ export default defineCommand({
       }
 
       await clearBuildDir(nuxt.options.buildDir)
+
+      // Write lock after clearing build dir so it doesn't get deleted
+      lockCleanup = await writeLock(nuxt.options.buildDir, {
+        pid: process.pid,
+        command: 'build',
+        startedAt: Date.now(),
+      })
 
       await kit.writeTypes(nuxt)
 
@@ -121,6 +137,7 @@ export default defineCommand({
       }
     }
     finally {
+      lockCleanup?.()
       if (profileArg) {
         await stopCpuProfile(cwd, 'build')
       }
