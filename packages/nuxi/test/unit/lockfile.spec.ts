@@ -88,6 +88,31 @@ describe('lockfile', () => {
       expect(existsSync(lockPath)).toBe(false)
     })
 
+    it('returns noop when lock already exists (atomic write)', async () => {
+      // First lock succeeds
+      const cleanup1 = await writeLock(tempDir, {
+        pid: process.pid,
+        command: 'dev',
+        startedAt: Date.now(),
+      })
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+
+      // Second lock returns noop (file exists)
+      const cleanup2 = await writeLock(tempDir, {
+        pid: process.pid,
+        command: 'dev',
+        startedAt: Date.now(),
+      })
+
+      // cleanup2 is noop, should not remove the file
+      cleanup2()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+
+      // cleanup1 still works
+      cleanup1()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+    })
+
     it('cleanup is idempotent', async () => {
       const cleanup = await writeLock(tempDir, {
         pid: process.pid,

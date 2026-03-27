@@ -486,10 +486,14 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async close(): Promise<void> {
-    this.#lockCleanup?.()
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
+  }
+
+  /** Release the lock file. Call only on final shutdown, not during reloads. */
+  releaseLock(): void {
+    this.#lockCleanup?.()
   }
 
   #closeWebSocketConnections(): void {
