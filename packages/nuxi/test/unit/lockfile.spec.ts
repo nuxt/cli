@@ -5,6 +5,8 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const isWindows = process.platform === 'win32'
+
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
   return { ...original, isAgent: true }
@@ -112,7 +114,7 @@ describe('lockfile', () => {
       expect(message).toContain('http://127.0.0.1:3000')
       expect(message).toContain('12345')
       expect(message).toContain('/my/project')
-      expect(message).toContain('kill 12345')
+      expect(message).toContain(isWindows ? 'taskkill /PID 12345 /F' : 'kill 12345')
       expect(message).toContain('connect to')
     })
 
