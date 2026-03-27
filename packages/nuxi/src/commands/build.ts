@@ -87,11 +87,6 @@ export default defineCommand({
         console.error(formatLockError(existing, cwd))
         process.exit(1)
       }
-      lockCleanup = await writeLock(nuxt.options.buildDir, {
-        pid: process.pid,
-        command: 'build',
-        startedAt: Date.now(),
-      })
 
       let nitro: ReturnType<typeof kit.useNitro> | undefined
       // In Bridge, if Nitro is not enabled, useNitro will throw an error
@@ -107,6 +102,13 @@ export default defineCommand({
       }
 
       await clearBuildDir(nuxt.options.buildDir)
+
+      // Write lock after clearing build dir so it doesn't get deleted
+      lockCleanup = await writeLock(nuxt.options.buildDir, {
+        pid: process.pid,
+        command: 'build',
+        startedAt: Date.now(),
+      })
 
       await kit.writeTypes(nuxt)
 

@@ -83,8 +83,9 @@ export function checkLock(buildDir: string): LockInfo | undefined {
 }
 
 /**
- * Write a lock file. Returns a cleanup function.
+ * Write a lock file atomically. Returns a cleanup function.
  * Only writes when running inside an AI agent environment.
+ * Uses exclusive file creation (`wx` flag) to prevent race conditions.
  */
 export async function writeLock(buildDir: string, info: LockInfo): Promise<() => void> {
   const noop = () => {}
@@ -95,25 +96,44 @@ export async function writeLock(buildDir: string, info: LockInfo): Promise<() =>
   const lockPath = join(buildDir, LOCK_FILENAME)
 
   await mkdir(dirname(lockPath), { recursive: true })
-  writeFileSync(lockPath, JSON.stringify(info, null, 2))
+
+  try {
+    writeFileSync(lockPath, JSON.stringify(info, null, 2), { flag: 'wx' })
+  }
+  catch (error) {
+    // Lock already exists, another process won the race
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') {
+      return noop
+    }
+    throw error
+  }
 
   let cleaned = false
+  const exitHandler = () => cleanup()
+  const signalHandlers: Array<[string, () => void]> = []
+
   function cleanup() {
     if (cleaned)
       return
     cleaned = true
+    process.off('exit', exitHandler)
+    for (const [signal, handler] of signalHandlers) {
+      process.off(signal, handler)
+    }
     try {
       unlinkSync(lockPath)
     }
     catch {}
   }
 
-  process.on('exit', cleanup)
+  process.on('exit', exitHandler)
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGQUIT', 'SIGHUP'] as const) {
-    process.once(signal, () => {
+    const handler = () => {
       cleanup()
       process.exit()
-    })
+    }
+    signalHandlers.push([signal, handler])
+    process.once(signal, handler)
   }
 
   return cleanup
