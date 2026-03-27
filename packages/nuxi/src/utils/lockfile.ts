@@ -36,13 +36,18 @@ function readLockFile(lockPath: string): LockInfo | undefined {
   }
 }
 
+function isLockEnabled(): boolean {
+  return isAgent && !process.env.NUXT_IGNORE_LOCK
+}
+
 /**
  * Check if a Nuxt process is already running for this project.
  * Only active when running inside an AI agent environment.
+ * Set NUXT_IGNORE_LOCK=1 to bypass.
  * Stale lock files (from crashed processes) are automatically cleaned up.
  */
 export function checkLock(buildDir: string): LockInfo | undefined {
-  if (!isAgent) {
+  if (!isLockEnabled()) {
     return undefined
   }
 
@@ -83,7 +88,7 @@ export function checkLock(buildDir: string): LockInfo | undefined {
  */
 export async function writeLock(buildDir: string, info: LockInfo): Promise<() => void> {
   const noop = () => {}
-  if (!isAgent) {
+  if (!isLockEnabled()) {
     return noop
   }
 
@@ -143,6 +148,7 @@ export function formatLockError(info: LockInfo, cwd: string): string {
   else {
     lines.push(`Run \`${killCmd}\` to stop it.`)
   }
+  lines.push(`Set NUXT_IGNORE_LOCK=1 to bypass this check.`)
   lines.push('')
 
   return lines.join('\n')
