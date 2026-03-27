@@ -5,7 +5,7 @@ import process from 'node:process'
 import { dirname, join } from 'pathe'
 import { isAgent } from 'std-env'
 
-export interface LockInfo {
+interface LockInfo {
   pid: number
   startedAt: number
   command: 'dev' | 'build'
