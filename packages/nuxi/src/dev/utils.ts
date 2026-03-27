@@ -25,6 +25,7 @@ import { joinURL } from 'ufo'
 import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { checkLock, formatLockError, writeLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
@@ -131,6 +132,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
   #websocketConnections = new Set<any>()
+  #lockCleanup?: () => void
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -193,6 +195,14 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('loading', this.#loadingMessage)
 
     await this.#loadNuxtInstance()
+
+    // Check for an existing process using the lock file (agent-only)
+    const buildDir = this.#currentNuxt!.options.buildDir
+    const existing = checkLock(buildDir)
+    if (existing) {
+      console.error(formatLockError(existing, this.options.cwd))
+      process.exit(1)
+    }
 
     if (this.options.showBanner) {
       showVersionsFromConfig(this.options.cwd, this.#currentNuxt!.options)
@@ -459,10 +469,24 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     // Emit ready with the server URL
     const proto = this.listener.https ? 'https' : 'http'
-    this.emit('ready', `${proto}://127.0.0.1:${addr.port}`)
+    const serverUrl = `${proto}://127.0.0.1:${addr.port}`
+
+    // Write lock file so other processes know a dev server is running (agent-only)
+    this.#lockCleanup?.()
+    this.#lockCleanup = await writeLock(this.#currentNuxt.options.buildDir, {
+      pid: process.pid,
+      command: 'dev',
+      port: addr.port,
+      hostname: addr.address,
+      url: serverUrl,
+      startedAt: Date.now(),
+    })
+
+    this.emit('ready', serverUrl)
   }
 
   async close(): Promise<void> {
+    this.#lockCleanup?.()
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
