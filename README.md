@@ -1,6 +1,6 @@
 # Nuxt CLI (nuxi)
 
-⚡️ [Nuxt](https://nuxt.com/) CLI
+⚡️ [Nuxt](https://nuxt.com/) CLI.
 
 ## Usage
 
