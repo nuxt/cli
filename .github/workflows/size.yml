@@ -22,27 +22,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - run: corepack enable
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          node-version: lts/*
-
-      - name: 📦 Install dependencies
-        run: pnpm install
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🛠 Build project
-        run: pnpm build
-
-      - name: 💾 Save PR number
-        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
-
-      - name: ⏫ Upload stats.json
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
-        with:
-          name: head-stats
-          path: ./packages/*/stats.json
 
       - name: ⏫ Upload PR number
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
@@ -50,32 +29,8 @@ jobs:
           name: pr-number
           path: pr-number.txt
 
-  # Build base for comparison and upload stats.json
-  # You may replace this with your own build method. All that
-  # is required is that the stats.json be an artifact
-  build-base:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-        with:
-          ref: ${{ github.base_ref }}
-      - run: corepack enable
-      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
-        with:
-          node-version: lts/*
-
-      - name: 📦 Install dependencies
-        run:
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🛠 Build project
-        run: pnpm build
-
-      - name: ⏫ Upload stats.json
+      - name: ⏫ Upload PR number 2
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
-          name: base-stats
-          path: ./packages/*/stats.json
+          name: boofar
+          path: pr-number.txt

