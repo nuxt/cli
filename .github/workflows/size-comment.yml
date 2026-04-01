@@ -33,6 +33,7 @@ jobs:
 
       - name: 🔍 Get PR number from artifact
         id: pr
+        if: false
         run: |
           if [ -f pr-number/pr-number.txt ]; then
             PR_NUMBER=$(cat pr-number/pr-number.txt)
@@ -53,6 +54,7 @@ jobs:
 
       - name: 💬 Post or update comment
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        if: false
         with:
           script: |
             const prNumber = ${{ steps.pr.outputs.result }};
