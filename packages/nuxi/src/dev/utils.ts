@@ -401,7 +401,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         if (req.url?.startsWith(viteHmrPath)) {
           return // Skip for Vite HMR
         }
-        nuxt.server.upgrade(req, socket, head)
+        nuxt.server.upgrade(req, socket as any, head)
 
         // Track WebSocket connections
         this.#websocketConnections.add(socket)
