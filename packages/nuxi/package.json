@@ -73,7 +73,7 @@
     "tinyclip": "^0.1.12",
     "tinyexec": "^1.0.4",
     "tsdown": "^0.21.7",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.2",
     "ufo": "^1.6.3",
     "unplugin-purge-polyfills": "^0.1.0",
     "vitest": "^4.1.2",
