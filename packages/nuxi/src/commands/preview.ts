@@ -37,37 +37,49 @@ const command = defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxt } = await loadKit(cwd)
+    const defaultOutput = resolve(cwd, '.output', 'nitro.json')
 
-    const resolvedOutputDir = await new Promise<string>((res) => {
-      loadNuxt({
-        cwd,
-        dotenv: {
+    let nitroJSONPath: string | undefined
+
+    // Try the default output path first to avoid loading Nuxt (which runs
+    // module setup and may emit warnings about missing env vars that are
+    // already baked into the build output).
+    if (existsSync(defaultOutput)) {
+      nitroJSONPath = defaultOutput
+    }
+    else {
+      const { loadNuxt } = await loadKit(cwd)
+
+      const resolvedOutputDir = await new Promise<string>((res) => {
+        loadNuxt({
           cwd,
-          fileName: ctx.args.dotenv,
-        },
-        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-        ready: true,
-        overrides: {
-          ...(ctx.args.extends && { extends: ctx.args.extends }),
-          modules: [
-            function (_, nuxt) {
-              nuxt.hook('nitro:init', (nitro) => {
-                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
-              })
-            },
-          ],
-        },
-      }).then(nuxt => nuxt.close()).catch(() => '')
-    })
+          dotenv: {
+            cwd,
+            fileName: ctx.args.dotenv,
+          },
+          envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+          ready: true,
+          overrides: {
+            ...(ctx.args.extends && { extends: ctx.args.extends }),
+            modules: [
+              function (_, nuxt) {
+                nuxt.hook('nitro:init', (nitro) => {
+                  res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+                })
+              },
+            ],
+          },
+        }).then(nuxt => nuxt.close()).catch(() => '')
+      })
 
-    const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
+      if (resolvedOutputDir && existsSync(resolvedOutputDir)) {
+        nitroJSONPath = resolvedOutputDir
+      }
+    }
 
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
-    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
-        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
+        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${defaultOutput}`,
       )
       process.exit(1)
     }
