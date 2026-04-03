@@ -52,8 +52,8 @@ const command = defineCommand({
       },
     })
 
-    const outputDir = config.nitro?.output?.dir || '.output'
-    const nitroJSONPath = resolve(config.srcDir || cwd, outputDir, 'nitro.json')
+    const outputDir = config.nitro?.output?.dir ?? '.output'
+    const nitroJSONPath = resolve(config.rootDir || cwd, outputDir, 'nitro.json')
 
     if (!existsSync(nitroJSONPath)) {
       logger.error(
