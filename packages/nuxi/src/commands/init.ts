@@ -271,23 +271,18 @@ export default defineCommand({
     let dir = ctx.args.dir
     if (dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
-      if (isNonInteractive) {
-        dir = defaultDir
-      }
-      else {
-        const result = await text({
-          message: 'Where would you like to create your project?',
-          placeholder: `./${defaultDir}`,
-          defaultValue: defaultDir,
-        })
+      const result = await text({
+        message: 'Where would you like to create your project?',
+        placeholder: `./${defaultDir}`,
+        defaultValue: defaultDir,
+      })
 
-        if (isCancel(result)) {
-          cancel('Operation cancelled.')
-          process.exit(1)
-        }
-
-        dir = result
+      if (isCancel(result)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
       }
+
+      dir = result
     }
 
     const cwd = resolve(ctx.args.cwd)
