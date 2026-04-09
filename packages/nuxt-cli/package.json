@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@bomb.sh/tab": "^0.0.14",
-    "@clack/prompts": "^1.1.0",
+    "@clack/prompts": "^1.2.0",
     "c12": "^3.3.3",
     "citty": "^0.2.1",
     "confbox": "^0.2.4",
@@ -52,7 +52,7 @@
     "exsolve": "^1.0.8",
     "fuse.js": "^7.1.0",
     "fzf": "^0.5.2",
-    "giget": "^3.1.2",
+    "giget": "^3.2.0",
     "jiti": "^2.6.1",
     "listhen": "^1.9.0",
     "nypm": "^0.6.5",
@@ -66,27 +66,27 @@
     "srvx": "^0.11.9",
     "std-env": "^4.0.0",
     "tinyclip": "^0.1.12",
-    "tinyexec": "^1.0.2",
+    "tinyexec": "^1.0.4",
     "ufo": "^1.6.3",
-    "youch": "^4.1.0"
+    "youch": "^4.1.1"
   },
   "devDependencies": {
     "@nuxt/kit": "^4.4.2",
     "@nuxt/schema": "^4.4.2",
-    "@types/debug": "^4.1.12",
+    "@types/debug": "^4.1.13",
     "@types/node": "^24.12.0",
     "get-port-please": "^3.2.0",
     "h3": "^1.15.6",
-    "h3-next": "npm:h3@^2.0.1-rc.16",
+    "h3-next": "npm:h3@^2.0.1-rc.18",
     "nitro": "^3.0.1-alpha.2",
-    "nitropack": "^2.13.1",
-    "rollup": "^4.59.0",
+    "nitropack": "^2.13.2",
+    "rollup": "^4.60.1",
     "rollup-plugin-visualizer": "^7.0.1",
-    "tsdown": "^0.20.3",
-    "typescript": "^5.9.3",
-    "undici": "^7.22.0",
+    "tsdown": "^0.21.7",
+    "typescript": "^6.0.2",
+    "undici": "^7.24.7",
     "unplugin-purge-polyfills": "^0.1.0",
-    "vitest": "^4.0.18",
-    "youch": "^4.1.0"
+    "vitest": "^4.1.2",
+    "youch": "^4.1.1"
   }
 }

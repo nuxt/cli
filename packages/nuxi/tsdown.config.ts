@@ -10,11 +10,12 @@ export default defineConfig({
   entry: ['src/index.ts', 'src/dev/index.ts'],
   shims: true,
   fixedExtension: true,
-  inlineOnly: false,
+  deps: { onlyBundle: false },
   dts: !isAnalysingSize && {
     oxc: true,
   },
-  failOnWarn: !isAnalysingSize,
+  // disabled due to upstream DTS warnings from @nuxt/schema type imports
+  failOnWarn: false,
   plugins: [
     purgePolyfills.rolldown({ logLevel: 'verbose' }),
     ...(isAnalysingSize ? [visualizer({ template: 'raw-data' })] : []),
