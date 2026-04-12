@@ -12,115 +12,216 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isAgent: true }
 })
 
-const { checkLock, formatLockError, writeLock } = await import('../../src/utils/lockfile')
+const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
 
 describe('lockfile', () => {
   let tempDir: string
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'nuxt-lockfile-test-'))
+    delete process.env.NUXT_IGNORE_LOCK
+    delete process.env.NUXT_LOCK
   })
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  describe('checkLock', () => {
-    it('returns undefined when no lock file exists', () => {
-      expect(checkLock(tempDir)).toBeUndefined()
+  describe('isLockEnabled', () => {
+    it('is enabled when isAgent is true (mocked)', () => {
+      expect(isLockEnabled()).toBe(true)
     })
 
-    it('returns undefined for own PID (self-check)', async () => {
-      await mkdir(tempDir, { recursive: true })
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: process.pid,
-        port: 3000,
-        hostname: '127.0.0.1',
-        url: 'http://127.0.0.1:3000',
-        command: 'dev',
-        startedAt: Date.now(),
-      }))
-
-      expect(checkLock(tempDir)).toBeUndefined()
+    it('nUXT_IGNORE_LOCK=1 disables locking', () => {
+      process.env.NUXT_IGNORE_LOCK = '1'
+      expect(isLockEnabled()).toBe(false)
     })
 
-    it('cleans up stale lock files from dead processes', async () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 999999999,
-        port: 3000,
-        hostname: '127.0.0.1',
-        url: 'http://127.0.0.1:3000',
-        command: 'dev',
-        startedAt: Date.now(),
-      }))
-
-      expect(checkLock(tempDir)).toBeUndefined()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+    it('nUXT_LOCK=1 forces locking on', () => {
+      process.env.NUXT_LOCK = '1'
+      expect(isLockEnabled()).toBe(true)
     })
 
-    it('cleans up corrupted lock files', async () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), 'not valid json')
-
-      expect(checkLock(tempDir)).toBeUndefined()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+    it('nUXT_IGNORE_LOCK takes precedence over NUXT_LOCK', () => {
+      process.env.NUXT_LOCK = '1'
+      process.env.NUXT_IGNORE_LOCK = '1'
+      expect(isLockEnabled()).toBe(false)
     })
   })
 
-  describe('writeLock', () => {
-    it('writes lock file and returns cleanup function', async () => {
-      const cleanup = await writeLock(tempDir, {
-        pid: process.pid,
-        command: 'dev',
-        port: 3000,
-        hostname: '127.0.0.1',
-        url: 'http://127.0.0.1:3000',
-        startedAt: Date.now(),
-      })
+  describe('acquireLock', () => {
+    it('writes lock file and returns release function', () => {
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
       const lockPath = join(tempDir, 'nuxt.lock')
 
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
       expect(existsSync(lockPath)).toBe(true)
       const written = JSON.parse(readFileSync(lockPath, 'utf-8'))
       expect(written.pid).toBe(process.pid)
-      expect(written.port).toBe(3000)
       expect(written.command).toBe('dev')
+      expect(written.cwd).toBe('/project')
+      expect(typeof written.startedAt).toBe('number')
 
-      cleanup()
+      lock.release!()
       expect(existsSync(lockPath)).toBe(false)
     })
 
-    it('returns noop when lock already exists (atomic write)', async () => {
-      // First lock succeeds
-      const cleanup1 = await writeLock(tempDir, {
-        pid: process.pid,
+    it('returns existing lock when another live process holds it', async () => {
+      await mkdir(tempDir, { recursive: true })
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 1, // init/systemd, always alive
         command: 'dev',
+        cwd: '/other',
         startedAt: Date.now(),
-      })
+      }))
+
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeDefined()
+      expect(lock.existing!.pid).toBe(1)
+      expect(lock.existing!.cwd).toBe('/other')
+      expect(lock.release).toBeUndefined()
+      // File untouched.
       expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
-
-      // Second lock returns noop (file exists)
-      const cleanup2 = await writeLock(tempDir, {
-        pid: process.pid,
-        command: 'dev',
-        startedAt: Date.now(),
-      })
-
-      // cleanup2 is noop, should not remove the file
-      cleanup2()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
-
-      // cleanup1 still works
-      cleanup1()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
     })
 
-    it('cleanup is idempotent', async () => {
-      const cleanup = await writeLock(tempDir, {
-        pid: process.pid,
-        command: 'build',
+    it('takes over a lock whose PID is dead', async () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 999999999,
+        command: 'dev',
+        cwd: '/other',
         startedAt: Date.now(),
+      }))
+
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      expect(written.pid).toBe(process.pid)
+      lock.release!()
+    })
+
+    it('takes over a lock older than the PID-recycling safety window', () => {
+      // 25h ago — older than MAX_LOCK_AGE_MS
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 1,
+        command: 'dev',
+        cwd: '/other',
+        startedAt: Date.now() - 25 * 60 * 60 * 1000,
+      }))
+
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      lock.release!()
+    })
+
+    it('takes over a lock owned by this process (re-entrancy)', () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: process.pid,
+        command: 'dev',
+        cwd: '/project',
+        startedAt: Date.now(),
+      }))
+
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      lock.release!()
+    })
+
+    it('cleans up corrupted lock files', () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), 'not valid json')
+
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      expect(written.pid).toBe(process.pid)
+      lock.release!()
+    })
+
+    it('release is idempotent', () => {
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      lock.release!()
+      lock.release!() // should not throw
+    })
+
+    it('release does not remove another process\'s lock', () => {
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      // Simulate another process replacing the file.
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 1,
+        command: 'dev',
+        cwd: '/other',
+        startedAt: Date.now(),
+      }))
+      lock.release!()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+    })
+
+    it('is a no-op when locking is disabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '1'
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+      lock.release!()
+    })
+
+    it('does not register a duplicate exit listener on release', () => {
+      const before = process.listenerCount('exit')
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(process.listenerCount('exit')).toBe(before + 1)
+      lock.release!()
+      expect(process.listenerCount('exit')).toBe(before)
+    })
+  })
+
+  describe('updateLock', () => {
+    it('overwrites our own lock with new metadata', () => {
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      const originalStart = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8')).startedAt
+
+      updateLock(tempDir, {
+        command: 'dev',
+        cwd: '/project',
+        port: 3000,
+        hostname: '127.0.0.1',
+        url: 'http://127.0.0.1:3000',
       })
-      cleanup()
-      cleanup() // should not throw
+
+      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      expect(written.port).toBe(3000)
+      expect(written.url).toBe('http://127.0.0.1:3000')
+      // Preserves startedAt from original acquisition.
+      expect(written.startedAt).toBe(originalStart)
+      lock.release!()
+    })
+
+    it('does not overwrite another process\'s lock', () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 1,
+        command: 'dev',
+        cwd: '/other',
+        startedAt: Date.now(),
+      }))
+
+      updateLock(tempDir, {
+        command: 'dev',
+        cwd: '/project',
+        port: 3000,
+      })
+
+      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      expect(written.pid).toBe(1)
+      expect(written.port).toBeUndefined()
+    })
+
+    it('is a no-op when locking is disabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '1'
+      updateLock(tempDir, { command: 'dev', cwd: '/project' })
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
     })
   })
 
@@ -129,11 +230,12 @@ describe('lockfile', () => {
       const message = formatLockError({
         pid: 12345,
         command: 'dev',
+        cwd: '/my/project',
         port: 3000,
         hostname: '127.0.0.1',
         url: 'http://127.0.0.1:3000',
         startedAt: Date.now(),
-      }, '/my/project')
+      })
 
       expect(message).toContain('dev server')
       expect(message).toContain('http://127.0.0.1:3000')
@@ -147,8 +249,9 @@ describe('lockfile', () => {
       const message = formatLockError({
         pid: 12345,
         command: 'build',
+        cwd: '/my/project',
         startedAt: Date.now(),
-      }, '/my/project')
+      })
 
       expect(message).toContain('build')
       expect(message).toContain('12345')

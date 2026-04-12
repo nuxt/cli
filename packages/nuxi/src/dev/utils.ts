@@ -25,7 +25,7 @@ import { joinURL } from 'ufo'
 import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { checkLock, formatLockError, writeLock } from '../utils/lockfile'
+import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
@@ -67,6 +67,7 @@ interface NuxtDevServerOptions {
 
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
+const TRAILING_SLASH_RE = /\/$/
 
 export class FileChangeTracker {
   private mtimes = new Map<string, number>()
@@ -196,13 +197,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#loadNuxtInstance()
 
-    // Check for an existing process using the lock file (agent-only)
+    // Acquire lock before binding a listener so parallel agent invocations
+    // fail fast without starting a second server (agent-only).
     const buildDir = this.#currentNuxt!.options.buildDir
-    const existing = checkLock(buildDir)
-    if (existing) {
-      console.error(formatLockError(existing, this.options.cwd))
-      process.exit(1)
+    const lock = acquireLock(buildDir, {
+      command: 'dev',
+      cwd: this.options.cwd,
+    })
+    if (lock.existing) {
+      console.error(formatLockError(lock.existing))
+      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
     }
+    this.#lockCleanup = lock.release
 
     if (this.options.showBanner) {
       showVersionsFromConfig(this.options.cwd, this.#currentNuxt!.options)
@@ -468,18 +474,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Emit ready with the server URL
-    const proto = this.listener.https ? 'https' : 'http'
-    const serverUrl = `${proto}://127.0.0.1:${addr.port}`
+    const serverUrl = getAddressURL(addr, !!this.listener.https).replace(TRAILING_SLASH_RE, '')
 
-    // Write lock file so other processes know a dev server is running (agent-only)
-    this.#lockCleanup?.()
-    this.#lockCleanup = await writeLock(this.#currentNuxt.options.buildDir, {
-      pid: process.pid,
+    // Update our existing lock with port/url info now that the listener is up.
+    // Overwrites in place (no release/reacquire window) on reload.
+    updateLock(this.#currentNuxt.options.buildDir, {
       command: 'dev',
+      cwd: this.options.cwd,
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
-      startedAt: Date.now(),
     })
 
     this.emit('ready', serverUrl)
