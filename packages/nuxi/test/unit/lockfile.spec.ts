@@ -68,21 +68,35 @@ describe('lockfile', () => {
     })
 
     it('returns existing lock when another live process holds it', async () => {
-      await mkdir(tempDir, { recursive: true })
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 1, // init/systemd, always alive
-        command: 'dev',
-        cwd: '/other',
-        startedAt: Date.now(),
-      }))
+      // Stub process.kill so liveness is deterministic across OSes (Windows
+      // PID 1 semantics differ).
+      const foreignPid = 424242
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
+        if (pid === foreignPid) {
+          return true as unknown as true
+        }
+        throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
+      })
+      try {
+        await mkdir(tempDir, { recursive: true })
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: foreignPid,
+          command: 'dev',
+          cwd: '/other',
+          startedAt: Date.now(),
+        }))
 
-      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
-      expect(lock.existing).toBeDefined()
-      expect(lock.existing!.pid).toBe(1)
-      expect(lock.existing!.cwd).toBe('/other')
-      expect(lock.release).toBeUndefined()
-      // File untouched.
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+        const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+        expect(lock.existing).toBeDefined()
+        expect(lock.existing!.pid).toBe(foreignPid)
+        expect(lock.existing!.cwd).toBe('/other')
+        expect(lock.release).toBeUndefined()
+        // File untouched.
+        expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
     })
 
     it('takes over a lock whose PID is dead', async () => {
@@ -102,18 +116,24 @@ describe('lockfile', () => {
     })
 
     it('takes over a lock older than the PID-recycling safety window', () => {
-      // 25h ago — older than MAX_LOCK_AGE_MS
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 1,
-        command: 'dev',
-        cwd: '/other',
-        startedAt: Date.now() - 25 * 60 * 60 * 1000,
-      }))
+      // Mock the PID as alive; age-based override should still kick in.
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+      try {
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: 424242,
+          command: 'dev',
+          cwd: '/other',
+          startedAt: Date.now() - 25 * 60 * 60 * 1000,
+        }))
 
-      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
-      expect(lock.existing).toBeUndefined()
-      expect(lock.release).toBeDefined()
-      lock.release!()
+        const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+        expect(lock.existing).toBeUndefined()
+        expect(lock.release).toBeDefined()
+        lock.release!()
+      }
+      finally {
+        killSpy.mockRestore()
+      }
     })
 
     it('takes over a lock owned by this process (re-entrancy)', () => {
