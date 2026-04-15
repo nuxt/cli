@@ -15,17 +15,27 @@ export async function getNuxtVersion(cwd: string, cache = true) {
   return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
 }
 
-export function getPkgVersion(cwd: string, pkg: string) {
-  const pkgJSON = getPkgJSON(cwd, pkg)
+export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string }) {
+  const pkgJSON = getPkgJSON(cwd, pkg, options)
   return pkgJSON?.version ?? ''
 }
 
-export function getPkgJSON(cwd: string, pkg: string) {
-  for (const url of [cwd, tryResolveNuxt(cwd)]) {
-    if (!url) {
-      continue
+export function getPkgJSON(cwd: string, pkg: string, options?: { via?: string }) {
+  const roots = [cwd, tryResolveNuxt(cwd)].filter((v): v is string => !!v)
+  const searchFrom = [...roots]
+
+  if (options?.via) {
+    for (const from of roots) {
+      const viaPath = resolveModulePath(options.via, { from, try: true })
+      if (viaPath) {
+        searchFrom.push(viaPath)
+        break
+      }
     }
-    const p = resolveModulePath(`${pkg}/package.json`, { from: url, try: true })
+  }
+
+  for (const from of searchFrom) {
+    const p = resolveModulePath(`${pkg}/package.json`, { from, try: true })
     if (p) {
       return JSON.parse(readFileSync(p, 'utf-8'))
     }
