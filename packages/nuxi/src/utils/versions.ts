@@ -22,7 +22,7 @@ export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string
 
 export function getPkgJSON(cwd: string, pkg: string, options?: { via?: string }) {
   const roots = [cwd, tryResolveNuxt(cwd)].filter((v): v is string => !!v)
-  const searchFrom = [...roots]
+  const searchFrom: string[] = []
 
   if (options?.via) {
     for (const from of roots) {
@@ -33,6 +33,8 @@ export function getPkgJSON(cwd: string, pkg: string, options?: { via?: string })
       }
     }
   }
+
+  searchFrom.push(...roots)
 
   for (const from of searchFrom) {
     const p = resolveModulePath(`${pkg}/package.json`, { from, try: true })
