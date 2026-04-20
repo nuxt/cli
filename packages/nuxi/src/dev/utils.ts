@@ -25,6 +25,7 @@ import { joinURL } from 'ufo'
 import { showVersionsFromConfig } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
@@ -66,6 +67,7 @@ interface NuxtDevServerOptions {
 
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
+const TRAILING_SLASH_RE = /\/$/
 
 export class FileChangeTracker {
   private mtimes = new Map<string, number>()
@@ -131,6 +133,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
   #websocketConnections = new Set<any>()
+  #lockCleanup?: () => void
+  #lockedBuildDir?: string
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -193,6 +197,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('loading', this.#loadingMessage)
 
     await this.#loadNuxtInstance()
+
+    // Acquire lock before binding a listener so parallel agent invocations
+    // fail fast without starting a second server (agent-only).
+    this.#acquireDevLock(this.#currentNuxt!.options.buildDir)
 
     if (this.options.showBanner) {
       showVersionsFromConfig(this.options.cwd, this.#currentNuxt!.options)
@@ -458,14 +466,53 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Emit ready with the server URL
-    const proto = this.listener.https ? 'https' : 'http'
-    this.emit('ready', `${proto}://127.0.0.1:${addr.port}`)
+    const serverUrl = getAddressURL(addr, !!this.listener.https).replace(TRAILING_SLASH_RE, '')
+
+    // Re-acquire if buildDir changed (nuxt.config edits can move it on reload);
+    // otherwise just overwrite port/url in place.
+    const currentBuildDir = this.#currentNuxt.options.buildDir
+    if (this.#lockedBuildDir !== currentBuildDir) {
+      this.#acquireDevLock(currentBuildDir)
+    }
+    updateLock(currentBuildDir, {
+      command: 'dev',
+      cwd: this.options.cwd,
+      port: addr.port,
+      hostname: addr.address,
+      url: serverUrl,
+    })
+
+    this.emit('ready', serverUrl)
   }
 
   async close(): Promise<void> {
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
+  }
+
+  /** Release the lock file. Call only on final shutdown, not during reloads. */
+  releaseLock(): void {
+    this.#lockCleanup?.()
+    this.#lockCleanup = undefined
+    this.#lockedBuildDir = undefined
+  }
+
+  #acquireDevLock(buildDir: string): void {
+    const lock = acquireLock(buildDir, {
+      command: 'dev',
+      cwd: this.options.cwd,
+    })
+    if (lock.existing) {
+      console.error(formatLockError(lock.existing))
+      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+    }
+    // Swap atomically: install the new release before freeing the old one so
+    // we're never unlocked in between.
+    const previousRelease = this.#lockCleanup
+    this.#lockCleanup = lock.release
+    this.#lockedBuildDir = buildDir
+    previousRelease?.()
   }
 
   #closeWebSocketConnections(): void {

@@ -9,6 +9,7 @@ import { showVersions } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { acquireLock, formatLockError } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
@@ -46,6 +47,7 @@ export default defineCommand({
       await startCpuProfile()
     }
 
+    let releaseLock: (() => void) | undefined
     try {
       intro(colors.cyan('Building Nuxt for production...'))
 
@@ -78,6 +80,16 @@ export default defineCommand({
           }),
         },
       })
+
+      const lock = acquireLock(nuxt.options.buildDir, {
+        command: 'build',
+        cwd,
+      })
+      if (lock.existing) {
+        logger.error(formatLockError(lock.existing))
+        throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+      }
+      releaseLock = lock.release
 
       let nitro: ReturnType<typeof kit.useNitro> | undefined
       // In Bridge, if Nitro is not enabled, useNitro will throw an error
@@ -121,6 +133,7 @@ export default defineCommand({
       }
     }
     finally {
+      releaseLock?.()
       if (profileArg) {
         await stopCpuProfile(cwd, 'build')
       }
