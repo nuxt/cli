@@ -6,6 +6,7 @@ import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 
 import { runCommand } from '@nuxt/cli'
+import { getPort } from 'get-port-please'
 import { x } from 'tinyexec'
 import { bench, describe } from 'vitest'
 
@@ -14,7 +15,7 @@ interface RunResult {
 }
 
 const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
-const nuxiBin = fileURLToPath(new URL('../../../../packages/nuxi/bin/nuxi.mjs', import.meta.url))
+const nuxiBin = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 describe(`dev [${os.platform()}]`, () => {
   bench(`starts dev server with --no-fork`, async () => {
@@ -48,7 +49,7 @@ describe(`dev [${os.platform()}]`, () => {
   })
 
   bench('starts dev server (child process, full startup)', async () => {
-    const port = 40000 + Math.floor(Math.random() * 10000)
+    const port = await getPort({ random: true })
     const proc = x('node', [nuxiBin, 'dev', fixtureDir, '--no-fork', `--port=${port}`], {
       nodeOptions: {
         stdio: 'pipe',
@@ -82,6 +83,7 @@ describe(`dev [${os.platform()}]`, () => {
     })
 
     proc.kill()
+    await proc
   }, {
     warmupIterations: 0,
     iterations: 3,
