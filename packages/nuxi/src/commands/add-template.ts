@@ -1,3 +1,5 @@
+import type { TemplateName } from '../utils/templates/names'
+
 import { existsSync, promises as fsp } from 'node:fs'
 import process from 'node:process'
 
@@ -43,7 +45,7 @@ export default defineCommand({
 
     intro(colors.cyan('Adding template...'))
 
-    const templateName = ctx.args.template as typeof templateNames[number]
+    const templateName = ctx.args.template as TemplateName
 
     // Validate template name
     if (!templateNames.includes(templateName)) {
