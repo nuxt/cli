@@ -1,4 +1,6 @@
 import type { CommandDef } from 'citty'
+import type { TemplateName } from '../../nuxi/src/utils/templates/names'
+
 import { resolve } from 'node:path'
 import process from 'node:process'
 
@@ -11,7 +13,7 @@ import { cwdArgs } from '../../nuxi/src/commands/_shared'
 import { setupGlobalConsole } from '../../nuxi/src/utils/console'
 import { checkEngines } from '../../nuxi/src/utils/engines'
 import { logger } from '../../nuxi/src/utils/logger'
-import { templateNames } from '../../nuxi/src/utils/templates'
+import { templateNames } from '../../nuxi/src/utils/templates/names'
 
 import { description, name, version } from '../package.json'
 import { runCommand } from './run'
@@ -47,7 +49,7 @@ const _main = defineCommand({
       await backgroundTasks
     }
 
-    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1])) {
+    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
       logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
       logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
       await runCommand('add-template', [...ctx.rawArgs.slice(1)]).catch((err) => {

@@ -1,3 +1,5 @@
+import type { TemplateName } from '../utils/templates/names'
+
 import { existsSync, promises as fsp } from 'node:fs'
 import process from 'node:process'
 
@@ -9,7 +11,8 @@ import { dirname, extname, resolve } from 'pathe'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { templateNames, templates } from '../utils/templates/index'
+import { templates } from '../utils/templates/index'
+import { templateNames } from '../utils/templates/names'
 import { cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
@@ -42,7 +45,7 @@ export default defineCommand({
 
     intro(colors.cyan('Adding template...'))
 
-    const templateName = ctx.args.template
+    const templateName = ctx.args.template as TemplateName
 
     // Validate template name
     if (!templateNames.includes(templateName)) {
