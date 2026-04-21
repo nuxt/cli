@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
+import { cancel, confirm, isCancel, once, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
@@ -80,6 +80,7 @@ export default defineCommand({
       logger.warn(`No ${colors.cyan('nuxt')} dependency detected in ${colors.cyan(relativeToProcess(cwd))}.`)
 
       const shouldContinue = await confirm({
+        id: 'module-add:continue-without-nuxt',
         message: `Do you want to continue anyway?`,
         initialValue: false,
       })
@@ -106,6 +107,7 @@ export default defineCommand({
       modulesSpinner.stop('Modules loaded')
 
       const result = await selectModulesAutocomplete({
+        id: 'module-add:modules-select',
         modules: compatibleModules,
         message: 'Search modules to add (Esc to finish):',
       })
@@ -181,32 +183,34 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
       const packageManager = await detectPackageManager(cwd)
 
-      const res = await addDependency(notInstalledModules.map(module => module.pkg), {
-        cwd,
-        dev: isDev,
-        installPeerDependencies: true,
-        packageManager,
-        workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
-      }).then(() => true).catch(
-        async (error) => {
-          logger.error(String(error))
-
-          const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
-          const s = notInstalledModules.length > 1 ? 's' : ''
-          const result = await confirm({
-            message: `Install failed for ${failedModulesList}. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`,
-            initialValue: false,
+      let shouldContinueAfterInstall = true
+      try {
+        await once('module-add:install', async () => {
+          await addDependency(notInstalledModules.map(module => module.pkg), {
+            cwd,
+            dev: isDev,
+            installPeerDependencies: true,
+            packageManager,
+            workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
           })
+          return null
+        })
+      }
+      catch (error) {
+        logger.error(String(error))
 
-          if (isCancel(result)) {
-            return false
-          }
+        const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
+        const s = notInstalledModules.length > 1 ? 's' : ''
+        const result = await confirm({
+          id: 'module-add:continue-after-install-failure',
+          message: `Install failed for ${failedModulesList}. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`,
+          initialValue: false,
+        })
 
-          return result
-        },
-      )
+        shouldContinueAfterInstall = !isCancel(result) && result === true
+      }
 
-      if (res !== true) {
+      if (!shouldContinueAfterInstall) {
         return
       }
     }
@@ -214,35 +218,36 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
   // Update nuxt.config.ts
   if (!skipConfig) {
-    await updateConfig({
-      cwd,
-      configFile: 'nuxt.config',
-      async onCreate() {
-        logger.info(`Creating ${colors.cyan('nuxt.config.ts')}`)
+    await once('module-add:update-config', async () => {
+      await updateConfig({
+        cwd,
+        configFile: 'nuxt.config',
+        async onCreate() {
+          logger.info(`Creating ${colors.cyan('nuxt.config.ts')}`)
 
-        return getDefaultNuxtConfig()
-      },
-      async onUpdate(config) {
-        if (!config.modules) {
-          config.modules = []
-        }
-
-        for (const resolved of modules) {
-          if (config.modules.includes(resolved.pkgName)) {
-            logger.info(`${colors.cyan(resolved.pkgName)} is already in the ${colors.cyan('modules')}`)
-
-            continue
+          return getDefaultNuxtConfig()
+        },
+        async onUpdate(config) {
+          if (!config.modules) {
+            config.modules = []
           }
 
-          logger.info(`Adding ${colors.cyan(resolved.pkgName)} to the ${colors.cyan('modules')}`)
+          for (const resolved of modules) {
+            if (config.modules.includes(resolved.pkgName)) {
+              logger.info(`${colors.cyan(resolved.pkgName)} is already in the ${colors.cyan('modules')}`)
 
-          config.modules.push(resolved.pkgName)
-        }
-      },
-    }).catch((error) => {
-      logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
-      logger.error(`Please manually add ${colors.cyan(modules.map(module => module.pkgName).join(', '))} to the ${colors.cyan('modules')} in ${colors.cyan('nuxt.config.ts')}`)
+              continue
+            }
 
+            logger.info(`Adding ${colors.cyan(resolved.pkgName)} to the ${colors.cyan('modules')}`)
+
+            config.modules.push(resolved.pkgName)
+          }
+        },
+      }).catch((error) => {
+        logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
+        logger.error(`Please manually add ${colors.cyan(modules.map(module => module.pkgName).join(', '))} to the ${colors.cyan('modules')} in ${colors.cyan('nuxt.config.ts')}`)
+      })
       return null
     })
   }
@@ -303,6 +308,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
         `The module ${colors.cyan(pkgName)} is not compatible with Nuxt ${colors.cyan(nuxtVersion)} (requires ${colors.cyan(matchedModule.compatibility.nuxt)})`,
       )
       const shouldContinue = await confirm({
+        id: 'module-add:continue-incompatible',
         message: 'Do you want to continue installing incompatible version?',
         initialValue: false,
       })
@@ -324,6 +330,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
               `Recommended version of ${colors.cyan(pkgName)} for Nuxt ${colors.cyan(nuxtVersion)} is ${colors.cyan(_moduleVersion)} but you have requested ${colors.cyan(pkgVersion)}.`,
             )
             const result = await select({
+              id: 'module-add:choose-version',
               message: 'Choose a version:',
               options: [
                 { value: _moduleVersion, label: _moduleVersion },
@@ -379,6 +386,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   ) {
     logger.warn(`It seems that ${colors.cyan(pkgName)} is not a Nuxt module.`)
     const shouldContinue = await confirm({
+      id: 'module-add:continue-non-nuxt',
       message: `Do you want to continue installing ${colors.cyan(pkgName)} anyway?`,
       initialValue: false,
     })

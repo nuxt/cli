@@ -31,6 +31,7 @@
         "@types/debug",
         "@bomb.sh/tab",
         "@clack/prompts",
+        "@posva/clack-prompts",
         "c12",
         "confbox",
         "debug",
