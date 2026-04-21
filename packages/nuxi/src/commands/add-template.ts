@@ -43,7 +43,7 @@ export default defineCommand({
 
     intro(colors.cyan('Adding template...'))
 
-    const templateName = ctx.args.template
+    const templateName = ctx.args.template as typeof templateNames[number]
 
     // Validate template name
     if (!templateNames.includes(templateName)) {
