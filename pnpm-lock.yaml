@@ -12,6 +12,7 @@ overrides:
   eslint-plugin-jsdoc: 62.9.0
   eslint-plugin-unicorn: 64.0.0
   h3: ^1.15.6
+  crossws: 0.4.4
   nitropack: latest
   nuxi: workspace:*
 
@@ -33,7 +34,7 @@ importers:
         version: 4.4.2(@babel/core@7.29.0)(db0@0.3.4)(ioredis@5.10.1)(magicast@0.5.2)(nuxt@4.4.2(@babel/core@7.29.0)(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(@parcel/watcher@2.5.6)(@types/node@24.12.2)(@vue/compiler-sfc@3.5.32)(db0@0.3.4)(eslint@10.2.1(jiti@2.6.1))(ioredis@5.10.1)(magicast@0.5.2)(optionator@0.9.4)(rolldown@1.0.0-rc.16)(rollup-plugin-visualizer@7.0.1(rolldown@1.0.0-rc.16)(rollup@4.60.2))(rollup@4.60.2)(srvx@0.11.15)(terser@5.46.1)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(yaml@2.8.3))(rolldown@1.0.0-rc.16)(srvx@0.11.15)(typescript@6.0.3)
       '@nuxt/test-utils':
         specifier: ^4.0.0
-        version: 4.0.2(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
+        version: 4.0.2(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
       '@types/node':
         specifier: ^24.12.0
         version: 24.12.2
@@ -133,7 +134,7 @@ importers:
         version: 4.4.2
       '@nuxt/test-utils':
         specifier: ^4.0.0
-        version: 4.0.2(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
+        version: 4.0.2(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
       '@types/debug':
         specifier: ^4.1.13
         version: 4.1.13
@@ -175,10 +176,10 @@ importers:
         version: 3.2.0
       h3:
         specifier: ^1.15.6
-        version: 1.15.11
+        version: 1.15.11(srvx@0.11.15)
       h3-next:
         specifier: npm:h3@^2.0.1-rc.18
-        version: h3@2.0.1-rc.20(crossws@0.4.5(srvx@0.11.15))
+        version: h3@2.0.1-rc.20(crossws@0.4.4(srvx@0.11.15))
       jiti:
         specifier: ^2.6.1
         version: 2.6.1
@@ -359,10 +360,10 @@ importers:
         version: 3.2.0
       h3:
         specifier: ^1.15.6
-        version: 1.15.11
+        version: 1.15.11(srvx@0.11.15)
       h3-next:
         specifier: npm:h3@^2.0.1-rc.18
-        version: h3@2.0.1-rc.20(crossws@0.4.5(srvx@0.11.15))
+        version: h3@2.0.1-rc.20(crossws@0.4.4(srvx@0.11.15))
       nitro:
         specifier: ^3.0.1-alpha.2
         version: 3.0.1-alpha.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(chokidar@5.0.0)(ioredis@5.10.1)(lru-cache@11.3.5)(rolldown@1.0.0-rc.16)(rollup@4.60.2)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))
@@ -408,7 +409,7 @@ importers:
     devDependencies:
       '@nuxt/test-utils':
         specifier: ^4.0.0
-        version: 4.0.2(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
+        version: 4.0.2(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
 
 packages:
 
@@ -3290,13 +3291,10 @@ packages:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
 
-  crossws@0.3.5:
-    resolution: {integrity: sha512-ojKiDvcmByhwa8YYqbQI/hg7MEU0NC03+pSdEq4ZUnZR9xXpwk7E43SMNGkn+JxJGPFtNvQ48+vV2p+P1ml5PA==}
-
-  crossws@0.4.5:
-    resolution: {integrity: sha512-wUR89x/Rw7/8t+vn0CmGDYM9TD6VtARGb0LD5jq2wjtMy1vCP4M+sm6N6TigWeTYvnA8MoW29NqqXD0ep0rfBA==}
+  crossws@0.4.4:
+    resolution: {integrity: sha512-w6c4OdpRNnudVmcgr7brb/+/HmYjMQvYToO/oTrprTwxRUiom3LYWU1PMWuD006okbUWpII1Ea9/+kwpUfmyRg==}
     peerDependencies:
-      srvx: '>=0.11.5'
+      srvx: '>=0.7.1'
     peerDependenciesMeta:
       srvx:
         optional: true
@@ -4055,7 +4053,7 @@ packages:
     engines: {node: '>=20.11.1'}
     hasBin: true
     peerDependencies:
-      crossws: ^0.4.1
+      crossws: 0.4.4
     peerDependenciesMeta:
       crossws:
         optional: true
@@ -6999,7 +6997,7 @@ snapshots:
       errx: 0.1.0
       escape-string-regexp: 5.0.0
       exsolve: 1.0.8
-      h3: 1.15.11
+      h3: 1.15.11(srvx@0.11.15)
       impound: 1.1.5
       klona: 2.0.6
       mocked-exports: 0.1.1
@@ -7013,7 +7011,7 @@ snapshots:
       std-env: 4.1.0
       ufo: 1.6.3
       unctx: 2.5.0
-      unstorage: 1.17.5(db0@0.3.4)(ioredis@5.10.1)
+      unstorage: 1.17.5(db0@0.3.4)(ioredis@5.10.1)(srvx@0.11.15)
       vue: 3.5.32(typescript@6.0.3)
       vue-bundle-renderer: 2.2.0
       vue-devtools-stub: 0.1.0
@@ -7072,7 +7070,7 @@ snapshots:
       rc9: 3.0.1
       std-env: 4.1.0
 
-  '@nuxt/test-utils@4.0.2(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)':
+  '@nuxt/test-utils@4.0.2(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)':
     dependencies:
       '@clack/prompts': 1.2.0
       '@nuxt/devtools-kit': 2.7.0(magicast@0.5.2)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))
@@ -7085,8 +7083,8 @@ snapshots:
       exsolve: 1.0.8
       fake-indexeddb: 6.2.5
       get-port-please: 3.2.0
-      h3: 1.15.11
-      h3-next: h3@2.0.1-rc.20(crossws@0.4.5(srvx@0.11.15))
+      h3: 1.15.11(srvx@0.11.15)
+      h3-next: h3@2.0.1-rc.20(crossws@0.4.4(srvx@0.11.15))
       local-pkg: 1.1.2
       magic-string: 0.30.21
       node-fetch-native: 1.6.7
@@ -7101,13 +7099,14 @@ snapshots:
       tinyexec: 1.1.1
       ufo: 1.6.3
       unplugin: 3.0.0
-      vitest-environment-nuxt: 2.0.0(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
+      vitest-environment-nuxt: 2.0.0(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
       vue: 3.5.32(typescript@6.0.3)
     optionalDependencies:
       vitest: 4.1.4(@types/node@24.12.2)(@vitest/coverage-v8@4.1.4)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))
     transitivePeerDependencies:
       - crossws
       - magicast
+      - srvx
       - typescript
       - vite
 
@@ -8812,15 +8811,11 @@ snapshots:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  crossws@0.3.5:
-    dependencies:
-      uncrypto: 0.1.3
-
-  crossws@0.4.5(srvx@0.10.1):
+  crossws@0.4.4(srvx@0.10.1):
     optionalDependencies:
       srvx: 0.10.1
 
-  crossws@0.4.5(srvx@0.11.15):
+  crossws@0.4.4(srvx@0.11.15):
     optionalDependencies:
       srvx: 0.11.15
 
@@ -9618,10 +9613,10 @@ snapshots:
     dependencies:
       duplexer: 0.1.2
 
-  h3@1.15.11:
+  h3@1.15.11(srvx@0.10.1):
     dependencies:
       cookie-es: 1.2.3
-      crossws: 0.3.5
+      crossws: 0.4.4(srvx@0.10.1)
       defu: 6.1.7
       destr: 2.0.5
       iron-webcrypto: 1.2.1
@@ -9629,13 +9624,29 @@ snapshots:
       radix3: 1.1.2
       ufo: 1.6.3
       uncrypto: 0.1.3
+    transitivePeerDependencies:
+      - srvx
 
-  h3@2.0.1-rc.20(crossws@0.4.5(srvx@0.11.15)):
+  h3@1.15.11(srvx@0.11.15):
+    dependencies:
+      cookie-es: 1.2.3
+      crossws: 0.4.4(srvx@0.11.15)
+      defu: 6.1.7
+      destr: 2.0.5
+      iron-webcrypto: 1.2.1
+      node-mock-http: 1.0.4
+      radix3: 1.1.2
+      ufo: 1.6.3
+      uncrypto: 0.1.3
+    transitivePeerDependencies:
+      - srvx
+
+  h3@2.0.1-rc.20(crossws@0.4.4(srvx@0.11.15)):
     dependencies:
       rou3: 0.8.1
       srvx: 0.11.15
     optionalDependencies:
-      crossws: 0.4.5(srvx@0.11.15)
+      crossws: 0.4.4(srvx@0.11.15)
 
   has-flag@4.0.0: {}
 
@@ -9875,10 +9886,10 @@ snapshots:
       '@parcel/watcher-wasm': 2.5.6
       citty: 0.2.2
       consola: 3.4.2
-      crossws: 0.4.5(srvx@0.11.15)
+      crossws: 0.4.4(srvx@0.11.15)
       defu: 6.1.7
       get-port-please: 3.2.0
-      h3: 1.15.11
+      h3: 1.15.11(srvx@0.11.15)
       http-shutdown: 1.2.2
       jiti: 2.6.1
       mlly: 1.8.2
@@ -10354,9 +10365,9 @@ snapshots:
   nitro@3.0.1-alpha.2(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)(chokidar@5.0.0)(ioredis@5.10.1)(lru-cache@11.3.5)(rolldown@1.0.0-rc.16)(rollup@4.60.2)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3)):
     dependencies:
       consola: 3.4.2
-      crossws: 0.4.5(srvx@0.10.1)
+      crossws: 0.4.4(srvx@0.10.1)
       db0: 0.3.4
-      h3: 1.15.11
+      h3: 1.15.11(srvx@0.10.1)
       jiti: 2.6.1
       nf3: 0.3.16
       ofetch: 2.0.0-alpha.3
@@ -10422,7 +10433,7 @@ snapshots:
       consola: 3.4.2
       cookie-es: 2.0.1
       croner: 10.0.1
-      crossws: 0.3.5
+      crossws: 0.4.4(srvx@0.11.15)
       db0: 0.3.4
       defu: 6.1.7
       destr: 2.0.5
@@ -10433,7 +10444,7 @@ snapshots:
       exsolve: 1.0.8
       globby: 16.2.0
       gzip-size: 7.0.0
-      h3: 1.15.11
+      h3: 1.15.11(srvx@0.11.15)
       hookable: 5.5.3
       httpxy: 0.5.0
       ioredis: 5.10.1
@@ -10469,7 +10480,7 @@ snapshots:
       unenv: 2.0.0-rc.24
       unimport: 6.1.0
       unplugin-utils: 0.3.1
-      unstorage: 1.17.5(db0@0.3.4)(ioredis@5.10.1)
+      unstorage: 1.17.5(db0@0.3.4)(ioredis@5.10.1)(srvx@0.11.15)
       untyped: 2.0.0
       unwasm: 0.5.3
       youch: 4.1.1
@@ -11925,12 +11936,12 @@ snapshots:
     optionalDependencies:
       synckit: 0.11.12
 
-  unstorage@1.17.5(db0@0.3.4)(ioredis@5.10.1):
+  unstorage@1.17.5(db0@0.3.4)(ioredis@5.10.1)(srvx@0.11.15):
     dependencies:
       anymatch: 3.1.3
       chokidar: 5.0.0
       destr: 2.0.5
-      h3: 1.15.11
+      h3: 1.15.11(srvx@0.11.15)
       lru-cache: 11.3.5
       node-fetch-native: 1.6.7
       ofetch: 1.5.1
@@ -11938,6 +11949,8 @@ snapshots:
     optionalDependencies:
       db0: 0.3.4
       ioredis: 5.10.1
+    transitivePeerDependencies:
+      - srvx
 
   unstorage@2.0.0-alpha.7(chokidar@5.0.0)(db0@0.3.4)(ioredis@5.10.1)(lru-cache@11.3.5)(ofetch@2.0.0-alpha.3):
     optionalDependencies:
@@ -12076,9 +12089,9 @@ snapshots:
       terser: 5.46.1
       yaml: 2.8.3
 
-  vitest-environment-nuxt@2.0.0(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4):
+  vitest-environment-nuxt@2.0.0(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4):
     dependencies:
-      '@nuxt/test-utils': 4.0.2(crossws@0.4.5(srvx@0.11.15))(magicast@0.5.2)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
+      '@nuxt/test-utils': 4.0.2(crossws@0.4.4(srvx@0.11.15))(magicast@0.5.2)(srvx@0.11.15)(typescript@6.0.3)(vite@7.3.2(@types/node@24.12.2)(jiti@2.6.1)(terser@5.46.1)(yaml@2.8.3))(vitest@4.1.4)
     transitivePeerDependencies:
       - '@cucumber/cucumber'
       - '@jest/globals'
@@ -12091,6 +12104,7 @@ snapshots:
       - jsdom
       - magicast
       - playwright-core
+      - srvx
       - typescript
       - vite
       - vitest
