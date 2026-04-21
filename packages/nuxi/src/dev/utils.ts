@@ -458,7 +458,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.loadDebounced(true, '.nuxt/dist directory has been removed')
     })
 
-    if ('fetch' in this.#currentNuxt.server) {
+    if ('handler' in this.#currentNuxt.server) {
+      this.#handler = this.#currentNuxt.server.handler as RequestListener
+    }
+    else if ('fetch' in this.#currentNuxt.server) {
       this.#handler = toNodeHandler(this.#currentNuxt.server.fetch) as RequestListener
     }
     else {
