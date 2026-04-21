@@ -1,4 +1,4 @@
-import type { NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
+import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 
 import { colors } from 'consola/utils'
 
@@ -23,13 +23,15 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
   }
 }
 
-export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
+export function showBanner(nuxt: Nuxt) {
   const { bold, gray, green } = colors
+  const cwd = nuxt.options.rootDir
 
-  const nuxtVersion = getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || getPkgVersion(cwd, 'nuxt3') || getPkgVersion(cwd, 'nuxt-edge')
+  const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || getPkgVersion(cwd, 'nuxt3') || getPkgVersion(cwd, 'nuxt-edge')
+
   const nitroVia = { via: ['nuxt', '@nuxt/nitro-server'] }
   const nitroVersion = getPkgVersion(cwd, 'nitropack', nitroVia) || getPkgVersion(cwd, 'nitro', nitroVia) || getPkgVersion(cwd, 'nitropack-nightly') || getPkgVersion(cwd, 'nitropack-edge')
-  const builder = getBuilder(cwd, config.builder)
+  const builder = getBuilder(cwd, nuxt.options.builder)
   const vueVersion = getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null
 
   logger.info(
@@ -40,13 +42,4 @@ export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
     + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
     + gray(')'),
   )
-}
-
-export async function showVersions(cwd: string, kit: typeof import('@nuxt/kit'), dotenv?: string) {
-  const config = await kit.loadNuxtConfig({
-    cwd,
-    dotenv: dotenv ? { cwd, fileName: dotenv } : undefined,
-  })
-
-  return showVersionsFromConfig(cwd, config)
 }
