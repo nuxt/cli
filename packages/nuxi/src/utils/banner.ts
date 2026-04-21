@@ -17,8 +17,8 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
     case '@nuxt/vite-builder':
     default: {
       const pkgJSON = getPkgJSON(cwd, 'vite', { via: ['nuxt', '@nuxt/vite-builder'] })
-      const isRolldown = pkgJSON?.name?.includes('rolldown')
-      return { name: isRolldown ? 'Rolldown-Vite' : 'Vite', version: pkgJSON?.version || 'unknown' }
+      const isRolldown = pkgJSON.name.includes('rolldown')
+      return { name: isRolldown ? 'Rolldown-Vite' : 'Vite', version: pkgJSON.version || 'unknown' }
     }
   }
 }
