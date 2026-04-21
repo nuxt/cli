@@ -5,7 +5,7 @@ import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
+import { batch, box, cancel, confirm, intro, isCancel, once, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
@@ -142,6 +142,7 @@ export default defineCommand({
     let templateName = ctx.args.template
     if (!templateName) {
       const result = await select({
+        id: 'init:template',
         message: 'Which template would you like to use?',
         options: Object.entries(availableTemplates).map(([name, data]) => {
           return {
@@ -173,6 +174,7 @@ export default defineCommand({
     if (dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
       const result = await text({
+        id: 'init:dir',
         message: 'Where would you like to create your project?',
         placeholder: `./${defaultDir}`,
         defaultValue: defaultDir,
@@ -193,10 +195,12 @@ export default defineCommand({
     let shouldForce = Boolean(ctx.args.force)
 
     // Prompt the user if the template download directory already exists
-    // when no `--force` flag is provided
-    const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
+    // when no `--force` flag is provided. Cache the existence check so agent
+    // replays don't see the directory created by a previous iteration.
+    const shouldVerify = !shouldForce && await once('init:target-dir-exists', () => existsSync(templateDownloadPath))
     if (shouldVerify) {
       const selectedAction = await select({
+        id: 'init:dir-exists-action',
         message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
           { value: 'override', label: 'Override its contents' },
@@ -217,6 +221,7 @@ export default defineCommand({
 
         case 'different': {
           const result = await text({
+            id: 'init:different-dir',
             message: 'Please specify a different directory:',
           })
 
@@ -237,44 +242,46 @@ export default defineCommand({
     }
 
     // Download template
-    let template: DownloadTemplateResult
-
-    const downloadSpinner = spinner()
-    downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
+    let template: Pick<DownloadTemplateResult, 'name' | 'dir'>
 
     try {
-      template = await downloadTemplate(templateName, {
-        dir: templateDownloadPath,
-        force: shouldForce,
-        offline: Boolean(ctx.args.offline),
-        preferOffline: Boolean(ctx.args.preferOffline),
-        registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
-      })
+      template = await once('init:download-template', async () => {
+        const downloadSpinner = spinner()
+        downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
 
-      if (dir.length > 0) {
-        const path = await findFile('package.json', {
-          startingFrom: join(templateDownloadPath, 'package.json'),
-          reverse: true,
+        const downloaded = await downloadTemplate(templateName, {
+          dir: templateDownloadPath,
+          force: shouldForce,
+          offline: Boolean(ctx.args.offline),
+          preferOffline: Boolean(ctx.args.preferOffline),
+          registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
         })
-        if (path) {
-          const pkg = await readPackageJSON(path, { try: true })
-          if (pkg && pkg.name) {
-            const slug = basename(templateDownloadPath)
-              .replace(NON_WORD_RE, '-')
-              .replace(MULTI_DASH_RE, '-')
-              .replace(LEADING_TRAILING_DASH_RE, '')
-            if (slug) {
-              pkg.name = slug
-              await writePackageJSON(path, pkg)
+
+        if (dir.length > 0) {
+          const path = await findFile('package.json', {
+            startingFrom: join(templateDownloadPath, 'package.json'),
+            reverse: true,
+          })
+          if (path) {
+            const pkg = await readPackageJSON(path, { try: true })
+            if (pkg && pkg.name) {
+              const slug = basename(templateDownloadPath)
+                .replace(NON_WORD_RE, '-')
+                .replace(MULTI_DASH_RE, '-')
+                .replace(LEADING_TRAILING_DASH_RE, '')
+              if (slug) {
+                pkg.name = slug
+                await writePackageJSON(path, pkg)
+              }
             }
           }
         }
-      }
 
-      downloadSpinner.stop(`Downloaded ${colors.cyan(template.name)} template`)
+        downloadSpinner.stop(`Downloaded ${colors.cyan(downloaded.name)} template`)
+        return { name: downloaded.name, dir: downloaded.dir }
+      })
     }
     catch (err) {
-      downloadSpinner.error('Template download failed')
       if (process.env.DEBUG) {
         throw err
       }
@@ -283,40 +290,43 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
-      const nightlySpinner = spinner()
-      nightlySpinner.start('Fetching nightly version info')
+      await once('init:set-nightly', async () => {
+        const nightlySpinner = spinner()
+        nightlySpinner.start('Fetching nightly version info')
 
-      const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
-      const nightlyChannelTag = ctx.args.nightly || 'latest'
+        const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
+        const nightlyChannelTag = ctx.args.nightly || 'latest'
 
-      if (!nightlyChannelTag) {
-        nightlySpinner.error('Failed to get nightly channel tag')
-        logger.error(`Error getting nightly channel tag.`)
-        process.exit(1)
-      }
+        if (!nightlyChannelTag) {
+          nightlySpinner.error('Failed to get nightly channel tag')
+          logger.error(`Error getting nightly channel tag.`)
+          process.exit(1)
+        }
 
-      const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
+        const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
-      if (!nightlyChannelVersion) {
-        nightlySpinner.error('Nightly version not found')
-        logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
-        process.exit(1)
-      }
+        if (!nightlyChannelVersion) {
+          nightlySpinner.error('Nightly version not found')
+          logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
+          process.exit(1)
+        }
 
-      const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
-      const packageJsonPath = resolve(cwd, dir)
+        const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
+        const packageJsonPath = resolve(cwd, dir)
 
-      const packageJson = await readPackageJSON(packageJsonPath)
+        const packageJson = await readPackageJSON(packageJsonPath)
 
-      if (packageJson.dependencies && 'nuxt' in packageJson.dependencies) {
-        packageJson.dependencies.nuxt = nightlyNuxtPackageJsonVersion
-      }
-      else if (packageJson.devDependencies && 'nuxt' in packageJson.devDependencies) {
-        packageJson.devDependencies.nuxt = nightlyNuxtPackageJsonVersion
-      }
+        if (packageJson.dependencies && 'nuxt' in packageJson.dependencies) {
+          packageJson.dependencies.nuxt = nightlyNuxtPackageJsonVersion
+        }
+        else if (packageJson.devDependencies && 'nuxt' in packageJson.devDependencies) {
+          packageJson.devDependencies.nuxt = nightlyNuxtPackageJsonVersion
+        }
 
-      await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
-      nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
+        await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
+        nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
+        return nightlyChannelVersion
+      })
     }
 
     const currentPackageManager = detectCurrentPackageManager()
@@ -328,12 +338,37 @@ export default defineCommand({
       hint: currentPackageManager === pm ? 'current' : undefined,
     }))
 
-    let selectedPackageManager: PackageManagerName
-    if (packageManagerOptions.includes(packageManagerArg)) {
-      selectedPackageManager = packageManagerArg
+    let selectedPackageManager: PackageManagerName | undefined = packageManagerOptions.includes(packageManagerArg)
+      ? packageManagerArg
+      : undefined
+    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
+
+    // Batch the two independent prompts when both are missing so agents answer them in one round-trip
+    if (selectedPackageManager === undefined && gitInit === undefined) {
+      const answers = await batch({
+        packageManager: batch.select<PackageManagerName>({
+          id: 'init:package-manager',
+          message: 'Which package manager would you like to use?',
+          options: packageManagerSelectOptions,
+          initialValue: currentPackageManager,
+        }),
+        gitInit: batch.confirm({
+          id: 'init:git-init',
+          message: 'Initialize git repository?',
+        }),
+      })
+
+      if (isCancel(answers.packageManager) || isCancel(answers.gitInit)) {
+        cancel('Operation cancelled.')
+        process.exit(1)
+      }
+
+      selectedPackageManager = answers.packageManager as PackageManagerName
+      gitInit = answers.gitInit as boolean
     }
-    else {
+    else if (selectedPackageManager === undefined) {
       const result = await select({
+        id: 'init:package-manager',
         message: 'Which package manager would you like to use?',
         options: packageManagerSelectOptions,
         initialValue: currentPackageManager,
@@ -346,11 +381,9 @@ export default defineCommand({
 
       selectedPackageManager = result
     }
-
-    // Determine if we should init git
-    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
-    if (gitInit === undefined) {
+    else if (gitInit === undefined) {
       const result = await confirm({
+        id: 'init:git-init',
         message: 'Initialize git repository?',
       })
 
@@ -407,7 +440,10 @@ export default defineCommand({
       }
 
       try {
-        await tasks(setupTasks)
+        await once('init:setup-tasks', async () => {
+          await tasks(setupTasks)
+          return null
+        })
       }
       catch (err) {
         if (process.env.DEBUG) {
@@ -435,6 +471,7 @@ export default defineCommand({
     else if (!ctx.args.offline && !ctx.args.preferOffline) {
       const modulesPromise = fetchModules()
       const wantsUserModules = await confirm({
+        id: 'init:browse-modules',
         message: `Would you like to browse and install modules?`,
         initialValue: false,
       })
@@ -467,7 +504,7 @@ export default defineCommand({
           logger.info('All modules are already included in this template.')
         }
         else {
-          const result = await selectModulesAutocomplete({ modules: allModules })
+          const result = await selectModulesAutocomplete({ id: 'init:modules-select', modules: allModules })
 
           if (result.selected.length > 0) {
             const modules = result.selected
@@ -498,7 +535,10 @@ export default defineCommand({
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
 
-      await runCommand(addModuleCommand, args)
+      await once('init:add-modules', async () => {
+        await runCommand(addModuleCommand, args)
+        return null
+      })
     }
 
     outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)

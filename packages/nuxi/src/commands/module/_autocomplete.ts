@@ -1,7 +1,7 @@
 import type { Option } from '@clack/prompts'
 import type { NuxtModule } from './_utils'
 
-import { autocompleteMultiselect, isCancel } from '@clack/prompts'
+import { autocompleteMultiselect, isAgent, isCancel } from '@clack/prompts'
 import { byLengthAsc, Fzf } from 'fzf'
 import { hasTTY } from 'std-env'
 
@@ -12,6 +12,7 @@ const TRAILING_DOT_RE = /\.$/
 interface AutocompleteOptions {
   modules: NuxtModule[]
   message?: string
+  id?: string
 }
 
 interface AutocompleteResult {
@@ -24,9 +25,9 @@ interface AutocompleteResult {
  * Returns object with selected module npm package names and cancellation status
  */
 export async function selectModulesAutocomplete(options: AutocompleteOptions): Promise<AutocompleteResult> {
-  const { modules, message = 'Search and select modules:' } = options
+  const { modules, message = 'Search and select modules:', id } = options
 
-  if (!hasTTY) {
+  if (!hasTTY && !isAgent()) {
     logger.warn('Interactive module selection requires a TTY. Skipping.')
     return { selected: [], cancelled: false }
   }
@@ -63,6 +64,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
   }
 
   const result = await autocompleteMultiselect({
+    id,
     message,
     options: clackOptions,
     filter,

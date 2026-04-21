@@ -3,7 +3,7 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { cancel, intro, isCancel, note, outro, select, spinner, tasks } from '@clack/prompts'
+import { batch, cancel, intro, isCancel, note, once, outro, select, spinner, tasks } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
@@ -41,6 +41,7 @@ function getNightlyDependency(dep: string, nuxtVersion: NuxtVersionTag) {
 
 async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages: string[], nuxtVersion: NuxtVersionTag }> {
   const nuxtVersion = await select({
+    id: 'upgrade:nightly-channel',
     message: 'Which nightly Nuxt release channel do you want to install?',
     options: [
       { value: '3.x' as const, label: '3.x' },
@@ -133,10 +134,7 @@ export default defineCommand({
 
     const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
 
-    // Install latest version
-    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
-
-    // Force install
+    // Compute forceRemovals up-front so it's available when batching the method select
     const toRemove = ['node_modules']
 
     const lockFile = normaliseLockFile(workspaceDir, lockFileCandidates)
@@ -148,92 +146,126 @@ export default defineCommand({
       .map(p => colors.cyan(p))
       .join(' and ')
 
+    const packageNames = ['nuxt', ...packagesToUpdate]
     let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
 
-    if (!method) {
-      const result = await select({
-        message: `Would you like to dedupe your lockfile, or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`,
-        options: [
-          {
-            label: 'dedupe lockfile',
-            value: 'dedupe' as const,
-            hint: 'recommended',
-          },
-          {
-            label: `recreate ${forceRemovals}`,
-            value: 'force' as const,
-          },
-          {
-            label: 'skip',
-            value: 'skip' as const,
-          },
-        ],
-        initialValue: 'dedupe' as const,
+    const methodOptions = [
+      { label: 'dedupe lockfile', value: 'dedupe' as const, hint: 'recommended' },
+      { label: `recreate ${forceRemovals}`, value: 'force' as const },
+      { label: 'skip', value: 'skip' as const },
+    ]
+    const methodMessage = `Would you like to dedupe your lockfile, or recreate ${forceRemovals}? This can fix problems with hoisted dependency versions and ensure you have the most up-to-date dependencies.`
+
+    let npmPackages: string[]
+    let nuxtVersion: NuxtVersionTag
+
+    // When both channel-selection and method-selection would prompt, batch them so agents answer in one round-trip
+    if (ctx.args.channel === 'nightly' && !method) {
+      const answers = await batch({
+        nuxtVersion: batch.select<NuxtVersionTag>({
+          id: 'upgrade:nightly-channel',
+          message: 'Which nightly Nuxt release channel do you want to install?',
+          options: [
+            { value: '3.x', label: '3.x' },
+            { value: '4.x', label: '4.x' },
+          ],
+          initialValue: '4.x',
+        }),
+        method: batch.select<'force' | 'dedupe' | 'skip'>({
+          id: 'upgrade:method',
+          message: methodMessage,
+          options: methodOptions,
+          initialValue: 'dedupe',
+        }),
       })
 
-      if (isCancel(result)) {
+      if (isCancel(answers.nuxtVersion) || isCancel(answers.method)) {
         cancel('Operation cancelled.')
         process.exit(1)
       }
 
-      method = result
+      nuxtVersion = answers.nuxtVersion as NuxtVersionTag
+      method = answers.method as 'force' | 'dedupe' | 'skip'
+      npmPackages = packageNames.map(p => getNightlyDependency(p, nuxtVersion))
+    }
+    else {
+      ;({ npmPackages, nuxtVersion } = await getRequiredNewVersion(packageNames, ctx.args.channel))
+
+      if (!method) {
+        const result = await select({
+          id: 'upgrade:method',
+          message: methodMessage,
+          options: methodOptions,
+          initialValue: 'dedupe' as const,
+        })
+
+        if (isCancel(result)) {
+          cancel('Operation cancelled.')
+          process.exit(1)
+        }
+
+        method = result
+      }
     }
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
 
-    const spin = spinner()
-    spin.start('Upgrading Nuxt')
+    await once('upgrade:tasks', async () => {
+      const spin = spinner()
+      spin.start('Upgrading Nuxt')
 
-    await tasks([
-      {
-        title: `Installing ${versionType} Nuxt ${nuxtVersion} release`,
-        task: async () => {
-          await addDependency(npmPackages, {
-            cwd,
-            packageManager,
-            dev: nuxtDependencyType === 'devDependencies',
-            workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
-          })
-          return 'Nuxt packages installed'
+      await tasks([
+        {
+          title: `Installing ${versionType} Nuxt ${nuxtVersion} release`,
+          task: async () => {
+            await addDependency(npmPackages, {
+              cwd,
+              packageManager,
+              dev: nuxtDependencyType === 'devDependencies',
+              workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
+            })
+            return 'Nuxt packages installed'
+          },
         },
-      },
-      ...(method === 'force'
-        ? [{
-            title: `Recreating ${forceRemovals}`,
-            task: async () => {
-              await dedupeDependencies({ recreateLockfile: true })
-              return 'Lockfile recreated'
-            },
-          }]
-        : []),
-      ...(method === 'dedupe'
-        ? [{
-            title: 'Deduping dependencies',
-            task: async () => {
-              await dedupeDependencies()
-              return 'Dependencies deduped'
-            },
-          }]
-        : []),
-      {
-        title: 'Cleaning up build directories',
-        task: async () => {
-          let buildDir: string = '.nuxt'
-          try {
-            const { loadNuxtConfig } = await loadKit(cwd)
-            const nuxtOptions = await loadNuxtConfig({ cwd })
-            buildDir = nuxtOptions.buildDir
-          }
-          catch {
-            // Use default buildDir (.nuxt)
-          }
-          await cleanupNuxtDirs(cwd, buildDir)
-          return 'Build directories cleaned'
+        ...(method === 'force'
+          ? [{
+              title: `Recreating ${forceRemovals}`,
+              task: async () => {
+                await dedupeDependencies({ recreateLockfile: true })
+                return 'Lockfile recreated'
+              },
+            }]
+          : []),
+        ...(method === 'dedupe'
+          ? [{
+              title: 'Deduping dependencies',
+              task: async () => {
+                await dedupeDependencies()
+                return 'Dependencies deduped'
+              },
+            }]
+          : []),
+        {
+          title: 'Cleaning up build directories',
+          task: async () => {
+            let buildDir: string = '.nuxt'
+            try {
+              const { loadNuxtConfig } = await loadKit(cwd)
+              const nuxtOptions = await loadNuxtConfig({ cwd })
+              buildDir = nuxtOptions.buildDir
+            }
+            catch {
+              // Use default buildDir (.nuxt)
+            }
+            await cleanupNuxtDirs(cwd, buildDir)
+            return 'Build directories cleaned'
+          },
         },
-      },
-    ])
+      ])
 
-    spin.stop()
+      spin.stop()
+      return null
+    })
 
     if (method === 'force') {
       logger.info(`If you encounter any issues, revert the changes and try with ${colors.cyan('--no-force')}`)
