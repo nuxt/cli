@@ -11,7 +11,6 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
-import { initCompletions } from './completions'
 import { runCommand } from './run'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
@@ -102,7 +101,10 @@ const _main = defineCommand({
 export const main = _main as CommandDef<any>
 
 export async function runMain(): Promise<void> {
-  await initCompletions(main)
+  if (process.argv[2] === 'complete') {
+    const { initCompletions } = await import('./completions')
+    await initCompletions(main)
+  }
 
   return _runMain(main)
 }
