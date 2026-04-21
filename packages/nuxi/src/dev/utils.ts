@@ -22,7 +22,7 @@ import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 import { joinURL } from 'ufo'
 
-import { showVersionsFromConfig } from '../utils/banner'
+import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
@@ -203,7 +203,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#acquireDevLock(this.#currentNuxt!.options.buildDir)
 
     if (this.options.showBanner) {
-      showVersionsFromConfig(this.options.cwd, this.#currentNuxt!.options)
+      showBanner(this.#currentNuxt!)
     }
 
     await this.#createListener()

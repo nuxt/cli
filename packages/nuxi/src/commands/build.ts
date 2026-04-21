@@ -5,7 +5,7 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
 
-import { showVersions } from '../utils/banner'
+import { showBanner } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -52,11 +52,9 @@ export default defineCommand({
       intro(colors.cyan('Building Nuxt for production...'))
 
       const kit = await loadKit(cwd)
-
-      await showVersions(cwd, kit, ctx.args.dotenv)
-
       const nuxt = await kit.loadNuxt({
         cwd,
+        ready: false,
         dotenv: {
           cwd,
           fileName: ctx.args.dotenv,
@@ -80,6 +78,9 @@ export default defineCommand({
           }),
         },
       })
+
+      showBanner(nuxt)
+      await nuxt.ready()
 
       const lock = acquireLock(nuxt.options.buildDir, {
         command: 'build',
