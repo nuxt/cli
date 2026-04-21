@@ -9,7 +9,8 @@ import { dirname, extname, resolve } from 'pathe'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { templateNames, templates } from '../utils/templates/index'
+import { templates } from '../utils/templates/index'
+import { templateNames } from '../utils/templates/names'
 import { cwdArgs, logLevelArgs } from './_shared'
 
 export default defineCommand({
