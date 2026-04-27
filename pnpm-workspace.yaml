@@ -3,9 +3,22 @@ packages:
   - packages/nuxt-cli/test/fixtures/*
   - playground
 
+verifyDepsBeforeRun: install
+
+overrides:
+  '@nuxt/cli': workspace:*
+  '@nuxt/schema': 4.4.2
+  create-nuxt: workspace:*
+  create-nuxt-app: workspace:*
+  eslint-plugin-jsdoc: 62.9.0
+  eslint-plugin-unicorn: 64.0.0
+  h3: ^1.15.11
+  httpxy: 0.5.1
+  nitropack: 2.13.3
+  nuxi: workspace:*
+  # upstream issue with MISSING_EXPORT warnings
+  rolldown: 1.0.0-rc.16
 ignoredBuiltDependencies:
   - '@parcel/watcher'
   - esbuild
   - unrs-resolver
-
-verifyDepsBeforeRun: install
