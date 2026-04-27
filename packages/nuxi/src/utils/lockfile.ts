@@ -1,4 +1,4 @@
-import { readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -97,6 +97,13 @@ export function acquireLock(
     startedAt: Date.now(),
     ...info,
   }
+
+  // The build dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the
+  // lock is acquired before `clearBuildDir` runs, so create it lazily.
+  try {
+    mkdirSync(buildDir, { recursive: true })
+  }
+  catch {}
 
   // Try exclusive-create up to twice: the first attempt may race with a stale
   // lock that we then clean up and retry.
