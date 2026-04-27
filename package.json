@@ -42,17 +42,5 @@
     "vitest": "^4.1.5",
     "vue": "^3.5.33",
     "vue-router": "^5.0.6"
-  },
-  "resolutions": {
-    "@nuxt/cli": "workspace:*",
-    "@nuxt/schema": "4.4.2",
-    "create-nuxt": "workspace:*",
-    "create-nuxt-app": "workspace:*",
-    "eslint-plugin-jsdoc": "62.9.0",
-    "eslint-plugin-unicorn": "64.0.0",
-    "h3": "^1.15.11",
-    "httpxy": "0.5.1",
-    "nitropack": "latest",
-    "nuxi": "workspace:*"
   }
 }
