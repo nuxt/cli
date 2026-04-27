@@ -5,5 +5,12 @@
   ],
   "baseBranchPatterns": [
     "main"
+  ],
+  "packageRules": [
+    {
+      "matchDepNames": ["deno"],
+      "enabled": false,
+      "description": "2.7.5+ regress nuxi dev server / ws tests; see .github/workflows/ci.yml"
+    }
   ]
 }
