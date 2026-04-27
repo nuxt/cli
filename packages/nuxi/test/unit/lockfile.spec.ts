@@ -67,6 +67,19 @@ describe('lockfile', () => {
       expect(existsSync(lockPath)).toBe(false)
     })
 
+    it('creates the build dir if it does not exist yet', async () => {
+      const buildDir = join(tempDir, 'missing', '.nuxt')
+      expect(existsSync(buildDir)).toBe(false)
+
+      const lock = acquireLock(buildDir, { command: 'dev', cwd: '/project' })
+      const lockPath = join(buildDir, 'nuxt.lock')
+
+      expect(lock.existing).toBeUndefined()
+      expect(existsSync(lockPath)).toBe(true)
+
+      lock.release!()
+    })
+
     it('returns existing lock when another live process holds it', async () => {
       // Stub process.kill so liveness is deterministic across OSes (Windows
       // PID 1 semantics differ).
