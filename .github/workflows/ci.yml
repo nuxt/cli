@@ -55,7 +55,8 @@ jobs:
           bun-version: latest
       - uses: denoland/setup-deno@e95548e56dfa95d4e1a28d6f422fafe75c4c26fb # v2
         with:
-          deno-version: 2.7.13
+          # 2.7.13 rewrites node:http (denoland/deno#33208) and breaks dev server / ws tests
+          deno-version: 2.7.12
 
       - name: 📦 Install dependencies
         run: pnpm install
