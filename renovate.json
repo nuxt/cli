@@ -9,8 +9,9 @@
   "packageRules": [
     {
       "matchDepNames": ["deno"],
-      "enabled": false,
-      "description": "2.7.5+ regress nuxi dev server / ws tests; see .github/workflows/ci.yml"
+      "groupName": "deno",
+      "dependencyDashboardApproval": true,
+      "description": "Pinned in .github/workflows/ci.yml; 2.7.5+ regress nuxi dev server / ws tests. Surface bumps as their own PR for manual approval."
     }
   ]
 }
