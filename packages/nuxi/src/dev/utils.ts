@@ -7,7 +7,7 @@ import type { FSWatcher } from 'node:fs'
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
 import EventEmitter from 'node:events'
-import { existsSync, readdirSync, statSync, watch } from 'node:fs'
+import { existsSync, readdirSync, statSync, watch, watchFile } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -135,6 +135,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #websocketConnections = new Set<any>()
   #lockCleanup?: () => void
   #lockedBuildDir?: string
+  #isPaused = false
+  #pendingReload = false
+  #pendingHMRUpdates = 0
+  #viteHotSend?: (...args: any[]) => void
+  #sentinelWatcher?: FSWatcher
 
   loadDebounced: (reload?: boolean, reason?: string) => void
   handler: RequestListener
@@ -209,14 +214,46 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     await this.#createListener()
     await this.#initializeNuxt(false)
     this.#watchConfig()
+    this.#watchSentinel()
+  }
+
+  get isPaused(): boolean {
+    return this.#isPaused
+  }
+
+  pause(): void {
+    if (this.#isPaused) return
+    this.#isPaused = true
+    console.info('🟡 HMR paused. File changes are being accumulated.')
+  }
+
+  resume(): void {
+    if (!this.#isPaused) return
+    this.#isPaused = false
+    const hadHMR = this.#pendingHMRUpdates > 0
+    this.#pendingHMRUpdates = 0
+    if (hadHMR && this.#viteHotSend) {
+      this.#viteHotSend({ type: 'full-reload', path: '*' })
+    }
+    if (this.#pendingReload) {
+      this.#pendingReload = false
+      this.loadDebounced(true, 'Replaying changes after HMR resume')
+    }
+    console.info('🟢 HMR resumed.')
   }
 
   closeWatchers(): void {
+    this.#sentinelWatcher?.close()
     this.#distWatcher?.close()
     this.#configWatcher?.()
   }
 
   async load(reload?: boolean, reason?: string): Promise<void> {
+    if (this.#isPaused) {
+      this.#pendingReload = true
+      return
+    }
+
     try {
       this.closeWatchers()
 
@@ -233,6 +270,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.emit('loading:error', error as Error)
     }
     this.#watchConfig()
+    this.#watchSentinel()
   }
 
   async #loadNuxtInstance(urls?: string[]): Promise<void> {
@@ -296,6 +334,22 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         },
       })
     }
+  }
+
+  #watchSentinel(): void {
+    const sentinelPath = resolve(this.#cwd, '.hmr-pause')
+    if (existsSync(sentinelPath)) {
+      this.pause()
+    }
+
+    this.#sentinelWatcher = watchFile(sentinelPath, { interval: 500 }, (curr, prev) => {
+      if (existsSync(sentinelPath)) {
+        this.pause()
+      }
+      else {
+        this.resume()
+      }
+    }) as any
   }
 
   #resolveListenOptions(): Partial<ListenOptions> {
@@ -387,6 +441,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     await this.#currentNuxt.ready()
+
+    this.#currentNuxt.hooks.hook('vite:serverCreated', (viteServer, env) => {
+      if (!env.isClient) return
+      const original = viteServer.hot.send.bind(viteServer.hot)
+      this.#viteHotSend = original
+      viteServer.hot.send = (...args: any[]) => {
+        if (this.#isPaused) {
+          this.#pendingHMRUpdates++
+          return
+        }
+        return original(...args)
+      }
+    })
 
     const unsub = this.#currentNuxt.hooks.hook('restart', async (options) => {
       unsub() // We use this instead of `hookOnce` for Nuxt Bridge support

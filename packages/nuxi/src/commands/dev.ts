@@ -1,6 +1,7 @@
 import type { ParsedArgs } from 'citty'
 import type { NuxtDevContext } from '../dev/utils'
 
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
@@ -85,6 +86,31 @@ const command = defineCommand({
       showBanner: true,
     })
 
+    // Set up keyboard shortcut for pause/resume HMR
+    let stdinListener: ((key: string) => void) | undefined
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true)
+      process.stdin.resume()
+      process.stdin.setEncoding('utf8')
+      stdinListener = (key: string) => {
+        if (key === 'p') {
+          const sentinelPath = resolve(cwd, '.hmr-pause')
+          if (existsSync(sentinelPath)) {
+            rmSync(sentinelPath)
+          }
+          else {
+            writeFileSync(sentinelPath, '')
+          }
+        }
+      }
+      process.stdin.on('data', stdinListener)
+      process.on('exit', () => {
+        if (process.stdin.isTTY) {
+          process.stdin.setRawMode(false)
+        }
+      })
+    }
+
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
       return {
@@ -143,6 +169,9 @@ const command = defineCommand({
 
     return {
       async close() {
+        if (stdinListener && process.stdin.isTTY) {
+          process.stdin.removeListener('data', stdinListener)
+        }
         cleanupCurrentFork?.()
         await Promise.all([
           listener.close(),
