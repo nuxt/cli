@@ -1,6 +1,9 @@
-import { readFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { request as httpRequest } from 'node:http'
+import { tmpdir } from 'node:os'
+import { delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 import { getPort } from 'get-port-please'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../../src'
@@ -13,6 +16,99 @@ const certsDir = fileURLToPath(new URL('../../../../playground/certs', import.me
 const httpsCert = join(certsDir, 'cert.dummy')
 const httpsKey = join(certsDir, 'key.dummy')
 const httpsPfx = join(certsDir, 'pfx.dummy')
+
+async function createFakePortless(url: string) {
+  const binDir = await mkdtemp(join(tmpdir(), 'portless-bin-'))
+  const logFile = join(binDir, 'portless.log')
+  const scriptFile = join(binDir, 'portless.mjs')
+  const unixBinary = join(binDir, 'portless')
+  const windowsBinary = join(binDir, 'portless.cmd')
+
+  await writeFile(scriptFile, `import { appendFileSync } from 'node:fs'
+
+const args = process.argv.slice(2)
+appendFileSync(process.env.PORTLESS_LOG, \`\${args.join(' ')}\\n\`)
+
+if (args[0] === '--version') {
+  process.stdout.write('0.1.0\\n')
+}
+else if (args[0] === 'get') {
+  process.stdout.write(\`\${process.env.PORTLESS_URL_VALUE || ''}\\n\`)
+}
+`)
+
+  await writeFile(unixBinary, `#!/bin/sh
+exec node "$(dirname "$0")/portless.mjs" "$@"
+`)
+  await chmod(unixBinary, 0o755)
+
+  await writeFile(windowsBinary, `@echo off
+node "%~dp0\\portless.mjs" %*
+`)
+
+  return { binDir, logFile, url }
+}
+
+function requestWithHost(url: string, hostHeader: string) {
+  return new Promise<number>((resolve, reject) => {
+    const req = httpRequest(url, { headers: { host: hostHeader } }, (res) => {
+      resolve(res.statusCode || 0)
+      res.resume()
+    })
+    req.on('error', reject)
+    req.end()
+  })
+}
+
+async function waitFor<T>(run: () => Promise<T>, check: (value: T) => boolean, timeout = 15_000) {
+  const start = Date.now()
+  let lastError: unknown
+
+  while (Date.now() - start < timeout) {
+    try {
+      const value = await run()
+      if (check(value)) {
+        return value
+      }
+    }
+    catch (error) {
+      lastError = error
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+
+  throw lastError instanceof Error ? lastError : new Error(`Timed out after ${timeout}ms`)
+}
+
+async function readPortlessLogLines(logFile: string) {
+  try {
+    return await readFile(logFile, 'utf-8').then(content => content.trim().split(NEWLINE_RE).filter(Boolean))
+  }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return []
+    }
+    throw error
+  }
+}
+
+function extractLoggedURLs(calls: unknown[][]) {
+  return calls.flatMap(call => call.flatMap((value) => {
+    if (typeof value !== 'string') {
+      return []
+    }
+
+    return (value.match(/https?:\/\/[^\s)]+/g) || []).map(normalizeLoggedURL)
+  }))
+}
+
+function normalizeLoggedURL(url: string) {
+  return stripVTControlCharacters(url)
+    .trim()
+    .replace(/[),.]+$/g, '')
+    .replace(/\/$/, '')
+}
 
 describe('dev server', () => {
   afterEach(() => {
@@ -63,6 +159,53 @@ describe('dev server', () => {
       port,
       url: `http://${host}:${port}/`,
     })
+  })
+
+  it('should expose the dev server through portless', { timeout: 50_000 }, async () => {
+    await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3051 })
+    const portlessURL = 'https://preview.fixtures-dev.localhost'
+    const { binDir, logFile } = await createFakePortless(portlessURL)
+    let close: (() => Promise<void>) | undefined
+
+    vi.stubEnv('PATH', `${binDir}${delimiter}${process.env.PATH || ''}`)
+    vi.stubEnv('PORTLESS_LOG', logFile)
+    vi.stubEnv('PORTLESS_URL_VALUE', portlessURL)
+
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const result = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`, '--portless']) as any
+      close = result.result.close
+
+      expect(await waitFor(
+        () => requestWithHost(`http://${host}:${port}`, 'preview.fixtures-dev.localhost'),
+        status => status === 200,
+      )).toBe(200)
+
+      await close?.()
+      close = undefined
+
+      const logLines = await readPortlessLogLines(logFile)
+
+      expect(logLines[0]).toBe('--version')
+      expect(logLines[1]).toBe('proxy start')
+      expect(logLines[2]).toBe('get fixtures-dev')
+      expect(logLines[3]).toBe(`alias preview.fixtures-dev ${port} --force`)
+      expect(logLines[4]).toBe('alias --remove preview.fixtures-dev')
+      expect(extractLoggedURLs(consoleLog.mock.calls)).toContain(portlessURL)
+      expect(process.env.PORTLESS_URL).toBeUndefined()
+    }
+    finally {
+      await close?.()
+      consoleLog.mockRestore()
+      await rm(binDir, { recursive: true, force: true })
+    }
+  })
+
+  it('should reject combining portless and tunnel', async () => {
+    await expect(runCommand('dev', ['--cwd', fixtureDir, '--portless', '--tunnel'])).rejects.toThrow('`--portless` cannot be used with `--tunnel`.')
   })
 
   it('should handle multiple set-cookie headers correctly', { timeout: 50_000 }, async () => {
