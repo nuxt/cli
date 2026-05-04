@@ -14,7 +14,7 @@ overrides:
   eslint-plugin-unicorn: 64.0.0
   h3: ^1.15.11
   httpxy: 0.5.1
-  nitropack: 2.13.3
+  nitropack: 2.13.4
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.0.0-rc.16
