@@ -34,7 +34,7 @@
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.15",
     "@types/node": "^24.12.2",
-    "rollup": "^4.60.2",
+    "rollup": "^4.60.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "tsdown": "^0.21.10",
     "typescript": "^6.0.3",

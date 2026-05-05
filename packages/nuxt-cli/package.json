@@ -80,7 +80,7 @@
     "h3-next": "npm:h3@^2.0.1-rc.21",
     "nitro": "^3.0.1-alpha.2",
     "nitropack": "^2.13.4",
-    "rollup": "^4.60.2",
+    "rollup": "^4.60.3",
     "rollup-plugin-visualizer": "^7.0.1",
     "tsdown": "^0.21.10",
     "typescript": "^6.0.3",
