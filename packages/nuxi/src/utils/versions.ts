@@ -6,7 +6,7 @@ import { coerce } from 'semver'
 import { tryResolveNuxt } from './kit'
 
 export async function getNuxtVersion(cwd: string, cache = true) {
-  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd, try: true, cache })
+  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd, try: true, cache }).catch(() => null)
   if (nuxtPkg) {
     return nuxtPkg.version!
   }
