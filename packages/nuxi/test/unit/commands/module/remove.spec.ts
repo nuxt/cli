@@ -8,6 +8,13 @@ const updateConfig = vi.fn(() => Promise.resolve())
 const removeDependency = vi.fn(() => Promise.resolve())
 const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
 
+const defaultProjectPkg = {
+  devDependencies: { nuxt: '3.0.0' },
+  dependencies: { '@nuxt/content': '^3.0.0' },
+}
+
+const readPackageJSON = vi.fn(() => Promise.resolve(defaultProjectPkg))
+
 interface CommandsType {
   subCommands: {
     remove: () => Promise<{ setup: (args: any) => Promise<void> }>
@@ -16,12 +23,7 @@ interface CommandsType {
 
 vi.mock('c12/update', () => ({ updateConfig }))
 vi.mock('nypm', () => ({ removeDependency, detectPackageManager }))
-vi.mock('pkg-types', () => ({
-  readPackageJSON: () => Promise.resolve({
-    devDependencies: { nuxt: '3.0.0' },
-    dependencies: { '@nuxt/content': '^3.0.0' },
-  }),
-}))
+vi.mock('pkg-types', () => ({ readPackageJSON }))
 
 describe('module remove', () => {
   vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
@@ -55,6 +57,7 @@ describe('module remove', () => {
   beforeEach(() => {
     updateConfig.mockClear()
     removeDependency.mockClear()
+    readPackageJSON.mockReset().mockImplementation(() => Promise.resolve(defaultProjectPkg))
   })
 
   it('should remove a Nuxt module by alias', async () => {
@@ -113,5 +116,53 @@ describe('module remove', () => {
     })
 
     expect(updateConfig).not.toHaveBeenCalled()
+  })
+
+  it('should not uninstall a module that is not in dependencies', async () => {
+    readPackageJSON.mockImplementation((() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {},
+    })) as typeof readPackageJSON)
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['@nuxt/content'],
+      },
+    })
+
+    expect(removeDependency).not.toHaveBeenCalled()
+  })
+
+  it('should also remove orphaned peer dependencies', async () => {
+    readPackageJSON.mockImplementation(((id?: string) => {
+      if (id === '@vee-validate/nuxt') {
+        return Promise.resolve({ peerDependencies: { 'vee-validate': '^4.0.0' } })
+      }
+      if (id === 'vee-validate' || id === 'nuxt') {
+        return Promise.resolve({})
+      }
+      return Promise.resolve({
+        devDependencies: { nuxt: '3.0.0' },
+        dependencies: {
+          '@vee-validate/nuxt': '1.0.0',
+          'vee-validate': '4.0.0',
+        },
+      })
+    }) as typeof readPackageJSON)
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['@vee-validate/nuxt'],
+      },
+    })
+
+    expect(removeDependency).toHaveBeenCalledWith(
+      ['@vee-validate/nuxt', 'vee-validate'],
+      expect.objectContaining({ cwd: '/fake-dir' }),
+    )
   })
 })
