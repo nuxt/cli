@@ -1,5 +1,7 @@
 import type { PackageJson } from 'pkg-types'
 
+import type { NuxtModule } from './_utils'
+
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
@@ -17,10 +19,6 @@ import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { fetchModules } from './_utils'
-
-// Mirrors `packageRegex` in add.ts (non-capturing - we only validate, never extract).
-const packageRegex
-  = /^(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*(?:@[^@]+)?$/
 
 interface OrphanedPeer {
   peer: string
@@ -51,7 +49,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
-    const inputs = ctx.args._.map(e => e.trim()).filter(Boolean)
+    const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
     const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
@@ -67,31 +65,37 @@ export default defineCommand({
       }
     }
 
-    if (ctx.args.skipConfig && inputs.length === 0) {
+    if (ctx.args.skipConfig && modules.length === 0) {
       cancel(`Specify one or more modules to remove when ${colors.cyan('--skipConfig')} is set.`)
       process.exit(1)
     }
 
     // Resolve positional inputs to canonical npm package names. With no inputs, the
     // multiselect picker runs inside `removeModules` against the configured modules.
-    const resolvedModules: string[] = []
-    for (const moduleName of inputs) {
-      const resolved = await resolveModule(moduleName, projectPkg)
-      if (resolved) {
-        resolvedModules.push(resolved)
-      }
-    }
+    const installedNames = new Set([
+      ...Object.keys(projectPkg.dependencies || {}),
+      ...Object.keys(projectPkg.devDependencies || {}),
+    ])
 
-    if (inputs.length > 0 && resolvedModules.length === 0) {
-      cancel('No modules to remove.')
-      process.exit(1)
-    }
+    const needsDB = modules.some(m => !installedNames.has(m))
+    const modulesDB: NuxtModule[] = needsDB
+      ? await fetchModules().catch((err) => {
+          logger.warn(`Cannot search in the Nuxt Modules database: ${err}`)
+          return []
+        })
+      : []
+
+    const resolvedModules = modules.map(m => resolveModule(m, modulesDB, installedNames))
 
     if (resolvedModules.length > 0) {
       logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x)).join(', ')}, removing module${resolvedModules.length > 1 ? 's' : ''}...`)
     }
 
-    await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+    const proceed = await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+
+    if (!proceed) {
+      process.exit(0)
+    }
 
     // Run prepare command if uninstall is not skipped
     if (!ctx.args.skipUninstall) {
@@ -103,7 +107,7 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function removeModules(modules: string[], { skipUninstall = false, skipConfig = false, cwd }: { skipUninstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson) {
+async function removeModules(modules: string[], { skipUninstall = false, skipConfig = false, cwd }: { skipUninstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
   const removedFromConfig: string[] = []
 
   // Update nuxt.config.ts (with picker if no modules were given upfront)
@@ -171,14 +175,14 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
 
     if (cancelled) {
       cancel('No modules selected.')
-      process.exit(0)
+      return false
     }
 
     if (modules.length === 0 && removedFromConfig.length === 0) {
       cancel(configMissing
         ? `No ${colors.cyan('nuxt.config')} found in ${colors.cyan(relativeToProcess(cwd))}.`
         : `No modules configured in ${colors.cyan('nuxt.config')}.`)
-      process.exit(0)
+      return false
     }
   }
 
@@ -210,7 +214,7 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
     }
 
     if (installedModules.length === 0) {
-      return
+      return true
     }
 
     const orphanedPeers = await findOrphanedPeers(installedModules, projectPkg, cwd)
@@ -236,37 +240,8 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
       logger.error(String(error))
     })
   }
-}
 
-async function resolveModule(moduleName: string, projectPkg: PackageJson): Promise<string | false> {
-  if (!packageRegex.test(moduleName)) {
-    logger.error(`Invalid package name ${colors.cyan(moduleName)}.`)
-    return false
-  }
-
-  const installedNames = new Set([
-    ...Object.keys(projectPkg.dependencies || {}),
-    ...Object.keys(projectPkg.devDependencies || {}),
-  ])
-
-  // Already a known package in this project - skip the network round-trip
-  if (installedNames.has(moduleName)) {
-    return moduleName
-  }
-
-  // Map slug/alias → npm package name via the modules database
-  const modulesDB = await fetchModules().catch((err) => {
-    logger.warn(`Cannot search in the Nuxt Modules database: ${err}`)
-    return []
-  })
-
-  const matched = modulesDB.find(m =>
-    m.name === moduleName
-    || m.npm === moduleName
-    || m.aliases?.includes(moduleName),
-  )
-
-  return matched?.npm || moduleName
+  return true
 }
 
 function readModuleName(item: unknown): string | null {
@@ -277,6 +252,20 @@ function readModuleName(item: unknown): string | null {
     return item[0]
   }
   return null
+}
+
+function resolveModule(input: string, modulesDB: NuxtModule[], installed: Set<string>): string {
+  if (installed.has(input)) {
+    return input
+  }
+
+  const matched = modulesDB.find(m =>
+    m.name === input
+    || m.npm === input
+    || m.aliases?.includes(input),
+  )
+
+  return matched?.npm || input
 }
 
 async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cwd: string): Promise<OrphanedPeer[]> {
