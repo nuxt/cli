@@ -123,13 +123,15 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
         return false
       },
       async onUpdate(config) {
+        if (!Array.isArray(config.modules)) {
+          return
+        }
+
         const present: string[] = []
-        if (Array.isArray(config.modules)) {
-          for (const item of config.modules) {
-            const name = readModuleName(item)
-            if (name) {
-              present.push(name)
-            }
+        for (const item of config.modules) {
+          const name = readModuleName(item)
+          if (name) {
+            present.push(name)
           }
         }
 
@@ -238,6 +240,7 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
       workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
     }).catch((error) => {
       logger.error(String(error))
+      process.exit(1)
     })
   }
 
