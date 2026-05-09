@@ -451,6 +451,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#fileChangeTracker.prime(distDir)
     this.#distWatcher = watch(distDir)
     this.#distWatcher.on('change', (_event, file: string) => {
+      // do not restart if the directory has not been removed
+      if (existsSync(distDir)) {
+        return
+      }
       if (!this.#fileChangeTracker.shouldEmitChange(resolve(distDir, file || ''))) {
         return
       }
