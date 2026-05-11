@@ -39,7 +39,7 @@
     "@nuxt/schema": "^4.4.5",
     "@nuxt/test-utils": "^4.0.3",
     "@types/debug": "^4.1.13",
-    "@types/node": "^24.12.3",
+    "@types/node": "^24.12.4",
     "@types/semver": "^7.7.1",
     "c12": "^3.3.4",
     "citty": "^0.2.2",
