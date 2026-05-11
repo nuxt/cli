@@ -7,7 +7,7 @@ verifyDepsBeforeRun: install
 
 overrides:
   '@nuxt/cli': workspace:*
-  '@nuxt/schema': 4.4.4
+  '@nuxt/schema': 4.4.5
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
   eslint-plugin-jsdoc: 62.9.0
