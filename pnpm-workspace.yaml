@@ -18,7 +18,8 @@ overrides:
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.0.0-rc.16
-ignoredBuiltDependencies:
-  - '@parcel/watcher'
-  - esbuild
-  - unrs-resolver
+
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  unrs-resolver: false
