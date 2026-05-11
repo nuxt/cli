@@ -28,7 +28,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^24.12.3",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.1.5",
+    "@vitest/coverage-v8": "^4.1.6",
     "changelogen": "^0.6.2",
     "eslint": "^10.3.0",
     "exsolve": "^1.0.8",
@@ -39,7 +39,7 @@
     "std-env": "^4.1.0",
     "tinyexec": "^1.1.2",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.5",
+    "vitest": "^4.1.6",
     "vue": "^3.5.34",
     "vue-router": "^5.0.6"
   }
