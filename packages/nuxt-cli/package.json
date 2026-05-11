@@ -86,7 +86,7 @@
     "typescript": "^6.0.3",
     "undici": "^8.2.0",
     "unplugin-purge-polyfills": "^0.1.0",
-    "vitest": "^4.1.5",
+    "vitest": "^4.1.6",
     "youch": "^4.1.1"
   }
 }
