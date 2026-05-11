@@ -33,10 +33,10 @@
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.15",
-    "@types/node": "^24.12.2",
+    "@types/node": "^24.12.3",
     "rollup": "^4.60.3",
     "rollup-plugin-visualizer": "^7.0.1",
-    "tsdown": "^0.21.10",
+    "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
     "unplugin-purge-polyfills": "^0.1.0"
   }
