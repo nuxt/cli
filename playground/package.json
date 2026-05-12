@@ -7,6 +7,7 @@
     "dev:https:certs": "nuxt dev --https --https.cert=certs/cert.dummy --https.key=certs/key.dummy",
     "dev:https:pfx": "nuxt dev --https --https.pfx=certs/pfx.dummy --https.passphrase=pass",
     "dev:prepare": "nuxt prepare",
+    "test:tscheck": "nuxt typecheck",
     "test": "vitest"
   },
   "dependencies": {
