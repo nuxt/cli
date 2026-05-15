@@ -22,9 +22,11 @@ const REQUIRED_DEPS = {
 type DepName = keyof typeof REQUIRED_DEPS
 
 function resolveDeps({ cache }: { cache?: boolean } = {}) {
-  const out = {} as Record<DepName, string | undefined>
-  for (const name in REQUIRED_DEPS) {
-    out[name as DepName] = resolveModulePath(REQUIRED_DEPS[name as DepName], { try: true, cache })
+  const out = {} as Record<keyof typeof REQUIRED_DEPS, string | undefined>
+  // trick to type `name` as `DepName` instead of `string`
+  let name: DepName
+  for (name in REQUIRED_DEPS) {
+    out[name] = resolveModulePath(REQUIRED_DEPS[name], { try: true, cache })
   }
   return out
 }
