@@ -20,7 +20,8 @@
         "some-layer/**"
       ],
       "ignoreDependencies": [
-        "vue-router"
+        "vue-router",
+        "vue-tsc"
       ]
     },
     "packages/nuxt-cli": {
