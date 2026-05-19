@@ -7,6 +7,6 @@
     "test": "vitest"
   },
   "dependencies": {
-    "nuxt": "^4.0.0"
+    "nuxt": "^4.4.6"
   }
 }
