@@ -68,6 +68,7 @@
     "tinyclip": "^0.1.12",
     "tinyexec": "^1.1.2",
     "ufo": "^1.6.4",
+    "undici": "^7.25.0",
     "youch": "^4.1.1"
   },
   "devDependencies": {
@@ -84,7 +85,6 @@
     "rollup-plugin-visualizer": "^7.0.1",
     "tsdown": "^0.22.0",
     "typescript": "^6.0.3",
-    "undici": "^8.3.0",
     "unplugin-purge-polyfills": "^0.1.0",
     "vitest": "^4.1.6",
     "youch": "^4.1.1"
