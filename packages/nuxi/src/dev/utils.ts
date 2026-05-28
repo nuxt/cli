@@ -493,9 +493,28 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async close(): Promise<void> {
-    if (this.#currentNuxt) {
-      await this.#currentNuxt.close()
+    if (!this.#currentNuxt) {
+      return
     }
+    // Cap waiting for nitro to close — otherwise a single plugin holding a long-lived
+    // connection (Bull `BLPOP`/`BRPOPLPUSH`, Postgres `LISTEN`, WebSocket, etc.) blocks
+    // restart indefinitely; the user observes a permanent "Restarting Nuxt..." state.
+    // See https://github.com/nuxt/nuxt/issues/32928.
+    //
+    // After the timeout we let the restart proceed; the new instance binds to the same
+    // port (the old one is force-released by the OS) and lingering handles are GC'd
+    // when the old Nuxt instance is no longer referenced.
+    const timeoutMs = Number(process.env.NUXT_DEV_CLOSE_TIMEOUT_MS) || 3000
+    let timer: NodeJS.Timeout | undefined
+    await Promise.race([
+      this.#currentNuxt.close().finally(() => {
+        if (timer) clearTimeout(timer)
+      }),
+      new Promise<void>((resolve) => {
+        timer = setTimeout(resolve, timeoutMs)
+        timer.unref?.()
+      }),
+    ])
   }
 
   /** Release the lock file. Call only on final shutdown, not during reloads. */
