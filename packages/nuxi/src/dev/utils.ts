@@ -69,6 +69,37 @@ interface NuxtDevServerOptions {
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 const TRAILING_SLASH_RE = /\/$/
 
+// Cap on how long we wait for `nitro.close()` during a dev-server restart.
+// Long-lived plugin connections (Bull `BLPOP`/`BRPOPLPUSH`, Postgres `LISTEN`, WebSocket,
+// shared `ioredis` clients, …) can keep `close()` pending indefinitely; without a cap
+// the dev server stays stuck on "Restarting Nuxt..." forever (see nuxt/nuxt#32928).
+// 3 s is enough for normal close paths (which complete in ms) while still being noticeable
+// and overridable via `NUXT_DEV_CLOSE_TIMEOUT_MS` if a project needs more grace.
+export const DEFAULT_CLOSE_TIMEOUT_MS = 3000
+
+/**
+ * Race `closer()` against a timeout. Resolves either when the closer settles
+ * (success or rejection — we don't want a rejected nuxt close to abort the
+ * subsequent restart) or when the timer fires, whichever happens first.
+ * Exposed for testing; intended to be called from `NuxtDevServer.close()` only.
+ */
+export async function closeWithTimeout(closer: () => Promise<void>, timeoutMs: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  await Promise.race([
+    closer()
+      .catch(() => undefined)
+      .finally(() => {
+        if (timer) {
+          clearTimeout(timer)
+        }
+      }),
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs)
+      timer.unref?.()
+    }),
+  ])
+}
+
 export class FileChangeTracker {
   private mtimes = new Map<string, number>()
 
@@ -496,26 +527,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (!this.#currentNuxt) {
       return
     }
-    // Cap waiting for nitro to close — otherwise a single plugin holding a long-lived
-    // connection (Bull `BLPOP`/`BRPOPLPUSH`, Postgres `LISTEN`, WebSocket, etc.) blocks
-    // restart indefinitely; the user observes a permanent "Restarting Nuxt..." state.
-    // See https://github.com/nuxt/nuxt/issues/32928.
-    //
-    // After the timeout we let the restart proceed; the new instance binds to the same
-    // port (the old one is force-released by the OS) and lingering handles are GC'd
-    // when the old Nuxt instance is no longer referenced.
-    const timeoutMs = Number(process.env.NUXT_DEV_CLOSE_TIMEOUT_MS) || 3000
-    let timer: NodeJS.Timeout | undefined
-    await Promise.race([
-      this.#currentNuxt.close().finally(() => {
-        if (timer)
-          clearTimeout(timer)
-      }),
-      new Promise<void>((resolve) => {
-        timer = setTimeout(resolve, timeoutMs)
-        timer.unref?.()
-      }),
-    ])
+    await closeWithTimeout(
+      () => this.#currentNuxt!.close(),
+      Number(process.env.NUXT_DEV_CLOSE_TIMEOUT_MS) || DEFAULT_CLOSE_TIMEOUT_MS,
+    )
   }
 
   /** Release the lock file. Call only on final shutdown, not during reloads. */
