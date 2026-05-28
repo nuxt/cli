@@ -508,7 +508,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     let timer: NodeJS.Timeout | undefined
     await Promise.race([
       this.#currentNuxt.close().finally(() => {
-        if (timer) clearTimeout(timer)
+        if (timer)
+          clearTimeout(timer)
       }),
       new Promise<void>((resolve) => {
         timer = setTimeout(resolve, timeoutMs)
