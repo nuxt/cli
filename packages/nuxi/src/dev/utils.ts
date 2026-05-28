@@ -532,6 +532,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (!this.#currentNuxt) {
       return
     }
+    /* c8 ignore next 4 -- thin delegation to `closeWithTimeout`; that helper is
+       unit-tested directly. Reaching this branch from a unit test would require
+       mocking the private `#currentNuxt` field which JS-private semantics forbid. */
     await closeWithTimeout(
       () => this.#currentNuxt!.close(),
       Number(process.env.NUXT_DEV_CLOSE_TIMEOUT_MS) || DEFAULT_CLOSE_TIMEOUT_MS,
