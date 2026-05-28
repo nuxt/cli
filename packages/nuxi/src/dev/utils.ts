@@ -82,11 +82,16 @@ export const DEFAULT_CLOSE_TIMEOUT_MS = 3000
  * (success or rejection — we don't want a rejected nuxt close to abort the
  * subsequent restart) or when the timer fires, whichever happens first.
  * Exposed for testing; intended to be called from `NuxtDevServer.close()` only.
+ *
+ * The closer is wrapped in `Promise.resolve().then(closer)` so a synchronous
+ * throw from the closer is also rerouted through `.catch` and cannot abort
+ * the restart.
  */
 export async function closeWithTimeout(closer: () => Promise<void>, timeoutMs: number): Promise<void> {
   let timer: NodeJS.Timeout | undefined
   await Promise.race([
-    closer()
+    Promise.resolve()
+      .then(closer)
       .catch(() => undefined)
       .finally(() => {
         if (timer) {

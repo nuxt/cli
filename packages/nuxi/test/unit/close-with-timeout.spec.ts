@@ -1,6 +1,7 @@
+import type { DotenvOptions } from 'c12'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { closeWithTimeout, DEFAULT_CLOSE_TIMEOUT_MS } from '../../src/dev/utils'
+import { closeWithTimeout, DEFAULT_CLOSE_TIMEOUT_MS, NuxtDevServer } from '../../src/dev/utils'
 
 // `closeWithTimeout` is the safety-net behind `NuxtDevServer.close()` — it caps the
 // `nitro.close()` wait so a plugin holding a long-lived connection (Bull `BLPOP`,
@@ -47,10 +48,32 @@ describe('closeWithTimeout', () => {
     await expect(result).resolves.toBeUndefined()
   })
 
+  it('swallows synchronous throws from closer (so restart can proceed)', async () => {
+    const closer = vi.fn(() => {
+      throw new Error('sync boom')
+    }) as unknown as () => Promise<void>
+    const result = closeWithTimeout(closer, 1000)
+    await vi.advanceTimersByTimeAsync(0)
+    await expect(result).resolves.toBeUndefined()
+  })
+
   it('does not leave the timer pending after a fast close', async () => {
     const closer = vi.fn().mockResolvedValue(undefined)
     await closeWithTimeout(closer, 60_000)
     // If the timer were still scheduled, advancing the clock would keep the loop alive.
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('NuxtDevServer.close', () => {
+  it('returns immediately when no Nuxt instance has been initialised yet', async () => {
+    // No `init()` call — `#currentNuxt` is unset. The early return guards against
+    // crashing if the parent process tears the dev server down before Nuxt loaded.
+    const devServer = new NuxtDevServer({
+      cwd: process.cwd(),
+      dotenv: {} as DotenvOptions,
+      overrides: {},
+    })
+    await expect(devServer.close()).resolves.toBeUndefined()
   })
 })
