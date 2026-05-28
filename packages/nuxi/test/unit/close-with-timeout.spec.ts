@@ -65,7 +65,7 @@ describe('closeWithTimeout', () => {
   })
 })
 
-describe('NuxtDevServer.close', () => {
+describe('nuxtDevServer.close', () => {
   it('returns immediately when no Nuxt instance has been initialised yet', async () => {
     // No `init()` call — `#currentNuxt` is unset. The early return guards against
     // crashing if the parent process tears the dev server down before Nuxt loaded.
