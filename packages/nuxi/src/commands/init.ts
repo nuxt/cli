@@ -13,7 +13,7 @@ import { installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
-import { agent, hasTTY, isAgent, isCI } from 'std-env'
+import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { runCommand } from '../run'
@@ -104,15 +104,10 @@ export default defineCommand({
       type: 'string',
       description: 'Use Nuxt nightly release channel (3x or latest)',
     },
-    defaults: {
+    yes: {
       type: 'boolean',
       alias: 'y',
-      description: 'Use defaults for all prompts (useful for CI/agent environments)',
-    },
-    interactive: {
-      type: 'boolean',
-      default: true,
-      negativeDescription: 'Disable interactive prompts and use defaults',
+      description: 'Use default values for all prompts',
     },
   },
   async run(ctx) {
@@ -126,26 +121,12 @@ export default defineCommand({
 
     intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
-    // Detect non-interactive environments: agent, CI, no TTY, or explicit flags
-    const isNonInteractive
-      = ctx.args.defaults === true
-        || ctx.args.interactive === false
-        || isAgent // AI coding agent (Claude, Cursor, Copilot, Devin, Gemini…)
-        || isCI // CI/CD pipeline
-        || !hasTTY // no terminal attached (piped, subprocess, etc.)
+    const isNonInteractive = ctx.args.yes === true || !hasTTY
 
     if (isNonInteractive) {
-      const reason = ctx.args.defaults || ctx.args.interactive === false
-        ? 'flag'
-        : isAgent
-          ? `agent (${agent})`
-          : isCI
-            ? 'CI environment'
-            : 'no TTY'
-      logger.info(`Running in non-interactive mode (${reason}). Prompts will use defaults.`)
+      logger.info('Running in non-interactive mode. Prompts will use defaults.')
     }
 
-    // Detect current package manager early so it can be shown in the options note
     const currentPackageManager = detectCurrentPackageManager()
 
     let availableTemplates: Record<string, TemplateData> = {}
@@ -171,66 +152,28 @@ export default defineCommand({
       }
     }
 
-    // In non-interactive mode, print all available options and the exact values
-    // that will be used this run, so agents can discover flags and re-run with
-    // custom settings.
-    if (isNonInteractive) {
-      // Compute every effective value upfront so the agent sees the full picture
-      // before any action is taken.
-      const effectiveTemplate = ctx.args.template || DEFAULT_TEMPLATE_NAME
-      const effectiveDir = ctx.args.dir || availableTemplates[effectiveTemplate]?.defaultDir || 'nuxt-app'
-      const effectivePM: PackageManagerName
-        = (packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
-          ? ctx.args.packageManager as PackageManagerName
-          : undefined)
-        ?? currentPackageManager
-        ?? 'npm'
-      const effectiveGitInit = (ctx.args.gitInit as unknown) === 'false' ? false : (ctx.args.gitInit ?? false)
-      const effectiveInstall = ctx.args.install !== false && (ctx.args.install as unknown) !== 'false'
-      const effectiveModules = ctx.args.modules === undefined
-        ? '(none)'
-        : !ctx.args.modules
-            ? '(skipped)'
-            : ctx.args.modules as string
-
+    if (isNonInteractive && !ctx.args.dir) {
+      const binName = basename(process.argv[1] || 'nuxi').replace(/\.[cm]?js$/, '') || 'nuxi'
+      // `create-nuxt` runs init as the root command, `nuxi`/`nuxt` run it as the `init` subcommand
+      const usesInitSubcommand = process.argv.slice(2).find(arg => !arg.startsWith('-')) === 'init'
+      const initCmd = usesInitSubcommand ? `${binName} init` : binName
       const templateLines = Object.entries(availableTemplates).map(([name, data]) =>
-        `  ${colors.cyan(name.padEnd(18))} ${data?.description ?? ''}${name === DEFAULT_TEMPLATE_NAME ? colors.dim('  ← default') : ''}`,
+        `  ${colors.cyan(name)} ${data?.description ?? ''}${name === DEFAULT_TEMPLATE_NAME ? colors.dim(' (default)') : ''}`,
       )
 
       note(
         [
-          colors.bold('Re-run with any of these flags to customise:'),
+          'Available templates:',
           '',
-          `${colors.cyan('--template')} <name>`,
           ...templateLines,
           '',
-          `${colors.cyan('<dir>')}                        Project directory`,
-          `${colors.cyan('--packageManager')} <pm>        npm | pnpm | yarn | bun | deno`,
-          `${colors.cyan('--gitInit')} / ${colors.cyan('--no-gitInit')}            Initialise git repo`,
-          `${colors.cyan('--install')} / ${colors.cyan('--no-install')}            Install dependencies`,
-          `${colors.cyan('--modules')} <m1,m2,...>        e.g. ${colors.dim('@nuxt/content,@nuxt/ui,@nuxt/image')}`,
-          `${colors.dim('                             Full list: https://nuxt.com/modules')}`,
-          `${colors.cyan('--no-modules')}                Skip module prompt`,
-          `${colors.cyan('--force')}                     Override existing directory`,
-          `${colors.cyan('--offline')}                   Use cached templates`,
-          '',
-          colors.bold('Proceeding with:'),
-          `  template:       ${colors.cyan(effectiveTemplate)}`,
-          `  directory:      ${colors.cyan(effectiveDir)}`,
-          `  packageManager: ${colors.cyan(effectivePM)}`,
-          `  gitInit:        ${colors.cyan(String(effectiveGitInit))}`,
-          `  install:        ${colors.cyan(String(effectiveInstall))}`,
-          `  modules:        ${colors.cyan(effectiveModules)}`,
+          `Run ${colors.cyan(`${initCmd} --help`)} for all options.`,
         ].join('\n'),
-        'Available options',
+        'Non-interactive mode',
       )
 
-      // No project directory was given — the agent now has all the information
-      // it needs to re-run with explicit flags. Exit without creating anything.
-      if (!ctx.args.dir) {
-        outro('Re-run with a project directory to proceed, e.g: nuxi init <dir>')
-        process.exit(0)
-      }
+      outro(`Provide a project directory to proceed, e.g: ${initCmd} <dir>`)
+      process.exit(2)
     }
 
     let templateName = ctx.args.template
@@ -456,8 +399,7 @@ export default defineCommand({
       selectedPackageManager = result
     }
 
-    // Determine if we should init git
-    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
+    let gitInit: boolean | undefined = ctx.args.gitInit
     if (gitInit === undefined) {
       if (isNonInteractive) {
         gitInit = false
@@ -476,10 +418,7 @@ export default defineCommand({
       }
     }
 
-    // Install project dependencies and initialize git
-    // or skip installation based on the '--no-install' flag
-    // citty v0.2.0 with node:util.parseArgs returns 'false' string for --install=false
-    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false') {
+    if (!ctx.args.install) {
       logger.info('Skipping install dependencies step.')
     }
     else {
