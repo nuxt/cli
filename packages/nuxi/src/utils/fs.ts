@@ -20,7 +20,7 @@ export async function clearDir(path: string, exclude?: string[]) {
 }
 
 export function clearBuildDir(path: string) {
-  return clearDir(path, ['cache', 'analyze', 'nuxt.json'])
+  return clearDir(path, ['cache', 'analyze', 'nuxt.json', 'nuxt.lock'])
 }
 
 export async function rmRecursive(paths: string[]) {

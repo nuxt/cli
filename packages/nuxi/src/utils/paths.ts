@@ -8,5 +8,5 @@ export function relativeToProcess(path: string) {
 }
 
 export function withNodePath(path: string) {
-  return [path, process.env.NODE_PATH].filter((i): i is NonNullable<typeof i> => !!i)
+  return [path, ...(process.env.NODE_PATH?.split(':') || [])]
 }

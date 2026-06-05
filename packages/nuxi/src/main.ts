@@ -1,4 +1,6 @@
 import type { CommandDef } from 'citty'
+import type { TemplateName } from './utils/templates/names'
+
 import nodeCrypto from 'node:crypto'
 import { builtinModules, createRequire } from 'node:module'
 import { resolve } from 'node:path'
@@ -11,12 +13,11 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
-import { initCompletions } from './completions'
 import { runCommand } from './run'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
-import { templateNames } from './utils/templates'
+import { templateNames } from './utils/templates/names'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
@@ -66,7 +67,7 @@ const _main = defineCommand({
       await backgroundTasks
     }
 
-    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1])) {
+    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
       logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
       logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
       const addTemplate = await import('./commands/add-template').then(m => m.default || m)
@@ -102,7 +103,10 @@ const _main = defineCommand({
 export const main = _main as CommandDef<any>
 
 export async function runMain(): Promise<void> {
-  await initCompletions(main)
+  if (process.argv[2] === 'complete') {
+    const { initCompletions } = await import('./completions')
+    await initCompletions(main)
+  }
 
   return _runMain(main)
 }

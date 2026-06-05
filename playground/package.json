@@ -10,10 +10,12 @@
     "test": "vitest"
   },
   "dependencies": {
-    "nuxt": "^4.4.2",
-    "vue-router": "^5.0.4"
+    "nuxt": "^4.4.6",
+    "vue-router": "^5.1.0"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^4.0.0"
+    "@nuxt/test-utils": "^4.0.3",
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.3.3"
   }
 }

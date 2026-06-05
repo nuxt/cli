@@ -5,10 +5,11 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { relative, resolve } from 'pathe'
 
-import { showVersions } from '../utils/banner'
+import { showBanner } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { acquireLock, formatLockError } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
@@ -46,15 +47,14 @@ export default defineCommand({
       await startCpuProfile()
     }
 
+    let releaseLock: (() => void) | undefined
     try {
       intro(colors.cyan('Building Nuxt for production...'))
 
       const kit = await loadKit(cwd)
-
-      await showVersions(cwd, kit, ctx.args.dotenv)
-
       const nuxt = await kit.loadNuxt({
         cwd,
+        ready: false,
         dotenv: {
           cwd,
           fileName: ctx.args.dotenv,
@@ -78,6 +78,19 @@ export default defineCommand({
           }),
         },
       })
+
+      showBanner(nuxt)
+      await nuxt.ready()
+
+      const lock = acquireLock(nuxt.options.buildDir, {
+        command: 'build',
+        cwd,
+      })
+      if (lock.existing) {
+        logger.error(formatLockError(lock.existing))
+        throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+      }
+      releaseLock = lock.release
 
       let nitro: ReturnType<typeof kit.useNitro> | undefined
       // In Bridge, if Nitro is not enabled, useNitro will throw an error
@@ -121,6 +134,7 @@ export default defineCommand({
       }
     }
     finally {
+      releaseLock?.()
       if (profileArg) {
         await stopCpuProfile(cwd, 'build')
       }

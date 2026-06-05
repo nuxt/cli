@@ -1,4 +1,4 @@
-import type { NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
+import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 
 import { colors } from 'consola/utils'
 
@@ -9,27 +9,30 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
   switch (builder) {
     case 'rspack':
     case '@nuxt/rspack-builder':
-      return { name: 'Rspack', version: getPkgVersion(cwd, '@rspack/core') }
+      return { name: 'Rspack', version: getPkgVersion(cwd, '@rspack/core', { via: ['@nuxt/rspack-builder'] }) }
     case 'webpack':
     case '@nuxt/webpack-builder':
-      return { name: 'Webpack', version: getPkgVersion(cwd, 'webpack') }
+      return { name: 'Webpack', version: getPkgVersion(cwd, 'webpack', { via: ['@nuxt/webpack-builder'] }) }
     case 'vite':
     case '@nuxt/vite-builder':
     default: {
-      const pkgJSON = getPkgJSON(cwd, 'vite')
+      const pkgJSON = getPkgJSON(cwd, 'vite', { via: ['nuxt', '@nuxt/vite-builder'] })
       const isRolldown = pkgJSON.name.includes('rolldown')
-      return { name: isRolldown ? 'Rolldown-Vite' : 'Vite', version: pkgJSON.version }
+      return { name: isRolldown ? 'Rolldown-Vite' : 'Vite', version: pkgJSON.version || 'unknown' }
     }
   }
 }
 
-export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
+export function showBanner(nuxt: Nuxt) {
   const { bold, gray, green } = colors
+  const cwd = nuxt.options.rootDir
 
-  const nuxtVersion = getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || getPkgVersion(cwd, 'nuxt3') || getPkgVersion(cwd, 'nuxt-edge')
-  const nitroVersion = getPkgVersion(cwd, 'nitropack') || getPkgVersion(cwd, 'nitro') || getPkgVersion(cwd, 'nitropack-nightly') || getPkgVersion(cwd, 'nitropack-edge')
-  const builder = getBuilder(cwd, config.builder)
-  const vueVersion = getPkgVersion(cwd, 'vue') || null
+  const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || getPkgVersion(cwd, 'nuxt3') || getPkgVersion(cwd, 'nuxt-edge')
+
+  const nitroVia = { via: ['nuxt', '@nuxt/nitro-server'] }
+  const nitroVersion = getPkgVersion(cwd, 'nitropack', nitroVia) || getPkgVersion(cwd, 'nitro', nitroVia) || getPkgVersion(cwd, 'nitropack-nightly') || getPkgVersion(cwd, 'nitropack-edge')
+  const builder = getBuilder(cwd, nuxt.options.builder)
+  const vueVersion = getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null
 
   logger.info(
     green(`Nuxt ${bold(nuxtVersion)}`)
@@ -39,13 +42,4 @@ export function showVersionsFromConfig(cwd: string, config: NuxtOptions) {
     + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
     + gray(')'),
   )
-}
-
-export async function showVersions(cwd: string, kit: typeof import('@nuxt/kit'), dotenv?: string) {
-  const config = await kit.loadNuxtConfig({
-    cwd,
-    dotenv: dotenv ? { cwd, fileName: dotenv } : undefined,
-  })
-
-  return showVersionsFromConfig(cwd, config)
 }
