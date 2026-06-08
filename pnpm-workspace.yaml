@@ -10,7 +10,7 @@ overrides:
   '@nuxt/schema': 4.4.6
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 63.0.1
+  eslint-plugin-jsdoc: 63.0.2
   eslint-plugin-unicorn: 65.0.0
   h3: ^1.15.11
   httpxy: 0.5.3
