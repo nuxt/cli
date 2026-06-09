@@ -12,23 +12,12 @@ export interface LockInfo {
   port?: number
   hostname?: string
   url?: string
-  /**
-   * `true` once the dev server has finished `writeTypes`/`buildNuxt` for the
-   * current Nuxt instance, i.e. `.nuxt` types are current. Cleared while
-   * (re)building. `nuxt typecheck` only reuses `.nuxt` when this is set, so it
-   * never checks against stale or mid-rebuild generated types.
-   */
+  /** Set once dev has built types; cleared while (re)building. Gates typecheck reuse. */
   typesReady?: boolean
-  /**
-   * Unique per `acquireLock` call within a process. Lets a release only remove
-   * the marker it actually wrote, so a same-process re-acquire (e.g. dev reload)
-   * isn't clobbered by the previous acquisition's release.
-   */
+  /** Identifies one `acquireLock` call so its release only removes its own marker. */
   token?: string
 }
 
-// Monotonic per-process counter feeding lock tokens; combined with the pid it
-// uniquely identifies a single acquisition.
 let acquireCounter = 0
 
 const LOCK_FILENAME = 'nuxt.lock'
@@ -78,13 +67,8 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Default enforcement policy for callers that don't pass `enforce` explicitly:
- * a conflicting live lock makes them refuse to start. On for agents by default;
- * `NUXT_LOCK=1` forces it on for humans, `NUXT_IGNORE_LOCK=1` forces it off.
- * `nuxt dev` opts out (passes `enforce: false`); `nuxt build` uses this default.
- *
- * Independent of {@link isLockWriteEnabled}: the presence marker is still
- * written when enforcement is off so other tooling can detect a running server.
+ * Default conflict-enforcement policy. On for agents; `NUXT_LOCK=1` forces it on,
+ * `NUXT_IGNORE_LOCK=1` off. `nuxt build` uses this; `nuxt dev` passes `enforce: false`.
  */
 export function isLockEnabled(): boolean {
   if (process.env.NUXT_IGNORE_LOCK) {
@@ -96,13 +80,8 @@ export function isLockEnabled(): boolean {
   return isAgent
 }
 
-/**
- * Whether Nuxt should write the presence lock file at all. Only the explicit
- * `NUXT_IGNORE_LOCK` opt-out disables it; otherwise the marker is always
- * written so other commands (e.g. `nuxt typecheck`) can detect a live dev
- * server and reuse its prepared `.nuxt`. This is intentionally broader than
- * {@link isLockEnabled}, which only governs conflict *enforcement*.
- */
+// The marker is written unless explicitly opted out, even when enforcement is off,
+// so other commands (e.g. typecheck) can detect a running dev server.
 function isLockWriteEnabled(): boolean {
   return !process.env.NUXT_IGNORE_LOCK
 }
@@ -112,17 +91,11 @@ type LockResult
     | { existing: LockInfo, release?: undefined }
 
 /**
- * Acquire a build/dev lock.
- *
- * Two orthogonal roles:
- * - **Presence**: the marker is written whenever {@link isLockWriteEnabled}, so
- *   other commands (e.g. `typecheck`) can detect a live process via
- *   {@link readActiveLock}.
- * - **Enforcement**: when `enforce` is set, a conflicting live lock makes us
- *   refuse (returns `{ existing }`). `nuxt dev` passes `enforce: false` so
- *   multiple dev servers may run concurrently — the lock there is purely a
- *   detection signal. `nuxt build` keeps enforcement (parallel builds clobber
- *   output). Defaults to {@link isLockEnabled} when unspecified.
+ * Acquire a build/dev lock. Returns `{ existing }` when a conflicting live lock
+ * blocks us, otherwise `{ release }` to invoke on shutdown. The marker is always
+ * written for detection. With `enforce` false (used by `nuxt dev`) a peer dev
+ * lock is taken over rather than refused, though an active `build` lock is still
+ * refused. `enforce` defaults to `isLockEnabled()`. No-op when writing is disabled.
  */
 export function acquireLock(
   buildDir: string,
@@ -151,11 +124,8 @@ export function acquireLock(
   catch {}
 
   if (!enforce) {
-    // Detection-only for peer dev servers: claim the marker, never refuse a
-    // concurrent dev. But never clobber an active `build` — builds mutate the
-    // buildDir and must not run alongside dev. When several dev servers share a
-    // buildDir the most recent one is advertised; `makeRelease` only removes
-    // the file while it still carries our token.
+    // Peer dev servers may share a buildDir, but an active build mutates it and
+    // must not be clobbered.
     const existing = readLockFile(lockPath)
     if (existing && isLockActive(existing) && existing.command === 'build') {
       return { existing }
@@ -220,14 +190,13 @@ export function updateLock(
   if (current && current.pid !== process.pid) {
     return
   }
+  // Merge so a partial update (e.g. toggling `typesReady`) keeps existing fields
+  // like `url`, and the original acquisition's token survives for its release.
   const next: LockInfo = {
-    // Merge over the existing marker so partial updates (e.g. just toggling
-    // `typesReady`) keep previously-written fields like `url`/`port`.
     ...current,
     ...info,
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
-    // Preserve the acquiring call's token so its release still matches.
     token: current?.token,
   }
   try {
@@ -245,9 +214,8 @@ function makeRelease(lockPath: string, token: string): () => void {
     }
     released = true
     process.off('exit', release)
-    // Only remove the marker if it still carries our token. A same-process
-    // re-acquire (dev reload) writes a new token, so an earlier release must
-    // not delete the newer acquisition's file.
+    // A same-process re-acquire (dev reload) writes a new token, so only remove
+    // the file if it still carries ours.
     const current = readLockFile(lockPath)
     if (current?.token === token) {
       tryUnlink(lockPath)

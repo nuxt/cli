@@ -198,8 +198,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#loadNuxtInstance()
 
-    // Acquire lock before binding a listener so parallel agent invocations
-    // fail fast without starting a second server (agent-only).
+    // Acquire the lock before binding a listener so a conflicting build fails
+    // fast, and so typecheck can detect this server.
     this.#acquireDevLock(this.#currentNuxt!.options.buildDir)
 
     if (this.options.showBanner) {
@@ -345,9 +345,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
-    // Mark generated types as stale for the duration of the (re)build so a
-    // concurrent `nuxt typecheck` won't reuse mid-rebuild `.nuxt` output. Set
-    // back to ready after `writeTypes`/`buildNuxt` complete (below).
+    // Mark types stale while (re)building so a concurrent typecheck won't reuse
+    // mid-rebuild output; set ready again after the build below.
     updateLock(this.#currentNuxt.options.buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
@@ -496,7 +495,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
-      // Types are now generated for the current instance — typecheck may reuse.
+      // Types are built for the current instance; typecheck may reuse them.
       typesReady: true,
     })
 
@@ -517,10 +516,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   #acquireDevLock(buildDir: string): void {
-    // Detection only: advertise this dev server so `nuxt typecheck` can detect
-    // it and skip its prepare. Peer dev servers may run concurrently (e.g.
-    // different ports against the same project), so this never refuses another
-    // dev — but it still refuses a live `build`, which mutates the buildDir.
+    // Advertise this dev server so `nuxt typecheck` can detect it and skip its
+    // prepare. Peer dev servers may run concurrently, so this never refuses
+    // another dev, though it still refuses a live build.
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,

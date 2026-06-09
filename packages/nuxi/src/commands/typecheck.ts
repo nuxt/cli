@@ -53,9 +53,8 @@ export default defineCommand({
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
-    // Assumes the default `<cwd>/.nuxt` buildDir; custom buildDirs fall through
-    // to preparing (resolving the real one would mean loading config, the very
-    // cost we skip). `--no-prepare` is the escape hatch for those.
+    // Assume the default buildDir. Resolving a custom one means loading config,
+    // the cost we're trying to skip, so those fall through to preparing.
     const buildDir = join(cwd, '.nuxt')
 
     const decision = resolvePrepareDecision(buildDir, {
@@ -128,13 +127,11 @@ export interface PrepareDecision {
 }
 
 /**
- * Decide whether `typecheck` runs its own prepare. When a dev server already
- * owns this buildDir AND has signalled its types are ready (`typesReady`), its
- * `.nuxt` is current, so we reuse it and avoid a redundant rebuild (which would
- * remove `.nuxt/dist` and restart the dev server). The `typesReady` gate keeps
- * us from checking against mid-rebuild or pre-build (stale) generated types.
- * Explicit `--prepare`/`--no-prepare` always win; in auto mode `--extends`
- * forces a prepare since it changes the generated config.
+ * Decide whether `typecheck` runs its own prepare. Skips it when a dev server
+ * owns this buildDir and has signalled `typesReady`, reusing its `.nuxt` rather
+ * than rebuilding (which would remove `.nuxt/dist` and restart dev). The
+ * `typesReady` gate avoids checking against mid-rebuild or stale types. Explicit
+ * `--prepare`/`--no-prepare` win; in auto mode `--extends` forces a prepare.
  */
 export function resolvePrepareDecision(
   buildDir: string,
