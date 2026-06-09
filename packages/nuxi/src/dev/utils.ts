@@ -25,7 +25,7 @@ import { joinURL } from 'ufo'
 import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
+import { acquireLock, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
@@ -506,14 +506,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   #acquireDevLock(buildDir: string): void {
+    // Detection only: advertise this dev server so `nuxt typecheck` can detect
+    // it and skip its prepare. Never refuses — multiple dev servers may run
+    // concurrently (e.g. different ports against the same project).
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
-    })
-    if (lock.existing) {
-      console.error(formatLockError(lock.existing))
-      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
-    }
+    }, { enforce: false })
     // Swap atomically: install the new release before freeing the old one so
     // we're never unlocked in between.
     const previousRelease = this.#lockCleanup

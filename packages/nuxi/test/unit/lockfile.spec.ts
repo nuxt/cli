@@ -193,6 +193,17 @@ describe('lockfile', () => {
       expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
     })
 
+    it('a stale release does not delete a newer same-process re-acquire (reload safety)', () => {
+      // Mirrors a dev reload: re-acquire in the same process, then the previous
+      // acquisition's release fires. It must not remove the newer marker.
+      const first = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
+      const second = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
+      first.release!()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+      second.release!()
+      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+    })
+
     it('is a no-op when locking is disabled', () => {
       process.env.NUXT_IGNORE_LOCK = '1'
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })

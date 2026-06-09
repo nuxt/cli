@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { cancel, confirm, isCancel, spinner } from '@clack/prompts'
@@ -5,12 +6,13 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { resolveModulePath } from 'exsolve'
 import { addDevDependency, detectPackageManager } from 'nypm'
-import { resolve } from 'pathe'
+import { join, resolve } from 'pathe'
 import { readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
+import { readActiveLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
@@ -42,19 +44,56 @@ export default defineCommand({
     ...dotEnvArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
+    prepare: {
+      type: 'boolean',
+      description: 'Generate Nuxt types before checking. Defaults to auto: skipped when a dev server is already running for this project. Use --no-prepare to force-reuse, --prepare to always prepare.',
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    // Assumes the default `<cwd>/.nuxt` buildDir; custom buildDirs fall through
+    // to preparing (resolving the real one would mean loading config, the very
+    // cost we skip). `--no-prepare` is the escape hatch for those.
+    const buildDir = join(cwd, '.nuxt')
+
+    const decision = resolvePrepareDecision(buildDir, {
+      prepare: ctx.args.prepare as boolean | undefined,
+      extends: ctx.args.extends,
+    })
+
+    if (!decision.prepare && !existsSync(join(buildDir, 'tsconfig.json'))) {
+      logger.error(
+        `Cannot type check without prepared types: no \`${join(buildDir, 'tsconfig.json')}\` found. Run \`nuxt prepare\` or start the dev server first, or drop \`--no-prepare\`.`,
+      )
+      process.exitCode = 1
+      return
+    }
+
+    if (!decision.prepare && ctx.args.extends) {
+      logger.warn('`--extends` is ignored when prepare is skipped.')
+    }
+
+    if (!decision.prepare && hasTTY) {
+      logger.info(
+        decision.reusingDevPid
+          ? `Reusing types from the running dev server (PID ${decision.reusingDevPid}); skipping prepare.`
+          : 'Skipping prepare; type checking against the existing `.nuxt`.',
+      )
+    }
+
+    const preparePromise: Promise<void> = decision.prepare
+      ? writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
+          ...ctx.data?.overrides,
+          ...(ctx.args.extends && { extends: ctx.args.extends }),
+        })
+      : Promise.resolve()
 
     const [supportsProjects, vueTsc] = await Promise.all([
       readTSConfig(cwd).then(r => !!(r.references?.length)),
       ensureVueTsc(cwd, resolveDeps()),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
-        ...ctx.data?.overrides,
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
-      }),
+      preparePromise,
     ])
 
     if (!vueTsc) {
@@ -81,6 +120,40 @@ export default defineCommand({
     process.exitCode = result.exitCode ?? 1
   },
 })
+
+export interface PrepareDecision {
+  prepare: boolean
+  /** PID of the live dev server we are reusing types from, when skipping. */
+  reusingDevPid?: number
+}
+
+/**
+ * Decide whether `typecheck` runs its own prepare. When a dev server already
+ * owns this buildDir its `.nuxt` is continuously kept fresh, so we reuse it and
+ * avoid a redundant rebuild (which would remove `.nuxt/dist` and restart the
+ * dev server). Explicit `--prepare`/`--no-prepare` always win; in auto mode
+ * `--extends` forces a prepare since it changes the generated config.
+ */
+export function resolvePrepareDecision(
+  buildDir: string,
+  opts: { prepare?: boolean, extends?: string },
+): PrepareDecision {
+  if (opts.prepare === true) {
+    return { prepare: true }
+  }
+  if (opts.prepare === false) {
+    return { prepare: false }
+  }
+  if (opts.extends) {
+    return { prepare: true }
+  }
+
+  const lock = readActiveLock(buildDir)
+  if (lock?.command === 'dev' && existsSync(join(buildDir, 'tsconfig.json'))) {
+    return { prepare: false, reusingDevPid: lock.pid }
+  }
+  return { prepare: true }
+}
 
 async function ensureVueTsc(cwd: string, deps: Record<DepName, string | undefined>): Promise<string | undefined> {
   const missing = (Object.keys(REQUIRED_DEPS) as DepName[]).filter(name => !deps[name])

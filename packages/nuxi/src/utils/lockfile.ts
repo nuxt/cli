@@ -4,7 +4,7 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { isAgent } from 'std-env'
 
-interface LockInfo {
+export interface LockInfo {
   pid: number
   startedAt: number
   command: 'dev' | 'build'
@@ -12,7 +12,17 @@ interface LockInfo {
   port?: number
   hostname?: string
   url?: string
+  /**
+   * Unique per `acquireLock` call within a process. Lets a release only remove
+   * the marker it actually wrote, so a same-process re-acquire (e.g. dev reload)
+   * isn't clobbered by the previous acquisition's release.
+   */
+  token?: string
 }
+
+// Monotonic per-process counter feeding lock tokens; combined with the pid it
+// uniquely identifies a single acquisition.
+let acquireCounter = 0
 
 const LOCK_FILENAME = 'nuxt.lock'
 // PID recycling safety net. Locks older than this cannot be trusted because a
@@ -61,8 +71,13 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Locking is enabled for agents by default. `NUXT_LOCK=1` forces it on for
- * non-agents; `NUXT_IGNORE_LOCK=1` forces it off.
+ * Default enforcement policy for callers that don't pass `enforce` explicitly:
+ * a conflicting live lock makes them refuse to start. On for agents by default;
+ * `NUXT_LOCK=1` forces it on for humans, `NUXT_IGNORE_LOCK=1` forces it off.
+ * `nuxt dev` opts out (passes `enforce: false`); `nuxt build` uses this default.
+ *
+ * Independent of {@link isLockWriteEnabled}: the presence marker is still
+ * written when enforcement is off so other tooling can detect a running server.
  */
 export function isLockEnabled(): boolean {
   if (process.env.NUXT_IGNORE_LOCK) {
@@ -74,27 +89,50 @@ export function isLockEnabled(): boolean {
   return isAgent
 }
 
+/**
+ * Whether Nuxt should write the presence lock file at all. Only the explicit
+ * `NUXT_IGNORE_LOCK` opt-out disables it; otherwise the marker is always
+ * written so other commands (e.g. `nuxt typecheck`) can detect a live dev
+ * server and reuse its prepared `.nuxt`. This is intentionally broader than
+ * {@link isLockEnabled}, which only governs conflict *enforcement*.
+ */
+export function isLockWriteEnabled(): boolean {
+  return !process.env.NUXT_IGNORE_LOCK
+}
+
 type LockResult
   = | { existing?: undefined, release: () => void }
     | { existing: LockInfo, release?: undefined }
 
 /**
- * Atomically acquire a build/dev lock.
- * Returns `{ existing }` if another live process holds the lock, otherwise
- * `{ release }` to be invoked on shutdown. No-op when locking is disabled.
+ * Acquire a build/dev lock.
+ *
+ * Two orthogonal roles:
+ * - **Presence**: the marker is written whenever {@link isLockWriteEnabled}, so
+ *   other commands (e.g. `typecheck`) can detect a live process via
+ *   {@link readActiveLock}.
+ * - **Enforcement**: when `enforce` is set, a conflicting live lock makes us
+ *   refuse (returns `{ existing }`). `nuxt dev` passes `enforce: false` so
+ *   multiple dev servers may run concurrently — the lock there is purely a
+ *   detection signal. `nuxt build` keeps enforcement (parallel builds clobber
+ *   output). Defaults to {@link isLockEnabled} when unspecified.
  */
 export function acquireLock(
   buildDir: string,
   info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  opts: { enforce?: boolean } = {},
 ): LockResult {
-  if (!isLockEnabled()) {
+  if (!isLockWriteEnabled()) {
     return { release: () => {} }
   }
 
+  const enforce = opts.enforce ?? isLockEnabled()
   const lockPath = join(buildDir, LOCK_FILENAME)
+  const token = `${process.pid}:${++acquireCounter}`
   const fullInfo: LockInfo = {
     pid: process.pid,
     startedAt: Date.now(),
+    token,
     ...info,
   }
 
@@ -105,12 +143,20 @@ export function acquireLock(
   }
   catch {}
 
-  // Try exclusive-create up to twice: the first attempt may race with a stale
-  // lock that we then clean up and retry.
+  if (!enforce) {
+    // Detection-only: claim the marker, never refuse. When several dev servers
+    // share a buildDir the most recent one is advertised; `makeRelease` only
+    // removes the file while it still carries our token.
+    writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
+    return { release: makeRelease(lockPath, token) }
+  }
+
+  // Enforcing path: try exclusive-create up to twice (the first attempt may
+  // race with a stale lock we then clean up and retry).
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2), { flag: 'wx' })
-      return { release: makeRelease(lockPath) }
+      return { release: makeRelease(lockPath, token) }
     }
     catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
@@ -134,6 +180,16 @@ export function acquireLock(
 }
 
 /**
+ * Read the lock file for a buildDir, returning it only when it belongs to a
+ * still-running process. Used by other commands (e.g. `typecheck`) to detect a
+ * live `dev`/`build` and reuse its prepared `.nuxt`.
+ */
+export function readActiveLock(buildDir: string): LockInfo | undefined {
+  const info = readLockFile(join(buildDir, LOCK_FILENAME))
+  return info && isLockActive(info) ? info : undefined
+}
+
+/**
  * Overwrite an existing lock we already own with updated metadata (e.g. port
  * information learned after the listener binds). Callers must hold the lock
  * via a prior successful `acquireLock`. Does nothing when locking is disabled.
@@ -142,7 +198,7 @@ export function updateLock(
   buildDir: string,
   info: Omit<LockInfo, 'pid' | 'startedAt'>,
 ): void {
-  if (!isLockEnabled()) {
+  if (!isLockWriteEnabled()) {
     return
   }
   const lockPath = join(buildDir, LOCK_FILENAME)
@@ -154,6 +210,8 @@ export function updateLock(
   const next: LockInfo = {
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
+    // Preserve the acquiring call's token so its release still matches.
+    token: current?.token,
     ...info,
   }
   try {
@@ -162,7 +220,7 @@ export function updateLock(
   catch {}
 }
 
-function makeRelease(lockPath: string): () => void {
+function makeRelease(lockPath: string, token: string): () => void {
   let released = false
 
   function release(): void {
@@ -171,8 +229,11 @@ function makeRelease(lockPath: string): () => void {
     }
     released = true
     process.off('exit', release)
+    // Only remove the marker if it still carries our token. A same-process
+    // re-acquire (dev reload) writes a new token, so an earlier release must
+    // not delete the newer acquisition's file.
     const current = readLockFile(lockPath)
-    if (!current || current.pid === process.pid) {
+    if (current?.token === token) {
       tryUnlink(lockPath)
     }
   }
