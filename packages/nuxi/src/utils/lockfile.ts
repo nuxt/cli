@@ -103,7 +103,7 @@ export function isLockEnabled(): boolean {
  * server and reuse its prepared `.nuxt`. This is intentionally broader than
  * {@link isLockEnabled}, which only governs conflict *enforcement*.
  */
-export function isLockWriteEnabled(): boolean {
+function isLockWriteEnabled(): boolean {
   return !process.env.NUXT_IGNORE_LOCK
 }
 
