@@ -65,6 +65,35 @@ describe('lockfile presence (enforcement off)', () => {
     }
   })
 
+  it('refuses to clobber a live build lock even in detection-only mode', () => {
+    const buildPid = 424242
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
+      if (pid === buildPid) {
+        return true as unknown as true
+      }
+      throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
+    })
+    try {
+      writeFileSync(join(tempDir, LOCK), JSON.stringify({
+        pid: buildPid,
+        command: 'build',
+        cwd: '/other',
+        startedAt: Date.now(),
+      }))
+
+      // dev acquires with enforce:false, but an active build must not be clobbered.
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      expect(lock.existing).toBeDefined()
+      expect(lock.existing!.command).toBe('build')
+      expect(lock.release).toBeUndefined()
+      // The build marker is left intact.
+      expect(JSON.parse(readFileSync(join(tempDir, LOCK), 'utf-8')).pid).toBe(buildPid)
+    }
+    finally {
+      killSpy.mockRestore()
+    }
+  })
+
   it('explicit enforce:false never refuses even when enforcement would be on', () => {
     process.env.NUXT_LOCK = '1' // would enable enforcement by default
     const foreignPid = 424242

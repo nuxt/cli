@@ -13,6 +13,13 @@ export interface LockInfo {
   hostname?: string
   url?: string
   /**
+   * `true` once the dev server has finished `writeTypes`/`buildNuxt` for the
+   * current Nuxt instance, i.e. `.nuxt` types are current. Cleared while
+   * (re)building. `nuxt typecheck` only reuses `.nuxt` when this is set, so it
+   * never checks against stale or mid-rebuild generated types.
+   */
+  typesReady?: boolean
+  /**
    * Unique per `acquireLock` call within a process. Lets a release only remove
    * the marker it actually wrote, so a same-process re-acquire (e.g. dev reload)
    * isn't clobbered by the previous acquisition's release.
@@ -144,9 +151,15 @@ export function acquireLock(
   catch {}
 
   if (!enforce) {
-    // Detection-only: claim the marker, never refuse. When several dev servers
-    // share a buildDir the most recent one is advertised; `makeRelease` only
-    // removes the file while it still carries our token.
+    // Detection-only for peer dev servers: claim the marker, never refuse a
+    // concurrent dev. But never clobber an active `build` — builds mutate the
+    // buildDir and must not run alongside dev. When several dev servers share a
+    // buildDir the most recent one is advertised; `makeRelease` only removes
+    // the file while it still carries our token.
+    const existing = readLockFile(lockPath)
+    if (existing && isLockActive(existing) && existing.command === 'build') {
+      return { existing }
+    }
     writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
     return { release: makeRelease(lockPath, token) }
   }
@@ -208,11 +221,14 @@ export function updateLock(
     return
   }
   const next: LockInfo = {
+    // Merge over the existing marker so partial updates (e.g. just toggling
+    // `typesReady`) keep previously-written fields like `url`/`port`.
+    ...current,
+    ...info,
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
     // Preserve the acquiring call's token so its release still matches.
     token: current?.token,
-    ...info,
   }
   try {
     writeFileSync(lockPath, JSON.stringify(next, null, 2))

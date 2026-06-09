@@ -25,7 +25,7 @@ import { joinURL } from 'ufo'
 import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { acquireLock, updateLock } from '../utils/lockfile'
+import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
@@ -345,6 +345,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
+    // Mark generated types as stale for the duration of the (re)build so a
+    // concurrent `nuxt typecheck` won't reuse mid-rebuild `.nuxt` output. Set
+    // back to ready after `writeTypes`/`buildNuxt` complete (below).
+    updateLock(this.#currentNuxt.options.buildDir, {
+      command: 'dev',
+      cwd: this.options.cwd,
+      typesReady: false,
+    })
+
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
@@ -487,6 +496,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
+      // Types are now generated for the current instance — typecheck may reuse.
+      typesReady: true,
     })
 
     this.emit('ready', serverUrl)
@@ -507,12 +518,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   #acquireDevLock(buildDir: string): void {
     // Detection only: advertise this dev server so `nuxt typecheck` can detect
-    // it and skip its prepare. Never refuses — multiple dev servers may run
-    // concurrently (e.g. different ports against the same project).
+    // it and skip its prepare. Peer dev servers may run concurrently (e.g.
+    // different ports against the same project), so this never refuses another
+    // dev — but it still refuses a live `build`, which mutates the buildDir.
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
     }, { enforce: false })
+    if (lock.existing) {
+      console.error(formatLockError(lock.existing))
+      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+    }
     // Swap atomically: install the new release before freeing the old one so
     // we're never unlocked in between.
     const previousRelease = this.#lockCleanup

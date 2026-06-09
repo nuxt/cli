@@ -129,10 +129,12 @@ export interface PrepareDecision {
 
 /**
  * Decide whether `typecheck` runs its own prepare. When a dev server already
- * owns this buildDir its `.nuxt` is continuously kept fresh, so we reuse it and
- * avoid a redundant rebuild (which would remove `.nuxt/dist` and restart the
- * dev server). Explicit `--prepare`/`--no-prepare` always win; in auto mode
- * `--extends` forces a prepare since it changes the generated config.
+ * owns this buildDir AND has signalled its types are ready (`typesReady`), its
+ * `.nuxt` is current, so we reuse it and avoid a redundant rebuild (which would
+ * remove `.nuxt/dist` and restart the dev server). The `typesReady` gate keeps
+ * us from checking against mid-rebuild or pre-build (stale) generated types.
+ * Explicit `--prepare`/`--no-prepare` always win; in auto mode `--extends`
+ * forces a prepare since it changes the generated config.
  */
 export function resolvePrepareDecision(
   buildDir: string,
@@ -149,7 +151,7 @@ export function resolvePrepareDecision(
   }
 
   const lock = readActiveLock(buildDir)
-  if (lock?.command === 'dev' && existsSync(join(buildDir, 'tsconfig.json'))) {
+  if (lock?.command === 'dev' && lock.typesReady === true && existsSync(join(buildDir, 'tsconfig.json'))) {
     return { prepare: false, reusingDevPid: lock.pid }
   }
   return { prepare: true }

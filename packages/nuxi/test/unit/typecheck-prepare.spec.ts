@@ -42,16 +42,30 @@ describe('resolvePrepareDecision', () => {
     expect(resolvePrepareDecision(buildDir, {})).toEqual({ prepare: true })
   })
 
-  it('skips prepare when a live dev server owns the buildDir and types exist', () => {
+  it('skips prepare when a live dev server owns the buildDir, types are ready, and tsconfig exists', () => {
     mockAlive(424242)
-    writeLock(buildDir, { pid: 424242, command: 'dev' })
+    writeLock(buildDir, { pid: 424242, command: 'dev', typesReady: true })
     writeFileSync(join(buildDir, 'tsconfig.json'), '{}')
     expect(resolvePrepareDecision(buildDir, {})).toEqual({ prepare: false, reusingDevPid: 424242 })
   })
 
+  it('prepares when the dev lock has not signalled typesReady (mid-rebuild / stale)', () => {
+    mockAlive(424242)
+    writeLock(buildDir, { pid: 424242, command: 'dev' }) // no typesReady
+    writeFileSync(join(buildDir, 'tsconfig.json'), '{}')
+    expect(resolvePrepareDecision(buildDir, {})).toEqual({ prepare: true })
+  })
+
+  it('prepares when typesReady is explicitly false', () => {
+    mockAlive(424242)
+    writeLock(buildDir, { pid: 424242, command: 'dev', typesReady: false })
+    writeFileSync(join(buildDir, 'tsconfig.json'), '{}')
+    expect(resolvePrepareDecision(buildDir, {})).toEqual({ prepare: true })
+  })
+
   it('prepares when a live dev lock exists but types are not yet written', () => {
     mockAlive(424242)
-    writeLock(buildDir, { pid: 424242, command: 'dev' })
+    writeLock(buildDir, { pid: 424242, command: 'dev', typesReady: true })
     expect(resolvePrepareDecision(buildDir, {})).toEqual({ prepare: true })
   })
 
