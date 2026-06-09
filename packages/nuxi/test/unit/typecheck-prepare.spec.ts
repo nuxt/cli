@@ -93,9 +93,9 @@ describe('resolvePrepareDecision', () => {
     expect(resolvePrepareDecision(buildDir, { prepare: false })).toEqual({ prepare: false })
   })
 
-  it('forces a prepare when --extends is passed', () => {
+  it('forces a prepare when --extends is passed (even with reusable types)', () => {
     mockAlive(424242)
-    writeLock(buildDir, { pid: 424242, command: 'dev' })
+    writeLock(buildDir, { pid: 424242, command: 'dev', typesReady: true })
     writeFileSync(join(buildDir, 'tsconfig.json'), '{}')
     expect(resolvePrepareDecision(buildDir, { extends: '../base' })).toEqual({ prepare: true })
   })

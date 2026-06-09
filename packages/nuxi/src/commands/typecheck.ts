@@ -46,7 +46,7 @@ export default defineCommand({
     ...legacyRootDirArgs,
     prepare: {
       type: 'boolean',
-      description: 'Generate Nuxt types before checking. Defaults to auto: skipped when a dev server is already running for this project. Use --no-prepare to force-reuse, --prepare to always prepare.',
+      description: 'Generate Nuxt types before checking. Defaults to auto: skipped when a dev server is already running for this project (default buildDir only). Use --no-prepare to force-reuse, --prepare to always prepare.',
     },
   },
   async run(ctx) {

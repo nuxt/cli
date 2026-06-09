@@ -99,7 +99,7 @@ type LockResult
  */
 export function acquireLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'token'>,
   opts: { enforce?: boolean } = {},
 ): LockResult {
   if (!isLockWriteEnabled()) {
@@ -112,8 +112,8 @@ export function acquireLock(
   const fullInfo: LockInfo = {
     pid: process.pid,
     startedAt: Date.now(),
-    token,
     ...info,
+    token,
   }
 
   // The build dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the
@@ -179,7 +179,7 @@ export function readActiveLock(buildDir: string): LockInfo | undefined {
  */
 export function updateLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'token'>,
 ): void {
   if (!isLockWriteEnabled()) {
     return
