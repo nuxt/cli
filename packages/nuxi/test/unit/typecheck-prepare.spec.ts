@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -6,11 +6,11 @@ import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { resolvePrepareDecision } = await import('../../src/commands/typecheck')
-
-const LOCK = 'nuxt.lock'
+const { lockPathFor, locksDir } = await import('../../src/utils/lockfile')
 
 function writeLock(dir: string, info: Record<string, unknown>) {
-  writeFileSync(join(dir, LOCK), JSON.stringify({ cwd: '/project', startedAt: Date.now(), ...info }))
+  mkdirSync(locksDir(dir), { recursive: true })
+  writeFileSync(lockPathFor(dir, info.pid as number), JSON.stringify({ cwd: '/project', startedAt: Date.now(), ...info }))
 }
 
 describe('resolvePrepareDecision', () => {

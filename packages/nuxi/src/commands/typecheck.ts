@@ -12,7 +12,7 @@ import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
-import { readActiveLock } from '../utils/lockfile'
+import { readActiveLocks } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
@@ -147,9 +147,11 @@ export function resolvePrepareDecision(
     return { prepare: true }
   }
 
-  const lock = readActiveLock(buildDir)
-  if (lock?.command === 'dev' && lock.typesReady === true && existsSync(join(buildDir, 'tsconfig.json'))) {
-    return { prepare: false, reusingDevPid: lock.pid }
+  // Reuse types from any live dev server that has signalled readiness; with
+  // peer dev servers sharing a buildDir, any one of them keeps `.nuxt` fresh.
+  const devLock = readActiveLocks(buildDir).find(l => l.command === 'dev' && l.typesReady === true)
+  if (devLock && existsSync(join(buildDir, 'tsconfig.json'))) {
+    return { prepare: false, reusingDevPid: devLock.pid }
   }
   return { prepare: true }
 }

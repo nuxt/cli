@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -20,10 +20,25 @@ export interface LockInfo {
 
 let acquireCounter = 0
 
-const LOCK_FILENAME = 'nuxt.lock'
+// Presence markers live one-file-per-process under `<buildDir>/locks/<pid>.json`.
+// A single shared `nuxt.lock` cannot represent more than one owner: peer dev
+// servers sharing a buildDir would clobber each other's record on acquire,
+// `updateLock` would no-op for every non-owner, and whichever server exited
+// first would unlink the file out from under the others. Per-process files
+// remove all three hazards — each process only ever writes or removes its own
+// path, so reads simply enumerate the directory.
+const LOCKS_DIRNAME = 'locks'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
+
+export function locksDir(buildDir: string): string {
+  return join(buildDir, LOCKS_DIRNAME)
+}
+
+export function lockPathFor(buildDir: string, pid: number): string {
+  return join(locksDir(buildDir), `${pid}.json`)
+}
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -67,6 +82,56 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
+ * Enumerate the live markers in a buildDir, newest first. Stale, dead, or
+ * corrupted files are pruned as a side effect so the directory self-cleans.
+ * Markers owned by the current process are excluded (a process never blocks or
+ * detects itself).
+ */
+export function readActiveLocks(buildDir: string): LockInfo[] {
+  const dir = locksDir(buildDir)
+  let names: string[]
+  try {
+    names = readdirSync(dir)
+  }
+  catch {
+    return []
+  }
+  const active: LockInfo[] = []
+  for (const name of names) {
+    if (!name.endsWith('.json')) {
+      continue
+    }
+    const lockPath = join(dir, name)
+    const info = readLockFile(lockPath)
+    if (!info || info.pid === process.pid) {
+      continue
+    }
+    if (isLockActive(info)) {
+      active.push(info)
+    }
+    else {
+      // Dead/stale/corrupted marker: prune so the directory doesn't accumulate.
+      tryUnlink(lockPath)
+    }
+  }
+  return active.sort((a, b) => b.startedAt - a.startedAt)
+}
+
+/**
+ * Read a single representative active lock for a buildDir, or `undefined` when
+ * none is live. A build lock wins (it is exclusive); otherwise the most-recently
+ * started dev server. Use {@link readActiveLocks} when every owner matters.
+ */
+export function readActiveLock(buildDir: string): LockInfo | undefined {
+  const active = readActiveLocks(buildDir)
+  return active.find(l => l.command === 'build') ?? active[0]
+}
+
+type LockResult
+  = | { existing?: undefined, release: () => void }
+    | { existing: LockInfo, release?: undefined }
+
+/**
  * Default conflict-enforcement policy. On for agents; `NUXT_LOCK=1` forces it on,
  * `NUXT_IGNORE_LOCK=1` off. `nuxt build` uses this; `nuxt dev` passes `enforce: false`.
  */
@@ -86,16 +151,13 @@ function isLockWriteEnabled(): boolean {
   return !process.env.NUXT_IGNORE_LOCK
 }
 
-type LockResult
-  = | { existing?: undefined, release: () => void }
-    | { existing: LockInfo, release?: undefined }
-
 /**
  * Acquire a build/dev lock. Returns `{ existing }` when a conflicting live lock
  * blocks us, otherwise `{ release }` to invoke on shutdown. The marker is always
- * written for detection. With `enforce` false (used by `nuxt dev`) a peer dev
- * lock is taken over rather than refused, though an active `build` lock is still
- * refused. `enforce` defaults to `isLockEnabled()`. No-op when writing is disabled.
+ * written for detection. With `enforce` false (used by `nuxt dev`) peer dev
+ * servers coexist — only an active `build` is refused. With `enforce` true
+ * (`nuxt build`) any other live owner is refused. `enforce` defaults to
+ * `isLockEnabled()`. No-op when writing is disabled.
  */
 export function acquireLock(
   buildDir: string,
@@ -107,7 +169,7 @@ export function acquireLock(
   }
 
   const enforce = opts.enforce ?? isLockEnabled()
-  const lockPath = join(buildDir, LOCK_FILENAME)
+  const lockPath = lockPathFor(buildDir, process.pid)
   const token = `${process.pid}:${++acquireCounter}`
   const fullInfo: LockInfo = {
     pid: process.pid,
@@ -116,66 +178,32 @@ export function acquireLock(
     token,
   }
 
-  // The build dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the
-  // lock is acquired before `clearBuildDir` runs, so create it lazily.
+  // The locks dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the lock
+  // is acquired before `clearBuildDir` runs, so create it lazily.
   try {
-    mkdirSync(buildDir, { recursive: true })
+    mkdirSync(locksDir(buildDir), { recursive: true })
   }
   catch {}
 
-  if (!enforce) {
-    // Peer dev servers may share a buildDir, but an active build mutates it and
-    // must not be clobbered.
-    const existing = readLockFile(lockPath)
-    if (existing && isLockActive(existing) && existing.command === 'build') {
-      return { existing }
-    }
-    writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
-    return { release: makeRelease(lockPath, token) }
+  // A build is exclusive, so it refuses any other live owner; a dev refuses only
+  // an active build (peer dev servers are allowed to share the buildDir).
+  const others = readActiveLocks(buildDir)
+  const blocker = enforce ? others[0] : others.find(l => l.command === 'build')
+  if (blocker) {
+    return { existing: blocker }
   }
 
-  // Enforcing path: try exclusive-create up to twice (the first attempt may
-  // race with a stale lock we then clean up and retry).
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2), { flag: 'wx' })
-      return { release: makeRelease(lockPath, token) }
-    }
-    catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
-        throw err
-      }
-      const existing = readLockFile(lockPath)
-      if (existing && isLockActive(existing)) {
-        return { existing }
-      }
-      // Stale, corrupted, or self-owned; remove and retry.
-      tryUnlink(lockPath)
-    }
-  }
-
-  // Two failures in a row; surface whatever we can read.
-  const existing = readLockFile(lockPath)
-  if (existing && isLockActive(existing)) {
-    return { existing }
-  }
-  return { release: () => {} }
+  // Overwrite our own marker (a same-process re-acquire on reload is expected).
+  writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
+  return { release: makeRelease(lockPath, token) }
 }
 
 /**
- * Read the lock file for a buildDir, returning it only when it belongs to a
- * still-running process. Used by other commands (e.g. `typecheck`) to detect a
- * live `dev`/`build` and reuse its prepared `.nuxt`.
- */
-export function readActiveLock(buildDir: string): LockInfo | undefined {
-  const info = readLockFile(join(buildDir, LOCK_FILENAME))
-  return info && isLockActive(info) ? info : undefined
-}
-
-/**
- * Overwrite an existing lock we already own with updated metadata (e.g. port
- * information learned after the listener binds). Callers must hold the lock
- * via a prior successful `acquireLock`. Does nothing when locking is disabled.
+ * Overwrite this process's own marker with updated metadata (e.g. port
+ * information learned after the listener binds, or toggling `typesReady`).
+ * Callers must hold the lock via a prior successful `acquireLock`. Unlike the
+ * old shared-file design this always updates our own marker regardless of peer
+ * dev servers. Does nothing when locking is disabled.
  */
 export function updateLock(
   buildDir: string,
@@ -184,14 +212,14 @@ export function updateLock(
   if (!isLockWriteEnabled()) {
     return
   }
-  const lockPath = join(buildDir, LOCK_FILENAME)
+  const lockPath = lockPathFor(buildDir, process.pid)
   const current = readLockFile(lockPath)
-  // Only overwrite our own lock; never touch another process's file.
+  // A recycled PID could leave a foreign file at our path; never adopt it.
   if (current && current.pid !== process.pid) {
     return
   }
-  // Merge so a partial update (e.g. toggling `typesReady`) keeps existing fields
-  // like `url`, and the original acquisition's token survives for its release.
+  // Merge so a partial update keeps existing fields (url, port, …) and the
+  // original acquisition's token survives for its release.
   const next: LockInfo = {
     ...current,
     ...info,

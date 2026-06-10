@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -12,10 +12,17 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isAgent: true }
 })
 
-const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, formatLockError, isLockEnabled, lockPathFor, locksDir, updateLock } = await import('../../src/utils/lockfile')
+
+/** Write a foreign presence marker the way another process would. */
+function writeMarker(buildDir: string, info: Record<string, unknown>) {
+  mkdirSync(locksDir(buildDir), { recursive: true })
+  writeFileSync(lockPathFor(buildDir, info.pid as number), JSON.stringify({ command: 'dev', cwd: '/other', startedAt: Date.now(), ...info }))
+}
 
 describe('lockfile', () => {
   let tempDir: string
+  const ownPath = (dir: string) => lockPathFor(dir, process.pid)
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'nuxt-lockfile-test-'))
@@ -50,39 +57,59 @@ describe('lockfile', () => {
   })
 
   describe('acquireLock', () => {
-    it('writes lock file and returns release function', () => {
+    it('writes a per-process marker and returns release function', () => {
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
-      const lockPath = join(tempDir, 'nuxt.lock')
 
       expect(lock.existing).toBeUndefined()
       expect(lock.release).toBeDefined()
-      expect(existsSync(lockPath)).toBe(true)
-      const written = JSON.parse(readFileSync(lockPath, 'utf-8'))
+      expect(existsSync(ownPath(tempDir))).toBe(true)
+      const written = JSON.parse(readFileSync(ownPath(tempDir), 'utf-8'))
       expect(written.pid).toBe(process.pid)
       expect(written.command).toBe('dev')
       expect(written.cwd).toBe('/project')
       expect(typeof written.startedAt).toBe('number')
+      expect(typeof written.token).toBe('string')
 
       lock.release!()
-      expect(existsSync(lockPath)).toBe(false)
+      expect(existsSync(ownPath(tempDir))).toBe(false)
     })
 
-    it('creates the build dir if it does not exist yet', async () => {
+    it('creates the locks dir if it does not exist yet', async () => {
       const buildDir = join(tempDir, 'missing', '.nuxt')
       expect(existsSync(buildDir)).toBe(false)
 
       const lock = acquireLock(buildDir, { command: 'dev', cwd: '/project' })
-      const lockPath = join(buildDir, 'nuxt.lock')
 
       expect(lock.existing).toBeUndefined()
-      expect(existsSync(lockPath)).toBe(true)
+      expect(existsSync(ownPath(buildDir))).toBe(true)
 
       lock.release!()
     })
 
-    it('returns existing lock when another live process holds it', async () => {
-      // Stub process.kill so liveness is deterministic across OSes (Windows
-      // PID 1 semantics differ).
+    it('peer dev servers coexist (no clobber)', () => {
+      const peerPid = 424242
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
+        if (pid === peerPid) {
+          return true as unknown as true
+        }
+        throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
+      })
+      try {
+        writeMarker(tempDir, { pid: peerPid, command: 'dev' })
+
+        const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
+        expect(lock.existing).toBeUndefined()
+        expect(lock.release).toBeDefined()
+        // Both markers live side by side.
+        expect(existsSync(lockPathFor(tempDir, peerPid))).toBe(true)
+        expect(existsSync(ownPath(tempDir))).toBe(true)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('returns existing lock when another live process holds it (enforced)', () => {
       const foreignPid = 424242
       const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
         if (pid === foreignPid) {
@@ -91,53 +118,39 @@ describe('lockfile', () => {
         throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
       })
       try {
-        await mkdir(tempDir, { recursive: true })
-        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-          pid: foreignPid,
-          command: 'dev',
-          cwd: '/other',
-          startedAt: Date.now(),
-        }))
+        writeMarker(tempDir, { pid: foreignPid, command: 'dev', cwd: '/other' })
 
         const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
         expect(lock.existing).toBeDefined()
         expect(lock.existing!.pid).toBe(foreignPid)
         expect(lock.existing!.cwd).toBe('/other')
         expect(lock.release).toBeUndefined()
-        // File untouched.
-        expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+        // Foreign marker untouched; we never wrote our own.
+        expect(existsSync(lockPathFor(tempDir, foreignPid))).toBe(true)
+        expect(existsSync(ownPath(tempDir))).toBe(false)
       }
       finally {
         killSpy.mockRestore()
       }
     })
 
-    it('takes over a lock whose PID is dead', async () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 999999999,
-        command: 'dev',
-        cwd: '/other',
-        startedAt: Date.now(),
-      }))
+    it('prunes and takes over a marker whose PID is dead', () => {
+      const deadPid = 999999999
+      writeMarker(tempDir, { pid: deadPid, command: 'dev' })
 
       const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
       expect(lock.existing).toBeUndefined()
       expect(lock.release).toBeDefined()
-      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
-      expect(written.pid).toBe(process.pid)
+      // Dead marker pruned, ours written.
+      expect(existsSync(lockPathFor(tempDir, deadPid))).toBe(false)
+      expect(JSON.parse(readFileSync(ownPath(tempDir), 'utf-8')).pid).toBe(process.pid)
       lock.release!()
     })
 
-    it('takes over a lock older than the PID-recycling safety window', () => {
-      // Mock the PID as alive; age-based override should still kick in.
+    it('takes over a marker older than the PID-recycling safety window', () => {
       const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
       try {
-        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-          pid: 424242,
-          command: 'dev',
-          cwd: '/other',
-          startedAt: Date.now() - 25 * 60 * 60 * 1000,
-        }))
+        writeMarker(tempDir, { pid: 424242, command: 'dev', startedAt: Date.now() - 25 * 60 * 60 * 1000 })
 
         const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
         expect(lock.existing).toBeUndefined()
@@ -149,13 +162,8 @@ describe('lockfile', () => {
       }
     })
 
-    it('takes over a lock owned by this process (re-entrancy)', () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: process.pid,
-        command: 'dev',
-        cwd: '/project',
-        startedAt: Date.now(),
-      }))
+    it('ignores a marker owned by this process when scanning (re-entrancy)', () => {
+      writeMarker(tempDir, { pid: process.pid, command: 'dev', cwd: '/project' })
 
       const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
       expect(lock.existing).toBeUndefined()
@@ -163,14 +171,14 @@ describe('lockfile', () => {
       lock.release!()
     })
 
-    it('cleans up corrupted lock files', () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), 'not valid json')
+    it('acquires despite a corrupted sibling marker', () => {
+      mkdirSync(locksDir(tempDir), { recursive: true })
+      writeFileSync(join(locksDir(tempDir), '12345.json'), 'not valid json')
 
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
       expect(lock.existing).toBeUndefined()
       expect(lock.release).toBeDefined()
-      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
-      expect(written.pid).toBe(process.pid)
+      expect(JSON.parse(readFileSync(ownPath(tempDir), 'utf-8')).pid).toBe(process.pid)
       lock.release!()
     })
 
@@ -180,28 +188,21 @@ describe('lockfile', () => {
       lock.release!() // should not throw
     })
 
-    it('release does not remove another process\'s lock', () => {
+    it('release does not remove a marker no longer carrying our token', () => {
       const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
-      // Simulate another process replacing the file.
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 1,
-        command: 'dev',
-        cwd: '/other',
-        startedAt: Date.now(),
-      }))
+      // Simulate the file being replaced (e.g. recycled PID) so our token no longer matches.
+      writeFileSync(ownPath(tempDir), JSON.stringify({ pid: process.pid, command: 'dev', cwd: '/other', startedAt: Date.now(), token: 'someone-else' }))
       lock.release!()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+      expect(existsSync(ownPath(tempDir))).toBe(true)
     })
 
     it('a stale release does not delete a newer same-process re-acquire (reload safety)', () => {
-      // Mirrors a dev reload: re-acquire in the same process, then the previous
-      // acquisition's release fires. It must not remove the newer marker.
       const first = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
       const second = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
       first.release!()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(true)
+      expect(existsSync(ownPath(tempDir))).toBe(true)
       second.release!()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+      expect(existsSync(ownPath(tempDir))).toBe(false)
     })
 
     it('is a no-op when locking is disabled', () => {
@@ -209,7 +210,7 @@ describe('lockfile', () => {
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
       expect(lock.existing).toBeUndefined()
       expect(lock.release).toBeDefined()
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+      expect(existsSync(ownPath(tempDir))).toBe(false)
       lock.release!()
     })
 
@@ -223,9 +224,9 @@ describe('lockfile', () => {
   })
 
   describe('updateLock', () => {
-    it('overwrites our own lock with new metadata', () => {
+    it('overwrites our own marker with new metadata', () => {
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
-      const originalStart = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8')).startedAt
+      const originalStart = JSON.parse(readFileSync(ownPath(tempDir), 'utf-8')).startedAt
 
       updateLock(tempDir, {
         command: 'dev',
@@ -235,7 +236,7 @@ describe('lockfile', () => {
         url: 'http://127.0.0.1:3000',
       })
 
-      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      const written = JSON.parse(readFileSync(ownPath(tempDir), 'utf-8'))
       expect(written.port).toBe(3000)
       expect(written.url).toBe('http://127.0.0.1:3000')
       // Preserves startedAt from original acquisition.
@@ -243,21 +244,14 @@ describe('lockfile', () => {
       lock.release!()
     })
 
-    it('does not overwrite another process\'s lock', () => {
-      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
-        pid: 1,
-        command: 'dev',
-        cwd: '/other',
-        startedAt: Date.now(),
-      }))
+    it('does not adopt a foreign marker left at our path by a recycled PID', () => {
+      // A previous process with our PID could leave a marker at our path.
+      mkdirSync(locksDir(tempDir), { recursive: true })
+      writeFileSync(ownPath(tempDir), JSON.stringify({ pid: 1, command: 'dev', cwd: '/other', startedAt: Date.now() }))
 
-      updateLock(tempDir, {
-        command: 'dev',
-        cwd: '/project',
-        port: 3000,
-      })
+      updateLock(tempDir, { command: 'dev', cwd: '/project', port: 3000 })
 
-      const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+      const written = JSON.parse(readFileSync(ownPath(tempDir), 'utf-8'))
       expect(written.pid).toBe(1)
       expect(written.port).toBeUndefined()
     })
@@ -265,7 +259,7 @@ describe('lockfile', () => {
     it('is a no-op when locking is disabled', () => {
       process.env.NUXT_IGNORE_LOCK = '1'
       updateLock(tempDir, { command: 'dev', cwd: '/project' })
-      expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+      expect(existsSync(ownPath(tempDir))).toBe(false)
     })
   })
 
