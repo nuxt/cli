@@ -12,6 +12,7 @@ import { isBun, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { ForkPool } from '../dev/pool'
+import { ensurePortlessAvailable, registerPortlessAlias, registerPortlessExitCleanup, removePortlessAlias, resolvePortlessAliasName, resolvePortlessName, resolvePortlessURL } from '../dev/portless'
 import { debug, logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
 
@@ -61,6 +62,11 @@ const command = defineCommand({
         description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
       },
       clipboard: { ...listhenArgs.clipboard, default: false },
+      portless: {
+        type: 'boolean',
+        description: 'Expose the dev server with the external `portless` CLI (https://portless.sh). Disables forked mode.',
+        default: false,
+      },
     },
     ...profileArgs,
     sslCert: {
@@ -76,7 +82,19 @@ const command = defineCommand({
     // Prepare
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const listenOverrides = resolveListenOverrides(ctx.args)
+    if (ctx.args.portless && ctx.args.tunnel) {
+      throw new Error('`--portless` cannot be used with `--tunnel`.')
+    }
+
+    const portlessName = ctx.args.portless ? await resolvePortlessName(cwd) : undefined
+    if (ctx.args.portless) {
+      await ensurePortlessAvailable(cwd)
+    }
+
+    const portlessURL = ctx.args.portless ? await resolvePortlessURL(cwd, portlessName!) : undefined
+    const portlessAliasName = portlessURL ? resolvePortlessAliasName(portlessURL) : undefined
+    const listenOverrides = resolveListenOverrides(ctx.args, portlessURL)
+    let closePortless: (() => Promise<void>) | undefined
 
     // Start the initial dev server in-process with listener
     const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
@@ -85,11 +103,36 @@ const command = defineCommand({
       showBanner: true,
     })
 
-    // Disable forking when profiling to capture all activity in one process
-    if (!ctx.args.fork || ctx.args.profile) {
+    if (ctx.args.portless) {
+      const unregisterPortlessExitCleanup = registerPortlessExitCleanup(cwd, portlessAliasName!)
+      try {
+        await registerPortlessAlias(cwd, portlessAliasName!, listener.address.port)
+        closePortless = async () => {
+          unregisterPortlessExitCleanup()
+          await removePortlessAlias(cwd, portlessAliasName!).catch((error) => {
+            logger.warn((error as Error).message)
+          })
+        }
+        await listener.showURL()
+      }
+      catch (error) {
+        unregisterPortlessExitCleanup()
+        await removePortlessAlias(cwd, portlessAliasName!).catch(() => {})
+        await close()
+        throw error
+      }
+    }
+
+    const closeDevServer = async () => {
+      await closePortless?.()
+      await close()
+    }
+
+    if (ctx.args.portless || !ctx.args.fork || ctx.args.profile) {
+      // Disable forking when profiling or using portless to keep lifecycle local.
       return {
         listener,
-        close,
+        close: closeDevServer,
       }
     }
 
@@ -144,6 +187,7 @@ const command = defineCommand({
     return {
       async close() {
         cleanupCurrentFork?.()
+        await closePortless?.()
         await Promise.all([
           listener.close(),
           close(),
@@ -162,7 +206,7 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
+function resolveListenOverrides(args: ParsedArgs<ArgsT>, publicURL?: string) {
   // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
   if (process.env._PORT) {
     return {
@@ -195,6 +239,8 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
 
   return {
     ...options,
+    publicURL,
+    showURL: !args.portless,
     // if the https flag is not present, https.xxx arguments are ignored.
     // override if https is enabled in devServer config.
     _https: args.https,
