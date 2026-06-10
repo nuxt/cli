@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { linkSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -22,8 +22,11 @@ let acquireCounter = 0
 
 // Presence markers live one-file-per-process under `<buildDir>/locks/<pid>.json`
 // so peer dev servers on one buildDir don't clobber, no-op, or unlink each
-// other's record; each process only writes or removes its own path.
+// other's record; each process only writes or removes its own path. A build is
+// exclusive, so instead of a per-PID marker it claims the shared `build.lock`
+// sentinel atomically (see acquireLock).
 const LOCKS_DIRNAME = 'locks'
+const BUILD_LOCK = 'build.lock'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
@@ -34,6 +37,50 @@ export function locksDir(buildDir: string): string {
 
 export function lockPathFor(buildDir: string, pid: number): string {
   return join(locksDir(buildDir), `${pid}.json`)
+}
+
+export function buildLockPath(buildDir: string): string {
+  return join(locksDir(buildDir), BUILD_LOCK)
+}
+
+// Replace a marker atomically: write a sibling temp then rename over the target,
+// so a concurrent reader never lands in a truncate/write window and sees the
+// owner vanish. Used for the (overwriteable) per-process dev markers.
+function writeMarkerAtomic(lockPath: string, info: LockInfo): void {
+  const tmp = `${lockPath}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(info, null, 2))
+  renameSync(tmp, lockPath)
+}
+
+// Claim a marker that must be exclusive (the build sentinel). `linkSync` is an
+// atomic create-if-absent against an already-populated temp inode, so two
+// racing builds can't both win the read-then-write. Returns the live holder
+// when the sentinel is already taken, else `undefined` after claiming it.
+function claimExclusive(lockPath: string, info: LockInfo): LockInfo | undefined {
+  const tmp = `${lockPath}.${process.pid}.tmp`
+  for (let attempt = 0; attempt < 2; attempt++) {
+    writeFileSync(tmp, JSON.stringify(info, null, 2))
+    try {
+      linkSync(tmp, lockPath)
+      return undefined
+    }
+    catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw err
+      }
+      const holder = readLockFile(lockPath)
+      if (holder && isLockActive(holder)) {
+        return holder
+      }
+      tryUnlink(lockPath) // stale/dead holder — drop it and retry the claim
+    }
+    finally {
+      tryUnlink(tmp)
+    }
+  }
+  // Persistent staleness across both attempts: fall back to a plain replace.
+  writeMarkerAtomic(lockPath, info)
+  return undefined
 }
 
 function isProcessAlive(pid: number): boolean {
@@ -92,7 +139,10 @@ export function readActiveLocks(buildDir: string): LockInfo[] {
   }
   const active: LockInfo[] = []
   for (const name of names) {
-    if (!name.endsWith('.json')) {
+    // `.tmp` files are mid-write stages of an atomic replace/claim; skip them.
+    // Everything else is a marker: per-process `<pid>.json` or the `build.lock`
+    // sentinel.
+    if (name.endsWith('.tmp')) {
       continue
     }
     const lockPath = join(dir, name)
@@ -162,7 +212,6 @@ export function acquireLock(
   }
 
   const enforce = opts.enforce ?? isLockEnabled()
-  const lockPath = lockPathFor(buildDir, process.pid)
   const token = `${process.pid}:${++acquireCounter}`
   const fullInfo: LockInfo = {
     pid: process.pid,
@@ -186,10 +235,22 @@ export function acquireLock(
     return { existing: blocker }
   }
 
-  // Overwrite our own marker (a same-process re-acquire on reload is expected).
+  // A build claims the shared sentinel atomically: the read above is advisory,
+  // so two builds racing past it are still serialised here (the loser gets the
+  // live winner back). A dev just (re)writes its own per-process marker.
   // `peers` are the live owners we coexist with — dev uses them to warn that the
   // buildDir is shared, since the outputs (not just the lock) are then reused.
-  writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
+  if (fullInfo.command === 'build') {
+    const sentinel = buildLockPath(buildDir)
+    const winner = claimExclusive(sentinel, fullInfo)
+    if (winner) {
+      return { existing: winner }
+    }
+    return { release: makeRelease(sentinel, token), peers: others }
+  }
+
+  const lockPath = lockPathFor(buildDir, process.pid)
+  writeMarkerAtomic(lockPath, fullInfo)
   return { release: makeRelease(lockPath, token), peers: others }
 }
 
@@ -221,7 +282,7 @@ export function updateLock(
     token: current?.token,
   }
   try {
-    writeFileSync(lockPath, JSON.stringify(next, null, 2))
+    writeMarkerAtomic(lockPath, next)
   }
   catch {}
 }

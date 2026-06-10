@@ -12,7 +12,7 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isAgent: true }
 })
 
-const { acquireLock, formatLockError, isLockEnabled, lockPathFor, locksDir, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, buildLockPath, formatLockError, isLockEnabled, lockPathFor, locksDir, updateLock } = await import('../../src/utils/lockfile')
 
 /** Write a foreign presence marker the way another process would. */
 function writeMarker(buildDir: string, info: Record<string, unknown>) {
@@ -143,9 +143,9 @@ describe('lockfile', () => {
       const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
       expect(lock.existing).toBeUndefined()
       expect(lock.release).toBeDefined()
-      // Dead marker pruned, ours written.
+      // Dead marker pruned, our build sentinel claimed.
       expect(existsSync(lockPathFor(tempDir, deadPid))).toBe(false)
-      expect(JSON.parse(readFileSync(ownPath(tempDir), 'utf-8')).pid).toBe(process.pid)
+      expect(JSON.parse(readFileSync(buildLockPath(tempDir), 'utf-8')).pid).toBe(process.pid)
       lock.release!()
     })
 
@@ -191,11 +191,54 @@ describe('lockfile', () => {
     })
 
     it('release does not remove a marker no longer carrying our token', () => {
-      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
       // Simulate the file being replaced (e.g. recycled PID) so our token no longer matches.
       writeFileSync(ownPath(tempDir), JSON.stringify({ pid: process.pid, command: 'dev', cwd: '/other', startedAt: Date.now(), token: 'someone-else' }))
       lock.release!()
       expect(existsSync(ownPath(tempDir))).toBe(true)
+    })
+
+    it('a build claims the shared sentinel, not a per-process marker', () => {
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(existsSync(buildLockPath(tempDir))).toBe(true)
+      expect(existsSync(ownPath(tempDir))).toBe(false)
+      expect(JSON.parse(readFileSync(buildLockPath(tempDir), 'utf-8')).pid).toBe(process.pid)
+      lock.release!()
+      expect(existsSync(buildLockPath(tempDir))).toBe(false)
+    })
+
+    it('a second build refuses a live sentinel', () => {
+      const foreignPid = 424242
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid) => {
+        if (pid === foreignPid) {
+          return true as unknown as true
+        }
+        throw Object.assign(new Error('no such process'), { code: 'ESRCH' })
+      })
+      try {
+        mkdirSync(locksDir(tempDir), { recursive: true })
+        writeFileSync(buildLockPath(tempDir), JSON.stringify({ pid: foreignPid, command: 'build', cwd: '/other', startedAt: Date.now() }))
+
+        const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+        expect(lock.existing?.pid).toBe(foreignPid)
+        expect(lock.release).toBeUndefined()
+        expect(JSON.parse(readFileSync(buildLockPath(tempDir), 'utf-8')).pid).toBe(foreignPid)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('a build takes over a stale sentinel', () => {
+      mkdirSync(locksDir(tempDir), { recursive: true })
+      writeFileSync(buildLockPath(tempDir), JSON.stringify({ pid: 999999999, command: 'build', cwd: '/other', startedAt: Date.now() }))
+
+      const lock = acquireLock(tempDir, { command: 'build', cwd: '/project' })
+      expect(lock.existing).toBeUndefined()
+      expect(lock.release).toBeDefined()
+      expect(JSON.parse(readFileSync(buildLockPath(tempDir), 'utf-8')).pid).toBe(process.pid)
+      lock.release!()
     })
 
     it('a stale release does not delete a newer same-process re-acquire (reload safety)', () => {
