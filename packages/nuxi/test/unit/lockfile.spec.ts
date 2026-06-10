@@ -69,6 +69,7 @@ describe('lockfile', () => {
       expect(written.cwd).toBe('/project')
       expect(typeof written.startedAt).toBe('number')
       expect(typeof written.token).toBe('string')
+      expect(lock.peers).toEqual([])
 
       lock.release!()
       expect(existsSync(ownPath(tempDir))).toBe(false)
@@ -100,9 +101,10 @@ describe('lockfile', () => {
         const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { enforce: false })
         expect(lock.existing).toBeUndefined()
         expect(lock.release).toBeDefined()
-        // Both markers live side by side.
+        // Both markers live side by side, and the peer is reported back.
         expect(existsSync(lockPathFor(tempDir, peerPid))).toBe(true)
         expect(existsSync(ownPath(tempDir))).toBe(true)
+        expect(lock.peers?.map(p => p.pid)).toContain(peerPid)
       }
       finally {
         killSpy.mockRestore()

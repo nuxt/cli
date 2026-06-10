@@ -527,6 +527,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       console.error(formatLockError(lock.existing))
       throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
     }
+    // We coexist with peer dev servers rather than refuse them, but they share
+    // this `.nuxt` — concurrent writes/watches can trigger conflicting reloads.
+    const peerDev = lock.peers?.find(l => l.command === 'dev')
+    if (peerDev) {
+      console.warn(`Another Nuxt dev server is already running (PID ${peerDev.pid}); reusing the same \`.nuxt\` build dir. Run on a separate buildDir to avoid conflicting reloads.`)
+    }
     // Swap atomically: install the new release before freeing the old one so
     // we're never unlocked in between.
     const previousRelease = this.#lockCleanup

@@ -122,8 +122,8 @@ export function readActiveLock(buildDir: string): LockInfo | undefined {
 }
 
 type LockResult
-  = | { existing?: undefined, release: () => void }
-    | { existing: LockInfo, release?: undefined }
+  = | { existing?: undefined, release: () => void, peers: LockInfo[] }
+    | { existing: LockInfo, release?: undefined, peers?: undefined }
 
 /**
  * Default conflict-enforcement policy. On for agents; `NUXT_LOCK=1` forces it on,
@@ -158,7 +158,7 @@ export function acquireLock(
   opts: { enforce?: boolean } = {},
 ): LockResult {
   if (!isLockWriteEnabled()) {
-    return { release: () => {} }
+    return { release: () => {}, peers: [] }
   }
 
   const enforce = opts.enforce ?? isLockEnabled()
@@ -187,8 +187,10 @@ export function acquireLock(
   }
 
   // Overwrite our own marker (a same-process re-acquire on reload is expected).
+  // `peers` are the live owners we coexist with — dev uses them to warn that the
+  // buildDir is shared, since the outputs (not just the lock) are then reused.
   writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2))
-  return { release: makeRelease(lockPath, token) }
+  return { release: makeRelease(lockPath, token), peers: others }
 }
 
 /**
