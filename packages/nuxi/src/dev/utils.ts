@@ -69,6 +69,42 @@ interface NuxtDevServerOptions {
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 const TRAILING_SLASH_RE = /\/$/
 
+// Cap on how long we wait for `nitro.close()` during a dev-server restart.
+// Long-lived plugin connections (Bull `BLPOP`/`BRPOPLPUSH`, Postgres `LISTEN`, WebSocket,
+// shared `ioredis` clients, …) can keep `close()` pending indefinitely; without a cap
+// the dev server stays stuck on "Restarting Nuxt..." forever (see nuxt/nuxt#32928).
+// 3 s is enough for normal close paths (which complete in ms) while still being noticeable
+// and overridable via `NUXT_DEV_CLOSE_TIMEOUT_MS` if a project needs more grace.
+export const DEFAULT_CLOSE_TIMEOUT_MS = 3000
+
+/**
+ * Race `closer()` against a timeout. Resolves either when the closer settles
+ * (success or rejection — we don't want a rejected nuxt close to abort the
+ * subsequent restart) or when the timer fires, whichever happens first.
+ * Exposed for testing; intended to be called from `NuxtDevServer.close()` only.
+ *
+ * The closer is wrapped in `Promise.resolve().then(closer)` so a synchronous
+ * throw from the closer is also rerouted through `.catch` and cannot abort
+ * the restart.
+ */
+export async function closeWithTimeout(closer: () => Promise<void>, timeoutMs: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined
+  await Promise.race([
+    Promise.resolve()
+      .then(closer)
+      .catch(() => undefined)
+      .finally(() => {
+        if (timer) {
+          clearTimeout(timer)
+        }
+      }),
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, timeoutMs)
+      timer.unref?.()
+    }),
+  ])
+}
+
 export class FileChangeTracker {
   private mtimes = new Map<string, number>()
 
@@ -493,9 +529,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async close(): Promise<void> {
-    if (this.#currentNuxt) {
-      await this.#currentNuxt.close()
+    if (!this.#currentNuxt) {
+      return
     }
+    /* c8 ignore next 4 -- thin delegation to `closeWithTimeout`; that helper is
+       unit-tested directly. Reaching this branch from a unit test would require
+       mocking the private `#currentNuxt` field which JS-private semantics forbid. */
+    await closeWithTimeout(
+      () => this.#currentNuxt!.close(),
+      Number(process.env.NUXT_DEV_CLOSE_TIMEOUT_MS) || DEFAULT_CLOSE_TIMEOUT_MS,
+    )
   }
 
   /** Release the lock file. Call only on final shutdown, not during reloads. */
