@@ -198,8 +198,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#loadNuxtInstance()
 
-    // Acquire lock before binding a listener so parallel agent invocations
-    // fail fast without starting a second server (agent-only).
+    // Acquire the lock before binding a listener so a conflicting build fails
+    // fast, and so typecheck can detect this server.
     this.#acquireDevLock(this.#currentNuxt!.options.buildDir)
 
     if (this.options.showBanner) {
@@ -345,6 +345,14 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
+    // Mark types stale while (re)building so a concurrent typecheck won't reuse
+    // mid-rebuild output; set ready again after the build below.
+    updateLock(this.#currentNuxt.options.buildDir, {
+      command: 'dev',
+      cwd: this.options.cwd,
+      typesReady: false,
+    })
+
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
@@ -487,6 +495,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
+      // Types are built for the current instance; typecheck may reuse them.
+      typesReady: true,
     })
 
     this.emit('ready', serverUrl)
@@ -506,13 +516,22 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   #acquireDevLock(buildDir: string): void {
+    // Advertise this dev server so `nuxt typecheck` can detect it and skip its
+    // prepare. Peer dev servers may run concurrently, so this never refuses
+    // another dev, though it still refuses a live build.
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
-    })
+    }, { enforce: false })
     if (lock.existing) {
       console.error(formatLockError(lock.existing))
       throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+    }
+    // We coexist with peer dev servers rather than refuse them, but they share
+    // this `.nuxt` — concurrent writes/watches can trigger conflicting reloads.
+    const peerDev = lock.peers?.find(l => l.command === 'dev')
+    if (peerDev) {
+      console.warn(`Another Nuxt dev server is already running (PID ${peerDev.pid}); reusing the same \`.nuxt\` build dir. Run on a separate buildDir to avoid conflicting reloads.`)
     }
     // Swap atomically: install the new release before freeing the old one so
     // we're never unlocked in between.

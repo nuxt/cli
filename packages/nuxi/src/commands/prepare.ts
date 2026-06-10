@@ -6,6 +6,7 @@ import { resolve } from 'pathe'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { readActiveLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
@@ -43,7 +44,20 @@ export default defineCommand({
         ...ctx.data?.overrides,
       },
     })
-    await clearBuildDir(nuxt.options.buildDir)
+
+    // Only wipe when nothing owns the buildDir. `clearBuildDir` removes the
+    // generated artifacts a live dev server's watcher reloads against, so it
+    // would resolve a freshly-deleted file (ENOENT); wiping under a build is
+    // equally destructive. `buildNuxt` refreshes every template in place anyway,
+    // so reuse is safe. Stop the owner if a clean wipe is genuinely needed.
+    const owner = readActiveLock(nuxt.options.buildDir)
+    if (owner) {
+      const label = owner.command === 'dev' ? 'dev server' : 'build'
+      logger.info(`A ${label} (PID ${owner.pid}) owns ${colors.cyan(relativeToProcess(nuxt.options.buildDir))}; refreshing templates in place without clearing.`)
+    }
+    else {
+      await clearBuildDir(nuxt.options.buildDir)
+    }
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
