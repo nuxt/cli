@@ -35,8 +35,8 @@
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.15",
     "@clack/prompts": "^1.5.1",
-    "@nuxt/kit": "^4.4.6",
-    "@nuxt/schema": "^4.4.6",
+    "@nuxt/kit": "^4.4.8",
+    "@nuxt/schema": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "@types/debug": "^4.1.13",
     "@types/node": "^24.13.1",

@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index d88d5c1fefbb0c6a2dc48368b25e5c6a96279c20..7ac7a96410f0c9eb71798a5b4479692a9ef9194f 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -488,7 +488,7 @@ function createViteNodeSocketServer(nuxt, ssrServer, clientServer, invalidates,
+ 	return server;
+ }
+ function listenAndRestrict(server, socketPath) {
+-	if (socketPath.startsWith("\\\\.\\pipe\\")) {
++	if (socketPath.startsWith("\\\\.\\pipe\\") || socketPath.startsWith("//./pipe/")) {
+ 		server.listen(socketPath);
+ 		return;
+ 	}

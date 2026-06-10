@@ -113,6 +113,11 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
   it('should serve the main page', { timeout: requestTimeout }, async () => {
     const response = await fetch(server.url)
+    if (response.status !== 200) {
+      const body = await response.text().catch(() => '<unreadable>')
+      console.error(`[runtimes.spec][${runtimeName}] main page returned ${response.status}\n--- response body ---\n${body}\n--- server stdout ---\n${server.stdout}\n--- server stderr ---\n${server.stderr}\n--- end ---`)
+      expect.fail(`main page returned ${response.status} (see server output above)`)
+    }
     expect(response.status).toBe(200)
 
     const html = await response.text()
@@ -255,6 +260,8 @@ interface DevServerInstance {
   process: ChildProcess
   url: string
   port: number
+  readonly stdout: string
+  readonly stderr: string
   close: () => Promise<void>
 }
 
@@ -296,6 +303,12 @@ async function startDevServer(options: {
     },
   })
 
+  const captured = { stdout: '', stderr: '' }
+  child.stdout?.setEncoding('utf8')
+  child.stderr?.setEncoding('utf8')
+  child.stdout?.on('data', (chunk: string) => { captured.stdout += chunk })
+  child.stderr?.on('data', (chunk: string) => { captured.stderr += chunk })
+
   try {
     await waitForPort(port, { delay: 1000, retries: 25, host })
     await vi.waitFor(async () => {
@@ -314,6 +327,8 @@ async function startDevServer(options: {
     process: child,
     url,
     port,
+    get stdout() { return captured.stdout },
+    get stderr() { return captured.stderr },
     close: async () => {
       return new Promise<void>((resolve) => {
         child.kill('SIGTERM')
