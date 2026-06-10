@@ -20,9 +20,8 @@ export async function clearDir(path: string, exclude?: string[]) {
 }
 
 export function clearBuildDir(path: string) {
-  // Keep `locks/` so a wipe never deletes a presence marker a peer dev/build
-  // process just wrote (see utils/lockfile). `nuxt.lock` is the pre-`locks/`
-  // marker name, retained so an in-flight upgrade doesn't strand an old server.
+  // Keep `locks/` (and the legacy `nuxt.lock`) so a wipe never deletes a
+  // presence marker a peer dev/build process holds (see utils/lockfile).
   return clearDir(path, ['cache', 'analyze', 'nuxt.json', 'nuxt.lock', 'locks'])
 }
 

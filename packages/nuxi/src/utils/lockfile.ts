@@ -20,13 +20,9 @@ export interface LockInfo {
 
 let acquireCounter = 0
 
-// Presence markers live one-file-per-process under `<buildDir>/locks/<pid>.json`.
-// A single shared `nuxt.lock` cannot represent more than one owner: peer dev
-// servers sharing a buildDir would clobber each other's record on acquire,
-// `updateLock` would no-op for every non-owner, and whichever server exited
-// first would unlink the file out from under the others. Per-process files
-// remove all three hazards — each process only ever writes or removes its own
-// path, so reads simply enumerate the directory.
+// Presence markers live one-file-per-process under `<buildDir>/locks/<pid>.json`
+// so peer dev servers on one buildDir don't clobber, no-op, or unlink each
+// other's record; each process only writes or removes its own path.
 const LOCKS_DIRNAME = 'locks'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
@@ -82,10 +78,8 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Enumerate the live markers in a buildDir, newest first. Stale, dead, or
- * corrupted files are pruned as a side effect so the directory self-cleans.
- * Markers owned by the current process are excluded (a process never blocks or
- * detects itself).
+ * Enumerate the live markers in a buildDir, newest first, pruning dead/stale
+ * ones on the way. Excludes the current process (it never blocks itself).
  */
 export function readActiveLocks(buildDir: string): LockInfo[] {
   const dir = locksDir(buildDir)
@@ -118,9 +112,9 @@ export function readActiveLocks(buildDir: string): LockInfo[] {
 }
 
 /**
- * Read a single representative active lock for a buildDir, or `undefined` when
- * none is live. A build lock wins (it is exclusive); otherwise the most-recently
- * started dev server. Use {@link readActiveLocks} when every owner matters.
+ * A single representative active lock, or `undefined` when none is live: a build
+ * wins (it's exclusive), else the newest dev. Use {@link readActiveLocks} when
+ * every owner matters.
  */
 export function readActiveLock(buildDir: string): LockInfo | undefined {
   const active = readActiveLocks(buildDir)
@@ -153,11 +147,10 @@ function isLockWriteEnabled(): boolean {
 
 /**
  * Acquire a build/dev lock. Returns `{ existing }` when a conflicting live lock
- * blocks us, otherwise `{ release }` to invoke on shutdown. The marker is always
- * written for detection. With `enforce` false (used by `nuxt dev`) peer dev
- * servers coexist — only an active `build` is refused. With `enforce` true
- * (`nuxt build`) any other live owner is refused. `enforce` defaults to
- * `isLockEnabled()`. No-op when writing is disabled.
+ * blocks us, otherwise `{ release }` to invoke on shutdown. With `enforce` false
+ * (`nuxt dev`) peer dev servers coexist and only an active build is refused;
+ * with `enforce` true (`nuxt build`) any other live owner is refused. `enforce`
+ * defaults to `isLockEnabled()`. No-op when writing is disabled.
  */
 export function acquireLock(
   buildDir: string,
@@ -199,11 +192,9 @@ export function acquireLock(
 }
 
 /**
- * Overwrite this process's own marker with updated metadata (e.g. port
- * information learned after the listener binds, or toggling `typesReady`).
- * Callers must hold the lock via a prior successful `acquireLock`. Unlike the
- * old shared-file design this always updates our own marker regardless of peer
- * dev servers. Does nothing when locking is disabled.
+ * Overwrite this process's own marker with updated metadata (e.g. port learned
+ * after the listener binds, or toggling `typesReady`). Always targets our own
+ * marker regardless of peer dev servers. No-op when locking is disabled.
  */
 export function updateLock(
   buildDir: string,

@@ -147,8 +147,7 @@ export function resolvePrepareDecision(
     return { prepare: true }
   }
 
-  // Reuse types from any live dev server that has signalled readiness; with
-  // peer dev servers sharing a buildDir, any one of them keeps `.nuxt` fresh.
+  // Reuse types from any live dev server that has signalled readiness.
   const devLock = readActiveLocks(buildDir).find(l => l.command === 'dev' && l.typesReady === true)
   if (devLock && existsSync(join(buildDir, 'tsconfig.json'))) {
     return { prepare: false, reusingDevPid: devLock.pid }
