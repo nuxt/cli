@@ -109,6 +109,4 @@ jobs:
 
       - name: 📦 release nightly
         if: github.event_name == 'push'
-        run: node ./scripts/release.mjs
-        env:
-          RELEASE_TYPE: nightly
+        run: node ./scripts/release-nightly.mjs
