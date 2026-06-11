@@ -278,7 +278,7 @@ export default defineCommand({
       if (process.env.DEBUG) {
         throw err
       }
-      logger.error((err as Error).toString())
+      logger.error(String(err))
       process.exit(1)
     }
 
@@ -413,7 +413,7 @@ export default defineCommand({
         if (process.env.DEBUG) {
           throw err
         }
-        logger.error((err as Error).toString())
+        logger.error(String(err))
         process.exit(1)
       }
     }
