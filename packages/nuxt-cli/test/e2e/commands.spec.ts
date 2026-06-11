@@ -72,7 +72,7 @@ describe('commands', () => {
       })
 
       // Test that server responds
-      const response = await fetchWithPolling(`http://127.0.0.1:${port}`)
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`, {}, 30, 300)
       expect.soft(response?.status).toBe(200)
 
       previewProcess.kill()
@@ -121,7 +121,7 @@ describe('commands', () => {
 
       await rm(installPath, { recursive: true, force: true })
       try {
-        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
           throwOnError: true,
           nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
         })

@@ -11,6 +11,37 @@ import { describe, expect, it } from 'vitest'
 const fixtureDir = fileURLToPath(new URL('../../../playground', import.meta.url))
 const createNuxt = fileURLToPath(new URL('../bin/create-nuxt.mjs', import.meta.url))
 
+describe('non-interactive mode', () => {
+  it('should exit with code 2 when no dir is provided and no TTY', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const result = await x(createNuxt, ['--yes', '--preferOffline'], {
+      throwOnError: false,
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+    })
+
+    expect(result.exitCode).toBe(2)
+    expect(result.stdout).toContain('Non-interactive mode')
+    expect(result.stdout).toContain('create-nuxt <dir>')
+  })
+
+  it('should proceed without prompts when dir is provided with --yes', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const dir = tmpdir()
+    const installPath = join(dir, 'non-interactive-test')
+
+    await rm(installPath, { recursive: true, force: true })
+    try {
+      await x(createNuxt, [installPath, '--yes', '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      expect(existsSync(join(installPath, 'package.json'))).toBeTruthy()
+    }
+    finally {
+      await rm(installPath, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('init command package name slugification', () => {
   it('should slugify directory names with special characters', { timeout: isWindows ? 200000 : 50000 }, async () => {
     const dir = tmpdir()
@@ -19,7 +50,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -47,7 +78,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -74,7 +105,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -100,7 +131,7 @@ describe('init command package name slugification', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--no-gitInit', '--preferOffline', '--no-install'], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
