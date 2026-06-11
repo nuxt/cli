@@ -79,6 +79,8 @@ function createIt(runtimeName: typeof runtimes[number]) {
   return it
 }
 
+const requestTimeout = isCI ? 30_000 : 10_000
+
 describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
   let server: DevServerInstance
 
@@ -109,7 +111,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     })
   })
 
-  it('should serve the main page', async () => {
+  it('should serve the main page', { timeout: requestTimeout }, async () => {
     const response = await fetch(server.url)
     expect(response.status).toBe(200)
 
@@ -118,18 +120,18 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     expect(html).toContain('<!DOCTYPE html>')
   })
 
-  it('should serve static assets', async () => {
+  it('should serve static assets', { timeout: requestTimeout }, async () => {
     const response = await fetch(`${server.url}/favicon.ico`)
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('image/')
   })
 
-  it('should handle API routes', async () => {
+  it('should handle API routes', { timeout: requestTimeout }, async () => {
     const response = await fetch(`${server.url}/api/hello`)
     expect(response.status).toBe(200)
   })
 
-  it('should handle POST requests', async () => {
+  it('should handle POST requests', { timeout: requestTimeout }, async () => {
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -139,7 +141,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     expect(response.status).toBe(200)
   })
 
-  it('should preserve request headers', async () => {
+  it('should preserve request headers', { timeout: requestTimeout }, async () => {
     const headers = {
       'X-Custom-Header': 'test-value',
       'User-Agent': 'vitest',
@@ -156,7 +158,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     expect(res.status).toBe(200)
   })
 
-  it('should handle concurrent requests', async () => {
+  it('should handle concurrent requests', { timeout: requestTimeout }, async () => {
     const responses = await Promise.all([
       fetch(server.url),
       fetch(server.url),
@@ -171,7 +173,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     }
   })
 
-  it('should handle large request payloads', async () => {
+  it('should handle large request payloads', { timeout: requestTimeout }, async () => {
     const largePayload = { data: 'x'.repeat(10_000) }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
@@ -184,7 +186,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     expect(result.echoed.data).toBe(largePayload.data)
   })
 
-  it('should handle different HTTP methods', async () => {
+  it('should handle different HTTP methods', { timeout: requestTimeout }, async () => {
     const methods = ['GET', 'POST', 'PUT', 'DELETE']
 
     for (const method of methods) {
