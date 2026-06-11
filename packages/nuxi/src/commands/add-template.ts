@@ -1,5 +1,3 @@
-import type { TemplateName } from '../utils/templates/names'
-
 import { existsSync, promises as fsp } from 'node:fs'
 import process from 'node:process'
 
@@ -14,6 +12,28 @@ import { relativeToProcess } from '../utils/paths'
 import { templates } from '../utils/templates/index'
 import { templateNames } from '../utils/templates/names'
 import { cwdArgs, logLevelArgs } from './_shared'
+
+async function loadNuxtConfigWithModules(cwd: string) {
+  const kit = await loadKit(cwd)
+  const nuxt = await kit.loadNuxt({ cwd, ready: false }).catch(() => null)
+
+  if (!nuxt) {
+    return { config: await kit.loadNuxtConfig({ cwd }) }
+  }
+
+  try {
+    await nuxt.ready()
+    await nuxt.hooks.callHook('templates:extend', templates)
+  }
+  catch {
+    // module setup may fail; fall through with built-in templates only
+  }
+  finally {
+    await nuxt.close()
+  }
+
+  return { config: nuxt.options }
+}
 
 export default defineCommand({
   meta: {
@@ -45,16 +65,7 @@ export default defineCommand({
 
     intro(colors.cyan('Adding template...'))
 
-    const templateName = ctx.args.template as TemplateName
-
-    // Validate template name
-    if (!templateNames.includes(templateName)) {
-      const templateNames = Object.keys(templates).map(name => colors.cyan(name))
-      const lastTemplateName = templateNames.pop()
-      logger.error(`Template ${colors.cyan(templateName)} is not supported.`)
-      logger.info(`Possible values are ${templateNames.join(', ')} or ${lastTemplateName}.`)
-      process.exit(1)
-    }
+    const templateName = ctx.args.template
 
     // Validate options
     const ext = extname(ctx.args.name)
@@ -69,12 +80,19 @@ export default defineCommand({
     }
 
     // Load config in order to respect srcDir
-    const kit = await loadKit(cwd)
-    const config = await kit.loadNuxtConfig({ cwd })
+    const { config } = await loadNuxtConfigWithModules(cwd)
+
+    // Validate template name
+    const template = templates[templateName]
+    if (!template) {
+      const templateNames = Object.keys(templates).map(name => colors.cyan(name))
+      const lastTemplateName = templateNames.pop()
+      logger.error(`Template ${colors.cyan(templateName)} is not supported.`)
+      logger.info(`Possible values are ${templateNames.join(', ')} or ${lastTemplateName}.`)
+      process.exit(1)
+    }
 
     // Resolve template
-    const template = templates[templateName as keyof typeof templates]
-
     const res = template({ name, args: ctx.args, nuxtOptions: config })
 
     // Ensure not overriding user code
