@@ -3,13 +3,14 @@ import type { PackageManagerName } from 'nypm'
 import type { TemplateData } from '../utils/starter-templates'
 
 import { existsSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
 import process from 'node:process'
 
 import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
-import { installDependencies } from 'nypm'
+import { detectPackageManager, installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
@@ -347,6 +348,11 @@ export default defineCommand({
       selectedPackageManager = result
     }
 
+    // Align the template with the selected package manager: remove foreign
+    // lockfiles and the hardcoded `packageManager` field (e.g. `pnpm@x`) that
+    // would otherwise mismatch the package manager the user just picked.
+    await alignPackageManager(template.dir, selectedPackageManager)
+
     // Determine if we should init git
     let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
     if (gitInit === undefined) {
@@ -594,6 +600,58 @@ async function getTemplateDependencies(templateDir: string) {
   catch (err) {
     logger.warn(`Could not read template dependencies: ${err}`)
     return []
+  }
+}
+
+export async function alignPackageManager(templateDir: string, packageManager: PackageManagerName) {
+  // Detect the package manager the template ships with (from its
+  // `packageManager` field, lockfile or marker files). Scope detection to the
+  // template directory so we don't pick up the parent project's setup.
+  const detected = await detectPackageManager(templateDir, {
+    includeParentDirs: false,
+    ignoreArgv: true,
+  }).catch(() => undefined)
+
+  // Nothing to do if the template doesn't pin a package manager or it already
+  // matches the one the user picked (keep its lockfile to speed up install).
+  if (!detected || detected.name === packageManager) {
+    return
+  }
+
+  // Drop the detected package manager's lockfile and marker files (e.g.
+  // `pnpm-workspace.yaml`) so the install generates a fresh, correct lockfile
+  // and nypm no longer mis-detects the package manager later.
+  const filesToRemove = [detected.lockFile, detected.files]
+    .flat()
+    .filter((file): file is string => Boolean(file))
+
+  await Promise.all(
+    filesToRemove.map(async (file) => {
+      const filePath = join(templateDir, file)
+      if (existsSync(filePath)) {
+        await rm(filePath, { force: true }).catch((err) => {
+          logger.warn(`Could not remove ${colors.cyan(file)}: ${err}`)
+        })
+      }
+    }),
+  )
+
+  // Drop the hardcoded `packageManager` field: its baked-in version belongs to
+  // a different package manager, so it's no longer valid.
+  try {
+    const packageJsonPath = join(templateDir, 'package.json')
+    if (!existsSync(packageJsonPath)) {
+      return
+    }
+
+    const pkg = await readPackageJSON(packageJsonPath, { try: true })
+    if (pkg?.packageManager) {
+      delete pkg.packageManager
+      await writePackageJSON(packageJsonPath, pkg)
+    }
+  }
+  catch (err) {
+    logger.warn(`Could not update the \`packageManager\` field: ${err}`)
   }
 }
 
