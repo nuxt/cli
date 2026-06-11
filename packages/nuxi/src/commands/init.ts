@@ -107,7 +107,7 @@ export default defineCommand({
     yes: {
       type: 'boolean',
       alias: 'y',
-      description: 'Use default values for all prompts',
+      description: 'Use default values for and skip interactive prompts',
     },
   },
   async run(ctx) {
