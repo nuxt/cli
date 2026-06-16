@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { FileChangeTracker } from '../../src/dev/utils'
+import { FileChangeTracker, getLocalLayerDirs } from '../../src/dev/utils'
 
 describe('fileWatcher', () => {
   let tempDir: string
@@ -160,5 +160,45 @@ describe('fileWatcher', () => {
 
     // Should detect the mtime change
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
+  })
+})
+
+describe('getLocalLayerDirs', () => {
+  const cwd = '/project'
+
+  it('collects local layer directories (via cwd or config.rootDir)', () => {
+    const layers = [
+      { cwd: '/project' }, // the project itself
+      { cwd: '/project/layers/common' },
+      { config: { rootDir: '/project/layers/ui' } }, // fallback to config.rootDir
+    ]
+
+    expect(getLocalLayerDirs(layers, cwd)).toEqual([
+      '/project/layers/common',
+      '/project/layers/ui',
+    ])
+  })
+
+  it('skips the project root, node_modules and out-of-tree layers', () => {
+    const layers = [
+      { cwd: '/project' },
+      { cwd: '/project/node_modules/some-theme' },
+      { cwd: '/other/external-layer' },
+      { cwd: '/projectile' }, // shares a prefix but is not inside the project
+      { cwd: '/project/layers/common' },
+    ]
+
+    expect(getLocalLayerDirs(layers, cwd)).toEqual(['/project/layers/common'])
+  })
+
+  it('ignores layers without a directory and de-duplicates', () => {
+    const layers = [
+      { config: null },
+      {},
+      { cwd: '/project/layers/common' },
+      { cwd: '/project/layers/common' },
+    ]
+
+    expect(getLocalLayerDirs(layers, cwd)).toEqual(['/project/layers/common'])
   })
 })
