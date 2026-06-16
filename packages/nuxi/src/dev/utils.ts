@@ -555,7 +555,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.options.dotenv.fileName,
       () => this.emit('restart'),
       file => this.loadDebounced(true, `${file} updated`),
+      this.#getLocalLayerDirs(),
     )
+  }
+
+  #getLocalLayerDirs(): string[] {
+    return getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd)
   }
 }
 
@@ -590,33 +595,68 @@ function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'ho
   return defaultConfig
 }
 
-function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void) {
-  const fileWatcher = new FileChangeTracker()
-  fileWatcher.prime(cwd)
-  const configWatcher = watch(cwd)
-  let configDirWatcher = existsSync(join(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+// The root config watcher is non-recursive (recursive `fs.watch` is unsupported
+// on Linux), so a local layer's `nuxt.config.*` in a subdirectory is never seen.
+// Return those layer dirs so each can be watched directly, skipping the project
+// root (already watched) and external layers (in `node_modules` or out of tree).
+export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?: { rootDir?: string } | null }>, cwd: string): string[] {
+  const root = resolve(cwd)
+  const dirs = new Set<string>()
+  for (const layer of layers) {
+    const dir = layer.cwd || layer.config?.rootDir
+    if (!dir) {
+      continue
+    }
+    const resolved = resolve(dir)
+    if (resolved === root || !resolved.startsWith(`${root}/`) || resolved.includes('/node_modules/')) {
+      continue
+    }
+    dirs.add(resolved)
+  }
+  return [...dirs]
+}
+
+function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void, layerDirs: string[] = []) {
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
-  configWatcher.on('change', (_event, file: string) => {
-    if (!fileWatcher.shouldEmitChange(resolve(cwd, file))) {
+  // The root dir additionally restarts on dotenv changes; local layer dirs are
+  // watched too (the watcher is not recursive) but only reload on config changes.
+  const closers = [
+    watchConfigDir(cwd, onReload, file => dotenvFileNames.has(file) && onRestart()),
+    ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
+  ]
+
+  return () => {
+    for (const close of closers) {
+      close()
+    }
+  }
+}
+
+function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: (file: string) => void) {
+  const fileWatcher = new FileChangeTracker()
+  fileWatcher.prime(dir)
+  const watcher = watch(dir)
+  let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
+
+  watcher.on('change', (_event, file: string) => {
+    if (!fileWatcher.shouldEmitChange(resolve(dir, file))) {
       return
     }
 
-    if (dotenvFileNames.has(file)) {
-      onRestart()
-    }
+    onFile?.(file)
 
     if (RESTART_RE.test(file)) {
       onReload(file)
     }
 
     if (file === '.config') {
-      configDirWatcher ||= createConfigDirWatcher(cwd, onReload)
+      configDirWatcher ||= createConfigDirWatcher(dir, onReload)
     }
   })
 
   return () => {
-    configWatcher.close()
+    watcher.close()
     configDirWatcher?.()
   }
 }
