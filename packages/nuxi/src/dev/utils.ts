@@ -639,8 +639,8 @@ function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: 
   const watcher = watch(dir)
   let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
 
-  watcher.on('change', (_event, file: string) => {
-    if (!fileWatcher.shouldEmitChange(resolve(dir, file))) {
+  watcher.on('change', (_event, file: string | null) => {
+    if (!file || !fileWatcher.shouldEmitChange(resolve(dir, file))) {
       return
     }
 
