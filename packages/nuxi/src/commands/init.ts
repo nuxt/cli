@@ -1,3 +1,4 @@
+import type { ArgsDef, CommandDef } from 'citty'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 import type { TemplateData } from '../utils/starter-templates'
@@ -9,7 +10,7 @@ import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, t
 import { defineCommand, showUsage } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
-import { installDependencies } from 'nypm'
+import { detectPackageManager, installDependencies } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
@@ -49,6 +50,33 @@ const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
 // Arguments that would otherwise be gathered through interactive prompts,
 // so they must be explicitly provided when no TTY is available
 const nonInteractiveRequiredArgs = ['dir', 'template', 'packageManager', 'gitInit'] as const
+
+// Exit code citty uses for argument errors; reuse it for every missing/invalid
+// argument so the contract stays consistent regardless of where we detect it.
+const ARG_ERROR_EXIT_CODE = 2
+
+/**
+ * Report missing arguments in non-interactive mode. Centralises the message so
+ * the upfront check and the post-detection package-manager check stay in sync.
+ * Pass `availableTemplates` to also list the templates the user can choose from
+ * (when `--template` is missing). Callers are expected to `process.exit` after.
+ */
+async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
+  cmd: CommandDef<T>,
+  missingArgs: string[],
+  availableTemplates?: Record<string, TemplateData>,
+): Promise<void> {
+  await showUsage(cmd)
+  if (availableTemplates) {
+    logger.info(`Available templates:\n${Object.entries(availableTemplates)
+      .map(([name, data]) => `  ${colors.cyan(name)}${data ? ` – ${data.description}` : ''}`)
+      .join('\n')}`)
+  }
+  const label = missingArgs.length === 1 ? 'argument' : 'arguments'
+  logger.error(`Non-interactive terminal detected. Missing required ${label}: ${missingArgs
+    .map(name => colors.cyan(name === 'dir' ? '<dir>' : `--${name}`))
+    .join(', ')}`)
+}
 
 export default defineCommand({
   meta: {
@@ -96,7 +124,7 @@ export default defineCommand({
     },
     packageManager: {
       type: 'string',
-      description: 'Package manager choice (npm, pnpm, yarn, bun)',
+      description: `Package manager choice (${packageManagerOptions.join(', ')})`,
     },
     modules: {
       type: 'string',
@@ -111,6 +139,15 @@ export default defineCommand({
     },
   },
   async run(ctx) {
+    // Validate an explicitly provided `--packageManager` up front (before any
+    // banner or network work) so a typo fails fast with a clear message instead
+    // of being silently ignored once a template's own package manager is
+    // detected.
+    if (ctx.args.packageManager && !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)) {
+      logger.error(`Invalid package manager: ${colors.cyan(ctx.args.packageManager)}. Choose one of ${packageManagerOptions.map(pm => colors.cyan(pm)).join(', ')}.`)
+      process.exit(ARG_ERROR_EXIT_CODE)
+    }
+
     if (!ctx.args.offline && !ctx.args.preferOffline && !ctx.args.template) {
       getTemplates().catch(() => null)
     }
@@ -151,22 +188,25 @@ export default defineCommand({
     if (isNonInteractive) {
       const missingArgs = nonInteractiveRequiredArgs.filter((name) => {
         if (name === 'packageManager') {
+          // The package manager can be inferred from a template that pins one,
+          // so only require it upfront when no template is given (nothing to
+          // infer from yet). Otherwise it's validated after the template is
+          // downloaded and its package manager resolved.
+          if (ctx.args.template) {
+            return false
+          }
           return !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
         }
         return ctx.args[name] === undefined || ctx.args[name] === ''
       })
 
       if (missingArgs.length > 0) {
-        await showUsage(ctx.cmd)
-        if (!ctx.args.template) {
-          logger.info(`Available templates:\n${Object.entries(availableTemplates)
-            .map(([name, data]) => `  ${colors.cyan(name)}${data ? ` – ${data.description}` : ''}`)
-            .join('\n')}`)
-        }
-        logger.error(`Non-interactive terminal detected. Missing required arguments: ${missingArgs
-          .map(name => colors.cyan(name === 'dir' ? '<dir>' : `--${name}`))
-          .join(', ')}`)
-        process.exit(2)
+        await reportMissingNonInteractiveArgs(
+          ctx.cmd,
+          [...missingArgs],
+          ctx.args.template ? undefined : availableTemplates,
+        )
+        process.exit(ARG_ERROR_EXIT_CODE)
       }
     }
 
@@ -364,9 +404,40 @@ export default defineCommand({
       hint: currentPackageManager === pm ? 'current' : undefined,
     }))
 
+    // Detect the package manager the template ships with (via a lockfile or its
+    // `packageManager` field). When the template pins one, we use it instead of
+    // prompting: switching package managers would leave a stale lockfile or
+    // workspace config (e.g. `pnpm-workspace.yaml`) behind and silently break
+    // the project. Shipping a template that works across package managers (i.e.
+    // without a lockfile) is left to the template author.
+    const templatePackageManager = await detectTemplatePackageManager(template.dir)
+
     let selectedPackageManager: PackageManagerName
+    // Set when an explicit `--packageManager` conflicts with the template's pin:
+    // installing would run the requested package manager against the template's
+    // lockfile and workspace config for a different one, leaving a broken
+    // project. We won't mutate the template, so we scaffold it as-is and skip
+    // the install, letting the user reconcile the package manager themselves.
+    let skipInstallOnConflict = false
     if (packageManagerOptions.includes(packageManagerArg)) {
       selectedPackageManager = packageManagerArg
+      if (templatePackageManager && templatePackageManager.name !== packageManagerArg) {
+        skipInstallOnConflict = true
+        logger.warn(`The ${colors.cyan(template.name)} template is configured for ${colors.cyan(templatePackageManager.name)}, but ${colors.cyan(packageManagerArg)} was requested. Skipping dependency installation to avoid installing against ${colors.cyan(templatePackageManager.name)}'s lockfile and config. Reconcile the package manager (or use ${colors.cyan(templatePackageManager.name)}) and install manually.`)
+      }
+    }
+    else if (templatePackageManager) {
+      selectedPackageManager = templatePackageManager.name
+      const pinned = templatePackageManager.version
+        ? `${templatePackageManager.name}@${templatePackageManager.version}`
+        : templatePackageManager.name
+      logger.info(`Using ${colors.cyan(pinned)} as configured by the ${colors.cyan(template.name)} template.`)
+    }
+    else if (isNonInteractive) {
+      // No explicit `--packageManager`, the template pins none, and we can't
+      // prompt without a TTY, so there's nothing left to fall back to.
+      await reportMissingNonInteractiveArgs(ctx.cmd, ['packageManager'])
+      process.exit(ARG_ERROR_EXIT_CODE)
     }
     else {
       const result = await select({
@@ -401,8 +472,10 @@ export default defineCommand({
     // Install project dependencies and initialize git
     // or skip installation based on the '--no-install' flag
     // citty v0.2.0 with node:util.parseArgs returns 'false' string for --install=false
-    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false') {
-      logger.info('Skipping install dependencies step.')
+    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false' || skipInstallOnConflict) {
+      if (!skipInstallOnConflict) {
+        logger.info('Skipping install dependencies step.')
+      }
     }
     else {
       const setupTasks: Array<{ title: string, task: () => Promise<string> }> = [
@@ -530,7 +603,7 @@ export default defineCommand({
       const args: string[] = [
         ...modulesToAdd,
         `--cwd=${templateDownloadPath}`,
-        ctx.args.install ? '' : '--skipInstall',
+        ctx.args.install && !skipInstallOnConflict ? '' : '--skipInstall',
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
 
@@ -631,6 +704,31 @@ async function getTemplateDependencies(templateDir: string) {
     logger.warn(`Could not read template dependencies: ${err}`)
     return []
   }
+}
+
+export interface TemplatePackageManager {
+  name: PackageManagerName
+  version?: string
+}
+
+/**
+ * Detect the package manager a template pins, scoped to the template directory
+ * (so we don't pick up the parent project's setup) via its lockfile, marker
+ * files or `packageManager` field. Returns `undefined` when the template pins
+ * none, in which case it is package-manager agnostic and the user is free to
+ * pick any. Detection errors are treated as "no pin".
+ */
+export async function detectTemplatePackageManager(templateDir: string): Promise<TemplatePackageManager | undefined> {
+  const detected = await detectPackageManager(templateDir, {
+    includeParentDirs: false,
+    ignoreArgv: true,
+  }).catch(() => undefined)
+
+  if (!detected) {
+    return
+  }
+
+  return { name: detected.name, version: detected.version }
 }
 
 function detectCurrentPackageManager() {
