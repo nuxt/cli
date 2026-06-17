@@ -555,12 +555,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.options.dotenv.fileName,
       () => this.emit('restart'),
       file => this.loadDebounced(true, `${file} updated`),
-      this.#getLocalLayerDirs(),
+      getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
-  }
-
-  #getLocalLayerDirs(): string[] {
-    return getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd)
   }
 }
 
@@ -595,23 +591,17 @@ function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'ho
   return defaultConfig
 }
 
-// The root config watcher is non-recursive (recursive `fs.watch` is unsupported
-// on Linux), so a local layer's `nuxt.config.*` in a subdirectory is never seen.
-// Return those layer dirs so each can be watched directly, skipping the project
-// root (already watched) and external layers (in `node_modules` or out of tree).
+// Skips the root (already watched) and external layers (`node_modules` or out of tree) whose config
+// isn't expected to change during local dev.
 export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?: { rootDir?: string } | null }>, cwd: string): string[] {
   const root = resolve(cwd)
   const dirs = new Set<string>()
   for (const layer of layers) {
     const dir = layer.cwd || layer.config?.rootDir
-    if (!dir) {
-      continue
+    const resolved = dir && resolve(dir)
+    if (resolved && resolved !== root && resolved.startsWith(`${root}/`) && !resolved.includes('/node_modules/')) {
+      dirs.add(resolved)
     }
-    const resolved = resolve(dir)
-    if (resolved === root || !resolved.startsWith(`${root}/`) || resolved.includes('/node_modules/')) {
-      continue
-    }
-    dirs.add(resolved)
   }
   return [...dirs]
 }
@@ -619,8 +609,7 @@ export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?:
 function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void, layerDirs: string[] = []) {
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
-  // The root dir additionally restarts on dotenv changes; local layer dirs are
-  // watched too (the watcher is not recursive) but only reload on config changes.
+  // each local layer dir is watched alongside the root, but only the root restarts on dotenv changes.
   const closers = [
     watchConfigDir(cwd, onReload, file => dotenvFileNames.has(file) && onRestart()),
     ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
