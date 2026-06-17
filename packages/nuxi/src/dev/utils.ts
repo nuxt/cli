@@ -555,6 +555,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.options.dotenv.fileName,
       () => this.emit('restart'),
       file => this.loadDebounced(true, `${file} updated`),
+      getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
   }
 }
@@ -590,33 +591,61 @@ function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'ho
   return defaultConfig
 }
 
-function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void) {
-  const fileWatcher = new FileChangeTracker()
-  fileWatcher.prime(cwd)
-  const configWatcher = watch(cwd)
-  let configDirWatcher = existsSync(join(cwd, '.config')) ? createConfigDirWatcher(cwd, onReload) : undefined
+// Skips the root (already watched) and external layers (`node_modules` or out of tree) whose config
+// isn't expected to change during local dev.
+export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?: { rootDir?: string } | null }>, cwd: string): string[] {
+  const root = resolve(cwd)
+  const dirs = new Set<string>()
+  for (const layer of layers) {
+    const dir = layer.cwd || layer.config?.rootDir
+    const resolved = dir && resolve(dir)
+    if (resolved && resolved !== root && resolved.startsWith(`${root}/`) && !resolved.includes('/node_modules/')) {
+      dirs.add(resolved)
+    }
+  }
+  return [...dirs]
+}
+
+function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void, layerDirs: string[] = []) {
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
-  configWatcher.on('change', (_event, file: string) => {
-    if (!fileWatcher.shouldEmitChange(resolve(cwd, file))) {
+  // each local layer dir is watched alongside the root, but only the root restarts on dotenv changes.
+  const closers = [
+    watchConfigDir(cwd, onReload, file => dotenvFileNames.has(file) && onRestart()),
+    ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
+  ]
+
+  return () => {
+    for (const close of closers) {
+      close()
+    }
+  }
+}
+
+function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: (file: string) => void) {
+  const fileWatcher = new FileChangeTracker()
+  fileWatcher.prime(dir)
+  const watcher = watch(dir)
+  let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
+
+  watcher.on('change', (_event, file: string | null) => {
+    if (!file || !fileWatcher.shouldEmitChange(resolve(dir, file))) {
       return
     }
 
-    if (dotenvFileNames.has(file)) {
-      onRestart()
-    }
+    onFile?.(file)
 
     if (RESTART_RE.test(file)) {
       onReload(file)
     }
 
     if (file === '.config') {
-      configDirWatcher ||= createConfigDirWatcher(cwd, onReload)
+      configDirWatcher ||= createConfigDirWatcher(dir, onReload)
     }
   })
 
   return () => {
-    configWatcher.close()
+    watcher.close()
     configDirWatcher?.()
   }
 }
