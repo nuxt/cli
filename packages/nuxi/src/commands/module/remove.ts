@@ -38,7 +38,7 @@ export default defineCommand({
       description: 'Specify one or more modules to remove by name, separated by spaces',
       required: false,
     },
-    skipUninstall: {
+    skipInstall: {
       type: 'boolean',
       description: 'Skip dependency uninstall',
     },
@@ -70,8 +70,8 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // Resolve positional inputs to canonical npm package names. With no inputs, the
-    // multiselect picker runs inside `removeModules` against the configured modules.
+    // With no inputs, the multiselect picker runs inside `removeModules` against the
+    // configured modules. Otherwise resolve aliases/names to canonical npm package names.
     const installedNames = new Set([
       ...Object.keys(projectPkg.dependencies || {}),
       ...Object.keys(projectPkg.devDependencies || {}),
@@ -85,7 +85,7 @@ export default defineCommand({
         })
       : []
 
-    const resolvedModules = modules.map(m => resolveModule(m, modulesDB, installedNames))
+    const resolvedModules = modules.map(m => resolveModuleName(m, modulesDB, installedNames))
 
     if (resolvedModules.length > 0) {
       logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x)).join(', ')}, removing module${resolvedModules.length > 1 ? 's' : ''}...`)
@@ -98,7 +98,7 @@ export default defineCommand({
     }
 
     // Run prepare command if uninstall is not skipped
-    if (!ctx.args.skipUninstall) {
+    if (!ctx.args.skipInstall) {
       const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
 
       await runCommand(prepareCommand, args)
@@ -107,10 +107,9 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function removeModules(modules: string[], { skipUninstall = false, skipConfig = false, cwd }: { skipUninstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
+async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
   const removedFromConfig: string[] = []
 
-  // Update nuxt.config.ts (with picker if no modules were given upfront)
   if (!skipConfig) {
     let configMissing = false
     let cancelled = false
@@ -188,8 +187,7 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
     }
   }
 
-  // Remove dependencies
-  if (!skipUninstall) {
+  if (!skipInstall) {
     const installedModules: string[] = []
     const notInstalledModules: string[] = []
 
@@ -219,29 +217,50 @@ async function removeModules(modules: string[], { skipUninstall = false, skipCon
       return true
     }
 
+    const toRemove = [...installedModules]
+
     const orphanedPeers = await findOrphanedPeers(installedModules, projectPkg, cwd)
     if (orphanedPeers.length > 0) {
       const peersList = orphanedPeers.map(({ peer, source }) =>
         `${colors.cyan(peer)} (peer of ${colors.cyan(source)})`).join(', ')
       const peerDep = orphanedPeers.length > 1 ? 'dependencies' : 'dependency'
-      logger.info(`Also removing orphaned peer ${peerDep}: ${peersList}`)
+      const them = orphanedPeers.length > 1 ? 'them' : 'it'
+
+      logger.info(`The following peer ${peerDep} ${orphanedPeers.length > 1 ? 'are' : 'is'} no longer used by any other dependency: ${peersList}`)
+
+      const alsoRemove = await confirm({
+        message: `Do you also want to remove ${them}?`,
+        initialValue: false,
+      })
+
+      if (isCancel(alsoRemove)) {
+        cancel('Aborted.')
+        return false
+      }
+
+      if (alsoRemove) {
+        toRemove.push(...orphanedPeers.map(o => o.peer))
+      }
     }
 
-    const allToRemove = [...installedModules, ...orphanedPeers.map(o => o.peer)]
-    const removeList = allToRemove.map(m => colors.cyan(m)).join(', ')
-    const dependency = allToRemove.length > 1 ? 'dependencies' : 'dependency'
+    const removeList = toRemove.map(m => colors.cyan(m)).join(', ')
+    const dependency = toRemove.length > 1 ? 'dependencies' : 'dependency'
     logger.info(`Uninstalling ${removeList} ${dependency}`)
 
     const packageManager = await detectPackageManager(cwd)
 
-    await removeDependency(allToRemove, {
+    const removed = await removeDependency(toRemove, {
       cwd,
       packageManager,
       workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
-    }).catch((error) => {
+    }).then(() => true).catch((error) => {
       logger.error(String(error))
-      process.exit(1)
+      return false
     })
+
+    if (!removed) {
+      return false
+    }
   }
 
   return true
@@ -257,7 +276,7 @@ function readModuleName(item: unknown): string | null {
   return null
 }
 
-function resolveModule(input: string, modulesDB: NuxtModule[], installed: Set<string>): string {
+function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Set<string>): string {
   if (installed.has(input)) {
     return input
   }
