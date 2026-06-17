@@ -7,7 +7,7 @@ import { rm } from 'node:fs/promises'
 import process from 'node:process'
 
 import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
-import { defineCommand } from 'citty'
+import { defineCommand, showUsage } from 'citty'
 import { colors } from 'consola/utils'
 import { downloadTemplate, startShell } from 'giget'
 import { detectPackageManager, installDependencies } from 'nypm'
@@ -41,10 +41,15 @@ const pms: Record<PackageManagerName, undefined> = {
   yarn: undefined,
   bun: undefined,
   deno: undefined,
+  aube: undefined,
 }
 
 // this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
 const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
+
+// Arguments that would otherwise be gathered through interactive prompts,
+// so they must be explicitly provided when no TTY is available
+const nonInteractiveRequiredArgs = ['dir', 'template', 'packageManager', 'gitInit'] as const
 
 export default defineCommand({
   meta: {
@@ -140,6 +145,32 @@ export default defineCommand({
       }
     }
 
+    // When no interactive terminal is available (e.g. agents, CI, piped input),
+    // all arguments normally gathered through prompts must be provided up front.
+    // Otherwise, show the help so the command can be re-run with proper arguments.
+    const isNonInteractive = !hasTTY
+    if (isNonInteractive) {
+      const missingArgs = nonInteractiveRequiredArgs.filter((name) => {
+        if (name === 'packageManager') {
+          return !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
+        }
+        return ctx.args[name] === undefined || ctx.args[name] === ''
+      })
+
+      if (missingArgs.length > 0) {
+        await showUsage(ctx.cmd)
+        if (!ctx.args.template) {
+          logger.info(`Available templates:\n${Object.entries(availableTemplates)
+            .map(([name, data]) => `  ${colors.cyan(name)}${data ? ` – ${data.description}` : ''}`)
+            .join('\n')}`)
+        }
+        logger.error(`Non-interactive terminal detected. Missing required arguments: ${missingArgs
+          .map(name => colors.cyan(name === 'dir' ? '<dir>' : `--${name}`))
+          .join(', ')}`)
+        process.exit(2)
+      }
+    }
+
     let templateName = ctx.args.template
     if (!templateName) {
       const result = await select({
@@ -197,6 +228,11 @@ export default defineCommand({
     // when no `--force` flag is provided
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
+      if (isNonInteractive) {
+        logger.error(`The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. Pass ${colors.cyan('--force')} to override it or choose a different directory.`)
+        process.exit(1)
+      }
+
       const selectedAction = await select({
         message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
@@ -437,8 +473,8 @@ export default defineCommand({
       }
     }
 
-    // ...or offer to browse and install modules (if not offline)
-    else if (!ctx.args.offline && !ctx.args.preferOffline) {
+    // ...or offer to browse and install modules (if not offline nor non-interactive)
+    else if (!ctx.args.offline && !ctx.args.preferOffline && !isNonInteractive) {
       const modulesPromise = fetchModules()
       const wantsUserModules = await confirm({
         message: `Would you like to browse and install modules?`,

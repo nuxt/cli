@@ -11,6 +11,69 @@ import { describe, expect, it } from 'vitest'
 const fixtureDir = fileURLToPath(new URL('../../../playground', import.meta.url))
 const createNuxt = fileURLToPath(new URL('../bin/create-nuxt.mjs', import.meta.url))
 
+describe('non-interactive mode (no TTY)', () => {
+  it('shows help and exits with code 2 when required arguments are missing', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const result = await x(createNuxt, ['--preferOffline'], {
+      throwOnError: false,
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+    })
+
+    const output = result.stdout + result.stderr
+
+    expect(result.exitCode).toBe(2)
+    // citty help output
+    expect(output).toContain('USAGE')
+    // which arguments are required
+    expect(output).toContain('Missing required arguments')
+    expect(output).toContain('--template')
+    expect(output).toContain('--packageManager')
+    expect(output).toContain('--gitInit')
+    // list of available templates since one must be picked
+    expect(output).toContain('minimal')
+  })
+
+  it('creates a project without prompting when all required arguments are provided', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const installPath = join(tmpdir(), 'create-nuxt-non-interactive-test')
+
+    await rm(installPath, { recursive: true, force: true })
+    try {
+      await x(createNuxt, [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      expect(existsSync(join(installPath, 'package.json'))).toBeTruthy()
+    }
+    finally {
+      await rm(installPath, { recursive: true, force: true })
+    }
+  })
+
+  it('fails fast when the target directory already exists', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const installPath = join(tmpdir(), 'create-nuxt-existing-dir-test')
+
+    await rm(installPath, { recursive: true, force: true })
+    try {
+      const args = [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false']
+      await x(createNuxt, args, {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      const result = await x(createNuxt, args, {
+        throwOnError: false,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      expect(result.exitCode).not.toBe(0)
+      expect(result.stdout + result.stderr).toContain('--force')
+    }
+    finally {
+      await rm(installPath, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('init command package name slugification', () => {
   it('should slugify directory names with special characters', { timeout: isWindows ? 200000 : 50000 }, async () => {
     const dir = tmpdir()
