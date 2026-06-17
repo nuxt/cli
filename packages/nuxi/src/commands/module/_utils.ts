@@ -1,6 +1,18 @@
+import type { PackageManager } from 'nypm'
+import type { PackageJson } from 'pkg-types'
+
+import { existsSync } from 'node:fs'
+
+import { confirm, isCancel } from '@clack/prompts'
 import { parseINI } from 'confbox'
+import { colors } from 'consola/utils'
 import { $fetch } from 'ofetch'
+import { resolve } from 'pathe'
 import { satisfies } from 'semver'
+
+import { logger } from '../../utils/logger'
+import { relativeToProcess } from '../../utils/paths'
+import { cwdArgs, logLevelArgs } from '../_shared'
 
 export const categories = [
   'Analytics',
@@ -135,4 +147,41 @@ export function getRegistryFromContent(content: string, scope: string | null) {
   catch {
     return null
   }
+}
+
+export function getProjectDependencies(projectPkg: PackageJson): Set<string> {
+  return new Set([
+    ...Object.keys(projectPkg.dependencies || {}),
+    ...Object.keys(projectPkg.devDependencies || {}),
+  ])
+}
+
+/**
+ * Warn and prompt to continue when the project has no `nuxt` dependency.
+ * Returns `false` if the user declines or cancels.
+ */
+export async function ensureNuxtDependency(cwd: string, projectPkg: PackageJson): Promise<boolean> {
+  if (projectPkg.dependencies?.nuxt || projectPkg.devDependencies?.nuxt) {
+    return true
+  }
+
+  logger.warn(`No ${colors.cyan('nuxt')} dependency detected in ${colors.cyan(relativeToProcess(cwd))}.`)
+
+  const shouldContinue = await confirm({
+    message: `Do you want to continue anyway?`,
+    initialValue: false,
+  })
+
+  return !isCancel(shouldContinue) && shouldContinue === true
+}
+
+export function isPnpmWorkspace(packageManager: PackageManager | undefined, cwd: string): boolean {
+  return packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml'))
+}
+
+/** Forward `cwd` and log-level args to a chained command invocation. */
+export function forwardCommandArgs(args: Record<string, unknown>): string[] {
+  return Object.entries(args)
+    .filter(([k]) => k in cwdArgs || k in logLevelArgs)
+    .map(([k, v]) => `--${k}=${v}`)
 }

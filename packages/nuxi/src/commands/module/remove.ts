@@ -2,7 +2,6 @@ import type { PackageJson } from 'pkg-types'
 
 import type { NuxtModule } from './_utils'
 
-import { existsSync } from 'node:fs'
 import process from 'node:process'
 
 import { cancel, confirm, isCancel, multiselect } from '@clack/prompts'
@@ -18,7 +17,7 @@ import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
-import { fetchModules } from './_utils'
+import { ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace } from './_utils'
 
 interface OrphanedPeer {
   peer: string
@@ -52,17 +51,8 @@ export default defineCommand({
     const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
     const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
-    if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
-      logger.warn(`No ${colors.cyan('nuxt')} dependency detected in ${colors.cyan(relativeToProcess(cwd))}.`)
-
-      const shouldContinue = await confirm({
-        message: `Do you want to continue anyway?`,
-        initialValue: false,
-      })
-
-      if (isCancel(shouldContinue) || shouldContinue !== true) {
-        process.exit(1)
-      }
+    if (!await ensureNuxtDependency(cwd, projectPkg)) {
+      process.exit(1)
     }
 
     if (ctx.args.skipConfig && modules.length === 0) {
@@ -72,10 +62,7 @@ export default defineCommand({
 
     // With no inputs, the multiselect picker runs inside `removeModules` against the
     // configured modules. Otherwise resolve aliases/names to canonical npm package names.
-    const installedNames = new Set([
-      ...Object.keys(projectPkg.dependencies || {}),
-      ...Object.keys(projectPkg.devDependencies || {}),
-    ])
+    const installedNames = getProjectDependencies(projectPkg)
 
     const needsDB = modules.some(m => !installedNames.has(m))
     const modulesDB: NuxtModule[] = needsDB
@@ -99,9 +86,7 @@ export default defineCommand({
 
     // Run prepare command if uninstall is not skipped
     if (!ctx.args.skipInstall) {
-      const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
-
-      await runCommand(prepareCommand, args)
+      await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
     }
   },
 })
@@ -191,10 +176,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const installedModules: string[] = []
     const notInstalledModules: string[] = []
 
-    const dependencies = new Set([
-      ...Object.keys(projectPkg.dependencies || {}),
-      ...Object.keys(projectPkg.devDependencies || {}),
-    ])
+    const dependencies = getProjectDependencies(projectPkg)
 
     const targets = Array.from(new Set([...modules, ...removedFromConfig]))
 
@@ -252,7 +234,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const removed = await removeDependency(toRemove, {
       cwd,
       packageManager,
-      workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
+      workspace: isPnpmWorkspace(packageManager, cwd),
     }).then(() => true).catch((error) => {
       logger.error(String(error))
       return false
@@ -291,10 +273,7 @@ function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Se
 }
 
 async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cwd: string): Promise<OrphanedPeer[]> {
-  const projectDeps = new Set([
-    ...Object.keys(projectPkg.dependencies || {}),
-    ...Object.keys(projectPkg.devDependencies || {}),
-  ])
+  const projectDeps = getProjectDependencies(projectPkg)
   const removingSet = new Set(removing)
 
   // peer name -> first removed module that declares it
