@@ -49,6 +49,26 @@ describe('non-interactive mode (no TTY)', () => {
     }
   })
 
+  it('still requires --packageManager when the template pins none', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const installPath = join(tmpdir(), 'create-nuxt-no-pm-test')
+
+    await rm(installPath, { recursive: true, force: true })
+    try {
+      // `minimal` pins no package manager, so once the template is resolved
+      // there's nothing to infer and `--packageManager` is still required.
+      const result = await x(createNuxt, [installPath, '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+        throwOnError: false,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      expect(result.exitCode).toBe(2)
+      expect(result.stdout + result.stderr).toContain('--packageManager')
+    }
+    finally {
+      await rm(installPath, { recursive: true, force: true })
+    }
+  })
+
   it('fails fast when the target directory already exists', { timeout: isWindows ? 200000 : 50000 }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-existing-dir-test')
 

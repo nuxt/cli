@@ -151,6 +151,13 @@ export default defineCommand({
     if (isNonInteractive) {
       const missingArgs = nonInteractiveRequiredArgs.filter((name) => {
         if (name === 'packageManager') {
+          // The package manager can be inferred from a template that pins one,
+          // so only require it upfront when no template is given (nothing to
+          // infer from yet). Otherwise it's validated after the template is
+          // downloaded and its package manager resolved.
+          if (ctx.args.template) {
+            return false
+          }
           return !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
         }
         return ctx.args[name] === undefined || ctx.args[name] === ''
@@ -384,6 +391,12 @@ export default defineCommand({
     else if (templatePackageManager) {
       selectedPackageManager = templatePackageManager
       logger.info(`Using ${colors.cyan(selectedPackageManager)} as configured by the ${colors.cyan(template.name)} template.`)
+    }
+    else if (isNonInteractive) {
+      // No explicit `--packageManager`, the template pins none, and we can't
+      // prompt without a TTY — so there's nothing left to fall back to.
+      logger.error(`Non-interactive terminal detected. Missing required argument: ${colors.cyan('--packageManager')}`)
+      process.exit(2)
     }
     else {
       const result = await select({
