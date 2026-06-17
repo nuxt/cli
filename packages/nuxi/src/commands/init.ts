@@ -3,7 +3,6 @@ import type { PackageManagerName } from 'nypm'
 import type { TemplateData } from '../utils/starter-templates'
 
 import { existsSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
 import process from 'node:process'
 
 import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
@@ -365,9 +364,26 @@ export default defineCommand({
       hint: currentPackageManager === pm ? 'current' : undefined,
     }))
 
+    // Detect the package manager the template ships with (via a lockfile or its
+    // `packageManager` field). When the template pins one, we use it instead of
+    // prompting: switching package managers would leave a stale lockfile or
+    // workspace config (e.g. `pnpm-workspace.yaml`) behind and silently break
+    // the project. Shipping a template that works across package managers (i.e.
+    // without a lockfile) is left to the template author.
+    const templatePackageManager = await detectTemplatePackageManager(template.dir)
+
     let selectedPackageManager: PackageManagerName
     if (packageManagerOptions.includes(packageManagerArg)) {
+      // An explicit `--packageManager` always wins, but warn when it doesn't
+      // match the template's lockfile/config (the template may not work).
       selectedPackageManager = packageManagerArg
+      if (templatePackageManager && templatePackageManager !== packageManagerArg) {
+        logger.warn(`The ${colors.cyan(template.name)} template is configured for ${colors.cyan(templatePackageManager)}, but ${colors.cyan(packageManagerArg)} was requested — its lockfile and config may no longer match.`)
+      }
+    }
+    else if (templatePackageManager) {
+      selectedPackageManager = templatePackageManager
+      logger.info(`Using ${colors.cyan(selectedPackageManager)} as configured by the ${colors.cyan(template.name)} template.`)
     }
     else {
       const result = await select({
@@ -383,11 +399,6 @@ export default defineCommand({
 
       selectedPackageManager = result
     }
-
-    // Align the template with the selected package manager: remove foreign
-    // lockfiles and the hardcoded `packageManager` field (e.g. `pnpm@x`) that
-    // would otherwise mismatch the package manager the user just picked.
-    await alignPackageManager(template.dir, selectedPackageManager)
 
     // Determine if we should init git
     let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
@@ -639,56 +650,16 @@ async function getTemplateDependencies(templateDir: string) {
   }
 }
 
-export async function alignPackageManager(templateDir: string, packageManager: PackageManagerName) {
-  // Detect the package manager the template ships with (from its
-  // `packageManager` field, lockfile or marker files). Scope detection to the
-  // template directory so we don't pick up the parent project's setup.
+// Detect the package manager a template pins, scoped to the template directory
+// (so we don't pick up the parent project's setup). Returns the detected
+// package manager name, or `undefined` when the template doesn't pin one.
+export async function detectTemplatePackageManager(templateDir: string): Promise<PackageManagerName | undefined> {
   const detected = await detectPackageManager(templateDir, {
     includeParentDirs: false,
     ignoreArgv: true,
   }).catch(() => undefined)
 
-  // Nothing to do if the template doesn't pin a package manager or it already
-  // matches the one the user picked (keep its lockfile to speed up install).
-  if (!detected || detected.name === packageManager) {
-    return
-  }
-
-  // Drop the detected package manager's lockfile and marker files (e.g.
-  // `pnpm-workspace.yaml`) so the install generates a fresh, correct lockfile
-  // and nypm no longer mis-detects the package manager later.
-  const filesToRemove = [detected.lockFile, detected.files]
-    .flat()
-    .filter((file): file is string => Boolean(file))
-
-  await Promise.all(
-    filesToRemove.map(async (file) => {
-      const filePath = join(templateDir, file)
-      if (existsSync(filePath)) {
-        await rm(filePath, { force: true }).catch((err) => {
-          logger.warn(`Could not remove ${colors.cyan(file)}: ${err}`)
-        })
-      }
-    }),
-  )
-
-  // Drop the hardcoded `packageManager` field: its baked-in version belongs to
-  // a different package manager, so it's no longer valid.
-  try {
-    const packageJsonPath = join(templateDir, 'package.json')
-    if (!existsSync(packageJsonPath)) {
-      return
-    }
-
-    const pkg = await readPackageJSON(packageJsonPath, { try: true })
-    if (pkg?.packageManager) {
-      delete pkg.packageManager
-      await writePackageJSON(packageJsonPath, pkg)
-    }
-  }
-  catch (err) {
-    logger.warn(`Could not update the \`packageManager\` field: ${err}`)
-  }
+  return detected?.name
 }
 
 function detectCurrentPackageManager() {
