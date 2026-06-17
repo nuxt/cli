@@ -3,7 +3,6 @@ import type { PackageJson } from 'pkg-types'
 
 import type { NuxtModule } from './_utils'
 import * as fs from 'node:fs'
-import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -21,12 +20,11 @@ import { joinURL } from 'ufo'
 
 import { runCommand } from '../../run'
 import { logger } from '../../utils/logger'
-import { relativeToProcess } from '../../utils/paths'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { checkNuxtCompatibility, fetchModules, getRegistryFromContent } from './_utils'
+import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, getRegistryFromContent, isPnpmWorkspace } from './_utils'
 
 const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
@@ -76,17 +74,8 @@ export default defineCommand({
     let modules = ctx.args._.map(e => e.trim()).filter(Boolean)
     const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
-    if (!projectPkg.dependencies?.nuxt && !projectPkg.devDependencies?.nuxt) {
-      logger.warn(`No ${colors.cyan('nuxt')} dependency detected in ${colors.cyan(relativeToProcess(cwd))}.`)
-
-      const shouldContinue = await confirm({
-        message: `Do you want to continue anyway?`,
-        initialValue: false,
-      })
-
-      if (isCancel(shouldContinue) || shouldContinue !== true) {
-        process.exit(1)
-      }
+    if (!await ensureNuxtDependency(cwd, projectPkg)) {
+      process.exit(1)
     }
 
     // If no modules specified, show interactive search
@@ -137,9 +126,7 @@ export default defineCommand({
 
     // Run prepare command if install is not skipped
     if (!ctx.args.skipInstall) {
-      const args = Object.entries(ctx.args).filter(([k]) => k in cwdArgs || k in logLevelArgs).map(([k, v]) => `--${k}=${v}`)
-
-      await runCommand(prepareCommand, args)
+      await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
     }
   },
 })
@@ -151,10 +138,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     const installedModules: ResolvedModule[] = []
     const notInstalledModules: ResolvedModule[] = []
 
-    const dependencies = new Set([
-      ...Object.keys(projectPkg.dependencies || {}),
-      ...Object.keys(projectPkg.devDependencies || {}),
-    ])
+    const dependencies = getProjectDependencies(projectPkg)
 
     for (const module of modules) {
       if (dependencies.has(module.pkgName)) {
@@ -186,7 +170,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         dev: isDev,
         installPeerDependencies: true,
         packageManager,
-        workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
+        workspace: isPnpmWorkspace(packageManager, cwd),
       }).then(() => true).catch(
         async (error) => {
           logger.error(String(error))
