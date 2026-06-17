@@ -24,13 +24,15 @@ describe('detectTemplatePackageManager', () => {
     await writePkg({ name: 'app' })
     await writeFile(join(dir, 'pnpm-lock.yaml'), '')
 
-    expect(await detectTemplatePackageManager(dir)).toBe('pnpm')
+    expect((await detectTemplatePackageManager(dir))?.name).toBe('pnpm')
   })
 
-  it('detects the package manager from the `packageManager` field', async () => {
+  it('detects the package manager and version from the `packageManager` field', async () => {
     await writePkg({ name: 'app', packageManager: 'yarn@4.0.0' })
 
-    expect(await detectTemplatePackageManager(dir)).toBe('yarn')
+    const detected = await detectTemplatePackageManager(dir)
+    expect(detected?.name).toBe('yarn')
+    expect(detected?.version).toBe('4.0.0')
   })
 
   it('returns undefined when the template pins no package manager', async () => {
