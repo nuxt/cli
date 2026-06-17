@@ -69,6 +69,26 @@ describe('non-interactive mode (no TTY)', () => {
     }
   })
 
+  it('fails fast on an invalid --packageManager value', { timeout: isWindows ? 200000 : 50000 }, async () => {
+    const installPath = join(tmpdir(), 'create-nuxt-invalid-pm-test')
+
+    await rm(installPath, { recursive: true, force: true })
+    try {
+      const result = await x(createNuxt, [installPath, '--template=minimal', '--packageManager=npmm', '--gitInit=false', '--preferOffline', '--install=false'], {
+        throwOnError: false,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+
+      expect(result.exitCode).not.toBe(0)
+      expect(result.stdout + result.stderr).toContain('Invalid package manager')
+      // it should bail out before downloading the template
+      expect(existsSync(join(installPath, 'package.json'))).toBe(false)
+    }
+    finally {
+      await rm(installPath, { recursive: true, force: true })
+    }
+  })
+
   it('fails fast when the target directory already exists', { timeout: isWindows ? 200000 : 50000 }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-existing-dir-test')
 

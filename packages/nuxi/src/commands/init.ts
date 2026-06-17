@@ -121,6 +121,14 @@ export default defineCommand({
 
     intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
+    // Validate an explicitly provided `--packageManager` up front so a typo
+    // fails fast with a clear message instead of being silently ignored once a
+    // template's own package manager is detected.
+    if (ctx.args.packageManager && !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)) {
+      logger.error(`Invalid package manager: ${colors.cyan(ctx.args.packageManager)}. Choose one of ${packageManagerOptions.map(pm => colors.cyan(pm)).join(', ')}.`)
+      process.exit(1)
+    }
+
     let availableTemplates: Record<string, TemplateData> = {}
 
     if (!ctx.args.template || !ctx.args.dir) {
