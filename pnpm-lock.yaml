@@ -191,8 +191,8 @@ importers:
         specifier: 2.13.4
         version: 2.13.4(oxc-parser@0.133.0)(rolldown@1.0.0-rc.16)(srvx@0.11.16)
       nypm:
-        specifier: ^0.6.6
-        version: 0.6.6
+        specifier: ^0.6.7
+        version: 0.6.7
       ofetch:
         specifier: ^1.5.1
         version: 1.5.1
@@ -296,8 +296,8 @@ importers:
         specifier: ^1.10.0
         version: 1.10.0(srvx@0.11.16)
       nypm:
-        specifier: ^0.6.6
-        version: 0.6.6
+        specifier: ^0.6.7
+        version: 0.6.7
       ofetch:
         specifier: ^1.5.1
         version: 1.5.1
@@ -4909,6 +4909,11 @@ packages:
 
   nypm@0.6.6:
     resolution: {integrity: sha512-vRyr0r4cbBapw07Xw8xrj9Teq3o7MUD35rSaTcanDbW+aK2XHDgJFiU6ZTj2GBw7Q12ysdsyFss+Vdz4hQ0Y6Q==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  nypm@0.6.7:
+    resolution: {integrity: sha512-s3ds97SD5pd1dULE+tHUk1DrV0cSHOnsfpcdGATJ8JpBo21DoKqN9exTH4/2nhPQNOLomBdTFMicN94S4DrZrQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -11151,6 +11156,12 @@ snapshots:
       - yaml
 
   nypm@0.6.6:
+    dependencies:
+      citty: 0.2.2
+      pathe: 2.0.3
+      tinyexec: 1.2.4
+
+  nypm@0.6.7:
     dependencies:
       citty: 0.2.2
       pathe: 2.0.3

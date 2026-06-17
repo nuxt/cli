@@ -40,6 +40,7 @@ const pms: Record<PackageManagerName, undefined> = {
   yarn: undefined,
   bun: undefined,
   deno: undefined,
+  aube: undefined,
 }
 
 // this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
