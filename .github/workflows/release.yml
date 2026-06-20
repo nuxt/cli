@@ -43,6 +43,10 @@ jobs:
       - uses: danielroe/uppt/release@7bcfb5397c37202ef882363f755423130419d28a # v0.5.5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          packages: |
+            packages/create-nuxt
+            packages/nuxi
+            packages/nuxt-cli
 
   pack:
     if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v')
