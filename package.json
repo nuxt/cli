@@ -2,7 +2,7 @@
   "name": "nuxi-workspace",
   "type": "module",
   "private": true,
-  "packageManager": "pnpm@11.7.0",
+  "packageManager": "pnpm@11.8.0",
   "description": "⚡️ Nuxt Generation CLI Experience",
   "license": "MIT",
   "repository": "nuxt/cli",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.0.0",
-    "@codspeed/vitest-plugin": "^5.5.0",
+    "@codspeed/vitest-plugin": "^5.6.0",
     "@nuxt/eslint-config": "^1.16.0",
     "@nuxt/nitro-server": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
