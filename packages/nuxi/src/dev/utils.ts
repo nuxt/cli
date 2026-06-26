@@ -1,10 +1,10 @@
-import type { Nuxt, NuxtConfig } from '@nuxt/schema'
+import type { Nuxt, NuxtConfig, ViteConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
 import type { Listener, ListenOptions } from 'listhen'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
-import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
 import EventEmitter from 'node:events'
 import { existsSync, readdirSync, statSync, watch } from 'node:fs'
@@ -115,6 +115,31 @@ export class FileChangeTracker {
 }
 
 type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer | ReturnType<typeof createDevServer> }
+
+type ViteServerOptions = NonNullable<ViteConfig['server']>
+type HmrOptions = Exclude<ViteServerOptions['hmr'], boolean>
+
+/**
+ * Pin Vite's HMR websocket to the main dev server so no separate HMR port is allocated.
+ * vite >= 8.1 reads `server.ws`; older versions only read `server.hmr`.
+ */
+export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer): void {
+  const target = server as Omit<ViteServerOptions, 'ws'> & { ws?: HmrOptions | boolean }
+  target.ws = {
+    protocol: undefined,
+    ...(target.ws as HmrOptions),
+    port: undefined,
+    host: undefined,
+    server: hmrServer,
+  }
+  target.hmr = {
+    protocol: undefined,
+    ...(target.hmr as HmrOptions),
+    port: undefined,
+    host: undefined,
+    server: hmrServer,
+  }
+}
 
 interface DevServerEventMap {
   'loading:error': [error: Error]
@@ -349,13 +374,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
-          config.server.hmr = {
-            protocol: undefined,
-            ...(config.server.hmr as Exclude<typeof config.server.hmr, boolean>),
-            port: undefined,
-            host: undefined,
-            server: this.listener.server,
-          }
+          attachViteHmrServer(config.server, this.listener.server)
         }
       })
     }
