@@ -139,7 +139,7 @@ export default defineCommand({
     // Force install
     const toRemove = ['node_modules']
 
-    const lockFile = normaliseLockFile(workspaceDir, lockFileCandidates)
+    const lockFile = normaliseLockFile([workspaceDir, cwd], lockFileCandidates)
     if (lockFile) {
       toRemove.push(lockFile)
     }
@@ -269,16 +269,22 @@ export default defineCommand({
   },
 })
 
-// Find which lock file is in use since `nypm.detectPackageManager` doesn't return this
-function normaliseLockFile(cwd: string, lockFiles: string | Array<string> | undefined) {
+// Find which lock file is in use since `nypm.detectPackageManager` doesn't return this.
+export function normaliseLockFile(cwds: string | Array<string>, lockFiles: string | Array<string> | undefined) {
+  if (typeof cwds === 'string') {
+    cwds = [cwds]
+  }
+  const searchDirs = [...new Set(cwds)]
+
   if (typeof lockFiles === 'string') {
     lockFiles = [lockFiles]
   }
 
-  const lockFile = lockFiles?.find(file => existsSync(resolve(cwd, file)))
+  const lockFile = lockFiles?.find(file => searchDirs.some(cwd => existsSync(resolve(cwd, file))))
 
   if (lockFile === undefined) {
-    logger.error(`Unable to find any lock files in ${colors.cyan(relativeToProcess(cwd))}.`)
+    const resolvedDirs = searchDirs.map(cwd => colors.cyan(relativeToProcess(cwd)))
+    logger.error(`Unable to find any lock files in ${resolvedDirs.join(', ')}.`)
     return undefined
   }
 
