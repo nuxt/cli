@@ -6,13 +6,20 @@ import { box, outro } from '@clack/prompts'
 import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
-import { resolve } from 'pathe'
+import { join, resolve } from 'pathe'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import {
+  cwdArgs,
+  dotEnvArgs,
+  envNameArgs,
+  extendsArgs,
+  legacyRootDirArgs,
+  logLevelArgs,
+} from './_shared'
 
 const command = defineCommand({
   meta: {
@@ -53,12 +60,20 @@ const command = defineCommand({
           modules: [
             function (_, nuxt) {
               nuxt.hook('nitro:init', (nitro) => {
-                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+                res(
+                  resolve(
+                    nuxt.options.srcDir || cwd,
+                    nitro.options.output.dir || '.output',
+                    'nitro.json',
+                  ),
+                )
               })
             },
           ],
         },
-      }).then(nuxt => nuxt.close()).catch(() => '')
+      })
+        .then(nuxt => nuxt.close())
+        .catch(() => '')
     })
 
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
@@ -82,7 +97,7 @@ const command = defineCommand({
     const info = [
       ['Node.js:', `v${process.versions.node}`],
       ['Nitro preset:', nitroJSON.preset],
-      ['Working directory:', relativeToProcess(outputPath)],
+      ['Working directory:', relativeToProcess(cwd)],
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
@@ -126,19 +141,25 @@ const command = defineCommand({
       logger.error(`Cannot find ${colors.cyan(envFileName)}.`)
     }
 
-    const port = ctx.args.port
-      ?? process.env.NUXT_PORT
-      ?? process.env.NITRO_PORT
-      ?? process.env.PORT
+    const port
+      = ctx.args.port
+        ?? process.env.NUXT_PORT
+        ?? process.env.NITRO_PORT
+        ?? process.env.PORT
 
-    outro(`Running ${colors.cyan(nitroJSON.commands.preview)} in ${colors.cyan(relativeToProcess(outputPath))}`)
+    outro(
+      `Running ${colors.cyan(nitroJSON.commands.preview)} in ${colors.cyan(relativeToProcess(cwd))}`,
+    )
 
-    const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
-    await x(command, commandArgs, {
+    const [cmd, ...cmdArgs] = nitroJSON.commands.preview.split(' ')
+    const resolvedCmdArgs = cmdArgs.map((arg: string) =>
+      existsSync(join(outputPath, arg)) ? join(outputPath, arg) : arg,
+    )
+    await x(cmd, resolvedCmdArgs, {
       throwOnError: true,
       nodeOptions: {
         stdio: 'inherit',
-        cwd: outputPath,
+        cwd,
         env: {
           ...process.env,
           NUXT_PORT: port,
