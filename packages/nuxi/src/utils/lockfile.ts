@@ -1,10 +1,10 @@
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { linkSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
 import { isAgent } from 'std-env'
 
-interface LockInfo {
+export interface LockInfo {
   pid: number
   startedAt: number
   command: 'dev' | 'build'
@@ -12,12 +12,76 @@ interface LockInfo {
   port?: number
   hostname?: string
   url?: string
+  /** Set once dev has built types; cleared while (re)building. Gates typecheck reuse. */
+  typesReady?: boolean
+  /** Identifies one `acquireLock` call so its release only removes its own marker. */
+  token?: string
 }
 
-const LOCK_FILENAME = 'nuxt.lock'
+let acquireCounter = 0
+
+// Presence markers live one-file-per-process under `<buildDir>/locks/<pid>.json`
+// so peer dev servers on one buildDir don't clobber, no-op, or unlink each
+// other's record; each process only writes or removes its own path. A build is
+// exclusive, so instead of a per-PID marker it claims the shared `build.lock`
+// sentinel atomically (see acquireLock).
+const LOCKS_DIRNAME = 'locks'
+const BUILD_LOCK = 'build.lock'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
+
+export function locksDir(buildDir: string): string {
+  return join(buildDir, LOCKS_DIRNAME)
+}
+
+export function lockPathFor(buildDir: string, pid: number): string {
+  return join(locksDir(buildDir), `${pid}.json`)
+}
+
+export function buildLockPath(buildDir: string): string {
+  return join(locksDir(buildDir), BUILD_LOCK)
+}
+
+// Replace a marker atomically: write a sibling temp then rename over the target,
+// so a concurrent reader never lands in a truncate/write window and sees the
+// owner vanish. Used for the (overwriteable) per-process dev markers.
+function writeMarkerAtomic(lockPath: string, info: LockInfo): void {
+  const tmp = `${lockPath}.${process.pid}.tmp`
+  writeFileSync(tmp, JSON.stringify(info, null, 2))
+  renameSync(tmp, lockPath)
+}
+
+// Claim a marker that must be exclusive (the build sentinel). `linkSync` is an
+// atomic create-if-absent against an already-populated temp inode, so two
+// racing builds can't both win the read-then-write. Returns the live holder
+// when the sentinel is already taken, else `undefined` after claiming it.
+function claimExclusive(lockPath: string, info: LockInfo): LockInfo | undefined {
+  const tmp = `${lockPath}.${process.pid}.tmp`
+  for (let attempt = 0; attempt < 2; attempt++) {
+    writeFileSync(tmp, JSON.stringify(info, null, 2))
+    try {
+      linkSync(tmp, lockPath)
+      return undefined
+    }
+    catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw err
+      }
+      const holder = readLockFile(lockPath)
+      if (holder && isLockActive(holder)) {
+        return holder
+      }
+      tryUnlink(lockPath) // stale/dead holder — drop it and retry the claim
+    }
+    finally {
+      tryUnlink(tmp)
+    }
+  }
+  // Persistent staleness across both attempts: fall back to a plain replace.
+  writeMarkerAtomic(lockPath, info)
+  return undefined
+}
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -61,8 +125,59 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Locking is enabled for agents by default. `NUXT_LOCK=1` forces it on for
- * non-agents; `NUXT_IGNORE_LOCK=1` forces it off.
+ * Enumerate the live markers in a buildDir, newest first, pruning dead/stale
+ * ones on the way. Excludes the current process (it never blocks itself).
+ */
+export function readActiveLocks(buildDir: string): LockInfo[] {
+  const dir = locksDir(buildDir)
+  let names: string[]
+  try {
+    names = readdirSync(dir)
+  }
+  catch {
+    return []
+  }
+  const active: LockInfo[] = []
+  for (const name of names) {
+    // `.tmp` files are mid-write stages of an atomic replace/claim; skip them.
+    // Everything else is a marker: per-process `<pid>.json` or the `build.lock`
+    // sentinel.
+    if (name.endsWith('.tmp')) {
+      continue
+    }
+    const lockPath = join(dir, name)
+    const info = readLockFile(lockPath)
+    if (!info || info.pid === process.pid) {
+      continue
+    }
+    if (isLockActive(info)) {
+      active.push(info)
+    }
+    else {
+      // Dead/stale/corrupted marker: prune so the directory doesn't accumulate.
+      tryUnlink(lockPath)
+    }
+  }
+  return active.sort((a, b) => b.startedAt - a.startedAt)
+}
+
+/**
+ * A single representative active lock, or `undefined` when none is live: a build
+ * wins (it's exclusive), else the newest dev. Use {@link readActiveLocks} when
+ * every owner matters.
+ */
+export function readActiveLock(buildDir: string): LockInfo | undefined {
+  const active = readActiveLocks(buildDir)
+  return active.find(l => l.command === 'build') ?? active[0]
+}
+
+type LockResult
+  = | { existing?: undefined, release: () => void, peers: LockInfo[] }
+    | { existing: LockInfo, release?: undefined, peers?: undefined }
+
+/**
+ * Default conflict-enforcement policy. On for agents; `NUXT_LOCK=1` forces it on,
+ * `NUXT_IGNORE_LOCK=1` off. `nuxt build` uses this; `nuxt dev` passes `enforce: false`.
  */
 export function isLockEnabled(): boolean {
   if (process.env.NUXT_IGNORE_LOCK) {
@@ -74,95 +189,105 @@ export function isLockEnabled(): boolean {
   return isAgent
 }
 
-type LockResult
-  = | { existing?: undefined, release: () => void }
-    | { existing: LockInfo, release?: undefined }
+// The marker is written unless explicitly opted out, even when enforcement is off,
+// so other commands (e.g. typecheck) can detect a running dev server.
+function isLockWriteEnabled(): boolean {
+  return !process.env.NUXT_IGNORE_LOCK
+}
 
 /**
- * Atomically acquire a build/dev lock.
- * Returns `{ existing }` if another live process holds the lock, otherwise
- * `{ release }` to be invoked on shutdown. No-op when locking is disabled.
+ * Acquire a build/dev lock. Returns `{ existing }` when a conflicting live lock
+ * blocks us, otherwise `{ release }` to invoke on shutdown. With `enforce` false
+ * (`nuxt dev`) peer dev servers coexist and only an active build is refused;
+ * with `enforce` true (`nuxt build`) any other live owner is refused. `enforce`
+ * defaults to `isLockEnabled()`. No-op when writing is disabled.
  */
 export function acquireLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'token'>,
+  opts: { enforce?: boolean } = {},
 ): LockResult {
-  if (!isLockEnabled()) {
-    return { release: () => {} }
+  if (!isLockWriteEnabled()) {
+    return { release: () => {}, peers: [] }
   }
 
-  const lockPath = join(buildDir, LOCK_FILENAME)
+  const enforce = opts.enforce ?? isLockEnabled()
+  const token = `${process.pid}:${++acquireCounter}`
   const fullInfo: LockInfo = {
     pid: process.pid,
     startedAt: Date.now(),
     ...info,
+    token,
   }
 
-  // The build dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the
-  // lock is acquired before `clearBuildDir` runs, so create it lazily.
+  // The locks dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the lock
+  // is acquired before `clearBuildDir` runs, so create it lazily.
   try {
-    mkdirSync(buildDir, { recursive: true })
+    mkdirSync(locksDir(buildDir), { recursive: true })
   }
   catch {}
 
-  // Try exclusive-create up to twice: the first attempt may race with a stale
-  // lock that we then clean up and retry.
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      writeFileSync(lockPath, JSON.stringify(fullInfo, null, 2), { flag: 'wx' })
-      return { release: makeRelease(lockPath) }
-    }
-    catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
-        throw err
-      }
-      const existing = readLockFile(lockPath)
-      if (existing && isLockActive(existing)) {
-        return { existing }
-      }
-      // Stale, corrupted, or self-owned; remove and retry.
-      tryUnlink(lockPath)
-    }
+  // A build is exclusive, so it refuses any other live owner; a dev refuses only
+  // an active build (peer dev servers are allowed to share the buildDir).
+  const others = readActiveLocks(buildDir)
+  const blocker = enforce ? others[0] : others.find(l => l.command === 'build')
+  if (blocker) {
+    return { existing: blocker }
   }
 
-  // Two failures in a row; surface whatever we can read.
-  const existing = readLockFile(lockPath)
-  if (existing && isLockActive(existing)) {
-    return { existing }
+  // A build claims the shared sentinel atomically: the read above is advisory,
+  // so two builds racing past it are still serialised here (the loser gets the
+  // live winner back). A dev just (re)writes its own per-process marker.
+  // `peers` are the live owners we coexist with — dev uses them to warn that the
+  // buildDir is shared, since the outputs (not just the lock) are then reused.
+  if (fullInfo.command === 'build') {
+    const sentinel = buildLockPath(buildDir)
+    const winner = claimExclusive(sentinel, fullInfo)
+    if (winner) {
+      return { existing: winner }
+    }
+    return { release: makeRelease(sentinel, token), peers: others }
   }
-  return { release: () => {} }
+
+  const lockPath = lockPathFor(buildDir, process.pid)
+  writeMarkerAtomic(lockPath, fullInfo)
+  return { release: makeRelease(lockPath, token), peers: others }
 }
 
 /**
- * Overwrite an existing lock we already own with updated metadata (e.g. port
- * information learned after the listener binds). Callers must hold the lock
- * via a prior successful `acquireLock`. Does nothing when locking is disabled.
+ * Overwrite this process's own marker with updated metadata (e.g. port learned
+ * after the listener binds, or toggling `typesReady`). Always targets our own
+ * marker regardless of peer dev servers. No-op when locking is disabled.
  */
 export function updateLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'token'>,
 ): void {
-  if (!isLockEnabled()) {
+  if (!isLockWriteEnabled()) {
     return
   }
-  const lockPath = join(buildDir, LOCK_FILENAME)
+  const lockPath = lockPathFor(buildDir, process.pid)
   const current = readLockFile(lockPath)
-  // Only overwrite our own lock; never touch another process's file.
+  // A recycled PID could leave a foreign file at our path; never adopt it.
   if (current && current.pid !== process.pid) {
     return
   }
+  // Merge so a partial update keeps existing fields (url, port, …) and the
+  // original acquisition's token survives for its release.
   const next: LockInfo = {
+    ...current,
+    ...info,
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
-    ...info,
+    token: current?.token,
   }
   try {
-    writeFileSync(lockPath, JSON.stringify(next, null, 2))
+    writeMarkerAtomic(lockPath, next)
   }
   catch {}
 }
 
-function makeRelease(lockPath: string): () => void {
+function makeRelease(lockPath: string, token: string): () => void {
   let released = false
 
   function release(): void {
@@ -171,8 +296,10 @@ function makeRelease(lockPath: string): () => void {
     }
     released = true
     process.off('exit', release)
+    // A same-process re-acquire (dev reload) writes a new token, so only remove
+    // the file if it still carries ours.
     const current = readLockFile(lockPath)
-    if (!current || current.pid === process.pid) {
+    if (current?.token === token) {
       tryUnlink(lockPath)
     }
   }
