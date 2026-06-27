@@ -16,17 +16,17 @@ import { serverPlugin } from './server-plugin'
 import { serverRoute } from './server-route'
 import { serverUtil } from './server-util'
 
-interface TemplateOptions {
+export interface TemplateOptions {
   name: string
   args: Record<string, any>
   nuxtOptions: NuxtOptions
 }
 
-interface Template {
+export interface Template {
   (options: TemplateOptions): { path: string, contents: string }
 }
 
-const templates = {
+const templates: Record<string, Template> = {
   'api': api,
   'app': app,
   'app-config': appConfig,
@@ -43,7 +43,7 @@ const templates = {
   'server-plugin': serverPlugin,
   'server-route': serverRoute,
   'server-util': serverUtil,
-} satisfies Record<string, Template>
+}
 
 // -- internal utils --
 
@@ -69,4 +69,4 @@ function applySuffix(
   return suffix
 }
 
-export { applySuffix, Template, templates }
+export { applySuffix, templates }
