@@ -10,10 +10,10 @@ overrides:
   '@nuxt/schema': 4.4.6
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 63.0.7
+  eslint-plugin-jsdoc: 63.0.10
   eslint-plugin-unicorn: 65.0.1
   h3: ^1.15.11
-  httpxy: 0.5.3
+  httpxy: 0.5.4
   nitropack: 2.13.4
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
