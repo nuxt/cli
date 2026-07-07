@@ -1,40 +1,76 @@
+import { existsSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
 
-import { cancel, confirm, isCancel, spinner } from '@clack/prompts'
+import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { resolveModulePath } from 'exsolve'
 import { addDevDependency, detectPackageManager } from 'nypm'
 import { resolve } from 'pathe'
-import { readTSConfig } from 'pkg-types'
+import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { withNodePath } from '../utils/paths'
 import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
 
-const REQUIRED_DEPS = {
-  'typescript': 'typescript',
-  'vue-tsc': 'vue-tsc/bin/vue-tsc.js',
-} as const
+type TypeChecker = 'vue-tsc' | 'golar'
 
-type DepName = keyof typeof REQUIRED_DEPS
-
-function resolveDeps({ cache }: { cache?: boolean } = {}) {
-  const out = {} as Record<keyof typeof REQUIRED_DEPS, string | undefined>
-  // trick to type `name` as `DepName` instead of `string`
-  let name: DepName
-  for (name in REQUIRED_DEPS) {
-    out[name] = resolveModulePath(REQUIRED_DEPS[name], { try: true, cache })
-  }
-  return out
+interface TypeCheckerSetup {
+  checker: TypeChecker
+  bin: string
 }
+
+interface TypeCheckerMeta {
+  label: string
+  hint: string
+  packages: readonly string[]
+  docs?: string | undefined
+}
+
+interface ResolvedTypeChecker {
+  missing: string[]
+  bin?: string
+}
+
+const TYPE_CHECKERS = {
+  'vue-tsc': {
+    label: 'vue-tsc',
+    hint: 'Vue\'s official TypeScript checker',
+    packages: ['typescript', 'vue-tsc'],
+    docs: undefined,
+  },
+  'golar': {
+    label: 'Golar',
+    hint: 'Native-speed type-checking powered by typescript-go',
+    packages: ['golar', '@golar/vue'],
+    docs: 'https://golar.dev/languages/vue/',
+  },
+} as const satisfies Record<TypeChecker, TypeCheckerMeta>
+
+const CHECKER_PRIORITY: TypeChecker[] = ['vue-tsc', 'golar']
+
+const GOLAR_CONFIG_FILES = [
+  'golar.config.ts',
+  'golar.config.mts',
+  'golar.config.mjs',
+  'golar.config.cts',
+  'golar.config.cjs',
+] as const
+
+const GOLAR_CONFIG_TEMPLATE = `import { defineConfig } from 'golar/unstable'
+import '@golar/vue'
+
+export default defineConfig({})
+`
 
 export default defineCommand({
   meta: {
     name: 'typecheck',
-    description: 'Runs `vue-tsc` to check types throughout your app.',
+    description: 'Runs type-checking throughout your app using `vue-tsc` or Golar.',
   },
   args: {
     ...cwdArgs,
@@ -48,22 +84,22 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const [supportsProjects, vueTsc] = await Promise.all([
-      readTSConfig(cwd).then(r => !!(r.references?.length)),
-      ensureVueTsc(cwd, resolveDeps()),
+    const [supportsProjects, typechecker] = await Promise.all([
+      readTSConfig(cwd).then(config => !!(config.references?.length)),
+      resolveTypeChecker(cwd),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
         ...(ctx.args.extends && { extends: ctx.args.extends }),
       }),
     ])
 
-    if (!vueTsc) {
+    if (!typechecker) {
       process.exitCode = 1
       return
     }
 
     const start = Date.now()
-    const result = await x(vueTsc, supportsProjects ? ['-b', '--noEmit'] : ['--noEmit'], {
+    const result = await x(typechecker.bin, getTypecheckArgs(typechecker.checker, supportsProjects), {
       nodeOptions: { stdio: 'inherit', cwd },
     })
     const duration = `${Date.now() - start}ms`
@@ -82,27 +118,166 @@ export default defineCommand({
   },
 })
 
-async function ensureVueTsc(cwd: string, deps: Record<DepName, string | undefined>): Promise<string | undefined> {
-  const missing = (Object.keys(REQUIRED_DEPS) as DepName[]).filter(name => !deps[name])
-  if (missing.length === 0) {
-    return deps['vue-tsc']
+function getTypecheckArgs(checker: TypeChecker, supportsProjects: boolean) {
+  if (checker === 'golar') {
+    return supportsProjects
+      ? ['tsc', '--build', '--noEmit']
+      : ['tsc', '--noEmit']
   }
 
-  const packageManager = await detectPackageManager(cwd, { includeParentDirs: true })
-  const pmName = packageManager?.name ?? 'npm'
-  const installCommand = `${packageManager?.command ?? pmName} add ${pmName === 'bun' ? '-d' : '-D'} ${missing.join(' ')}`
+  return supportsProjects
+    ? ['-b', '--noEmit']
+    : ['--noEmit']
+}
 
-  const list = missing.map(name => colors.cyan(name)).join(' and ')
-  const plural = missing.length > 1
-  const are = plural ? 'are' : 'is'
-  const devDependency = plural ? 'devDependencies' : 'a devDependency'
+async function resolveTypeChecker(cwd: string): Promise<TypeCheckerSetup | undefined> {
+  for (const checker of CHECKER_PRIORITY) {
+    const resolved = resolveChecker(checker, cwd)
+    if (resolved.missing.length === 0 && resolved.bin) {
+      if (checker === 'golar') {
+        await ensureGolarConfig(cwd)
+      }
+      return { checker, bin: resolved.bin }
+    }
+  }
 
-  if (!hasTTY) {
-    logger.error(`${list} ${are} required for ${colors.cyan('nuxt typecheck')}. Install ${plural ? 'them' : 'it'} as ${devDependency}:\n\n  ${colors.bold(installCommand)}\n`)
+  return await promptTypeCheckerInstall(cwd)
+}
+
+function resolveChecker(checker: TypeChecker, cwd: string, { cache = true } = {}): ResolvedTypeChecker {
+  const from = withNodePath(cwd)
+
+  if (checker === 'golar') {
+    const bin = resolveGolarBin(cwd)
+    const vuePlugin = resolveModulePath('@golar/vue', { from, try: true, cache })
+    const missing = [
+      ...(!bin ? ['golar'] : []),
+      ...(!vuePlugin ? ['@golar/vue'] : []),
+    ]
+    return { missing, bin }
+  }
+
+  const typescript = resolveModulePath('typescript', { from, try: true, cache })
+  const bin = resolveModulePath('vue-tsc/bin/vue-tsc.js', { from, try: true, cache })
+  const missing = [
+    ...(!typescript ? ['typescript'] : []),
+    ...(!bin ? ['vue-tsc'] : []),
+  ]
+  return { missing, bin }
+}
+
+function resolveGolarBin(cwd: string) {
+  // golar restricts package exports, so resolve the CLI entry directly
+  let dir = cwd
+  while (true) {
+    const candidate = resolve(dir, 'node_modules/golar/dist/bin.js')
+    if (existsSync(candidate)) {
+      return candidate
+    }
+    const parent = resolve(dir, '..')
+    if (parent === dir) {
+      return undefined
+    }
+    dir = parent
+  }
+}
+
+async function ensureGolarConfig(cwd: string) {
+  if (GOLAR_CONFIG_FILES.some(file => existsSync(resolve(cwd, file)))) {
     return
   }
 
-  logger.warn(`${list} ${are} required for ${colors.cyan('nuxt typecheck')} but ${plural ? 'were' : 'was'} not found.`)
+  const pkg = await readPackageJSON(cwd).catch(() => null)
+  const filename = pkg?.type === 'module' ? 'golar.config.ts' : 'golar.config.mts'
+  await writeFile(resolve(cwd, filename), GOLAR_CONFIG_TEMPLATE)
+  logger.info(`Created ${colors.cyan(filename)}`)
+}
+
+async function promptTypeCheckerInstall(cwd: string): Promise<TypeCheckerSetup | undefined> {
+  const packageManager = await detectPackageManager(cwd, { includeParentDirs: true })
+  const pmName = packageManager?.name ?? 'npm'
+  const devFlag = pmName === 'bun' ? '-d' : '-D'
+  const pmCommand = packageManager?.command ?? pmName
+
+  if (!hasTTY) {
+    printInstallInstructions(pmCommand, devFlag)
+    return
+  }
+
+  logger.warn(`No type checker found for ${colors.cyan('nuxt typecheck')}.`)
+
+  const selected = await select<TypeChecker>({
+    message: 'Which type checker would you like to use?',
+    options: CHECKER_PRIORITY.map(name => ({
+      value: name,
+      label: TYPE_CHECKERS[name].label,
+      hint: TYPE_CHECKERS[name].hint,
+    })),
+    initialValue: 'vue-tsc',
+  })
+
+  if (isCancel(selected)) {
+    cancel('Skipping installation.')
+    return
+  }
+
+  const installCommand = formatInstallCommand(selected, pmCommand, devFlag)
+  const { missing } = resolveChecker(selected, cwd)
+
+  if (missing.length > 0) {
+    const installed = await installMissingPackages({
+      cwd,
+      packageManager,
+      pmName,
+      packages: missing,
+      installCommand,
+    })
+    if (!installed) {
+      return
+    }
+  }
+
+  const resolved = resolveChecker(selected, cwd, { cache: false })
+  if (!resolved.bin) {
+    logger.error(`Failed to resolve ${colors.cyan(selected)} after installation. Please check your installation.`)
+    return
+  }
+
+  if (selected === 'golar') {
+    await ensureGolarConfig(cwd)
+  }
+
+  return { checker: selected, bin: resolved.bin }
+}
+
+function printInstallInstructions(pmCommand: string, devFlag: string) {
+  logger.error(`A type checker is required for ${colors.cyan('nuxt typecheck')}. Install one of the following:\n`)
+
+  for (const checker of CHECKER_PRIORITY) {
+    const meta = TYPE_CHECKERS[checker]
+    const command = formatInstallCommand(checker, pmCommand, devFlag)
+    const docs = meta.docs ? ` (see ${colors.cyan(meta.docs)})` : ''
+    logger.info(`${colors.cyan(meta.label)}${docs}:\n\n  ${colors.bold(command)}\n`)
+  }
+
+  logger.info(`Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically on the next interactive run.\n`)
+}
+
+function formatInstallCommand(checker: TypeChecker, pmCommand: string, devFlag: string) {
+  return `${pmCommand} add ${devFlag} ${TYPE_CHECKERS[checker].packages.join(' ')}`
+}
+
+async function installMissingPackages(options: {
+  cwd: string
+  packageManager: Awaited<ReturnType<typeof detectPackageManager>>
+  pmName: string
+  packages: string[]
+  installCommand: string
+}): Promise<boolean> {
+  const { cwd, packageManager, pmName, packages, installCommand } = options
+  const list = packages.map(name => colors.cyan(name)).join(' and ')
+  const plural = packages.length > 1
+  const devDependency = plural ? 'devDependencies' : 'a devDependency'
 
   const shouldInstall = await confirm({
     message: `Install ${list} as ${devDependency}?`,
@@ -111,23 +286,22 @@ async function ensureVueTsc(cwd: string, deps: Record<DepName, string | undefine
 
   if (isCancel(shouldInstall) || !shouldInstall) {
     cancel(`Skipping installation. Run ${colors.bold(installCommand)} to install manually.`)
-    return
+    return false
   }
 
   const spin = spinner()
   spin.start(`Installing ${list} with ${colors.cyan(pmName)}`)
   try {
-    await addDevDependency(missing, { cwd, packageManager, silent: true })
+    await addDevDependency(packages, { cwd, packageManager, silent: true })
     spin.stop(`Installed ${list}`)
+    return true
   }
   catch (error) {
     spin.error(`Failed to install ${list}`)
     logger.error(error instanceof Error ? error.message : String(error))
     logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${colors.bold(installCommand)}\n`)
-    return
+    return false
   }
-
-  return resolveDeps({ cache: false })['vue-tsc']
 }
 
 async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
@@ -142,7 +316,6 @@ async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'i
     },
   })
 
-  // Generate types and build Nuxt instance
   await writeTypes(nuxt)
   await buildNuxt(nuxt)
   await nuxt.close()
