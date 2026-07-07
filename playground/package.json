@@ -14,12 +14,8 @@
     "vue-router": "^5.1.0"
   },
   "devDependencies": {
-<<<<<<< Updated upstream
     "@nuxt/test-utils": "^4.0.3",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.3.5"
-=======
-    "@nuxt/test-utils": "^4.0.3"
->>>>>>> Stashed changes
   }
 }

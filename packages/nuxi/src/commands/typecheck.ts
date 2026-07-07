@@ -28,7 +28,7 @@ interface TypeCheckerMeta {
   label: string
   hint: string
   packages: readonly string[]
-  docs?: string | undefined
+  docs?: string
 }
 
 interface ResolvedTypeChecker {
@@ -36,12 +36,11 @@ interface ResolvedTypeChecker {
   bin?: string
 }
 
-const TYPE_CHECKERS = {
+const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerMeta> = {
   'vue-tsc': {
     label: 'vue-tsc',
     hint: 'Vue\'s official TypeScript checker',
     packages: ['typescript', 'vue-tsc'],
-    docs: undefined,
   },
   'golar': {
     label: 'Golar',
@@ -49,7 +48,7 @@ const TYPE_CHECKERS = {
     packages: ['golar', '@golar/vue'],
     docs: 'https://golar.dev/languages/vue/',
   },
-} as const satisfies Record<TypeChecker, TypeCheckerMeta>
+}
 
 const CHECKER_PRIORITY: TypeChecker[] = ['vue-tsc', 'golar']
 
@@ -78,15 +77,26 @@ export default defineCommand({
     ...dotEnvArgs,
     ...extendsArgs,
     ...legacyRootDirArgs,
+    checker: {
+      type: 'string',
+      description: 'Type checker to use (`vue-tsc` or `golar`)',
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
+    const checkerArg = ctx.args.checker
+    if (checkerArg && !(checkerArg in TYPE_CHECKERS)) {
+      logger.error(`Unknown type checker ${colors.cyan(checkerArg)}. Expected one of: ${CHECKER_PRIORITY.join(', ')}.`)
+      process.exitCode = 1
+      return
+    }
+
     const [supportsProjects, typechecker] = await Promise.all([
       readTSConfig(cwd).then(config => !!(config.references?.length)),
-      resolveTypeChecker(cwd),
+      resolveTypeChecker(cwd, checkerArg as TypeChecker | undefined),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
         ...(ctx.args.extends && { extends: ctx.args.extends }),
@@ -130,8 +140,14 @@ function getTypecheckArgs(checker: TypeChecker, supportsProjects: boolean) {
     : ['--noEmit']
 }
 
-async function resolveTypeChecker(cwd: string): Promise<TypeCheckerSetup | undefined> {
-  for (const checker of CHECKER_PRIORITY) {
+async function resolveTypeChecker(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
+  const priority = preferred
+    ? [preferred]
+    : hasGolarConfig(cwd)
+      ? (['golar', 'vue-tsc'] as TypeChecker[])
+      : CHECKER_PRIORITY
+
+  for (const checker of priority) {
     const resolved = resolveChecker(checker, cwd)
     if (resolved.missing.length === 0 && resolved.bin) {
       if (checker === 'golar') {
@@ -141,7 +157,7 @@ async function resolveTypeChecker(cwd: string): Promise<TypeCheckerSetup | undef
     }
   }
 
-  return await promptTypeCheckerInstall(cwd)
+  return await promptTypeCheckerInstall(cwd, preferred)
 }
 
 function resolveChecker(checker: TypeChecker, cwd: string, { cache = true } = {}): ResolvedTypeChecker {
@@ -176,14 +192,27 @@ function resolveGolarBin(cwd: string) {
     }
     const parent = resolve(dir, '..')
     if (parent === dir) {
-      return undefined
+      break
     }
     dir = parent
   }
+
+  for (const nodePath of process.env.NODE_PATH?.split(':') || []) {
+    const candidate = resolve(nodePath, 'golar/dist/bin.js')
+    if (existsSync(candidate)) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+function hasGolarConfig(cwd: string) {
+  return GOLAR_CONFIG_FILES.some(file => existsSync(resolve(cwd, file)))
 }
 
 async function ensureGolarConfig(cwd: string) {
-  if (GOLAR_CONFIG_FILES.some(file => existsSync(resolve(cwd, file)))) {
+  if (hasGolarConfig(cwd)) {
     return
   }
 
@@ -193,32 +222,36 @@ async function ensureGolarConfig(cwd: string) {
   logger.info(`Created ${colors.cyan(filename)}`)
 }
 
-async function promptTypeCheckerInstall(cwd: string): Promise<TypeCheckerSetup | undefined> {
+async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
   const packageManager = await detectPackageManager(cwd, { includeParentDirs: true })
   const pmName = packageManager?.name ?? 'npm'
   const devFlag = pmName === 'bun' ? '-d' : '-D'
   const pmCommand = packageManager?.command ?? pmName
 
   if (!hasTTY) {
-    printInstallInstructions(pmCommand, devFlag)
+    printInstallInstructions(pmCommand, devFlag, preferred ? [preferred] : CHECKER_PRIORITY)
     return
   }
 
-  logger.warn(`No type checker found for ${colors.cyan('nuxt typecheck')}.`)
+  let selected = preferred
+  if (!selected) {
+    logger.warn(`No type checker found for ${colors.cyan('nuxt typecheck')}.`)
 
-  const selected = await select<TypeChecker>({
-    message: 'Which type checker would you like to use?',
-    options: CHECKER_PRIORITY.map(name => ({
-      value: name,
-      label: TYPE_CHECKERS[name].label,
-      hint: TYPE_CHECKERS[name].hint,
-    })),
-    initialValue: 'vue-tsc',
-  })
+    const answer = await select<TypeChecker>({
+      message: 'Which type checker would you like to use?',
+      options: CHECKER_PRIORITY.map(name => ({
+        value: name,
+        label: TYPE_CHECKERS[name].label,
+        hint: TYPE_CHECKERS[name].hint,
+      })),
+      initialValue: 'vue-tsc',
+    })
 
-  if (isCancel(selected)) {
-    cancel('Skipping installation.')
-    return
+    if (isCancel(answer)) {
+      cancel('Skipping installation.')
+      return
+    }
+    selected = answer
   }
 
   const installCommand = formatInstallCommand(selected, pmCommand, devFlag)
@@ -250,17 +283,19 @@ async function promptTypeCheckerInstall(cwd: string): Promise<TypeCheckerSetup |
   return { checker: selected, bin: resolved.bin }
 }
 
-function printInstallInstructions(pmCommand: string, devFlag: string) {
-  logger.error(`A type checker is required for ${colors.cyan('nuxt typecheck')}. Install one of the following:\n`)
+function printInstallInstructions(pmCommand: string, devFlag: string, checkers: readonly TypeChecker[]) {
+  logger.error(`A type checker is required for ${colors.cyan('nuxt typecheck')}. Install ${checkers.length > 1 ? 'one of the following' : 'it as a devDependency'}:\n`)
 
-  for (const checker of CHECKER_PRIORITY) {
+  for (const checker of checkers) {
     const meta = TYPE_CHECKERS[checker]
     const command = formatInstallCommand(checker, pmCommand, devFlag)
     const docs = meta.docs ? ` (see ${colors.cyan(meta.docs)})` : ''
     logger.info(`${colors.cyan(meta.label)}${docs}:\n\n  ${colors.bold(command)}\n`)
   }
 
-  logger.info(`Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically on the next interactive run.\n`)
+  if (checkers.includes('golar')) {
+    logger.info(`Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically the first time Golar is used.\n`)
+  }
 }
 
 function formatInstallCommand(checker: TypeChecker, pmCommand: string, devFlag: string) {
