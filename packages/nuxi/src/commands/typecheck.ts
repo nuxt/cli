@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import { delimiter } from 'node:path'
 import process from 'node:process'
 
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
@@ -88,7 +89,7 @@ export default defineCommand({
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
     const checkerArg = ctx.args.checker
-    if (checkerArg && !(checkerArg in TYPE_CHECKERS)) {
+    if (checkerArg && !Object.hasOwn(TYPE_CHECKERS, checkerArg)) {
       logger.error(`Unknown type checker ${colors.cyan(checkerArg)}. Expected one of: ${CHECKER_PRIORITY.join(', ')}.`)
       process.exitCode = 1
       return
@@ -197,7 +198,7 @@ function resolveGolarBin(cwd: string) {
     dir = parent
   }
 
-  for (const nodePath of process.env.NODE_PATH?.split(':') || []) {
+  for (const nodePath of process.env.NODE_PATH?.split(delimiter) || []) {
     const candidate = resolve(nodePath, 'golar/dist/bin.js')
     if (existsSync(candidate)) {
       return candidate
