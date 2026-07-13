@@ -12,7 +12,7 @@ import { checkNuxtCompatibility, fetchModules } from './_utils'
 
 const DASH_RE = /-/g
 
-const { format: formatNumber } = Intl.NumberFormat('en-GB', {
+const { format: formatNumber } = new Intl.NumberFormat('en-GB', {
   notation: 'compact',
   maximumFractionDigits: 1,
 })
