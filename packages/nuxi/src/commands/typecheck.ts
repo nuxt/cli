@@ -25,33 +25,24 @@ interface TypeCheckerSetup {
   bin: string
 }
 
-interface TypeCheckerMeta {
+interface ResolvedTypeChecker {
+  bin?: string
+  missing: string[]
+}
+
+interface TypeCheckerBackend {
   label: string
   hint: string
   packages: readonly string[]
   docs?: string
+  /** Config files whose presence makes this checker the preferred one. */
+  configFiles?: readonly string[]
+  /** Extra note shown alongside install instructions in non-interactive mode. */
+  configNote?: string
+  resolve: (cwd: string, options?: { cache?: boolean }) => ResolvedTypeChecker
+  args: (supportsProjects: boolean) => string[]
+  ensureConfig?: (cwd: string) => Promise<void>
 }
-
-interface ResolvedTypeChecker {
-  missing: string[]
-  bin?: string
-}
-
-const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerMeta> = {
-  'vue-tsc': {
-    label: 'vue-tsc',
-    hint: 'Vue\'s official TypeScript checker',
-    packages: ['typescript', 'vue-tsc'],
-  },
-  'golar': {
-    label: 'Golar',
-    hint: 'Native-speed type-checking powered by typescript-go',
-    packages: ['golar', '@golar/vue'],
-    docs: 'https://golar.dev/languages/vue/',
-  },
-}
-
-const CHECKER_PRIORITY: TypeChecker[] = ['vue-tsc', 'golar']
 
 const GOLAR_CONFIG_FILES = [
   'golar.config.ts',
@@ -66,6 +57,50 @@ import '@golar/vue'
 
 export default defineConfig({})
 `
+
+const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
+  'vue-tsc': {
+    label: 'vue-tsc',
+    hint: 'Vue\'s official TypeScript checker',
+    packages: ['typescript', 'vue-tsc'],
+    resolve(cwd, { cache = true } = {}) {
+      const from = withNodePath(cwd)
+      const typescript = resolveModulePath('typescript', { from, try: true, cache })
+      const bin = resolveModulePath('vue-tsc/bin/vue-tsc.js', { from, try: true, cache })
+      return {
+        bin: bin ?? undefined,
+        missing: [
+          ...(!typescript ? ['typescript'] : []),
+          ...(!bin ? ['vue-tsc'] : []),
+        ],
+      }
+    },
+    args: supportsProjects => supportsProjects ? ['-b', '--noEmit'] : ['--noEmit'],
+  },
+  'golar': {
+    label: 'Golar',
+    hint: 'Native-speed type-checking powered by typescript-go',
+    packages: ['golar', '@golar/vue'],
+    docs: 'https://golar.dev/languages/vue/',
+    configFiles: GOLAR_CONFIG_FILES,
+    configNote: `Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically the first time Golar is used.`,
+    resolve(cwd, { cache = true } = {}) {
+      const bin = resolveGolarBin(cwd)
+      const vuePlugin = resolveModulePath('@golar/vue', { from: withNodePath(cwd), try: true, cache })
+      return {
+        bin,
+        missing: [
+          ...(!bin ? ['golar'] : []),
+          ...(!vuePlugin ? ['@golar/vue'] : []),
+        ],
+      }
+    },
+    args: supportsProjects => supportsProjects ? ['tsc', '--build', '--noEmit'] : ['tsc', '--noEmit'],
+    ensureConfig: ensureGolarConfig,
+  },
+}
+
+const CHECKER_PRIORITY = Object.keys(TYPE_CHECKERS) as TypeChecker[]
 
 export default defineCommand({
   meta: {
@@ -110,7 +145,7 @@ export default defineCommand({
     }
 
     const start = Date.now()
-    const result = await x(typechecker.bin, getTypecheckArgs(typechecker.checker, supportsProjects), {
+    const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(supportsProjects), {
       nodeOptions: { stdio: 'inherit', cwd },
     })
     const duration = `${Date.now() - start}ms`
@@ -129,31 +164,13 @@ export default defineCommand({
   },
 })
 
-function getTypecheckArgs(checker: TypeChecker, supportsProjects: boolean) {
-  if (checker === 'golar') {
-    return supportsProjects
-      ? ['tsc', '--build', '--noEmit']
-      : ['tsc', '--noEmit']
-  }
-
-  return supportsProjects
-    ? ['-b', '--noEmit']
-    : ['--noEmit']
-}
-
 async function resolveTypeChecker(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
-  const priority = preferred
-    ? [preferred]
-    : hasGolarConfig(cwd)
-      ? (['golar', 'vue-tsc'] as TypeChecker[])
-      : CHECKER_PRIORITY
+  const priority = preferred ? [preferred] : detectCheckerPriority(cwd)
 
   for (const checker of priority) {
-    const resolved = resolveChecker(checker, cwd)
-    if (resolved.missing.length === 0 && resolved.bin) {
-      if (checker === 'golar') {
-        await ensureGolarConfig(cwd)
-      }
+    const resolved = TYPE_CHECKERS[checker].resolve(cwd)
+    if (resolved.bin && resolved.missing.length === 0) {
+      await TYPE_CHECKERS[checker].ensureConfig?.(cwd)
       return { checker, bin: resolved.bin }
     }
   }
@@ -161,26 +178,13 @@ async function resolveTypeChecker(cwd: string, preferred?: TypeChecker): Promise
   return await promptTypeCheckerInstall(cwd, preferred)
 }
 
-function resolveChecker(checker: TypeChecker, cwd: string, { cache = true } = {}): ResolvedTypeChecker {
-  const from = withNodePath(cwd)
+function detectCheckerPriority(cwd: string): TypeChecker[] {
+  const configured = CHECKER_PRIORITY.filter(checker => hasCheckerConfig(checker, cwd))
+  return [...configured, ...CHECKER_PRIORITY.filter(checker => !configured.includes(checker))]
+}
 
-  if (checker === 'golar') {
-    const bin = resolveGolarBin(cwd)
-    const vuePlugin = resolveModulePath('@golar/vue', { from, try: true, cache })
-    const missing = [
-      ...(!bin ? ['golar'] : []),
-      ...(!vuePlugin ? ['@golar/vue'] : []),
-    ]
-    return { missing, bin }
-  }
-
-  const typescript = resolveModulePath('typescript', { from, try: true, cache })
-  const bin = resolveModulePath('vue-tsc/bin/vue-tsc.js', { from, try: true, cache })
-  const missing = [
-    ...(!typescript ? ['typescript'] : []),
-    ...(!bin ? ['vue-tsc'] : []),
-  ]
-  return { missing, bin }
+function hasCheckerConfig(checker: TypeChecker, cwd: string) {
+  return TYPE_CHECKERS[checker].configFiles?.some(file => existsSync(resolve(cwd, file))) ?? false
 }
 
 function resolveGolarBin(cwd: string) {
@@ -208,12 +212,8 @@ function resolveGolarBin(cwd: string) {
   return undefined
 }
 
-function hasGolarConfig(cwd: string) {
-  return GOLAR_CONFIG_FILES.some(file => existsSync(resolve(cwd, file)))
-}
-
 async function ensureGolarConfig(cwd: string) {
-  if (hasGolarConfig(cwd)) {
+  if (hasCheckerConfig('golar', cwd)) {
     return
   }
 
@@ -256,7 +256,7 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
   }
 
   const installCommand = formatInstallCommand(selected, pmCommand, devFlag)
-  const { missing } = resolveChecker(selected, cwd)
+  const { missing } = TYPE_CHECKERS[selected].resolve(cwd)
 
   if (missing.length > 0) {
     const installed = await installMissingPackages({
@@ -271,15 +271,13 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
     }
   }
 
-  const resolved = resolveChecker(selected, cwd, { cache: false })
+  const resolved = TYPE_CHECKERS[selected].resolve(cwd, { cache: false })
   if (!resolved.bin) {
     logger.error(`Failed to resolve ${colors.cyan(selected)} after installation. Please check your installation.`)
     return
   }
 
-  if (selected === 'golar') {
-    await ensureGolarConfig(cwd)
-  }
+  await TYPE_CHECKERS[selected].ensureConfig?.(cwd)
 
   return { checker: selected, bin: resolved.bin }
 }
@@ -292,10 +290,9 @@ function printInstallInstructions(pmCommand: string, devFlag: string, checkers: 
     const command = formatInstallCommand(checker, pmCommand, devFlag)
     const docs = meta.docs ? ` (see ${colors.cyan(meta.docs)})` : ''
     logger.info(`${colors.cyan(meta.label)}${docs}:\n\n  ${colors.bold(command)}\n`)
-  }
-
-  if (checkers.includes('golar')) {
-    logger.info(`Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically the first time Golar is used.\n`)
+    if (meta.configNote) {
+      logger.info(`${meta.configNote}\n`)
+    }
   }
 }
 
