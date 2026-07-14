@@ -20,7 +20,9 @@ export async function clearDir(path: string, exclude?: string[]) {
 }
 
 export function clearBuildDir(path: string) {
-  return clearDir(path, ['cache', 'analyze', 'nuxt.json', 'nuxt.lock'])
+  // Keep `locks/` (and the legacy `nuxt.lock`) so a wipe never deletes a
+  // presence marker a peer dev/build process holds (see utils/lockfile).
+  return clearDir(path, ['cache', 'analyze', 'nuxt.json', 'nuxt.lock', 'locks'])
 }
 
 export async function rmRecursive(paths: string[]) {
