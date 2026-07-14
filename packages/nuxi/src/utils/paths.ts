@@ -1,3 +1,4 @@
+import { delimiter } from 'node:path'
 import process from 'node:process'
 import { relative } from 'pathe'
 
@@ -8,5 +9,5 @@ export function relativeToProcess(path: string) {
 }
 
 export function withNodePath(path: string) {
-  return [path, ...(process.env.NODE_PATH?.split(':') || [])]
+  return [path, ...(process.env.NODE_PATH?.split(delimiter) || [])]
 }

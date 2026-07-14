@@ -28,7 +28,7 @@ COMMANDS
        preview    Launches Nitro server for local testing after `nuxi build`.
          start    Launches Nitro server for local testing after `nuxi build`.
           test    Run tests
-     typecheck    Runs `vue-tsc` to check types throughout your app.
+     typecheck    Runs type-checking throughout your app using `vue-tsc` or Golar.
        upgrade    Upgrade Nuxt
       complete    Generate shell completion scripts
 
