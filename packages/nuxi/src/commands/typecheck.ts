@@ -1,6 +1,5 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { delimiter } from 'node:path'
 import process from 'node:process'
 
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
@@ -8,7 +7,7 @@ import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { resolveModulePath } from 'exsolve'
 import { addDevDependency, detectPackageManager } from 'nypm'
-import { resolve } from 'pathe'
+import { dirname, resolve } from 'pathe'
 import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
@@ -45,11 +44,12 @@ interface TypeCheckerBackend {
 }
 
 const GOLAR_CONFIG_FILES = [
+  'golar.config.js',
   'golar.config.ts',
-  'golar.config.mts',
   'golar.config.mjs',
-  'golar.config.cts',
+  'golar.config.mts',
   'golar.config.cjs',
+  'golar.config.cts',
 ] as const
 
 const GOLAR_CONFIG_TEMPLATE = `import { defineConfig } from 'golar/unstable'
@@ -187,29 +187,28 @@ function hasCheckerConfig(checker: TypeChecker, cwd: string) {
   return TYPE_CHECKERS[checker].configFiles?.some(file => existsSync(resolve(cwd, file))) ?? false
 }
 
-function resolveGolarBin(cwd: string) {
-  // golar restricts package exports, so resolve the CLI entry directly
-  let dir = cwd
+function resolveGolarBin(cwd: string): string | undefined {
+  const entry = resolveModulePath('golar/unstable', { from: withNodePath(cwd), try: true })
+  if (!entry) {
+    return undefined
+  }
+
+  let dir = dirname(entry)
   while (true) {
-    const candidate = resolve(dir, 'node_modules/golar/dist/bin.js')
-    if (existsSync(candidate)) {
-      return candidate
+    const manifest = resolve(dir, 'package.json')
+    if (existsSync(manifest)) {
+      const { name, bin } = JSON.parse(readFileSync(manifest, 'utf8')) as { name?: string, bin?: string | Record<string, string> }
+      if (name === 'golar') {
+        const relativeBin = typeof bin === 'string' ? bin : bin?.golar
+        return relativeBin ? resolve(dir, relativeBin) : undefined
+      }
     }
-    const parent = resolve(dir, '..')
+    const parent = dirname(dir)
     if (parent === dir) {
-      break
+      return undefined
     }
     dir = parent
   }
-
-  for (const nodePath of process.env.NODE_PATH?.split(delimiter) || []) {
-    const candidate = resolve(nodePath, 'golar/dist/bin.js')
-    if (existsSync(candidate)) {
-      return candidate
-    }
-  }
-
-  return undefined
 }
 
 async function ensureGolarConfig(cwd: string) {
