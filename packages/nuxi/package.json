@@ -72,7 +72,7 @@
     "std-env": "^4.2.0",
     "tinyclip": "^0.1.15",
     "tinyexec": "^1.2.4",
-    "tsdown": "^0.22.5",
+    "tsdown": "^0.22.7",
     "typescript": "^6.0.3",
     "ufo": "^1.6.4",
     "unplugin-purge-polyfills": "^0.1.0",
