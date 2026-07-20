@@ -37,37 +37,27 @@ const command = defineCommand({
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
-    const { loadNuxt } = await loadKit(cwd)
-
-    const resolvedOutputDir = await new Promise<string>((res) => {
-      loadNuxt({
+    // Resolve the output directory from config without running module setup
+    // (which may emit warnings about env vars already baked into the build).
+    const { loadNuxtConfig } = await loadKit(cwd)
+    const config = await loadNuxtConfig({
+      cwd,
+      dotenv: {
         cwd,
-        dotenv: {
-          cwd,
-          fileName: ctx.args.dotenv,
-        },
-        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
-        ready: true,
-        overrides: {
-          ...(ctx.args.extends && { extends: ctx.args.extends }),
-          modules: [
-            function (_, nuxt) {
-              nuxt.hook('nitro:init', (nitro) => {
-                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
-              })
-            },
-          ],
-        },
-      }).then(nuxt => nuxt.close()).catch(() => '')
+        fileName: ctx.args.dotenv,
+      },
+      envName: ctx.args.envName,
+      overrides: {
+        ...(ctx.args.extends && { extends: ctx.args.extends }),
+      },
     })
 
-    const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
+    const outputDir = config.nitro?.output?.dir ?? '.output'
+    const nitroJSONPath = resolve(config.rootDir || cwd, outputDir, 'nitro.json')
 
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
-    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
-    if (!nitroJSONPath) {
+    if (!existsSync(nitroJSONPath)) {
       logger.error(
-        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
+        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${nitroJSONPath}`,
       )
       process.exit(1)
     }
