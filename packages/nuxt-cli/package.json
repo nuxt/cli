@@ -47,7 +47,6 @@
     "citty": "^0.2.2",
     "confbox": "^0.2.4",
     "consola": "^3.4.2",
-    "debug": "^4.4.3",
     "defu": "^6.1.7",
     "exsolve": "^1.1.0",
     "fuse.js": "^7.4.2",
@@ -56,6 +55,7 @@
     "jiti": "^2.7.0",
     "listhen": "^1.10.0",
     "nypm": "^0.6.8",
+    "obug": "^2.1.1",
     "ofetch": "^1.5.1",
     "ohash": "^2.0.11",
     "pathe": "^2.0.3",
@@ -73,7 +73,6 @@
   "devDependencies": {
     "@nuxt/kit": "^4.4.6",
     "@nuxt/schema": "^4.4.6",
-    "@types/debug": "^4.1.13",
     "@types/node": "^24.13.3",
     "get-port-please": "^3.2.0",
     "h3": "^1.15.11",
