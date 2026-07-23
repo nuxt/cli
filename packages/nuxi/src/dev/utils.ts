@@ -196,10 +196,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         this.#renderLoadingScreen(req, res)
       }
     }
-
-    if (hasTTY && !isCI) {
-      this.#rl = readline.createInterface({ input: process.stdin })
-    }
   }
 
   async #renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -517,15 +513,24 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     this.emit('ready', serverUrl)
 
-    this.#rl?.removeAllListeners('line')
-    this.#rl?.addListener('line', this.#quitListener)
+    if (!this.#rl && hasTTY && !isCI) {
+      this.#rl = readline.createInterface({ input: process.stdin })
+    }
 
-    // eslint-disable-next-line no-console
-    console.log(`\n${colors.dim('  press ')}${colors.bold(`q + enter`)}${colors.dim(` to quit`)}\n`)
+    if (this.#rl) {
+      this.#rl.removeAllListeners('line')
+      this.#rl.addListener('line', this.#quitListener.bind(this))
+
+      // eslint-disable-next-line no-console
+      console.log(`\n${colors.dim('  press ')}${colors.bold(`q + enter`)}${colors.dim(` to quit`)}\n`)
+    }
   }
 
   async #quitListener(line: string) {
     if (line === 'q' || line === 'quit' || line === 'exit') {
+      this.#rl?.removeAllListeners('line')
+      this.#rl?.close()
+      this.#rl = undefined
       try {
         await this.close()
       }
@@ -536,9 +541,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async close(): Promise<void> {
-    this.#rl?.removeAllListeners('line')
-    this.#rl?.close()
-    this.#rl = undefined
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
