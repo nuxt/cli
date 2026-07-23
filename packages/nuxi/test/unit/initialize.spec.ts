@@ -100,6 +100,26 @@ describe('initialize dev server', () => {
 
       expect(onBeforeQuit).toHaveBeenCalledWith(instance)
       expect(exitSpy).toHaveBeenCalled()
+      expect(process.exitCode).toBe(0)
+    }
+    finally {
+      process.exitCode = originalExitCode
+      exitSpy.mockRestore()
+    }
+  })
+
+  it('sets exitCode to 1 and still exits when close() rejects during shutdown', async () => {
+    const originalExitCode = process.exitCode
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    try {
+      await initialize(baseDevContext())
+      const instance = vi.mocked(NuxtDevServer).mock.results[0]!.value
+      instance.close.mockRejectedValueOnce(new Error('boom'))
+
+      instance.emit('closing')
+      await vi.waitFor(() => expect(exitSpy).toHaveBeenCalled())
+
+      expect(process.exitCode).toBe(1)
     }
     finally {
       process.exitCode = originalExitCode
