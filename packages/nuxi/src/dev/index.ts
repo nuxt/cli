@@ -52,7 +52,6 @@ interface InitializeReturn {
   close: () => Promise<void>
   onReady: (callback: (address: string) => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
-  prepareQuit: (callback: () => void) => void
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
@@ -168,9 +167,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   return {
     listener: devServer.listener,
     close,
-    prepareQuit: (callback: () => void) => {
-      callback()
-    },
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)

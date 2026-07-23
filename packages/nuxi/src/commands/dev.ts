@@ -85,7 +85,7 @@ const command = defineCommand({
     }
 
     // Start the initial dev server in-process with listener
-    const { listener, close, prepareQuit, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, initializeOptions)
+    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, initializeOptions)
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
@@ -138,12 +138,13 @@ const command = defineCommand({
     }
 
     onRestart(async () => {
+      // cleanup the current cleanupCurrentFork before closing:
+      // avoid calling cleanupCurrentFork twice
+      Object.assign(initializeOptions, { onBeforeQuit: undefined })
       // Close the in-process dev server
       await close()
       await restartWithFork()
-    })
-
-    prepareQuit(() => {
+      // assign the new cleanupCurrentFork
       Object.assign(initializeOptions, { onBeforeQuit: cleanupCurrentFork })
     })
 
