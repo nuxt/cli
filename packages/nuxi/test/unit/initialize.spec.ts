@@ -84,20 +84,24 @@ describe('initialize dev server', () => {
 
   it('emitting "closing" runs the full shutdown flow (onBeforeQuit, close, process.exit)', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
-    const onBeforeQuit = vi.fn()
 
-    await initialize(baseDevContext(), { onBeforeQuit })
-    const instance = vi.mocked(NuxtDevServer).mock.results[0]!.value
+    try {
+      const onBeforeQuit = vi.fn()
 
-    instance.emit('closing')
-    // the handler is async, wait for the microtask queue to flush
-    await vi.waitFor(() => {
-      expect(instance.close).toHaveBeenCalled()
-    })
+      await initialize(baseDevContext(), { onBeforeQuit })
+      const instance = vi.mocked(NuxtDevServer).mock.results[0]!.value
 
-    expect(onBeforeQuit).toHaveBeenCalledWith(instance)
-    expect(exitSpy).toHaveBeenCalled()
+      instance.emit('closing')
+      // the handler is async, wait for the microtask queue to flush
+      await vi.waitFor(() => {
+        expect(instance.close).toHaveBeenCalled()
+      })
 
-    exitSpy.mockRestore()
+      expect(onBeforeQuit).toHaveBeenCalledWith(instance)
+      expect(exitSpy).toHaveBeenCalled()
+    }
+    finally {
+      exitSpy.mockRestore()
+    }
   })
 })
