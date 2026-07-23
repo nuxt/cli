@@ -138,13 +138,12 @@ const command = defineCommand({
     }
 
     onRestart(async () => {
-      // cleanup the current cleanupCurrentFork before closing:
-      // avoid calling cleanupCurrentFork twice
+      // Temporarily disable the quit hook during restart to avoid double-cleanup
       Object.assign(initializeOptions, { onBeforeQuit: undefined })
       // Close the in-process dev server
       await close()
       await restartWithFork()
-      // assign the new cleanupCurrentFork
+      // Assign the new cleanupCurrentFork
       Object.assign(initializeOptions, { onBeforeQuit: cleanupCurrentFork })
     })
 
