@@ -83,6 +83,7 @@ describe('initialize dev server', () => {
   })
 
   it('emitting "closing" runs the full shutdown flow (onBeforeQuit, close, process.exit)', async () => {
+    const originalExitCode = process.exitCode
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     try {
@@ -101,6 +102,7 @@ describe('initialize dev server', () => {
       expect(exitSpy).toHaveBeenCalled()
     }
     finally {
+      process.exitCode = originalExitCode
       exitSpy.mockRestore()
     }
   })
