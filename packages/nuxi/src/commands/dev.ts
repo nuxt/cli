@@ -143,8 +143,9 @@ const command = defineCommand({
       // Close the in-process dev server
       await close()
       await restartWithFork()
-      // Assign the new cleanupCurrentFork
-      Object.assign(initializeOptions, { onBeforeQuit: cleanupCurrentFork })
+      // Delegate to the live `cleanupCurrentFork` binding so later fork
+      // restarts (triggered via IPC) are always cleaned up correctly on quit
+      Object.assign(initializeOptions, { onBeforeQuit: () => cleanupCurrentFork?.() })
     })
 
     return {
