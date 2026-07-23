@@ -529,14 +529,14 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   async #quitListener(line: string) {
     if (line === 'q' || line === 'quit' || line === 'exit') {
-      this.#rl?.removeAllListeners('line')
-      this.#rl?.close()
-      this.#rl = undefined
       this.emit('closing')
     }
   }
 
   async close(): Promise<void> {
+    this.#rl?.removeAllListeners('line')
+    this.#rl?.close()
+    this.#rl = undefined
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
