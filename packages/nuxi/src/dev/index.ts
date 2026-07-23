@@ -52,7 +52,7 @@ interface InitializeReturn {
   close: () => Promise<void>
   onReady: (callback: (address: string) => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
-  onQuit: (callback: (devServer: NuxtDevServer) => Promise<void> | void) => void
+  prepareQuit: (callback: () => void) => void
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
@@ -115,11 +115,15 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   async function close() {
     devServer.closeWatchers()
-    await Promise.all([
-      devServer.listener.close(),
-      devServer.close(),
-    ])
-    devServer.releaseLock()
+    try {
+      await Promise.all([
+        devServer.listener.close(),
+        devServer.close(),
+      ])
+    }
+    finally {
+      devServer.releaseLock()
+    }
   }
 
   devServer.on('closing', async () => {
@@ -164,8 +168,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   return {
     listener: devServer.listener,
     close,
-    onQuit: (callback: (devServer: NuxtDevServer) => Promise<void> | void) => {
-      ctx.onBeforeQuit = callback
+    prepareQuit: (callback: () => void) => {
+      callback()
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {

@@ -78,12 +78,14 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    // Start the initial dev server in-process with listener
-    const { listener, close, onQuit, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+    const initializeOptions: Parameters<typeof initialize>[1] = {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
-    })
+    }
+
+    // Start the initial dev server in-process with listener
+    const { listener, close, prepareQuit, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, initializeOptions)
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
@@ -141,8 +143,8 @@ const command = defineCommand({
       await restartWithFork()
     })
 
-    onQuit(() => {
-      cleanupCurrentFork?.()
+    prepareQuit(() => {
+      Object.assign(initializeOptions, { onBeforeQuit: cleanupCurrentFork })
     })
 
     return {
