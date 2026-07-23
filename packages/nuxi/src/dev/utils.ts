@@ -527,8 +527,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
   }
 
-  async #quitListener(line: string) {
+  #quitListener(line: string) {
     if (line === 'q' || line === 'quit' || line === 'exit') {
+      this.#rl?.removeAllListeners('line')
+      this.#rl?.close()
+      this.#rl = undefined
       this.emit('closing')
     }
   }
