@@ -157,7 +157,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
-
   return {
     listener: devServer.listener,
     close,
