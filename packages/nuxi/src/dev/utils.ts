@@ -148,6 +148,7 @@ interface DevServerEventMap {
   'loading': [loadingMessage: string]
   'ready': [address: string]
   'restart': []
+  'closing': []
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
@@ -531,12 +532,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#rl?.removeAllListeners('line')
       this.#rl?.close()
       this.#rl = undefined
-      try {
-        await this.close()
-      }
-      finally {
-        process.exit(0)
-      }
+      this.emit('closing')
     }
   }
 

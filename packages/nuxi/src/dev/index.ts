@@ -111,6 +111,33 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     })
   }
 
+  async function close() {
+    devServer.closeWatchers()
+    try {
+      await Promise.all([
+        devServer.listener.close(),
+        devServer.close(),
+      ])
+    }
+    finally {
+      devServer.releaseLock()
+    }
+  }
+
+  devServer.on('closing', async () => {
+    try {
+      await close()
+      process.exitCode = 0
+    }
+    catch (e) {
+      process.exitCode = 1
+      console.error(e)
+    }
+    finally {
+      process.exit()
+    }
+  })
+
   // Init server
   await devServer.init()
 
@@ -130,20 +157,10 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
+
   return {
     listener: devServer.listener,
-    close: async () => {
-      try {
-        devServer.closeWatchers()
-        await Promise.all([
-          devServer.listener.close(),
-          devServer.close(),
-        ])
-      }
-      finally {
-        devServer.releaseLock()
-      }
-    },
+    close,
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)
