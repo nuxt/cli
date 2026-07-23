@@ -4,11 +4,10 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 
 import process from 'node:process'
 import defu from 'defu'
+import { hasTTY, isCI } from 'std-env'
 import { overrideEnv } from '../utils/env.ts'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
-import { isCI, hasTTY } from 'std-env'
-
 
 const start = Date.now()
 
