@@ -78,12 +78,14 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    // Start the initial dev server in-process with listener
-    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+    const initializeOptions: Parameters<typeof initialize>[1] = {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
-    })
+    }
+
+    // Start the initial dev server in-process with listener
+    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, initializeOptions)
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
@@ -136,9 +138,14 @@ const command = defineCommand({
     }
 
     onRestart(async () => {
+      // Temporarily disable the quit hook during restart to avoid double-cleanup
+      Object.assign(initializeOptions, { onBeforeQuit: undefined })
       // Close the in-process dev server
       await close()
       await restartWithFork()
+      // Delegate to the live `cleanupCurrentFork` binding so later fork
+      // restarts (triggered via IPC) are always cleaned up correctly on quit
+      Object.assign(initializeOptions, { onBeforeQuit: () => cleanupCurrentFork?.() })
     })
 
     return {

@@ -10,8 +10,10 @@ import EventEmitter from 'node:events'
 import { existsSync, readdirSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
+import readline from 'node:readline'
 import { pathToFileURL } from 'node:url'
 
+import { colors } from 'consola/utils'
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
@@ -19,7 +21,7 @@ import { listen } from 'listhen'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
-import { provider } from 'std-env'
+import { hasTTY, isCI, provider } from 'std-env'
 import { joinURL } from 'ufo'
 
 import { showBanner } from '../utils/banner'
@@ -146,6 +148,7 @@ interface DevServerEventMap {
   'loading': [loadingMessage: string]
   'ready': [address: string]
   'restart': []
+  'closing': []
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
@@ -155,6 +158,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #currentNuxt?: NuxtWithServer
   #loadingMessage?: string
   #loadingError?: Error
+  #rl?: ReturnType<typeof readline.createInterface> | undefined
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
   #websocketConnections = new Set<any>()
@@ -509,9 +513,33 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this.emit('ready', serverUrl)
+
+    if (!this.#rl && hasTTY && !isCI) {
+      this.#rl = readline.createInterface({ input: process.stdin })
+    }
+
+    if (this.#rl) {
+      this.#rl.removeAllListeners('line')
+      this.#rl.addListener('line', this.#quitListener.bind(this))
+
+      // eslint-disable-next-line no-console
+      console.log(`\n${colors.dim('  press ')}${colors.bold(`q + enter`)}${colors.dim(` to quit`)}\n`)
+    }
+  }
+
+  #quitListener(line: string) {
+    if (line === 'q' || line === 'quit' || line === 'exit') {
+      this.#rl?.removeAllListeners('line')
+      this.#rl?.close()
+      this.#rl = undefined
+      this.emit('closing')
+    }
   }
 
   async close(): Promise<void> {
+    this.#rl?.removeAllListeners('line')
+    this.#rl?.close()
+    this.#rl = undefined
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
