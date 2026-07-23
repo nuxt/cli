@@ -125,7 +125,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
-  devServer.on('closing', async () => {
+  devServer.once('closing', async () => {
     if (profileArg) {
       try {
         await stopCpuProfile(devContext.cwd, 'dev')
