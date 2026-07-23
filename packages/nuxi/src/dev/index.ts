@@ -113,15 +113,11 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   async function close() {
     devServer.closeWatchers()
-    try {
-      await Promise.all([
-        devServer.listener.close(),
-        devServer.close(),
-      ])
-    }
-    finally {
-      devServer.releaseLock()
-    }
+    await Promise.all([
+      devServer.listener.close(),
+      devServer.close(),
+    ])
+    devServer.releaseLock()
   }
 
   devServer.on('closing', async () => {
