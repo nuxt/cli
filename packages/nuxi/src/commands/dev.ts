@@ -79,7 +79,7 @@ const command = defineCommand({
     const listenOverrides = resolveListenOverrides(ctx.args)
 
     // Start the initial dev server in-process with listener
-    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+    const { listener, close, onQuit, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
@@ -139,6 +139,10 @@ const command = defineCommand({
       // Close the in-process dev server
       await close()
       await restartWithFork()
+    })
+
+    onQuit(() => {
+      cleanupCurrentFork?.()
     })
 
     return {

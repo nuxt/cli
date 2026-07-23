@@ -16,6 +16,7 @@ interface InitializeOptions {
   }
   listenOverrides?: Partial<ListenOptions>
   showBanner?: boolean
+  onBeforeQuit?: (devServer: NuxtDevServer) => Promise<void> | void
 }
 
 // IPC Hooks
@@ -51,6 +52,7 @@ interface InitializeReturn {
   close: () => Promise<void>
   onReady: (callback: (address: string) => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
+  onQuit: (callback: (devServer: NuxtDevServer) => Promise<void> | void) => void
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
@@ -122,6 +124,12 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   devServer.on('closing', async () => {
     try {
+      await ctx.onBeforeQuit?.(devServer)
+    }
+    catch (e) {
+      console.error(e)
+    }
+    try {
       await close()
       process.exitCode = 0
     }
@@ -156,6 +164,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   return {
     listener: devServer.listener,
     close,
+    onQuit: (callback: (devServer: NuxtDevServer) => Promise<void> | void) => {
+      ctx.onBeforeQuit = callback
+    },
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)
