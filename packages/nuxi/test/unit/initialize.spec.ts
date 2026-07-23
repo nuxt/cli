@@ -111,6 +111,7 @@ describe('initialize dev server', () => {
   it('sets exitCode to 1 and still exits when close() rejects during shutdown', async () => {
     const originalExitCode = process.exitCode
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       await initialize(baseDevContext())
       const instance = vi.mocked(NuxtDevServer).mock.results[0]!.value
@@ -124,6 +125,7 @@ describe('initialize dev server', () => {
     finally {
       process.exitCode = originalExitCode
       exitSpy.mockRestore()
+      errorSpy.mockRestore()
     }
   })
 })
