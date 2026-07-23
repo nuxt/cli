@@ -7,6 +7,8 @@ import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
+import { isCI, hasTTY } from 'std-env'
+
 
 const start = Date.now()
 
@@ -130,16 +132,37 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
+  let rl: ReturnType<typeof import('node:readline')['createInterface']> | undefined
+
+  async function close() {
+    rl?.removeAllListeners('line')
+    rl?.close()
+    devServer.closeWatchers()
+    await Promise.all([
+      devServer.listener.close(),
+      devServer.close(),
+    ])
+    devServer.releaseLock()
+  }
+
+  if (hasTTY && !isCI) {
+    const readline = await import('node:readline')
+    rl = readline.createInterface({ input: process.stdin })
+    rl.addListener('line', async (line) => {
+      if (line === 'q' || line === 'quit') {
+        try {
+          await close()
+        }
+        finally {
+          process.exit(0)
+        }
+      }
+    })
+  }
+
   return {
     listener: devServer.listener,
-    close: async () => {
-      devServer.closeWatchers()
-      await Promise.all([
-        devServer.listener.close(),
-        devServer.close(),
-      ])
-      devServer.releaseLock()
-    },
+    close,
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)
