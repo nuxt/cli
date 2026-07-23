@@ -4,7 +4,6 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 
 import process from 'node:process'
 import defu from 'defu'
-import { hasTTY, isCI } from 'std-env'
 import { overrideEnv } from '../utils/env.ts'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
@@ -131,37 +130,20 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
-  let rl: ReturnType<typeof import('node:readline')['createInterface']> | undefined
-
-  async function close() {
-    rl?.removeAllListeners('line')
-    rl?.close()
-    devServer.closeWatchers()
-    await Promise.all([
-      devServer.listener.close(),
-      devServer.close(),
-    ])
-    devServer.releaseLock()
-  }
-
-  if (hasTTY && !isCI) {
-    const readline = await import('node:readline')
-    rl = readline.createInterface({ input: process.stdin })
-    rl.addListener('line', async (line) => {
-      if (line === 'q' || line === 'quit') {
-        try {
-          await close()
-        }
-        finally {
-          process.exit(0)
-        }
-      }
-    })
-  }
-
   return {
     listener: devServer.listener,
-    close,
+    close: async () => {
+      try {
+        devServer.closeWatchers()
+        await Promise.all([
+          devServer.listener.close(),
+          devServer.close(),
+        ])
+      }
+      finally {
+        devServer.releaseLock()
+      }
+    },
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)
