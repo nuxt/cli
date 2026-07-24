@@ -55,12 +55,14 @@
         "pkg-types",
         "rc9",
         "scule",
+        "source-map",
         "srvx",
         "tinyclip",
         "ufo",
         "uqr",
         "verkit",
-        "youch"
+        "youch",
+        "youch-core"
       ]
     },
     "packages/create-nuxt": {

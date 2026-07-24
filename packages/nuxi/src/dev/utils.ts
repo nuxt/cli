@@ -28,7 +28,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
-import { renderError } from './error'
+import { renderError, renderErrorAnsi } from './error'
 import { listen } from './listen'
 
 export type NuxtParentIPCMessage
@@ -205,6 +205,20 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     res.statusCode = 503
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Refresh', '3')
+
+    if (!req.headers.accept?.includes('text/html')) {
+      res.setHeader('Content-Type', 'application/json')
+      res.end(JSON.stringify({
+        error: true,
+        status: 503,
+        message: this.#loadingMessage || 'Dev server is loading...',
+        hint: 'Please retry once the dev server is ready.',
+      }, null, 2))
+      return
+    }
+
     res.setHeader('Content-Type', 'text/html')
     const loadingTemplate = this.options.loadingTemplate
       || this.#currentNuxt?.options.devServer.loadingTemplate
@@ -252,7 +266,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#loadingError = undefined
     }
     catch (error) {
-      console.error(`Cannot ${reload ? 'restart' : 'start'} nuxt: `, error)
+      console.error(
+        `Cannot ${reload ? 'restart' : 'start'} nuxt: `,
+        await renderErrorAnsi(error).catch(() => error),
+      )
       this.#handler = undefined
       this.#loadingError = error as Error
       this.#loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
