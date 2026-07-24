@@ -14,22 +14,6 @@ function wrapReporter(reporter: ConsolaReporter) {
       }
       const msg = logObj.args[0]
       if (typeof msg === 'string' && !process.env.DEBUG) {
-        // Hide vue-router 404 warnings
-        if (
-          msg.startsWith(
-            '[Vue Router warn]: No match found for location with path',
-          )
-        ) {
-          return
-        }
-        // Suppress warning about native Node.js fetch
-        if (
-          msg.includes(
-            'ExperimentalWarning: The Fetch API is an experimental feature',
-          )
-        ) {
-          return
-        }
         // TODO: resolve upstream in Vite
         // Hide sourcemap warnings related to node_modules
         if (msg.startsWith('Sourcemap') && msg.includes('node_modules')) {
@@ -42,6 +26,7 @@ function wrapReporter(reporter: ConsolaReporter) {
 }
 
 export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
+  consola.options.formatOptions.date = false
   consola.options.reporters = consola.options.reporters.map(wrapReporter)
 
   // Wrap all console logs with consola for better DX
