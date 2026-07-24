@@ -1,27 +1,27 @@
-import type { Nuxt, NuxtConfig, ViteConfig } from '@nuxt/schema'
+import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
 import type { DotenvOptions } from 'c12'
-import type { Listener, ListenOptions } from 'listhen'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
+import type { ResolvedCertificate } from './cert'
+import type { DevListenOverrides, Listener, ListenOptions } from './listen'
 import EventEmitter from 'node:events'
 import { existsSync, readdirSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
-import { pathToFileURL } from 'node:url'
 
+import { pathToFileURL } from 'node:url'
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
-import { listen } from 'listhen'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
-import { joinURL } from 'ufo'
 
+import { joinURL } from 'ufo'
 import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -29,9 +29,10 @@ import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError } from './error'
+import { listen } from './listen'
 
 export type NuxtParentIPCMessage
-  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: Partial<ListenOptions> }
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
@@ -62,7 +63,7 @@ interface NuxtDevServerOptions {
   overrides: NuxtConfig
   loadingTemplate?: ({ loading }: { loading: string }) => string
   showBanner?: boolean
-  listenOverrides?: Partial<ListenOptions>
+  listenOverrides?: DevListenOverrides
 }
 
 // https://regex101.com/r/7HkR5c/1
@@ -284,11 +285,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     if (urls) {
       // Pass hostname and https info for proper CORS and allowedHosts setup
-      const overrides = this.options.listenOverrides || {}
-      const hostname = overrides.hostname
-      const https = overrides.https
-
-      loadOptions.defaults = resolveDevServerDefaults({ hostname, https }, urls)
+      const hostname = this.options.listenOverrides?.hostname
+      loadOptions.defaults = resolveDevServerDefaults({ hostname, https: !!this.listener?.https }, urls)
     }
 
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
@@ -313,8 +311,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     // Get listener URLs for configuring allowed hosts
-    const urls = await this.listener.getURLs().then(r => r.map(r => r.url))
-    if (urls && urls.length > 0) {
+    const urls = this.listener.getURLs().map(({ url }) => url)
+    if (urls.length > 0) {
       this.#currentNuxt.options.vite = defu(this.#currentNuxt.options.vite, {
         server: {
           allowedHosts: urls.map(u => new URL(u).hostname),
@@ -323,13 +321,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
   }
 
-  #resolveListenOptions(): Partial<ListenOptions> {
+  #resolveListenOptions(): ListenOptions {
     if (!this.#currentNuxt) {
       throw new Error('Nuxt must be loaded before resolving listen options')
     }
 
     const nuxtConfig = this.#currentNuxt.options
-    const overrides = this.options.listenOverrides || {}
+    const { httpsEnabled, ...overrides } = this.options.listenOverrides || {}
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
 
@@ -338,17 +336,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     // Resolve public flag
     const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
 
-    // Resolve HTTPS options
-    const httpsFromConfig = typeof nuxtConfig.devServer?.https !== 'boolean' && nuxtConfig.devServer?.https
-      ? nuxtConfig.devServer.https
-      : {}
-
-    ;(overrides as any)._https ??= !!nuxtConfig.devServer?.https
-
-    const httpsOptions = overrides.https && defu(
-      (typeof overrides.https === 'object' ? overrides.https : {}),
-      httpsFromConfig,
-    )
+    // `--https` (or its absence) wins over the config; `https.*` arguments and
+    // `devServer.https` options only apply once https is enabled.
+    const httpsFromConfig = typeof nuxtConfig.devServer?.https === 'object' ? nuxtConfig.devServer.https : {}
+    const https = (httpsEnabled ?? !!nuxtConfig.devServer?.https)
+      && defu(typeof overrides.https === 'object' ? overrides.https : {}, httpsFromConfig)
 
     // Resolve baseURL
     const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
@@ -360,7 +352,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       port,
       hostname,
       public: isPublic,
-      https: httpsOptions || undefined,
+      https: https || undefined,
       baseURL,
     }
   }
@@ -446,7 +438,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#currentNuxt.options.devServer.host = addr.address
     this.#currentNuxt.options.devServer.port = addr.port
     this.#currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
-    this.#currentNuxt.options.devServer.https = this.listener.https as boolean | { key: string, cert: string }
+    this.#currentNuxt.options.devServer.https = resolveDevServerHTTPS(this.listener.https)
 
     if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
       console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
@@ -560,7 +552,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.close()
 
-    const urls = await this.listener.getURLs().then(r => r.map(r => r.url))
+    const urls = this.listener.getURLs().map(({ url }) => url)
 
     await this.#loadNuxtInstance(urls)
 
@@ -589,7 +581,17 @@ function getAddressURL(addr: { address: string, port: number }, https: boolean) 
   return `${proto}://${host}:${port}/`
 }
 
-function resolveDevServerDefaults(listenOptions: Partial<Pick<ListenOptions, 'hostname' | 'https'>>, urls: string[] = []): Partial<NuxtConfig> {
+function resolveDevServerHTTPS(certificate: false | ResolvedCertificate): NuxtOptions['devServer']['https'] {
+  if (!certificate) {
+    return false
+  }
+  if (certificate.pfxPath) {
+    return { pfx: certificate.pfxPath, passphrase: certificate.passphrase ?? '' }
+  }
+  return { key: certificate.key!, cert: certificate.cert! }
+}
+
+function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boolean }, urls: string[] = []): Partial<NuxtConfig> {
   const defaultConfig: Partial<NuxtConfig> = {}
 
   if (urls && urls.length > 0) {

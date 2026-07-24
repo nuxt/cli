@@ -1,5 +1,5 @@
 import type { NuxtConfig } from '@nuxt/schema'
-import type { Listener, ListenOptions } from 'listhen'
+import type { DevListenOverrides, Listener } from './listen'
 import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
@@ -14,7 +14,7 @@ interface InitializeOptions {
   data?: {
     overrides?: NuxtConfig
   }
-  listenOverrides?: Partial<ListenOptions>
+  listenOverrides?: DevListenOverrides
   showBanner?: boolean
 }
 
