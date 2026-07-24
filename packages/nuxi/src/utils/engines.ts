@@ -1,13 +1,10 @@
 import process from 'node:process'
 import { colors } from 'consola/utils'
+import { satisfies } from 'verkit'
 
 import { logger } from './logger'
 
 export async function checkEngines() {
-  const satisfies = await import('semver/functions/satisfies.js').then(
-    r =>
-      r.default || (r as any as typeof import('semver/functions/satisfies.js')),
-  ) // npm/node-semver#381
   const currentNode = process.versions.node
   const nodeRange = '>= 18.0.0'
 

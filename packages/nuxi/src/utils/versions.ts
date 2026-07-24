@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolveModulePath } from 'exsolve'
 import { readPackageJSON } from 'pkg-types'
-import { coerce } from 'semver'
+import { coerce } from 'verkit'
 
 import { tryResolveNuxt } from './kit'
 
@@ -12,7 +12,7 @@ export async function getNuxtVersion(cwd: string, cache = true) {
   }
   const pkg = await readPackageJSON(cwd)
   const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
-  return (pkgDep && coerce(pkgDep)?.version) || '3.0.0'
+  return (pkgDep && coerce(pkgDep)) || '3.0.0'
 }
 
 export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string[] }) {

@@ -8,7 +8,7 @@ import { parseINI } from 'confbox'
 import { colors } from 'consola/utils'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
-import { satisfies } from 'semver'
+import { satisfies } from 'verkit'
 
 import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
