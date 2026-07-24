@@ -138,7 +138,7 @@ describe('nuxt add command', () => {
       return Promise.resolve({})
     })
 
-    vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
+    vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
     vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.14.0')
   })
 
@@ -328,7 +328,7 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(runCommands.runCommand).toHaveBeenCalled()
+    expect(runCommands.runCommandDef).toHaveBeenCalled()
   })
 
   it('should not run prepare command when skipInstall is true', async () => {
@@ -342,6 +342,6 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(runCommands.runCommand).not.toHaveBeenCalled()
+    expect(runCommands.runCommandDef).not.toHaveBeenCalled()
   })
 })

@@ -30,39 +30,6 @@
     "packages/nuxt-cli": {
       "entry": [
         "test/fixtures/*"
-      ],
-      "ignoreDependencies": [
-        "@bomb.sh/tab",
-        "@clack/prompts",
-        "c12",
-        "confbox",
-        "consola",
-        "defu",
-        "exsolve",
-        "fuse.js",
-        "fzf",
-        "giget",
-        "h3-next",
-        "jiti",
-        "nitro",
-        "nitropack",
-        "nypm",
-        "ofetch",
-        "obug",
-        "ohash",
-        "pathe",
-        "perfect-debounce",
-        "pkg-types",
-        "rc9",
-        "scule",
-        "source-map",
-        "srvx",
-        "tinyclip",
-        "ufo",
-        "uqr",
-        "verkit",
-        "youch",
-        "youch-core"
       ]
     },
     "packages/create-nuxt": {

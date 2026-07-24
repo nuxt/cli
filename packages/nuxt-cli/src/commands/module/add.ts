@@ -18,7 +18,7 @@ import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
 
-import { runCommand } from '../../run'
+import { runCommandDef as runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'

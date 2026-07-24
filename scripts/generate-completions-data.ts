@@ -6,13 +6,13 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 
-import { hiddenTemplates } from '../packages/nuxi/src/utils/starter-templates.ts'
+import { hiddenTemplates } from '../packages/nuxt-cli/src/utils/starter-templates.ts'
 
 interface PresetMeta {
   _meta?: { name: string }
 }
 
-const outputPath = new URL('../packages/nuxi/src/utils/completions-data.ts', import.meta.url)
+const outputPath = new URL('../packages/nuxt-cli/src/utils/completions-data.ts', import.meta.url)
 
 export async function generateCompletionData() {
   const data = {

@@ -3,10 +3,10 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
-import init from '../../nuxi/src/commands/init'
-import { setupInitCompletions } from '../../nuxi/src/completions-init'
-import { checkEngines } from '../../nuxi/src/utils/engines'
-import { logger } from '../../nuxi/src/utils/logger'
+import init from '../../nuxt-cli/src/commands/init'
+import { setupInitCompletions } from '../../nuxt-cli/src/completions-init'
+import { checkEngines } from '../../nuxt-cli/src/utils/engines'
+import { logger } from '../../nuxt-cli/src/utils/logger'
 import { description, name, version } from '../package.json'
 
 const _main = defineCommand({
