@@ -50,10 +50,10 @@
         "perfect-debounce",
         "pkg-types",
         "scule",
-        "semver",
         "srvx",
         "tinyclip",
         "ufo",
+        "verkit",
         "youch"
       ]
     },
