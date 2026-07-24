@@ -8,12 +8,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-slim
-    concurrency:
-      group: ${{ github.workflow }}-lint-${{ github.event.pull_request.number || github.sha }}
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
@@ -41,9 +42,6 @@ jobs:
       #   run: pnpm test:engines
 
   ci:
-    concurrency:
-      group: ${{ github.workflow }}-ci-${{ github.event.pull_request.number || github.sha }}
-      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -95,9 +93,6 @@ jobs:
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
 
   release:
-    concurrency:
-      group: ${{ github.workflow }}-release-${{ github.event.pull_request.number || github.sha }}
-      cancel-in-progress: false
     runs-on: ubuntu-latest
     permissions:
       id-token: write
