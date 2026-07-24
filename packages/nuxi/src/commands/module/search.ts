@@ -1,7 +1,7 @@
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { colors } from 'consola/utils'
 import Fuse from 'fuse.js'
+import colors from 'picocolors'
 import { kebabCase, upperFirst } from 'scule'
 
 import { formatInfoBox } from '../../utils/formatting'

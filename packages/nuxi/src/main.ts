@@ -7,7 +7,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 
 import { runMain as _runMain, defineCommand } from 'citty'
-import { colors } from 'consola/utils'
+import colors from 'picocolors'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'

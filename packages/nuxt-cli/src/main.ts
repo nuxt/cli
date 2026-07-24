@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { colors } from 'consola/utils'
+import colors from 'picocolors'
 import { provider } from 'std-env'
 
 import { commands } from '../../nuxi/src/commands'

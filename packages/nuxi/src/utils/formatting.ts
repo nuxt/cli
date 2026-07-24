@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { stripVTControlCharacters } from 'node:util'
-import { colors } from 'consola/utils'
+import colors from 'picocolors'
 
 const AT_MENTION_RE = /\b@([^, ]+)/g
 const BACKTICK_RE = /`([^`]*)`/g

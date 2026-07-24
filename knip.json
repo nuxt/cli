@@ -33,6 +33,7 @@
         "@clack/prompts",
         "c12",
         "confbox",
+        "consola",
         "defu",
         "exsolve",
         "fuse.js",

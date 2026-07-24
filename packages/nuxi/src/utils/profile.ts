@@ -2,8 +2,8 @@ import type { Session } from 'node:inspector'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 import { box } from '@clack/prompts'
-import { colors } from 'consola/utils'
 import { join, relative } from 'pathe'
+import colors from 'picocolors'
 import { themeColor } from './ascii'
 
 const RELATIVE_PATH_RE = /^(?![^.]{1,2}\/)/

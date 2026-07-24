@@ -5,9 +5,9 @@ import { existsSync } from 'node:fs'
 
 import { confirm, isCancel } from '@clack/prompts'
 import { parseINI } from 'confbox'
-import { colors } from 'consola/utils'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
+import colors from 'picocolors'
 import { satisfies } from 'verkit'
 
 import { logger } from '../../utils/logger'
