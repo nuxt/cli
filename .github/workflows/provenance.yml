@@ -14,6 +14,7 @@ concurrency:
 
 permissions:
   contents: read
+
 jobs:
   check-provenance:
     runs-on: ubuntu-slim
@@ -21,6 +22,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
+
       - name: Check provenance downgrades
         uses: danielroe/provenance-action@41bcc969e579d9e29af08ba44fcbfdf95cee6e6c # v0.1.1
         with:
