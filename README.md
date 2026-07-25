@@ -39,6 +39,14 @@ Use nuxi <command> --help for more information about a command.
 
 All commands are documented on https://nuxt.com/docs/api/commands
 
+## Update Notifications
+
+Once a day, `nuxt/cli` checks in the background whether a newer version of Nuxt has been released and, if so, prints a short nudge to run `nuxt upgrade` after the command finishes. The `latest` dist-tag is read from the registry configured in your `.npmrc` and cached in your user-level `.nuxtrc`.
+
+To keep the nudge meaningful, it is not shown for prereleases, and not shown for patch releases within the same minor unless you are at least five patches behind.
+
+The check is skipped in CI, on StackBlitz, and when the output is not a terminal. Set `NUXT_IGNORE_UPDATE_CHECK=1` to skip a single run, or opt out permanently by adding `updateCheck.enabled=false` to your user-level `.nuxtrc`.
+
 ## Shell Autocompletions
 
 `nuxt/cli` provides shell autocompletions for commands, options, and option values &ndash; powered by [`@bomb.sh/tab`](https://github.com/bombshell-dev/tab).
