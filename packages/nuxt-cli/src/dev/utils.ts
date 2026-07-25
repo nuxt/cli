@@ -30,6 +30,7 @@ import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../uti
 import { withNodePath } from '../utils/paths'
 import { renderError, renderErrorAnsi } from './error'
 import { listen } from './listen'
+import { resolvePortlessURLs } from './portless'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides }
@@ -624,6 +625,13 @@ function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boo
     const protocol = listenOptions.https ? 'https' : 'http'
     defaultConfig.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
     defaultConfig.vite = defu(defaultConfig.vite, { server: { allowedHosts: [listenOptions.hostname] } })
+  }
+
+  // Browser requests reach us through the portless proxy, so its origins have
+  // to be allowed even when the server itself is bound to localhost.
+  const portlessOrigins = resolvePortlessURLs().all
+  if (portlessOrigins.length > 0) {
+    defaultConfig.devServer = defu(defaultConfig.devServer, { cors: { origin: portlessOrigins } })
   }
 
   return defaultConfig

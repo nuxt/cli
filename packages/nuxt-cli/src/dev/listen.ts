@@ -14,6 +14,7 @@ import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
 import { resolveCertificate } from './cert'
+import { resolvePortlessURLs } from './portless'
 import { startTunnel } from './tunnel'
 
 export interface ListenOptions {
@@ -32,7 +33,7 @@ export interface ListenOptions {
 
 interface ListenURL {
   url: string
-  type: 'local' | 'network' | 'tunnel'
+  type: 'local' | 'network' | 'tunnel' | 'public'
 }
 
 /**
@@ -122,10 +123,17 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
   }
 
+  const portless = resolvePortlessURLs()
+  const portlessURL = portless.url && portless.url + baseURL
+  const portlessShareURL = portless.shareURL && portless.shareURL + baseURL
+
   function getURLs(): ListenURL[] {
     const urls: ListenURL[] = []
     if (tunnel) {
       urls.push({ url: tunnel.url, type: 'tunnel' })
+    }
+    for (const portlessURL of portless.all) {
+      urls.push({ url: portlessURL + baseURL, type: 'public' })
     }
     if (anyHost) {
       urls.push({ url: formatURL('localhost'), type: 'local' })
@@ -142,7 +150,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     return urls
   }
 
-  const publicURL = options.publicURL || tunnel?.url
+  const publicURL = options.publicURL || tunnel?.url || portlessShareURL || portlessURL
 
   if (options.showURL !== false) {
     const urls = getURLs()
@@ -158,19 +166,19 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
       console.log(`\n${centerBlock(renderUnicodeCompact(qrURL))}\n`)
     }
 
-    const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:' } as const
-    const labelColors = { local: colors.green, network: colors.magenta, tunnel: colors.cyan } as const
+    const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
+    const labelColors = { local: colors.green, network: colors.magenta, tunnel: colors.cyan, public: colors.magenta } as const
     const lines: string[] = []
     const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
       `  ${color('➜')} ${colors.bold(color(label.padEnd(10)))}${value}${isQR ? colors.gray(' [QR code]') : ''}`
     for (const { url: displayURL, type } of urls) {
       lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), displayURL === qrURL))
     }
-    if (!anyHost && !tunnel) {
+    if (!anyHost && !tunnel && !portless.url) {
       lines.push(line(colors.magenta, 'Network:', colors.gray(`use ${colors.white('--host')} to expose`), false))
     }
-    if (options.publicURL && options.publicURL !== url) {
-      lines.push(line(colors.magenta, 'Public:', colors.cyan(options.publicURL), options.publicURL === qrURL))
+    if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
+      lines.push(line(colors.magenta, 'Public:', colors.cyan(publicURL), publicURL === qrURL))
     }
     // eslint-disable-next-line no-console
     console.log(`${qrURL ? '' : '\n'}${lines.join('\n')}\n`)
