@@ -91,5 +91,6 @@ describe('runInstall', () => {
     expect(result.success).toBe(false)
     expect(result.missingPackageManager).toBe(true)
     expect(result.error).toContain('nuxt-cli-nonexistent-package-manager')
+    expect(result.command).toBe('nuxt-cli-nonexistent-package-manager install')
   })
 })

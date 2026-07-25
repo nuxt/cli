@@ -345,6 +345,9 @@ describe('nuxt add command', () => {
       },
     })
 
+    expect(runInstall).toHaveBeenCalledWith(
+      expect.objectContaining({ packageManager: { name: 'npm', command: 'npm' } }),
+    )
     expect(updateConfig).not.toHaveBeenCalled()
     expect(exit).toHaveBeenCalledWith(1)
 
