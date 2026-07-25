@@ -19,11 +19,16 @@ export function hasProxyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return PROXY_ENV_VARS.some(key => !!env[key])
 }
 
+/** The flags the running Node.js accepts, i.e. `process.allowedNodeEnvironmentFlags`. */
+export interface NodeFlags {
+  has: (flag: string) => boolean
+}
+
 /**
  * Whether the current Node.js can route `fetch`/`http` through `HTTP_PROXY`,
  * `HTTPS_PROXY` and `NO_PROXY` itself.
  */
-export function supportsEnvProxy(flags: { has: (flag: string) => boolean } | undefined = process.allowedNodeEnvironmentFlags): boolean {
+export function supportsEnvProxy(flags: NodeFlags | undefined = process.allowedNodeEnvironmentFlags): boolean {
   return flags?.has('--use-env-proxy') ?? false
 }
 
@@ -32,8 +37,8 @@ export function supportsEnvProxy(flags: { has: (flag: string) => boolean } | und
  * variables. Node.js resolves this during bootstrap, so it cannot be turned on
  * from within the process.
  */
-export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv: string[] = process.execArgv): boolean {
-  if (!supportsEnvProxy()) {
+export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv: string[] = process.execArgv, flags?: NodeFlags): boolean {
+  if (!supportsEnvProxy(flags)) {
     return false
   }
   return env.NODE_USE_ENV_PROXY === '1'
@@ -50,17 +55,17 @@ let envProxyActive: boolean | undefined
  * installs, the dev server) when proxy environment variables are set, and record
  * whether the current process is itself proxy-aware so failures can say so.
  */
-export function setupProxySupport(env: NodeJS.ProcessEnv = process.env): ProxySetupResult {
+export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: NodeFlags): ProxySetupResult {
   if (!hasProxyEnv(env)) {
     envProxyActive = undefined
     return 'unused'
   }
-  if (!supportsEnvProxy()) {
+  if (!supportsEnvProxy(flags)) {
     envProxyActive = false
     return 'unsupported'
   }
 
-  envProxyActive = isEnvProxyActive(env)
+  envProxyActive = isEnvProxyActive(env, process.execArgv, flags)
   env.NODE_USE_ENV_PROXY ||= '1'
 
   return envProxyActive ? 'active' : 'children-only'
@@ -88,6 +93,7 @@ export interface CommandContext {
   argv?: string[]
   env?: NodeJS.ProcessEnv
   windows?: boolean
+  flags?: NodeFlags
 }
 
 /**
@@ -114,7 +120,7 @@ export function formatRetryCommand(vars: Record<string, string>, ctx: CommandCon
 
 // Some libraries (notably `giget`) rethrow with the original error stringified
 // into the message, which drops the `code` we would otherwise read.
-const ERROR_CODE_RE = /\b(E(?:NOTFOUND|AI_AGAIN|CONNREFUSED|CONNRESET|TIMEDOUT|PIPE|PROTO)|UND_ERR_[A-Z_]+|(?:CERT|DEPTH_ZERO|SELF_SIGNED|UNABLE_TO)[A-Z_]*)\b/
+const ERROR_CODE_RE = /\b(E(?:NOTFOUND|AI_AGAIN|CONNREFUSED|CONNRESET|TIMEDOUT|PIPE|PROTO)|UND_ERR_[A-Z_]+|ERR_(?:SSL|TLS)_[A-Z_]+|(?:CERT|DEPTH_ZERO|SELF_SIGNED|UNABLE_TO)[A-Z_]*)\b/
 
 function getErrorCode(err: unknown): string | undefined {
   let current = err
@@ -205,6 +211,12 @@ export function classifyNetworkError(err: unknown): NetworkFailure {
       return { kind: 'tls', code }
   }
 
+  // OpenSSL surfaces handshake failures (wrong protocol, unsupported ciphers,
+  // hostname mismatch) through a large family of prefixed codes.
+  if (code?.startsWith('ERR_SSL_') || code?.startsWith('ERR_TLS_')) {
+    return { kind: 'tls', code }
+  }
+
   if (code === 'ABORT_ERR' || getErrorName(err) === 'AbortError' || getErrorName(err) === 'TimeoutError') {
     return { kind: 'timeout', code }
   }
@@ -273,10 +285,11 @@ export function describeNetworkError(err: unknown, url?: string): string {
  */
 export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandContext = {}): string | undefined {
   const env = ctx.env ?? process.env
+  const proxyInUse = () => envProxyActive ?? isEnvProxyActive(env, process.execArgv, ctx.flags)
 
   // A server that answered is normally not a proxy problem, unless a proxy is
   // configured and being bypassed (a blocked egress often answers 403).
-  if (kind === 'http' && (!hasProxyEnv(env) || (envProxyActive ?? isEnvProxyActive(env)))) {
+  if (kind === 'http' && (!hasProxyEnv(env) || proxyInUse())) {
     return
   }
 
@@ -292,11 +305,11 @@ export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandC
     return `If you are behind a proxy, set ${colors.cyan('HTTPS_PROXY')} and ${colors.cyan('NODE_USE_ENV_PROXY=1')} (plus ${colors.cyan('NO_PROXY')} for internal hosts).`
   }
 
-  if (!supportsEnvProxy()) {
+  if (!supportsEnvProxy(ctx.flags)) {
     return `A proxy is configured but this version of Node.js cannot use it; upgrade to Node.js 24 (or 22.18+) to enable ${colors.cyan('NODE_USE_ENV_PROXY')}.`
   }
 
-  if (!(envProxyActive ?? isEnvProxyActive(env))) {
+  if (!proxyInUse()) {
     return `A proxy is configured but Node.js only reads it at startup. Retry with ${colors.cyan(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, ctx))}`
   }
 
