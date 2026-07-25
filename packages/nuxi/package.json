@@ -67,6 +67,7 @@
     "rollup": "^4.62.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "scule": "^1.3.0",
+    "source-map": "^0.7.6",
     "srvx": "^0.11.22",
     "std-env": "^4.2.0",
     "tinyclip": "^0.1.15",
@@ -78,6 +79,7 @@
     "uqr": "^0.1.3",
     "verkit": "^0.3.0",
     "vitest": "^4.1.10",
-    "youch": "^4.1.1"
+    "youch": "^4.1.1",
+    "youch-core": "^0.3.3"
   }
 }
