@@ -12,6 +12,7 @@ import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
 
 import { initialize } from '../dev'
+import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { ForkPool } from '../dev/pool'
 import { setupShortcuts } from '../dev/shortcuts'
 import { debug, logger } from '../utils/logger'
@@ -32,6 +33,14 @@ const command = defineCommand({
     ...legacyRootDirArgs,
     ...envNameArgs,
     ...extendsArgs,
+    'inspect': {
+      type: 'boolean',
+      description: 'Enable the Node.js inspector for the process serving your app (`--inspect=[host:]port`)',
+    },
+    'inspect-brk': {
+      type: 'boolean',
+      description: 'Enable the Node.js inspector and wait for a debugger to attach (`--inspect-brk=[host:]port`)',
+    },
     'clear': {
       type: 'boolean',
       description: 'Clear console on restart',
@@ -134,6 +143,13 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
+    // The inspector belongs to whichever process is currently serving the app:
+    // this one until a hard restart hands over to a fork.
+    const inspect = resolveInspectOptions(ctx.rawArgs)
+    if (inspect) {
+      await openInspector(inspect)
+    }
+
     // Start the initial dev server in-process with listener
     const { listener, close, reload, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
       data: ctx.data,
@@ -154,6 +170,7 @@ const command = defineCommand({
       rawArgs: ctx.rawArgs,
       poolSize: 2,
       listenOverrides,
+      inspect,
     })
 
     // When ready, start warming up the fork pool
@@ -165,14 +182,17 @@ const command = defineCommand({
     })
 
     // On hard restart, use a fork from the pool
-    let cleanupCurrentFork: (() => void) | undefined
+    let cleanupCurrentFork: (() => Promise<void>) | undefined
 
     async function restartWithFork() {
       // Get a fork from the pool (warm if available, cold otherwise)
       const context: NuxtDevContext = { cwd, args: ctx.args }
 
-      // Clean up previous fork if any
-      cleanupCurrentFork?.()
+      // Release the inspector port before the incoming fork tries to bind it
+      await Promise.all([
+        cleanupCurrentFork?.(),
+        inspect ? closeInspector() : undefined,
+      ])
 
       cleanupCurrentFork = await pool.getFork(context, (message) => {
         // Handle IPC messages from the fork
@@ -201,7 +221,7 @@ const command = defineCommand({
     onRestart(restart)
 
     async function closeAll() {
-      cleanupCurrentFork?.()
+      await cleanupCurrentFork?.()
       await close()
     }
 

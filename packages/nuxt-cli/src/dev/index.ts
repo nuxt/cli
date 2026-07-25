@@ -8,6 +8,7 @@ import { overrideEnv } from '../utils/env.ts'
 import { isBrokenPipe } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
+import { openInspector } from './inspect'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -31,9 +32,12 @@ class IPC {
         process.exit()
       })
     }
-    process.on('message', (message: NuxtParentIPCMessage) => {
+    process.on('message', async (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
-        initialize(message.context, { listenOverrides: message.listenOverrides })
+        if (message.inspect) {
+          await openInspector(message.inspect)
+        }
+        await initialize(message.context, { listenOverrides: message.listenOverrides })
       }
     })
     this.send({ type: 'nuxt:internal:dev:fork-ready' })
