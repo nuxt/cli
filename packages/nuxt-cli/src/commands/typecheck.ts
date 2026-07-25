@@ -1,3 +1,4 @@
+import type { TSConfig } from 'pkg-types'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
@@ -117,6 +118,11 @@ export default defineCommand({
       type: 'string',
       description: 'Type checker to use (`vue-tsc` or `golar`)',
     },
+    build: {
+      type: 'boolean',
+      alias: 'b',
+      description: 'Type-check in build mode, using TypeScript project references (detected automatically by default)',
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
@@ -130,8 +136,8 @@ export default defineCommand({
       return
     }
 
-    const [supportsProjects, typechecker] = await Promise.all([
-      readTSConfig(cwd).then(config => !!(config.references?.length)),
+    const [tsConfig, typechecker] = await Promise.all([
+      readTSConfig(cwd).catch(() => ({} as TSConfig)),
       resolveTypeChecker(cwd, checkerArg as TypeChecker | undefined),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
@@ -144,8 +150,14 @@ export default defineCommand({
       return
     }
 
+    const useProjectReferences = ctx.args.build ?? supportsProjectReferences(tsConfig)
+
+    if (ctx.args.build === undefined && !useProjectReferences && hasNuxtProjectReferences(tsConfig)) {
+      logger.warn(`Your ${colors.cyan('tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${colors.cyan('"files": []')} to your ${colors.cyan('tsconfig.json')}, or pass ${colors.cyan('--build')} to override.`)
+    }
+
     const start = Date.now()
-    const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(supportsProjects), {
+    const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(useProjectReferences), {
       nodeOptions: { stdio: 'inherit', cwd },
     })
     const duration = `${Date.now() - start}ms`
@@ -163,6 +175,25 @@ export default defineCommand({
     process.exitCode = result.exitCode ?? 1
   },
 })
+
+const NUXT_PROJECT_REFERENCE_RE = /(?:^|[/\\])tsconfig\.(?:app|server|shared|node)\.json$/
+
+/**
+ * Whether a tsconfig is a solution-style config, as used by Nuxt's project references setup.
+ *
+ * Building a config that has input files of its own alongside references makes TypeScript apply
+ * `--noEmit` to every referenced project, which fails with `TS6310` for emitting projects.
+ */
+function supportsProjectReferences(config: TSConfig): boolean {
+  if (!config.references?.length) {
+    return false
+  }
+  return config.files?.length === 0 && !config.include?.length
+}
+
+function hasNuxtProjectReferences(config: TSConfig): boolean {
+  return !!config.references?.some(reference => reference.path && NUXT_PROJECT_REFERENCE_RE.test(reference.path))
+}
 
 async function resolveTypeChecker(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
   const priority = preferred ? [preferred] : detectCheckerPriority(cwd)
