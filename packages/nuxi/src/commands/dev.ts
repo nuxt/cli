@@ -1,12 +1,13 @@
 import type { ParsedArgs } from 'citty'
+import type { HTTPSOptions } from '../dev/cert'
+import type { DevListenOverrides } from '../dev/listen'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { colors } from 'consola/utils'
-import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
+import colors from 'picocolors'
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
 
@@ -17,7 +18,6 @@ import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLe
 
 const startTime: number | undefined = Date.now()
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
-const listhenArgs = getListhenArgs()
 
 const command = defineCommand({
   meta: {
@@ -31,43 +31,89 @@ const command = defineCommand({
     ...legacyRootDirArgs,
     ...envNameArgs,
     ...extendsArgs,
-    clear: {
+    'clear': {
       type: 'boolean',
       description: 'Clear console on restart',
       default: false,
     },
-    fork: {
+    'fork': {
       type: 'boolean',
       description: forkSupported ? 'Disable forked mode' : 'Enable forked mode',
       negativeDescription: 'Disable forked mode',
       default: forkSupported,
       alias: ['f'],
     },
-    ...{
-      ...listhenArgs,
-      port: {
-        ...listhenArgs.port,
-        description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port`)',
-        alias: ['p'],
-      },
-      open: {
-        ...listhenArgs.open,
-        alias: ['o'],
-        default: false,
-      },
-      host: {
-        ...listhenArgs.host,
-        alias: ['h'],
-        description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
-      },
-      clipboard: { ...listhenArgs.clipboard, default: false },
+    'port': {
+      type: 'string',
+      description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port`)',
+      alias: ['p'],
+    },
+    'host': {
+      type: 'string',
+      description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
+      alias: ['h'],
+    },
+    'open': {
+      type: 'boolean',
+      description: 'Open the URL in the browser',
+      alias: ['o'],
+      default: false,
+    },
+    'clipboard': {
+      type: 'boolean',
+      description: 'Copy the URL to the clipboard',
+      default: false,
+    },
+    'qr': {
+      type: 'boolean',
+      description: 'Print a QR code for the public URL (enabled by default when one is available)',
+    },
+    'tunnel': {
+      type: 'boolean',
+      description: 'Expose the server via a Cloudflare quick tunnel',
+    },
+    'public': {
+      type: 'boolean',
+      description: 'Listen on all network interfaces',
+    },
+    'publicURL': {
+      type: 'string',
+      description: 'Public URL to display (used for QR code and clipboard)',
+    },
+    'https': {
+      type: 'boolean',
+      description: 'Enable HTTPS with a locally-trusted development certificate',
+    },
+    'https.cert': {
+      type: 'string',
+      description: 'Path to TLS certificate',
+    },
+    'https.key': {
+      type: 'string',
+      description: 'Path to TLS key',
+    },
+    'https.pfx': {
+      type: 'string',
+      description: 'Path to PKCS#12 (.p12/.pfx) keystore',
+    },
+    'https.passphrase': {
+      type: 'string',
+      description: 'Passphrase for the TLS key or keystore',
+    },
+    'https.validityDays': {
+      type: 'string',
+      description: 'Validity in days for a generated self-signed certificate',
+    },
+    'https.domains': {
+      type: 'string',
+      description: 'Comma-separated domains for a generated certificate',
     },
     ...profileArgs,
-    sslCert: {
+    'sslCert': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.cert` instead.',
     },
-    sslKey: {
+    'sslKey': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.key` instead.',
     },
@@ -162,7 +208,18 @@ type ArgsT = Exclude<
   undefined | ((...args: unknown[]) => unknown)
 >
 
-function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
+function parsePositiveInteger(value: string | undefined): number | undefined {
+  const parsed = Number(value)
+  if (!value || !Number.isInteger(parsed) || parsed <= 0) {
+    if (value) {
+      logger.warn(`Ignoring invalid \`--https.validityDays=${value}\`; expected a positive number of days.`)
+    }
+    return undefined
+  }
+  return parsed
+}
+
+function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
   // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
   if (process.env._PORT) {
     return {
@@ -172,40 +229,46 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>) {
     } as const
   }
 
-  const options = parseListhenArgs({
-    ...args,
-    'host': args.host
-      || process.env.NUXT_HOST
-      || process.env.NITRO_HOST
-      || process.env.HOST!,
-    'port': args.port
-      || process.env.NUXT_PORT
-      || process.env.NITRO_PORT
-      || process.env.PORT!,
-    'https': args.https !== false && (args.https as boolean | string) !== 'false',
-    'https.cert': args['https.cert']
+  const httpsOptions: HTTPSOptions = {
+    cert: args['https.cert']
       || args.sslCert
       || process.env.NUXT_SSL_CERT
-      || process.env.NITRO_SSL_CERT!,
-    'https.key': args['https.key']
+      || process.env.NITRO_SSL_CERT
+      || undefined,
+    key: args['https.key']
       || args.sslKey
       || process.env.NUXT_SSL_KEY
-      || process.env.NITRO_SSL_KEY!,
-  } as Parameters<typeof parseListhenArgs>[0])
+      || process.env.NITRO_SSL_KEY
+      || undefined,
+    pfx: args['https.pfx'] || undefined,
+    passphrase: args['https.passphrase'] || undefined,
+    validityDays: parsePositiveInteger(args['https.validityDays']),
+    domains: args['https.domains']
+      ? args['https.domains'].split(',').map(domain => domain.trim()).filter(Boolean)
+      : undefined,
+  }
+
+  const host = (args.host as string | boolean | undefined)
+    ?? (process.env.NUXT_HOST
+      || process.env.NITRO_HOST
+      || process.env.HOST)
 
   return {
-    ...options,
-    // if the https flag is not present, https.xxx arguments are ignored.
-    // override if https is enabled in devServer config.
-    _https: args.https,
-    get https(): typeof options['https'] {
-      const httpsArg = this._https as boolean | string | undefined
-      if (httpsArg === false || httpsArg === 'false') {
-        return false
-      }
-      return httpsArg ? options.https : false
-    },
-  } as const
+    port: args.port
+      || process.env.NUXT_PORT
+      || process.env.NITRO_PORT
+      || process.env.PORT
+      || undefined,
+    hostname: host === true || host === '' ? '' : host || undefined,
+    open: args.open,
+    clipboard: args.clipboard,
+    qr: args.qr,
+    tunnel: args.tunnel,
+    public: args.public,
+    publicURL: args.publicURL,
+    httpsEnabled: args.https,
+    https: httpsOptions,
+  }
 }
 
 function isBunForkSupported() {

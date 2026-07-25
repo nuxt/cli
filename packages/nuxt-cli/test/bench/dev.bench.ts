@@ -1,5 +1,5 @@
 import type { Nuxt } from '@nuxt/schema'
-import type { Listener } from 'listhen'
+import type { Listener } from '../../../nuxi/src/dev/listen'
 
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'

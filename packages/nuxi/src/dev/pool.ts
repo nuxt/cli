@@ -1,5 +1,5 @@
-import type { ListenOptions } from 'listhen'
 import type { ChildProcess } from 'node:child_process'
+import type { DevListenOverrides } from './listen'
 import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
 
 import { fork } from 'node:child_process'
@@ -10,7 +10,7 @@ import { debug } from '../utils/logger'
 interface ForkPoolOptions {
   rawArgs: string[]
   poolSize?: number
-  listenOverrides: Partial<ListenOptions>
+  listenOverrides: DevListenOverrides
 }
 
 interface PooledFork {
@@ -23,7 +23,7 @@ export class ForkPool {
   private pool: PooledFork[] = []
   private poolSize: number
   private rawArgs: string[]
-  private listenOverrides: Partial<ListenOptions>
+  private listenOverrides: DevListenOverrides
   private warming = false
 
   constructor(options: ForkPoolOptions) {

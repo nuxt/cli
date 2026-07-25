@@ -1,5 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreBinaries": [
+    "openssl"
+  ],
   "workspaces": {
     ".": {
       "ignoreDependencies": [
@@ -50,10 +53,12 @@
         "pathe",
         "perfect-debounce",
         "pkg-types",
+        "rc9",
         "scule",
         "srvx",
         "tinyclip",
         "ufo",
+        "uqr",
         "verkit",
         "youch"
       ]
