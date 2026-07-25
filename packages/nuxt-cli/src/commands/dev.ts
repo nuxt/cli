@@ -49,6 +49,11 @@ const command = defineCommand({
       description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port`)',
       alias: ['p'],
     },
+    'strictPort': {
+      type: 'boolean',
+      description: 'Exit if the requested port is unavailable instead of using another one',
+      default: false,
+    },
     'host': {
       type: 'string',
       description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
@@ -291,6 +296,7 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
       || process.env.NITRO_PORT
       || process.env.PORT
       || undefined,
+    strictPort: args.strictPort,
     hostname: host === true || host === '' ? '' : host || undefined,
     open: args.open,
     clipboard: args.clipboard,

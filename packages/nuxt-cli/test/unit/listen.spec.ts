@@ -1,11 +1,13 @@
+import type { Listener } from '../../src/dev/listen'
+
 import { networkInterfaces } from 'node:os'
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getNetworkAddresses, resolveOpenCommand } from '../../src/dev/listen'
+import { getNetworkAddresses, listen, resolveOpenCommand } from '../../src/dev/listen'
 
 vi.mock('node:os', () => ({
-  networkInterfaces: vi.fn(),
+  networkInterfaces: vi.fn(() => ({})),
   release: () => 'test',
 }))
 
@@ -60,5 +62,41 @@ describe('resolveOpenCommand', () => {
     expect(resolveOpenCommand(url, 'darwin', { BROWSER: 'Firefox' })).toEqual(['open', ['-a', 'Firefox', url]])
     expect(resolveOpenCommand(url, 'darwin', { BROWSER: 'Firefox', BROWSER_ARGS: '--private-window' })).toEqual(['open', ['-a', 'Firefox', url, '--args', '--private-window']])
     expect(resolveOpenCommand(url, 'darwin', { BROWSER: '/usr/local/bin/firefox' })).toEqual(['/usr/local/bin/firefox', [url]])
+  })
+})
+
+describe('listen', () => {
+  const listeners: Listener[] = []
+
+  afterEach(async () => {
+    await Promise.all(listeners.splice(0).map(listener => listener.close()))
+  })
+
+  async function start(options: Parameters<typeof listen>[1]) {
+    const listener = await listen((_req, res) => res.end('ok'), { showURL: false, ...options })
+    listeners.push(listener)
+    return listener
+  }
+
+  it('should fall back to another port by default', async () => {
+    const first = await start({ port: 0 })
+    const second = await start({ port: first.address.port })
+
+    expect(second.address.port).not.toBe(first.address.port)
+  })
+
+  it('should throw for a busy port with `strictPort`', async () => {
+    const first = await start({ port: 0 })
+
+    await expect(start({ port: first.address.port, strictPort: true })).rejects.toThrow(/already in use/)
+  })
+
+  it('should use the requested port with `strictPort`', async () => {
+    const { address } = await start({ port: 0 })
+    const port = address.port
+    await Promise.all(listeners.splice(0).map(listener => listener.close()))
+
+    const listener = await start({ port, strictPort: true })
+    expect(listener.address.port).toBe(port)
   })
 })

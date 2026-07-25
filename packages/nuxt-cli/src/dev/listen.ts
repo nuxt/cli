@@ -9,7 +9,7 @@ import { createServer as createHttpsServer } from 'node:https'
 import { networkInterfaces, release } from 'node:os'
 import process from 'node:process'
 
-import { getPort } from 'get-port-please'
+import { checkPort, getPort } from 'get-port-please'
 import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
@@ -19,6 +19,8 @@ import { startTunnel } from './tunnel'
 
 export interface ListenOptions {
   port?: string | number
+  /** Fail instead of falling back to another port when `port` is unavailable. */
+  strictPort?: boolean
   hostname?: string
   baseURL?: string
   showURL?: boolean
@@ -98,16 +100,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   const hostname = options.hostname ?? (options.public ? '' : 'localhost')
 
   const requestedPort = options.port === undefined || options.port === '' ? undefined : Number(options.port)
-  const port = requestedPort === 0
-    ? await getPort({ random: true, host: hostname || undefined })
-    : await getPort({
-        port: requestedPort,
-        alternativePortRange: [3000, 3100],
-        host: hostname || undefined,
-      })
-  if (requestedPort && port !== requestedPort) {
-    logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
-  }
+  const port = await resolvePort(requestedPort, hostname, options.strictPort)
 
   const httpsOptions = options.https === true ? {} : options.https
   const certificate = httpsOptions ? await resolveCertificate(httpsOptions) : false
@@ -226,6 +219,30 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
       })
     },
   }
+}
+
+async function resolvePort(requestedPort: number | undefined, hostname: string, strictPort?: boolean): Promise<number> {
+  if (requestedPort === 0) {
+    return getPort({ random: true, host: hostname || undefined })
+  }
+
+  if (strictPort) {
+    const desiredPort = requestedPort ?? 3000
+    if (await checkPort(desiredPort, hostname || undefined) === false) {
+      throw new Error(`Port ${desiredPort} is already in use (\`--strictPort\` is enabled).`)
+    }
+    return desiredPort
+  }
+
+  const port = await getPort({
+    port: requestedPort,
+    alternativePortRange: [3000, 3100],
+    host: hostname || undefined,
+  })
+  if (requestedPort && port !== requestedPort) {
+    logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
+  }
+  return port
 }
 
 function centerBlock(block: string): string {
