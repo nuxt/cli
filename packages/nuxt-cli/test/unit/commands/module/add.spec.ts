@@ -3,11 +3,14 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
 import * as runCommands from '../../../../src/run'
+import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 
-const updateConfig = vi.fn(() => Promise.resolve())
-const addDependency = vi.fn(() => Promise.resolve())
-const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
+const { updateConfig, detectPackageManager } = vi.hoisted(() => ({
+  updateConfig: vi.fn(() => Promise.resolve()),
+  detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', command: 'npm' })),
+}))
+
 let v3 = '3.0.0'
 interface CommandsType {
   subCommands: {
@@ -23,8 +26,8 @@ function applyMocks() {
   })
   vi.mock('nypm', async () => {
     return {
-      addDependency,
       detectPackageManager,
+      packageManagers: [{ name: 'npm', command: 'npm' }],
     }
   })
   vi.mock('pkg-types', async () => {
@@ -82,6 +85,7 @@ describe('module add', () => {
     v3 = json['dist-tags'].latest
   })
   applyMocks()
+  const runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
   vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([
@@ -120,15 +124,13 @@ describe('module add', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith([`@nuxt/content@${v3}`], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
       cwd: '/fake-dir',
+      dependencies: [`@nuxt/content@${v3}`],
       dev: true,
-      installPeerDependencies: true,
-      packageManager: {
-        name: 'npm',
-      },
+      packageManager: { name: 'npm', command: 'npm' },
       workspace: false,
-    })
+    }))
   })
 
   it('should convert versioned module to Nuxt module', async () => {
@@ -140,15 +142,13 @@ describe('module add', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@2.9.0'], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
       cwd: '/fake-dir',
+      dependencies: ['@nuxt/content@2.9.0'],
       dev: true,
-      installPeerDependencies: true,
-      packageManager: {
-        name: 'npm',
-      },
+      packageManager: { name: 'npm', command: 'npm' },
       workspace: false,
-    })
+    }))
   })
 
   it('should convert major only version to full semver', async () => {
@@ -160,15 +160,13 @@ describe('module add', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@2.13.1'], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
       cwd: '/fake-dir',
+      dependencies: ['@nuxt/content@2.13.1'],
       dev: true,
-      installPeerDependencies: true,
-      packageManager: {
-        name: 'npm',
-      },
+      packageManager: { name: 'npm', command: 'npm' },
       workspace: false,
-    })
+    }))
   })
 
   it('should convert not full version to full semver', async () => {
@@ -180,14 +178,12 @@ describe('module add', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(['@nuxt/content@3.1.1'], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
       cwd: '/fake-dir',
+      dependencies: ['@nuxt/content@3.1.1'],
       dev: true,
-      installPeerDependencies: true,
-      packageManager: {
-        name: 'npm',
-      },
+      packageManager: { name: 'npm', command: 'npm' },
       workspace: false,
-    })
+    }))
   })
 })

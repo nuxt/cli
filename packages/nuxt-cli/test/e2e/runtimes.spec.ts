@@ -296,6 +296,13 @@ async function startDevServer(options: {
     },
   })
 
+  // Piped output has to be consumed, or a chatty runtime fills the pipe buffer
+  // and blocks before the server is ready. It also gives a failing start
+  // something to report beyond the timeout.
+  const output: string[] = []
+  child.stdout?.on('data', chunk => output.push(String(chunk)))
+  child.stderr?.on('data', chunk => output.push(String(chunk)))
+
   try {
     await waitForPort(port, { delay: 1000, retries: 25, host })
     await vi.waitFor(async () => {
@@ -307,7 +314,13 @@ async function startDevServer(options: {
   }
   catch (error) {
     child.kill()
-    throw new Error(`Dev server failed to start on port ${port} with ${runtime}: ${error}`)
+    const exit = child.exitCode ?? child.signalCode
+    const log = output.join('').trim().split('\n').slice(-30).join('\n')
+    throw new Error([
+      `Dev server failed to start on port ${port} with ${runtime}: ${error}`,
+      exit !== null && `The process exited with ${exit}.`,
+      log && `Last output:\n${log}`,
+    ].filter(Boolean).join('\n'))
   }
 
   return {

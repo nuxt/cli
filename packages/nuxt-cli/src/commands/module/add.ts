@@ -1,4 +1,5 @@
 import type { FileHandle } from 'node:fs/promises'
+import type { PackageManager } from 'nypm'
 import type { PackageJson } from 'pkg-types'
 
 import type { NuxtModule } from './_utils'
@@ -10,7 +11,7 @@ import process from 'node:process'
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { updateConfig } from 'c12/update'
 import { defineCommand } from 'citty'
-import { addDependency, detectPackageManager } from 'nypm'
+import { detectPackageManager, packageManagers } from 'nypm'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
 import colors from 'picocolors'
@@ -19,6 +20,7 @@ import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run'
+import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
@@ -29,6 +31,7 @@ import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardComm
 const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
 const REGEX_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g
+const WHITESPACE_RE = /\s/
 
 interface RegistryMeta {
   registry: string
@@ -40,6 +43,8 @@ interface ResolvedModule {
   pkg: string
   pkgName: string
   pkgVersion: string
+  peerDependencies?: Record<string, string>
+  optionalPeerDependencies?: string[]
 }
 type UnresolvedModule = false
 type ModuleResolution = ResolvedModule | UnresolvedModule
@@ -67,6 +72,10 @@ export default defineCommand({
     dev: {
       type: 'boolean',
       description: 'Install modules as dev dependencies',
+    },
+    packageManager: {
+      type: 'string',
+      description: `Package manager to install with (${packageManagers.map(pm => pm.name).join(', ')})`,
     },
   },
   async setup(ctx) {
@@ -122,7 +131,11 @@ export default defineCommand({
 
     logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.pkgName)).join(', ')}, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
 
-    await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+    const added = await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+
+    if (!added) {
+      process.exit(1)
+    }
 
     // Run prepare command if install is not skipped
     if (!ctx.args.skipInstall) {
@@ -132,7 +145,7 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean }, projectPkg: PackageJson) {
+async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false, packageManager: packageManagerName, logLevel }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean, packageManager?: string, logLevel?: string }, projectPkg: PackageJson): Promise<boolean> {
   // Add dependencies
   if (!skipInstall) {
     const installedModules: ResolvedModule[] = []
@@ -163,35 +176,48 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const a = notInstalledModules.length > 1 ? '' : ' a'
       logger.info(`Installing ${notInstalledModulesList} as${a}${isDev ? ' development' : ''} ${dependency}`)
 
-      const packageManager = await detectPackageManager(cwd)
+      const packageManager = await resolvePackageManager(cwd, packageManagerName)
 
-      const res = await addDependency(notInstalledModules.map(module => module.pkg), {
+      const peers = resolveRequiredPeerDependencies(notInstalledModules, dependencies)
+      if (peers.length > 0) {
+        logger.info(`Also installing required peer ${peers.length > 1 ? 'dependencies' : 'dependency'} ${peers.map(peer => colors.cyan(peer)).join(', ')}`)
+      }
+
+      const verbose = logLevel === 'verbose' || Boolean(process.env.DEBUG)
+      const installController = new AbortController()
+      const installLog = createInstallLog({ verbose })
+      const installSpinner = spinner({
+        indicator: 'timer',
+        onCancel: () => installController.abort(),
+      })
+      installSpinner.start(`Installing with ${colors.cyan(packageManager.name)}`)
+
+      const result = await runInstall({
         cwd,
-        dev: isDev,
-        installPeerDependencies: true,
         packageManager,
+        dependencies: [...notInstalledModules.map(module => module.pkg), ...peers],
+        dev: isDev,
         workspace: isPnpmWorkspace(packageManager, cwd),
-      }).then(() => true).catch(
-        async (error) => {
-          logger.error(String(error))
+        onOutput: installLog.onOutput,
+        onStatus: message => installSpinner.message(message),
+        signal: installController.signal,
+      })
 
-          const failedModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
-          const s = notInstalledModules.length > 1 ? 's' : ''
-          const result = await confirm({
-            message: `Install failed for ${failedModulesList}. Do you want to continue adding the module${s} to ${colors.cyan('nuxt.config')}?`,
-            initialValue: false,
-          })
+      if (!result.success) {
+        installSpinner.error(result.error ?? 'Install failed')
+        installLog.finish(result)
+        // Adding modules to `nuxt.config` without their packages installed
+        // leaves a project that cannot boot, so stop here instead.
+        logger.info(`${colors.cyan('nuxt.config')} was left unchanged. Resolve the install error and try again.`)
+        return false
+      }
 
-          if (isCancel(result)) {
-            return false
-          }
+      installSpinner.stop('Dependencies installed')
+      installLog.finish(result)
 
-          return result
-        },
-      )
-
-      if (res !== true) {
-        return
+      const ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
+      if (ignoredBuilds.length > 0 && packageManager.name === 'pnpm') {
+        logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}. Run ${colors.cyan('pnpm approve-builds')} if your project needs them.`)
       }
     }
   }
@@ -230,6 +256,62 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       return null
     })
   }
+
+  return true
+}
+
+/**
+ * Resolve the package manager to install with, preferring an explicit choice
+ * (e.g. the one selected during `nuxt init`) and otherwise detecting one from
+ * the project itself before looking at parent directories, so a project nested
+ * inside another workspace is not installed with that workspace's package
+ * manager.
+ */
+async function resolvePackageManager(cwd: string, name?: string): Promise<PackageManager> {
+  const requested = name ? packageManagers.find(pm => pm.name === name) : undefined
+  if (name && !requested) {
+    logger.warn(`Unknown package manager ${colors.cyan(name)}, detecting one instead.`)
+  }
+
+  const detected = await detectPackageManager(cwd, { includeParentDirs: false })
+    ?? await detectPackageManager(cwd)
+
+  if (!requested) {
+    return detected ?? resolvePackageManagerDescriptor('npm')
+  }
+
+  // The detected descriptor knows the version the project pins, which the static
+  // list does not, so prefer it when it agrees with the requested manager.
+  return detected?.name === requested.name
+    ? detected
+    : resolvePackageManagerDescriptor(requested.name)
+}
+
+/**
+ * Required (non-optional) peer dependencies of the modules being added that the
+ * project does not already depend on, so a module such as `@pinia/nuxt` does not
+ * end up installed without `pinia`.
+ */
+export function resolveRequiredPeerDependencies(modules: ResolvedModule[], dependencies: Set<string>): string[] {
+  const peers = new Map<string, string>()
+  const moduleNames = new Set(modules.map(module => module.pkgName))
+
+  for (const module of modules) {
+    for (const [name, version] of Object.entries(module.peerDependencies || {})) {
+      if (dependencies.has(name) || moduleNames.has(name) || peers.has(name)) {
+        continue
+      }
+      if (module.optionalPeerDependencies?.includes(name)) {
+        continue
+      }
+      // Ranges that cannot be passed as part of a package spec (`*`, `>=3 <5`)
+      // fall back to the bare name.
+      const usable = version && version !== '*' && !WHITESPACE_RE.test(version)
+      peers.set(name, usable ? `${name}@${version}` : name)
+    }
+  }
+
+  return [...peers.values()]
 }
 
 function getDefaultNuxtConfig() {
@@ -376,6 +458,10 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     pkg: `${pkgName}@${version}`,
     pkgName,
     pkgVersion: version,
+    peerDependencies: pkg.peerDependencies,
+    optionalPeerDependencies: Object.entries(pkg.peerDependenciesMeta || {})
+      .filter(([, meta]) => (meta as { optional?: boolean } | undefined)?.optional)
+      .map(([name]) => name),
   }
 }
 
