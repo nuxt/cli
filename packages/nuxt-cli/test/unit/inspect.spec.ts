@@ -20,6 +20,10 @@ describe('parseInspectArgs', () => {
     expect(parseInspectArgs(['--inspect=0.0.0.0:3050'])).toStrictEqual({ host: '0.0.0.0', port: 3050, wait: false })
   })
 
+  it('should fall back to the default host when the host is empty', () => {
+    expect(parseInspectArgs(['--inspect=:3050'])).toStrictEqual({ host: '127.0.0.1', port: 3050, wait: false })
+  })
+
   it('should parse a host only value', () => {
     expect(parseInspectArgs(['--inspect=0.0.0.0'])).toStrictEqual({ host: '0.0.0.0', port: 9229, wait: false })
   })
