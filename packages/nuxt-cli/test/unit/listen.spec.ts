@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getNetworkAddresses, listen, resolveOpenCommand } from '../../src/dev/listen'
 
+const spawn = vi.hoisted(() => vi.fn((_command: string, _args: string[]) => ({ on: () => ({ unref: () => {} }) })))
+
+vi.mock('node:child_process', () => ({ spawn }))
+
 vi.mock('node:os', () => ({
   networkInterfaces: vi.fn(() => ({})),
   release: () => 'test',
@@ -89,6 +93,20 @@ describe('listen', () => {
     const first = await start({ port: 0 })
 
     await expect(start({ port: first.address.port, strictPort: true })).rejects.toThrow(/already in use/)
+  })
+
+  it('should open the dev server URL', async () => {
+    const listener = await start({ port: 0, open: true })
+
+    expect(spawn.mock.lastCall?.[1]).toContain(listener.url)
+  })
+
+  it('should open a path or URL relative to the dev server', async () => {
+    const listener = await start({ port: 0, open: true, openURL: '/dashboard' })
+    expect(spawn.mock.lastCall?.[1]).toContain(`${listener.url}dashboard`)
+
+    await start({ port: 0, open: true, openURL: 'https://example.com/foo' })
+    expect(spawn.mock.lastCall?.[1]).toContain('https://example.com/foo')
   })
 
   it('should use the requested port with `strictPort`', async () => {

@@ -65,6 +65,10 @@ const command = defineCommand({
       alias: ['o'],
       default: false,
     },
+    'open.url': {
+      type: 'string',
+      description: 'Path or URL to open instead of the dev server root',
+    },
     'clipboard': {
       type: 'boolean',
       description: 'Copy the URL to the clipboard',
@@ -298,7 +302,8 @@ function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
       || undefined,
     strictPort: args.strictPort,
     hostname: host === true || host === '' ? '' : host || undefined,
-    open: args.open,
+    open: args.open || !!args['open.url'],
+    openURL: args['open.url'] || undefined,
     clipboard: args.clipboard,
     qr: args.qr,
     tunnel: args.tunnel,

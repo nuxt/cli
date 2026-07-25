@@ -25,6 +25,8 @@ export interface ListenOptions {
   baseURL?: string
   showURL?: boolean
   open?: boolean
+  /** Path (resolved against the dev server URL) or absolute URL to open. */
+  openURL?: string
   clipboard?: boolean
   qr?: boolean
   tunnel?: boolean
@@ -202,7 +204,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   }
 
   if (options.open) {
-    openBrowser(url)
+    openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
   }
 
   return {
@@ -251,6 +253,16 @@ function centerBlock(block: string): string {
   const columns = Math.min(process.stdout.columns || 80, 80)
   const indent = ' '.repeat(Math.max(0, Math.floor((columns - width) / 2)))
   return lines.map(line => indent + line).join('\n')
+}
+
+function resolveOpenURL(target: string, baseURL: string): string {
+  try {
+    return new URL(target, baseURL).href
+  }
+  catch {
+    logger.warn(`Ignoring invalid \`--open.url\` value: ${target}`)
+    return baseURL
+  }
 }
 
 /**
