@@ -9,6 +9,7 @@ export default defineCommand({
   meta: {
     name: '_dev',
     description: 'Run Nuxt development server (internal command to start child process)',
+    hidden: true,
   },
   args: {
     ...cwdArgs,
