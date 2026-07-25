@@ -161,6 +161,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
   #websocketConnections = new Set<any>()
+  #inflightResponses = new Set<ServerResponse>()
   #lockCleanup?: () => void
   #lockedBuildDir?: string
 
@@ -190,6 +191,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
       await _initPromise
       if (this.#handler) {
+        this.#inflightResponses.add(res)
+        res.once('close', () => {
+          this.#inflightResponses.delete(res)
+        })
         this.#handler(req, res)
       }
       else {
@@ -552,6 +557,25 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     previousRelease?.()
   }
 
+  /**
+   * Requests handed to the outgoing Nitro handler are never answered once it is
+   * torn down, so respond (or drop the socket) before swapping the handler out.
+   */
+  #settleInflightResponses(): void {
+    const responses = [...this.#inflightResponses]
+    this.#inflightResponses.clear()
+    for (const res of responses) {
+      if (res.writableEnded || res.destroyed) {
+        continue
+      }
+      if (res.headersSent) {
+        res.destroy()
+        continue
+      }
+      void this.#renderLoadingScreen(res.req, res).catch(() => res.destroy())
+    }
+  }
+
   #closeWebSocketConnections(): void {
     for (const socket of this.#websocketConnections) {
       socket.destroy()
@@ -563,6 +587,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const action = reload ? 'Restarting' : 'Starting'
     this.#loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
     this.#handler = undefined
+    this.#settleInflightResponses()
     this.emit('loading', this.#loadingMessage)
     if (reload) {
       // eslint-disable-next-line no-console
