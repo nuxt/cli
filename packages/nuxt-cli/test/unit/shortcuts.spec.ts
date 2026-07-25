@@ -100,7 +100,7 @@ describe('setupShortcuts', () => {
     const { press } = setup({ close })
 
     await press('qr')
-    await vi.waitFor(() => expect(printQRCode).toHaveBeenCalledWith('http://localhost:3000/'))
+    await vi.waitFor(() => expect(printQRCode).toHaveBeenCalledWith('http://localhost:3000/', { showURL: true }))
     expect(close).not.toHaveBeenCalled()
 
     await press('q')

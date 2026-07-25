@@ -2,15 +2,19 @@ import type { Listener } from '../../src/dev/listen'
 
 import { networkInterfaces } from 'node:os'
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, getNetworkAddresses, listen, resolveOpenCommand } from '../../src/dev/listen'
+import { copyURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 
 vi.mock('tinyclip', () => ({ writeText }))
 
-const spawn = vi.hoisted(() => vi.fn((_command: string, _args: string[]) => ({ on: () => ({ unref: () => {} }) })))
+const spawn = vi.hoisted(() => vi.fn((_command: string, _args: string[]) => ({
+  once: () => {},
+  off: () => {},
+  unref: () => {},
+})))
 
 vi.mock('node:child_process', () => ({ spawn }))
 
@@ -20,6 +24,20 @@ vi.mock('node:os', () => ({
 }))
 
 const mocked = vi.mocked(networkInterfaces)
+
+const realPlatform = process.platform
+const realEnv = { ...process.env }
+
+/** Pretend to run on `platform`, with only the display variables in `env` set. */
+function stubEnvironment(platform: NodeJS.Platform, env: NodeJS.ProcessEnv = {}) {
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+  process.env = { ...realEnv, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, ...env }
+}
+
+function restoreEnvironment() {
+  Object.defineProperty(process, 'platform', { value: realPlatform, configurable: true })
+  process.env = { ...realEnv }
+}
 
 describe('getNetworkAddresses', () => {
   it('should return external IPv4 addresses', () => {
@@ -76,7 +94,11 @@ describe('resolveOpenCommand', () => {
 describe('listen', () => {
   const listeners: Listener[] = []
 
+  // `openBrowser` refuses to spawn a launcher without a graphical session.
+  beforeEach(() => stubEnvironment(realPlatform, { DISPLAY: ':0' }))
+
   afterEach(async () => {
+    restoreEnvironment()
     await Promise.all(listeners.splice(0).map(listener => listener.close()))
   })
 
@@ -124,22 +146,13 @@ describe('listen', () => {
 })
 
 describe('copyURL', () => {
-  const platform = process.platform
-  const env = { ...process.env }
-
   afterEach(() => {
-    Object.defineProperty(process, 'platform', { value: platform, configurable: true })
-    process.env = { ...env }
+    restoreEnvironment()
     vi.clearAllMocks()
   })
 
-  function stubPlatform(value: NodeJS.Platform, overrides: NodeJS.ProcessEnv = {}) {
-    Object.defineProperty(process, 'platform', { value, configurable: true })
-    process.env = { ...env, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, ...overrides }
-  }
-
   it('should skip copying without a display server on linux', async () => {
-    stubPlatform('linux')
+    stubEnvironment('linux')
 
     await copyURL('http://localhost:3000/')
 
@@ -147,7 +160,7 @@ describe('copyURL', () => {
   })
 
   it('should copy when a display server is available', async () => {
-    stubPlatform('linux', { DISPLAY: ':0' })
+    stubEnvironment('linux', { DISPLAY: ':0' })
 
     await copyURL('http://localhost:3000/')
 
@@ -155,7 +168,7 @@ describe('copyURL', () => {
   })
 
   it('should copy on platforms that do not need a display server', async () => {
-    stubPlatform('darwin')
+    stubEnvironment('darwin')
 
     await copyURL('http://localhost:3000/')
 
@@ -163,9 +176,32 @@ describe('copyURL', () => {
   })
 
   it('should warn rather than throw when copying fails', async () => {
-    stubPlatform('darwin')
+    stubEnvironment('darwin')
     writeText.mockRejectedValueOnce(new Error('no clipboard tool found'))
 
     await expect(copyURL('http://localhost:3000/')).resolves.toBeUndefined()
+  })
+})
+
+describe('openBrowser', () => {
+  afterEach(() => {
+    restoreEnvironment()
+    vi.clearAllMocks()
+  })
+
+  it('should not spawn a launcher without a display server', () => {
+    stubEnvironment('linux')
+
+    openBrowser('http://localhost:3000/')
+
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('should spawn a launcher when a display server is available', () => {
+    stubEnvironment('linux', { DISPLAY: ':0' })
+
+    openBrowser('http://localhost:3000/')
+
+    expect(spawn).toHaveBeenCalledWith('xdg-open', ['http://localhost:3000/'], expect.anything())
   })
 })

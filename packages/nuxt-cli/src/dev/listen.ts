@@ -250,14 +250,15 @@ async function resolvePort(requestedPort: number | undefined, hostname: string, 
   return port
 }
 
-export async function printQRCode(url: string): Promise<void> {
+export async function printQRCode(url: string, { showURL = false }: { showURL?: boolean } = {}): Promise<void> {
   const { renderUnicodeCompact } = await import('uqr')
+  const caption = showURL ? `\n${centerBlock(colors.cyan(url), url.length)}` : ''
   // eslint-disable-next-line no-console
-  console.log(`\n${centerBlock(renderUnicodeCompact(url))}\n`)
+  console.log(`\n${centerBlock(renderUnicodeCompact(url))}${caption}\n`)
 }
 
 export async function copyURL(url: string): Promise<void> {
-  if (!isClipboardAvailable()) {
+  if (!hasDisplayServer()) {
     logger.warn('No clipboard is available in this environment.')
     return
   }
@@ -275,20 +276,21 @@ export async function copyURL(url: string): Promise<void> {
 const DISPLAY_REQUIRED_PLATFORMS = new Set<NodeJS.Platform>(['linux', 'freebsd', 'openbsd'])
 
 /**
- * Clipboard tools on Linux and BSD (`wl-copy`, `xsel`, `xclip`) need a display
- * server. Without one they exit before receiving any input, and the resulting
- * `EPIPE` escapes as an uncaught exception from inside the writing library.
+ * Whether a graphical session exists to receive a clipboard write or a browser
+ * launch. The tools involved on Linux and BSD (`wl-copy`, `xsel`, `xclip`,
+ * `xdg-open`) all need one, and fail in unhelpful ways without it: clipboard
+ * tools exit before reading their input, so the write fails with `EPIPE`.
  */
-function isClipboardAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
+function hasDisplayServer(env: NodeJS.ProcessEnv = process.env): boolean {
   if (!DISPLAY_REQUIRED_PLATFORMS.has(process.platform)) {
     return true
   }
   return !!(env.WSL_DISTRO_NAME || env.WAYLAND_DISPLAY || env.DISPLAY)
 }
 
-function centerBlock(block: string): string {
+function centerBlock(block: string, blockWidth?: number): string {
   const lines = block.split('\n')
-  const width = Math.max(...lines.map(line => line.length))
+  const width = blockWidth ?? Math.max(...lines.map(line => line.length))
   const columns = Math.min(process.stdout.columns || 80, 80)
   const indent = ' '.repeat(Math.max(0, Math.floor((columns - width) / 2)))
   return lines.map(line => indent + line).join('\n')
@@ -342,16 +344,41 @@ export function resolveOpenCommand(
   return ['xdg-open', [url]]
 }
 
+/** How long a launcher has to fail before we assume the browser did open. */
+const BROWSER_LAUNCH_TIMEOUT_MS = 3000
+
 export function openBrowser(url: string): void {
   const resolved = resolveOpenCommand(url)
   if (!resolved) {
     return
   }
+  if (!hasDisplayServer()) {
+    logger.warn(`No browser is available in this environment. Open ${colors.cyan(url)} manually.`)
+    return
+  }
+
   const [command, args] = resolved
+  const onFailure = (error: unknown) => {
+    debug('Failed to open browser:', error)
+    logger.warn(`Could not open ${colors.cyan(url)} in a browser.`)
+  }
+
   try {
-    spawn(command, args, { stdio: 'ignore', detached: true }).on('error', error => debug('Failed to open browser:', error)).unref()
+    const child = spawn(command, args, { stdio: 'ignore', detached: true })
+    child.once('error', onFailure)
+    const onExit = (code: number | null) => {
+      if (code) {
+        onFailure(new Error(`\`${command}\` exited with code ${code}`))
+      }
+    }
+    child.once('exit', onExit)
+    // `BROWSER` may point at the browser itself rather than a launcher, in which
+    // case the process lives as long as the browser does and its eventual exit
+    // code says nothing about whether the URL opened.
+    setTimeout(() => child.off('exit', onExit), BROWSER_LAUNCH_TIMEOUT_MS).unref()
+    child.unref()
   }
   catch (error) {
-    debug('Failed to open browser:', error)
+    onFailure(error)
   }
 }

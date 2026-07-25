@@ -47,7 +47,7 @@ const shortcuts: Shortcut[] = [
   {
     keys: ['qr'],
     description: 'show a QR code for the server URL',
-    action: context => printQRCode(resolveShareableURL(context.listener)),
+    action: context => printQRCode(resolveShareableURL(context.listener), { showURL: true }),
   },
   {
     keys: ['copy'],
