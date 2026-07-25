@@ -56,6 +56,22 @@ export interface Listener {
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
 
 /**
+ * External IPv4 addresses other devices can reach. IPv4 link-local addresses
+ * (169.254.0.0/16, from a macOS Thunderbolt Bridge or an unconfigured adapter)
+ * are excluded because they are unreachable from the rest of the network.
+ */
+export function getNetworkAddresses(): string[] {
+  const addresses: string[] = []
+  for (const info of Object.values(networkInterfaces()).flat()) {
+    if (!info || info.internal || info.family !== 'IPv4' || info.address.startsWith('169.254.')) {
+      continue
+    }
+    addresses.push(info.address)
+  }
+  return addresses
+}
+
+/**
  * OpenSSL 3 moved the ciphers used by older PKCS#12 exports (RC2-40, RC4, DES)
  * into the legacy provider, which Node does not load, so such keystores fail
  * with `ERR_CRYPTO_UNSUPPORTED_OPERATION`.
@@ -137,11 +153,8 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     }
     if (anyHost) {
       urls.push({ url: formatURL('localhost'), type: 'local' })
-      for (const info of Object.values(networkInterfaces()).flat()) {
-        if (!info || info.internal || info.family !== 'IPv4') {
-          continue
-        }
-        urls.push({ url: formatURL(info.address), type: 'network' })
+      for (const address of getNetworkAddresses()) {
+        urls.push({ url: formatURL(address), type: 'network' })
       }
     }
     else {
