@@ -99,7 +99,7 @@ export default defineCommand({
       type: 'string',
       alias: 'ch',
       default: 'stable',
-      description: 'Specify a channel to install from (default: stable)',
+      description: 'Specify a channel to install from',
       valueHint: 'stable|nightly|v3|v4|v4-nightly|v3-nightly',
     },
   },

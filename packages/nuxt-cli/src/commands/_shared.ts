@@ -53,12 +53,12 @@ export const legacyRootDirArgs = {
   // cwd falls back to rootDir's default (indirect default)
   cwd: {
     ...cwdArgs.cwd,
-    description: 'Specify the working directory, this takes precedence over ROOTDIR (default: `.`)',
+    description: 'Specify the working directory, this takes precedence over ROOTDIR',
     default: undefined,
   },
   rootDir: {
     type: 'positional',
-    description: 'Specifies the working directory (default: `.`)',
+    description: 'Specifies the working directory',
     required: false,
     default: '.',
   },

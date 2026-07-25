@@ -24,7 +24,7 @@ export default defineCommand({
   },
   async run(ctx) {
     if (!process.send && !isTest) {
-      console.warn('`nuxi _dev` is an internal command and should not be used directly. Please use `nuxi dev` instead.')
+      console.warn('`nuxt _dev` is an internal command and should not be used directly. Please use `nuxt dev` instead.')
     }
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)

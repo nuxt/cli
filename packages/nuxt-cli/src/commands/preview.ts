@@ -17,7 +17,7 @@ import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLe
 const command = defineCommand({
   meta: {
     name: 'preview',
-    description: 'Launches Nitro server for local testing after `nuxi build`.',
+    description: 'Launches Nitro server for local testing after `nuxt build`.',
   },
   args: {
     ...cwdArgs,
@@ -67,7 +67,7 @@ const command = defineCommand({
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
-        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxi build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
+        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxt build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
       )
       process.exit(1)
     }
