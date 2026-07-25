@@ -257,6 +257,10 @@ export async function printQRCode(url: string): Promise<void> {
 }
 
 export async function copyURL(url: string): Promise<void> {
+  if (!isClipboardAvailable()) {
+    logger.warn('No clipboard is available in this environment.')
+    return
+  }
   try {
     const { writeText } = await import('tinyclip')
     await writeText(url)
@@ -266,6 +270,20 @@ export async function copyURL(url: string): Promise<void> {
     debug('Failed to copy URL to clipboard:', error)
     logger.warn('Could not copy the URL to the clipboard.')
   }
+}
+
+const DISPLAY_REQUIRED_PLATFORMS = new Set<NodeJS.Platform>(['linux', 'freebsd', 'openbsd'])
+
+/**
+ * Clipboard tools on Linux and BSD (`wl-copy`, `xsel`, `xclip`) need a display
+ * server. Without one they exit before receiving any input, and the resulting
+ * `EPIPE` escapes as an uncaught exception from inside the writing library.
+ */
+function isClipboardAvailable(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (!DISPLAY_REQUIRED_PLATFORMS.has(process.platform)) {
+    return true
+  }
+  return !!(env.WSL_DISTRO_NAME || env.WAYLAND_DISPLAY || env.DISPLAY)
 }
 
 function centerBlock(block: string): string {

@@ -5,6 +5,8 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
+import { isBrokenPipe } from '../utils/errors'
+import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { NuxtDevServer } from './utils'
 
@@ -165,12 +167,21 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       function restart() {
         if (!restarted) {
           restarted = true
+          process.off('uncaughtException', restartOnError)
+          process.off('unhandledRejection', restartOnError)
           callback(devServer)
         }
       }
+      function restartOnError(error: unknown) {
+        if (isBrokenPipe(error)) {
+          debug('Ignoring broken pipe:', error)
+          return
+        }
+        restart()
+      }
       devServer.once('restart', restart)
-      process.once('uncaughtException', restart)
-      process.once('unhandledRejection', restart)
+      process.on('uncaughtException', restartOnError)
+      process.on('unhandledRejection', restartOnError)
     },
   }
 }

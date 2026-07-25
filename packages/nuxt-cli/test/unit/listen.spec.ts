@@ -4,7 +4,11 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { getNetworkAddresses, listen, resolveOpenCommand } from '../../src/dev/listen'
+import { copyURL, getNetworkAddresses, listen, resolveOpenCommand } from '../../src/dev/listen'
+
+const writeText = vi.hoisted(() => vi.fn())
+
+vi.mock('tinyclip', () => ({ writeText }))
 
 const spawn = vi.hoisted(() => vi.fn((_command: string, _args: string[]) => ({ on: () => ({ unref: () => {} }) })))
 
@@ -116,5 +120,52 @@ describe('listen', () => {
 
     const listener = await start({ port, strictPort: true })
     expect(listener.address.port).toBe(port)
+  })
+})
+
+describe('copyURL', () => {
+  const platform = process.platform
+  const env = { ...process.env }
+
+  afterEach(() => {
+    Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+    process.env = { ...env }
+    vi.clearAllMocks()
+  })
+
+  function stubPlatform(value: NodeJS.Platform, overrides: NodeJS.ProcessEnv = {}) {
+    Object.defineProperty(process, 'platform', { value, configurable: true })
+    process.env = { ...env, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, ...overrides }
+  }
+
+  it('should skip copying without a display server on linux', async () => {
+    stubPlatform('linux')
+
+    await copyURL('http://localhost:3000/')
+
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('should copy when a display server is available', async () => {
+    stubPlatform('linux', { DISPLAY: ':0' })
+
+    await copyURL('http://localhost:3000/')
+
+    expect(writeText).toHaveBeenCalledWith('http://localhost:3000/')
+  })
+
+  it('should copy on platforms that do not need a display server', async () => {
+    stubPlatform('darwin')
+
+    await copyURL('http://localhost:3000/')
+
+    expect(writeText).toHaveBeenCalledWith('http://localhost:3000/')
+  })
+
+  it('should warn rather than throw when copying fails', async () => {
+    stubPlatform('darwin')
+    writeText.mockRejectedValueOnce(new Error('no clipboard tool found'))
+
+    await expect(copyURL('http://localhost:3000/')).resolves.toBeUndefined()
   })
 })

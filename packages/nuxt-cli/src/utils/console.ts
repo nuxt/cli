@@ -4,6 +4,9 @@ import process from 'node:process'
 
 import { consola } from 'consola'
 
+import { isBrokenPipe } from './errors'
+import { debug } from './logger'
+
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
 function wrapReporter(reporter: ConsolaReporter) {
@@ -37,9 +40,15 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
     consola.wrapConsole()
   }
 
-  process.on('unhandledRejection', err =>
-    consola.error('[unhandledRejection]', err))
+  process.on('unhandledRejection', err => report('[unhandledRejection]', err))
 
-  process.on('uncaughtException', err =>
-    consola.error('[uncaughtException]', err))
+  process.on('uncaughtException', err => report('[uncaughtException]', err))
+}
+
+function report(label: string, error: unknown) {
+  if (isBrokenPipe(error)) {
+    debug(`${label} ignoring broken pipe:`, error)
+    return
+  }
+  consola.error(label, error)
 }
