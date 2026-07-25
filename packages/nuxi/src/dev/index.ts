@@ -16,7 +16,6 @@ interface InitializeOptions {
   }
   listenOverrides?: Partial<ListenOptions>
   showBanner?: boolean
-  onBeforeQuit?: (devServer: NuxtDevServer) => Promise<void> | void
 }
 
 // IPC Hooks
@@ -112,47 +111,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     })
   }
 
-  async function close() {
-    devServer.closeWatchers()
-    try {
-      await Promise.all([
-        devServer.listener.close(),
-        devServer.close(),
-      ])
-    }
-    finally {
-      devServer.releaseLock()
-    }
-  }
-
-  devServer.once('closing', async () => {
-    if (profileArg) {
-      try {
-        await stopCpuProfile(devContext.cwd, 'dev')
-      }
-      catch (e) {
-        console.error(e)
-      }
-    }
-    try {
-      await ctx.onBeforeQuit?.(devServer)
-    }
-    catch (e) {
-      console.error(e)
-    }
-    try {
-      await close()
-      process.exitCode = 0
-    }
-    catch (e) {
-      process.exitCode = 1
-      console.error(e)
-    }
-    finally {
-      process.exit()
-    }
-  })
-
   // Init server
   await devServer.init()
 
@@ -174,7 +132,18 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
-    close,
+    close: async () => {
+      devServer.closeWatchers()
+      try {
+        await Promise.all([
+          devServer.listener.close(),
+          devServer.close(),
+        ])
+      }
+      finally {
+        devServer.releaseLock()
+      }
+    },
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)

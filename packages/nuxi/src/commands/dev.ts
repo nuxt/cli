@@ -2,13 +2,14 @@ import type { ParsedArgs } from 'citty'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
+import { createInterface } from 'node:readline'
 
 import { defineCommand } from 'citty'
 import { colors } from 'consola/utils'
 import { getArgs as getListhenArgs, parseArgs as parseListhenArgs } from 'listhen/cli'
 import { resolve } from 'pathe'
 import { satisfies } from 'semver'
-import { isBun, isTest } from 'std-env'
+import { isBun, isCI, isTest } from 'std-env'
 
 import { initialize } from '../dev'
 import { ForkPool } from '../dev/pool'
@@ -78,17 +79,16 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    const initializeOptions: Parameters<typeof initialize>[1] = {
+    // Start the initial dev server in-process with listener
+    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
-    }
-
-    // Start the initial dev server in-process with listener
-    const { listener, close, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, initializeOptions)
+    })
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
+      setupQuitShortcut(close, onReady)
       return {
         listener,
         close,
@@ -138,24 +138,23 @@ const command = defineCommand({
     }
 
     onRestart(async () => {
-      // Temporarily disable the quit hook during restart to avoid double-cleanup
-      Object.assign(initializeOptions, { onBeforeQuit: undefined })
       // Close the in-process dev server
       await close()
       await restartWithFork()
-      // Delegate to the live `cleanupCurrentFork` binding so later fork
-      // restarts (triggered via IPC) are always cleaned up correctly on quit
-      Object.assign(initializeOptions, { onBeforeQuit: () => cleanupCurrentFork?.() })
     })
 
+    async function closeAll() {
+      cleanupCurrentFork?.()
+      await Promise.all([
+        listener.close(),
+        close(),
+      ])
+    }
+
+    setupQuitShortcut(closeAll, onReady)
+
     return {
-      async close() {
-        cleanupCurrentFork?.()
-        await Promise.all([
-          listener.close(),
-          close(),
-        ])
-      },
+      close: closeAll,
     }
   },
 })
@@ -163,6 +162,35 @@ const command = defineCommand({
 export default command
 
 // --- Internal ---
+
+function setupQuitShortcut(close: () => Promise<void>, onReady: (callback: (address: string) => void) => void) {
+  if (!process.stdin.isTTY || isCI || isTest) {
+    return
+  }
+
+  onReady(() => {
+    // eslint-disable-next-line no-console
+    console.log(`\n  ${colors.dim('press')} ${colors.bold('q + enter')} ${colors.dim('to quit')}\n`)
+  })
+
+  // No output stream is passed, so readline stays in non-terminal mode and
+  // does not intercept Ctrl-C or put stdin into raw mode
+  const rl = createInterface({ input: process.stdin })
+  rl.on('line', async (line) => {
+    if (!['q', 'quit', 'exit'].includes(line.trim().toLowerCase())) {
+      return
+    }
+    rl.close()
+    try {
+      await close()
+    }
+    catch (error) {
+      console.error(error)
+      process.exitCode = 1
+    }
+    process.exit()
+  })
+}
 
 type ArgsT = Exclude<
   Awaited<typeof command.args>,
