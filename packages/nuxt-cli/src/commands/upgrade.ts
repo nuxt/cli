@@ -1,15 +1,18 @@
 import type { PackageJson } from 'pkg-types'
 
+import type { InstallResult } from '../utils/install'
+
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
-import { cancel, intro, isCancel, note, outro, select, spinner, tasks } from '@clack/prompts'
+import { cancel, intro, isCancel, note, outro, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
+import { detectPackageManager } from 'nypm'
 import { dirname, relative, resolve } from 'pathe'
 import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
+import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
@@ -188,59 +191,53 @@ export default defineCommand({
 
     const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
 
-    const spin = spinner()
-    spin.start('Upgrading Nuxt')
+    const verbose = ctx.args.logLevel === 'verbose' || Boolean(process.env.DEBUG)
 
-    await tasks([
-      {
-        title: `Installing ${versionType} Nuxt ${nuxtVersion} release`,
-        task: async () => {
-          await addDependency(npmPackages, {
-            cwd,
-            packageManager,
-            dev: nuxtDependencyType === 'devDependencies',
-            workspace: packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
-          })
-          return 'Nuxt packages installed'
-        },
-      },
-      ...(method === 'force'
-        ? [{
-            title: `Recreating ${forceRemovals}`,
-            task: async () => {
-              await dedupeDependencies({ recreateLockfile: true })
-              return 'Lockfile recreated'
-            },
-          }]
-        : []),
-      ...(method === 'dedupe'
-        ? [{
-            title: 'Deduping dependencies',
-            task: async () => {
-              await dedupeDependencies()
-              return 'Dependencies deduped'
-            },
-          }]
-        : []),
-      {
-        title: 'Cleaning up build directories',
-        task: async () => {
-          let buildDir: string = '.nuxt'
-          try {
-            const { loadNuxtConfig } = await loadKit(cwd)
-            const nuxtOptions = await loadNuxtConfig({ cwd })
-            buildDir = nuxtOptions.buildDir
-          }
-          catch {
-            // Use default buildDir (.nuxt)
-          }
-          await cleanupNuxtDirs(cwd, buildDir)
-          return 'Build directories cleaned'
-        },
-      },
-    ])
+    const installFailed = await withInstallSpinner(
+      `Installing ${versionType} Nuxt ${nuxtVersion} release`,
+      'Nuxt packages installed',
+      { verbose },
+      hooks => runInstall({
+        cwd,
+        packageManager,
+        dependencies: npmPackages,
+        dev: nuxtDependencyType === 'devDependencies',
+        workspace: packageManager.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
+        ...hooks,
+      }),
+    )
 
-    spin.stop()
+    if (installFailed) {
+      process.exit(1)
+    }
+
+    if (method === 'force' || method === 'dedupe') {
+      const recreateLockfile = method === 'force'
+      const failed = await withInstallSpinner(
+        recreateLockfile ? `Recreating ${forceRemovals}` : 'Deduping dependencies',
+        recreateLockfile ? 'Lockfile recreated' : 'Dependencies deduped',
+        { verbose },
+        hooks => runDedupe({ cwd, packageManager, recreateLockfile, ...hooks }),
+      )
+
+      if (failed) {
+        process.exit(1)
+      }
+    }
+
+    const cleanupSpinner = spinner()
+    cleanupSpinner.start('Cleaning up build directories')
+    let buildDir: string = '.nuxt'
+    try {
+      const { loadNuxtConfig } = await loadKit(cwd)
+      const nuxtOptions = await loadNuxtConfig({ cwd })
+      buildDir = nuxtOptions.buildDir
+    }
+    catch {
+      // Use default buildDir (.nuxt)
+    }
+    await cleanupNuxtDirs(cwd, buildDir, { silent: true })
+    cleanupSpinner.stop('Build directories cleaned')
 
     if (method === 'force') {
       logger.info(`If you encounter any issues, revert the changes and try with ${colors.cyan('--no-force')}`)
@@ -275,6 +272,53 @@ export default defineCommand({
     }
   },
 })
+
+interface InstallHooks {
+  onOutput: (line: string) => void
+  onStatus: (message: string) => void
+  signal: AbortSignal
+}
+
+/**
+ * Run a package manager step behind a spinner, surfacing its output only when it
+ * fails (or when running verbosely). Returns whether the step failed.
+ */
+async function withInstallSpinner(
+  title: string,
+  success: string,
+  options: { verbose: boolean },
+  run: (hooks: InstallHooks) => Promise<InstallResult>,
+): Promise<boolean> {
+  const controller = new AbortController()
+  const installLog = createInstallLog({ verbose: options.verbose })
+  const spin = spinner({
+    indicator: 'timer',
+    onCancel: () => controller.abort(),
+  })
+
+  spin.start(title)
+  const result = await run({
+    onOutput: installLog.onOutput,
+    onStatus: message => spin.message(message),
+    signal: controller.signal,
+  })
+
+  if (result.success) {
+    spin.stop(success)
+  }
+  else {
+    spin.error(result.error ?? `${title} failed`)
+  }
+
+  installLog.finish(result)
+
+  const ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
+  if (ignoredBuilds.length > 0) {
+    logger.warn(`Build scripts were not run for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
+  }
+
+  return !result.success
+}
 
 // Find which lock file is in use since `nypm.detectPackageManager` doesn't return this
 export function findLockFile(cwd: string, workspaceDir: string, lockFiles: string | Array<string> | undefined) {

@@ -8,7 +8,7 @@ import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
 
 import { log, S_BAR } from '@clack/prompts'
-import { addDependency, installDependencies, packageManagers } from 'nypm'
+import { addDependency, dedupeDependencies, installDependencies, packageManagers } from 'nypm'
 import colors from 'picocolors'
 import { provider } from 'std-env'
 import { normalizeSpawnCommand, x } from 'tinyexec'
@@ -96,6 +96,33 @@ export async function runInstall(options: InstallOptions): Promise<InstallResult
   const { exec } = options.dependencies?.length
     ? await addDependency(options.dependencies, nypmOptions)
     : await installDependencies(nypmOptions)
+
+  if (!exec) {
+    return { success: true, output: '', command: '', ignoredBuilds: [] }
+  }
+
+  const args = [...exec.args, ...nonInteractiveArgs(options.packageManager)]
+  const [command, commandArgs] = await withCorepack(exec.command, args)
+
+  return await execute(command, commandArgs, options)
+}
+
+export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'workspace'> {
+  /** Delete the lockfile and resolve dependencies from scratch. */
+  recreateLockfile?: boolean
+}
+
+/**
+ * Dedupe a project's dependencies, or recreate its lockfile, with the same quiet
+ * output handling as {@link runInstall}.
+ */
+export async function runDedupe(options: DedupeOptions): Promise<InstallResult> {
+  const { exec } = await dedupeDependencies({
+    cwd: options.cwd,
+    packageManager: options.packageManager,
+    recreateLockfile: options.recreateLockfile,
+    dry: true,
+  })
 
   if (!exec) {
     return { success: true, output: '', command: '', ignoredBuilds: [] }

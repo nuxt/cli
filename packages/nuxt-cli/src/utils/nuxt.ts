@@ -20,8 +20,11 @@ interface NuxtProjectManifest {
   }
 }
 
-export async function cleanupNuxtDirs(rootDir: string, buildDir: string) {
-  logger.info('Cleaning up generated Nuxt files and caches...')
+/** `silent` is for callers that already report progress themselves. */
+export async function cleanupNuxtDirs(rootDir: string, buildDir: string, options: { silent?: boolean } = {}) {
+  if (!options.silent) {
+    logger.info('Cleaning up generated Nuxt files and caches...')
+  }
 
   await rmRecursive(
     [

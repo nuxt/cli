@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { chmod, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -5,7 +6,15 @@ import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
 
-import { getIgnoredBuilds, isExecutableAvailable, nonInteractiveArgs, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
+import { getIgnoredBuilds, isExecutableAvailable, nonInteractiveArgs, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
+
+async function createFakePackageManager(script: string[] = ['#!/bin/sh', 'echo "all done"']) {
+  const dir = await mkdtemp(join(tmpdir(), 'nuxt-install-test-'))
+  const command = join(dir, 'fake-package-manager')
+  await writeFile(command, script.join('\n'))
+  await chmod(command, 0o755)
+  return { dir, command }
+}
 
 describe('nonInteractiveArgs', () => {
   it('should opt pnpm out of prompts and strict dep builds', () => {
@@ -107,5 +116,48 @@ describe('runInstall', () => {
     expect(result.missingPackageManager).toBe(true)
     expect(result.error).toContain('nuxt-cli-nonexistent-package-manager')
     expect(result.command).toBe('nuxt-cli-nonexistent-package-manager install')
+  })
+})
+
+describe('runDedupe', () => {
+  it.skipIf(process.platform === 'win32')('should dedupe without printing the package manager output', async () => {
+    const { dir, command } = await createFakePackageManager()
+
+    const lines: string[] = []
+    const result = await runDedupe({
+      cwd: dir,
+      packageManager: { name: 'pnpm', command },
+      onOutput: line => lines.push(line),
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.command).toBe(`${command} dedupe --config.confirm-modules-purge=false --config.strict-dep-builds=false`)
+    expect(lines).toEqual(['all done'])
+  })
+
+  it.skipIf(process.platform === 'win32')('should install after removing the lockfile when recreating it', async () => {
+    const { dir, command } = await createFakePackageManager()
+    const lockFile = join(dir, 'pnpm-lock.yaml')
+    await writeFile(lockFile, 'lockfileVersion: 9.0\n')
+
+    const result = await runDedupe({
+      cwd: dir,
+      packageManager: { name: 'pnpm', command, lockFile: 'pnpm-lock.yaml' },
+      recreateLockfile: true,
+    })
+
+    expect(result.success).toBe(true)
+    expect(result.command).toContain(`${command} install`)
+    expect(existsSync(lockFile)).toBe(false)
+  })
+
+  it('should report a missing package manager instead of throwing', async () => {
+    const result = await runDedupe({
+      cwd: process.cwd(),
+      packageManager: { name: 'npm', command: 'nuxt-cli-nonexistent-package-manager' },
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.missingPackageManager).toBe(true)
   })
 })
