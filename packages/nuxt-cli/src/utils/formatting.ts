@@ -97,3 +97,22 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
 
   return boxStr
 }
+
+/**
+ * Format an elapsed duration in milliseconds for display, using `ms` below a
+ * second and seconds (or minutes and seconds) above it.
+ */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`
+  }
+
+  const totalSeconds = ms / 1000
+  if (totalSeconds < 60) {
+    return `${Number(totalSeconds.toFixed(totalSeconds < 10 ? 2 : 1))}s`
+  }
+
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.round(totalSeconds - minutes * 60)
+  return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`
+}

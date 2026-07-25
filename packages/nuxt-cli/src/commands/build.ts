@@ -7,6 +7,7 @@ import colors from 'picocolors'
 
 import { showBanner } from '../utils/banner'
 import { overrideEnv } from '../utils/env'
+import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError } from '../utils/lockfile'
@@ -38,6 +39,8 @@ export default defineCommand({
   },
   async run(ctx) {
     overrideEnv('production')
+
+    const start = Date.now()
 
     const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
 
@@ -127,10 +130,10 @@ export default defineCommand({
         // TODO: revisit later if/when nuxt build --prerender will output hybrid
         const dir = nitro?.options.output.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-        outro(`✨ You can now deploy ${colors.cyan(publicDir)} to any static hosting!`)
+        outro(`✨ You can now deploy ${colors.cyan(publicDir)} to any static hosting! ${colors.gray(`(${formatDuration(Date.now() - start)})`)}`)
       }
       else {
-        outro('✨ Build complete!')
+        outro(`✨ Build complete in ${colors.cyan(formatDuration(Date.now() - start))}!`)
       }
     }
     finally {
