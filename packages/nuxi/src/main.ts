@@ -102,7 +102,11 @@ const _main = defineCommand({
 
 export const main = _main as CommandDef<any>
 
-export async function runMain(): Promise<void> {
+/**
+ * Run the commands bundled with `nuxi` itself, used when the project has no
+ * `@nuxt/cli` or when its `@nuxt/cli` does not know the requested command.
+ */
+export async function runFallbackMain(): Promise<void> {
   if (process.argv[2] === 'complete') {
     const { initCompletions } = await import('../../nuxt-cli/src/completions')
     await initCompletions(main)

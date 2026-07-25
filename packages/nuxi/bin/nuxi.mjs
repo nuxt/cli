@@ -43,6 +43,6 @@ if (
 }
 
 // eslint-disable-next-line antfu/no-top-level-await
-const { runMain } = await import('../dist/index.mjs')
+const { runMain } = await import('../dist/cli.mjs')
 
 runMain()

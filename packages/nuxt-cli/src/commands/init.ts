@@ -20,7 +20,7 @@ import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
-import { runCommandDef as runCommand } from '../run'
+import { runCommandDef as runCommand } from '../run-command'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { debug, logger } from '../utils/logger'

@@ -12,4 +12,4 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
 }
 
 // To provide subcommands call it as `runCommand(<command>, [<subcommand>, ...])`
-export { runCommandDef as runCommand } from '../../nuxt-cli/src/run'
+export { runCommandDef as runCommand } from '../../nuxt-cli/src/run-command'

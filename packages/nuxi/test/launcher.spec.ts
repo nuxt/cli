@@ -1,0 +1,124 @@
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import process from 'node:process'
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+
+import { loadProjectCli, supportsCommand } from '../src/launcher'
+
+const cwd = process.cwd()
+let nodePath: string | undefined
+
+// `vitest` points `NODE_PATH` at the pnpm store, where a hoisted `@nuxt/cli` would be resolvable
+beforeEach(() => {
+  nodePath = process.env.NODE_PATH
+  delete process.env.NODE_PATH
+})
+
+afterEach(() => {
+  process.env.NODE_PATH = nodePath
+  process.chdir(cwd)
+})
+
+function createProject(name: string, deps: Record<string, string>, options: { devEntry?: boolean } = {}) {
+  const root = join(tmpdir(), `nuxi-launcher-${name}-${Date.now()}`)
+  mkdirSync(root, { recursive: true })
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ name, private: true }))
+  for (const [dep, version] of Object.entries(deps)) {
+    const depRoot = join(root, 'node_modules', dep)
+    mkdirSync(join(depRoot, 'dist', 'dev'), { recursive: true })
+    writeFileSync(join(depRoot, 'package.json'), JSON.stringify({
+      name: dep,
+      version,
+      type: 'module',
+      exports: { '.': './dist/index.mjs' },
+    }))
+    writeFileSync(join(depRoot, 'dist', 'index.mjs'), 'export function runMain() {}')
+    if (options.devEntry !== false) {
+      writeFileSync(join(depRoot, 'dist', 'dev', 'index.mjs'), 'export const initialize = () => {}')
+    }
+  }
+  return root
+}
+
+describe('loadProjectCli', () => {
+  it('should resolve `@nuxt/cli` from the current directory', () => {
+    const root = createProject('with-cli', { '@nuxt/cli': '3.40.0' })
+    process.chdir(root)
+
+    const cli = loadProjectCli([])
+    expect(cli?.name).toBe('@nuxt/cli')
+    expect(cli?.version).toBe('3.40.0')
+    expect(cli?.devEntry).toBe(join(root, 'node_modules', '@nuxt/cli', 'dist', 'dev', 'index.mjs'))
+  })
+
+  it('should resolve `@nuxt/cli` from an explicit `--cwd`', () => {
+    const root = createProject('with-cwd', { '@nuxt/cli': '3.40.0' })
+
+    expect(loadProjectCli(['dev', '--cwd', root])?.entry).toContain(root)
+    expect(loadProjectCli([`--cwd=${root}`, 'dev'])?.entry).toContain(root)
+  })
+
+  it('should resolve `@nuxt/cli` from a positional root directory', () => {
+    const root = createProject('with-positional', { '@nuxt/cli': '3.40.0' })
+
+    expect(loadProjectCli(['info', root])?.entry).toContain(root)
+
+    process.chdir(createProject('without-cli', {}))
+    expect(loadProjectCli(['init', root])).toBeNull()
+  })
+
+  it('should fall back to a legacy `nuxi` dependency', () => {
+    const root = createProject('with-legacy', { nuxi: '3.20.0' })
+
+    const cli = loadProjectCli(['dev', '--cwd', root])
+    expect(cli?.name).toBe('nuxi')
+    expect(cli?.version).toBe('3.20.0')
+  })
+
+  it('should ignore a project CLI that is too old to hand off to', () => {
+    process.chdir(createProject('without-cli', {}))
+
+    const nuxt2Cli = createProject('with-nuxt-2-cli', { '@nuxt/cli': '2.16.0' })
+    expect(loadProjectCli(['dev', '--cwd', nuxt2Cli])).toBeNull()
+
+    const oldNuxi = createProject('with-old-nuxi', { nuxi: '0.10.0' })
+    expect(loadProjectCli(['dev', '--cwd', oldNuxi])).toBeNull()
+  })
+
+  it('should report a missing dev entry', () => {
+    const root = createProject('without-dev-entry', { '@nuxt/cli': '3.40.0' }, { devEntry: false })
+
+    expect(loadProjectCli(['dev', '--cwd', root])?.devEntry).toBeUndefined()
+  })
+
+  it('should return `null` when there is no project CLI', () => {
+    process.chdir(createProject('without-cli', {}))
+
+    expect(loadProjectCli(['dev'])).toBeNull()
+  })
+})
+
+describe('supportsCommand', () => {
+  const main = { subCommands: { dev: () => {}, init: () => {} } }
+
+  it('should defer commands the project CLI knows', () => {
+    expect(supportsCommand(main, 'dev')).toBe(true)
+  })
+
+  it('should not defer `nuxi` commands the project CLI is missing', () => {
+    expect(supportsCommand(main, 'add-template')).toBe(false)
+  })
+
+  it('should defer anything that is not a `nuxi` command', () => {
+    expect(supportsCommand(main, 'complete')).toBe(true)
+    expect(supportsCommand(main, 'frobnicate')).toBe(true)
+  })
+
+  it('should defer when the command list cannot be inspected', () => {
+    expect(supportsCommand({ subCommands: () => ({}) }, 'dev')).toBe(true)
+    expect(supportsCommand({}, 'dev')).toBe(true)
+    expect(supportsCommand(undefined, 'dev')).toBe(true)
+  })
+})
