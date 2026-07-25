@@ -23,8 +23,8 @@ export function hasProxyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
  * Whether the current Node.js can route `fetch`/`http` through `HTTP_PROXY`,
  * `HTTPS_PROXY` and `NO_PROXY` itself.
  */
-export function supportsEnvProxy(): boolean {
-  return process.allowedNodeEnvironmentFlags?.has('--use-env-proxy') ?? false
+export function supportsEnvProxy(flags: { has: (flag: string) => boolean } | undefined = process.allowedNodeEnvironmentFlags): boolean {
+  return flags?.has('--use-env-proxy') ?? false
 }
 
 /**
@@ -212,6 +212,29 @@ export function classifyNetworkError(err: unknown): NetworkFailure {
   return { kind: 'unknown', code }
 }
 
+/**
+ * `giget` flattens the underlying failure to `TypeError: fetch failed`, dropping
+ * both `cause` and `code`, so DNS, refused and timed-out downloads are
+ * indistinguishable. Re-request the origin to recover a diagnosable error.
+ * Returns `undefined` when the origin turns out to be reachable.
+ */
+export async function probeNetworkError(url: string, timeout = 3000): Promise<unknown | undefined> {
+  let origin: string
+  try {
+    origin = new URL(url).origin
+  }
+  catch {
+    return
+  }
+
+  try {
+    await fetch(origin, { method: 'HEAD', signal: AbortSignal.timeout(timeout) })
+  }
+  catch (err) {
+    return err
+  }
+}
+
 /** A single-line, human-readable explanation of a failed network request. */
 export function describeNetworkError(err: unknown, url?: string): string {
   const host = getHost(url)
@@ -275,6 +298,12 @@ export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandC
 
   if (!(envProxyActive ?? isEnvProxyActive(env))) {
     return `A proxy is configured but Node.js only reads it at startup. Retry with ${colors.cyan(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, ctx))}`
+  }
+
+  // A connection dropped mid-handshake through a proxy that is genuinely in use
+  // is the usual signature of TLS interception with an untrusted root.
+  if (kind === 'reset') {
+    return `The proxy may be re-signing TLS traffic. Retry with your organisation's root certificate: ${colors.cyan(formatRetryCommand({ NODE_EXTRA_CA_CERTS: '/path/to/corporate-ca.pem' }, ctx))}`
   }
 }
 

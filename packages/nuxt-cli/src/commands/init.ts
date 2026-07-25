@@ -23,7 +23,7 @@ import { runCommandDef as runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { debug, logger } from '../utils/logger'
-import { describeNetworkError, logNetworkError } from '../utils/network'
+import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../utils/network'
 import { relativeToProcess } from '../utils/paths'
 import { getTemplates, TEMPLATES_API_URL } from '../utils/starter-templates'
 import { getNuxtVersion } from '../utils/versions'
@@ -364,7 +364,10 @@ export default defineCommand({
       if (process.env.DEBUG) {
         throw err
       }
-      logNetworkError(err, {
+      const diagnosable = classifyNetworkError(err).kind === 'unknown'
+        ? await probeNetworkError(registry) ?? err
+        : err
+      logNetworkError(diagnosable, {
         url: registry,
         hints: [
           `Retry with ${colors.cyan('--offline')} or ${colors.cyan('--preferOffline')} to use a cached template, or set ${colors.cyan('NUXI_INIT_REGISTRY')} to a reachable mirror.`,

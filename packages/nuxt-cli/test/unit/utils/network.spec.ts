@@ -1,6 +1,11 @@
+import type { AddressInfo } from 'node:net'
+
+import { createServer } from 'node:http'
 import { stripVTControlCharacters } from 'node:util'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { downloadTemplate } from 'giget'
+import { $fetch } from 'ofetch'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const logs: Array<[string, string]> = []
 
@@ -13,7 +18,7 @@ vi.mock('../../../src/utils/logger', () => ({
   debug: () => {},
 }))
 
-const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, setupProxySupport, supportsEnvProxy } = await import('../../../src/utils/network')
+const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, probeNetworkError, setupProxySupport, supportsEnvProxy } = await import('../../../src/utils/network')
 
 const NUXI_ARGV = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', 'my app']
 
@@ -24,6 +29,22 @@ function clean(message: string) {
 function withCode(code: string, message = 'fetch failed') {
   return Object.assign(new Error(message), { cause: Object.assign(new Error(code), { code }) })
 }
+
+async function captureError(fn: () => Promise<unknown>): Promise<unknown> {
+  try {
+    await fn()
+  }
+  catch (err) {
+    return err
+  }
+  throw new Error('expected the request to fail')
+}
+
+// `setupProxySupport` caches whether the current process is proxy-aware, so tests
+// must not inherit each other's state (or the ambient environment's).
+beforeEach(() => {
+  setupProxySupport({})
+})
 
 describe('hasProxyEnv', () => {
   it('detects lower and upper case variants', () => {
@@ -60,6 +81,12 @@ describe('setupProxySupport', () => {
     }
   })
 
+  it('detects support from the flags Node.js accepts', () => {
+    expect(supportsEnvProxy(new Set(['--use-env-proxy']))).toBe(true)
+    expect(supportsEnvProxy(new Set(['--enable-source-maps']))).toBe(false)
+    expect(supportsEnvProxy({ has: () => false })).toBe(false)
+  })
+
   it('reports the current process as proxy-aware when launched with the flag', () => {
     if (!supportsEnvProxy()) {
       return
@@ -69,6 +96,81 @@ describe('setupProxySupport', () => {
     expect(isEnvProxyActive({}, ['--use-env-proxy'])).toBe(true)
     expect(isEnvProxyActive({ HTTPS_PROXY: 'http://localhost:3128' }, [])).toBe(false)
     expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' })).toBe('active')
+  })
+})
+
+describe('describeNetworkError with real failures', () => {
+  const server = createServer((req, res) => {
+    if (req.url?.includes('slow')) {
+      setTimeout(() => res.end('{}'), 500).unref()
+      return
+    }
+    res.writeHead(req.url?.includes('teapot') ? 418 : 404, { 'content-type': 'application/json' })
+    res.end('{}')
+  })
+
+  let port = 0
+  let closedPort = 0
+
+  beforeAll(async () => {
+    port = await new Promise<number>(resolve => server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port)))
+
+    // Bind then release a port so connections to it are refused rather than
+    // rejected by undici's bad-port list (which is what happens for port 1).
+    const spare = createServer()
+    closedPort = await new Promise<number>(resolve => spare.listen(0, '127.0.0.1', () => resolve((spare.address() as AddressInfo).port)))
+    await new Promise<void>(resolve => spare.close(() => resolve()))
+  })
+
+  afterAll(() => new Promise<void>(resolve => server.close(() => resolve())))
+
+  it('describes a real refused connection from `fetch`', async () => {
+    const url = `http://127.0.0.1:${closedPort}/`
+    const err = await captureError(() => fetch(url))
+    expect(classifyNetworkError(err)).toMatchObject({ kind: 'refused', code: 'ECONNREFUSED' })
+    expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${closedPort} was refused.`)
+  })
+
+  it('describes a real refused connection from `ofetch`', async () => {
+    const url = `http://127.0.0.1:${closedPort}/`
+    const err = await captureError(() => $fetch(url))
+    expect(classifyNetworkError(err).kind).toBe('refused')
+    expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${closedPort} was refused.`)
+  })
+
+  it('describes a real `ofetch` non-2xx response', async () => {
+    const url = `http://127.0.0.1:${port}/teapot`
+    const err = await captureError(() => $fetch(url))
+    expect(classifyNetworkError(err)).toMatchObject({ kind: 'http', status: 418 })
+    expect(clean(describeNetworkError(err, url))).toBe(`Request to 127.0.0.1:${port} failed with status 418.`)
+  })
+
+  it('describes a real `ofetch` timeout, whose code is a DOMException number', async () => {
+    const url = `http://127.0.0.1:${port}/slow`
+    const err = await captureError(() => $fetch(url, { timeout: 20 }))
+    expect(classifyNetworkError(err).kind).toBe('timeout')
+    expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${port} timed out.`)
+  })
+
+  it('collapses a real `giget` failure, which preserves neither cause nor code', async () => {
+    const url = `http://127.0.0.1:${closedPort}/templates`
+    const err = await captureError(() => downloadTemplate('minimal', { dir: '/tmp/nuxi-network-spec', registry: url, force: true }))
+
+    expect((err as Error).cause).toBeUndefined()
+    expect(classifyNetworkError(err).kind).toBe('unknown')
+    expect(clean(describeNetworkError(err, url))).toBe(`Could not reach 127.0.0.1:${closedPort}.`)
+  })
+
+  it('recovers a diagnosable error for an unreachable origin', async () => {
+    const probed = await probeNetworkError(`http://127.0.0.1:${closedPort}/templates`)
+    expect(classifyNetworkError(probed)).toMatchObject({ kind: 'refused', code: 'ECONNREFUSED' })
+    expect(clean(describeNetworkError(probed, `http://127.0.0.1:${closedPort}/templates`)))
+      .toBe(`Connection to 127.0.0.1:${closedPort} was refused.`)
+  })
+
+  it('does not invent a failure when the origin is reachable', async () => {
+    await expect(probeNetworkError(`http://127.0.0.1:${port}/templates`)).resolves.toBeUndefined()
+    await expect(probeNetworkError('not a url')).resolves.toBeUndefined()
   })
 })
 
@@ -178,6 +280,27 @@ describe('getProxyHint', () => {
 
   it('does not blame the proxy for a plain HTTP error', () => {
     expect(getProxyHint('http', { env: {} })).toBeUndefined()
+  })
+
+  it('suspects TLS interception when a proxy in use resets the connection', () => {
+    if (!supportsEnvProxy()) {
+      return
+    }
+    const env = { HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }
+    setupProxySupport({ ...env })
+    const hint = clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false })!)
+    expect(hint).toContain('re-signing TLS traffic')
+    expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init "my app"')
+  })
+
+  it('prefers the proxy-not-in-use hint over the certificate hint', () => {
+    if (!supportsEnvProxy()) {
+      return
+    }
+    const env = { HTTPS_PROXY: 'http://localhost:3128' }
+    setupProxySupport({ ...env })
+    expect(clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false })!))
+      .toContain('NODE_USE_ENV_PROXY=1')
   })
 })
 
