@@ -15,7 +15,16 @@ const { copyURL, openBrowser, printQRCode } = vi.hoisted(() => ({
 
 vi.mock('../../src/dev/listen', () => ({ copyURL, openBrowser, printQRCode }))
 
-vi.mock('std-env', () => ({ isCI: false, isTest: false }))
+const environment = vi.hoisted(() => ({ isCI: false, isTest: false }))
+
+vi.mock('std-env', () => ({
+  get isCI() {
+    return environment.isCI
+  },
+  get isTest() {
+    return environment.isTest
+  },
+}))
 
 describe('setupShortcuts', () => {
   const restores: Array<() => void> = []
@@ -24,7 +33,9 @@ describe('setupShortcuts', () => {
     for (const restore of restores.splice(0)) {
       restore()
     }
+    Object.assign(environment, { isCI: false, isTest: false })
     vi.restoreAllMocks()
+    vi.clearAllMocks()
   })
 
   function setup(context: Partial<ShortcutContext> = {}, { isTTY = true } = {}) {
@@ -35,8 +46,7 @@ describe('setupShortcuts', () => {
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
     restores.push(() => Object.defineProperty(process, 'stdin', { value: original, configurable: true }))
 
-    const logs: string[] = []
-    vi.spyOn(console, 'log').mockImplementation(message => void logs.push(String(message)))
+    vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const listener = {
       url: 'http://localhost:3000/',
@@ -53,45 +63,29 @@ describe('setupShortcuts', () => {
 
     setupShortcuts(resolved)
 
-    const press = async (input: string) => {
-      stdin.write(`${input}\n`)
-      await new Promise(resolve => setImmediate(resolve))
+    return {
+      context: resolved,
+      listener,
+      stdin,
+      press: async (input: string) => {
+        stdin.write(`${input}\n`)
+        await new Promise(resolve => setImmediate(resolve))
+      },
     }
-
-    return { context: resolved, listener, logs, press, stdin }
   }
 
-  it('should do nothing when stdin is not a TTY', () => {
-    const { logs, stdin } = setup({}, { isTTY: false })
+  it('should not read stdin when it is not a TTY', () => {
+    const { stdin } = setup({}, { isTTY: false })
 
-    expect(logs).toHaveLength(0)
-    expect(stdin.listenerCount('line')).toBe(0)
+    expect(stdin.listenerCount('data')).toBe(0)
   })
 
-  it('should hint at the help shortcut once ready', () => {
-    const { logs } = setup()
+  it('should not read stdin in CI or under test', () => {
+    environment.isCI = true
+    expect(setup().stdin.listenerCount('data')).toBe(0)
 
-    expect(logs.join('\n')).toContain('h + enter')
-  })
-
-  it('should open the browser and show urls', async () => {
-    const { listener, press } = setup()
-
-    await press('o')
-    await vi.waitFor(() => expect(openBrowser).toHaveBeenCalledWith('http://localhost:3000/'))
-
-    await press('urls')
-    expect(listener.showURLs).toHaveBeenCalled()
-  })
-
-  it('should reprint the urls after clearing the console', async () => {
-    const { listener, press } = setup()
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-
-    await press('clear')
-
-    expect(write).toHaveBeenCalledWith('\u001B[2J\u001B[3J\u001B[H')
-    expect(listener.showURLs).toHaveBeenCalled()
+    Object.assign(environment, { isCI: false, isTest: true })
+    expect(setup().stdin.listenerCount('data')).toBe(0)
   })
 
   it('should distinguish `q` from `qr`', async () => {
@@ -108,11 +102,27 @@ describe('setupShortcuts', () => {
     expect(exit).toHaveBeenCalled()
   })
 
-  it('should prefer a network url for sharing', async () => {
+  it('should share the most reachable url', async () => {
     const listener = {
       url: 'http://localhost:3000/',
       qrURL: 'http://192.168.1.20:3000/',
+      publicURL: 'https://example.com/',
       getURLs: () => [],
+      showURLs: vi.fn(),
+    } as unknown as Listener
+    const { press } = setup({ listener })
+
+    await press('copy')
+    await vi.waitFor(() => expect(copyURL).toHaveBeenCalledWith('http://192.168.1.20:3000/'))
+  })
+
+  it('should fall back to a network url when sharing', async () => {
+    const listener = {
+      url: 'http://localhost:3000/',
+      getURLs: () => [
+        { url: 'http://localhost:3000/', type: 'local' },
+        { url: 'http://192.168.1.20:3000/', type: 'network' },
+      ],
       showURLs: vi.fn(),
     } as unknown as Listener
     const { press } = setup({ listener })
@@ -123,20 +133,62 @@ describe('setupShortcuts', () => {
 
   it('should restart when a restart handler is available', async () => {
     const restart = vi.fn()
-    const { press, logs } = setup({ restart })
+    const { press } = setup({ restart })
 
     await press('r')
-    expect(restart).toHaveBeenCalled()
-
-    await press('h')
-    expect(logs.join('\n')).toContain('restart the dev server')
+    await vi.waitFor(() => expect(restart).toHaveBeenCalled())
   })
 
-  it('should hide the restart shortcut when unavailable', async () => {
-    const { press, logs } = setup()
+  it('should ignore the restart shortcut when no handler is available', async () => {
+    const { press, listener } = setup()
 
-    await press('h')
-    expect(logs.join('\n')).not.toContain('restart the dev server')
-    expect(logs.join('\n')).toContain('quit')
+    await press('r')
+
+    expect(listener.showURLs).not.toHaveBeenCalled()
+    expect(openBrowser).not.toHaveBeenCalled()
+  })
+
+  it('should report a failure to quit and exit non-zero', async () => {
+    const exitCode = process.exitCode
+    restores.push(() => {
+      process.exitCode = exitCode
+    })
+
+    const close = vi.fn().mockRejectedValue(new Error('could not close'))
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { press } = setup({ close })
+
+    await press('q')
+    await vi.waitFor(() => expect(exit).toHaveBeenCalled())
+
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'could not close' }))
+    expect(process.exitCode).toBe(1)
+  })
+
+  it('should report a failing shortcut without exiting', async () => {
+    const listener = {
+      url: 'http://localhost:3000/',
+      getURLs: () => [],
+      showURLs: vi.fn(() => {
+        throw new Error('boom')
+      }),
+    } as unknown as Listener
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { press } = setup({ listener })
+
+    await press('urls')
+
+    await vi.waitFor(() => expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom' })))
+  })
+
+  it('should ignore unknown input', async () => {
+    const { press, listener } = setup()
+
+    await press('nonsense')
+
+    expect(listener.showURLs).not.toHaveBeenCalled()
+    expect(openBrowser).not.toHaveBeenCalled()
+    expect(copyURL).not.toHaveBeenCalled()
   })
 })

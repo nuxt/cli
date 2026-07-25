@@ -30,7 +30,7 @@ function screen(renderer: Renderer): string {
 }
 
 /** Pretend to be a Linux desktop running `browser`, or a headless one. */
-function stubDisplay({ browser }: { browser?: string } = {}): () => void {
+function stubDisplay({ browser, browserArgs }: { browser?: string, browserArgs?: string } = {}): () => void {
   const platform = process.platform
   const env = { ...process.env }
   Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
@@ -40,6 +40,7 @@ function stubDisplay({ browser }: { browser?: string } = {}): () => void {
     WAYLAND_DISPLAY: undefined,
     WSL_DISTRO_NAME: undefined,
     BROWSER: browser,
+    BROWSER_ARGS: browserArgs,
   }
   return () => {
     Object.defineProperty(process, 'platform', { value: platform, configurable: true })
@@ -61,12 +62,12 @@ describe('dev server terminal output', () => {
     return listener
   }
 
-  async function withShortcuts(context: Partial<ShortcutContext> = {}) {
+  async function withShortcuts(context: Partial<ShortcutContext> = {}, options: Parameters<typeof listen>[1] = {}) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
     Object.assign(stdin, { isTTY: true })
     vi.spyOn(process, 'stdin', 'get').mockReturnValue(stdin)
 
-    const listener = await start({ showURL: false })
+    const listener = await start({ showURL: false, ...options })
     setupShortcuts({
       listener,
       close: async () => {},
@@ -118,6 +119,12 @@ describe('dev server terminal output', () => {
   })
 
   describe('shortcuts', () => {
+    it('should hint at the help shortcut once the server is ready', async () => {
+      const renderer = await render(() => withShortcuts())
+
+      expect(screen(renderer)).toContain('press h + enter to see available shortcuts')
+    })
+
     it('should caption a standalone qr code with its url', async () => {
       const renderer = await render(() => printQRCode('http://192.168.1.20:3000/', { showURL: true }))
       const lines = screen(renderer).split('\n').filter(Boolean)
@@ -141,6 +148,24 @@ describe('dev server terminal output', () => {
           ➜ Network:  use --host to expose"
       `)
       expect(renderer.frames.at(-1)).not.toContain('noise from a previous build')
+    })
+
+    it('should point a requested qr code at the public url', async () => {
+      const { press } = await withShortcuts({}, { publicURL: 'https://example.com/' })
+
+      const renderer = await render(() => press('qr'))
+
+      expect(screen(renderer).split('\n').filter(Boolean).at(-1)).toContain('https://example.com/')
+    })
+
+    it('should say so when there is no clipboard to copy to', async () => {
+      const restore = stubDisplay()
+      const { press } = await withShortcuts()
+
+      const renderer = await render(() => press('copy'))
+      restore()
+
+      expect(screen(renderer)).toContain('No clipboard is available in this environment.')
     })
 
     it('should list the available shortcuts', async () => {
@@ -182,7 +207,8 @@ describe('dev server terminal output', () => {
     })
 
     it('should say so when the browser launcher exits with an error', async () => {
-      const restore = stubDisplay({ browser: 'false' })
+      // A launcher that fails, without depending on a platform-specific binary.
+      const restore = stubDisplay({ browser: process.execPath, browserArgs: '-e process.exit(1)' })
 
       const renderer = await render(async ({ waitForOutput }) => {
         openBrowser('http://localhost:3000/')
