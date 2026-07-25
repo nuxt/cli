@@ -1,9 +1,39 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { detectTemplatePackageManager, getNextSteps } from '../../../src/commands/init'
+import { detectTemplatePackageManager, getNextSteps, useYarnNodeModulesLinker } from '../../../src/commands/init'
+
+describe('useYarnNodeModulesLinker', () => {
+  let dir: string
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'nuxt-init-yarn-'))
+  })
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true })
+  })
+
+  it('should opt a fresh project out of plug\'n\'play', async () => {
+    expect(await useYarnNodeModulesLinker(dir)).toBe(true)
+    expect(await readFile(join(dir, '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
+  })
+
+  it('should not overwrite yarn configuration from a template', async () => {
+    await writeFile(join(dir, '.yarnrc.yml'), 'nodeLinker: pnp\n')
+    expect(await useYarnNodeModulesLinker(dir)).toBe(false)
+    expect(await readFile(join(dir, '.yarnrc.yml'), 'utf8')).toBe('nodeLinker: pnp\n')
+  })
+
+  it('should not add yarn 2+ configuration alongside a yarn 1 config', async () => {
+    await writeFile(join(dir, '.yarnrc'), 'registry "https://example.com"\n')
+    expect(await useYarnNodeModulesLinker(dir)).toBe(false)
+    expect(existsSync(join(dir, '.yarnrc.yml'))).toBe(false)
+  })
+})
 
 describe('getNextSteps', () => {
   const base = { shell: false, recoveryCommands: [] as string[], packageManager: 'npm' as const }

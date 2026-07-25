@@ -5,6 +5,7 @@ import type { InstallResult } from '../utils/install'
 import type { TemplateData } from '../utils/starter-templates'
 
 import { existsSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
 import { Writable } from 'node:stream'
 
@@ -83,6 +84,27 @@ async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
   logger.error(`Non-interactive terminal detected. Missing required ${label}: ${missingArgs
     .map(name => colors.cyan(name === 'dir' ? '<dir>' : `--${name}`))
     .join(', ')}`)
+}
+
+const YARN_NODE_LINKER = `# Nuxt cannot resolve its modules under Yarn's default Plug'n'Play linker.
+# See https://github.com/nuxt/nuxt/issues/26750
+nodeLinker: node-modules
+`
+
+/**
+ * Opt a scaffolded project out of Yarn's Plug'n'Play linker, under which
+ * `nuxt prepare` cannot resolve `@nuxt/kit` and the project will not build.
+ *
+ * Templates that ship any Yarn configuration of their own are left alone, so a
+ * template can still choose Plug'n'Play. Yarn 1 ignores `.yarnrc.yml`, so
+ * writing it there is harmless.
+ */
+export async function useYarnNodeModulesLinker(dir: string): Promise<boolean> {
+  if (existsSync(join(dir, '.yarnrc.yml')) || existsSync(join(dir, '.yarnrc'))) {
+    return false
+  }
+  await writeFile(join(dir, '.yarnrc.yml'), YARN_NODE_LINKER, 'utf8')
+  return true
 }
 
 /**
@@ -503,6 +525,10 @@ export default defineCommand({
       }
 
       selectedPackageManager = result
+    }
+
+    if (selectedPackageManager === 'yarn' && await useYarnNodeModulesLinker(template.dir)) {
+      logger.info(`Created ${colors.cyan('.yarnrc.yml')} with ${colors.cyan('nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
     }
 
     // Determine if we should init git
