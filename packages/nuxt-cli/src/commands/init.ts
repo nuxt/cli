@@ -17,7 +17,7 @@ import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
-import { runCommand } from '../run'
+import { runCommandDef as runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'

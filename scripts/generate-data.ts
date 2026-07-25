@@ -6,13 +6,13 @@ import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 
-import { fetchTemplates } from '../packages/nuxi/src/utils/starter-templates.ts'
+import { fetchTemplates } from '../packages/nuxt-cli/src/utils/starter-templates.ts'
 
 interface PresetMeta {
   _meta?: { name: string }
 }
 
-const dataDir = new URL('../packages/nuxi/src/data/', import.meta.url)
+const dataDir = new URL('../packages/nuxt-cli/src/data/', import.meta.url)
 
 export async function generateCompletionData() {
   const [nitroPresets, templates] = await Promise.all([

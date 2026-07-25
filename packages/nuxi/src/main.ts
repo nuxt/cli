@@ -1,5 +1,5 @@
 import type { CommandDef } from 'citty'
-import type { TemplateName } from './utils/templates/names'
+import type { TemplateName } from '../../nuxt-cli/src/utils/templates/names'
 
 import nodeCrypto from 'node:crypto'
 import { builtinModules, createRequire } from 'node:module'
@@ -10,14 +10,14 @@ import { runMain as _runMain, defineCommand } from 'citty'
 import colors from 'picocolors'
 import { provider } from 'std-env'
 
+import { commands } from '../../nuxt-cli/src/commands'
+import { cwdArgs } from '../../nuxt-cli/src/commands/_shared'
+import { setupGlobalConsole } from '../../nuxt-cli/src/utils/console'
+import { checkEngines } from '../../nuxt-cli/src/utils/engines'
+import { debug, logger } from '../../nuxt-cli/src/utils/logger'
+import { templateNames } from '../../nuxt-cli/src/utils/templates/names'
 import { description, name, version } from '../package.json'
-import { commands } from './commands'
-import { cwdArgs } from './commands/_shared'
 import { runCommand } from './run'
-import { setupGlobalConsole } from './utils/console'
-import { checkEngines } from './utils/engines'
-import { debug, logger } from './utils/logger'
-import { templateNames } from './utils/templates/names'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
@@ -70,7 +70,7 @@ const _main = defineCommand({
     if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
       logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
       logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
-      const addTemplate = await import('./commands/add-template').then(m => m.default || m)
+      const addTemplate = await import('../../nuxt-cli/src/commands/add-template').then(m => m.default || m)
       await runCommand(addTemplate, [...ctx.rawArgs.slice(1)]).catch((err) => {
         console.error(err.message)
         process.exit(1)
@@ -104,7 +104,7 @@ export const main = _main as CommandDef<any>
 
 export async function runMain(): Promise<void> {
   if (process.argv[2] === 'complete') {
-    const { initCompletions } = await import('./completions')
+    const { initCompletions } = await import('../../nuxt-cli/src/completions')
     await initCompletions(main)
   }
 

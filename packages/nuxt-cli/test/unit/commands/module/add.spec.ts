@@ -82,7 +82,7 @@ describe('module add', () => {
     v3 = json['dist-tags'].latest
   })
   applyMocks()
-  vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
+  vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([
     {

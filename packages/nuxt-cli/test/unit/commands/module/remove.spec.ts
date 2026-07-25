@@ -33,7 +33,7 @@ vi.mock('@clack/prompts', async importOriginal => ({
 }))
 
 describe('module remove', () => {
-  vi.spyOn(runCommands, 'runCommand').mockImplementation(vi.fn())
+  vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([
     {
       name: 'content',

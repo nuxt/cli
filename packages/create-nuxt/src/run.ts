@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 
 import { runCommand as _runCommand, runMain as _runMain } from 'citty'
 
-import init from '../../nuxi/src/commands/init'
+import init from '../../nuxt-cli/src/commands/init'
 import { main } from './main'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {

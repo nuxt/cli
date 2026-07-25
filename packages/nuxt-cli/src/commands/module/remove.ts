@@ -12,7 +12,7 @@ import { resolve } from 'pathe'
 import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 
-import { runCommand } from '../../run'
+import { runCommandDef as runCommand } from '../../run'
 import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'

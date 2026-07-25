@@ -70,7 +70,7 @@ jobs:
           cache: pnpm
 
       # The repo's `postinstall` runs `scripts/generate-data.ts` to write
-      # `packages/nuxi/src/data/*.ts` that the build then bundles. uppt's
+      # `packages/nuxt-cli/src/data/*.ts` that the build then bundles. uppt's
       # default install path uses `--ignore-scripts`, which would skip it
       # and produce a stale or broken nuxi tarball, so we install ourselves
       # and pass `install: false` to uppt/pack.
