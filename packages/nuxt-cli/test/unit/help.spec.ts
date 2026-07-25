@@ -26,7 +26,7 @@ describe('help', () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 
-      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|_dev|dev|devtools|generate|info|init|module|prepare|preview|start|test|typecheck|upgrade
+      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|dev|devtools|generate|info|init|module|prepare|preview|test|typecheck|upgrade
 
       ARGUMENTS
 
@@ -38,24 +38,22 @@ describe('help', () => {
 
       COMMANDS
 
-                 add    Add Nuxt modules                                                     
-        add-template    Create a new template file.                                          
-             analyze    Build Nuxt and analyze production bundle (experimental)              
-               build    Build Nuxt for production deployment                                 
-             cleanup    Clean up generated Nuxt files and caches                             
-                _dev    Run Nuxt development server (internal command to start child process)
-                 dev    Run Nuxt development server                                          
-            devtools    Enable or disable devtools in a Nuxt project                         
-            generate    Build Nuxt and prerender all routes                                  
-                info    Get information about Nuxt project                                   
-                init    Initialize a fresh project                                           
-              module    Manage Nuxt modules                                                  
-             prepare    Prepare Nuxt for development/build                                   
-             preview    Launches Nitro server for local testing after \`nuxt build\`.          
-               start    Launches Nitro server for local testing after \`nuxt build\`.          
-                test    Run tests                                                            
-           typecheck    Runs type-checking throughout your app using \`vue-tsc\` or Golar.     
-             upgrade    Upgrade Nuxt                                                         
+                 add    Add Nuxt modules                                                
+        add-template    Create a new template file.                                     
+             analyze    Build Nuxt and analyze production bundle (experimental)         
+               build    Build Nuxt for production deployment                            
+             cleanup    Clean up generated Nuxt files and caches                        
+                 dev    Run Nuxt development server                                     
+            devtools    Enable or disable devtools in a Nuxt project                    
+            generate    Build Nuxt and prerender all routes                             
+                info    Get information about Nuxt project                              
+                init    Initialize a fresh project                                      
+              module    Manage Nuxt modules                                             
+             prepare    Prepare Nuxt for development/build                              
+             preview    Launches Nitro server for local testing after \`nuxt build\`.     
+                test    Run tests                                                       
+           typecheck    Runs type-checking throughout your app using \`vue-tsc\` or Golar.
+             upgrade    Upgrade Nuxt                                                    
 
       Use nuxt <command> --help for more information about a command."
     `)
@@ -381,9 +379,9 @@ describe('help', () => {
 
   it('nuxt start', async () => {
     expect(await usage(commands.start, main)).toMatchInlineSnapshot(`
-      "Launches Nitro server for local testing after \`nuxt build\`. (nuxt preview v0.0.0)
+      "Launches Nitro server for local testing after \`nuxt build\`. (nuxt start v0.0.0)
 
-      USAGE nuxt preview [OPTIONS] [ROOTDIR]
+      USAGE nuxt start [OPTIONS] [ROOTDIR]
 
       ARGUMENTS
 
