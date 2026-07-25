@@ -1,11 +1,11 @@
 import type { Buffer } from 'node:buffer'
 import type { SpawnOptions } from 'node:child_process'
 
-import type { PackageManager } from 'nypm'
+import type { PackageManager, PackageManagerName } from 'nypm'
 import { spawn } from 'node:child_process'
 
 import { log, S_BAR } from '@clack/prompts'
-import { addDependency, installDependencies } from 'nypm'
+import { addDependency, installDependencies, packageManagers } from 'nypm'
 import colors from 'picocolors'
 import { provider } from 'std-env'
 import { normalizeSpawnCommand, x } from 'tinyexec'
@@ -22,6 +22,24 @@ const OUTPUT_TAIL_LINES = 30
 const IGNORED_BUILDS_RE = /Ignored build scripts:\s*([^\n│]+)/
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[\d;]*[A-Z]/gi
+
+/**
+ * Build a full package manager descriptor for `name`, carrying over nypm's own
+ * metadata (lockfile and marker files, and the major version it derives command
+ * flags from) rather than only the command to run.
+ */
+export function resolvePackageManagerDescriptor(name: PackageManagerName, version?: string): PackageManager {
+  const descriptor = packageManagers.find(pm => pm.name === name)
+  const resolvedVersion = version ?? descriptor?.version
+
+  return {
+    ...descriptor,
+    name,
+    command: name,
+    version: resolvedVersion,
+    majorVersion: resolvedVersion?.split('.')[0] ?? descriptor?.majorVersion,
+  }
+}
 
 export interface InstallOptions {
   cwd: string

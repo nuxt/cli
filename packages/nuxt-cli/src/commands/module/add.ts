@@ -20,7 +20,7 @@ import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run'
-import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
+import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
@@ -273,10 +273,18 @@ async function resolvePackageManager(cwd: string, name?: string): Promise<Packag
     logger.warn(`Unknown package manager ${colors.cyan(name)}, detecting one instead.`)
   }
 
-  return requested
-    ?? await detectPackageManager(cwd, { includeParentDirs: false })
+  const detected = await detectPackageManager(cwd, { includeParentDirs: false })
     ?? await detectPackageManager(cwd)
-    ?? { name: 'npm', command: 'npm' }
+
+  if (!requested) {
+    return detected ?? resolvePackageManagerDescriptor('npm')
+  }
+
+  // The detected descriptor knows the version the project pins, which the static
+  // list does not, so prefer it when it agrees with the requested manager.
+  return detected?.name === requested.name
+    ? detected
+    : resolvePackageManagerDescriptor(requested.name)
 }
 
 /**

@@ -21,7 +21,7 @@ import { x } from 'tinyexec'
 
 import { runCommandDef as runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
-import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
+import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { getTemplates } from '../utils/starter-templates'
@@ -500,10 +500,10 @@ export default defineCommand({
 
       const result = await runInstall({
         cwd: template.dir,
-        packageManager: {
-          name: selectedPackageManager,
-          command: selectedPackageManager,
-        },
+        packageManager: resolvePackageManagerDescriptor(
+          selectedPackageManager,
+          templatePackageManager?.name === selectedPackageManager ? templatePackageManager.version : undefined,
+        ),
         onOutput: installLog.onOutput,
         onStatus: message => installSpinner.message(message),
         signal: installController.signal,
