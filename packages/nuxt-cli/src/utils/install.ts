@@ -1,8 +1,9 @@
 import type { Buffer } from 'node:buffer'
-import type { SpawnOptions } from 'node:child_process'
+import type { ChildProcess, SpawnOptions } from 'node:child_process'
 
 import type { PackageManager, PackageManagerName } from 'nypm'
 import { spawn } from 'node:child_process'
+import process from 'node:process'
 
 import { log, S_BAR } from '@clack/prompts'
 import { addDependency, installDependencies, packageManagers } from 'nypm'
@@ -17,6 +18,7 @@ const TRAILING_DOT_RE = /\.$/
 
 const STALL_TIMEOUT = 30_000
 const STALL_POLL_INTERVAL = 1_000
+const KILL_GRACE_PERIOD = 5_000
 const OUTPUT_TAIL_LINES = 30
 
 const IGNORED_BUILDS_RE = /Ignored build scripts:\s*([^\n│]+)/
@@ -185,11 +187,22 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
   const spawnOptions: SpawnOptions = {
     cwd: options.cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
+    // Give the install its own process group so aborting can reach the package
+    // manager corepack spawns, not just corepack itself.
+    detached: process.platform !== 'win32',
   }
   const normalized = normalizeSpawnCommand(command, args, spawnOptions)
 
   return new Promise<InstallResult>((resolve) => {
     const child = spawn(normalized.command, [...normalized.args], normalized.options)
+
+    const abort = () => killTree(child)
+    if (options.signal?.aborted) {
+      abort()
+    }
+    else {
+      options.signal?.addEventListener('abort', abort, { once: true })
+    }
 
     const chunks: string[] = []
     let pending = ''
@@ -214,9 +227,6 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
 
     child.stdout?.on('data', onData)
     child.stderr?.on('data', onData)
-
-    const abort = () => child.kill()
-    options.signal?.addEventListener('abort', abort, { once: true })
 
     const stallTimer = setInterval(() => {
       if (notifiedStall || Date.now() - lastActivity < STALL_TIMEOUT) {
@@ -272,6 +282,32 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
       finish({ success: false, error: `\`${displayCommand}\` ${reason}.` })
     })
   })
+}
+
+/**
+ * Terminate an install, including whatever it spawned in turn, escalating to
+ * `SIGKILL` for a package manager that does not stop on its own.
+ */
+function killTree(child: ChildProcess) {
+  const kill = (signal: NodeJS.Signals) => {
+    try {
+      if (child.pid !== undefined && process.platform !== 'win32') {
+        process.kill(-child.pid, signal)
+        return
+      }
+      child.kill(signal)
+    }
+    catch {
+      // the process is already gone
+    }
+  }
+
+  kill('SIGTERM')
+  setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) {
+      kill('SIGKILL')
+    }
+  }, KILL_GRACE_PERIOD).unref?.()
 }
 
 function tail(output: string): string {
