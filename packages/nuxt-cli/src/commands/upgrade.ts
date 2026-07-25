@@ -6,7 +6,7 @@ import process from 'node:process'
 import { cancel, intro, isCancel, note, outro, select, spinner, tasks } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { addDependency, dedupeDependencies, detectPackageManager } from 'nypm'
-import { resolve } from 'pathe'
+import { dirname, relative, resolve } from 'pathe'
 import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
@@ -139,9 +139,16 @@ export default defineCommand({
     // Force install
     const toRemove = ['node_modules']
 
-    const lockFile = normaliseLockFile(workspaceDir, lockFileCandidates)
+    const lockFile = findLockFile(cwd, workspaceDir, lockFileCandidates)
     if (lockFile) {
       toRemove.push(lockFile)
+    }
+    else {
+      logger.error(
+        cwd === workspaceDir
+          ? `Unable to find a ${packageManagerName} lock file in ${colors.cyan(relativeToProcess(cwd))}.`
+          : `Unable to find a ${packageManagerName} lock file in ${colors.cyan(relativeToProcess(cwd))} or any directory up to ${colors.cyan(relativeToProcess(workspaceDir))}.`,
+      )
     }
 
     const forceRemovals = toRemove
@@ -270,17 +277,21 @@ export default defineCommand({
 })
 
 // Find which lock file is in use since `nypm.detectPackageManager` doesn't return this
-function normaliseLockFile(cwd: string, lockFiles: string | Array<string> | undefined) {
-  if (typeof lockFiles === 'string') {
-    lockFiles = [lockFiles]
-  }
+export function findLockFile(cwd: string, workspaceDir: string, lockFiles: string | Array<string> | undefined) {
+  const candidates = typeof lockFiles === 'string' ? [lockFiles] : lockFiles
 
-  const lockFile = lockFiles?.find(file => existsSync(resolve(cwd, file)))
-
-  if (lockFile === undefined) {
-    logger.error(`Unable to find any lock files in ${colors.cyan(relativeToProcess(cwd))}.`)
+  if (!candidates?.length) {
     return undefined
   }
 
-  return lockFile
+  for (let dir = cwd; ; dir = dirname(dir)) {
+    for (const file of candidates) {
+      if (existsSync(resolve(dir, file))) {
+        return relative(cwd, resolve(dir, file))
+      }
+    }
+    if (dir === workspaceDir || dir === dirname(dir)) {
+      return undefined
+    }
+  }
 }
