@@ -18,6 +18,7 @@ import { checkEngines } from './utils/engines'
 import { logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { templateNames } from './utils/templates/names'
+import { scheduleUpdateNudge } from './utils/update'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
 // the current process proxy-aware; it propagates the setting to child processes
@@ -42,11 +43,12 @@ const _main = defineCommand({
     const command = ctx.args._[0]
     setupGlobalConsole({ dev: command === 'dev' })
 
-    // Check Node.js version in background
+    // Check Node.js version and Nuxt updates in background
     let backgroundTasks: Promise<any> | undefined
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
+        scheduleUpdateNudge(resolve(ctx.args.cwd), command),
       ]).catch(err => logger.error(String(err)))
     }
 
