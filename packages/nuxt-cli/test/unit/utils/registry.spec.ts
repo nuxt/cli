@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getRegistryFromContent } from '../../../../src/commands/module/_utils'
+import { getRegistryFromContent } from '../../../src/utils/registry'
 
 describe('getRegistryFromContent', () => {
   it('extracts scoped registry when scope is provided', () => {

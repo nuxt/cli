@@ -4,7 +4,6 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 
 import { confirm, isCancel } from '@clack/prompts'
-import { parseINI } from 'confbox'
 import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
 import colors from 'picocolors'
@@ -125,28 +124,6 @@ export function checkNuxtCompatibility(
   return satisfies(nuxtVersion, module.compatibility.nuxt, {
     includePrerelease: true,
   })
-}
-
-export function getRegistryFromContent(content: string, scope: string | null) {
-  try {
-    const npmConfig = parseINI<Record<string, string | undefined>>(content)
-
-    if (scope) {
-      const scopeKey = `${scope}:registry`
-      if (npmConfig[scopeKey]) {
-        return npmConfig[scopeKey].trim()
-      }
-    }
-
-    if (npmConfig.registry) {
-      return npmConfig.registry.trim()
-    }
-
-    return null
-  }
-  catch {
-    return null
-  }
 }
 
 export function getProjectDependencies(projectPkg: PackageJson): Set<string> {

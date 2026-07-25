@@ -1,11 +1,8 @@
-import type { FileHandle } from 'node:fs/promises'
 import type { PackageManager } from 'nypm'
 import type { PackageJson } from 'pkg-types'
 
+import type { RegistryMeta } from '../../utils/registry'
 import type { NuxtModule } from './_utils'
-import * as fs from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
 import process from 'node:process'
 
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
@@ -23,21 +20,14 @@ import { runCommandDef as runCommand } from '../../run'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
+import { detectNpmRegistry } from '../../utils/registry'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, getRegistryFromContent, isPnpmWorkspace, MODULES_API_URL } from './_utils'
+import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL } from './_utils'
 
-const PROTOCOL_RE = /^https?:\/\//
-const TRAILING_SLASH_RE = /\/$/
-const REGEX_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g
 const WHITESPACE_RE = /\s/
-
-interface RegistryMeta {
-  registry: string
-  authToken: string | null
-}
 
 interface ResolvedModule {
   nuxtModule?: NuxtModule
@@ -471,87 +461,4 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
       .filter(([, meta]) => (meta as { optional?: boolean } | undefined)?.optional)
       .map(([name]) => name),
   }
-}
-
-function getNpmrcPaths(): string[] {
-  const userNpmrcPath = join(homedir(), '.npmrc')
-  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
-
-  return [cwdNpmrcPath, userNpmrcPath]
-}
-
-async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
-  const paths = getNpmrcPaths()
-  const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '').replace(REGEX_SPECIAL_RE, '\\$&')
-  const authTokenRegex = new RegExp(`^//${registryHost}/:_authToken=(.+)$`, 'm')
-
-  for (const npmrcPath of paths) {
-    let fd: FileHandle | undefined
-    try {
-      fd = await fs.promises.open(npmrcPath, 'r')
-      if (await fd.stat().then(r => r.isFile())) {
-        const npmrcContent = await fd.readFile('utf-8')
-        const authTokenMatch = npmrcContent.match(authTokenRegex)?.[1]
-
-        if (authTokenMatch) {
-          return authTokenMatch.trim()
-        }
-      }
-    }
-    catch {
-      // swallow errors as file does not exist
-    }
-    finally {
-      await fd?.close()
-    }
-  }
-
-  return null
-}
-
-async function detectNpmRegistry(scope: string | null): Promise<RegistryMeta> {
-  const registry = await getRegistry(scope)
-  const authToken = await getAuthToken(registry)
-
-  return {
-    registry,
-    authToken,
-  }
-}
-
-async function getRegistry(scope: string | null): Promise<string> {
-  if (process.env.COREPACK_NPM_REGISTRY) {
-    return process.env.COREPACK_NPM_REGISTRY
-  }
-  const registry = await getRegistryFromFile(getNpmrcPaths(), scope)
-
-  if (registry) {
-    process.env.COREPACK_NPM_REGISTRY = registry
-  }
-
-  return registry || 'https://registry.npmjs.org'
-}
-
-async function getRegistryFromFile(paths: string[], scope: string | null) {
-  for (const npmrcPath of paths) {
-    let fd: FileHandle | undefined
-    try {
-      fd = await fs.promises.open(npmrcPath, 'r')
-      if (await fd.stat().then(r => r.isFile())) {
-        const npmrcContent = await fd.readFile('utf-8')
-        const registry = getRegistryFromContent(npmrcContent, scope)
-
-        if (registry) {
-          return registry
-        }
-      }
-    }
-    catch {
-      // swallow errors as file does not exist
-    }
-    finally {
-      await fd?.close()
-    }
-  }
-  return null
 }
