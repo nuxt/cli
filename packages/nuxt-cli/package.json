@@ -33,10 +33,14 @@
     "prepack": "tsdown"
   },
   "peerDependencies": {
-    "@nuxt/schema": "^4.4.6"
+    "@nuxt/schema": "^4.4.6",
+    "serve": "^14.0.0"
   },
   "peerDependenciesMeta": {
     "@nuxt/schema": {
+      "optional": true
+    },
+    "serve": {
       "optional": true
     }
   },

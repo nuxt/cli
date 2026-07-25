@@ -42,7 +42,7 @@ const _main = defineCommand({
     const command = ctx.args._[0]
     setupGlobalConsole({ dev: command === 'dev' })
 
-    // Check Node.js version and CLI updates in background
+    // Check Node.js version in background
     let backgroundTasks: Promise<any> | undefined
     if (command !== '_dev' && provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
