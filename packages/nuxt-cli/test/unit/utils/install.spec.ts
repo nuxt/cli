@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { describe, expect, it } from 'vitest'
 
-import { getIgnoredBuilds, nonInteractiveArgs, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
+import { getIgnoredBuilds, isExecutableAvailable, nonInteractiveArgs, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
 
 describe('nonInteractiveArgs', () => {
   it('should opt pnpm out of prompts and strict dep builds', () => {
@@ -61,6 +61,21 @@ describe('takeUnreportedIgnoredBuilds', () => {
   it('should report each package only once per process', () => {
     expect(takeUnreportedIgnoredBuilds(['esbuild@0.28.1'])).toEqual(['esbuild@0.28.1'])
     expect(takeUnreportedIgnoredBuilds(['esbuild@0.28.1'])).toEqual([])
+  })
+})
+
+describe('isExecutableAvailable', () => {
+  it('should find a command on the PATH', () => {
+    expect(isExecutableAvailable(process.platform === 'win32' ? 'cmd' : 'sh')).toBe(true)
+  })
+
+  it('should not find a command that does not exist', () => {
+    expect(isExecutableAvailable('nuxt-cli-nonexistent-package-manager')).toBe(false)
+  })
+
+  it('should resolve an explicit path', () => {
+    expect(isExecutableAvailable(process.execPath)).toBe(true)
+    expect(isExecutableAvailable(join(tmpdir(), 'nuxt-cli-nonexistent-binary'))).toBe(false)
   })
 })
 

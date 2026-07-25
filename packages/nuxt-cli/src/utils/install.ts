@@ -3,6 +3,8 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process'
 
 import type { PackageManager, PackageManagerName } from 'nypm'
 import { spawn } from 'node:child_process'
+import { statSync } from 'node:fs'
+import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
 
 import { log, S_BAR } from '@clack/prompts'
@@ -15,6 +17,7 @@ import { normalizeSpawnCommand, x } from 'tinyexec'
 const COREPACK_PACKAGE_MANAGERS = new Set(['pnpm', 'yarn'])
 
 const TRAILING_DOT_RE = /\.$/
+const SURROUNDING_QUOTES_RE = /^"(.*)"$/
 
 const STALL_TIMEOUT = 30_000
 const STALL_POLL_INTERVAL = 1_000
@@ -182,8 +185,61 @@ export function getIgnoredBuilds(output: string): string[] {
     .filter(Boolean)
 }
 
+/**
+ * Whether `command` can be spawned, looked up the way the platform would.
+ *
+ * Windows spawns go through `cmd.exe`, which reports a missing command as exit
+ * code 9009 with a localised message rather than as `ENOENT`, so the check has to
+ * happen before the process starts for the failure to be recognisable.
+ */
+export function isExecutableAvailable(command: string, cwd = process.cwd()): boolean {
+  const isWindows = process.platform === 'win32'
+  const directories = command.includes('/') || command.includes('\\')
+    ? ['']
+    : [
+        // Windows resolves a bare command against the working directory too, and
+        // its `PATH` entries can be quoted.
+        ...isWindows ? [cwd] : [],
+        ...(process.env.PATH || '')
+          .split(delimiter)
+          .filter(Boolean)
+          .map(directory => isWindows ? directory.replace(SURROUNDING_QUOTES_RE, '$1') : directory),
+      ]
+
+  const extensions = isWindows
+    ? [...command.includes('.') ? [''] : [], ...(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(delimiter)]
+    : ['']
+
+  for (const directory of directories) {
+    for (const extension of extensions) {
+      try {
+        if (statSync(resolve(cwd, directory, command + extension)).isFile()) {
+          return true
+        }
+      }
+      catch {
+        // not this candidate
+      }
+    }
+  }
+
+  return false
+}
+
 function execute(command: string, args: string[], options: InstallOptions): Promise<InstallResult> {
   const displayCommand = [command, ...args].join(' ')
+
+  if (!isExecutableAvailable(command, options.cwd)) {
+    return Promise.resolve({
+      success: false,
+      missingPackageManager: true,
+      error: `\`${command}\` was not found. Install it (or choose a different package manager) and try again.`,
+      command: displayCommand,
+      output: '',
+      ignoredBuilds: [],
+    })
+  }
+
   const spawnOptions: SpawnOptions = {
     cwd: options.cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
