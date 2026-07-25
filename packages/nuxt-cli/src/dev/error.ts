@@ -4,7 +4,7 @@ import type { SourceLoader, StackFrame } from 'youch-core/types'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 
-import { dirname, resolve } from 'pathe'
+import { dirname, normalize, resolve } from 'pathe'
 import { SourceMapConsumer } from 'source-map'
 import { Youch } from 'youch'
 import { ErrorParser } from 'youch-core'
@@ -59,7 +59,17 @@ export async function renderError(req: IncomingMessage, res: ServerResponse, err
 export async function renderErrorAnsi(error: unknown): Promise<string> {
   await loadStackTrace(error).catch(err => debug('Failed to load stack trace:', err))
   const ansi = await new Youch().toANSI(error)
-  return ansi.replaceAll(process.cwd(), '.')
+  return stripCwd(ansi)
+}
+
+/**
+ * Replace the working directory in rendered output with `.`.
+ *
+ * Frame filenames are normalised to forward slashes, so on Windows the native
+ * `process.cwd()` spelling never matches and both forms have to be stripped.
+ */
+export function stripCwd(text: string, cwd = process.cwd()): string {
+  return text.replaceAll(cwd, '.').replaceAll(normalize(cwd), '.')
 }
 
 const sourceLoader: SourceLoader = async (frame) => {
