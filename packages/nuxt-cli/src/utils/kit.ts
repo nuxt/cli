@@ -2,6 +2,9 @@ import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 import { withNodePath } from './paths'
 
+// `exsolve` and Node.js word their resolution failures differently
+const KIT_NOT_FOUND_RE = /Cannot (?:find|resolve) module ['"]@nuxt\/kit['"]/
+
 export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit')> {
   try {
     const kitPath = resolveModulePath('@nuxt/kit', { from: tryResolveNuxt(rootDir) || rootDir })
@@ -18,7 +21,7 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
     return kit
   }
   catch (e: any) {
-    if (e.toString().includes('Cannot find module \'@nuxt/kit\'')) {
+    if (KIT_NOT_FOUND_RE.test(String(e))) {
       throw new Error(
         'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ or `@nuxt/bridge` first.',
       )
