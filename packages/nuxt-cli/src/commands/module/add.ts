@@ -22,11 +22,12 @@ import { satisfies } from 'verkit'
 import { runCommandDef as runCommand } from '../../run'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
+import { describeNetworkError, logNetworkError } from '../../utils/network'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, getRegistryFromContent, isPnpmWorkspace } from './_utils'
+import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, getRegistryFromContent, isPnpmWorkspace, MODULES_API_URL } from './_utils'
 
 const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
@@ -93,7 +94,11 @@ export default defineCommand({
       modulesSpinner.start('Fetching available modules')
 
       const [allModules, nuxtVersion] = await Promise.all([
-        fetchModules(),
+        fetchModules().catch((err) => {
+          modulesSpinner.error('Failed to fetch available modules')
+          logNetworkError(err, { url: MODULES_API_URL })
+          process.exit(1)
+        }),
         getNuxtVersion(cwd),
       ])
 
@@ -343,7 +348,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   const modulesDB = await fetchModules().catch((err) => {
-    logger.warn(`Cannot search in the Nuxt Modules database: ${err}`)
+    logger.warn(`Cannot search in the Nuxt Modules database. ${describeNetworkError(err, MODULES_API_URL)}`)
     return []
   })
 
@@ -418,9 +423,12 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   // TODO: spinner
-  const pkgDetails = await $fetch(joinURL(meta.registry, `${pkgName}`), { headers }).catch(() => null)
+  const pkgUrl = joinURL(meta.registry, `${pkgName}`)
+  const pkgDetails = await $fetch(pkgUrl, { headers }).catch((err: unknown) => {
+    logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${colors.cyan(pkgName)}.` })
+    return null
+  })
   if (!pkgDetails) {
-    logger.error(`Failed to fetch package details for ${colors.cyan(pkgName)}.`)
     return false
   }
 

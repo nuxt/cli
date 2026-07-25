@@ -11,6 +11,7 @@ import { basename, dirname, join } from 'pathe'
 import { readUser, updateUser } from 'rc9'
 
 import { debug, logger } from '../utils/logger'
+import { describeNetworkError } from '../utils/network'
 
 interface ConsentOptions {
   /** Key under `tools` in the user `.nuxtrc` used to persist acceptance. */
@@ -155,7 +156,7 @@ async function downloadBinary(url: string, destination: string, options: { archi
   }
   catch (error) {
     debug(`Failed to download \`${url}\`:`, error)
-    logger.warn(`Failed to download \`${label}\`.`)
+    logger.warn(`Failed to download \`${label}\`. ${describeNetworkError(error, url)}`)
     return undefined
   }
 }

@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import Fuse from 'fuse.js'
@@ -6,9 +8,10 @@ import { kebabCase, upperFirst } from 'scule'
 
 import { formatInfoBox } from '../../utils/formatting'
 import { logger } from '../../utils/logger'
+import { logNetworkError } from '../../utils/network'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs } from '../_shared'
-import { checkNuxtCompatibility, fetchModules } from './_utils'
+import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './_utils'
 
 const DASH_RE = /-/g
 
@@ -44,7 +47,10 @@ export default defineCommand({
 })
 
 async function findModuleByKeywords(query: string, nuxtVersion: string) {
-  const allModules = await fetchModules()
+  const allModules = await fetchModules().catch((err) => {
+    logNetworkError(err, { url: MODULES_API_URL })
+    process.exit(1)
+  })
   const compatibleModules = allModules.filter(m =>
     checkNuxtCompatibility(m, nuxtVersion),
   )

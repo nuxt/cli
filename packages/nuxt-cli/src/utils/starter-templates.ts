@@ -22,13 +22,18 @@ export interface TemplateData {
 }
 
 const fetchOptions = {
-  timeout: 3000,
+  // A proxy CONNECT plus TLS handshake on a corporate link regularly costs more
+  // than 3s. The template list is prefetched and has a static fallback, so a
+  // slightly longer deadline only ever delays the prompt on a broken network.
+  timeout: 5000,
   responseType: 'json',
   headers: {
     'user-agent': '@nuxt/cli',
     ...process.env.GITHUB_TOKEN ? { authorization: `token ${process.env.GITHUB_TOKEN}` } : {},
   },
 } as const
+
+export const TEMPLATES_API_URL = 'https://api.github.com/repos/nuxt/starter/contents/templates?ref=templates'
 
 let templatesCache: Promise<Record<string, TemplateData>> | null = null
 
@@ -41,7 +46,7 @@ export async function fetchTemplates() {
   const templates = {} as Record<string, TemplateData>
 
   const files = await $fetch<Array<{ name: string, type: string, download_url?: string }>>(
-    'https://api.github.com/repos/nuxt/starter/contents/templates?ref=templates',
+    TEMPLATES_API_URL,
     fetchOptions,
   )
 

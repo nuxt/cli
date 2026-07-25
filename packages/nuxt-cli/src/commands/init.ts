@@ -22,13 +22,14 @@ import { x } from 'tinyexec'
 import { runCommandDef as runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
-import { logger } from '../utils/logger'
+import { debug, logger } from '../utils/logger'
+import { describeNetworkError, logNetworkError } from '../utils/network'
 import { relativeToProcess } from '../utils/paths'
-import { getTemplates } from '../utils/starter-templates'
+import { getTemplates, TEMPLATES_API_URL } from '../utils/starter-templates'
 import { getNuxtVersion } from '../utils/versions'
 import { cwdArgs, logLevelArgs } from './_shared'
 import { selectModulesAutocomplete } from './module/_autocomplete'
-import { checkNuxtCompatibility, fetchModules } from './module/_utils'
+import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './module/_utils'
 import addModuleCommand from './module/add'
 
 const NON_WORD_RE = /[^\w-]/g
@@ -38,6 +39,7 @@ const LEADING_TRAILING_DASH_RE = /^-|-$/g
 
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'minimal'
+const NIGHTLY_DIST_TAGS_URL = 'https://registry.npmjs.org/nuxt-nightly'
 
 const pms: Record<PackageManagerName, undefined> = {
   npm: undefined,
@@ -179,8 +181,9 @@ export default defineCommand({
           availableTemplates = await getTemplates()
           templatesSpinner.stop('Templates loaded')
         }
-        catch {
+        catch (err) {
           availableTemplates = defaultTemplates
+          debug(describeNetworkError(err, TEMPLATES_API_URL))
           templatesSpinner.stop('Templates loaded from cache')
         }
       }
@@ -320,6 +323,8 @@ export default defineCommand({
     // Download template
     let template: DownloadTemplateResult
 
+    const registry = process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
+
     const downloadSpinner = spinner()
     downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
 
@@ -329,7 +334,7 @@ export default defineCommand({
         force: shouldForce,
         offline: Boolean(ctx.args.offline),
         preferOffline: Boolean(ctx.args.preferOffline),
-        registry: process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY,
+        registry,
       })
 
       if (dir.length > 0) {
@@ -359,7 +364,12 @@ export default defineCommand({
       if (process.env.DEBUG) {
         throw err
       }
-      logger.error(String(err))
+      logNetworkError(err, {
+        url: registry,
+        hints: [
+          `Retry with ${colors.cyan('--offline')} or ${colors.cyan('--preferOffline')} to use a cached template, or set ${colors.cyan('NUXI_INIT_REGISTRY')} to a reachable mirror.`,
+        ],
+      })
       process.exit(1)
     }
 
@@ -367,7 +377,11 @@ export default defineCommand({
       const nightlySpinner = spinner()
       nightlySpinner.start('Fetching nightly version info')
 
-      const response = await $fetch<{ 'dist-tags': Record<string, string> }>('https://registry.npmjs.org/nuxt-nightly')
+      const response = await $fetch<{ 'dist-tags': Record<string, string> }>(NIGHTLY_DIST_TAGS_URL).catch((err) => {
+        nightlySpinner.error('Failed to fetch nightly version info')
+        logNetworkError(err, { url: NIGHTLY_DIST_TAGS_URL })
+        process.exit(1)
+      })
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
       if (!nightlyChannelTag) {
@@ -578,7 +592,10 @@ export default defineCommand({
 
     // ...or offer to browse and install modules (if not offline nor non-interactive)
     else if (!ctx.args.offline && !ctx.args.preferOffline && !isNonInteractive) {
-      const modulesPromise = fetchModules()
+      const modulesPromise = fetchModules().catch((err) => {
+        logger.warn(`Could not load the Nuxt Modules database. ${describeNetworkError(err, MODULES_API_URL)}`)
+        return []
+      })
       const wantsUserModules = await confirm({
         message: `Would you like to browse and install modules?`,
         initialValue: false,
@@ -690,13 +707,14 @@ export default defineCommand({
 })
 
 async function getModuleDependencies(moduleName: string) {
+  const url = `https://registry.npmjs.org/${moduleName}/latest`
   try {
-    const response = await $fetch(`https://registry.npmjs.org/${moduleName}/latest`)
+    const response = await $fetch(url)
     const dependencies = response.dependencies || {}
     return Object.keys(dependencies)
   }
   catch (err) {
-    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}: ${err}`)
+    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}. ${describeNetworkError(err, url)}`)
     return []
   }
 }
