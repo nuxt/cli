@@ -595,8 +595,12 @@ export default defineCommand({
 
     // ...or offer to browse and install modules (if not offline nor non-interactive)
     else if (!ctx.args.offline && !ctx.args.preferOffline && !isNonInteractive) {
+      // Requested before the prompt so the list is ready if the user says yes,
+      // but a failure is only reported to users who asked for it (and never
+      // while the prompt is on screen).
+      let modulesError: unknown
       const modulesPromise = fetchModules().catch((err) => {
-        logger.warn(`Could not load the Nuxt Modules database. ${describeNetworkError(err, MODULES_API_URL)}`)
+        modulesError = err
         return []
       })
       const wantsUserModules = await confirm({
@@ -619,7 +623,13 @@ export default defineCommand({
           getNuxtVersion(template.dir),
         ])
 
-        modulesSpinner.stop('Modules loaded')
+        if (modulesError) {
+          modulesSpinner.error('Failed to fetch available modules')
+          logNetworkError(modulesError, { url: MODULES_API_URL, level: 'warn', prefix: 'Could not load the Nuxt Modules database.' })
+        }
+        else {
+          modulesSpinner.stop('Modules loaded')
+        }
 
         const allModules = response
           .filter(module =>
@@ -717,7 +727,7 @@ async function getModuleDependencies(moduleName: string) {
     return Object.keys(dependencies)
   }
   catch (err) {
-    logger.warn(`Could not get dependencies for ${colors.cyan(moduleName)}. ${describeNetworkError(err, url)}`)
+    logNetworkError(err, { url, level: 'warn', prefix: `Could not get dependencies for ${colors.cyan(moduleName)}.` })
     return []
   }
 }

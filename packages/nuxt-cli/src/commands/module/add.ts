@@ -22,7 +22,7 @@ import { satisfies } from 'verkit'
 import { runCommandDef as runCommand } from '../../run'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
-import { describeNetworkError, logNetworkError } from '../../utils/network'
+import { logNetworkError } from '../../utils/network'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
@@ -348,7 +348,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   const modulesDB = await fetchModules().catch((err) => {
-    logger.warn(`Cannot search in the Nuxt Modules database. ${describeNetworkError(err, MODULES_API_URL)}`)
+    logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
     return []
   })
 

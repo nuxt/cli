@@ -14,7 +14,7 @@ import { readPackageJSON } from 'pkg-types'
 
 import { runCommandDef as runCommand } from '../../run'
 import { logger } from '../../utils/logger'
-import { describeNetworkError } from '../../utils/network'
+import { logNetworkError } from '../../utils/network'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
@@ -68,7 +68,7 @@ export default defineCommand({
     const needsDB = modules.some(m => !installedNames.has(m))
     const modulesDB: NuxtModule[] = needsDB
       ? await fetchModules().catch((err) => {
-          logger.warn(`Cannot search in the Nuxt Modules database. ${describeNetworkError(err, MODULES_API_URL)}`)
+          logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
           return []
         })
       : []

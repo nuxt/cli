@@ -11,7 +11,7 @@ import { stripVTControlCharacters } from 'node:util'
 
 import { downloadTemplate } from 'giget'
 import { $fetch } from 'ofetch'
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const logs: Array<[string, string]> = []
 
@@ -379,6 +379,17 @@ describe('getProxyHint', () => {
 describe('logNetworkError', () => {
   beforeEach(() => {
     logs.length = 0
+
+    // Pin a proxy that the process is not using, so a hint is always produced
+    // regardless of the environment the suite runs in.
+    vi.stubEnv('HTTPS_PROXY', 'http://localhost:3128')
+    vi.stubEnv('NODE_OPTIONS', '')
+    vi.stubEnv('NODE_USE_ENV_PROXY', undefined)
+    setupProxySupport({})
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('logs one error line and one hint line', () => {
@@ -396,5 +407,28 @@ describe('logNetworkError', () => {
   it('prefixes the description when asked', () => {
     logNetworkError(withCode('ECONNRESET'), { url: 'https://registry.npmjs.org/nuxt', prefix: 'Failed to fetch package details.' })
     expect(clean(logs[0]![1])).toContain('Failed to fetch package details. Connection to registry.npmjs.org')
+  })
+
+  it('warns instead of erroring where the command carries on', () => {
+    logNetworkError(withCode('ENOTFOUND'), { url: 'https://api.nuxt.com/modules', level: 'warn' })
+    expect(logs[0]![0]).toBe('warn')
+  })
+
+  it('repeats the proxy advice only once per process', () => {
+    const options = { url: 'https://api.nuxt.com/modules' }
+    logNetworkError(withCode('ENOTFOUND'), options)
+    logNetworkError(withCode('ENOTFOUND'), options)
+
+    const hints = logs.filter(([level]) => level === 'info')
+    expect(hints).toHaveLength(1)
+    expect(logs.filter(([level]) => level === 'error')).toHaveLength(2)
+  })
+
+  it('still shows caller hints after the proxy advice is spent', () => {
+    logNetworkError(withCode('ENOTFOUND'), { url: 'https://api.nuxt.com/modules' })
+    logs.length = 0
+
+    logNetworkError(withCode('ENOTFOUND'), { url: 'https://api.nuxt.com/modules', hints: ['Retry with --offline.'] })
+    expect(clean(logs[1]![1])).toBe('Retry with --offline.')
   })
 })

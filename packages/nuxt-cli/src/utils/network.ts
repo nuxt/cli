@@ -49,6 +49,7 @@ export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv:
 export type ProxySetupResult = 'unused' | 'active' | 'children-only' | 'unsupported'
 
 let envProxyActive: boolean | undefined
+let proxyHintShown = false
 
 /**
  * Propagate Node.js' built-in proxy support to child processes (package manager
@@ -56,6 +57,8 @@ let envProxyActive: boolean | undefined
  * whether the current process is itself proxy-aware so failures can say so.
  */
 export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: NodeFlags): ProxySetupResult {
+  proxyHintShown = false
+
   if (!hasProxyEnv(env)) {
     envProxyActive = undefined
     return 'unused'
@@ -320,12 +323,30 @@ export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandC
   }
 }
 
-/** Log a failed network request together with at most one line of advice. */
-export function logNetworkError(err: unknown, options: { url?: string, hints?: string[], prefix?: string } = {}): void {
-  const description = describeNetworkError(err, options.url)
-  logger.error(options.prefix ? `${options.prefix} ${description}` : description)
+export interface LogNetworkErrorOptions {
+  url?: string
+  /** Extra advice, shown before the proxy hint. */
+  hints?: string[]
+  /** Context prepended to the description, e.g. which package failed. */
+  prefix?: string
+  /** Use `warn` where the command carries on regardless. */
+  level?: 'error' | 'warn'
+}
 
-  const hints = [...options.hints || [], getProxyHint(classifyNetworkError(err).kind)].filter(Boolean) as string[]
+/**
+ * Log a failed network request together with at most one line of advice. The
+ * proxy hint is shown once per process: several requests usually fail for the
+ * same reason, and repeating the retry command for each one is noise.
+ */
+export function logNetworkError(err: unknown, options: LogNetworkErrorOptions = {}): void {
+  const description = describeNetworkError(err, options.url)
+  const message = options.prefix ? `${options.prefix} ${description}` : description
+  logger[options.level === 'warn' ? 'warn' : 'error'](message)
+
+  const proxyHint = proxyHintShown ? undefined : getProxyHint(classifyNetworkError(err).kind)
+  proxyHintShown ||= !!proxyHint
+
+  const hints = [...options.hints || [], proxyHint].filter(Boolean) as string[]
   if (hints.length > 0) {
     logger.info(hints.join(' '))
   }
