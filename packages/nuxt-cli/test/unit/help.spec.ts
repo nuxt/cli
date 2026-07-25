@@ -206,6 +206,8 @@ describe('help', () => {
                                  --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
                               --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
                         -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
+                                         --inspect    Enable the Node.js inspector for the process serving your app (\`--inspect=[host:]port\`)                                                             
+                                     --inspect-brk    Enable the Node.js inspector and wait for a debugger to attach (\`--inspect-brk=[host:]port\`)                                                        
                                            --clear    Clear console on restart (Default: false)                                                                                                           
                                         -f, --fork    Enable forked mode (Default: false)                                                                                                                 
                                  --no-f, --no-fork    Disable forked mode                                                                                                                                 

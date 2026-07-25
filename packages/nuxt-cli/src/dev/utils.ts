@@ -6,6 +6,7 @@ import type { FSWatcher } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
 import type { ResolvedCertificate } from './cert'
+import type { InspectOptions } from './inspect'
 import type { DevListenOverrides, Listener, ListenOptions } from './listen'
 import EventEmitter from 'node:events'
 import { existsSync, readdirSync, statSync, watch } from 'node:fs'
@@ -33,7 +34,7 @@ import { listen } from './listen'
 import { resolvePortlessURLs } from './portless'
 
 export type NuxtParentIPCMessage
-  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides }
+  = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }

@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process'
+import type { InspectOptions } from './inspect'
 import type { DevListenOverrides } from './listen'
 import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
 
@@ -11,6 +12,7 @@ interface ForkPoolOptions {
   rawArgs: string[]
   poolSize?: number
   listenOverrides: DevListenOverrides
+  inspect?: InspectOptions
 }
 
 interface PooledFork {
@@ -24,12 +26,14 @@ export class ForkPool {
   private poolSize: number
   private rawArgs: string[]
   private listenOverrides: DevListenOverrides
+  private inspect?: InspectOptions
   private warming = false
 
   constructor(options: ForkPoolOptions) {
     this.rawArgs = options.rawArgs
     this.poolSize = options.poolSize ?? 2
     this.listenOverrides = options.listenOverrides
+    this.inspect = options.inspect
 
     // Graceful shutdown
     for (const signal of [
@@ -56,7 +60,7 @@ export class ForkPool {
     }
   }
 
-  async getFork(context: NuxtDevContext, onMessage?: (message: NuxtDevIPCMessage) => void): Promise<() => void> {
+  async getFork(context: NuxtDevContext, onMessage?: (message: NuxtDevIPCMessage) => void): Promise<() => Promise<void>> {
     // Try to get a ready fork from the pool
     const readyFork = this.pool.find(f => f.state === 'ready')
 
@@ -130,7 +134,10 @@ export class ForkPool {
 
   private createFork(): PooledFork {
     const childProc = fork(globalThis.__nuxt_cli__.devEntry!, this.rawArgs, {
-      execArgv: ['--enable-source-maps', process.argv.find((a: string) => a.includes('--inspect'))].filter(Boolean) as string[],
+      // The inspector is opened by the fork that actually serves the app (see
+      // `sendContext`), never via `execArgv`, so idle pooled forks don't race
+      // each other for the debug port.
+      execArgv: ['--enable-source-maps'],
       env: {
         ...process.env,
         __NUXT__FORK: 'true',
@@ -179,16 +186,33 @@ export class ForkPool {
     childProc.send({
       type: 'nuxt:internal:dev:context',
       listenOverrides: this.listenOverrides,
+      inspect: this.inspect,
       context,
     })
   }
 
-  private killFork(fork: PooledFork, signal: NodeJS.Signals | number = 'SIGTERM'): void {
+  private killFork(fork: PooledFork, signal: NodeJS.Signals | number = 'SIGTERM'): Promise<void> {
+    const wasAlive = fork.state !== 'dead' && !!fork.process && fork.process.exitCode === null
     fork.state = 'dead'
     if (fork.process) {
       fork.process.kill(signal === 0 && isDeno ? 'SIGTERM' : signal)
     }
     this.removeFork(fork)
+
+    if (!wasAlive) {
+      return Promise.resolve()
+    }
+
+    // Resolve once the OS has reaped the process; the next fork may need to
+    // rebind ports (such as the inspector port) that it still holds.
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, 2000)
+      timeout.unref?.()
+      fork.process.once('exit', () => {
+        clearTimeout(timeout)
+        resolve()
+      })
+    })
   }
 
   private removeFork(fork: PooledFork): void {
