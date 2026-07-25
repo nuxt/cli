@@ -85,7 +85,7 @@ describe('module add', () => {
     v3 = json['dist-tags'].latest
   })
   applyMocks()
-  const runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install' })
+  const runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
   vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([

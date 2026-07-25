@@ -141,7 +141,7 @@ describe('nuxt add command', () => {
       return Promise.resolve({})
     })
 
-    runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install' })
+    runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
     vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
     vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.14.0')
   })
@@ -333,7 +333,7 @@ describe('nuxt add command', () => {
   })
 
   it('should not update nuxt.config when the install fails', async () => {
-    runInstall.mockResolvedValue({ success: false, output: 'spawn pnpm ENOENT', command: 'pnpm add @nuxt/ui@3.0.0', error: '`pnpm` was not found.', missingPackageManager: true })
+    runInstall.mockResolvedValue({ success: false, output: '', command: 'npm install @nuxt/ui@3.0.0', error: '`npm` was not found.', missingPackageManager: true, ignoredBuilds: [] })
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const addCommand = await (commands as CommandsType).subCommands.add()

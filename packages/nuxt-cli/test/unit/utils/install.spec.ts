@@ -1,3 +1,8 @@
+import { chmod, mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import process from 'node:process'
+
 import { describe, expect, it } from 'vitest'
 
 import { getIgnoredBuilds, nonInteractiveArgs, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
@@ -54,14 +59,29 @@ describe('getIgnoredBuilds', () => {
 
 describe('takeUnreportedIgnoredBuilds', () => {
   it('should report each package only once per process', () => {
-    const output = 'Ignored build scripts: esbuild@0.28.1.'
-
-    expect(takeUnreportedIgnoredBuilds(output)).toEqual(['esbuild@0.28.1'])
-    expect(takeUnreportedIgnoredBuilds(output)).toEqual([])
+    expect(takeUnreportedIgnoredBuilds(['esbuild@0.28.1'])).toEqual(['esbuild@0.28.1'])
+    expect(takeUnreportedIgnoredBuilds(['esbuild@0.28.1'])).toEqual([])
   })
 })
 
 describe('runInstall', () => {
+  it.skipIf(process.platform === 'win32')('should report ignored builds printed before the end of the output', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nuxt-install-test-'))
+    const command = join(dir, 'fake-package-manager')
+    await writeFile(command, [
+      '#!/bin/sh',
+      'echo "Ignored build scripts: esbuild@0.28.1."',
+      'i=0; while [ $i -lt 60 ]; do echo "line $i"; i=$((i+1)); done',
+    ].join('\n'))
+    await chmod(command, 0o755)
+
+    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', command } })
+
+    expect(result.success).toBe(true)
+    expect(result.output).not.toContain('Ignored build scripts')
+    expect(result.ignoredBuilds).toEqual(['esbuild@0.28.1'])
+  })
+
   it('should report a missing package manager instead of throwing', async () => {
     const result = await runInstall({
       cwd: process.cwd(),

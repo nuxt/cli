@@ -215,7 +215,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       installSpinner.stop('Dependencies installed')
       installLog.finish(result)
 
-      const ignoredBuilds = takeUnreportedIgnoredBuilds(result.output)
+      const ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
       if (ignoredBuilds.length > 0 && packageManager.name === 'pnpm') {
         logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}. Run ${colors.cyan('pnpm approve-builds')} if your project needs them.`)
       }

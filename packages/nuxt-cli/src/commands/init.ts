@@ -511,7 +511,7 @@ export default defineCommand({
 
       if (result.success) {
         installSpinner.stop('Dependencies installed')
-        ignoredBuilds = takeUnreportedIgnoredBuilds(result.output)
+        ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
       }
       else {
         installFailure = result

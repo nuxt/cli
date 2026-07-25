@@ -62,6 +62,8 @@ export interface InstallResult {
   output: string
   /** The command that was run, for display purposes. */
   command: string
+  /** Packages whose build scripts the package manager refused to run. */
+  ignoredBuilds: string[]
   /** Human-readable failure reason. Only set when `success` is `false`. */
   error?: string
   /** Set when the package manager binary could not be found. */
@@ -91,7 +93,7 @@ export async function runInstall(options: InstallOptions): Promise<InstallResult
     : await installDependencies(nypmOptions)
 
   if (!exec) {
-    return { success: true, output: '', command: '' }
+    return { success: true, output: '', command: '', ignoredBuilds: [] }
   }
 
   const args = [...exec.args, ...nonInteractiveArgs(options.packageManager)]
@@ -154,12 +156,12 @@ export function createInstallLog({ verbose = false } = {}): InstallLog {
 const reportedIgnoredBuilds = new Set<string>()
 
 /**
- * Packages from {@link getIgnoredBuilds} that have not been reported yet in this
- * process, so a chained install (`nuxt init` followed by `nuxt module add`) does
- * not repeat the same warning.
+ * The packages from {@link InstallResult.ignoredBuilds} that have not been
+ * reported yet in this process, so a chained install (`nuxt init` followed by
+ * `nuxt module add`) does not repeat the same warning.
  */
-export function takeUnreportedIgnoredBuilds(output: string): string[] {
-  const packages = getIgnoredBuilds(output).filter(name => !reportedIgnoredBuilds.has(name))
+export function takeUnreportedIgnoredBuilds(ignoredBuilds: string[]): string[] {
+  const packages = ignoredBuilds.filter(name => !reportedIgnoredBuilds.has(name))
   for (const name of packages) {
     reportedIgnoredBuilds.add(name)
   }
@@ -226,7 +228,7 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
     stallTimer.unref?.()
 
     let settled = false
-    const finish = (result: Omit<InstallResult, 'output' | 'command'>) => {
+    const finish = (result: Omit<InstallResult, 'output' | 'command' | 'ignoredBuilds'>) => {
       if (settled) {
         return
       }
@@ -236,10 +238,14 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
       if (pending && options.onOutput) {
         options.onOutput(pending)
       }
+      const output = chunks.join('')
       resolve({
         ...result,
         command: displayCommand,
-        output: tail(chunks.join('')),
+        // Only the tail is kept for display, so anything parsed out of the
+        // output has to be parsed from all of it.
+        output: tail(output),
+        ignoredBuilds: getIgnoredBuilds(output),
       })
     }
 
