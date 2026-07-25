@@ -534,8 +534,10 @@ export default defineCommand({
         }
       }
 
-      if (ignoredBuilds.length > 0) {
-        logger.warn(`${colors.cyan(selectedPackageManager)} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
+      // `approve-builds` is a pnpm command, so only pnpm gets the offer even if
+      // another package manager ever prints the same notice.
+      if (ignoredBuilds.length > 0 && selectedPackageManager === 'pnpm') {
+        logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
 
         const approve = isNonInteractive
           ? false
@@ -548,7 +550,7 @@ export default defineCommand({
           })
         }
         else {
-          recoveryCommands.push(`${selectedPackageManager} approve-builds`)
+          recoveryCommands.push('pnpm approve-builds')
         }
       }
     }

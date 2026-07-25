@@ -216,8 +216,8 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       installLog.finish(result)
 
       const ignoredBuilds = takeUnreportedIgnoredBuilds(result.output)
-      if (ignoredBuilds.length > 0) {
-        logger.warn(`${colors.cyan(packageManager.name)} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}. Run ${colors.cyan('pnpm approve-builds')} if your project needs them.`)
+      if (ignoredBuilds.length > 0 && packageManager.name === 'pnpm') {
+        logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}. Run ${colors.cyan('pnpm approve-builds')} if your project needs them.`)
       }
     }
   }
