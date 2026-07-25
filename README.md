@@ -45,7 +45,7 @@ Once a day, `nuxt/cli` checks in the background whether a newer version of Nuxt 
 
 To keep the nudge meaningful, it is not shown for prereleases, and not shown for patch releases within the same minor unless you are at least five patches behind.
 
-The check is skipped in CI, on StackBlitz, and when the output is not a terminal. Set `NUXT_IGNORE_UPDATE_CHECK=1` to skip a single run, or opt out permanently by adding `updateCheck.enabled=false` to your user-level `.nuxtrc`.
+The check is skipped in CI, on StackBlitz, and when the output is not a terminal. Set `NUXT_IGNORE_UPDATE_CHECK=1` (or `NO_UPDATE_NOTIFIER=1`) to skip a single run, or opt out permanently by adding `updateCheck.enabled=false` to your user-level `.nuxtrc`.
 
 ## Shell Autocompletions
 

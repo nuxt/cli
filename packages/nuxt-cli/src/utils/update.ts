@@ -54,13 +54,13 @@ function writeCache(cache: UpdateCache) {
 }
 
 /**
- * `NUXT_IGNORE_UPDATE_CHECK=1` opts out for a single run and
- * `updateCheck.enabled=false` in the user `.nuxtrc` opts out permanently. We
- * also stay quiet where the nudge cannot be acted on interactively (CI, tests,
- * StackBlitz, no TTY).
+ * `NUXT_IGNORE_UPDATE_CHECK=1` (or the cross-tool `NO_UPDATE_NOTIFIER`) opts out
+ * for a single run and `updateCheck.enabled=false` in the user `.nuxtrc` opts
+ * out permanently. We also stay quiet where the nudge cannot be acted on
+ * interactively (CI, tests, StackBlitz, no TTY).
  */
 export function isUpdateCheckEnabled(): boolean {
-  if (process.env.NUXT_IGNORE_UPDATE_CHECK) {
+  if (process.env.NUXT_IGNORE_UPDATE_CHECK || process.env.NO_UPDATE_NOTIFIER) {
     return false
   }
   if (readCache().enabled === false) {
@@ -71,21 +71,25 @@ export function isUpdateCheckEnabled(): boolean {
 
 async function resolveLatestVersion(): Promise<string | undefined> {
   const cache = readCache()
-  if (cache.latest && cache.checkedAt && Date.now() - Number(cache.checkedAt) < CACHE_TTL) {
+  if (cache.checkedAt && Date.now() - Number(cache.checkedAt) < CACHE_TTL) {
     return cache.latest
   }
 
-  const { registry, authToken } = await detectNpmRegistry(null)
-  const { latest } = await $fetch<{ latest?: string }>(joinURL(registry, '-/package/nuxt/dist-tags'), {
-    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
-    timeout: FETCH_TIMEOUT,
-    retry: 0,
-  })
-
-  if (!latest) {
-    return undefined
+  let latest: string | undefined
+  try {
+    const { registry, authToken } = await detectNpmRegistry(null)
+    latest = (await $fetch<{ latest?: string }>(joinURL(registry, '-/package/nuxt/dist-tags'), {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+      timeout: FETCH_TIMEOUT,
+      retry: 0,
+    })).latest
+  }
+  catch (error) {
+    debug('Failed to resolve the latest Nuxt version:', error)
   }
 
+  // an unreachable or unauthenticated registry is recorded as a completed check
+  // so an offline user does not pay the request timeout on every command
   writeCache({ latest, checkedAt: Date.now() })
   return latest
 }

@@ -63,11 +63,13 @@ describe('update check', () => {
     fetchMock.mockReset()
     process.stdout.isTTY = true
     delete process.env.NUXT_IGNORE_UPDATE_CHECK
+    delete process.env.NO_UPDATE_NOTIFIER
   })
 
   afterEach(() => {
     process.stdout.isTTY = originalIsTTY
     delete process.env.NUXT_IGNORE_UPDATE_CHECK
+    delete process.env.NO_UPDATE_NOTIFIER
   })
 
   describe('isUpdateCheckEnabled', () => {
@@ -92,6 +94,11 @@ describe('update check', () => {
 
     it('is disabled by NUXT_IGNORE_UPDATE_CHECK', () => {
       process.env.NUXT_IGNORE_UPDATE_CHECK = '1'
+      expect(isUpdateCheckEnabled()).toBe(false)
+    })
+
+    it('is disabled by NO_UPDATE_NOTIFIER', () => {
+      process.env.NO_UPDATE_NOTIFIER = '1'
       expect(isUpdateCheckEnabled()).toBe(false)
     })
 
@@ -152,6 +159,20 @@ describe('update check', () => {
     it('is silent when the network is unavailable', async () => {
       fetchMock.mockRejectedValue(new Error('getaddrinfo ENOTFOUND registry.npmjs.org'))
       await expect(checkForNuxtUpdate('/project')).resolves.toBeUndefined()
+    })
+
+    it('does not retry the registry until the cache expires after a failure', async () => {
+      fetchMock.mockRejectedValue(new Error('getaddrinfo ENOTFOUND registry.npmjs.org'))
+      await checkForNuxtUpdate('/project')
+      await checkForNuxtUpdate('/project')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not retry the registry until the cache expires when no dist-tag is published', async () => {
+      fetchMock.mockResolvedValue({})
+      await checkForNuxtUpdate('/project')
+      await checkForNuxtUpdate('/project')
+      expect(fetchMock).toHaveBeenCalledTimes(1)
     })
 
     it('is silent when the installed version cannot be resolved', async () => {
