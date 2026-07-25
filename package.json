@@ -28,6 +28,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^24.13.3",
     "@vitest/coverage-v8": "^4.1.10",
+    "ansivision": "^0.4.0",
     "changelogen": "^0.6.2",
     "eslint": "^10.7.0",
     "exsolve": "^1.1.0",
