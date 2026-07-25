@@ -236,20 +236,50 @@ function centerBlock(block: string): string {
   return lines.map(line => indent + line).join('\n')
 }
 
-function openBrowser(url: string): void {
+/**
+ * Resolve the command that opens `url`, honouring the de facto `BROWSER` and
+ * `BROWSER_ARGS` environment variables (`BROWSER=none` disables opening).
+ */
+export function resolveOpenCommand(
+  url: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): [command: string, args: string[]] | undefined {
+  const browser = env.BROWSER?.trim()
+  if (browser === 'none') {
+    return
+  }
+
+  if (browser) {
+    const browserArgs = env.BROWSER_ARGS?.trim().split(/\s+/).filter(Boolean) ?? []
+    return platform === 'darwin' && !browser.includes('/')
+      ? ['open', ['-a', browser, url, ...(browserArgs.length > 0 ? ['--args', ...browserArgs] : [])]]
+      : [browser, [...browserArgs, url]]
+  }
+
   // WSL reports itself as Linux but has no X server, so `xdg-open` fails there;
   // `cmd.exe` opens the browser on the Windows side instead. WSL1 spells the
   // release `Microsoft`, WSL2 `microsoft-standard-WSL2`.
-  const isWSL = process.platform === 'linux'
-    && (!!process.env.WSL_DISTRO_NAME || release().toLowerCase().includes('microsoft'))
+  const isWSL = platform === 'linux'
+    && (!!env.WSL_DISTRO_NAME || release().toLowerCase().includes('microsoft'))
 
-  const [command, args] = process.platform === 'darwin'
-    ? ['open', [url]]
-    // `cmd /c start` owns the arcane quoting rules; `""` is a dummy window title
-    // (otherwise `start` treats a quoted URL as one), and `&`/`^` need escaping.
-    : process.platform === 'win32' || isWSL
-      ? ['cmd.exe', ['/c', 'start', '""', url.replace(/[&^]/g, '^$&')]]
-      : ['xdg-open', [url]] satisfies [string, string[]]
+  if (platform === 'darwin') {
+    return ['open', [url]]
+  }
+  // `cmd /c start` owns the arcane quoting rules; `""` is a dummy window title
+  // (otherwise `start` treats a quoted URL as one), and `&`/`^` need escaping.
+  if (platform === 'win32' || isWSL) {
+    return ['cmd.exe', ['/c', 'start', '""', url.replace(/[&^]/g, '^$&')]]
+  }
+  return ['xdg-open', [url]]
+}
+
+function openBrowser(url: string): void {
+  const resolved = resolveOpenCommand(url)
+  if (!resolved) {
+    return
+  }
+  const [command, args] = resolved
   try {
     spawn(command, args, { stdio: 'ignore', detached: true }).on('error', error => debug('Failed to open browser:', error)).unref()
   }
