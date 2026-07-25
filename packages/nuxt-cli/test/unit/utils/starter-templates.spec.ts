@@ -13,8 +13,9 @@ function respondAfter(delay: number) {
     }
 
     // Only the template listing is slowed down; the per-template fetches that
-    // follow it answer immediately so the test pays the delay once.
-    const isListing = String(url).includes('api.github.com')
+    // follow it answer immediately so the test pays the delay once. Matched on
+    // the host rather than a substring, which any URL could contain anywhere.
+    const isListing = new URL(url instanceof Request ? url.url : String(url)).host === 'api.github.com'
     const body = isListing
       ? [{ name: 'minimal.json', type: 'file', download_url: 'https://raw.example.com/minimal.json' }]
       : { name: 'minimal', description: 'Minimal starter', defaultDir: 'nuxt-app', url: '', tar: '' }

@@ -99,6 +99,8 @@ describe('setupProxySupport', () => {
   it('reports the current process as proxy-aware when launched with the flag', () => {
     expect(isEnvProxyActive({ NODE_USE_ENV_PROXY: '1' }, [], MODERN_NODE)).toBe(true)
     expect(isEnvProxyActive({ NODE_OPTIONS: '--use-env-proxy' }, [], MODERN_NODE)).toBe(true)
+    expect(isEnvProxyActive({ NODE_OPTIONS: '--max-old-space-size=4096 --use-env-proxy' }, [], MODERN_NODE)).toBe(true)
+    expect(isEnvProxyActive({ NODE_OPTIONS: '--require=/tmp/--use-env-proxy.js' }, [], MODERN_NODE)).toBe(false)
     expect(isEnvProxyActive({}, ['--use-env-proxy'], MODERN_NODE)).toBe(true)
     expect(isEnvProxyActive({ HTTPS_PROXY: 'http://localhost:3128' }, [], MODERN_NODE)).toBe(false)
     expect(isEnvProxyActive({ NODE_USE_ENV_PROXY: '1' }, [], OLD_NODE)).toBe(false)
@@ -188,7 +190,18 @@ describe('describeNetworkError with real failures', () => {
   })
 })
 
-describe('describeNetworkError with an untrusted certificate', () => {
+/** Certificate fixtures need `openssl`, which not every machine has. */
+const hasOpenSSL = (() => {
+  try {
+    execFileSync('openssl', ['version'], { stdio: 'ignore' })
+    return true
+  }
+  catch {
+    return false
+  }
+})()
+
+describe.skipIf(!hasOpenSSL)('describeNetworkError with an untrusted certificate', () => {
   let url = ''
   let server: HttpsServer | undefined
   let dir = ''
@@ -197,28 +210,23 @@ describe('describeNetworkError with an untrusted certificate', () => {
     dir = await mkdtemp(join(tmpdir(), 'nuxt-network-tls-'))
     const key = join(dir, 'key.pem')
     const cert = join(dir, 'cert.pem')
-    try {
-      execFileSync('openssl', [
-        'req',
-        '-x509',
-        '-newkey',
-        'rsa:2048',
-        '-nodes',
-        '-keyout',
-        key,
-        '-out',
-        cert,
-        '-days',
-        '1',
-        '-subj',
-        '/CN=127.0.0.1',
-        '-addext',
-        'subjectAltName=IP:127.0.0.1',
-      ], { stdio: 'ignore' })
-    }
-    catch {
-      return
-    }
+    execFileSync('openssl', [
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-nodes',
+      '-keyout',
+      key,
+      '-out',
+      cert,
+      '-days',
+      '1',
+      '-subj',
+      '/CN=127.0.0.1',
+      '-addext',
+      'subjectAltName=IP:127.0.0.1',
+    ], { stdio: 'ignore' })
 
     server = createHttpsServer({ key: await readFile(key), cert: await readFile(cert) }, (_req, res) => res.end('{}'))
     const port = await new Promise<number>(resolve => server!.listen(0, '127.0.0.1', () => resolve((server!.address() as AddressInfo).port)))
@@ -230,11 +238,7 @@ describe('describeNetworkError with an untrusted certificate', () => {
     await rm(dir, { recursive: true, force: true })
   })
 
-  // Skipped rather than failed where `openssl` is unavailable.
   it('flags a self-signed certificate as a TLS failure', async () => {
-    if (!server) {
-      return
-    }
     const err = await captureError(() => fetch(url))
     expect(classifyNetworkError(err)).toMatchObject({ kind: 'tls', code: 'DEPTH_ZERO_SELF_SIGNED_CERT' })
     expect(clean(describeNetworkError(err, url)))
@@ -242,9 +246,6 @@ describe('describeNetworkError with an untrusted certificate', () => {
   })
 
   it('advises a root certificate for a self-signed chain, whatever the proxy state', async () => {
-    if (!server) {
-      return
-    }
     const err = await captureError(() => fetch(url))
     const hint = clean(getProxyHint(classifyNetworkError(err).kind, { argv: NUXI_ARGV, env: {}, windows: false, flags: MODERN_NODE })!)
     expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem')

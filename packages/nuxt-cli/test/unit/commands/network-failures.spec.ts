@@ -131,8 +131,12 @@ describe('dev tool downloads', () => {
   it('says which host a tool could not be downloaded from', async () => {
     home = await mkdtemp(join(tmpdir(), 'nuxt-tool-network-'))
     // Isolate the cache and pre-accept the terms so the real download runs.
-    vi.stubEnv('HOME', home)
+    // `rc9` reads `XDG_CONFIG_HOME` before `homedir()`, and `homedir()` itself
+    // follows `USERPROFILE` on Windows, so all three have to be pinned.
+    vi.stubEnv('XDG_CONFIG_HOME', home)
     vi.stubEnv('XDG_CACHE_HOME', join(home, 'cache'))
+    vi.stubEnv('HOME', home)
+    vi.stubEnv('USERPROFILE', home)
     await writeFile(join(home, '.nuxtrc'), 'tools.probe.termsAccepted=true\n')
 
     let resolved: string | undefined

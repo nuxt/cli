@@ -19,6 +19,10 @@ export function hasProxyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return PROXY_ENV_VARS.some(key => !!env[key])
 }
 
+// Matched on flag boundaries so a path or value that merely contains the flag
+// (`--require=/tmp/--use-env-proxy.js`) is not mistaken for it being enabled.
+const USE_ENV_PROXY_RE = /(?:^|\s)--use-env-proxy(?:$|[\s=])/
+
 /** The flags the running Node.js accepts, i.e. `process.allowedNodeEnvironmentFlags`. */
 export interface NodeFlags {
   has: (flag: string) => boolean
@@ -43,7 +47,7 @@ export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv:
   }
   return env.NODE_USE_ENV_PROXY === '1'
     || execArgv.includes('--use-env-proxy')
-    || !!env.NODE_OPTIONS?.includes('--use-env-proxy')
+    || USE_ENV_PROXY_RE.test(env.NODE_OPTIONS || '')
 }
 
 export type ProxySetupResult = 'unused' | 'active' | 'children-only' | 'unsupported'
