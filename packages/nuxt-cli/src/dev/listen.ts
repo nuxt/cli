@@ -50,11 +50,17 @@ export interface DevListenOverrides extends ListenOptions {
 
 export interface Listener {
   url: string
+  /** Explicit public URL, or the tunnel or portless URL when there is one. */
+  publicURL?: string
+  /** URL the startup QR code was (or would have been) rendered for. */
+  qrURL?: string
   address: AddressInfo
   server: HttpServer
   https: false | ResolvedCertificate
   close: () => Promise<void>
   getURLs: () => ListenURL[]
+  /** Reprint the URL block, optionally flagging which URL a QR code refers to. */
+  showURLs: (options?: { qr?: boolean }) => void
 }
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
@@ -160,47 +166,41 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
 
   const publicURL = options.publicURL || tunnel?.url || portlessShareURL || portlessURL
 
-  if (options.showURL !== false) {
+  const qrURL = options.qr === false
+    ? undefined
+    : publicURL
+      || getURLs().find(({ type }) => type === 'network')?.url
+      || (options.qr ? url : undefined)
+
+  function showURLs({ qr = false }: { qr?: boolean } = {}): void {
     const urls = getURLs()
-    const qrURL = options.qr === false
-      ? undefined
-      : publicURL
-        || urls.find(({ type }) => type === 'network')?.url
-        || (options.qr ? url : undefined)
-
-    if (qrURL) {
-      const { renderUnicodeCompact } = await import('uqr')
-      // eslint-disable-next-line no-console
-      console.log(`\n${centerBlock(renderUnicodeCompact(qrURL))}\n`)
-    }
-
     const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
     const labelColors = { local: colors.green, network: colors.magenta, tunnel: colors.cyan, public: colors.magenta } as const
     const lines: string[] = []
     const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
       `  ${color('➜')} ${colors.bold(color(label.padEnd(10)))}${value}${isQR ? colors.gray(' [QR code]') : ''}`
     for (const { url: displayURL, type } of urls) {
-      lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), displayURL === qrURL))
+      lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), qr && displayURL === qrURL))
     }
     if (!anyHost && !tunnel && !portless.url) {
       lines.push(line(colors.magenta, 'Network:', colors.gray(`use ${colors.white('--host')} to expose`), false))
     }
     if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
-      lines.push(line(colors.magenta, 'Public:', colors.cyan(publicURL), publicURL === qrURL))
+      lines.push(line(colors.magenta, 'Public:', colors.cyan(publicURL), qr && publicURL === qrURL))
     }
     // eslint-disable-next-line no-console
-    console.log(`${qrURL ? '' : '\n'}${lines.join('\n')}\n`)
+    console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
+  }
+
+  if (options.showURL !== false) {
+    if (qrURL) {
+      await printQRCode(qrURL)
+    }
+    showURLs({ qr: !!qrURL })
   }
 
   if (options.clipboard) {
-    try {
-      const { writeText } = await import('tinyclip')
-      await writeText(publicURL || url)
-      logger.info('URL copied to clipboard.')
-    }
-    catch (error) {
-      debug('Failed to copy URL to clipboard:', error)
-    }
+    await copyURL(publicURL || url)
   }
 
   if (options.open) {
@@ -209,10 +209,13 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
 
   return {
     url,
+    publicURL,
+    qrURL,
     address,
     server,
     https: certificate,
     getURLs,
+    showURLs,
     close: async () => {
       await tunnel?.close()
       return new Promise<void>((resolve, reject) => {
@@ -245,6 +248,24 @@ async function resolvePort(requestedPort: number | undefined, hostname: string, 
     logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
   }
   return port
+}
+
+export async function printQRCode(url: string): Promise<void> {
+  const { renderUnicodeCompact } = await import('uqr')
+  // eslint-disable-next-line no-console
+  console.log(`\n${centerBlock(renderUnicodeCompact(url))}\n`)
+}
+
+export async function copyURL(url: string): Promise<void> {
+  try {
+    const { writeText } = await import('tinyclip')
+    await writeText(url)
+    logger.info('URL copied to clipboard.')
+  }
+  catch (error) {
+    debug('Failed to copy URL to clipboard:', error)
+    logger.warn('Could not copy the URL to the clipboard.')
+  }
 }
 
 function centerBlock(block: string): string {
@@ -303,7 +324,7 @@ export function resolveOpenCommand(
   return ['xdg-open', [url]]
 }
 
-function openBrowser(url: string): void {
+export function openBrowser(url: string): void {
   const resolved = resolveOpenCommand(url)
   if (!resolved) {
     return

@@ -49,6 +49,8 @@ const ipc = new IPC()
 interface InitializeReturn {
   listener: Listener
   close: () => Promise<void>
+  /** Reload Nuxt in place, keeping the current listener. */
+  reload: (reason?: string) => Promise<void>
   onReady: (callback: (address: string) => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
 }
@@ -134,6 +136,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
+    reload: (reason?: string) => devServer.load(true, reason),
     close: () => {
       closePromise ??= (async () => {
         devServer.closeWatchers()
