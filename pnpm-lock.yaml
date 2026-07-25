@@ -224,8 +224,8 @@ importers:
         specifier: ^4.2.0
         version: 4.2.0
       tinyclip:
-        specifier: ^0.1.15
-        version: 0.1.15
+        specifier: ^1.0.0
+        version: 1.0.0
       tinyexec:
         specifier: ^1.2.4
         version: 1.2.4
@@ -5773,6 +5773,10 @@ packages:
 
   tinyclip@0.1.15:
     resolution: {integrity: sha512-uo33abH+Ays0xYaDysoBt494Hb3hsEczMpcC0MwFl773pazORx4fmvKhclhR1wonUbB6vvpRsvVMwnhfqeMc+A==}
+    engines: {node: ^16.14.0 || >= 17.3.0}
+
+  tinyclip@1.0.0:
+    resolution: {integrity: sha512-TRHzxKSFyzcd1MOyJvNm3EZ+1M/LyzKFh+kii+TSc8/m0wnvvMfktO5KueVPTj6UU9wTUlEbLCAOchuQkSWl1A==}
     engines: {node: ^16.14.0 || >= 17.3.0}
 
   tinyexec@1.2.4:
@@ -12324,6 +12328,8 @@ snapshots:
   tinybench@2.9.0: {}
 
   tinyclip@0.1.15: {}
+
+  tinyclip@1.0.0: {}
 
   tinyexec@1.2.4: {}
 
