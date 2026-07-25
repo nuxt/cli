@@ -1,15 +1,16 @@
+import type { MockInstance } from 'vitest'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import commands from '../../../src/commands/module'
 import * as utils from '../../../src/commands/module/_utils'
 import * as runCommands from '../../../src/run'
+import * as installUtils from '../../../src/utils/install'
 import * as versions from '../../../src/utils/versions'
 
-const { updateConfig, addDependency, detectPackageManager, mock$fetch } = vi.hoisted(() => {
+const { updateConfig, detectPackageManager, mock$fetch } = vi.hoisted(() => {
   return {
     updateConfig: vi.fn(() => Promise.resolve()),
-    addDependency: vi.fn(() => Promise.resolve()),
-    detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm' })),
+    detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', command: 'npm' })),
     mock$fetch: vi.fn(),
   }
 })
@@ -22,8 +23,8 @@ vi.mock('c12/update', async () => {
 
 vi.mock('nypm', async () => {
   return {
-    addDependency,
     detectPackageManager,
+    packageManagers: [{ name: 'npm', command: 'npm' }],
   }
 })
 
@@ -52,6 +53,8 @@ interface CommandsType {
 }
 
 describe('nuxt add command', () => {
+  let runInstall: MockInstance<typeof installUtils.runInstall>
+
   beforeEach(() => {
     vi.clearAllMocks()
 
@@ -138,6 +141,7 @@ describe('nuxt add command', () => {
       return Promise.resolve({})
     })
 
+    runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install' })
     vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
     vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.14.0')
   })
@@ -152,15 +156,14 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(
-      ['@nuxt/ui@3.0.0'],
-      {
+    expect(runInstall).toHaveBeenCalledWith(
+      expect.objectContaining({
         cwd: '/fake-dir',
+        dependencies: ['@nuxt/ui@3.0.0'],
         dev: true,
-        installPeerDependencies: true,
-        packageManager: { name: 'npm' },
+        packageManager: { name: 'npm', command: 'npm' },
         workspace: false,
-      },
+      }),
     )
 
     expect(updateConfig).toHaveBeenCalled()
@@ -176,15 +179,14 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(
-      ['@nuxt/icon@1.0.0'],
-      {
+    expect(runInstall).toHaveBeenCalledWith(
+      expect.objectContaining({
         cwd: '/fake-dir',
+        dependencies: ['@nuxt/icon@1.0.0'],
         dev: true,
-        installPeerDependencies: true,
-        packageManager: { name: 'npm' },
+        packageManager: { name: 'npm', command: 'npm' },
         workspace: false,
-      },
+      }),
     )
   })
 
@@ -198,15 +200,14 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(
-      ['@nuxt/ui@3.0.0', '@nuxt/icon@1.0.0'],
-      {
+    expect(runInstall).toHaveBeenCalledWith(
+      expect.objectContaining({
         cwd: '/fake-dir',
+        dependencies: ['@nuxt/ui@3.0.0', '@nuxt/icon@1.0.0'],
         dev: true,
-        installPeerDependencies: true,
-        packageManager: { name: 'npm' },
+        packageManager: { name: 'npm', command: 'npm' },
         workspace: false,
-      },
+      }),
     )
   })
 
@@ -221,7 +222,7 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).not.toHaveBeenCalled()
+    expect(runInstall).not.toHaveBeenCalled()
     expect(updateConfig).toHaveBeenCalled()
   })
 
@@ -236,7 +237,7 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalled()
+    expect(runInstall).toHaveBeenCalled()
     expect(updateConfig).not.toHaveBeenCalled()
   })
 
@@ -251,9 +252,9 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(
-      ['@nuxt/ui@3.0.0'],
+    expect(runInstall).toHaveBeenCalledWith(
       expect.objectContaining({
+        dependencies: ['@nuxt/ui@3.0.0'],
         dev: true,
       }),
     )
@@ -291,10 +292,10 @@ describe('nuxt add command', () => {
       },
     })
 
-    expect(addDependency).toHaveBeenCalledWith(
-      ['@nuxt/ui@2.5.0'],
+    expect(runInstall).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: '/fake-dir',
+        dependencies: ['@nuxt/ui@2.5.0'],
       }),
     )
   })
@@ -329,6 +330,25 @@ describe('nuxt add command', () => {
     })
 
     expect(runCommands.runCommandDef).toHaveBeenCalled()
+  })
+
+  it('should not update nuxt.config when the install fails', async () => {
+    runInstall.mockResolvedValue({ success: false, output: 'spawn pnpm ENOENT', command: 'pnpm add @nuxt/ui@3.0.0', error: '`pnpm` was not found.', missingPackageManager: true })
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+
+    const addCommand = await (commands as CommandsType).subCommands.add()
+
+    await addCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['ui'],
+      },
+    })
+
+    expect(updateConfig).not.toHaveBeenCalled()
+    expect(exit).toHaveBeenCalledWith(1)
+
+    exit.mockRestore()
   })
 
   it('should not run prepare command when skipInstall is true', async () => {

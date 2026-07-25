@@ -1,15 +1,17 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
+import type { InstallResult } from '../utils/install'
 import type { TemplateData } from '../utils/starter-templates'
 
 import { existsSync } from 'node:fs'
 import process from 'node:process'
+import { Writable } from 'node:stream'
 
-import { box, cancel, confirm, intro, isCancel, outro, select, spinner, tasks, text } from '@clack/prompts'
+import { box, cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
-import { detectPackageManager, installDependencies } from 'nypm'
+import { detectPackageManager } from 'nypm'
 import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import colors from 'picocolors'
@@ -19,6 +21,7 @@ import { x } from 'tinyexec'
 
 import { runCommandDef as runCommand } from '../run'
 import { nuxtIcon, themeColor } from '../utils/ascii'
+import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { getTemplates } from '../utils/starter-templates'
@@ -29,6 +32,7 @@ import { checkNuxtCompatibility, fetchModules } from './module/_utils'
 import addModuleCommand from './module/add'
 
 const NON_WORD_RE = /[^\w-]/g
+const TRAILING_NEWLINE_RE = /\n$/
 const MULTI_DASH_RE = /-{2,}/g
 const LEADING_TRAILING_DASH_RE = /^-|-$/g
 
@@ -396,6 +400,12 @@ export default defineCommand({
       nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
     }
 
+    let installFailure: InstallResult | undefined
+    let ignoredBuilds: string[] = []
+    // Commands the user still has to run before the project works, surfaced in
+    // the closing "Next steps" box rather than as separate notes.
+    const recoveryCommands: string[] = []
+
     const currentPackageManager = detectCurrentPackageManager()
     // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
@@ -479,59 +489,82 @@ export default defineCommand({
       }
     }
     else {
-      const setupTasks: Array<{ title: string, task: () => Promise<string> }> = [
-        {
-          title: `Installing dependencies with ${colors.cyan(selectedPackageManager)}`,
-          task: async () => {
-            await installDependencies({
-              cwd: template.dir,
-              packageManager: {
-                name: selectedPackageManager,
-                command: selectedPackageManager,
-              },
-              silent: true,
-            })
-            return 'Dependencies installed'
-          },
+      const installController = new AbortController()
+      const installLog = createInstallLog({ verbose: isVerbose(ctx.args.logLevel) })
+      const installSpinner = spinner({
+        indicator: 'timer',
+        onCancel: () => installController.abort(),
+      })
+
+      installSpinner.start(`Installing dependencies with ${colors.cyan(selectedPackageManager)}`)
+
+      const result = await runInstall({
+        cwd: template.dir,
+        packageManager: {
+          name: selectedPackageManager,
+          command: selectedPackageManager,
         },
-      ]
+        onOutput: installLog.onOutput,
+        onStatus: message => installSpinner.message(message),
+        signal: installController.signal,
+      })
+
+      if (result.success) {
+        installSpinner.stop('Dependencies installed')
+        ignoredBuilds = takeUnreportedIgnoredBuilds(result.output)
+      }
+      else {
+        installFailure = result
+        installSpinner.error(result.error ?? 'Dependency installation failed')
+      }
+
+      installLog.finish(result)
 
       if (gitInit) {
-        setupTasks.push({
-          title: 'Initializing git repository',
-          task: async () => {
-            try {
-              await x('git', ['init', template.dir], {
-                throwOnError: true,
-                nodeOptions: {
-                  stdio: 'inherit',
-                },
-              })
-              return 'Git repository initialized'
-            }
-            catch (err) {
-              return `Git initialization failed: ${err}`
-            }
-          },
-        })
+        const gitSpinner = spinner()
+        gitSpinner.start('Initializing git repository')
+
+        const git = await x('git', ['init', template.dir], { throwOnError: false })
+        if (git.exitCode === 0) {
+          gitSpinner.stop('Git repository initialized')
+        }
+        else {
+          gitSpinner.error('Git initialization failed')
+          logger.message(git.stderr.trim().split('\n'), { symbol: colors.gray(S_BAR) })
+        }
       }
 
-      try {
-        await tasks(setupTasks)
-      }
-      catch (err) {
-        if (process.env.DEBUG) {
-          throw err
+      if (ignoredBuilds.length > 0) {
+        logger.warn(`${colors.cyan(selectedPackageManager)} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
+
+        const approve = isNonInteractive
+          ? false
+          : await confirm({ message: 'Approve build scripts now?', initialValue: false })
+
+        if (approve === true) {
+          await x('pnpm', ['approve-builds'], {
+            throwOnError: false,
+            nodeOptions: { cwd: template.dir, stdio: 'inherit' },
+          })
         }
-        logger.error(String(err))
-        process.exit(1)
+        else {
+          recoveryCommands.push(`${selectedPackageManager} approve-builds`)
+        }
       }
     }
 
     const modulesToAdd: string[] = []
 
+    // A project whose dependencies are missing cannot resolve modules, and
+    // adding them to `nuxt.config` anyway would leave it unable to boot.
+    if (installFailure) {
+      if (ctx.args.modules) {
+        logger.warn(`Skipping module installation. Add ${ctx.args.modules.split(',').map(m => colors.cyan(m.trim())).join(', ')} with ${colors.cyan('nuxt module add')} once dependencies are installed.`)
+      }
+    }
+
     // Get modules from arg (if provided)
-    if (ctx.args.modules !== undefined) {
+    else if (ctx.args.modules !== undefined) {
       // ctx.args.modules is false when --no-modules is used
       for (const segment of (ctx.args.modules || '').split(',')) {
         const mod = segment.trim()
@@ -605,13 +638,12 @@ export default defineCommand({
         ...modulesToAdd,
         `--cwd=${templateDownloadPath}`,
         ctx.args.install && !skipInstallOnConflict ? '' : '--skipInstall',
+        `--packageManager=${selectedPackageManager}`,
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
 
       await runCommand(addModuleCommand, args)
     }
-
-    outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
 
     // Display next steps
     const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
@@ -620,10 +652,13 @@ export default defineCommand({
       !ctx.args.shell
       && relativeTemplateDir.length > 1
       && colors.cyan(`cd ${relativeTemplateDir}`),
+      installFailure && colors.cyan(`${selectedPackageManager} install`),
+      ...recoveryCommands.map(command => colors.cyan(command)),
       colors.cyan(`${selectedPackageManager} ${runCmd} dev`),
     ].filter(Boolean)
 
-    box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {
+    logger.message()
+    writeWithGuide(output => box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {
       contentAlign: 'left',
       titleAlign: 'left',
       width: 'auto',
@@ -632,7 +667,19 @@ export default defineCommand({
       rounded: true,
       withGuide: false,
       formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
-    })
+      output,
+    }))
+
+    if (installFailure) {
+      outro(`Created the project from the ${colors.cyan(template.name)} template, but its dependencies are not installed.`)
+    }
+    else {
+      outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
+    }
+
+    if (installFailure) {
+      process.exitCode = 1
+    }
 
     if (ctx.args.shell) {
       startShell(template.dir)
@@ -730,6 +777,30 @@ export async function detectTemplatePackageManager(templateDir: string): Promise
   }
 
   return { name: detected.name, version: detected.version }
+}
+
+/**
+ * Print a clack block behind the prompt gutter. `withGuide` draws the bar in the
+ * terminal's default colour rather than the grey clack uses everywhere else, so
+ * the block is rendered to a buffer and re-emitted with a matching gutter.
+ */
+function writeWithGuide(render: (output: Writable) => void) {
+  const chunks: string[] = []
+  render(new Writable({
+    write(chunk, _encoding, callback) {
+      chunks.push(String(chunk))
+      callback()
+    },
+  }))
+
+  const gutter = colors.gray(S_BAR)
+  for (const line of chunks.join('').replace(TRAILING_NEWLINE_RE, '').split('\n')) {
+    process.stdout.write(`${gutter} ${line}\n`)
+  }
+}
+
+function isVerbose(logLevel?: string) {
+  return logLevel === 'verbose' || Boolean(process.env.DEBUG)
 }
 
 function detectCurrentPackageManager() {
