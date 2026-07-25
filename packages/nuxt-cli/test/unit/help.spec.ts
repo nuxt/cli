@@ -1,4 +1,4 @@
-import type { CommandDef } from 'citty'
+import type { CommandDef, Resolvable } from 'citty'
 
 import { renderUsage } from 'citty'
 import { describe, expect, it } from 'vitest'
@@ -6,16 +6,16 @@ import { describe, expect, it } from 'vitest'
 import { commands } from '../../src/commands'
 import { main } from '../../src/main'
 
-async function resolve(def: CommandDef): Promise<CommandDef> {
+async function resolve(def: Resolvable<CommandDef>): Promise<CommandDef> {
   return typeof def === 'function' ? await def() : def
 }
 
-async function usage(def: CommandDef, parent?: CommandDef): Promise<string> {
+async function usage(def: Resolvable<CommandDef>, parent?: Resolvable<CommandDef>): Promise<string> {
   const rendered = await renderUsage(await resolve(def), parent ? await resolve(parent) : undefined)
   return rendered.replace(/v\d+\.\d+\.\d[^\s)]*/g, 'v0.0.0')
 }
 
-async function subCommand(parent: CommandDef, name: string): Promise<CommandDef> {
+async function subCommand(parent: Resolvable<CommandDef>, name: string): Promise<CommandDef> {
   const resolved = await resolve(parent)
   const subCommands = await (typeof resolved.subCommands === 'function' ? resolved.subCommands() : resolved.subCommands)
   return subCommands![name] as CommandDef
