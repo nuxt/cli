@@ -431,11 +431,12 @@ describe('help', () => {
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
-        --logLevel=<silent|info|verbose>    Specify build-time log level                                     
-                       --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory      
-              -e, --extends=<layer-name>    Extend from a Nuxt layer                                         
-                     --checker=<checker>    Type checker to use (\`vue-tsc\` or \`golar\`)                       
+                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                     
+                       --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                      
+              -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                         
+                     --checker=<checker>    Type checker to use (\`vue-tsc\` or \`golar\`)                                                       
+                             -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)
       "
     `)
   })
