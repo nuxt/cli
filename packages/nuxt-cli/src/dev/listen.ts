@@ -197,8 +197,8 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     server,
     https: certificate,
     getURLs,
-    close: () => {
-      tunnel?.close()
+    close: async () => {
+      await tunnel?.close()
       return new Promise<void>((resolve, reject) => {
         server.close(error => (error ? reject(error) : resolve()))
         server.closeAllConnections?.()

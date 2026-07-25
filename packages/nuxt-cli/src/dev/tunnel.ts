@@ -1,6 +1,7 @@
 import type { Buffer } from 'node:buffer'
 
 import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import process from 'node:process'
 
 import { debug, logger } from '../utils/logger'
@@ -8,9 +9,18 @@ import { resolveTool } from './binaries'
 
 const TUNNEL_URL_RE = /https:\/\/(?!api\.)[\w-]+\.trycloudflare\.com/
 
+/**
+ * Pinned so a bad Cloudflare release cannot break `--tunnel` for everyone.
+ * Set `CLOUDFLARED_VERSION` (or `latest`) to override.
+ */
+const CLOUDFLARED_VERSION = process.env.CLOUDFLARED_VERSION || '2026.7.3'
+
+/** How long to wait for `cloudflared` to exit on `SIGINT` before `SIGKILL`. */
+const SHUTDOWN_TIMEOUT_MS = 5000
+
 export interface Tunnel {
   url: string
-  close: () => void
+  close: () => Promise<void>
 }
 
 export async function startTunnel(localURL: string, insecure?: boolean): Promise<Tunnel | undefined> {
@@ -27,10 +37,20 @@ export async function startTunnel(localURL: string, insecure?: boolean): Promise
   const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
 
   let output = ''
+  const recentOutput: string[] = []
   const url = await new Promise<string | undefined>((resolve) => {
     const timeout = setTimeout(resolve, 20_000, undefined)
     const onData = (chunk: Buffer) => {
-      output += chunk.toString()
+      const text = chunk.toString()
+      output += text
+      for (const line of text.split('\n')) {
+        if (line.trim()) {
+          recentOutput.push(line.trim())
+        }
+      }
+      if (recentOutput.length > 10) {
+        recentOutput.splice(0, recentOutput.length - 10)
+      }
       const match = output.match(TUNNEL_URL_RE)
       if (match) {
         clearTimeout(timeout)
@@ -55,7 +75,10 @@ export async function startTunnel(localURL: string, insecure?: boolean): Promise
   if (!url) {
     child.kill()
     debug('cloudflared output:', output)
-    logger.warn('Could not establish a Cloudflare quick tunnel. Run with `DEBUG=nuxi` for details.')
+    logger.warn([
+      'Could not establish a Cloudflare quick tunnel.',
+      ...recentOutput.map(line => `  ${line}`),
+    ].join('\n'))
     return undefined
   }
 
@@ -72,7 +95,7 @@ export async function startTunnel(localURL: string, insecure?: boolean): Promise
 
   const kill = () => {
     try {
-      child.kill()
+      child.kill('SIGKILL')
     }
     catch {
       // process may have already exited
@@ -82,24 +105,55 @@ export async function startTunnel(localURL: string, insecure?: boolean): Promise
 
   return {
     url,
-    close: () => {
+    close: async () => {
       process.removeListener('exit', kill)
-      kill()
+      if (child.exitCode !== null || child.signalCode !== null) {
+        return
+      }
+      // `SIGINT` lets cloudflared drain its connections and deregister the
+      // quick tunnel; escalate if it does not exit promptly.
+      const exited = once(child, 'exit')
+      child.kill('SIGINT')
+      const escalation = setTimeout(kill, SHUTDOWN_TIMEOUT_MS)
+      try {
+        await exited
+      }
+      catch (error) {
+        debug('Failed to stop `cloudflared`:', error)
+      }
+      finally {
+        clearTimeout(escalation)
+      }
     },
   }
 }
 
+const CLOUDFLARED_ASSETS: Record<string, Partial<Record<typeof process.arch, string>>> = {
+  darwin: {
+    arm64: 'cloudflared-darwin-arm64.tgz',
+    x64: 'cloudflared-darwin-amd64.tgz',
+  },
+  linux: {
+    arm: 'cloudflared-linux-arm',
+    arm64: 'cloudflared-linux-arm64',
+    ia32: 'cloudflared-linux-386',
+    x64: 'cloudflared-linux-amd64',
+  },
+  win32: {
+    ia32: 'cloudflared-windows-386.exe',
+    x64: 'cloudflared-windows-amd64.exe',
+  },
+}
+
 async function resolveCloudflared(): Promise<string | undefined> {
-  const arch = process.arch === 'arm64' ? 'arm64' : 'amd64'
-  const base = 'https://github.com/cloudflare/cloudflared/releases/latest/download'
-  const asset = ({
-    darwin: `cloudflared-darwin-${arch}.tgz`,
-    linux: `cloudflared-linux-${arch}`,
-    win32: `cloudflared-windows-amd64.exe`,
-  } as Record<string, string>)[process.platform]
+  const base = CLOUDFLARED_VERSION === 'latest'
+    ? 'https://github.com/cloudflare/cloudflared/releases/latest/download'
+    : `https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}`
+  const asset = CLOUDFLARED_ASSETS[process.platform]?.[process.arch]
   return resolveTool('cloudflared', {
     url: asset && `${base}/${asset}`,
     archive: asset?.endsWith('.tgz'),
+    cacheName: `cloudflared-${CLOUDFLARED_VERSION}`,
     consent: {
       key: 'cloudflared',
       notice: [

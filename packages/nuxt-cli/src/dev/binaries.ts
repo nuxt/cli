@@ -26,13 +26,17 @@ interface ConsentOptions {
 /**
  * Resolve a third-party tool binary: from `PATH`, then the download cache,
  * then (with the user's consent) by downloading it.
+ *
+ * `cacheName` overrides the cached filename, so version-pinned tools can key
+ * their cache entry by version without affecting the `PATH` lookup.
  */
-export async function resolveTool(name: string, options: { url?: string, archive?: boolean, consent: ConsentOptions }): Promise<string | undefined> {
+export async function resolveTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
   const existing = findInPath(name)
   if (existing) {
     return existing
   }
-  const destination = join(getCacheDir('bin'), process.platform === 'win32' ? `${name}.exe` : name)
+  const cacheName = options.cacheName || name
+  const destination = join(getCacheDir('bin'), process.platform === 'win32' ? `${cacheName}.exe` : cacheName)
   if (existsSync(destination)) {
     return destination
   }
@@ -129,6 +133,11 @@ async function downloadBinary(url: string, destination: string, options: { archi
         writeFileSync(archivePath, data)
         execFileSync('tar', ['-xzf', archivePath, '-C', stagingDir], { stdio: 'ignore' })
         rmSync(archivePath)
+        // Archives are named after the tool, not the cache entry.
+        const extracted = join(stagingDir, options.name || basename(destination))
+        if (extracted !== staged && existsSync(extracted)) {
+          renameSync(extracted, staged)
+        }
       }
       else {
         writeFileSync(staged, data)
