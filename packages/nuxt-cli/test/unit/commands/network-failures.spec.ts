@@ -10,8 +10,10 @@ import process from 'node:process'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import initCommand from '../../../src/commands/init'
+import moduleCommand from '../../../src/commands/module'
 import * as moduleUtils from '../../../src/commands/module/_utils'
 import addCommand from '../../../src/commands/module/add'
+import { resolveTool } from '../../../src/dev/binaries'
 import { runCommandDef } from '../../../src/run'
 import { render, screen } from '../../utils/terminal'
 
@@ -97,5 +99,56 @@ describe('network failures reported by commands', () => {
 
     expect(output).toContain('Failed to fetch package details for @nuxt/image.')
     expect(output).toContain(`Connection to 127.0.0.1:${port} was refused.`)
+  })
+
+  it('reports why the module database is unreachable when searching', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'nuxt-search-network-'))
+
+    // A genuine undici error rather than a hand-built one.
+    const refused = await fetch(`http://127.0.0.1:${port}/`).catch((err: unknown) => err)
+    vi.spyOn(moduleUtils, 'fetchModules').mockRejectedValue(refused)
+
+    const { output, exitCode } = await runFailing(moduleCommand, ['search', `--cwd=${dir}`, 'image'])
+
+    expect(output).toContain('Connection to api.nuxt.com was refused.')
+    expect(exitCode).toBe(1)
+  })
+})
+
+describe('dev tool downloads', () => {
+  let home: string
+  let port: number
+
+  beforeAll(async () => {
+    port = await closedPort()
+  })
+
+  afterEach(async () => {
+    await rm(home, { recursive: true, force: true })
+    vi.unstubAllEnvs()
+  })
+
+  it('says which host a tool could not be downloaded from', async () => {
+    home = await mkdtemp(join(tmpdir(), 'nuxt-tool-network-'))
+    // Isolate the cache and pre-accept the terms so the real download runs.
+    vi.stubEnv('HOME', home)
+    vi.stubEnv('XDG_CACHE_HOME', join(home, 'cache'))
+    await writeFile(join(home, '.nuxtrc'), 'tools.probe.termsAccepted=true\n')
+
+    let resolved: string | undefined
+    const renderer = await render(async () => {
+      resolved = await resolveTool('nuxt-probe-does-not-exist', {
+        url: `http://127.0.0.1:${port}/probe.tgz`,
+        consent: {
+          key: 'probe',
+          notice: [],
+          message: 'ok?',
+          nonInteractiveWarning: 'skipped',
+        },
+      })
+    })
+
+    expect(resolved).toBeUndefined()
+    expect(screen(renderer)).toContain(`Connection to 127.0.0.1:${port} was refused.`)
   })
 })
