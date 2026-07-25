@@ -1,22 +1,22 @@
 import type { CommandDef } from 'citty'
-import type { TemplateName } from '../../nuxi/src/utils/templates/names'
+import type { TemplateName } from './utils/templates/names'
 
 import { resolve } from 'node:path'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { colors } from 'consola/utils'
+import colors from 'picocolors'
 import { provider } from 'std-env'
 
-import { commands } from '../../nuxi/src/commands'
-import { cwdArgs } from '../../nuxi/src/commands/_shared'
-import { setupGlobalConsole } from '../../nuxi/src/utils/console'
-import { checkEngines } from '../../nuxi/src/utils/engines'
-import { logger } from '../../nuxi/src/utils/logger'
-import { templateNames } from '../../nuxi/src/utils/templates/names'
-
 import { description, name, version } from '../package.json'
+import { commands } from './commands'
+import { cwdArgs } from './commands/_shared'
 import { runCommand } from './run'
+import { setupGlobalConsole } from './utils/console'
+import { checkEngines } from './utils/engines'
+
+import { logger } from './utils/logger'
+import { templateNames } from './utils/templates/names'
 
 const _main = defineCommand({
   meta: {

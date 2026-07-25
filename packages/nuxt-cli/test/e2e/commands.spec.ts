@@ -1,5 +1,5 @@
 import type { TestFunction } from 'vitest'
-import type { commands } from '../../../nuxi/src/commands'
+import type { commands } from '../../src/commands'
 
 import { existsSync } from 'node:fs'
 

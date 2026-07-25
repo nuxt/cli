@@ -11,5 +11,5 @@ playground-bun*
 playground-deno*
 playground-node*
 packages/nuxi/src/utils/completions-data.ts
-packages/nuxi/src/data/nitro-presets.ts
-packages/nuxi/src/data/templates.ts
+packages/nuxt-cli/src/data/nitro-presets.ts
+packages/nuxt-cli/src/data/templates.ts

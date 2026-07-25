@@ -163,9 +163,7 @@ describe('dev server', () => {
         port,
         url: `https://${host}:${port}/`,
       })
-      expect(https).toBeTruthy()
-      expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
-      expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
+      expect(https).toEqual({ pfx: httpsPfx, passphrase: 'pass' })
     })
 
     it('should be override from commandline', { timeout: 50_000 }, async () => {

@@ -61,14 +61,16 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           persist-credentials: false
-      - run: corepack enable
+
+      - run: npm i -g --force corepack && corepack enable
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: pnpm
 
       # The repo's `postinstall` runs `scripts/generate-data.ts` to write
-      # `packages/nuxi/src/data/*.ts` that the build then bundles. uppt's
+      # `packages/nuxt-cli/src/data/*.ts` that the build then bundles. uppt's
       # default install path uses `--ignore-scripts`, which would skip it
       # and produce a stale or broken nuxi tarball, so we install ourselves
       # and pass `install: false` to uppt/pack.

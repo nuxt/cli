@@ -18,7 +18,7 @@ export default createConfigForNuxt({
   regexp: false,
 })).append(
   {
-    ignores: ['packages/nuxi/src/data/**'],
+    ignores: ['packages/nuxt-cli/src/data/**'],
   },
   {
     rules: {
