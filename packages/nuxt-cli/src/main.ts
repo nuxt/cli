@@ -16,7 +16,13 @@ import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 
 import { logger } from './utils/logger'
+import { setupProxySupport } from './utils/network'
 import { templateNames } from './utils/templates/names'
+
+// Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
+// the current process proxy-aware; it propagates the setting to child processes
+// (package manager installs, dev server) and records the state for error hints.
+setupProxySupport()
 
 const _main = defineCommand({
   meta: {

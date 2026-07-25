@@ -107,10 +107,10 @@ export interface NuxtModule {
   createdAt?: number
 }
 
+export const MODULES_API_URL = 'https://api.nuxt.com/modules?version=all'
+
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const { modules } = await $fetch<NuxtApiModulesResponse>(
-    `https://api.nuxt.com/modules?version=all`,
-  )
+  const { modules } = await $fetch<NuxtApiModulesResponse>(MODULES_API_URL)
   return modules
 }
 
