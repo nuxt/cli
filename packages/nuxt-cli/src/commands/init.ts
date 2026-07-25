@@ -85,6 +85,29 @@ async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
     .join(', ')}`)
 }
 
+/**
+ * Commands to print in the closing 'Next steps' box, in the order to run them.
+ *
+ * `dir` is relative to the current working directory, so `.` means the project
+ * was created in place and there is nowhere to `cd` to.
+ */
+export function getNextSteps(options: {
+  dir: string
+  shell: boolean
+  installFailure?: unknown
+  recoveryCommands: string[]
+  packageManager: PackageManagerName
+}): string[] {
+  const { dir, shell, installFailure, recoveryCommands, packageManager } = options
+  const runCmd = packageManager === 'deno' ? 'task' : 'run'
+  return [
+    !shell && dir !== '.' && `cd ${dir}`,
+    installFailure && `${packageManager} install`,
+    ...recoveryCommands,
+    `${packageManager} ${runCmd} dev`,
+  ].filter((step): step is string => typeof step === 'string')
+}
+
 export default defineCommand({
   meta: {
     name: 'init',
@@ -678,16 +701,13 @@ export default defineCommand({
     }
 
     // Display next steps
-    const relativeTemplateDir = relative(process.cwd(), template.dir) || '.'
-    const runCmd = selectedPackageManager === 'deno' ? 'task' : 'run'
-    const nextSteps = [
-      !ctx.args.shell
-      && relativeTemplateDir.length > 1
-      && colors.cyan(`cd ${relativeTemplateDir}`),
-      installFailure && colors.cyan(`${selectedPackageManager} install`),
-      ...recoveryCommands.map(command => colors.cyan(command)),
-      colors.cyan(`${selectedPackageManager} ${runCmd} dev`),
-    ].filter(Boolean)
+    const nextSteps = getNextSteps({
+      dir: relative(process.cwd(), template.dir) || '.',
+      shell: !!ctx.args.shell,
+      installFailure,
+      recoveryCommands,
+      packageManager: selectedPackageManager,
+    }).map(step => colors.cyan(step))
 
     logger.message()
     writeWithGuide(output => box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {

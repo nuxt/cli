@@ -3,7 +3,41 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { detectTemplatePackageManager } from '../../../src/commands/init'
+import { detectTemplatePackageManager, getNextSteps } from '../../../src/commands/init'
+
+describe('getNextSteps', () => {
+  const base = { shell: false, recoveryCommands: [] as string[], packageManager: 'npm' as const }
+
+  it('should tell the user to change into the project directory', () => {
+    expect(getNextSteps({ ...base, dir: 'my-app' })).toEqual(['cd my-app', 'npm run dev'])
+  })
+
+  it('should tell the user to change into a single-character directory', () => {
+    expect(getNextSteps({ ...base, dir: 'a' })).toEqual(['cd a', 'npm run dev'])
+  })
+
+  it('should omit the change of directory when the project was created in place', () => {
+    expect(getNextSteps({ ...base, dir: '.' })).toEqual(['npm run dev'])
+  })
+
+  it('should omit the change of directory when a shell is launched', () => {
+    expect(getNextSteps({ ...base, dir: 'my-app', shell: true })).toEqual(['npm run dev'])
+  })
+
+  it('should ask for a retried install before recovery commands', () => {
+    expect(getNextSteps({
+      ...base,
+      dir: 'my-app',
+      installFailure: { error: new Error('offline') },
+      recoveryCommands: ['pnpm approve-builds'],
+      packageManager: 'pnpm',
+    })).toEqual(['cd my-app', 'pnpm install', 'pnpm approve-builds', 'pnpm run dev'])
+  })
+
+  it('should use `task` for deno', () => {
+    expect(getNextSteps({ ...base, dir: 'my-app', packageManager: 'deno' })).toEqual(['cd my-app', 'deno task dev'])
+  })
+})
 
 describe('detectTemplatePackageManager', () => {
   let dir: string
