@@ -191,10 +191,7 @@ const command = defineCommand({
 
     async function closeAll() {
       cleanupCurrentFork?.()
-      await Promise.all([
-        listener.close(),
-        close(),
-      ])
+      await close()
     }
 
     setupQuitShortcut(closeAll, onReady)

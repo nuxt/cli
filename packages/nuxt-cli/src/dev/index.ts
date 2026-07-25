@@ -130,19 +130,24 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     }
   }
 
+  let closePromise: Promise<void> | undefined
+
   return {
     listener: devServer.listener,
-    close: async () => {
-      devServer.closeWatchers()
-      try {
-        await Promise.all([
-          devServer.listener.close(),
-          devServer.close(),
-        ])
-      }
-      finally {
-        devServer.releaseLock()
-      }
+    close: () => {
+      closePromise ??= (async () => {
+        devServer.closeWatchers()
+        try {
+          await Promise.all([
+            devServer.listener.close(),
+            devServer.close(),
+          ])
+        }
+        finally {
+          devServer.releaseLock()
+        }
+      })()
+      return closePromise
     },
     onReady: (callback: (address: string) => void) => {
       if (address) {
