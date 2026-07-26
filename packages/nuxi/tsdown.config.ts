@@ -7,12 +7,13 @@ import { purgePolyfills } from 'unplugin-purge-polyfills'
 const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/dev/index.ts'],
+  entry: ['src/index.ts', 'src/cli.ts', 'src/dev/index.ts'],
   shims: true,
   fixedExtension: true,
   deps: { onlyBundle: false },
   dts: !isAnalysingSize && {
     oxc: true,
+    entry: ['src/index.ts'],
   },
   // disabled due to upstream DTS warnings from @nuxt/schema type imports
   failOnWarn: false,

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
-import * as runCommands from '../../../../src/run'
+import * as runCommands from '../../../../src/run-command'
 import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 

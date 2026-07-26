@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
-import * as runCommands from '../../../../src/run'
+import * as runCommands from '../../../../src/run-command'
 
 const updateConfig = vi.fn(() => Promise.resolve())
 const removeDependency = vi.fn(() => Promise.resolve())

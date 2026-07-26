@@ -16,7 +16,7 @@ import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
 
-import { runCommandDef as runCommand } from '../../run'
+import { runCommandDef as runCommand } from '../../run-command'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
