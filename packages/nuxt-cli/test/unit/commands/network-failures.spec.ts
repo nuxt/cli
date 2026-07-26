@@ -14,7 +14,7 @@ import moduleCommand from '../../../src/commands/module'
 import * as moduleUtils from '../../../src/commands/module/_utils'
 import addCommand from '../../../src/commands/module/add'
 import { resolveTool } from '../../../src/dev/binaries'
-import { runCommandDef } from '../../../src/run'
+import { runCommandDef } from '../../../src/run-command'
 import { render, screen } from '../../utils/terminal'
 
 /** A port nothing listens on, so connections to it are refused immediately. */
