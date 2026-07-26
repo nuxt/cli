@@ -3,7 +3,7 @@ import type { CommandDef } from 'citty'
 const _rDefault = (r: any) => (r.default || r) as Promise<CommandDef>
 
 export const commands = {
-  'add': () => import('./module/add').then(_rDefault),
+  'add': () => import('./add').then(_rDefault),
   'add-template': () => import('./add-template').then(_rDefault),
   'analyze': () => import('./analyze').then(_rDefault),
   'build': () => import('./build').then(_rDefault),

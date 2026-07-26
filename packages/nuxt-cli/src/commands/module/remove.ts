@@ -18,7 +18,7 @@ import { logNetworkError } from '../../utils/network'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
-import { ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL } from './_utils'
+import { basePackageName, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL } from './_utils'
 
 interface OrphanedPeer {
   peer: string
@@ -65,7 +65,7 @@ export default defineCommand({
     // configured modules. Otherwise resolve aliases/names to canonical npm package names.
     const installedNames = getProjectDependencies(projectPkg)
 
-    const needsDB = modules.some(m => !installedNames.has(m))
+    const needsDB = modules.some(m => !installedNames.has(m) && !installedNames.has(basePackageName(m)))
     const modulesDB: NuxtModule[] = needsDB
       ? await fetchModules().catch((err) => {
           logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
@@ -76,7 +76,7 @@ export default defineCommand({
     const resolvedModules = modules.map(m => resolveModuleName(m, modulesDB, installedNames))
 
     if (resolvedModules.length > 0) {
-      logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x)).join(', ')}, removing module${resolvedModules.length > 1 ? 's' : ''}...`)
+      logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x)).join(', ')}, removing...`)
     }
 
     const proceed = await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
@@ -95,6 +95,7 @@ export default defineCommand({
 // -- Internal Utils --
 async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
   const removedFromConfig: string[] = []
+  const dependencies = getProjectDependencies(projectPkg)
 
   if (!skipConfig) {
     let configMissing = false
@@ -108,15 +109,20 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
         return false
       },
       async onUpdate(config) {
-        if (!Array.isArray(config.modules)) {
+        const arrays = ([['modules', config.modules], ['extends', config.extends]] as const)
+          .filter(([, value]) => Array.isArray(value)) as Array<[string, unknown[]]>
+
+        if (arrays.length === 0) {
           return
         }
 
         const present: string[] = []
-        for (const item of config.modules) {
-          const name = readModuleName(item)
-          if (name) {
-            present.push(name)
+        for (const [, items] of arrays) {
+          for (const item of items) {
+            const name = readModuleName(item)
+            if (name) {
+              present.push(name)
+            }
           }
         }
 
@@ -143,11 +149,16 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
           toRemove = new Set(modules)
         }
 
-        for (let i = config.modules.length - 1; i >= 0; i--) {
-          const name = readModuleName(config.modules[i])
-          if (name && toRemove.has(name)) {
-            logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan('modules')}`)
-            config.modules.splice(i, 1)
+        for (const [key, items] of arrays) {
+          for (let i = items.length - 1; i >= 0; i--) {
+            const name = readModuleName(items[i])
+            // A package may be configured through a subpath (`maz-ui/nuxt`) while the
+            // user asks to remove the package itself.
+            if (!name || !(toRemove.has(name) || toRemove.has(basePackageName(name)))) {
+              continue
+            }
+            logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan(key)}`)
+            items.splice(i, 1)
             removedFromConfig.push(name)
           }
         }
@@ -157,7 +168,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
         return
       }
       logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
-      logger.error(`Please manually remove ${colors.cyan(modules.join(', ') || 'the relevant modules')} from the ${colors.cyan('modules')} array in ${colors.cyan('nuxt.config.ts')}`)
+      logger.error(`Please manually remove ${colors.cyan(modules.join(', ') || 'the relevant modules')} from ${colors.cyan('nuxt.config.ts')}`)
     })
 
     if (cancelled) {
@@ -177,9 +188,12 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const installedModules: string[] = []
     const notInstalledModules: string[] = []
 
-    const dependencies = getProjectDependencies(projectPkg)
-
-    const targets = Array.from(new Set([...modules, ...removedFromConfig]))
+    // Entries removed from the config are only uninstalled when they name an
+    // installed package, so a local layer (`./layers/admin`) is left alone.
+    const targets = Array.from(new Set([
+      ...modules,
+      ...removedFromConfig.map(basePackageName).filter(name => dependencies.has(name)),
+    ]))
 
     for (const module of targets) {
       if (dependencies.has(module)) {
@@ -262,6 +276,11 @@ function readModuleName(item: unknown): string | null {
 function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Set<string>): string {
   if (installed.has(input)) {
     return input
+  }
+
+  const base = basePackageName(input)
+  if (installed.has(base)) {
+    return base
   }
 
   const matched = modulesDB.find(m =>
