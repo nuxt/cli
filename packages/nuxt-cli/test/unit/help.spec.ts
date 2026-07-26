@@ -119,6 +119,7 @@ describe('help', () => {
                            --name=<name>    Name of the analysis (Default: default)                    
                                  --serve    Serve the analysis results (Default: true)                 
                               --no-serve    Skip serving the analysis results                          
+                             --prerender    Prerender routes while analyzing (Default: false)          
       "
     `)
   })

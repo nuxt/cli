@@ -61,6 +61,11 @@ export default defineCommand({
       negativeDescription: 'Skip serving the analysis results',
       default: true,
     },
+    prerender: {
+      type: 'boolean',
+      description: 'Prerender routes while analyzing',
+      default: false,
+    },
   },
   async run(ctx) {
     overrideEnv('production')
@@ -77,6 +82,7 @@ export default defineCommand({
 
     const nuxt = await loadNuxt({
       cwd,
+      ready: false,
       dotenv: {
         cwd,
         fileName: ctx.args.dotenv,
@@ -99,8 +105,29 @@ export default defineCommand({
           },
         },
         logLevel: ctx.args.logLevel,
+        ...(!ctx.args.prerender && {
+          nitro: {
+            prerender: {
+              routes: [],
+              crawlLinks: false,
+              ignore: [() => true],
+            },
+          },
+        }),
       }),
     })
+
+    let skippedPrerenderRoutes = 0
+    if (!ctx.args.prerender) {
+      nuxt.hook('nitro:init', (nitro) => {
+        nitro.hooks.hook('prerender:routes', (routes) => {
+          skippedPrerenderRoutes = routes.size
+          routes.clear()
+        })
+      })
+    }
+
+    await nuxt.ready()
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
@@ -122,6 +149,10 @@ export default defineCommand({
     tasklog.message('Building Nuxt...')
     await buildNuxt(nuxt)
     tasklog.success('Build complete')
+
+    if (skippedPrerenderRoutes > 0) {
+      logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${colors.cyan('--prerender')} to include assets emitted while prerendering.`)
+    }
 
     const endTime = Date.now()
 
