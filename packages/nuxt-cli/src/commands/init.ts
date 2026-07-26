@@ -137,6 +137,10 @@ export default defineCommand({
   },
   args: {
     ...cwdArgs,
+    cwd: {
+      ...cwdArgs.cwd,
+      description: 'Specify the directory to create the project in',
+    },
     ...logLevelArgs,
     dir: {
       type: 'positional',

@@ -3,7 +3,7 @@ import type { ArgDef } from 'citty'
 export const cwdArgs = {
   cwd: {
     type: 'string',
-    description: 'Specify the working directory',
+    description: 'Specify the root directory of your Nuxt project',
     valueHint: 'directory',
     default: '.',
   },
@@ -49,17 +49,16 @@ export const profileArgs = {
   },
 } as const satisfies Record<string, ArgDef>
 
-export const legacyRootDirArgs = {
-  // cwd falls back to rootDir's default (indirect default)
-  cwd: {
-    ...cwdArgs.cwd,
-    description: 'Specify the working directory, this takes precedence over ROOTDIR',
-    default: undefined,
-  },
+/**
+ * `--cwd` is deliberately not declared here: it is an undocumented alias for ROOTDIR,
+ * normalised out of `rawArgs` by `normaliseCwdArg` and read back off `args.cwd`.
+ * No default, so `resolveRootDir` can tell an explicit ROOTDIR from an absent one.
+ */
+export const rootDirArgs = {
   rootDir: {
     type: 'positional',
-    description: 'Specifies the working directory',
+    description: 'The root directory of your Nuxt project (default: .)',
     required: false,
-    default: '.',
+    default: undefined,
   },
 } as const satisfies Record<string, ArgDef>

@@ -1,12 +1,13 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
+
 import colors from 'picocolors'
 import { x } from 'tinyexec'
-
 import { logger } from '../utils/logger'
-import { cwdArgs, legacyRootDirArgs } from './_shared'
+
+import { resolveRootDir } from '../utils/paths'
+import { rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -14,16 +15,16 @@ export default defineCommand({
     description: 'Enable or disable devtools in a Nuxt project',
   },
   args: {
-    ...cwdArgs,
+    // `command` has to precede the `dir` positional supplied by `rootDirArgs`
     command: {
       type: 'positional',
       description: 'Command to run',
       valueHint: 'enable|disable',
     },
-    ...legacyRootDirArgs,
+    ...rootDirArgs,
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
     const command = ctx.args.command
 
     if (!command || !['enable', 'disable'].includes(command)) {

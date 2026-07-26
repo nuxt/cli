@@ -12,6 +12,7 @@ import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
 import { runCommand } from './run'
+import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 
@@ -40,6 +41,8 @@ const _main = defineCommand({
   },
   subCommands: commands,
   async setup(ctx) {
+    normaliseCwdArg(ctx.rawArgs)
+
     const command = ctx.args._[0]
     setupGlobalConsole({ dev: command === 'dev' })
 

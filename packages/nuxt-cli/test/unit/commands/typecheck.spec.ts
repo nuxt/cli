@@ -1,9 +1,8 @@
 import { fileURLToPath } from 'node:url'
 
-import { runCommand } from 'citty'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import typecheck from '../../../src/commands/typecheck'
+import { runCommand } from '../../../src/run'
 import { logger } from '../../../src/utils/logger'
 
 const { x, loadKit } = vi.hoisted(() => ({
@@ -26,7 +25,7 @@ function fixture(name: string) {
 }
 
 async function run(cwd: string, ...args: string[]) {
-  await runCommand(typecheck, { rawArgs: ['--cwd', cwd, ...args] })
+  await runCommand('typecheck', ['--cwd', cwd, ...args])
   return x.mock.calls[0]?.[1]
 }
 

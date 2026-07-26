@@ -5,6 +5,7 @@ import process from 'node:process'
 import { runCommand as _runCommand } from 'citty'
 
 import { isNuxiCommand } from './commands/_utils'
+import { normaliseCwdArg } from './utils/args'
 
 // To provide subcommands call it as `runCommandDef(<command>, [<subcommand>, ...])`
 export async function runCommandDef<T extends ArgsDef = ArgsDef>(
@@ -22,8 +23,11 @@ export async function runCommandDef<T extends ArgsDef = ArgsDef>(
     throw new Error(`Invalid command, must be named`)
   }
 
+  const rawArgs = [...argv]
+  normaliseCwdArg(rawArgs)
+
   return await _runCommand(command, {
-    rawArgs: argv,
+    rawArgs,
     data: {
       overrides: data.overrides || {},
     },

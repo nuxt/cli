@@ -17,9 +17,9 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { getPackageManagerVersion } from '../utils/packageManagers'
-import { relativeToProcess } from '../utils/paths'
+import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { getNuxtVersion } from '../utils/versions'
-import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { logLevelArgs, rootDirArgs } from './_shared'
 
 function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
   if (pkg.dependencies?.nuxt) {
@@ -86,9 +86,8 @@ export default defineCommand({
     description: 'Upgrade Nuxt',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
-    ...legacyRootDirArgs,
     dedupe: {
       type: 'boolean',
       description: 'Dedupe dependencies after upgrading',
@@ -107,7 +106,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     intro(colors.cyan('Upgrading Nuxt ...'))
 

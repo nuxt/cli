@@ -7,7 +7,7 @@ import { intro, note, outro, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
 import { H3, lazyEventHandler } from 'h3-next'
-import { join, resolve } from 'pathe'
+import { join } from 'pathe'
 import colors from 'picocolors'
 import { serve } from 'srvx'
 
@@ -15,8 +15,8 @@ import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { relativeToProcess } from '../utils/paths'
-import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const NON_WORD_RE = /[^\w-]/g
 
@@ -45,9 +45,8 @@ export default defineCommand({
     description: 'Build Nuxt and analyze production bundle (experimental)',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
-    ...legacyRootDirArgs,
     ...dotEnvArgs,
     ...extendsArgs,
     name: {
@@ -66,7 +65,7 @@ export default defineCommand({
   async run(ctx) {
     overrideEnv('production')
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(NON_WORD_RE, '_')
 

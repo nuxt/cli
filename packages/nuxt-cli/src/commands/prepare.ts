@@ -1,14 +1,13 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
 import colors from 'picocolors'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { relativeToProcess } from '../utils/paths'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -16,17 +15,16 @@ export default defineCommand({
     description: 'Prepare Nuxt for development/build',
   },
   args: {
+    ...rootDirArgs,
     ...dotEnvArgs,
-    ...cwdArgs,
     ...logLevelArgs,
     ...envNameArgs,
     ...extendsArgs,
-    ...legacyRootDirArgs,
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
     const nuxt = await loadNuxt({

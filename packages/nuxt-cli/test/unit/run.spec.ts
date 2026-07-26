@@ -55,4 +55,14 @@ describe('runCommand', () => {
 
     expect(argv).toEqual(['--clear'])
   })
+
+  it('should not modify a `--cwd` it normalises', async () => {
+    const { runCommand } = await import('../../src/run')
+    const argv = ['--clear', '--cwd', '.']
+
+    await runCommand('dev', argv)
+    await runCommandDef(devCommand, argv)
+
+    expect(argv).toEqual(['--clear', '--cwd', '.'])
+  })
 })
