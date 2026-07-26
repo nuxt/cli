@@ -1,5 +1,6 @@
 import type { PackageJson } from 'pkg-types'
 
+import type { UpdateCatalogEntriesResult } from '../utils/catalog'
 import type { InstallResult } from '../utils/install'
 
 import { existsSync } from 'node:fs'
@@ -12,13 +13,14 @@ import { dirname, relative, resolve } from 'pathe'
 import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
+import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
 import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
-import { getNuxtVersion } from '../utils/versions'
+import { getNuxtVersion, resolveRegistryVersion } from '../utils/versions'
 import { logLevelArgs, rootDirArgs } from './_shared'
 
 function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
@@ -29,6 +31,67 @@ function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDepende
     return 'devDependencies'
   }
   return 'dependencies'
+}
+
+const ALIAS_SPEC_RE = /^npm:(.+)@([^@]+)$/
+
+export interface InstallSpec {
+  /** Name the dependency is declared under. */
+  name: string
+  /** Package the version is resolved from, which differs from `name` for an aliased install. */
+  target: string
+  /** Dist-tag or semver range to resolve. */
+  range: string
+  /** Whether `target` is reached through an `npm:` alias. */
+  aliased: boolean
+}
+
+/**
+ * Split an install argument such as `nuxt@latest` or
+ * `nuxt@npm:nuxt-nightly@latest` into the parts needed to resolve a concrete
+ * version for it.
+ */
+export function parseInstallSpec(spec: string): InstallSpec {
+  const separator = spec.lastIndexOf('@')
+  if (separator < 1) {
+    return { name: spec, target: spec, range: 'latest', aliased: false }
+  }
+
+  const name = spec.slice(0, separator)
+  const rest = spec.slice(separator + 1)
+
+  const alias = spec.slice(spec.indexOf('@', 1) + 1).match(ALIAS_SPEC_RE)
+  if (alias) {
+    return { name: spec.slice(0, spec.indexOf('@', 1)), target: alias[1]!, range: alias[2]!, aliased: true }
+  }
+
+  return { name, target: name, range: rest, aliased: false }
+}
+
+const CATALOG_RANGE_RE = /^(?:npm:.+@)?([~^]?)\d+\.\d+\.\d+(?:[-+].+)?$/
+
+/**
+ * The range operator to keep when rewriting `specifier`, so an entry pinned to an
+ * exact version stays pinned. Anything that is not a plain version (a range such
+ * as `>=4.0.0`, or no entry at all) gets a caret, as `pnpm add` would write.
+ */
+export function resolveRangePrefix(specifier: string | undefined): string {
+  return specifier?.match(CATALOG_RANGE_RE)?.[1] ?? '^'
+}
+
+/**
+ * The specifier a catalog entry should hold for `spec`. pnpm resolves dist-tags
+ * and ranges itself when it writes to `package.json`, but a catalog entry we
+ * write ourselves has to name a concrete version. `current` is the specifier the
+ * entry holds today, whose range operator is preserved.
+ */
+export async function resolveCatalogSpecifier(spec: InstallSpec, current?: string): Promise<string | undefined> {
+  const version = await resolveRegistryVersion(spec.target, spec.range)
+  if (!version) {
+    return undefined
+  }
+  const range = `${resolveRangePrefix(current)}${version}`
+  return spec.aliased ? `npm:${spec.target}@${range}` : range
 }
 
 const nuxtVersionTags = {
@@ -136,7 +199,23 @@ export default defineCommand({
     const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
 
     // Install latest version
-    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(['nuxt', ...packagesToUpdate], ctx.args.channel)
+    const packageNames = ['nuxt', ...packagesToUpdate]
+    const { npmPackages, nuxtVersion } = await getRequiredNewVersion(packageNames, ctx.args.channel)
+
+    // A `catalog:` dependency has to be upgraded in `pnpm-workspace.yaml`: asking
+    // pnpm to add a pinned version instead replaces the reference in
+    // `package.json`, silently taking the dependency out of the catalog.
+    const catalogUpdates: Array<{ catalog: string, current?: string, spec: InstallSpec }> = []
+    const directPackages: string[] = []
+    for (const [index, name] of packageNames.entries()) {
+      const entry = packageManagerName === 'pnpm' ? resolveCatalogEntry(cwd, pkg, name) : undefined
+      if (entry) {
+        catalogUpdates.push({ catalog: entry.catalog, current: entry.specifier, spec: parseInstallSpec(npmPackages[index]!) })
+      }
+      else {
+        directPackages.push(npmPackages[index]!)
+      }
+    }
 
     // Force install
     const toRemove = ['node_modules']
@@ -192,6 +271,55 @@ export default defineCommand({
 
     const verbose = ctx.args.logLevel === 'verbose' || Boolean(process.env.DEBUG)
 
+    let catalogResult: UpdateCatalogEntriesResult | 'skipped' = 'skipped'
+
+    if (catalogUpdates.length > 0) {
+      const catalogSpinner = spinner()
+      catalogSpinner.start('Updating catalog entries')
+
+      const resolved: Array<{ catalog: string, pkg: string, specifier: string }> = []
+      const unresolved: string[] = []
+
+      for (const { catalog, current, spec } of catalogUpdates) {
+        const specifier = await resolveCatalogSpecifier(spec, current)
+        if (!specifier) {
+          unresolved.push(spec.name)
+          continue
+        }
+        resolved.push({ catalog, pkg: spec.name, specifier })
+      }
+
+      if (resolved.length > 0) {
+        catalogResult = updateCatalogEntries(cwd, resolved)
+      }
+
+      catalogSpinner.stop(
+        catalogResult === 'updated'
+          ? `Catalog entries updated: ${resolved.map(({ pkg, specifier }) => `${pkg}@${specifier}`).join(', ')}`
+          : 'No catalog entries updated',
+      )
+
+      if (unresolved.length > 0) {
+        logger.warn(`Unable to resolve a ${versionType} version for ${unresolved.map(name => colors.cyan(name)).join(', ')} from the npm registry. Their catalog entries were left unchanged.`)
+        logger.info(`Run with ${colors.cyan('DEBUG=nuxi')} to see why the lookup failed.`)
+      }
+
+      if (catalogResult === 'failed') {
+        logger.warn(`Unable to update the catalog entries for ${resolved.map(({ pkg }) => colors.cyan(pkg)).join(', ')}. Check ${colors.cyan('pnpm-workspace.yaml')} is readable and valid.`)
+      }
+
+      // Without a catalog entry pointing at the new version there is nothing for
+      // the install to upgrade, and reporting success would be a lie.
+      const nuxtUpgradeFailed = catalogResult === 'failed'
+        ? resolved.some(({ pkg }) => pkg === 'nuxt')
+        : unresolved.includes('nuxt')
+      if (nuxtUpgradeFailed) {
+        logger.error(`Unable to upgrade ${colors.cyan('nuxt')} in ${colors.cyan('pnpm-workspace.yaml')}.`)
+        outro('Upgrade cancelled.')
+        process.exit(1)
+      }
+    }
+
     const installFailed = await withInstallSpinner(
       `Installing ${versionType} Nuxt ${nuxtVersion} release`,
       'Nuxt packages installed',
@@ -199,7 +327,7 @@ export default defineCommand({
       hooks => runInstall({
         cwd,
         packageManager,
-        dependencies: npmPackages,
+        dependencies: directPackages,
         dev: nuxtDependencyType === 'devDependencies',
         workspace: packageManager.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
         ...hooks,
@@ -207,6 +335,9 @@ export default defineCommand({
     )
 
     if (installFailed) {
+      if (catalogResult === 'updated') {
+        logger.info(`Your ${colors.cyan('pnpm-workspace.yaml')} catalog entries were already updated, so review them before retrying.`)
+      }
       process.exit(1)
     }
 

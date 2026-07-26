@@ -15,6 +15,7 @@ import { writeText } from 'tinyclip'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
+import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -40,7 +41,8 @@ export default defineCommand({
     const nuxtConfig = await getNuxtConfig(cwd)
 
     // Find nearest package.json
-    const { dependencies = {}, devDependencies = {} } = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
+    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
+    const { dependencies = {}, devDependencies = {} } = projectPkg
 
     // Utils to query a dependency version
     const nuxtPath = tryResolveNuxt(cwd)
@@ -54,7 +56,8 @@ export default defineCommand({
           return pkg.version!
         }
       }
-      return dependencies[name] || devDependencies[name]
+      return resolveCatalogEntry(cwd, projectPkg, name)?.specifier
+        ?? (dependencies[name] || devDependencies[name])
     }
 
     async function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
