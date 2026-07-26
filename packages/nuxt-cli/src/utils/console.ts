@@ -45,6 +45,22 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   process.on('uncaughtException', err => report('[uncaughtException]', err))
 }
 
+/**
+ * Take `process.stdin` out of raw mode if something left it there.
+ *
+ * `@clack/core` skips restoring raw mode on Windows when a spinner or progress
+ * bar stops (https://github.com/bombshell-dev/clack/blob/main/packages/core/src/utils/index.ts).
+ * While stdin is raw the console no longer turns Ctrl-C into `SIGINT`, and
+ * `Enter` arrives as a bare `\r`, which `readline` never treats as end of line,
+ * so a long-lived command such as `nuxt dev` is left with dead Ctrl-C and dead
+ * keyboard shortcuts.
+ */
+export function restoreRawMode(): void {
+  if (process.stdin.isTTY && process.stdin.isRaw) {
+    process.stdin.setRawMode(false)
+  }
+}
+
 function report(label: string, error: unknown) {
   if (isBrokenPipe(error)) {
     debug(`${label} ignoring broken pipe:`, error)

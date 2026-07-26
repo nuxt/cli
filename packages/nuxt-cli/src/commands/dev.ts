@@ -19,6 +19,8 @@ import { debug, logger } from '../utils/logger'
 import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
+
+const SHUTDOWN_TIMEOUT_MS = 3000
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 
 const command = defineCommand({
@@ -160,6 +162,7 @@ const command = defineCommand({
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
       setupShortcuts({ listener, close, onReady, restart: () => reload('Restart requested') })
+      setupSignalHandlers(close)
       return {
         listener,
         close,
@@ -226,6 +229,7 @@ const command = defineCommand({
     }
 
     setupShortcuts({ listener, close: closeAll, onReady, restart })
+    setupSignalHandlers(closeAll)
 
     return {
       close: closeAll,
@@ -241,6 +245,32 @@ type ArgsT = Exclude<
   Awaited<typeof command.args>,
   undefined | ((...args: unknown[]) => unknown)
 >
+
+/**
+ * Shut the dev server down on `SIGINT`/`SIGTERM`.
+ *
+ * Registering any listener for these signals (the fork pool and the CPU
+ * profiler both do) suppresses Node's default exit behaviour, so Ctrl-C would
+ * otherwise leave the server, its forks and any tunnel running.
+ */
+function setupSignalHandlers(close: () => Promise<void>): void {
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+    process.once(signal, () => {
+      // Ctrl-C should always give the terminal back, even if a watcher or an
+      // open connection stops the graceful shutdown from settling.
+      const deadline = setTimeout(() => process.exit(), SHUTDOWN_TIMEOUT_MS)
+      close()
+        .catch((error) => {
+          console.error(error)
+          process.exitCode = 1
+        })
+        .finally(() => {
+          clearTimeout(deadline)
+          process.exit()
+        })
+    })
+  }
+}
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
   const parsed = Number(value)

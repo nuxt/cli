@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline'
 import colors from 'picocolors'
 import { isCI, isTest } from 'std-env'
 
+import { restoreRawMode } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
 
 export interface ShortcutContext {
@@ -121,6 +122,8 @@ export function setupShortcuts(context: ShortcutContext): void {
     // eslint-disable-next-line no-console
     console.log(`\n  ${colors.dim('press')} ${colors.bold('h + enter')} ${colors.dim('to see available shortcuts')}\n`)
   })
+
+  restoreRawMode()
 
   const rl = createInterface({ input: process.stdin })
   rl.on('line', async (line) => {

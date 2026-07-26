@@ -10,6 +10,7 @@ import { confirm, isCancel, progress, spinner } from '@clack/prompts'
 import { basename, dirname, join } from 'pathe'
 import { readUser, updateUser } from 'rc9'
 
+import { restoreRawMode } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 
@@ -68,6 +69,7 @@ async function confirmToolInstall(options: ConsentOptions): Promise<boolean> {
 
   logger.message(options.notice.join('\n'))
   const agreed = await confirm({ message: options.message })
+  restoreRawMode()
   if (isCancel(agreed) || agreed !== true) {
     return false
   }
@@ -193,10 +195,12 @@ async function readWithProgress(response: Response, label: string): Promise<Buff
   }
   catch (error) {
     indicator.error(`Failed to download \`${label}\``)
+    restoreRawMode()
     throw error
   }
 
   indicator.stop(`Downloaded \`${label}\` (${formatSize(downloaded)})`)
+  restoreRawMode()
   return Buffer.concat(chunks)
 }
 

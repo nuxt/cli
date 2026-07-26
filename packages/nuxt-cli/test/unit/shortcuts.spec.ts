@@ -38,9 +38,9 @@ describe('setupShortcuts', () => {
     vi.clearAllMocks()
   })
 
-  function setup(context: Partial<ShortcutContext> = {}, { isTTY = true } = {}) {
+  function setup(context: Partial<ShortcutContext> = {}, { isTTY = true, isRaw = false } = {}) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
-    Object.assign(stdin, { isTTY })
+    Object.assign(stdin, { isTTY, isRaw, setRawMode: vi.fn((raw: boolean) => Object.assign(stdin, { isRaw: raw })) })
 
     const original = process.stdin
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
@@ -86,6 +86,15 @@ describe('setupShortcuts', () => {
 
     Object.assign(environment, { isCI: false, isTest: true })
     expect(setup().stdin.listenerCount('data')).toBe(0)
+  })
+
+  it('should take stdin out of raw mode', async () => {
+    const { stdin, listener, press } = setup({}, { isRaw: true })
+
+    expect(stdin.setRawMode).toHaveBeenCalledWith(false)
+
+    await press('u')
+    await vi.waitFor(() => expect(listener.showURLs).toHaveBeenCalled())
   })
 
   it('should distinguish `q` from `qr`', async () => {
