@@ -53,7 +53,6 @@
     "consola": "^3.4.2",
     "defu": "^6.1.7",
     "exsolve": "^1.1.0",
-    "fuse.js": "^7.4.2",
     "fzf": "^0.5.2",
     "get-port-please": "^3.2.0",
     "giget": "^3.3.0",

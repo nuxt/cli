@@ -2,7 +2,7 @@ import process from 'node:process'
 
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import Fuse from 'fuse.js'
+import { byLengthAsc, Fzf } from 'fzf'
 import colors from 'picocolors'
 import { kebabCase, upperFirst } from 'scule'
 
@@ -54,36 +54,36 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const compatibleModules = allModules.filter(m =>
     checkNuxtCompatibility(m, nuxtVersion),
   )
-  const fuse = new Fuse(compatibleModules, {
-    threshold: 0.1,
-    keys: [
-      { name: 'name', weight: 1 },
-      { name: 'npm', weight: 1 },
-      { name: 'repo', weight: 1 },
-      { name: 'tags', weight: 1 },
-      { name: 'category', weight: 1 },
-      { name: 'description', weight: 0.5 },
-      { name: 'maintainers.name', weight: 0.5 },
-      { name: 'maintainers.github', weight: 0.5 },
-    ],
+  const fzf = new Fzf(compatibleModules, {
+    selector: m => [
+      m.name,
+      m.npm,
+      m.repo,
+      m.tags?.join(' '),
+      m.category,
+      m.description,
+      m.maintainers.map(maintainer => `${maintainer.name} ${maintainer.github}`).join(' '),
+    ].filter(Boolean).join(' '),
+    casing: 'case-insensitive',
+    tiebreakers: [byLengthAsc],
   })
 
-  const results = fuse.search(query).map((result) => {
+  const results = fzf.find(query).map(({ item }) => {
     const res: Record<string, string> = {
-      name: result.item.name,
-      package: result.item.npm,
-      homepage: colors.cyan(result.item.website),
-      compatibility: `nuxt: ${result.item.compatibility?.nuxt || '*'}`,
-      repository: result.item.github,
-      description: result.item.description,
-      install: `npx nuxt add ${result.item.name}`,
-      stars: colors.yellow(formatNumber(result.item.stats.stars)),
-      monthlyDownloads: colors.yellow(formatNumber(result.item.stats.downloads)),
+      name: item.name,
+      package: item.npm,
+      homepage: colors.cyan(item.website),
+      compatibility: `nuxt: ${item.compatibility?.nuxt || '*'}`,
+      repository: item.github,
+      description: item.description,
+      install: `npx nuxt add ${item.name}`,
+      stars: colors.yellow(formatNumber(item.stats.stars)),
+      monthlyDownloads: colors.yellow(formatNumber(item.stats.downloads)),
     }
-    if (result.item.github === result.item.website) {
+    if (item.github === item.website) {
       delete res.homepage
     }
-    if (result.item.name === result.item.npm) {
+    if (item.name === item.npm) {
       delete res.packageName
     }
     return res
