@@ -7,7 +7,11 @@ import { coerce, findMaxSatisfying } from 'verkit'
 
 import { resolveCatalogEntry } from './catalog'
 import { tryResolveNuxt } from './kit'
+import { debug } from './logger'
 import { detectNpmRegistry } from './registry'
+
+/** How long to wait on the registry before giving up on a version lookup. */
+const FETCH_TIMEOUT = 10_000
 
 /**
  * Names a resolved `nuxt` dependency can legitimately have, so that a
@@ -32,20 +36,30 @@ export async function getNuxtVersion(cwd: string, cache = true) {
 
 /**
  * The highest published version of `pkg` matching `range`, which may be a
- * dist-tag (`latest`) or a semver range (`4`).
+ * dist-tag (`latest`) or a semver range (`4`). Returns `undefined` when the
+ * range matches nothing or the registry cannot be reached.
  */
 export async function resolveRegistryVersion(pkg: string, range: string): Promise<string | undefined> {
-  const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
-  const { registry, authToken } = await detectNpmRegistry(scope)
+  let packument: { 'dist-tags'?: Record<string, string>, 'versions'?: Record<string, unknown> }
+  try {
+    const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
+    const { registry, authToken } = await detectNpmRegistry(scope)
 
-  const packument = await $fetch<{ 'dist-tags'?: Record<string, string>, 'versions'?: Record<string, unknown> }>(joinURL(registry, pkg), {
-    headers: {
-      // The abbreviated packument is a fraction of the size of the full one and
-      // still carries every version and dist-tag.
-      Accept: 'application/vnd.npm.install-v1+json',
-      ...authToken ? { Authorization: `Bearer ${authToken}` } : {},
-    },
-  })
+    packument = await $fetch(joinURL(registry, pkg), {
+      headers: {
+        // The abbreviated packument is a fraction of the size of the full one and
+        // still carries every version and dist-tag.
+        Accept: 'application/vnd.npm.install-v1+json',
+        ...authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      },
+      timeout: FETCH_TIMEOUT,
+      retry: 0,
+    })
+  }
+  catch (error) {
+    debug(`Failed to resolve a version of ${pkg} matching ${range}:`, error)
+    return undefined
+  }
 
   return packument['dist-tags']?.[range]
     // the registry lists versions in publication order, so a backported patch can

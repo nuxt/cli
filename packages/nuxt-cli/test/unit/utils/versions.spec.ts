@@ -72,4 +72,10 @@ describe('resolveRegistryVersion', () => {
 
     expect(await resolveRegistryVersion('nuxt', '99')).toBeUndefined()
   })
+
+  it('should return nothing when the registry cannot be reached', async () => {
+    vi.mocked($fetch).mockRejectedValue(new Error('ECONNREFUSED'))
+
+    expect(await resolveRegistryVersion('nuxt', 'latest')).toBeUndefined()
+  })
 })

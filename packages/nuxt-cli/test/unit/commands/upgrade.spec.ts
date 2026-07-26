@@ -114,6 +114,24 @@ describe('resolveCatalogSpecifier', () => {
     expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt-nightly', range: 'latest', aliased: true })).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
   })
 
+  it('should keep the range operator of the entry it replaces', async () => {
+    vi.mocked(resolveRegistryVersion).mockResolvedValue('4.2.1')
+    const spec = { name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false }
+
+    expect(await resolveCatalogSpecifier(spec, '4.1.0')).toBe('4.2.1')
+    expect(await resolveCatalogSpecifier(spec, '~4.1.0')).toBe('~4.2.1')
+    expect(await resolveCatalogSpecifier(spec, '^4.1.0')).toBe('^4.2.1')
+    expect(await resolveCatalogSpecifier(spec, '>=4.0.0')).toBe('^4.2.1')
+  })
+
+  it('should keep the range operator of an aliased entry', async () => {
+    vi.mocked(resolveRegistryVersion).mockResolvedValue('4.3.0-28991214-abcdef')
+    const spec = { name: 'nuxt', target: 'nuxt-nightly', range: 'latest', aliased: true }
+
+    expect(await resolveCatalogSpecifier(spec, 'npm:nuxt-nightly@4.2.0-28991213-abcdef')).toBe('npm:nuxt-nightly@4.3.0-28991214-abcdef')
+    expect(await resolveCatalogSpecifier(spec, 'npm:nuxt-nightly@^4.2.0')).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
+  })
+
   it('should return nothing when no version matches', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue(undefined)
 
