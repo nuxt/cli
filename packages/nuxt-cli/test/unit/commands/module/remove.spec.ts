@@ -119,6 +119,25 @@ describe('module remove', () => {
     expect(removeDependency).toHaveBeenCalledWith(['@nuxt/content'], expect.objectContaining({ cwd: '/fake-dir' }))
   })
 
+  it('should remove a layer from `extends` without uninstalling a local path', async () => {
+    const config: { extends: string[] } = { extends: ['./layers/admin', 'nuxt-seo-kit'] }
+    updateConfig.mockImplementationOnce((async (options: any) => {
+      await options.onUpdate(config)
+    }) as typeof updateConfig)
+    multiselect.mockResolvedValueOnce(['./layers/admin'])
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: [],
+      },
+    })
+
+    expect(config.extends).toEqual(['nuxt-seo-kit'])
+    expect(removeDependency).not.toHaveBeenCalled()
+  })
+
   it('should skip uninstall when --skipInstall is set', async () => {
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({

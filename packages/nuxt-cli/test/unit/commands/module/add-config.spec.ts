@@ -1,3 +1,5 @@
+import type { NuxtModule } from '../../../../src/commands/module/_utils'
+
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import commands from '../../../../src/commands/module'
@@ -12,7 +14,7 @@ const { updateConfig } = vi.hoisted(() => ({
 
 let manifest: Record<string, unknown> = {}
 
-vi.mock('c12/update', () => ({ updateConfig }))
+vi.mock('../../../../src/utils/config', () => ({ updateConfig }))
 vi.mock('nypm', () => ({
   detectPackageManager: () => Promise.resolve({ name: 'npm', command: 'npm' }),
   packageManagers: [{ name: 'npm', command: 'npm' }],
@@ -26,6 +28,23 @@ vi.mock('ofetch', () => ({
     'versions': { '1.0.0': manifest },
   })),
 }))
+
+function databaseEntry(name: string, npm: string): NuxtModule {
+  return {
+    name,
+    npm,
+    compatibility: { nuxt: '', requires: {}, versionMap: {} },
+    description: '',
+    repo: '',
+    github: '',
+    website: '',
+    learn_more: '',
+    category: '',
+    type: 'community',
+    maintainers: [],
+    stats: { downloads: 0, stars: 0, maintainers: 0, contributors: 0, modules: 0 },
+  }
+}
 
 interface CommandsType {
   subCommands: { add: () => Promise<{ setup: (args: any) => void }> }
@@ -46,7 +65,7 @@ describe('module add config', () => {
   vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
   vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
-  vi.spyOn(utils, 'fetchModules').mockResolvedValue([])
+  const fetchModules = vi.spyOn(utils, 'fetchModules').mockResolvedValue([])
 
   beforeEach(() => {
     updateConfig.mockClear()
@@ -62,6 +81,14 @@ describe('module add config', () => {
     const config = await addModule('maz-ui/nuxt', { exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' } })
 
     expect(config).toEqual({ modules: ['maz-ui/nuxt'] })
+  })
+
+  it('should keep an explicitly requested subpath when the database matches the package name', async () => {
+    fetchModules.mockResolvedValueOnce([databaseEntry('sonner', 'vue-sonner')])
+
+    const config = await addModule('vue-sonner/custom', { exports: { '.': './dist/index.mjs', './custom': './dist/custom.mjs' } })
+
+    expect(config).toEqual({ modules: ['vue-sonner/custom'] })
   })
 
   it('should resolve a module exposed at a `nuxt` subpath', async () => {

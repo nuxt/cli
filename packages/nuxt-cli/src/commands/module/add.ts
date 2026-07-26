@@ -384,7 +384,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     // The database records the package to install, which may itself be scoped
     // differently to what the user typed (`maz-ui` -> `@maz-ui/nuxt`).
     pkgName = basePackageName(matchedModule.npm)
-    subpath = matchedModule.npm.slice(pkgName.length + 1) || undefined
+    subpath = matchedModule.npm.slice(pkgName.length + 1) || subpath
   }
 
   if (matchedModule && matchedModule.compatibility.nuxt) {

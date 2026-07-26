@@ -65,7 +65,7 @@ export default defineCommand({
     // configured modules. Otherwise resolve aliases/names to canonical npm package names.
     const installedNames = getProjectDependencies(projectPkg)
 
-    const needsDB = modules.some(m => !installedNames.has(m))
+    const needsDB = modules.some(m => !installedNames.has(m) && !installedNames.has(basePackageName(m)))
     const modulesDB: NuxtModule[] = needsDB
       ? await fetchModules().catch((err) => {
           logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
@@ -95,6 +95,7 @@ export default defineCommand({
 // -- Internal Utils --
 async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
   const removedFromConfig: string[] = []
+  const dependencies = getProjectDependencies(projectPkg)
 
   if (!skipConfig) {
     let configMissing = false
@@ -158,7 +159,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
             }
             logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan(key)}`)
             items.splice(i, 1)
-            removedFromConfig.push(basePackageName(name))
+            removedFromConfig.push(name)
           }
         }
       },
@@ -187,9 +188,12 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const installedModules: string[] = []
     const notInstalledModules: string[] = []
 
-    const dependencies = getProjectDependencies(projectPkg)
-
-    const targets = Array.from(new Set([...modules, ...removedFromConfig]))
+    // Entries removed from the config are only uninstalled when they name an
+    // installed package, so a local layer (`./layers/admin`) is left alone.
+    const targets = Array.from(new Set([
+      ...modules,
+      ...removedFromConfig.map(basePackageName).filter(name => dependencies.has(name)),
+    ]))
 
     for (const module of targets) {
       if (dependencies.has(module)) {
