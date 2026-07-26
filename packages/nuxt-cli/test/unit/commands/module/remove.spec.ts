@@ -23,7 +23,7 @@ interface CommandsType {
   }
 }
 
-vi.mock('c12/update', () => ({ updateConfig }))
+vi.mock('../../../../src/utils/config', () => ({ updateConfig }))
 vi.mock('nypm', () => ({ removeDependency, detectPackageManager }))
 vi.mock('pkg-types', () => ({ readPackageJSON }))
 vi.mock('@clack/prompts', async importOriginal => ({

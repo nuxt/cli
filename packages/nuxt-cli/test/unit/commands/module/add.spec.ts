@@ -19,7 +19,7 @@ interface CommandsType {
   }
 }
 function applyMocks() {
-  vi.mock('c12/update', async () => {
+  vi.mock('../../../../src/utils/config', async () => {
     return {
       updateConfig,
     }

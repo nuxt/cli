@@ -3,7 +3,6 @@ import { dirname } from 'node:path'
 import process from 'node:process'
 
 import { box, outro } from '@clack/prompts'
-import { setupDotenv } from 'c12'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import colors from 'picocolors'
@@ -39,6 +38,10 @@ const command = defineCommand({
 
     const { loadNuxt } = await loadKit(cwd)
 
+    // Loading Nuxt applies the dotenv file to `process.env` as a side effect, so
+    // the preview server inherits the same variables the dev/build commands see.
+    let envLoaded = false
+
     const resolvedOutputDir = await new Promise<string>((res) => {
       loadNuxt({
         cwd,
@@ -46,19 +49,23 @@ const command = defineCommand({
           cwd,
           fileName: ctx.args.dotenv,
         },
-        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+        envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
         ready: true,
         overrides: {
           ...(ctx.args.extends && { extends: ctx.args.extends }),
           modules: [
             function (_, nuxt) {
+              envLoaded = true
               nuxt.hook('nitro:init', (nitro) => {
                 res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
               })
             },
           ],
         },
-      }).then(nuxt => nuxt.close()).catch(() => '')
+      })
+        .then(nuxt => nuxt.close())
+        .catch(() => {})
+        .finally(() => res(''))
     })
 
     const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
@@ -117,10 +124,16 @@ const command = defineCommand({
     const envExists = existsSync(resolve(cwd, envFileName))
 
     if (envExists) {
-      logger.info(
-        `Loading ${colors.cyan(envFileName)}. This will not be loaded when running the server in production.`,
-      )
-      await setupDotenv({ cwd, fileName: envFileName })
+      if (envLoaded) {
+        logger.info(
+          `Loaded ${colors.cyan(envFileName)}. This will not be loaded when running the server in production.`,
+        )
+      }
+      else {
+        logger.warn(
+          `Could not load Nuxt, so ${colors.cyan(envFileName)} may not be fully applied to the preview server.`,
+        )
+      }
     }
     else if (ctx.args.dotenv) {
       logger.error(`Cannot find ${colors.cyan(envFileName)}.`)

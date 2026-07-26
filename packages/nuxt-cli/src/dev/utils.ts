@@ -1,5 +1,4 @@
 import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
-import type { DotenvOptions } from 'c12'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
@@ -54,6 +53,11 @@ export interface NuxtDevContext {
     extends?: string
     profile?: string | boolean
   }
+}
+
+interface DotenvOptions {
+  cwd?: string
+  fileName?: string | string[]
 }
 
 interface NuxtDevServerOptions {
