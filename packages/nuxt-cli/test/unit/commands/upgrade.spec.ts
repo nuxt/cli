@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { findLockFile } from '../../../src/commands/upgrade'
+import { findLockFile, parseInstallSpec } from '../../../src/commands/upgrade'
 
 describe('findLockFile', () => {
   let tempDir: string
@@ -58,5 +58,33 @@ describe('findLockFile', () => {
   it('should return undefined when there is no lock file', () => {
     expect(findLockFile(tempDir, tempDir, ['package-lock.json', 'pnpm-lock.yaml'])).toBeUndefined()
     expect(findLockFile(tempDir, tempDir, undefined)).toBeUndefined()
+  })
+})
+
+describe('parseInstallSpec', () => {
+  it('should split a package from its dist-tag', () => {
+    expect(parseInstallSpec('nuxt@latest')).toEqual({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })
+  })
+
+  it('should split a scoped package from its range', () => {
+    expect(parseInstallSpec('@nuxt/kit@3')).toEqual({ name: '@nuxt/kit', target: '@nuxt/kit', range: '3', aliased: false })
+  })
+
+  it('should resolve an aliased nightly install through the aliased package', () => {
+    expect(parseInstallSpec('nuxt@npm:nuxt-nightly@latest')).toEqual({
+      name: 'nuxt',
+      target: 'nuxt-nightly',
+      range: 'latest',
+      aliased: true,
+    })
+  })
+
+  it('should resolve an aliased nightly install of a scoped package', () => {
+    expect(parseInstallSpec('@nuxt/kit@npm:@nuxt/kit-nightly@3x')).toEqual({
+      name: '@nuxt/kit',
+      target: '@nuxt/kit-nightly',
+      range: '3x',
+      aliased: true,
+    })
   })
 })

@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { resolveModulePath } from 'exsolve'
+import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
-import { coerce } from 'verkit'
+import { joinURL } from 'ufo'
+import { coerce, satisfies } from 'verkit'
 
+import { resolveCatalogEntry } from './catalog'
 import { tryResolveNuxt } from './kit'
+import { detectNpmRegistry } from './registry'
 
 /**
  * Names a resolved `nuxt` dependency can legitimately have, so that a
@@ -21,8 +25,30 @@ export async function getNuxtVersion(cwd: string, cache = true) {
     return nuxtPkg.version
   }
   const pkg = await readPackageJSON(cwd)
-  const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
+  const pkgDep = resolveCatalogEntry(cwd, pkg, 'nuxt')?.specifier
+    ?? (pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt)
   return (pkgDep && coerce(pkgDep)) || DEFAULT_NUXT_VERSION
+}
+
+/**
+ * The highest published version of `pkg` matching `range`, which may be a
+ * dist-tag (`latest`) or a semver range (`4`).
+ */
+export async function resolveRegistryVersion(pkg: string, range: string): Promise<string | undefined> {
+  const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
+  const { registry, authToken } = await detectNpmRegistry(scope)
+
+  const packument = await $fetch<{ 'dist-tags'?: Record<string, string>, 'versions'?: Record<string, unknown> }>(joinURL(registry, pkg), {
+    headers: {
+      // The abbreviated packument is a fraction of the size of the full one and
+      // still carries every version and dist-tag.
+      Accept: 'application/vnd.npm.install-v1+json',
+      ...authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    },
+  })
+
+  return packument['dist-tags']?.[range]
+    ?? Object.keys(packument.versions ?? {}).findLast(version => satisfies(version, range))
 }
 
 export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string[] }) {
