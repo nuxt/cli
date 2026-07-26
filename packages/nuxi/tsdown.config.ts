@@ -6,11 +6,13 @@ import { purgePolyfills } from 'unplugin-purge-polyfills'
 
 const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
 
+const PARSERS = ['rolldown', 'oxc-parser']
+
 export default defineConfig({
   entry: ['src/index.ts', 'src/cli.ts', 'src/dev/index.ts'],
   shims: true,
   fixedExtension: true,
-  deps: { onlyBundle: false },
+  deps: { onlyBundle: false, neverBundle: PARSERS },
   dts: !isAnalysingSize && {
     oxc: true,
     entry: ['src/index.ts'],

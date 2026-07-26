@@ -4,7 +4,10 @@ import commands from '../../../../src/commands/module'
 import * as utils from '../../../../src/commands/module/_utils'
 import * as runCommands from '../../../../src/run-command'
 
-const updateConfig = vi.fn(() => Promise.resolve())
+interface FakeConfig { file: string, cwd: string, modules: string[], extends: string[] }
+
+const readNuxtConfig = vi.fn((): Promise<FakeConfig | undefined> => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: ['@nuxt/content'], extends: [] }))
+const removeNuxtConfigEntries = vi.fn(() => Promise.resolve())
 const removeDependency = vi.fn(() => Promise.resolve())
 const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
 const confirm = vi.fn((): Promise<boolean | symbol> => Promise.resolve(false))
@@ -23,7 +26,7 @@ interface CommandsType {
   }
 }
 
-vi.mock('../../../../src/utils/config', () => ({ updateConfig }))
+vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, removeNuxtConfigEntries }))
 vi.mock('nypm', () => ({ removeDependency, detectPackageManager }))
 vi.mock('pkg-types', () => ({ readPackageJSON }))
 vi.mock('@clack/prompts', async importOriginal => ({
@@ -62,7 +65,8 @@ describe('module remove', () => {
   ])
 
   beforeEach(() => {
-    updateConfig.mockClear()
+    readNuxtConfig.mockClear()
+    removeNuxtConfigEntries.mockClear()
     removeDependency.mockClear()
     confirm.mockReset().mockResolvedValue(false)
     multiselect.mockReset().mockResolvedValue([])
@@ -102,9 +106,6 @@ describe('module remove', () => {
   })
 
   it('should remove modules selected from the picker when none are given', async () => {
-    updateConfig.mockImplementationOnce((async (config: any) => {
-      await config.onUpdate({ modules: ['@nuxt/content'] })
-    }) as typeof updateConfig)
     multiselect.mockResolvedValueOnce(['@nuxt/content'])
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
@@ -120,10 +121,7 @@ describe('module remove', () => {
   })
 
   it('should remove a layer from `extends` without uninstalling a local path', async () => {
-    const config: { extends: string[] } = { extends: ['./layers/admin', 'nuxt-seo-kit'] }
-    updateConfig.mockImplementationOnce((async (options: any) => {
-      await options.onUpdate(config)
-    }) as typeof updateConfig)
+    readNuxtConfig.mockResolvedValueOnce({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: ['./layers/admin', 'nuxt-seo-kit'] })
     multiselect.mockResolvedValueOnce(['./layers/admin'])
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
@@ -134,7 +132,7 @@ describe('module remove', () => {
       },
     })
 
-    expect(config.extends).toEqual(['nuxt-seo-kit'])
+    expect(removeNuxtConfigEntries).toHaveBeenCalledWith(expect.anything(), { extends: ['./layers/admin'] })
     expect(removeDependency).not.toHaveBeenCalled()
   })
 
@@ -161,7 +159,7 @@ describe('module remove', () => {
       },
     })
 
-    expect(updateConfig).not.toHaveBeenCalled()
+    expect(readNuxtConfig).not.toHaveBeenCalled()
   })
 
   it('should not uninstall a module that is not in dependencies', async () => {

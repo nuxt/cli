@@ -35,6 +35,8 @@
   "peerDependencies": {
     "@nuxt/schema": "^4.4.6",
     "jiti": "^2.7.0",
+    "oxc-parser": ">=0.56.3",
+    "rolldown": "^1.0.0-rc.16 || ^1.0.0",
     "serve": "^14.0.0"
   },
   "peerDependenciesMeta": {
@@ -42,6 +44,12 @@
       "optional": true
     },
     "jiti": {
+      "optional": true
+    },
+    "oxc-parser": {
+      "optional": true
+    },
+    "rolldown": {
       "optional": true
     },
     "serve": {
@@ -60,7 +68,6 @@
     "fzf": "^0.5.2",
     "get-port-please": "^3.2.0",
     "giget": "^3.3.0",
-    "magicast": "^0.5.3",
     "nypm": "^0.6.8",
     "obug": "^2.1.1",
     "ohash": "^2.0.11",
@@ -92,6 +99,7 @@
     "jiti": "^2.7.0",
     "nitro": "^3.0.1-alpha.2",
     "nitropack": "^2.13.4",
+    "rolldown": "^1.0.0-rc.16",
     "rollup": "^4.62.2",
     "rollup-plugin-visualizer": "^7.0.1",
     "tsdown": "^0.22.7",

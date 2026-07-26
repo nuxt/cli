@@ -1,6 +1,7 @@
 import type { PackageManager } from 'nypm'
 import type { PackageJson } from 'pkg-types'
 
+import type { ConfigEntries } from '../../utils/config'
 import type { RegistryMeta } from '../../utils/registry'
 import type { NuxtModule } from './_utils'
 import process from 'node:process'
@@ -15,7 +16,7 @@ import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run-command'
-import { updateConfig } from '../../utils/config'
+import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
 import { fetchJson } from '../../utils/fetch'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
@@ -231,45 +232,33 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
   // Update nuxt.config.ts
   if (!skipConfig) {
-    await updateConfig({
-      cwd,
-      configFile: 'nuxt.config',
-      async onCreate() {
+    try {
+      let config = await readNuxtConfig(cwd)
+      if (!config) {
         logger.info(`Creating ${colors.cyan('nuxt.config.ts')}`)
+        config = await createNuxtConfig(cwd, getDefaultNuxtConfig())
+      }
 
-        return getDefaultNuxtConfig()
-      },
-      async onUpdate(config) {
-        if (!config.modules && modules.some(module => !module.isLayer)) {
-          config.modules = []
+      const toAdd: ConfigEntries = {}
+      for (const resolved of modules) {
+        const key = resolved.isLayer ? 'extends' : 'modules'
+        if (config[key].includes(resolved.specifier)) {
+          logger.info(`${colors.cyan(resolved.specifier)} is already in the ${colors.cyan(key)}`)
+
+          continue
         }
 
-        for (const resolved of modules) {
-          const key = resolved.isLayer ? 'extends' : 'modules'
-          if (resolved.isLayer && !Array.isArray(config.extends)) {
-            // `extends` also accepts a single layer as a string
-            config.extends = config.extends ? [config.extends] : []
-          }
+        logger.info(`Adding ${colors.cyan(resolved.specifier)} to the ${colors.cyan(key)}`)
 
-          const target: unknown[] = resolved.isLayer ? config.extends : config.modules
+        toAdd[key] = [...toAdd[key] ?? [], resolved.specifier]
+      }
 
-          if (target.includes(resolved.specifier)) {
-            logger.info(`${colors.cyan(resolved.specifier)} is already in the ${colors.cyan(key)}`)
-
-            continue
-          }
-
-          logger.info(`Adding ${colors.cyan(resolved.specifier)} to the ${colors.cyan(key)}`)
-
-          target.push(resolved.specifier)
-        }
-      },
-    }).catch((error) => {
-      logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
+      await addNuxtConfigEntries(config, toAdd)
+    }
+    catch (error) {
+      logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
       logger.error(`Please manually add ${colors.cyan(modules.map(module => module.specifier).join(', '))} to ${colors.cyan('nuxt.config.ts')}`)
-
-      return null
-    })
+    }
   }
 
   return true

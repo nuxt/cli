@@ -7,9 +7,10 @@ import * as runCommands from '../../../src/run-command'
 import * as installUtils from '../../../src/utils/install'
 import * as versions from '../../../src/utils/versions'
 
-const { updateConfig, detectPackageManager, mock$fetch } = vi.hoisted(() => {
+const { readNuxtConfig, addNuxtConfigEntries, detectPackageManager, mock$fetch } = vi.hoisted(() => {
   return {
-    updateConfig: vi.fn(() => Promise.resolve()),
+    readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+    addNuxtConfigEntries: vi.fn(() => Promise.resolve()),
     detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', command: 'npm' })),
     mock$fetch: vi.fn(),
   }
@@ -17,7 +18,9 @@ const { updateConfig, detectPackageManager, mock$fetch } = vi.hoisted(() => {
 
 vi.mock('../../../src/utils/config', async () => {
   return {
-    updateConfig,
+    readNuxtConfig,
+    addNuxtConfigEntries,
+    createNuxtConfig: vi.fn(),
   }
 })
 
@@ -166,7 +169,7 @@ describe('nuxt add command', () => {
       }),
     )
 
-    expect(updateConfig).toHaveBeenCalled()
+    expect(addNuxtConfigEntries).toHaveBeenCalled()
   })
 
   it('should install a module by npm package name', async () => {
@@ -223,7 +226,7 @@ describe('nuxt add command', () => {
     })
 
     expect(runInstall).not.toHaveBeenCalled()
-    expect(updateConfig).toHaveBeenCalled()
+    expect(addNuxtConfigEntries).toHaveBeenCalled()
   })
 
   it('should skip config update when skipConfig is true', async () => {
@@ -238,7 +241,7 @@ describe('nuxt add command', () => {
     })
 
     expect(runInstall).toHaveBeenCalled()
-    expect(updateConfig).not.toHaveBeenCalled()
+    expect(addNuxtConfigEntries).not.toHaveBeenCalled()
   })
 
   it('should install as dev dependency when dev flag is true', async () => {
@@ -300,7 +303,7 @@ describe('nuxt add command', () => {
     )
   })
 
-  it('should call updateConfig when adding modules', async () => {
+  it('should add the resolved module to the config', async () => {
     const addCommand = await (commands as CommandsType).subCommands.add()
 
     await addCommand.setup({
@@ -310,12 +313,10 @@ describe('nuxt add command', () => {
       },
     })
 
-    // Verify that updateConfig was called
-    expect(updateConfig).toHaveBeenCalledWith(
-      expect.objectContaining({
-        cwd: '/fake-dir',
-        configFile: 'nuxt.config',
-      }),
+    expect(readNuxtConfig).toHaveBeenCalledWith('/fake-dir')
+    expect(addNuxtConfigEntries).toHaveBeenCalledWith(
+      expect.objectContaining({ file: '/fake-dir/nuxt.config.ts' }),
+      { modules: ['@nuxt/ui'] },
     )
   })
 
@@ -348,7 +349,7 @@ describe('nuxt add command', () => {
     expect(runInstall).toHaveBeenCalledWith(
       expect.objectContaining({ packageManager: { name: 'npm', command: 'npm' } }),
     )
-    expect(updateConfig).not.toHaveBeenCalled()
+    expect(addNuxtConfigEntries).not.toHaveBeenCalled()
     expect(exit).toHaveBeenCalledWith(1)
 
     exit.mockRestore()

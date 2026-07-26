@@ -183,9 +183,6 @@ importers:
       giget:
         specifier: ^3.3.0
         version: 3.3.0
-      magicast:
-        specifier: ^0.5.3
-        version: 0.5.3
       nypm:
         specifier: ^0.6.8
         version: 0.6.8
@@ -195,6 +192,9 @@ importers:
       ohash:
         specifier: ^2.0.11
         version: 2.0.11
+      oxc-parser:
+        specifier: '>=0.56.3'
+        version: 0.137.0
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
@@ -277,6 +277,9 @@ importers:
       nitropack:
         specifier: 2.13.4
         version: 2.13.4(oxc-parser@0.137.0)(rolldown@1.0.0-rc.16)(srvx@0.11.22)(supports-color@10.2.2)
+      rolldown:
+        specifier: 1.0.0-rc.16
+        version: 1.0.0-rc.16
       rollup:
         specifier: ^4.62.2
         version: 4.62.2

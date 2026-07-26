@@ -1,5 +1,6 @@
 import type { PackageJson } from 'pkg-types'
 
+import type { ConfigEntries } from '../../utils/config'
 import type { NuxtModule } from './_utils'
 
 import process from 'node:process'
@@ -12,7 +13,8 @@ import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 
 import { runCommandDef as runCommand } from '../../run-command'
-import { updateConfig } from '../../utils/config'
+import { readNuxtConfig, removeNuxtConfigEntries } from '../../utils/config'
+import { CONFIG_KEYS } from '../../utils/config-parse'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { relativeToProcess } from '../../utils/paths'
@@ -98,88 +100,55 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
   const dependencies = getProjectDependencies(projectPkg)
 
   if (!skipConfig) {
-    let configMissing = false
-    let cancelled = false
-
-    await updateConfig({
-      cwd,
-      configFile: 'nuxt.config',
-      onCreate() {
-        configMissing = true
-        return false
-      },
-      async onUpdate(config) {
-        const arrays = ([['modules', config.modules], ['extends', config.extends]] as const)
-          .filter(([, value]) => Array.isArray(value)) as Array<[string, unknown[]]>
-
-        if (arrays.length === 0) {
-          return
-        }
-
-        const present: string[] = []
-        for (const [, items] of arrays) {
-          for (const item of items) {
-            const name = readModuleName(item)
-            if (name) {
-              present.push(name)
-            }
-          }
-        }
-
-        let toRemove: Set<string>
-        if (modules.length === 0) {
-          if (present.length === 0) {
-            return
-          }
-
-          const picked = await multiselect({
-            message: 'Select modules to remove:',
-            options: present.map(m => ({ value: m, label: m })),
-            required: true,
-          })
-
-          if (isCancel(picked)) {
-            cancelled = true
-            return
-          }
-
-          toRemove = new Set(picked as string[])
-        }
-        else {
-          toRemove = new Set(modules)
-        }
-
-        for (const [key, items] of arrays) {
-          for (let i = items.length - 1; i >= 0; i--) {
-            const name = readModuleName(items[i])
-            // A package may be configured through a subpath (`maz-ui/nuxt`) while the
-            // user asks to remove the package itself.
-            if (!name || !(toRemove.has(name) || toRemove.has(basePackageName(name)))) {
-              continue
-            }
-            logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan(key)}`)
-            items.splice(i, 1)
-            removedFromConfig.push(name)
-          }
-        }
-      },
-    }).catch((error) => {
-      if (configMissing) {
-        return
-      }
-      logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
-      logger.error(`Please manually remove ${colors.cyan(modules.join(', ') || 'the relevant modules')} from ${colors.cyan('nuxt.config.ts')}`)
+    const config = await readNuxtConfig(cwd).catch((error) => {
+      logger.error(`Failed to read ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
+      return undefined
     })
 
-    if (cancelled) {
-      cancel('No modules selected.')
-      return false
+    const present = config ? CONFIG_KEYS.flatMap(key => config[key]) : []
+
+    let toRemove = new Set(modules)
+    if (config && modules.length === 0 && present.length > 0) {
+      const picked = await multiselect({
+        message: 'Select modules to remove:',
+        options: present.map(m => ({ value: m, label: m })),
+        required: true,
+      })
+
+      if (isCancel(picked)) {
+        cancel('No modules selected.')
+        return false
+      }
+
+      toRemove = new Set(picked as string[])
+    }
+
+    if (config) {
+      const doomed: ConfigEntries = {}
+      for (const key of CONFIG_KEYS) {
+        // A package may be configured through a subpath (`maz-ui/nuxt`) while the
+        // user asks to remove the package itself.
+        const names = config[key].filter(name => toRemove.has(name) || toRemove.has(basePackageName(name)))
+        if (!names.length) {
+          continue
+        }
+        for (const name of names) {
+          logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan(key)}`)
+        }
+        doomed[key] = names
+        removedFromConfig.push(...names)
+      }
+
+      await removeNuxtConfigEntries(config, doomed).catch((error) => {
+        logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
+        logger.error(`Please manually remove ${colors.cyan(modules.join(', ') || 'the relevant modules')} from ${colors.cyan('nuxt.config.ts')}`)
+      })
     }
 
     if (modules.length === 0 && removedFromConfig.length === 0) {
-      cancel(configMissing
-        ? `No ${colors.cyan('nuxt.config')} found in ${colors.cyan(relativeToProcess(cwd))}.`
-        : `No modules configured in ${colors.cyan('nuxt.config')}.`)
+      cancel(config
+        ? `No modules configured in ${colors.cyan('nuxt.config')}.`
+        : `No ${colors.cyan('nuxt.config')} found in ${colors.cyan(relativeToProcess(cwd))}.`)
       return false
     }
   }
@@ -261,16 +230,6 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
   }
 
   return true
-}
-
-function readModuleName(item: unknown): string | null {
-  if (typeof item === 'string') {
-    return item
-  }
-  if (Array.isArray(item) && typeof item[0] === 'string') {
-    return item[0]
-  }
-  return null
 }
 
 function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Set<string>): string {

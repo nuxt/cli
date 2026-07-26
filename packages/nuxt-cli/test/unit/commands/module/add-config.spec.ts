@@ -8,13 +8,14 @@ import * as runCommands from '../../../../src/run-command'
 import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 
-const { updateConfig } = vi.hoisted(() => ({
-  updateConfig: vi.fn((_options: { onUpdate: (config: { modules?: unknown[], extends?: unknown[] }) => Promise<void> }) => Promise.resolve()),
+const { readNuxtConfig, addNuxtConfigEntries } = vi.hoisted(() => ({
+  readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+  addNuxtConfigEntries: vi.fn((_config: unknown, _entries: Record<string, string[]>) => Promise.resolve()),
 }))
 
 let manifest: Record<string, unknown> = {}
 
-vi.mock('../../../../src/utils/config', () => ({ updateConfig }))
+vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, addNuxtConfigEntries, createNuxtConfig: vi.fn() }))
 vi.mock('nypm', () => ({
   detectPackageManager: () => Promise.resolve({ name: 'npm', command: 'npm' }),
   packageManagers: [{ name: 'npm', command: 'npm' }],
@@ -56,9 +57,7 @@ async function addModule(name: string, pkg: Record<string, unknown>) {
   const addCommand = await (commands as CommandsType).subCommands.add()
   await addCommand.setup({ args: { cwd: '/fake-dir', _: [name] } })
 
-  const config: { modules?: unknown[], extends?: unknown[] } = {}
-  await updateConfig.mock.calls.at(-1)![0]!.onUpdate(config)
-  return config
+  return addNuxtConfigEntries.mock.calls.at(-1)![1]
 }
 
 describe('module add config', () => {
@@ -68,7 +67,7 @@ describe('module add config', () => {
   const fetchModules = vi.spyOn(utils, 'fetchModules').mockResolvedValue([])
 
   beforeEach(() => {
-    updateConfig.mockClear()
+    addNuxtConfigEntries.mockClear()
   })
 
   it('should add a module to `modules`', async () => {
