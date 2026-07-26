@@ -47,9 +47,19 @@ export function findPnpmWorkspaceYaml(cwd: string): string | undefined {
   }
 }
 
+const configCache = new Map<string, CatalogConfig | undefined>()
+
+/** Discard memoised catalog configuration, so a later read sees changes on disk. */
+export function clearCatalogCache(): void {
+  configCache.clear()
+}
+
 /**
  * Catalogs declared in the nearest `pnpm-workspace.yaml`, keyed by catalog name.
  * The top-level `catalog` key is exposed as {@link DEFAULT_CATALOG}.
+ *
+ * Results are memoised per workspace file, as commands such as `nuxi info` query
+ * dozens of dependencies in a row.
  */
 export function readCatalogConfig(cwd: string): CatalogConfig | undefined {
   const filePath = findPnpmWorkspaceYaml(cwd)
@@ -57,6 +67,16 @@ export function readCatalogConfig(cwd: string): CatalogConfig | undefined {
     return undefined
   }
 
+  if (configCache.has(filePath)) {
+    return configCache.get(filePath)
+  }
+
+  const config = parseCatalogConfig(filePath)
+  configCache.set(filePath, config)
+  return config
+}
+
+function parseCatalogConfig(filePath: string): CatalogConfig | undefined {
   let workspace: ReturnType<typeof parsePnpmWorkspaceYaml>
   try {
     workspace = parsePnpmWorkspaceYaml(readFileSync(filePath, 'utf-8'))
@@ -94,14 +114,20 @@ export function resolveCatalogEntry(cwd: string, pkgJson: PackageJson | null | u
   return { catalog, specifier: config?.catalogs[catalog]?.[pkg] }
 }
 
-/** The outcome of a {@link setCatalogEntry} call. */
-export type SetCatalogEntryResult = 'updated' | 'unchanged' | 'failed'
+/** The outcome of a {@link updateCatalogEntries} call. */
+export type UpdateCatalogEntriesResult = 'updated' | 'unchanged' | 'failed'
+
+export interface CatalogEntryUpdate {
+  catalog: string
+  pkg: string
+  specifier: string
+}
 
 /**
- * Point a catalog entry at `specifier`, preserving the comments, anchors and
- * aliases in `pnpm-workspace.yaml`.
+ * Point catalog entries at new specifiers in a single read/write of
+ * `pnpm-workspace.yaml`, preserving its comments, anchors and aliases.
  */
-export function setCatalogEntry(cwd: string, catalog: string, pkg: string, specifier: string): SetCatalogEntryResult {
+export function updateCatalogEntries(cwd: string, updates: CatalogEntryUpdate[]): UpdateCatalogEntriesResult {
   const filePath = findPnpmWorkspaceYaml(cwd)
   if (!filePath) {
     return 'failed'
@@ -109,12 +135,15 @@ export function setCatalogEntry(cwd: string, catalog: string, pkg: string, speci
 
   try {
     const workspace = parsePnpmWorkspaceYaml(readFileSync(filePath, 'utf-8'))
-    workspace.setPackage(catalog, pkg, specifier)
+    for (const { catalog, pkg, specifier } of updates) {
+      workspace.setPackage(catalog, pkg, specifier)
+    }
     if (!workspace.hasChanged()) {
       return 'unchanged'
     }
 
     writeFileSync(filePath, workspace.toString(), 'utf-8')
+    configCache.delete(filePath)
     return 'updated'
   }
   catch {

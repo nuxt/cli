@@ -72,6 +72,11 @@ describe('parseInstallSpec', () => {
     expect(parseInstallSpec('nuxt@latest')).toEqual({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })
   })
 
+  it('should default to the latest dist-tag for a bare package name', () => {
+    expect(parseInstallSpec('nuxt')).toEqual({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })
+    expect(parseInstallSpec('@nuxt/kit')).toEqual({ name: '@nuxt/kit', target: '@nuxt/kit', range: 'latest', aliased: false })
+  })
+
   it('should split a scoped package from its range', () => {
     expect(parseInstallSpec('@nuxt/kit@3')).toEqual({ name: '@nuxt/kit', target: '@nuxt/kit', range: '3', aliased: false })
   })

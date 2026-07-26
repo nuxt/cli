@@ -1,5 +1,6 @@
 import type { PackageJson } from 'pkg-types'
 
+import type { UpdateCatalogEntriesResult } from '../utils/catalog'
 import type { InstallResult } from '../utils/install'
 
 import { existsSync } from 'node:fs'
@@ -12,7 +13,7 @@ import { dirname, relative, resolve } from 'pathe'
 import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
-import { resolveCatalogEntry, setCatalogEntry } from '../utils/catalog'
+import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
 import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -52,6 +53,10 @@ export interface InstallSpec {
  */
 export function parseInstallSpec(spec: string): InstallSpec {
   const separator = spec.lastIndexOf('@')
+  if (separator < 1) {
+    return { name: spec, target: spec, range: 'latest', aliased: false }
+  }
+
   const name = spec.slice(0, separator)
   const rest = spec.slice(separator + 1)
 
@@ -253,12 +258,14 @@ export default defineCommand({
 
     const verbose = ctx.args.logLevel === 'verbose' || Boolean(process.env.DEBUG)
 
+    let catalogsUpdated: UpdateCatalogEntriesResult | false = false
+
     if (catalogUpdates.length > 0) {
       const catalogSpinner = spinner()
       catalogSpinner.start('Updating catalog entries')
-      const updated: string[] = []
+
+      const resolved: Array<{ catalog: string, pkg: string, specifier: string }> = []
       const unresolved: string[] = []
-      const failed: string[] = []
 
       for (const { catalog, spec } of catalogUpdates) {
         const specifier = await resolveCatalogSpecifier(spec).catch(() => undefined)
@@ -266,23 +273,35 @@ export default defineCommand({
           unresolved.push(spec.name)
           continue
         }
-        const result = setCatalogEntry(cwd, catalog, spec.name, specifier)
-        if (result === 'failed') {
-          failed.push(spec.name)
-        }
-        else if (result === 'updated') {
-          updated.push(`${spec.name}@${specifier}`)
-        }
+        resolved.push({ catalog, pkg: spec.name, specifier })
       }
 
-      catalogSpinner.stop(updated.length > 0 ? `Catalog entries updated: ${updated.join(', ')}` : 'No catalog entries updated')
+      catalogsUpdated = resolved.length > 0 && updateCatalogEntries(cwd, resolved)
+      const result = catalogsUpdated || 'unchanged'
+
+      catalogSpinner.stop(
+        result === 'updated'
+          ? `Catalog entries updated: ${resolved.map(({ pkg, specifier }) => `${pkg}@${specifier}`).join(', ')}`
+          : 'No catalog entries updated',
+      )
 
       if (unresolved.length > 0) {
         logger.warn(`Unable to resolve a ${versionType} version for ${unresolved.map(name => colors.cyan(name)).join(', ')}. Their catalog entries were left unchanged.`)
       }
 
-      if (failed.length > 0) {
-        logger.warn(`Unable to update the catalog entries for ${failed.map(name => colors.cyan(name)).join(', ')}. Check ${colors.cyan('pnpm-workspace.yaml')} is readable and valid.`)
+      if (result === 'failed') {
+        logger.warn(`Unable to update the catalog entries for ${resolved.map(({ pkg }) => colors.cyan(pkg)).join(', ')}. Check ${colors.cyan('pnpm-workspace.yaml')} is readable and valid.`)
+      }
+
+      // Without a catalog entry pointing at the new version there is nothing for
+      // the install to upgrade, and reporting success would be a lie.
+      const nuxtUpgradeFailed = result === 'failed'
+        ? resolved.some(({ pkg }) => pkg === 'nuxt')
+        : unresolved.includes('nuxt')
+      if (nuxtUpgradeFailed) {
+        logger.error(`Unable to upgrade ${colors.cyan('nuxt')} in ${colors.cyan('pnpm-workspace.yaml')}.`)
+        outro('Upgrade cancelled.')
+        process.exit(1)
       }
     }
 
@@ -301,6 +320,9 @@ export default defineCommand({
     )
 
     if (installFailed) {
+      if (catalogsUpdated === 'updated') {
+        logger.info(`Your ${colors.cyan('pnpm-workspace.yaml')} catalog entries were already updated, so review them before retrying.`)
+      }
       process.exit(1)
     }
 
