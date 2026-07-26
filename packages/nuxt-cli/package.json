@@ -48,6 +48,7 @@
     "@bomb.sh/tab": "^0.0.19",
     "@clack/prompts": "^1.7.0",
     "citty": "^0.2.2",
+    "clickable-path": "^0.0.1",
     "confbox": "^0.2.4",
     "consola": "^3.4.2",
     "defu": "^6.1.7",

@@ -1,3 +1,6 @@
+minimumReleaseAgeExclude:
+  - clickable-path
+
 packages:
   - packages/*
   - packages/nuxt-cli/test/fixtures/*

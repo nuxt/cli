@@ -157,6 +157,9 @@ importers:
       citty:
         specifier: ^0.2.2
         version: 0.2.2
+      clickable-path:
+        specifier: ^0.0.1
+        version: 0.0.1
       confbox:
         specifier: ^0.2.4
         version: 0.2.4
@@ -3464,6 +3467,10 @@ packages:
   cli-boxes@3.0.0:
     resolution: {integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==}
     engines: {node: '>=10'}
+
+  clickable-path@0.0.1:
+    resolution: {integrity: sha512-PkJJGbxFRoWoxyYImJPPyd/RW+aVe0HQVBPhbp2KUaYZdpVNcIopUcE9UmCNAwdbj9frP5SzundqaePJF4ZWrw==}
+    engines: {node: '>=22.1.0'}
 
   clipboardy@3.0.0:
     resolution: {integrity: sha512-Su+uU5sr1jkUy1sGRpLKjKrvEOVXgSgiSInwa/qeID6aJ07yh+5NWc3h2QfjHjBnfX4LhtFcuAWKUsJ3r+fjbg==}
@@ -9555,6 +9562,8 @@ snapshots:
   citty@0.2.2: {}
 
   cli-boxes@3.0.0: {}
+
+  clickable-path@0.0.1: {}
 
   clipboardy@3.0.0:
     dependencies:
