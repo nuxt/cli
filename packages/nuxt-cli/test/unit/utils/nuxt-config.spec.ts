@@ -3,14 +3,14 @@ import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
+
 import { promisify } from 'node:util'
 
 import { describe, expect, it } from 'vitest'
 
 const execFileAsync = promisify(execFile)
 
-const loaderPath = fileURLToPath(new URL('../../../src/utils/nuxt-config.ts', import.meta.url))
+const loaderUrl = new URL('../../../src/utils/nuxt-config.ts', import.meta.url).href
 
 /**
  * `getNuxtConfig` picks between Node's own loader and `jiti` by inspecting the
@@ -25,7 +25,7 @@ async function loadConfig(files: Record<string, string>) {
   }
 
   const script = `
-    const { getNuxtConfig } = await import(${JSON.stringify(loaderPath)})
+    const { getNuxtConfig } = await import(${JSON.stringify(loaderUrl)})
     process.stdout.write(JSON.stringify(await getNuxtConfig(${JSON.stringify(cwd)})))
   `
   const { stdout, stderr } = await execFileAsync(process.execPath, ['--input-type=module', '--eval', script], { cwd })
