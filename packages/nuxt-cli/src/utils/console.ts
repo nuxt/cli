@@ -56,7 +56,13 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
  * keyboard shortcuts.
  */
 export function restoreRawMode(): void {
-  if (process.stdin.isTTY && process.stdin.isRaw) {
+  if (!process.stdin.isTTY) {
+    return
+  }
+  if (process.stdin.isPaused()) {
+    process.stdin.resume()
+  }
+  if (process.stdin.isRaw) {
     process.stdin.setRawMode(false)
   }
 }
