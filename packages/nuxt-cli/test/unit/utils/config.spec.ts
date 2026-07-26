@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { updateConfig } from '../../../src/utils/config'
 
 async function createProject(files: Record<string, string> = {}) {
-  const cwd = await mkdtemp(join(tmpdir(), 'nuxi-config-'))
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), 'nuxi-config-')))
   for (const [name, contents] of Object.entries(files)) {
     await mkdir(join(cwd, name, '..'), { recursive: true })
     await writeFile(join(cwd, name), contents, 'utf8')
