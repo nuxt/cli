@@ -3,7 +3,7 @@ import { resolveModulePath } from 'exsolve'
 import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
-import { coerce, satisfies } from 'verkit'
+import { coerce, findMaxSatisfying } from 'verkit'
 
 import { resolveCatalogEntry } from './catalog'
 import { tryResolveNuxt } from './kit'
@@ -48,7 +48,9 @@ export async function resolveRegistryVersion(pkg: string, range: string): Promis
   })
 
   return packument['dist-tags']?.[range]
-    ?? Object.keys(packument.versions ?? {}).findLast(version => satisfies(version, range))
+    // the registry lists versions in publication order, so a backported patch can
+    // appear after a newer major and must not win
+    ?? findMaxSatisfying(Object.keys(packument.versions ?? {}), range) ?? undefined
 }
 
 export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string[] }) {

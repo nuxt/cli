@@ -94,22 +94,30 @@ export function resolveCatalogEntry(cwd: string, pkgJson: PackageJson | null | u
   return { catalog, specifier: config?.catalogs[catalog]?.[pkg] }
 }
 
+/** The outcome of a {@link setCatalogEntry} call. */
+export type SetCatalogEntryResult = 'updated' | 'unchanged' | 'failed'
+
 /**
  * Point a catalog entry at `specifier`, preserving the comments, anchors and
- * aliases in `pnpm-workspace.yaml`. Returns whether the file was changed.
+ * aliases in `pnpm-workspace.yaml`.
  */
-export function setCatalogEntry(cwd: string, catalog: string, pkg: string, specifier: string): boolean {
+export function setCatalogEntry(cwd: string, catalog: string, pkg: string, specifier: string): SetCatalogEntryResult {
   const filePath = findPnpmWorkspaceYaml(cwd)
   if (!filePath) {
-    return false
+    return 'failed'
   }
 
-  const workspace = parsePnpmWorkspaceYaml(readFileSync(filePath, 'utf-8'))
-  workspace.setPackage(catalog, pkg, specifier)
-  if (!workspace.hasChanged()) {
-    return false
-  }
+  try {
+    const workspace = parsePnpmWorkspaceYaml(readFileSync(filePath, 'utf-8'))
+    workspace.setPackage(catalog, pkg, specifier)
+    if (!workspace.hasChanged()) {
+      return 'unchanged'
+    }
 
-  writeFileSync(filePath, workspace.toString(), 'utf-8')
-  return true
+    writeFileSync(filePath, workspace.toString(), 'utf-8')
+    return 'updated'
+  }
+  catch {
+    return 'failed'
+  }
 }

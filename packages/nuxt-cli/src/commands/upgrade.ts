@@ -258,6 +258,7 @@ export default defineCommand({
       catalogSpinner.start('Updating catalog entries')
       const updated: string[] = []
       const unresolved: string[] = []
+      const failed: string[] = []
 
       for (const { catalog, spec } of catalogUpdates) {
         const specifier = await resolveCatalogSpecifier(spec).catch(() => undefined)
@@ -265,14 +266,23 @@ export default defineCommand({
           unresolved.push(spec.name)
           continue
         }
-        setCatalogEntry(cwd, catalog, spec.name, specifier)
-        updated.push(`${spec.name}@${specifier}`)
+        const result = setCatalogEntry(cwd, catalog, spec.name, specifier)
+        if (result === 'failed') {
+          failed.push(spec.name)
+        }
+        else if (result === 'updated') {
+          updated.push(`${spec.name}@${specifier}`)
+        }
       }
 
       catalogSpinner.stop(updated.length > 0 ? `Catalog entries updated: ${updated.join(', ')}` : 'No catalog entries updated')
 
       if (unresolved.length > 0) {
         logger.warn(`Unable to resolve a ${versionType} version for ${unresolved.map(name => colors.cyan(name)).join(', ')}. Their catalog entries were left unchanged.`)
+      }
+
+      if (failed.length > 0) {
+        logger.warn(`Unable to update the catalog entries for ${failed.map(name => colors.cyan(name)).join(', ')}. Check ${colors.cyan('pnpm-workspace.yaml')} is readable and valid.`)
       }
     }
 

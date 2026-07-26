@@ -1,10 +1,10 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { findPnpmWorkspaceYaml, parseCatalogSpecifier, readCatalogConfig, resolveCatalogEntry } from '../../../src/utils/catalog'
+import { findPnpmWorkspaceYaml, parseCatalogSpecifier, readCatalogConfig, resolveCatalogEntry, setCatalogEntry } from '../../../src/utils/catalog'
 
 describe('parseCatalogSpecifier', () => {
   it('should treat a bare `catalog:` as the default catalog', () => {
@@ -108,5 +108,49 @@ describe('catalog resolution', () => {
     expect(resolveCatalogEntry(tempDir, { dependencies: { nuxt: '^4.1.0' } }, 'nuxt')).toBeUndefined()
     expect(resolveCatalogEntry(tempDir, {}, 'nuxt')).toBeUndefined()
     expect(resolveCatalogEntry(tempDir, null, 'nuxt')).toBeUndefined()
+  })
+})
+
+describe('setCatalogEntry', () => {
+  let tempDir: string
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'nuxt-catalog-test-'))
+  })
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true })
+  })
+
+  it('should update an entry while preserving comments', async () => {
+    const filePath = join(tempDir, 'pnpm-workspace.yaml')
+    await writeFile(filePath, '# pinned by policy\ncatalog:\n  nuxt: ^4.1.0\n  vue: ^3.6.0\n')
+
+    expect(setCatalogEntry(tempDir, 'default', 'nuxt', '^4.2.0')).toBe('updated')
+    expect(await readFile(filePath, 'utf-8')).toBe('# pinned by policy\ncatalog:\n  nuxt: ^4.2.0\n  vue: ^3.6.0\n')
+  })
+
+  it('should update an entry in a named catalog', async () => {
+    const filePath = join(tempDir, 'pnpm-workspace.yaml')
+    await writeFile(filePath, 'catalogs:\n  prod:\n    nuxt: ^4.1.0\n')
+
+    expect(setCatalogEntry(tempDir, 'prod', 'nuxt', 'npm:nuxt-nightly@^4.3.0')).toBe('updated')
+    expect(await readFile(filePath, 'utf-8')).toBe('catalogs:\n  prod:\n    nuxt: npm:nuxt-nightly@^4.3.0\n')
+  })
+
+  it('should report an entry that already matches as unchanged', async () => {
+    await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalog:\n  nuxt: ^4.2.0\n')
+
+    expect(setCatalogEntry(tempDir, 'default', 'nuxt', '^4.2.0')).toBe('unchanged')
+  })
+
+  it('should fail when there is no workspace file', () => {
+    expect(setCatalogEntry(tempDir, 'default', 'nuxt', '^4.2.0')).toBe('failed')
+  })
+
+  it('should fail when the workspace file cannot be parsed', async () => {
+    await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalog:\n  nuxt: "^4.2.0\n\tbad: [\n')
+
+    expect(setCatalogEntry(tempDir, 'default', 'nuxt', '^4.3.0')).toBe('failed')
   })
 })

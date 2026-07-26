@@ -1,9 +1,15 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { findLockFile, parseInstallSpec } from '../../../src/commands/upgrade'
+import { findLockFile, parseInstallSpec, resolveCatalogSpecifier } from '../../../src/commands/upgrade'
+import { resolveRegistryVersion } from '../../../src/utils/versions'
+
+vi.mock('../../../src/utils/versions', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/utils/versions')>(),
+  resolveRegistryVersion: vi.fn(),
+}))
 
 describe('findLockFile', () => {
   let tempDir: string
@@ -86,5 +92,26 @@ describe('parseInstallSpec', () => {
       range: '3x',
       aliased: true,
     })
+  })
+})
+
+describe('resolveCatalogSpecifier', () => {
+  it('should write a caret range for a regular package', async () => {
+    vi.mocked(resolveRegistryVersion).mockResolvedValue('4.2.1')
+
+    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })).toBe('^4.2.1')
+    expect(vi.mocked(resolveRegistryVersion)).toHaveBeenCalledWith('nuxt', 'latest')
+  })
+
+  it('should write an npm alias for an aliased package', async () => {
+    vi.mocked(resolveRegistryVersion).mockResolvedValue('4.3.0-28991214-abcdef')
+
+    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt-nightly', range: 'latest', aliased: true })).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
+  })
+
+  it('should return nothing when no version matches', async () => {
+    vi.mocked(resolveRegistryVersion).mockResolvedValue(undefined)
+
+    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt', range: '99', aliased: false })).toBeUndefined()
   })
 })
