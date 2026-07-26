@@ -192,9 +192,6 @@ importers:
       obug:
         specifier: ^2.1.1
         version: 2.1.3
-      ofetch:
-        specifier: ^1.5.1
-        version: 1.5.1
       ohash:
         specifier: ^2.0.11
         version: 2.0.11

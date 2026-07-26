@@ -22,8 +22,8 @@ vi.mock('nypm', () => ({
 vi.mock('pkg-types', () => ({
   readPackageJSON: () => Promise.resolve({ devDependencies: { nuxt: '3.0.0' } }),
 }))
-vi.mock('ofetch', () => ({
-  $fetch: vi.fn(() => Promise.resolve({
+vi.mock('../../../../src/utils/fetch', () => ({
+  fetchJson: vi.fn(() => Promise.resolve({
     'dist-tags': { latest: '1.0.0' },
     'versions': { '1.0.0': manifest },
   })),

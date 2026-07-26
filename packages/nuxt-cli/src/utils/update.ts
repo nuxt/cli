@@ -1,13 +1,13 @@
 import process from 'node:process'
 
 import { box } from '@clack/prompts'
-import { $fetch } from 'ofetch'
 import colors from 'picocolors'
 import { readUser, updateUser } from 'rc9'
 import { isCI, isTest, provider } from 'std-env'
 import { joinURL } from 'ufo'
 import { isGreater, tryParse } from 'verkit'
 
+import { fetchJson } from './fetch'
 import { debug } from './logger'
 import { detectNpmRegistry } from './registry'
 
@@ -78,7 +78,7 @@ async function resolveLatestVersion(): Promise<string | undefined> {
   let latest: string | undefined
   try {
     const { registry, authToken } = await detectNpmRegistry(null)
-    latest = (await $fetch<{ latest?: string }>(joinURL(registry, '-/package/nuxt/dist-tags'), {
+    latest = (await fetchJson<{ latest?: string }>(joinURL(registry, '-/package/nuxt/dist-tags'), {
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
       timeout: FETCH_TIMEOUT,
       retry: 0,

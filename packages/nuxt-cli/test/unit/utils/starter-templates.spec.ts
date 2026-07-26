@@ -6,11 +6,6 @@ import { fetchTemplates, TEMPLATES_API_URL } from '../../../src/utils/starter-te
 function respondAfter(delay: number) {
   return vi.fn((url: string | URL | Request, init?: RequestInit) => {
     const signal = init?.signal
-    // `fetch` rejects straight away when handed a spent signal, which is what
-    // `ofetch` does on its retry.
-    if (signal?.aborted) {
-      return Promise.reject(signal.reason)
-    }
 
     // Only the template listing is slowed down; the per-template fetches that
     // follow it answer immediately so the test pays the delay once. Matched on
@@ -56,13 +51,9 @@ describe('fetchTemplates', () => {
       return respondAfter(60_000)(url, init)
     })
 
-    // Asserting on the abort rather than the settled promise keeps the test from
-    // waiting out `ofetch`'s retry of the same doomed request.
-    const pending = fetchTemplates().catch((err: unknown) => err)
-    await vi.waitFor(() => expect(signals[0]?.aborted).toBe(true), { timeout: 8000, interval: 100 })
+    const error = await fetchTemplates().catch((err: unknown) => err)
 
-    expect(describeNetworkError(signals[0]!.reason, TEMPLATES_API_URL)).toContain('timed out')
-    // The retry of the same doomed request is left to time out unobserved.
-    void pending
+    expect(signals[0]?.aborted).toBe(true)
+    expect(describeNetworkError(error, TEMPLATES_API_URL)).toContain('timed out')
   }, 15_000)
 })

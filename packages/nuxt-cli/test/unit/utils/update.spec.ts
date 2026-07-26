@@ -33,7 +33,7 @@ vi.mock('rc9', async () => {
   }
 })
 
-vi.mock('ofetch', () => ({ $fetch: fetchMock }))
+vi.mock('../../../src/utils/fetch', () => ({ fetchJson: fetchMock }))
 
 vi.mock('../../../src/utils/registry', () => ({
   detectNpmRegistry: async () => registry.current,

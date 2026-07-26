@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { resolveModulePath } from 'exsolve'
-import { $fetch } from 'ofetch'
 import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
 import { coerce, findMaxSatisfying } from 'verkit'
 
 import { resolveCatalogEntry } from './catalog'
+import { fetchJson } from './fetch'
 import { tryResolveNuxt } from './kit'
 import { debug } from './logger'
 import { detectNpmRegistry } from './registry'
@@ -45,7 +45,7 @@ export async function resolveRegistryVersion(pkg: string, range: string): Promis
     const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
     const { registry, authToken } = await detectNpmRegistry(scope)
 
-    packument = await $fetch(joinURL(registry, pkg), {
+    packument = await fetchJson(joinURL(registry, pkg), {
       headers: {
         // The abbreviated packument is a fraction of the size of the full one and
         // still carries every version and dist-tag.

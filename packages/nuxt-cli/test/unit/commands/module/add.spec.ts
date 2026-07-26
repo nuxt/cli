@@ -43,9 +43,9 @@ function applyMocks() {
       },
     }
   })
-  vi.mock('ofetch', async () => {
+  vi.mock('../../../../src/utils/fetch', async () => {
     return {
-      $fetch: vi.fn(() => Promise.resolve({
+      fetchJson: vi.fn(() => Promise.resolve({
         'name': '@nuxt/content',
         'npm': '@nuxt/content',
         'devDependencies': {

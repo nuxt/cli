@@ -40,9 +40,9 @@ vi.mock('pkg-types', async () => {
   }
 })
 
-vi.mock('ofetch', async () => {
+vi.mock('../../../src/utils/fetch', async () => {
   return {
-    $fetch: mock$fetch,
+    fetchJson: mock$fetch,
   }
 })
 

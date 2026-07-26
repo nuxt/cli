@@ -13,7 +13,6 @@ import { box, cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, t
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { detectPackageManager } from 'nypm'
-import { $fetch } from 'ofetch'
 import { basename, join, relative, resolve } from 'pathe'
 import colors from 'picocolors'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
@@ -22,6 +21,7 @@ import { x } from 'tinyexec'
 
 import { runCommandDef as runCommand } from '../run-command'
 import { nuxtIcon, themeColor } from '../utils/ascii'
+import { fetchJson } from '../utils/fetch'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { debug, logger } from '../utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../utils/network'
@@ -429,7 +429,7 @@ export default defineCommand({
       const nightlySpinner = spinner()
       nightlySpinner.start('Fetching nightly version info')
 
-      const response = await $fetch<{ 'dist-tags': Record<string, string> }>(NIGHTLY_DIST_TAGS_URL).catch((err) => {
+      const response = await fetchJson<{ 'dist-tags': Record<string, string> }>(NIGHTLY_DIST_TAGS_URL).catch((err) => {
         nightlySpinner.error('Failed to fetch nightly version info')
         logNetworkError(err, { url: NIGHTLY_DIST_TAGS_URL })
         process.exit(1)
@@ -772,7 +772,7 @@ export default defineCommand({
 async function getModuleDependencies(moduleName: string) {
   const url = `https://registry.npmjs.org/${moduleName}/latest`
   try {
-    const response = await $fetch(url)
+    const response = await fetchJson<{ dependencies?: Record<string, string> }>(url)
     const dependencies = response.dependencies || {}
     return Object.keys(dependencies)
   }

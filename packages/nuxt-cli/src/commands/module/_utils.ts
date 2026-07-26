@@ -4,11 +4,11 @@ import type { PackageJson } from 'pkg-types'
 import { existsSync } from 'node:fs'
 
 import { confirm, isCancel } from '@clack/prompts'
-import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
 import colors from 'picocolors'
 import { satisfies } from 'verkit'
 
+import { fetchJson } from '../../utils/fetch'
 import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
@@ -109,7 +109,7 @@ export interface NuxtModule {
 export const MODULES_API_URL = 'https://api.nuxt.com/modules?version=all'
 
 export async function fetchModules(): Promise<NuxtModule[]> {
-  const { modules } = await $fetch<NuxtApiModulesResponse>(MODULES_API_URL)
+  const { modules } = await fetchJson<NuxtApiModulesResponse>(MODULES_API_URL)
   return modules
 }
 

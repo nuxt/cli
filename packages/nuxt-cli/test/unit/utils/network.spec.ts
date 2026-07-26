@@ -10,7 +10,6 @@ import { join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 
 import { downloadTemplate } from 'giget'
-import { $fetch } from 'ofetch'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const logs: Array<[string, string]> = []
@@ -25,6 +24,7 @@ vi.mock('../../../src/utils/logger', () => ({
 }))
 
 const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, probeNetworkError, setupProxySupport, supportsEnvProxy } = await import('../../../src/utils/network')
+const { fetchJson } = await import('../../../src/utils/fetch')
 
 const NUXI_ARGV = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', 'my app']
 
@@ -140,23 +140,23 @@ describe('describeNetworkError with real failures', () => {
     expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${closedPort} was refused.`)
   })
 
-  it('describes a real refused connection from `ofetch`', async () => {
+  it('describes a real refused connection from `fetchJson`', async () => {
     const url = `http://127.0.0.1:${closedPort}/`
-    const err = await captureError(() => $fetch(url))
+    const err = await captureError(() => fetchJson(url))
     expect(classifyNetworkError(err).kind).toBe('refused')
     expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${closedPort} was refused.`)
   })
 
-  it('describes a real `ofetch` non-2xx response', async () => {
+  it('describes a real `fetchJson` non-2xx response', async () => {
     const url = `http://127.0.0.1:${port}/teapot`
-    const err = await captureError(() => $fetch(url))
+    const err = await captureError(() => fetchJson(url))
     expect(classifyNetworkError(err)).toMatchObject({ kind: 'http', status: 418 })
     expect(clean(describeNetworkError(err, url))).toBe(`Request to 127.0.0.1:${port} failed with status 418.`)
   })
 
-  it('describes a real `ofetch` timeout, whose code is a DOMException number', async () => {
+  it('describes a real `fetchJson` timeout, whose code is a DOMException number', async () => {
     const url = `http://127.0.0.1:${port}/slow`
-    const err = await captureError(() => $fetch(url, { timeout: 20 }))
+    const err = await captureError(() => fetchJson(url, { timeout: 20 }))
     expect(classifyNetworkError(err).kind).toBe('timeout')
     expect(clean(describeNetworkError(err, url))).toBe(`Connection to 127.0.0.1:${port} timed out.`)
   })

@@ -1,5 +1,6 @@
 import process from 'node:process'
-import { $fetch } from 'ofetch'
+
+import { fetchJson } from './fetch.ts'
 
 export const hiddenTemplates = [
   'doc-driven',
@@ -26,7 +27,6 @@ const fetchOptions = {
   // than 3s. The template list is prefetched and has a static fallback, so a
   // slightly longer deadline only ever delays the prompt on a broken network.
   timeout: 5000,
-  responseType: 'json',
   headers: {
     'user-agent': '@nuxt/cli',
     ...process.env.GITHUB_TOKEN ? { authorization: `token ${process.env.GITHUB_TOKEN}` } : {},
@@ -45,7 +45,7 @@ export async function getTemplates() {
 export async function fetchTemplates() {
   const templates = {} as Record<string, TemplateData>
 
-  const files = await $fetch<Array<{ name: string, type: string, download_url?: string }>>(
+  const files = await fetchJson<Array<{ name: string, type: string, download_url?: string }>>(
     TEMPLATES_API_URL,
     fetchOptions,
   )
@@ -59,7 +59,7 @@ export async function fetchTemplates() {
       return
     }
     templates[templateName] = undefined as unknown as TemplateData
-    templates[templateName] = await $fetch(file.download_url, fetchOptions)
+    templates[templateName] = await fetchJson<TemplateData>(file.download_url, fetchOptions)
   }))
 
   return templates

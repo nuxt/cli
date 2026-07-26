@@ -8,7 +8,6 @@ import process from 'node:process'
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager, packageManagers } from 'nypm'
-import { $fetch } from 'ofetch'
 import { resolve } from 'pathe'
 import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
@@ -17,6 +16,7 @@ import { satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run-command'
 import { updateConfig } from '../../utils/config'
+import { fetchJson } from '../../utils/fetch'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
@@ -447,7 +447,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
 
   // TODO: spinner
   const pkgUrl = joinURL(meta.registry, `${pkgName}`)
-  const pkgDetails = await $fetch(pkgUrl, { headers }).catch((err: unknown) => {
+  const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
     logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${colors.cyan(pkgName)}.` })
     return null
   })
