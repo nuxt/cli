@@ -30,4 +30,9 @@ describe('normaliseCwdArg', () => {
   it('should ignore --cwd after a -- separator', () => {
     expect(normalise(['test', '--', '--cwd', 'apps/web'])).toEqual(['test', '--', '--cwd', 'apps/web'])
   })
+
+  it('should keep --cwd ahead of a -- separator', () => {
+    expect(normalise(['--cwd', 'apps/web', 'test', '--', '--watch'])).toEqual(['test', '--cwd=apps/web', '--', '--watch'])
+    expect(normalise(['test', '--cwd=apps/web', '--', '--watch'])).toEqual(['test', '--cwd=apps/web', '--', '--watch'])
+  })
 })

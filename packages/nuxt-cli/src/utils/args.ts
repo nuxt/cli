@@ -8,8 +8,8 @@ function cwdArgIndex(rawArgs: string[]): number {
  * Commands accept `--cwd` as an undeclared alias for their ROOTDIR positional, so it stays out
  * of `--help`. Undeclared, only the `--cwd=<dir>` form is safe: mri treats a bare `--cwd` as
  * boolean and its value would be consumed as a positional. Rewrite to that form, keeping the
- * last occurrence, and move it to the end, past a command name that citty would otherwise
- * slice the preceding arguments off.
+ * last occurrence, and move it after a command name that citty would otherwise slice the
+ * preceding arguments off, but ahead of any `--` separator so it is still parsed as a flag.
  * @see https://github.com/nuxt/cli/issues/365
  */
 export function normaliseCwdArg(rawArgs: string[]): void {
@@ -21,7 +21,10 @@ export function normaliseCwdArg(rawArgs: string[]): void {
     cwd = inline ? arg.slice(arg.indexOf('=') + 1) : value
   }
 
-  if (cwd !== undefined) {
-    rawArgs.push(`--cwd=${cwd}`)
+  if (cwd === undefined) {
+    return
   }
+
+  const separator = rawArgs.indexOf('--')
+  rawArgs.splice(separator === -1 ? rawArgs.length : separator, 0, `--cwd=${cwd}`)
 }
