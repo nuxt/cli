@@ -1,26 +1,17 @@
-import type { UserConfig } from 'tsdown'
-import process from 'node:process'
-import { visualizer } from 'rollup-plugin-visualizer'
-import { defineConfig } from 'tsdown'
-import { purgePolyfills } from 'unplugin-purge-polyfills'
+import type { PackagingContract } from '../../scripts/tsdown.ts'
+import { defineCliConfig, PARSER_PACKAGES, PARSER_SPECIFIERS } from '../../scripts/tsdown.ts'
 
-const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
+export const packaging: PackagingContract = {
+  traced: ['youch', 'youch-core'],
+  external: PARSER_SPECIFIERS,
+}
 
-const PARSERS = ['rolldown', 'oxc-parser']
-
-export default defineConfig({
+export default defineCliConfig({
   entry: ['src/index.ts', 'src/cli.ts', 'src/dev/index.ts'],
   shims: true,
-  fixedExtension: true,
-  deps: { onlyBundle: false, neverBundle: PARSERS },
-  dts: !isAnalysingSize && {
-    oxc: true,
-    entry: ['src/index.ts'],
-  },
+  deps: { onlyBundle: false, neverBundle: PARSER_PACKAGES },
+  dts: { entry: ['src/index.ts'] },
   // disabled due to upstream DTS warnings from @nuxt/schema type imports
   failOnWarn: false,
-  plugins: [
-    purgePolyfills.rolldown({ logLevel: 'verbose' }),
-    ...(isAnalysingSize ? [visualizer({ template: 'raw-data' })] : []),
-  ],
-}) satisfies UserConfig as UserConfig
+  ...packaging,
+})
