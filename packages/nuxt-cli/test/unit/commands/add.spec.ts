@@ -15,7 +15,7 @@ const { updateConfig, detectPackageManager, mock$fetch } = vi.hoisted(() => {
   }
 })
 
-vi.mock('c12/update', async () => {
+vi.mock('../../../src/utils/config', async () => {
   return {
     updateConfig,
   }

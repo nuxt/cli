@@ -59,7 +59,7 @@ export default defineCommand({
           cwd,
           fileName: ctx.args.dotenv,
         },
-        envName: ctx.args.envName, // c12 will fall back to NODE_ENV
+        envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
         overrides: {
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
           // TODO: remove in 3.8
