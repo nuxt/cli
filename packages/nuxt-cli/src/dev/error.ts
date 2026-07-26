@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 
 import { dirname, normalize, resolve } from 'pathe'
-import { SourceMapConsumer } from 'source-map'
+import { SourceMapConsumer } from 'source-map-js'
 import { Youch } from 'youch'
 import { ErrorParser } from 'youch-core'
 
@@ -92,21 +92,15 @@ async function applySourceMap(frame: StackFrame): Promise<void> {
   if (!rawSourceMap) {
     return
   }
-  // Consumers hold WASM memory that is only reclaimed by `destroy()`.
-  const consumer = await new SourceMapConsumer(rawSourceMap)
-  try {
-    const originalPosition = consumer.originalPositionFor({
-      line: frame.lineNumber!,
-      column: frame.columnNumber!,
-    })
-    if (originalPosition.source && originalPosition.line) {
-      frame.fileName = resolve(dirname(frame.fileName!), originalPosition.source)
-      frame.lineNumber = originalPosition.line
-      frame.columnNumber = originalPosition.column || 0
-    }
-  }
-  finally {
-    consumer.destroy()
+  const consumer = new SourceMapConsumer(JSON.parse(rawSourceMap))
+  const originalPosition = consumer.originalPositionFor({
+    line: frame.lineNumber!,
+    column: frame.columnNumber!,
+  })
+  if (originalPosition.source && originalPosition.line) {
+    frame.fileName = resolve(dirname(frame.fileName!), originalPosition.source)
+    frame.lineNumber = originalPosition.line
+    frame.columnNumber = originalPosition.column || 0
   }
 }
 

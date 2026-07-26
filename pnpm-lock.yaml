@@ -225,9 +225,9 @@ importers:
       serve:
         specifier: ^14.0.0
         version: 14.2.6(supports-color@10.2.2)
-      source-map:
-        specifier: ^0.7.6
-        version: 0.7.6
+      source-map-js:
+        specifier: ^1.2.1
+        version: 1.2.1
       srvx:
         specifier: ^0.11.22
         version: 0.11.22
