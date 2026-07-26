@@ -19,6 +19,7 @@ import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { getNuxtConfig } from '../utils/nuxt-config'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
@@ -205,26 +206,4 @@ function normalizeConfigModule(
     return normalizeConfigModule(module[0], rootDir)
   }
   return null
-}
-
-async function getNuxtConfig(rootDir: string) {
-  try {
-    const { createJiti } = await import('jiti')
-    const jiti = createJiti(rootDir, {
-      interopDefault: true,
-      // allow using `~` and `@` in `nuxt.config`
-      alias: {
-        '~': rootDir,
-        '@': rootDir,
-      },
-    })
-    ;(globalThis as any).defineNuxtConfig = (c: any) => c
-    const result = await jiti.import('./nuxt.config', { default: true }) as NuxtConfig
-    delete (globalThis as any).defineNuxtConfig
-    return result
-  }
-  catch {
-    // TODO: Show error as warning if it is not 404
-    return {}
-  }
 }

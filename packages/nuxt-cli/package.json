@@ -34,10 +34,14 @@
   },
   "peerDependencies": {
     "@nuxt/schema": "^4.4.6",
+    "jiti": "^2.7.0",
     "serve": "^14.0.0"
   },
   "peerDependenciesMeta": {
     "@nuxt/schema": {
+      "optional": true
+    },
+    "jiti": {
       "optional": true
     },
     "serve": {
@@ -56,7 +60,6 @@
     "fzf": "^0.5.2",
     "get-port-please": "^3.2.0",
     "giget": "^3.3.0",
-    "jiti": "^2.7.0",
     "magicast": "^0.5.3",
     "nypm": "^0.6.8",
     "obug": "^2.1.1",
@@ -87,6 +90,7 @@
     "@types/node": "^24.13.3",
     "h3": "^1.15.11",
     "h3-next": "npm:h3@^2.0.1-rc.25",
+    "jiti": "^2.7.0",
     "nitro": "^3.0.1-alpha.2",
     "nitropack": "^2.13.4",
     "rollup": "^4.62.2",

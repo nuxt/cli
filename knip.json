@@ -36,6 +36,11 @@
       "ignoreDependencies": [
         "@bomb.sh/tab"
       ]
+    },
+    "packages/nuxi": {
+      "ignoreDependencies": [
+        "jiti"
+      ]
     }
   }
 }

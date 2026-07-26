@@ -123,6 +123,9 @@ importers:
       citty:
         specifier: ^0.2.2
         version: 0.2.2
+      jiti:
+        specifier: ^2.7.0
+        version: 2.7.0
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
@@ -180,9 +183,6 @@ importers:
       giget:
         specifier: ^3.3.0
         version: 3.3.0
-      jiti:
-        specifier: ^2.7.0
-        version: 2.7.0
       magicast:
         specifier: ^0.5.3
         version: 0.5.3
@@ -271,6 +271,9 @@ importers:
       h3-next:
         specifier: npm:h3@^2.0.1-rc.25
         version: h3@2.0.1-rc.25(crossws@0.4.5(srvx@0.11.22))
+      jiti:
+        specifier: ^2.7.0
+        version: 2.7.0
       nitro:
         specifier: ^3.0.1-alpha.2
         version: 3.0.1-alpha.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(chokidar@5.0.0)(ioredis@5.10.1(supports-color@10.2.2))(lru-cache@11.3.5)(rolldown@1.0.0-rc.16)(rollup@4.62.2)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
