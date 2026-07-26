@@ -13,7 +13,7 @@ OPTIONS
 
 COMMANDS
 
-           add    Add Nuxt modules
+           add    Add Nuxt modules and layers
   add-template    Create a new template file.
        analyze    Build Nuxt and analyze production bundle (experimental)
          build    Build Nuxt for production deployment
@@ -38,6 +38,18 @@ Use nuxi <command> --help for more information about a command.
 ## Documentation
 
 All commands are documented on https://nuxt.com/docs/api/commands
+
+## Adding modules and layers
+
+`nuxt add <name>` installs the package and writes it to `nuxt.config`. Where it is written depends on what the package is:
+
+```bash
+# added to `modules`
+nuxt add nuxt-shiki
+
+# a layer, added to `extends`
+nuxt add nuxt-seo-kit
+```
 
 ## Update Notifications
 

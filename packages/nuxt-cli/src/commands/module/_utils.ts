@@ -126,6 +126,117 @@ export function checkNuxtCompatibility(
   })
 }
 
+// Based on https://github.com/dword-design/package-name-regex, extended with an
+// optional subpath (`maz-ui/nuxt`) and an optional version in either position.
+const MODULE_SPEC_RE = /^(?<name>(?:@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*)(?:@(?<earlyVersion>[^@/]+))?(?<subpath>(?:\/[^@/]+)*)(?:@(?<version>[^@]+))?$/
+
+export interface ModuleSpec {
+  /** npm package name to install, without subpath or version. */
+  pkgName: string
+  /** Requested version, if the user asked for one. */
+  pkgVersion?: string
+  /** Subpath the user asked for, without a leading slash (e.g. `nuxt`). */
+  subpath?: string
+}
+
+/** Parse a user-provided module spec such as `@maz-ui/nuxt@1.2.3` or `maz-ui/nuxt`. */
+export function parseModuleSpec(input: string): ModuleSpec | undefined {
+  const groups = input.match(MODULE_SPEC_RE)?.groups
+  if (!groups?.name) {
+    return
+  }
+
+  const version = groups.version || groups.earlyVersion
+  const subpath = groups.subpath?.replace(/^\//, '')
+
+  return {
+    pkgName: groups.name,
+    pkgVersion: version || undefined,
+    subpath: subpath || undefined,
+  }
+}
+
+/** The npm package name a config entry such as `maz-ui/nuxt` belongs to. */
+export function basePackageName(specifier: string): string {
+  const parts = specifier.split('/')
+  return specifier.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]!
+}
+
+const NUXT_CONFIG_ENTRY_RE = /(?:^|\/)nuxt\.config\.[cm]?[jt]s$/
+// Nuxt resolves module specifiers with these suffixes, in this order.
+// https://github.com/nuxt/nuxt/blob/main/packages/kit/src/module/install.ts
+const MODULE_SUBPATHS = ['nuxt', 'module'] as const
+
+export interface ModuleEntry {
+  /** Subpath to use in `nuxt.config`, if the module lives behind one. */
+  subpath?: string
+  /** The package is a Nuxt layer and belongs in `extends`, not `modules`. */
+  isLayer: boolean
+}
+
+type Exports = PackageJson['exports']
+
+function resolveExportTarget(entry: Exports): string | undefined {
+  if (typeof entry === 'string') {
+    return entry
+  }
+  if (Array.isArray(entry)) {
+    for (const item of entry) {
+      const resolved = resolveExportTarget(item)
+      if (resolved) {
+        return resolved
+      }
+    }
+    return
+  }
+  if (entry && typeof entry === 'object') {
+    for (const key of ['nuxt', 'import', 'module', 'require', 'default'] as const) {
+      if (key in entry) {
+        const resolved = resolveExportTarget((entry as Record<string, Exports>)[key])
+        if (resolved) {
+          return resolved
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Work out how a package should be referenced from `nuxt.config`, mirroring the
+ * subpath suffixes Nuxt itself tries when resolving a module specifier, so that
+ * packages exposing their module at `<pkg>/nuxt` and layers whose entrypoint is a
+ * `nuxt.config` file both end up in the right place.
+ */
+export function resolveModuleEntry(pkg: PackageJson): ModuleEntry {
+  const exports = pkg.exports && typeof pkg.exports === 'object' && !Array.isArray(pkg.exports)
+    ? pkg.exports as Record<string, Exports>
+    : undefined
+
+  // Bare condition maps (`exports: { import: '...' }`) describe the root entry.
+  const hasSubpathExports = exports && Object.keys(exports).some(key => key.startsWith('.'))
+
+  if (hasSubpathExports) {
+    for (const subpath of MODULE_SUBPATHS) {
+      if (exports[`./${subpath}`]) {
+        return { subpath, isLayer: false }
+      }
+    }
+  }
+
+  const rootEntry = (hasSubpathExports ? resolveExportTarget(exports['.']) : resolveExportTarget(pkg.exports))
+    ?? pkg.module
+    ?? pkg.main
+
+  // A layer's entrypoint is its `nuxt.config`. Where there is no entry at all, an
+  // explicitly published `nuxt.config` is the only remaining signal (a package
+  // without `main` may still be a module resolved through an implicit `index.js`).
+  const isLayer = rootEntry
+    ? NUXT_CONFIG_ENTRY_RE.test(rootEntry)
+    : Boolean(pkg.files?.some(file => NUXT_CONFIG_ENTRY_RE.test(file)))
+
+  return { isLayer }
+}
+
 export function getProjectDependencies(projectPkg: PackageJson): Set<string> {
   return new Set([
     ...Object.keys(projectPkg.dependencies || {}),

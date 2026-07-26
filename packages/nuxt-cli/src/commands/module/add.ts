@@ -25,7 +25,7 @@ import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL } from './_utils'
+import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
 
 const WHITESPACE_RE = /\s/
 
@@ -34,110 +34,122 @@ interface ResolvedModule {
   pkg: string
   pkgName: string
   pkgVersion: string
+  /** Specifier to write to `nuxt.config`, which may include a subpath. */
+  specifier: string
+  /** Whether the package is a Nuxt layer, and so belongs in `extends`. */
+  isLayer?: boolean
   peerDependencies?: Record<string, string>
   optionalPeerDependencies?: string[]
 }
 type UnresolvedModule = false
 type ModuleResolution = ResolvedModule | UnresolvedModule
 
-export default defineCommand({
-  meta: {
-    name: 'add',
-    description: 'Add Nuxt modules',
-  },
-  args: {
-    ...cwdArgs,
-    ...logLevelArgs,
-    moduleName: {
-      type: 'positional',
-      description: 'Specify one or more modules to install by name, separated by spaces',
+/**
+ * `layers` only affects help text: `nuxt add` is documented as accepting layers as
+ * well as modules, whereas the `nuxt module` namespace documents modules alone.
+ */
+export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) {
+  return defineCommand({
+    meta: {
+      name: 'add',
+      description: layers ? 'Add Nuxt modules and layers' : 'Add Nuxt modules',
     },
-    skipInstall: {
-      type: 'boolean',
-      description: 'Skip npm install',
+    args: {
+      ...cwdArgs,
+      ...logLevelArgs,
+      moduleName: {
+        type: 'positional',
+        description: `Specify one or more modules${layers ? ' or layers' : ''} to install by name, separated by spaces`,
+      },
+      skipInstall: {
+        type: 'boolean',
+        description: 'Skip npm install',
+      },
+      skipConfig: {
+        type: 'boolean',
+        description: 'Skip nuxt.config.ts update',
+      },
+      dev: {
+        type: 'boolean',
+        description: 'Install modules as dev dependencies',
+      },
+      packageManager: {
+        type: 'string',
+        description: `Package manager to install with (${packageManagers.map(pm => pm.name).join(', ')})`,
+      },
     },
-    skipConfig: {
-      type: 'boolean',
-      description: 'Skip nuxt.config.ts update',
-    },
-    dev: {
-      type: 'boolean',
-      description: 'Install modules as dev dependencies',
-    },
-    packageManager: {
-      type: 'string',
-      description: `Package manager to install with (${packageManagers.map(pm => pm.name).join(', ')})`,
-    },
-  },
-  async setup(ctx) {
-    const cwd = resolve(ctx.args.cwd)
-    let modules = ctx.args._.map(e => e.trim()).filter(Boolean)
-    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
+    async setup(ctx) {
+      const cwd = resolve(ctx.args.cwd)
+      let modules = ctx.args._.map(e => e.trim()).filter(Boolean)
+      const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
-    if (!await ensureNuxtDependency(cwd, projectPkg)) {
-      process.exit(1)
-    }
-
-    // If no modules specified, show interactive search
-    if (modules.length === 0) {
-      const modulesSpinner = spinner()
-      modulesSpinner.start('Fetching available modules')
-
-      const [allModules, nuxtVersion] = await Promise.all([
-        fetchModules().catch((err) => {
-          modulesSpinner.error('Failed to fetch available modules')
-          logNetworkError(err, { url: MODULES_API_URL })
-          process.exit(1)
-        }),
-        getNuxtVersion(cwd),
-      ])
-
-      const compatibleModules = allModules.filter(m =>
-        !m.compatibility.nuxt || checkNuxtCompatibility(m, nuxtVersion),
-      )
-
-      modulesSpinner.stop('Modules loaded')
-
-      const result = await selectModulesAutocomplete({
-        modules: compatibleModules,
-        message: 'Search modules to add (Esc to finish):',
-      })
-
-      if (result.selected.length === 0) {
-        cancel('No modules selected.')
-        process.exit(0)
+      if (!await ensureNuxtDependency(cwd, projectPkg)) {
+        process.exit(1)
       }
 
-      modules = result.selected
-    }
+      // If no modules specified, show interactive search
+      if (modules.length === 0) {
+        const modulesSpinner = spinner()
+        modulesSpinner.start('Fetching available modules')
 
-    const resolvedModules: ResolvedModule[] = []
-    for (const moduleName of modules) {
-      const resolvedModule = await resolveModule(moduleName, cwd)
-      if (resolvedModule) {
-        resolvedModules.push(resolvedModule)
+        const [allModules, nuxtVersion] = await Promise.all([
+          fetchModules().catch((err) => {
+            modulesSpinner.error('Failed to fetch available modules')
+            logNetworkError(err, { url: MODULES_API_URL })
+            process.exit(1)
+          }),
+          getNuxtVersion(cwd),
+        ])
+
+        const compatibleModules = allModules.filter(m =>
+          !m.compatibility.nuxt || checkNuxtCompatibility(m, nuxtVersion),
+        )
+
+        modulesSpinner.stop('Modules loaded')
+
+        const result = await selectModulesAutocomplete({
+          modules: compatibleModules,
+          message: 'Search modules to add (Esc to finish):',
+        })
+
+        if (result.selected.length === 0) {
+          cancel('No modules selected.')
+          process.exit(0)
+        }
+
+        modules = result.selected
       }
-    }
 
-    if (resolvedModules.length === 0) {
-      cancel('No modules to add.')
-      process.exit(1)
-    }
+      const resolvedModules: ResolvedModule[] = []
+      for (const moduleName of modules) {
+        const resolvedModule = await resolveModule(moduleName, cwd)
+        if (resolvedModule) {
+          resolvedModules.push(resolvedModule)
+        }
+      }
 
-    logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.pkgName)).join(', ')}, adding module${resolvedModules.length > 1 ? 's' : ''}...`)
+      if (resolvedModules.length === 0) {
+        cancel('No modules to add.')
+        process.exit(1)
+      }
 
-    const added = await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
+      logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.specifier)).join(', ')}, adding ${describeModules(resolvedModules)}...`)
 
-    if (!added) {
-      process.exit(1)
-    }
+      const added = await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
-    // Run prepare command if install is not skipped
-    if (!ctx.args.skipInstall) {
-      await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
-    }
-  },
-})
+      if (!added) {
+        process.exit(1)
+      }
+
+      // Run prepare command if install is not skipped
+      if (!ctx.args.skipInstall) {
+        await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
+      }
+    },
+  })
+}
+
+export default defineAddCommand()
 
 // -- Internal Utils --
 async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false, packageManager: packageManagerName, logLevel }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean, packageManager?: string, logLevel?: string }, projectPkg: PackageJson): Promise<boolean> {
@@ -228,25 +240,33 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         return getDefaultNuxtConfig()
       },
       async onUpdate(config) {
-        if (!config.modules) {
+        if (!config.modules && modules.some(module => !module.isLayer)) {
           config.modules = []
         }
 
         for (const resolved of modules) {
-          if (config.modules.includes(resolved.pkgName)) {
-            logger.info(`${colors.cyan(resolved.pkgName)} is already in the ${colors.cyan('modules')}`)
+          const key = resolved.isLayer ? 'extends' : 'modules'
+          if (resolved.isLayer && !Array.isArray(config.extends)) {
+            // `extends` also accepts a single layer as a string
+            config.extends = config.extends ? [config.extends] : []
+          }
+
+          const target: unknown[] = resolved.isLayer ? config.extends : config.modules
+
+          if (target.includes(resolved.specifier)) {
+            logger.info(`${colors.cyan(resolved.specifier)} is already in the ${colors.cyan(key)}`)
 
             continue
           }
 
-          logger.info(`Adding ${colors.cyan(resolved.pkgName)} to the ${colors.cyan('modules')}`)
+          logger.info(`Adding ${colors.cyan(resolved.specifier)} to the ${colors.cyan(key)}`)
 
-          config.modules.push(resolved.pkgName)
+          target.push(resolved.specifier)
         }
       },
     }).catch((error) => {
       logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${error.message}`)
-      logger.error(`Please manually add ${colors.cyan(modules.map(module => module.pkgName).join(', '))} to the ${colors.cyan('modules')} in ${colors.cyan('nuxt.config.ts')}`)
+      logger.error(`Please manually add ${colors.cyan(modules.map(module => module.specifier).join(', '))} to ${colors.cyan('nuxt.config.ts')}`)
 
       return null
     })
@@ -309,6 +329,22 @@ export function resolveRequiredPeerDependencies(modules: ResolvedModule[], depen
   return [...peers.values()]
 }
 
+/** `module`, `layers`, `modules and layers`, and so on. */
+export function describeModules(modules: Array<{ isLayer?: boolean }>): string {
+  const layers = modules.filter(module => module.isLayer).length
+  const plain = modules.length - layers
+
+  const parts: string[] = []
+  if (plain > 0) {
+    parts.push(plain > 1 ? 'modules' : 'module')
+  }
+  if (layers > 0) {
+    parts.push(layers > 1 ? 'layers' : 'layer')
+  }
+
+  return parts.join(' and ')
+}
+
 function getDefaultNuxtConfig() {
   return `
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -317,41 +353,38 @@ export default defineNuxtConfig({
 })`
 }
 
-// Based on https://github.com/dword-design/package-name-regex
-const packageRegex
-  = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?([a-z0-9-~][a-z0-9-._~]*)(@[^@]+)?$/
-
 async function resolveModule(moduleName: string, cwd: string): Promise<ModuleResolution> {
-  let pkgName = moduleName
-  let pkgVersion: string | undefined
+  const spec = parseModuleSpec(moduleName)
 
-  const reMatch = moduleName.match(packageRegex)
-  if (reMatch) {
-    if (reMatch[3]) {
-      pkgName = `${reMatch[1] || ''}${reMatch[2] || ''}`
-      pkgVersion = reMatch[3].slice(1)
-    }
-  }
-  else {
-    logger.error(`Invalid package name ${colors.cyan(pkgName)}.`)
+  if (!spec) {
+    logger.error(`Invalid package name ${colors.cyan(moduleName)}.`)
     return false
   }
+
+  let { pkgName, pkgVersion } = spec
+  let subpath = spec.subpath
 
   const modulesDB = await fetchModules().catch((err) => {
     logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
     return []
   })
 
+  const bareName = subpath ? `${pkgName}/${subpath}` : pkgName
   const matchedModule = modulesDB.find(
     module =>
       module.name === moduleName
-      || (pkgVersion && module.name === pkgName)
+      || module.name === bareName
+      || module.npm === bareName
       || module.npm === pkgName
+      || module.aliases?.includes(bareName)
       || module.aliases?.includes(pkgName),
   )
 
   if (matchedModule?.npm) {
-    pkgName = matchedModule.npm
+    // The database records the package to install, which may itself be scoped
+    // differently to what the user typed (`maz-ui` -> `@maz-ui/nuxt`).
+    pkgName = basePackageName(matchedModule.npm)
+    subpath = matchedModule.npm.slice(pkgName.length + 1) || undefined
   }
 
   if (matchedModule && matchedModule.compatibility.nuxt) {
@@ -432,12 +465,26 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
 
   const pkg = pkgDetails.versions[version!] || {}
 
+  const entry = resolveModuleEntry(pkg)
+  if (!subpath && entry.subpath) {
+    subpath = entry.subpath
+  }
+
+  if (entry.isLayer) {
+    logger.info(`${colors.cyan(pkgName)} is a Nuxt layer, and will be added to ${colors.cyan('extends')}.`)
+  }
+
   const pkgDependencies = Object.assign(
     pkg.dependencies || {},
     pkg.devDependencies || {},
+    pkg.peerDependencies || {},
   )
+  // A package exposing its module behind a `nuxt`/`module` subpath is a Nuxt
+  // integration regardless of how it declares its dependency on Nuxt.
   if (
-    !pkgDependencies.nuxt
+    !entry.isLayer
+    && !subpath
+    && !pkgDependencies.nuxt
     && !pkgDependencies['nuxt-edge']
     && !pkgDependencies['@nuxt/kit']
   ) {
@@ -456,6 +503,8 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     pkg: `${pkgName}@${version}`,
     pkgName,
     pkgVersion: version,
+    specifier: subpath ? `${pkgName}/${subpath}` : pkgName,
+    isLayer: entry.isLayer,
     peerDependencies: pkg.peerDependencies,
     optionalPeerDependencies: Object.entries(pkg.peerDependenciesMeta || {})
       .filter(([, meta]) => (meta as { optional?: boolean } | undefined)?.optional)

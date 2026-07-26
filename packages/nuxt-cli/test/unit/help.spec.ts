@@ -38,7 +38,7 @@ describe('help', () => {
 
       COMMANDS
 
-                 add    Add Nuxt modules                                                
+                 add    Add Nuxt modules and layers                                     
         add-template    Create a new template file.                                     
              analyze    Build Nuxt and analyze production bundle (experimental)         
                build    Build Nuxt for production deployment                            
@@ -61,13 +61,13 @@ describe('help', () => {
 
   it('nuxt add', async () => {
     expect(await usage(commands.add, main)).toMatchInlineSnapshot(`
-      "Add Nuxt modules (nuxt add v0.0.0)
+      "Add Nuxt modules and layers (nuxt add v0.0.0)
 
       USAGE nuxt add [OPTIONS] <MODULENAME>
 
       ARGUMENTS
 
-        MODULENAME    Specify one or more modules to install by name, separated by spaces (Required)
+        MODULENAME    Specify one or more modules or layers to install by name, separated by spaces (Required)
 
       OPTIONS
 
