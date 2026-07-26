@@ -1,7 +1,8 @@
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -21,8 +22,14 @@ afterEach(() => {
   process.chdir(cwd)
 })
 
+const BACKSLASH_RE = /\\/g
+
+function comparable(path: string | undefined) {
+  return path?.replace(BACKSLASH_RE, '/')
+}
+
 function createProject(name: string, deps: Record<string, string>, options: { devEntry?: boolean } = {}) {
-  const root = join(tmpdir(), `nuxi-launcher-${name}-${Date.now()}`)
+  const root = join(realpathSync(tmpdir()), `nuxi-launcher-${name}-${Date.now()}`)
   mkdirSync(root, { recursive: true })
   writeFileSync(join(root, 'package.json'), JSON.stringify({ name, private: true }))
   for (const [dep, version] of Object.entries(deps)) {
@@ -50,20 +57,20 @@ describe('loadProjectCli', () => {
     const cli = loadProjectCli([])
     expect(cli?.name).toBe('@nuxt/cli')
     expect(cli?.version).toBe('3.40.0')
-    expect(cli?.devEntry).toBe(join(root, 'node_modules', '@nuxt/cli', 'dist', 'dev', 'index.mjs'))
+    expect(comparable(cli?.devEntry)).toBe(comparable(join(root, 'node_modules', '@nuxt/cli', 'dist', 'dev', 'index.mjs')))
   })
 
   it('should resolve `@nuxt/cli` from an explicit `--cwd`', () => {
     const root = createProject('with-cwd', { '@nuxt/cli': '3.40.0' })
 
-    expect(loadProjectCli(['dev', '--cwd', root])?.entry).toContain(root)
-    expect(loadProjectCli([`--cwd=${root}`, 'dev'])?.entry).toContain(root)
+    expect(comparable(loadProjectCli(['dev', '--cwd', root])?.entry)).toContain(comparable(root))
+    expect(comparable(loadProjectCli([`--cwd=${root}`, 'dev'])?.entry)).toContain(comparable(root))
   })
 
   it('should resolve `@nuxt/cli` from a positional root directory', () => {
     const root = createProject('with-positional', { '@nuxt/cli': '3.40.0' })
 
-    expect(loadProjectCli(['info', root])?.entry).toContain(root)
+    expect(comparable(loadProjectCli(['info', root])?.entry)).toContain(comparable(root))
 
     process.chdir(createProject('without-cli', {}))
     expect(loadProjectCli(['init', root])).toBeNull()
@@ -91,6 +98,15 @@ describe('loadProjectCli', () => {
     const root = createProject('without-dev-entry', { '@nuxt/cli': '3.40.0' }, { devEntry: false })
 
     expect(loadProjectCli(['dev', '--cwd', root])?.devEntry).toBeUndefined()
+  })
+
+  it('should never hand off to the launcher\'s own package', () => {
+    const root = createProject('with-self', {})
+    mkdirSync(join(root, 'node_modules'), { recursive: true })
+    symlinkSync(fileURLToPath(new URL('../', import.meta.url)), join(root, 'node_modules', 'nuxi'), 'junction')
+    process.chdir(root)
+
+    expect(loadProjectCli(['dev'])).toBeNull()
   })
 
   it('should return `null` when there is no project CLI', () => {

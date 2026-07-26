@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -11,7 +11,9 @@ import { withNodePath } from '../../nuxt-cli/src/utils/paths'
 
 const FLAG_RE = /^-/
 
-const launcherRoot = fileURLToPath(new URL('../', import.meta.url))
+const BACKSLASH_RE = /\\/g
+
+const launcherDist = comparablePath(join(fileURLToPath(new URL('../', import.meta.url)), 'dist'))
 
 /**
  * Oldest project CLI worth handing off to. `@nuxt/cli` v2 is the (unrelated)
@@ -59,7 +61,7 @@ export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
     for (const name of ['@nuxt/cli', 'nuxi']) {
       const entry = resolveModulePath(name, { from, try: true })
       // resolving to our own build (a global or `npx` install of `nuxi`) would recurse
-      if (!entry || entry.startsWith(join(launcherRoot, 'dist/'))) {
+      if (!entry || comparablePath(entry).startsWith(`${launcherDist}/`)) {
         continue
       }
       const pkg = findPackage(entry, name)
@@ -162,6 +164,19 @@ function resolveDir(value: string | undefined) {
   }
   const dir = resolve(process.cwd(), value)
   return existsSync(join(dir, 'package.json')) ? dir : undefined
+}
+
+/**
+ * Normalising paths from `exsolve` and `import.meta.url` so they can be compared
+ */
+function comparablePath(path: string) {
+  let resolved = path
+  try {
+    resolved = realpathSync(path)
+  }
+  catch {}
+  resolved = resolved.replace(BACKSLASH_RE, '/')
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
 function isAtLeast(version: string, [minMajor, minMinor]: [number, number]) {
