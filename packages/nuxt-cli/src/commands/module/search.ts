@@ -9,7 +9,7 @@ import { kebabCase, upperFirst } from 'scule'
 import { formatInfoBox } from '../../utils/formatting'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
-import { getNuxtVersion } from '../../utils/versions'
+import { DEFAULT_NUXT_VERSION, getNuxtVersion } from '../../utils/versions'
 import { cwdArgs } from '../_shared'
 import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './_utils'
 
@@ -41,7 +41,7 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const nuxtVersion = await getNuxtVersion(ctx.args.cwd)
+    const nuxtVersion = await getNuxtVersion(ctx.args.cwd).catch(() => DEFAULT_NUXT_VERSION)
     return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })

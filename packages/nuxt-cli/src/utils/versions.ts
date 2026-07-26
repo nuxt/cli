@@ -5,14 +5,24 @@ import { coerce } from 'verkit'
 
 import { tryResolveNuxt } from './kit'
 
+/**
+ * Names a resolved `nuxt` dependency can legitimately have, so that a
+ * `package.json` reached through `pkg-types`' nearest-file fallback (which
+ * happens when `nuxt` cannot be resolved at all) is not mistaken for Nuxt's own.
+ */
+const NUXT_PACKAGE_NAMES = new Set(['nuxt', 'nuxt-nightly', 'nuxt3', 'nuxt-edge'])
+
+/** Assumed Nuxt version when the project declares no resolvable one. */
+export const DEFAULT_NUXT_VERSION = '3.0.0'
+
 export async function getNuxtVersion(cwd: string, cache = true) {
   const nuxtPkg = await readPackageJSON('nuxt', { url: cwd, try: true, cache }).catch(() => null)
-  if (nuxtPkg) {
-    return nuxtPkg.version!
+  if (nuxtPkg?.version && NUXT_PACKAGE_NAMES.has(nuxtPkg.name!)) {
+    return nuxtPkg.version
   }
   const pkg = await readPackageJSON(cwd)
   const pkgDep = pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt
-  return (pkgDep && coerce(pkgDep)) || '3.0.0'
+  return (pkgDep && coerce(pkgDep)) || DEFAULT_NUXT_VERSION
 }
 
 export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string[] }) {
