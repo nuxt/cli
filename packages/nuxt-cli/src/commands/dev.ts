@@ -6,17 +6,18 @@ import type { NuxtDevContext } from '../dev/utils'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
+
 import colors from 'picocolors'
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
-
 import { initialize } from '../dev'
+
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { ForkPool } from '../dev/pool'
 import { setupShortcuts } from '../dev/shortcuts'
 import { debug, logger } from '../utils/logger'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
+import { resolveRootDir } from '../utils/paths'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
 
@@ -29,10 +30,9 @@ const command = defineCommand({
     description: 'Run Nuxt development server',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     ...dotEnvArgs,
-    ...legacyRootDirArgs,
     ...envNameArgs,
     ...extendsArgs,
     'inspect': {
@@ -141,7 +141,7 @@ const command = defineCommand({
   },
   async run(ctx) {
     // Prepare
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 

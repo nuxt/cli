@@ -10,8 +10,8 @@ import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { relativeToProcess } from '../utils/paths'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const command = defineCommand({
   meta: {
@@ -19,11 +19,10 @@ const command = defineCommand({
     description: 'Launches Nitro server for local testing after `nuxt build`.',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     ...envNameArgs,
     ...extendsArgs,
-    ...legacyRootDirArgs,
     port: {
       type: 'string',
       description: 'Port to listen on',
@@ -34,7 +33,7 @@ const command = defineCommand({
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const { loadNuxt } = await loadKit(cwd)
 

@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
 
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 import buildCommand from './build'
 
 export default defineCommand({
@@ -9,7 +9,7 @@ export default defineCommand({
     description: 'Build Nuxt and prerender all routes',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     preset: {
       type: 'string',
@@ -19,7 +19,6 @@ export default defineCommand({
     ...envNameArgs,
     ...extendsArgs,
     ...profileArgs,
-    ...legacyRootDirArgs,
   },
   async run(ctx) {
     ctx.args.prerender = true

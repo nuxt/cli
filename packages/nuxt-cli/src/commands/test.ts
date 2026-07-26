@@ -1,10 +1,11 @@
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
 
 import { logger } from '../utils/logger'
-import { cwdArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+
+import { resolveRootDir } from '../utils/paths'
+import { logLevelArgs, rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -12,9 +13,8 @@ export default defineCommand({
     description: 'Run tests',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
-    ...legacyRootDirArgs,
     dev: {
       type: 'boolean',
       description: 'Run in dev mode',
@@ -27,7 +27,7 @@ export default defineCommand({
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'test'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const { runTests } = await importTestUtils()
     await runTests({

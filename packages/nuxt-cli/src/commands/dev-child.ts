@@ -1,9 +1,10 @@
 import process from 'node:process'
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
-import { isTest } from 'std-env'
 
-import { cwdArgs, dotEnvArgs, envNameArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { isTest } from 'std-env'
+import { resolveRootDir } from '../utils/paths'
+
+import { dotEnvArgs, envNameArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -12,11 +13,10 @@ export default defineCommand({
     hidden: true,
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     ...envNameArgs,
     ...dotEnvArgs,
-    ...legacyRootDirArgs,
     clear: {
       type: 'boolean',
       description: 'Clear console on restart',
@@ -28,7 +28,7 @@ export default defineCommand({
       console.warn('`nuxt _dev` is an internal command and should not be used directly. Please use `nuxt dev` instead.')
     }
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const { initialize } = await import('../dev')
     await initialize({ cwd, args: ctx.args }, ctx)

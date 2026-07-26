@@ -34,7 +34,7 @@ describe('help', () => {
 
       OPTIONS
 
-        --cwd=<directory>    Specify the working directory (Default: .)
+        --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
 
       COMMANDS
 
@@ -71,7 +71,7 @@ describe('help', () => {
 
       OPTIONS
 
-                         --cwd=<directory>    Specify the working directory (Default: .)                             
+                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)           
           --logLevel=<silent|info|verbose>    Specify build-time log level                                           
                              --skipInstall    Skip npm install                                                       
                               --skipConfig    Skip nuxt.config.ts update                                             
@@ -94,9 +94,9 @@ describe('help', () => {
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory (Default: .)               
-        --logLevel=<silent|info|verbose>    Specify build-time log level                             
-                                 --force    Force override file if it already exists (Default: false)
+                       --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                 --force    Force override file if it already exists (Default: false)   
       "
     `)
   })
@@ -109,17 +109,16 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
-        --logLevel=<silent|info|verbose>    Specify build-time log level                                     
-                       --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory      
-              -e, --extends=<layer-name>    Extend from a Nuxt layer                                         
-                           --name=<name>    Name of the analysis (Default: default)                          
-                                 --serve    Serve the analysis results (Default: true)                       
-                              --no-serve    Skip serving the analysis results                                
+        --logLevel=<silent|info|verbose>    Specify build-time log level                               
+                       --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory
+              -e, --extends=<layer-name>    Extend from a Nuxt layer                                   
+                           --name=<name>    Name of the analysis (Default: default)                    
+                                 --serve    Serve the analysis results (Default: true)                 
+                              --no-serve    Skip serving the analysis results                          
       "
     `)
   })
@@ -132,11 +131,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                              --prerender    Build Nuxt and prerender static routes                                                                                                              
                        --preset=<preset>    Nitro server preset                                                                                                                                 
@@ -156,11 +154,7 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
-
-      OPTIONS
-
-        --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
+        ROOTDIR    The root directory of your Nuxt project (default: .)
       "
     `)
   })
@@ -173,11 +167,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
@@ -195,11 +188,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                                 --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
                   --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                                  --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
                               --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
@@ -241,12 +233,8 @@ describe('help', () => {
 
       ARGUMENTS
 
-        COMMAND=<enable|disable>    Command to run (Required)                   
-                         ROOTDIR    Specifies the working directory (Default: .)
-
-      OPTIONS
-
-        --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
+        COMMAND=<enable|disable>    Command to run (Required)                           
+                         ROOTDIR    The root directory of your Nuxt project (default: .)
       "
     `)
   })
@@ -259,11 +247,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                        --preset=<preset>    Nitro server preset                                                                                                                                 
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
@@ -282,11 +269,7 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
-
-      OPTIONS
-
-        --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
+        ROOTDIR    The root directory of your Nuxt project (default: .)
       "
     `)
   })
@@ -303,7 +286,7 @@ describe('help', () => {
 
       OPTIONS
 
-                         --cwd=<directory>    Specify the working directory (Default: .)                    
+                         --cwd=<directory>    Specify the directory to create the project in (Default: .)   
           --logLevel=<silent|info|verbose>    Specify build-time log level                                  
                  -t, --template=<template>    Template name                                                 
                                -f, --force    Override existing directory                                   
@@ -344,12 +327,11 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
@@ -365,11 +347,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
@@ -387,11 +368,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                                                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
@@ -409,14 +389,13 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
-        --logLevel=<silent|info|verbose>    Specify build-time log level                                     
-                                   --dev    Run in dev mode                                                  
-                                 --watch    Watch mode                                                       
+        --logLevel=<silent|info|verbose>    Specify build-time log level
+                                   --dev    Run in dev mode             
+                                 --watch    Watch mode                  
       "
     `)
   })
@@ -429,11 +408,10 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR                                
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                     
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                      
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                         
@@ -451,15 +429,14 @@ describe('help', () => {
 
       ARGUMENTS
 
-        ROOTDIR    Specifies the working directory (Default: .)
+        ROOTDIR    The root directory of your Nuxt project (default: .)
 
       OPTIONS
 
-                                                  --cwd=<directory>    Specify the working directory, this takes precedence over ROOTDIR
-                                   --logLevel=<silent|info|verbose>    Specify build-time log level                                     
-                                                           --dedupe    Dedupe dependencies after upgrading                              
-                                                        -f, --force    Force upgrade to recreate lockfile and node_modules              
-        -ch, --channel=<stable|nightly|v3|v4|v4-nightly|v3-nightly>    Specify a channel to install from (Default: stable)              
+                                   --logLevel=<silent|info|verbose>    Specify build-time log level                       
+                                                           --dedupe    Dedupe dependencies after upgrading                
+                                                        -f, --force    Force upgrade to recreate lockfile and node_modules
+        -ch, --channel=<stable|nightly|v3|v4|v4-nightly|v3-nightly>    Specify a channel to install from (Default: stable)
       "
     `)
   })
@@ -476,7 +453,7 @@ describe('help', () => {
 
       OPTIONS
 
-                         --cwd=<directory>    Specify the working directory (Default: .)                             
+                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)           
           --logLevel=<silent|info|verbose>    Specify build-time log level                                           
                              --skipInstall    Skip npm install                                                       
                               --skipConfig    Skip nuxt.config.ts update                                             
@@ -498,10 +475,10 @@ describe('help', () => {
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the working directory (Default: .)
-        --logLevel=<silent|info|verbose>    Specify build-time log level              
-                           --skipInstall    Skip dependency uninstall                 
-                            --skipConfig    Skip nuxt.config.ts update                
+                       --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                           --skipInstall    Skip dependency uninstall                                   
+                            --skipConfig    Skip nuxt.config.ts update                                  
       "
     `)
   })
@@ -518,7 +495,7 @@ describe('help', () => {
 
       OPTIONS
 
-          --cwd=<directory>    Specify the working directory (Default: .)                                        
+          --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)                      
         --nuxtVersion=<2|3>    Filter by Nuxt version and list compatible modules only (auto detected by default)
       "
     `)

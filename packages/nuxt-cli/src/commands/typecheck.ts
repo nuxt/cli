@@ -15,8 +15,8 @@ import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { withNodePath } from '../utils/paths'
-import { cwdArgs, dotEnvArgs, extendsArgs, legacyRootDirArgs, logLevelArgs } from './_shared'
+import { resolveRootDir, withNodePath } from '../utils/paths'
+import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
 
@@ -109,11 +109,10 @@ export default defineCommand({
     description: 'Runs type-checking throughout your app using `vue-tsc` or Golar.',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     ...dotEnvArgs,
     ...extendsArgs,
-    ...legacyRootDirArgs,
     checker: {
       type: 'string',
       description: 'Type checker to use (`vue-tsc` or `golar`)',
@@ -127,7 +126,7 @@ export default defineCommand({
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const checkerArg = ctx.args.checker
     if (checkerArg && !Object.hasOwn(TYPE_CHECKERS, checkerArg)) {

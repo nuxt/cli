@@ -2,18 +2,20 @@ import process from 'node:process'
 
 import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { relative, resolve } from 'pathe'
-import colors from 'picocolors'
+import { relative } from 'pathe'
 
+import colors from 'picocolors'
 import { showBanner } from '../utils/banner'
+
 import { overrideEnv } from '../utils/env'
 import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError } from '../utils/lockfile'
 import { logger } from '../utils/logger'
+import { resolveRootDir } from '../utils/paths'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
-import { cwdArgs, dotEnvArgs, envNameArgs, extendsArgs, legacyRootDirArgs, logLevelArgs, profileArgs } from './_shared'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -21,7 +23,7 @@ export default defineCommand({
     description: 'Build Nuxt for production deployment',
   },
   args: {
-    ...cwdArgs,
+    ...rootDirArgs,
     ...logLevelArgs,
     prerender: {
       type: 'boolean',
@@ -35,14 +37,13 @@ export default defineCommand({
     ...envNameArgs,
     ...extendsArgs,
     ...profileArgs,
-    ...legacyRootDirArgs,
   },
   async run(ctx) {
     overrideEnv('production')
 
     const start = Date.now()
 
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     const profileArg = ctx.args.profile
     const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined

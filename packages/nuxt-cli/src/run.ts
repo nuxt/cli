@@ -5,6 +5,7 @@ import { runCommand as _runCommand, runMain as _runMain } from 'citty'
 
 import { commands } from './commands'
 import { main } from './main'
+import { normaliseCwdArg } from './utils/args'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback
@@ -34,8 +35,11 @@ export async function runCommand(
     throw new Error(`Invalid command ${name}`)
   }
 
+  const rawArgs = [...argv]
+  normaliseCwdArg(rawArgs)
+
   return await _runCommand(await commands[name as keyof typeof commands](), {
-    rawArgs: argv,
+    rawArgs,
     data: {
       overrides: data.overrides || {},
     },

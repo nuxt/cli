@@ -7,19 +7,20 @@ import process from 'node:process'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager } from 'nypm'
-import { resolve } from 'pathe'
+
 import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 import { isBun, isDeno, isMinimal } from 'std-env'
 import { writeText } from 'tinyclip'
-
 import { version as nuxiVersion } from '../../package.json'
+
 import { getBuilder } from '../utils/banner'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { getPackageManagerVersion } from '../utils/packageManagers'
-import { cwdArgs, legacyRootDirArgs } from './_shared'
+import { resolveRootDir } from '../utils/paths'
+import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
 
@@ -29,12 +30,11 @@ export default defineCommand({
     description: 'Get information about Nuxt project',
   },
   args: {
-    ...cwdArgs,
-    ...legacyRootDirArgs,
+    ...rootDirArgs,
   },
   async run(ctx) {
     // Resolve rootDir
-    const cwd = resolve(ctx.args.cwd || ctx.args.rootDir)
+    const cwd = resolveRootDir(ctx.args)
 
     // Load Nuxt config
     const nuxtConfig = await getNuxtConfig(cwd)
