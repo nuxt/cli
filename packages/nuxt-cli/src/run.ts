@@ -30,8 +30,6 @@ export async function runCommand(
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
 ): Promise<{ result: unknown }> {
-  argv.push('--no-clear') // Dev
-
   if (!(name in commands)) {
     throw new Error(`Invalid command ${name}`)
   }

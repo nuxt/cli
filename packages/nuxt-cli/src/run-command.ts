@@ -12,7 +12,6 @@ export async function runCommandDef<T extends ArgsDef = ArgsDef>(
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
 ): Promise<{ result: unknown }> {
-  argv.push('--no-clear') // Dev
   if (command.meta && 'name' in command.meta && typeof command.meta.name === 'string') {
     const name = command.meta.name
     if (!(isNuxiCommand(name))) {
