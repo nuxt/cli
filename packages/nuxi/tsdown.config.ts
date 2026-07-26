@@ -13,8 +13,6 @@ export default defineConfig({
   deps: { onlyBundle: false },
   dts: !isAnalysingSize && {
     oxc: true,
-    // the dev entry is only a fork target and is not exposed to consumers, and
-    // declarations for it inline the whole of `@nuxt/schema`
     entry: ['src/index.ts'],
   },
   // disabled due to upstream DTS warnings from @nuxt/schema type imports
