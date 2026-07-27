@@ -12,7 +12,17 @@ import { colourOf, render, screen as visibleScreen } from '../utils/terminal'
 // under test are loaded dynamically below.
 process.env.FORCE_COLOR = '3'
 
-vi.mock('std-env', () => ({ isCI: false, isTest: false }))
+vi.mock('std-env', () => ({ isCI: false, isTest: false, provider: undefined }))
+
+// The suite may itself run inside a container, so the environment the URL block
+// describes is stubbed rather than detected.
+const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
+
+vi.mock('../../src/dev/environment', () => ({
+  isDocker: () => false,
+  isWsl: () => false,
+  detectIsolatedEnvironment: () => isolatedEnvironment.current,
+}))
 
 const { listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
 const { setupShortcuts } = await import('../../src/dev/shortcuts')
@@ -53,6 +63,7 @@ describe('dev server terminal output', () => {
 
   afterEach(async () => {
     await Promise.all(listeners.splice(0).map(listener => listener.close()))
+    isolatedEnvironment.current = undefined
     vi.restoreAllMocks()
   })
 
@@ -91,6 +102,16 @@ describe('dev server terminal output', () => {
       expect(screen(renderer)).toMatchInlineSnapshot(`
         "  ➜ Local:    http://localhost:<port>/
           ➜ Network:  use --host to expose"
+      `)
+    })
+
+    it('should say how to reach a loopback server from outside a container', async () => {
+      isolatedEnvironment.current = 'the container'
+      const renderer = await render(() => start())
+
+      expect(screen(renderer)).toMatchInlineSnapshot(`
+        "  ➜ Local:    http://localhost:<port>/
+          ➜ Network:  use --host to reach this server from outside the container"
       `)
     })
 
