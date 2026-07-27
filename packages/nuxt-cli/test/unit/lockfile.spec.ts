@@ -112,6 +112,44 @@ describe('lockfile', () => {
       }
     })
 
+    it('takes over a live lock held by `takeoverFrom`', () => {
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+      try {
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: 424242,
+          command: 'dev',
+          cwd: '/project',
+          startedAt: Date.now(),
+        }))
+
+        const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { takeoverFrom: 424242 })
+        expect(lock.existing).toBeUndefined()
+        expect(JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8')).pid).toBe(process.pid)
+        lock.release!()
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('does not take over a live lock held by another PID', () => {
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+      try {
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: 424242,
+          command: 'dev',
+          cwd: '/project',
+          startedAt: Date.now(),
+        }))
+
+        const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' }, { takeoverFrom: 111111 })
+        expect(lock.existing?.pid).toBe(424242)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
     it('takes over a lock whose PID is dead', async () => {
       writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
         pid: 999999999,
