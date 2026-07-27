@@ -16,6 +16,7 @@ import { debug, logger } from '../utils/logger'
 import { resolveCertificate } from './cert'
 import { detectIsolatedEnvironment, isWsl } from './environment'
 import { resolvePortlessURLs } from './portless'
+import { resolveStackblitzURL } from './stackblitz'
 import { startTunnel } from './tunnel'
 
 export interface ListenOptions {
@@ -164,6 +165,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   const portless = resolvePortlessURLs()
   const portlessURL = portless.url && portless.url + baseURL
   const portlessShareURL = portless.shareURL && portless.shareURL + baseURL
+  const stackblitzURL = resolveStackblitzURL()
 
   function getURLs(): ListenURL[] {
     const urls: ListenURL[] = []
@@ -172,6 +174,9 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     }
     for (const portlessURL of portless.all) {
       urls.push({ url: portlessURL + baseURL, type: 'public' })
+    }
+    if (stackblitzURL) {
+      urls.push({ url: stackblitzURL, type: 'public' })
     }
     if (anyHost) {
       urls.push({ url: formatURL('localhost'), type: 'local' })
@@ -185,11 +190,14 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     return urls
   }
 
-  const publicURL = options.publicURL || tunnel?.url || portlessShareURL || portlessURL
+  // The StackBlitz URL points at the editor rather than at a host another
+  // device can open, so it is not a QR code candidate.
+  const shareableURL = options.publicURL || tunnel?.url || portlessShareURL || portlessURL
+  const publicURL = shareableURL || stackblitzURL
 
   const qrURL = options.qr === false
     ? undefined
-    : publicURL
+    : shareableURL
       || getURLs().find(({ type }) => type === 'network')?.url
       || (options.qr ? url : undefined)
 
@@ -203,7 +211,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     for (const { url: displayURL, type } of urls) {
       lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), qr && displayURL === qrURL))
     }
-    if (!anyHost && !tunnel && !portless.url) {
+    if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
       const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
       const hint = isolated
         ? `use ${colors.white('--host')} to reach this server from outside ${isolated}`
