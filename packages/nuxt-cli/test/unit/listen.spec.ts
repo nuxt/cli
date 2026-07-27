@@ -4,7 +4,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, formatDisplayURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
+import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 
@@ -190,6 +190,20 @@ describe('listen', () => {
     const listener = await start({ port: 0, hostname: 'not a host' })
 
     expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
+  })
+
+  it('should keep the same port during a handover', async () => {
+    const reusePort = await isReusePortSupported()
+    const first = await start({ port: 0, reusePort })
+    const port = first.address.port
+
+    const takeover = start({ port, reusePort, handover: true })
+    if (reusePort) {
+      expect((await takeover).address.port).toBe(port)
+    }
+    else {
+      await expect(takeover).rejects.toThrow(/already in use/)
+    }
   })
 
   it('should use the requested port with `strictPort`', async () => {

@@ -78,6 +78,11 @@ type LockResult
   = | { existing?: undefined, release: () => void }
     | { existing: LockInfo, release?: undefined }
 
+export interface AcquireLockOptions {
+  /** PID whose lock may be claimed, for a handover where both processes overlap. */
+  takeoverFrom?: number
+}
+
 /**
  * Atomically acquire a build/dev lock.
  * Returns `{ existing }` if another live process holds the lock, otherwise
@@ -86,6 +91,7 @@ type LockResult
 export function acquireLock(
   buildDir: string,
   info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  options: AcquireLockOptions = {},
 ): LockResult {
   if (!isLockEnabled()) {
     return { release: () => {} }
@@ -117,17 +123,17 @@ export function acquireLock(
         throw err
       }
       const existing = readLockFile(lockPath)
-      if (existing && isLockActive(existing)) {
+      if (existing && existing.pid !== options.takeoverFrom && isLockActive(existing)) {
         return { existing }
       }
-      // Stale, corrupted, or self-owned; remove and retry.
+      // Stale, corrupted, self-owned, or handed over; remove and retry.
       tryUnlink(lockPath)
     }
   }
 
   // Two failures in a row; surface whatever we can read.
   const existing = readLockFile(lockPath)
-  if (existing && isLockActive(existing)) {
+  if (existing && existing.pid !== options.takeoverFrom && isLockActive(existing)) {
     return { existing }
   }
   return { release: () => {} }

@@ -23,6 +23,13 @@ export interface ListenOptions {
   port?: string | number
   /** Fail instead of falling back to another port when `port` is unavailable. */
   strictPort?: boolean
+  /** Bind with `SO_REUSEPORT` so a successor can bind the same port before this one is released. */
+  reusePort?: boolean
+  /**
+   * Bind `port` as given, without checking whether it is free. Used together with
+   * `reusePort` when taking over from a process that still holds the port.
+   */
+  handover?: boolean
   hostname?: string
   baseURL?: string
   showURL?: boolean
@@ -150,7 +157,9 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   const hostname = validateHostname(options.hostname, options.public) ?? (options.public ? '' : 'localhost')
 
   const requestedPort = options.port === undefined || options.port === '' ? undefined : Number(options.port)
-  const port = await resolvePort(requestedPort, hostname, options.strictPort)
+  const port = options.handover && requestedPort
+    ? requestedPort
+    : await resolvePort(requestedPort, hostname, options.strictPort)
 
   const httpsOptions = options.https === true ? {} : options.https
   const certificate = httpsOptions ? await resolveCertificate(httpsOptions) : false
@@ -158,17 +167,12 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     ? createSecureServer(certificate, handler)
     : createHttpServer(handler)
 
-  await new Promise<void>((resolve, reject) => {
-    const onError = (error: NodeJS.ErrnoException) => reject(describeBindError(error, port, hostname, options.strictPort))
-    server.once('error', onError)
-    server.listen(port, hostname || undefined, () => {
-      server.removeListener('error', onError)
-      // Without a persistent handler, any later `error` event is unhandled and
-      // takes the whole dev process down.
-      server.on('error', error => logger.error(`Dev server error: ${error.message}`))
-      resolve()
-    })
+  await bindServer(server, port, hostname, !!options.reusePort).catch((error) => {
+    throw describeBindError(error, port, hostname, options.strictPort)
   })
+  // Without a persistent handler, any later `error` event is unhandled and
+  // takes the whole dev process down.
+  server.on('error', error => logger.error(`Dev server error: ${error.message}`))
 
   const address = server.address() as AddressInfo
   const protocol = certificate ? 'https' : 'http'
@@ -293,6 +297,65 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
       })
     },
   }
+}
+
+function bindServer(server: HttpServer, port: number, hostname: string, reusePort: boolean): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      if (reusePort && isUnsupportedOptionError(error)) {
+        debug('`reusePort` is unsupported on this platform, binding without it:', error)
+        bindServer(server, port, hostname, false).then(resolve, reject)
+        return
+      }
+      reject(error)
+    }
+    server.once('error', onError)
+    server.listen({ port, host: hostname || undefined, reusePort, exclusive: !reusePort }, () => {
+      server.removeListener('error', onError)
+      resolve()
+    })
+  })
+}
+
+/**
+ * Whether the platform rejected the `reusePort` listen option itself, as opposed
+ * to refusing this particular bind. Linux reports `ENOTSUP`, Windows `EINVAL`,
+ * and Node validates the option before the bind on runtimes without support.
+ */
+function isUnsupportedOptionError(error: NodeJS.ErrnoException): boolean {
+  return error.code === 'ENOTSUP' || error.code === 'EINVAL' || error.code === 'ERR_INVALID_ARG_VALUE'
+}
+
+let reusePortSupport: Promise<boolean> | undefined
+
+/**
+ * Whether two sockets can bind the same port at once via `SO_REUSEPORT`, probed
+ * on an ephemeral port. A single successful bind is not enough: some platforms
+ * accept the option and still reject the second socket. Cached per process.
+ */
+export function isReusePortSupported(): Promise<boolean> {
+  reusePortSupport ??= (async () => {
+    const first = createHttpServer()
+    const second = createHttpServer()
+    try {
+      await bindServer(first, 0, '127.0.0.1', true)
+      const { port } = first.address() as AddressInfo
+      await bindServer(second, port, '127.0.0.1', true)
+      return true
+    }
+    catch (error) {
+      debug('`reusePort` is not available:', error)
+      return false
+    }
+    finally {
+      for (const server of [first, second]) {
+        if (server.listening) {
+          server.close()
+        }
+      }
+    }
+  })()
+  return reusePortSupport
 }
 
 async function resolvePort(requestedPort: number | undefined, hostname: string, strictPort?: boolean): Promise<number> {
