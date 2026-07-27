@@ -33,7 +33,7 @@
     "prepack": "tsdown"
   },
   "peerDependencies": {
-    "@nuxt/schema": "^4.4.6",
+    "@nuxt/schema": "^4.5.1",
     "jiti": "^2.7.0",
     "oxc-parser": ">=0.56.3",
     "rolldown": "^1.0.0-rc.16 || ^1.0.0",
@@ -90,8 +90,8 @@
     "youch-core": "^0.3.3"
   },
   "devDependencies": {
-    "@nuxt/kit": "^4.4.6",
-    "@nuxt/schema": "^4.4.6",
+    "@nuxt/kit": "^4.5.1",
+    "@nuxt/schema": "^4.5.1",
     "@nuxt/test-utils": "^4.0.3",
     "@types/node": "^24.13.3",
     "h3": "^1.15.11",
