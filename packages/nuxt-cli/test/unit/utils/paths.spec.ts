@@ -5,7 +5,7 @@ import { resolve } from 'pathe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { logger } from '../../../src/utils/logger'
-import { relativeToProcess, resolveRootDir } from '../../../src/utils/paths'
+import { relativeToProcess, resolveProjectDir, resolveRootDir } from '../../../src/utils/paths'
 
 describe('relativeToProcess', () => {
   it('should label paths relative to the working directory', () => {
@@ -53,5 +53,27 @@ describe('resolveRootDir', () => {
 
     expect(resolveRootDir(args)).toBe(resolve('apps/web'))
     expect(warn).not.toHaveBeenCalled()
+  })
+})
+
+describe('resolveProjectDir', () => {
+  it('should follow the ROOTDIR positional a command will run against', () => {
+    expect(resolveProjectDir({ cwd: '.', _: ['dev', 'packages'] })).toBe(resolve('packages'))
+  })
+
+  it('should fall back to the working directory without a positional', () => {
+    expect(resolveProjectDir({ cwd: '.', _: ['dev'] })).toBe(resolve('.'))
+  })
+
+  it.each([
+    ['a subcommand', ['module', 'add', '@nuxt/ui']],
+    ['a template name', ['add', 'page', 'foo']],
+    ['a passthrough flag', ['test', '--watch']],
+  ])('should ignore %s', (_label, args) => {
+    expect(resolveProjectDir({ cwd: '.', _: args })).toBe(resolve('.'))
+  })
+
+  it('should let an explicit --cwd win', () => {
+    expect(resolveProjectDir({ cwd: 'packages', _: ['dev', 'scripts'] })).toBe(resolve('packages'))
   })
 })

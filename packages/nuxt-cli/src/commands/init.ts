@@ -7,9 +7,8 @@ import type { TemplateData } from '../utils/starter-templates'
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
-import { Writable } from 'node:stream'
 
-import { box, cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
+import { cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { detectPackageManager } from 'nypm'
@@ -22,6 +21,7 @@ import { x } from 'tinyexec'
 import { runCommandDef as runCommand } from '../run-command'
 import { nuxtIcon, themeColor } from '../utils/ascii'
 import { fetchJson } from '../utils/fetch'
+import { formatHeadlessCommand } from '../utils/headless'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { debug, logger } from '../utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../utils/network'
@@ -34,7 +34,6 @@ import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './module/
 import addModuleCommand from './module/add'
 
 const NON_WORD_RE = /[^\w-]/g
-const TRAILING_NEWLINE_RE = /\n$/
 const MULTI_DASH_RE = /-{2,}/g
 const LEADING_TRAILING_DASH_RE = /^-|-$/g
 
@@ -108,7 +107,7 @@ export async function useYarnNodeModulesLinker(dir: string): Promise<boolean> {
 }
 
 /**
- * Commands to print in the closing 'Next steps' box, in the order to run them.
+ * Commands to print in the closing 'Next steps' section, in the order to run them.
  *
  * `dir` is relative to the current working directory, so `.` means the project
  * was created in place and there is nowhere to `cd` to.
@@ -204,6 +203,9 @@ export default defineCommand({
       process.exit(ARG_ERROR_EXIT_CODE)
     }
 
+    // citty v0.2.0 with node:util.parseArgs returns the string 'false' for --install=false
+    const installRequested = ctx.args.install !== false && (ctx.args.install as unknown) !== 'false'
+
     if (!ctx.args.offline && !ctx.args.preferOffline && !ctx.args.template) {
       getTemplates().catch(() => null)
     }
@@ -215,6 +217,10 @@ export default defineCommand({
     intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     let availableTemplates: Record<string, TemplateData> = {}
+
+    // Whether any of the project's shape came from a prompt. With every answer
+    // already given as an argument there is nothing to teach the user.
+    let prompted = false
 
     if (!ctx.args.template || !ctx.args.dir) {
       const defaultTemplates = await import('../data/templates').then(r => r.templates)
@@ -287,6 +293,7 @@ export default defineCommand({
       }
 
       templateName = result
+      prompted = true
     }
 
     // Fallback to default if still not set
@@ -312,6 +319,7 @@ export default defineCommand({
       }
 
       dir = result
+      prompted = true
     }
 
     const cwd = resolve(ctx.args.cwd)
@@ -469,7 +477,7 @@ export default defineCommand({
     let installFailure: InstallResult | undefined
     let ignoredBuilds: string[] = []
     // Commands the user still has to run before the project works, surfaced in
-    // the closing "Next steps" box rather than as separate notes.
+    // the closing "Next steps" section rather than as separate notes.
     const recoveryCommands: string[] = []
 
     const currentPackageManager = detectCurrentPackageManager()
@@ -529,6 +537,7 @@ export default defineCommand({
       }
 
       selectedPackageManager = result
+      prompted = true
     }
 
     if (selectedPackageManager === 'yarn' && await useYarnNodeModulesLinker(template.dir)) {
@@ -548,12 +557,12 @@ export default defineCommand({
       }
 
       gitInit = result
+      prompted = true
     }
 
     // Install project dependencies and initialize git
     // or skip installation based on the '--no-install' flag
-    // citty v0.2.0 with node:util.parseArgs returns 'false' string for --install=false
-    if (ctx.args.install === false || (ctx.args.install as unknown) === 'false' || skipInstallOnConflict) {
+    if (!installRequested || skipInstallOnConflict) {
       if (!skipInstallOnConflict) {
         logger.info('Skipping install dependencies step.')
       }
@@ -626,24 +635,23 @@ export default defineCommand({
     }
 
     const modulesToAdd: string[] = []
+    // `ctx.args.modules` is `false` when --no-modules is used and `undefined`
+    // when the user has not decided either way.
+    const requestedModules = typeof ctx.args.modules === 'string'
+      ? ctx.args.modules.split(',').map(segment => segment.trim()).filter(Boolean)
+      : []
 
     // A project whose dependencies are missing cannot resolve modules, and
     // adding them to `nuxt.config` anyway would leave it unable to boot.
     if (installFailure) {
-      if (ctx.args.modules) {
-        logger.warn(`Skipping module installation. Add ${ctx.args.modules.split(',').map(m => colors.cyan(m.trim())).join(', ')} with ${colors.cyan('nuxt module add')} once dependencies are installed.`)
+      if (requestedModules.length) {
+        logger.warn(`Skipping module installation. Add ${requestedModules.map(mod => colors.cyan(mod)).join(', ')} with ${colors.cyan('nuxt module add')} once dependencies are installed.`)
       }
     }
 
     // Get modules from arg (if provided)
     else if (ctx.args.modules !== undefined) {
-      // ctx.args.modules is false when --no-modules is used
-      for (const segment of (ctx.args.modules || '').split(',')) {
-        const mod = segment.trim()
-        if (mod) {
-          modulesToAdd.push(mod)
-        }
-      }
+      modulesToAdd.push(...requestedModules)
     }
 
     // ...or offer to browse and install modules (if not offline nor non-interactive)
@@ -665,6 +673,8 @@ export default defineCommand({
         cancel('Operation cancelled.')
         process.exit(1)
       }
+
+      prompted = true
 
       if (wantsUserModules) {
         const modulesSpinner = spinner()
@@ -722,7 +732,7 @@ export default defineCommand({
       const args: string[] = [
         ...modulesToAdd,
         `--cwd=${templateDownloadPath}`,
-        ctx.args.install && !skipInstallOnConflict ? '' : '--skipInstall',
+        installRequested && !skipInstallOnConflict ? '' : '--skipInstall',
         `--packageManager=${selectedPackageManager}`,
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
@@ -730,34 +740,53 @@ export default defineCommand({
       await runCommand(addModuleCommand, args)
     }
 
-    // Display next steps
+    if (installFailure) {
+      logger.warn(`Created your project from the ${colors.cyan(template.name)} template, but its dependencies are not installed.`)
+    }
+    else {
+      logger.step(`Created your project from the ${colors.cyan(template.name)} template`)
+    }
+
+    // The command carries no `--cwd`, so both it and the next steps are
+    // written to be run from the directory the user is already in.
+    const projectDir = relative(process.cwd(), template.dir) || '.'
+
+    if (hasTTY && prompted) {
+      const headlessCommand = formatHeadlessCommand({
+        // Two columns for the gutter clack puts in front of each line, and one
+        // of slack so a full line never wraps in the terminal itself.
+        width: Math.max((process.stdout.columns || 80) - 3, 40),
+        dir: projectDir,
+        template: templateName,
+        packageManager: selectedPackageManager,
+        gitInit: Boolean(gitInit),
+        install: installRequested,
+        force: shouldForce,
+        // `modulesToAdd` is empty when a failed install stopped us adding the
+        // modules that were asked for, which the command should still request.
+        modules: modulesToAdd.length ? modulesToAdd : requestedModules,
+        nightly: ctx.args.nightly,
+      })
+      logger.info([
+        'to scaffold this project again without prompts:',
+        ...headlessCommand.map(line => colors.dim(line)),
+      ].join('\n'))
+    }
+
     const nextSteps = getNextSteps({
-      dir: relative(process.cwd(), template.dir) || '.',
+      dir: projectDir,
       shell: !!ctx.args.shell,
       installFailure,
       recoveryCommands,
       packageManager: selectedPackageManager,
-    }).map(step => colors.cyan(step))
+    })
 
-    logger.message()
-    writeWithGuide(output => box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, ` 👉 Next steps `, {
-      contentAlign: 'left',
-      titleAlign: 'left',
-      width: 'auto',
-      titlePadding: 2,
-      contentPadding: 2,
-      rounded: true,
-      withGuide: false,
-      formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
-      output,
-    }))
+    logger.message([
+      'Next steps:',
+      ...nextSteps.map(step => `› ${colors.cyan(step)}`),
+    ], { symbol: colors.gray(S_BAR) })
 
-    if (installFailure) {
-      outro(`Created the project from the ${colors.cyan(template.name)} template, but its dependencies are not installed.`)
-    }
-    else {
-      outro(`✨ Nuxt project has been created with the ${colors.cyan(template.name)} template.`)
-    }
+    outro('✨ Happy building!')
 
     if (installFailure) {
       process.exitCode = 1
@@ -860,26 +889,6 @@ export async function detectTemplatePackageManager(templateDir: string): Promise
   }
 
   return { name: detected.name, version: detected.version }
-}
-
-/**
- * Print a clack block behind the prompt gutter. `withGuide` draws the bar in the
- * terminal's default colour rather than the grey clack uses everywhere else, so
- * the block is rendered to a buffer and re-emitted with a matching gutter.
- */
-function writeWithGuide(render: (output: Writable) => void) {
-  const chunks: string[] = []
-  render(new Writable({
-    write(chunk, _encoding, callback) {
-      chunks.push(String(chunk))
-      callback()
-    },
-  }))
-
-  const gutter = colors.gray(S_BAR)
-  for (const line of chunks.join('').replace(TRAILING_NEWLINE_RE, '').split('\n')) {
-    process.stdout.write(`${gutter} ${line}\n`)
-  }
 }
 
 function isVerbose(logLevel?: string) {

@@ -6,7 +6,9 @@ import { provider } from 'std-env'
 import init from '../../nuxt-cli/src/commands/init'
 import { setupInitCompletions } from '../../nuxt-cli/src/completions-init'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
-import { logger } from '../../nuxt-cli/src/utils/logger'
+import { getCreateCommand, isPinnedCreateInvocation } from '../../nuxt-cli/src/utils/headless'
+import { debug, logger } from '../../nuxt-cli/src/utils/logger'
+import { scheduleSelfUpdateNudge } from '../../nuxt-cli/src/utils/update-check'
 import { description, name, version } from '../package.json'
 
 const _main = defineCommand({
@@ -22,9 +24,17 @@ const _main = defineCommand({
       return
     }
 
-    // Check Node.js version and CLI updates in background
     if (provider !== 'stackblitz') {
+      // The engine check is awaited so its warning cannot land in the middle of
+      // a prompt, but the update check is left running: it reaches the user
+      // through a `process.exit` handler, and a slow or unreachable registry
+      // must never hold up scaffolding.
       await checkEngines().catch(err => logger.error(String(err)))
+      void scheduleSelfUpdateNudge(name, version, {
+        name,
+        command: getCreateCommand(),
+        shouldNudge: () => !isPinnedCreateInvocation(),
+      }).catch(err => debug('Failed to check for updates:', err))
     }
 
     await init.run?.(ctx)

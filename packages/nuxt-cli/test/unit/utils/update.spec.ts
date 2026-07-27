@@ -48,7 +48,8 @@ vi.mock('pkg-types', () => ({
   },
 }))
 
-const { checkForNuxtUpdate, isUpdateCheckEnabled, renderUpdateNudge, scheduleUpdateNudge } = await import('../../../src/utils/update')
+const { isUpdateCheckEnabled, renderSelfUpdateNudge, renderUpdateNudge, scheduleSelfUpdateNudge } = await import('../../../src/utils/update-check')
+const { checkForNuxtUpdate, scheduleUpdateNudge } = await import('../../../src/utils/update')
 
 describe('update check', () => {
   const originalIsTTY = process.stdout.isTTY
@@ -221,8 +222,8 @@ describe('update check', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it('does not check when running the upgrade command', async () => {
-      await scheduleUpdateNudge('/project', 'upgrade')
+    it.each(['upgrade', 'init'])('does not check when running the %s command', async (command) => {
+      await scheduleUpdateNudge('/project', command)
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
@@ -246,31 +247,91 @@ describe('update check', () => {
     })
   })
 
+  describe('scheduleSelfUpdateNudge', () => {
+    it('checks the given package rather than the project', async () => {
+      fetchMock.mockResolvedValue({ latest: '4.1.0' })
+      const once = vi.spyOn(process, 'once')
+      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
+      expect(fetchMock.mock.calls[0]![0]).toContain('/-/package/create-nuxt/dist-tags')
+      expect(once).toHaveBeenCalledWith('exit', expect.any(Function))
+      for (const [event, listener] of once.mock.calls) {
+        process.off(event as string, listener as () => void)
+      }
+      once.mockRestore()
+    })
+
+    it('does not nudge when the caller declines', async () => {
+      fetchMock.mockResolvedValue({ latest: '4.1.0' })
+      const once = vi.spyOn(process, 'once')
+      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', { shouldNudge: () => false })
+      expect(once).not.toHaveBeenCalled()
+      once.mockRestore()
+    })
+
+    it('does not ask the caller when already up to date', async () => {
+      fetchMock.mockResolvedValue({ latest: '4.0.0' })
+      const shouldNudge = vi.fn(() => true)
+      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', { shouldNudge })
+      expect(shouldNudge).not.toHaveBeenCalled()
+    })
+
+    it('caches a package check separately from the nuxt one', async () => {
+      rcStore.current = { updateCheck: { latest: '4.9.0', checkedAt: Date.now() } }
+      fetchMock.mockResolvedValue({ latest: '4.0.0' })
+      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', {})
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect((rcStore.current.updateCheck as any).packages['create-nuxt'].latest).toBe('4.0.0')
+    })
+  })
+
+  describe('renderSelfUpdateNudge', () => {
+    it('tells the user what to run next time, without a box', () => {
+      const chunks: string[] = []
+      const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+        chunks.push(String(chunk))
+        return true
+      })
+      renderSelfUpdateNudge({ current: '4.4.6', latest: '4.5.1' }, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
+      write.mockRestore()
+      const output = chunks.join('')
+      expect(output).toContain('a new version of create-nuxt is available: 4.5.1')
+      expect(output).toContain('(you are on 4.4.6)')
+      expect(output).toContain('next time, run pnpm create nuxt@latest to use the latest version')
+      expect(output).not.toContain('╭')
+    })
+  })
+
   describe('renderUpdateNudge', () => {
     const originalColumns = process.stdout.columns
 
-    function captureNudge(columns: number) {
+    function captureNudge(columns: number, options?: { name?: string, command?: string }) {
       const chunks: string[] = []
       process.stdout.columns = columns
       const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
         chunks.push(String(chunk))
         return true
       })
-      renderUpdateNudge({ current: '4.0.0', latest: '4.1.0' })
+      renderUpdateNudge({ current: '4.0.0', latest: '4.1.0' }, options)
       write.mockRestore()
       process.stdout.columns = originalColumns
       return chunks.join('')
     }
 
-    it('shows both versions and the upgrade command in a box', () => {
+    it('shows both versions and the upgrade command without a box', () => {
       const output = captureNudge(100)
-      expect(output).toContain('4.1.0')
-      expect(output).toContain('4.0.0')
-      expect(output).toContain('nuxt upgrade')
-      expect(output).toContain('╭')
+      expect(output).toContain('a new version of Nuxt is available: 4.1.0')
+      expect(output).toContain('(you are on 4.0.0)')
+      expect(output).toContain('run nuxt upgrade to update')
+      expect(output).not.toContain('╭')
     })
 
-    it('falls back to plain lines in a narrow terminal', () => {
+    it('shows a custom package name and command', () => {
+      const output = captureNudge(100, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
+      expect(output).toContain('create-nuxt')
+      expect(output).toContain('pnpm create nuxt@latest')
+    })
+
+    it('does not depend on the terminal width', () => {
       const output = captureNudge(0)
       expect(output).toContain('4.1.0')
       expect(output).toContain('nuxt upgrade')
