@@ -1,5 +1,6 @@
 import type { NuxtConfig } from '@nuxt/schema'
 import type { DevListenOverrides, Listener } from './listen'
+import type { DevRestartReason } from './reason'
 import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
@@ -12,6 +13,10 @@ import { openInspector } from './inspect'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.toString() : 'Unhandled Rejection'
+}
 
 interface InitializeOptions {
   data?: {
@@ -33,7 +38,7 @@ class IPC {
         process.exit(0)
       })
       process.once('unhandledRejection', (reason) => {
-        this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
+        this.send({ type: 'nuxt:internal:dev:rejection', message: formatErrorMessage(reason) })
         process.exit()
       })
     }
@@ -61,11 +66,11 @@ interface InitializeReturn {
   listener: Listener
   close: () => Promise<void>
   /** Reload Nuxt in place, keeping the current listener. */
-  reload: (reason?: string) => Promise<void>
+  reload: (reason?: DevRestartReason) => Promise<void>
   onReady: (callback: (address: string) => void) => void
   /** Called the first time a watched file changes, before Nuxt reloads. */
   onFileChange: (callback: () => void) => void
-  onRestart: (callback: (devServer: NuxtDevServer) => void) => void
+  onRestart: (callback: (reason?: DevRestartReason) => void) => void
 }
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
@@ -113,8 +118,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     devServer.on('loading', (message) => {
       ipc.send({ type: 'nuxt:internal:dev:loading', message })
     })
-    devServer.on('restart', () => {
-      ipc.send({ type: 'nuxt:internal:dev:restart' })
+    devServer.on('restart', (reason) => {
+      ipc.send({ type: 'nuxt:internal:dev:restart', reason })
     })
     devServer.on('ready', (payload) => {
       ipc.send({ type: 'nuxt:internal:dev:ready', address: payload })
@@ -149,7 +154,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   return {
     listener: devServer.listener,
-    reload: (reason?: string) => devServer.load(true, reason),
+    reload: (reason?: DevRestartReason) => devServer.load(true, reason),
     close: () => {
       closePromise ??= (async () => {
         devServer.closeWatchers()
@@ -176,14 +181,14 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     onFileChange: (callback: () => void) => {
       devServer.once('change', callback)
     },
-    onRestart: (callback: (devServer: NuxtDevServer) => void) => {
+    onRestart: (callback: (reason?: DevRestartReason) => void) => {
       let restarted = false
-      function restart() {
+      function restart(reason?: DevRestartReason) {
         if (!restarted) {
           restarted = true
           process.off('uncaughtException', restartOnError)
           process.off('unhandledRejection', restartOnError)
-          callback(devServer)
+          callback(reason)
         }
       }
       function restartOnError(error: unknown) {
@@ -191,7 +196,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
           debug('Ignoring broken pipe:', error)
           return
         }
-        restart()
+        restart({ type: 'error', message: formatErrorMessage(error) })
       }
       devServer.once('restart', restart)
       process.on('uncaughtException', restartOnError)

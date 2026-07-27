@@ -7,6 +7,7 @@ import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResp
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
 import type { DevListenOverrides, Listener, ListenOptions } from './listen'
+import type { DevRestartReason } from './reason'
 import EventEmitter from 'node:events'
 import { existsSync, readdirSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
@@ -31,6 +32,7 @@ import { withNodePath } from '../utils/paths'
 import { renderError, renderErrorAnsi } from './error'
 import { listen } from './listen'
 import { resolvePortlessURLs } from './portless'
+import { formatRestartReason, mergeRestartReasons } from './reason'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
@@ -39,7 +41,7 @@ export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
     | { type: 'nuxt:internal:dev:ready', address: string }
     | { type: 'nuxt:internal:dev:loading', message: string }
-    | { type: 'nuxt:internal:dev:restart' }
+    | { type: 'nuxt:internal:dev:restart', reason?: DevRestartReason }
     | { type: 'nuxt:internal:dev:rejection', message: string }
     | { type: 'nuxt:internal:dev:loading:error', error: Error }
 
@@ -152,7 +154,7 @@ interface DevServerEventMap {
   'loading:error': [error: Error]
   'loading': [loadingMessage: string]
   'ready': [address: string]
-  'restart': []
+  'restart': [reason?: DevRestartReason]
   'change': []
 }
 
@@ -169,15 +171,20 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #inflightResponses = new Set<ServerResponse>()
   #lockCleanup?: () => void
   #lockedBuildDir?: string
+  #pendingReason?: DevRestartReason
 
-  loadDebounced: (reload?: boolean, reason?: string) => void
+  loadDebounced: () => void
   handler: RequestListener
   listener!: Listener
 
   constructor(private options: NuxtDevServerOptions) {
     super()
 
-    this.loadDebounced = debounce(this.load)
+    this.loadDebounced = debounce(() => {
+      const reason = this.#pendingReason
+      this.#pendingReason = undefined
+      return this.load(true, reason)
+    })
 
     let _initResolve: () => void
     const _initPromise = new Promise<void>((resolve) => {
@@ -268,7 +275,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#configWatcher?.()
   }
 
-  async load(reload?: boolean, reason?: string): Promise<void> {
+  /**
+   * Queue a debounced in-place reload, accumulating the reasons for every
+   * change that arrives within the debounce window.
+   */
+  scheduleReload(reason: DevRestartReason): void {
+    this.#pendingReason = mergeRestartReasons(this.#pendingReason, reason)
+    this.loadDebounced()
+  }
+
+  async load(reload?: boolean, reason?: DevRestartReason): Promise<void> {
     try {
       this.closeWatchers()
 
@@ -435,10 +451,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const unsub = this.#currentNuxt.hooks.hook('restart', async (options) => {
       unsub() // We use this instead of `hookOnce` for Nuxt Bridge support
       if (options?.hard) {
-        this.emit('restart')
+        this.emit('restart', { type: 'hook' })
         return
       }
-      await this.load(true)
+      await this.load(true, { type: 'hook' })
     })
 
     if (this.#currentNuxt.server && 'upgrade' in this.#currentNuxt.server) {
@@ -503,7 +519,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         return
       }
 
-      this.loadDebounced(true, '.nuxt/dist directory has been removed')
+      this.scheduleReload({ type: 'dist-removed' })
     })
 
     if ('handler' in this.#currentNuxt.server) {
@@ -592,15 +608,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#websocketConnections.clear()
   }
 
-  async #load(reload?: boolean, reason?: string): Promise<void> {
-    const action = reload ? 'Restarting' : 'Starting'
-    this.#loadingMessage = `${reason ? `${reason}. ` : ''}${action} Nuxt...`
+  async #load(reload?: boolean, reason?: DevRestartReason): Promise<void> {
+    this.#loadingMessage = reload
+      ? formatRestartReason(reason, { rootDir: this.#cwd, link: false })
+      : 'Starting Nuxt...'
     this.#handler = undefined
     this.#settleInflightResponses()
     this.emit('loading', this.#loadingMessage)
     if (reload) {
       // eslint-disable-next-line no-console
-      console.info(this.#loadingMessage)
+      console.info(formatRestartReason(reason, { rootDir: this.#cwd }))
     }
 
     await this.close()
@@ -617,10 +634,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#configWatcher = createConfigWatcher(
       this.#cwd,
       this.options.dotenv.fileName,
-      () => this.emit('restart'),
+      file => this.emit('restart', { type: 'config', files: [file] }),
       (file) => {
         this.emit('change')
-        this.loadDebounced(true, `${file} updated`)
+        this.scheduleReload({ type: 'config', files: [file] })
       },
       getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
@@ -690,12 +707,12 @@ export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?:
   return [...dirs]
 }
 
-function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: () => void, onReload: (file: string) => void, layerDirs: string[] = []) {
+function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: (file: string) => void, onReload: (file: string) => void, layerDirs: string[] = []) {
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
   // each local layer dir is watched alongside the root, but only the root restarts on dotenv changes.
   const closers = [
-    watchConfigDir(cwd, onReload, file => dotenvFileNames.has(file) && onRestart()),
+    watchConfigDir(cwd, onReload, (file, path) => dotenvFileNames.has(file) && onRestart(path)),
     ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
   ]
 
@@ -706,7 +723,7 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
   }
 }
 
-function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: (file: string) => void) {
+function watchConfigDir(dir: string, onReload: (path: string) => void, onFile?: (file: string, path: string) => void) {
   const fileWatcher = new FileChangeTracker()
   fileWatcher.prime(dir)
   const watcher = watch(dir)
@@ -717,10 +734,10 @@ function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: 
       return
     }
 
-    onFile?.(file)
+    onFile?.(file, resolve(dir, file))
 
     if (RESTART_RE.test(file)) {
-      onReload(file)
+      onReload(resolve(dir, file))
     }
 
     if (file === '.config') {
@@ -734,7 +751,7 @@ function watchConfigDir(dir: string, onReload: (file: string) => void, onFile?: 
   }
 }
 
-function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
+function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
   const configDir = join(cwd, '.config')
   const fileWatcher = new FileChangeTracker()
 
@@ -746,7 +763,7 @@ function createConfigDirWatcher(cwd: string, onReload: (file: string) => void) {
     }
 
     if (RESTART_RE.test(file)) {
-      onReload(file)
+      onReload(resolve(configDir, file))
     }
   })
 
