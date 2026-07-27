@@ -67,6 +67,24 @@ export interface Listener {
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
+const DEFAULT_PORTS = { http: 80, https: 443 } as const
+
+/**
+ * Render a URL for display: the port is omitted when it is the protocol
+ * default, and percent-encoding is decoded so a non-ASCII `baseURL` is
+ * readable. A malformed sequence is left as-is rather than throwing.
+ */
+export function formatDisplayURL(protocol: 'http' | 'https', host: string, port: number, baseURL: string): string {
+  const hostname = host.includes(':') ? `[${host}]` : host
+  const suffix = port === DEFAULT_PORTS[protocol] ? '' : `:${port}`
+  const url = `${protocol}://${hostname}${suffix}${baseURL}`
+  try {
+    return decodeURI(url)
+  }
+  catch {
+    return url
+  }
+}
 
 const HOSTNAME_RE = /^(?!-)[\d.:a-z-]{1,253}(?<!-)$/i
 
@@ -152,7 +170,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   const address = server.address() as AddressInfo
   const protocol = certificate ? 'https' : 'http'
   const baseURL = options.baseURL || '/'
-  const formatURL = (host: string) => `${protocol}://${host.includes(':') ? `[${host}]` : host}:${address.port}${baseURL}`
+  const formatURL = (host: string) => formatDisplayURL(protocol, host, address.port, baseURL)
 
   const anyHost = ANY_HOSTS.has(hostname)
   const url = formatURL(anyHost ? 'localhost' : hostname)

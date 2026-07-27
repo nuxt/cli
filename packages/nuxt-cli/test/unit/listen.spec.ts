@@ -4,7 +4,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
+import { copyURL, formatDisplayURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 
@@ -59,6 +59,31 @@ describe('getNetworkAddresses', () => {
     })
 
     expect(getNetworkAddresses()).toEqual(['192.168.1.20'])
+  })
+})
+
+describe('formatDisplayURL', () => {
+  it('should include a non-default port', () => {
+    expect(formatDisplayURL('http', 'localhost', 3000, '/')).toBe('http://localhost:3000/')
+    expect(formatDisplayURL('https', 'localhost', 8443, '/')).toBe('https://localhost:8443/')
+  })
+
+  it('should omit the default port for the protocol', () => {
+    expect(formatDisplayURL('http', 'localhost', 80, '/')).toBe('http://localhost/')
+    expect(formatDisplayURL('https', 'localhost', 443, '/')).toBe('https://localhost/')
+    expect(formatDisplayURL('https', 'localhost', 80, '/')).toBe('https://localhost:80/')
+  })
+
+  it('should bracket ipv6 hosts', () => {
+    expect(formatDisplayURL('http', '::1', 3000, '/')).toBe('http://[::1]:3000/')
+  })
+
+  it('should decode a percent-encoded base url', () => {
+    expect(formatDisplayURL('http', 'localhost', 3000, '/%C3%A9t%C3%A9/')).toBe('http://localhost:3000/été/')
+  })
+
+  it('should leave a malformed encoding alone', () => {
+    expect(formatDisplayURL('http', 'localhost', 3000, '/%E0%A4%A/')).toBe('http://localhost:3000/%E0%A4%A/')
   })
 })
 
