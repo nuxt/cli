@@ -72,17 +72,19 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Locking is enabled for agents by default. `NUXT_LOCK=1` forces it on for
- * non-agents; `NUXT_IGNORE_LOCK=1` forces it off.
+ * Locking is always enabled for `dev`, because two dev servers sharing one
+ * build directory corrupt each other's output. `build` locking stays limited to
+ * agents. `NUXT_LOCK=1` forces it on, `NUXT_IGNORE_LOCK=1` and `NUXT_LOCK=0`
+ * force it off.
  */
-export function isLockEnabled(): boolean {
-  if (process.env.NUXT_IGNORE_LOCK) {
+export function isLockEnabled(command: LockInfo['command'] = 'dev'): boolean {
+  if (process.env.NUXT_IGNORE_LOCK || process.env.NUXT_LOCK === '0' || process.env.NUXT_LOCK === 'false') {
     return false
   }
   if (process.env.NUXT_LOCK === '1' || process.env.NUXT_LOCK === 'true') {
     return true
   }
-  return isAgent
+  return command === 'dev' || isAgent
 }
 
 type LockResult
@@ -104,7 +106,7 @@ export function acquireLock(
   info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
   options: AcquireLockOptions = {},
 ): LockResult {
-  if (!isLockEnabled()) {
+  if (!isLockEnabled(info.command)) {
     return { release: () => {} }
   }
 
@@ -160,7 +162,7 @@ export function updateLock(
   buildDir: string,
   info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
 ): void {
-  if (!isLockEnabled()) {
+  if (!isLockEnabled(info.command)) {
     return
   }
   const lockPath = join(buildDir, LOCK_FILENAME)
