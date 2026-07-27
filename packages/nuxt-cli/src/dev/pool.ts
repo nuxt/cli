@@ -5,7 +5,6 @@ import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
 
 import { fork } from 'node:child_process'
 import process from 'node:process'
-import { isDeno } from 'std-env'
 import { debug } from '../utils/logger'
 
 interface ForkPoolOptions {
@@ -195,7 +194,8 @@ export class ForkPool {
     const wasAlive = fork.state !== 'dead' && !!fork.process && fork.process.exitCode === null
     fork.state = 'dead'
     if (fork.process) {
-      fork.process.kill(signal === 0 && isDeno ? 'SIGTERM' : signal)
+      // signal 0 only probes for liveness, so map the `exit` case onto a real signal
+      fork.process.kill(signal === 0 ? 'SIGTERM' : signal)
     }
     this.removeFork(fork)
 
@@ -223,7 +223,8 @@ export class ForkPool {
   }
 
   private killAll(signal: NodeJS.Signals | number): void {
-    for (const fork of this.pool) {
+    // `killFork` mutates the pool, so iterate over a snapshot
+    for (const fork of [...this.pool]) {
       this.killFork(fork, signal)
     }
   }

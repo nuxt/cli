@@ -27,6 +27,11 @@ class IPC {
   constructor() {
     // only kill process if it is a fork
     if (this.enabled) {
+      // Without a parent there is nobody to reap this process, and it may be
+      // holding the dev server port or the inspector port.
+      process.once('disconnect', () => {
+        process.exit(0)
+      })
       process.once('unhandledRejection', (reason) => {
         this.send({ type: 'nuxt:internal:dev:rejection', message: reason instanceof Error ? reason.toString() : 'Unhandled Rejection' })
         process.exit()
