@@ -211,6 +211,9 @@ export class ForkPool {
 
     // Handle unexpected exit
     childProc.on('close', (errorCode) => {
+      // A fork can exit without ever emitting `error` (a throw while loading the
+      // entry, or a kill), which would leave `ready` pending forever.
+      readyReject(new Error('Dev server fork exited before it finished starting.'))
       if (pooledFork.serving && errorCode) {
         // Active fork crashed
         process.exit(errorCode)

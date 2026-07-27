@@ -190,6 +190,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
 interface RestartSource {
   once: (event: 'restart', handler: (reason?: DevRestartReason) => void) => void
+  off: (event: 'restart', handler: (reason?: DevRestartReason) => void) => void
 }
 
 /**
@@ -209,6 +210,9 @@ export function createRestartHook(source: RestartSource): (callback: (reason?: D
     }
     fired = true
     armed = false
+    // An error-triggered restart leaves the `restart` listener in place, since
+    // `once` only removes it when the event itself fires.
+    source.off('restart', restart)
     process.off('uncaughtException', restartOnError)
     process.off('unhandledRejection', restartOnError)
     callback?.(reason)

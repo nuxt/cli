@@ -79,6 +79,18 @@ describe('restart hook', () => {
     expect(second).toHaveBeenCalledExactlyOnceWith({ type: 'config' })
   })
 
+  it('should not stack listeners when re-armed after an error-triggered restart', () => {
+    const source = new EventEmitter()
+    const armRestart = arm(source, vi.fn())
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const [onError] = [...installed]
+      onError!(new Error('boom'))
+      arm(source, vi.fn(), armRestart)
+      expect(source.listenerCount('restart')).toBe(1)
+    }
+  })
+
   it('should replace the callback without re-arming while still armed', () => {
     const source = new EventEmitter()
     const first = vi.fn()

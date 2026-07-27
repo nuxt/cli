@@ -91,6 +91,17 @@ describe('fork pool', () => {
     exit.mockRestore()
   })
 
+  it('should reject when the fork exits before it starts', async () => {
+    fork.mockImplementation(() => {
+      const child = new FakeFork()
+      forks.push(child)
+      queueMicrotask(() => child.emit('close', 1, null))
+      return child
+    })
+
+    await expect(createPool().getFork(context)).rejects.toThrow(/exited before it finished starting/)
+  })
+
   it('should merge per-fork listen overrides into the context message', async () => {
     await createPool().getFork(context, { listenOverrides: { port: 4000, handover: true } })
 
