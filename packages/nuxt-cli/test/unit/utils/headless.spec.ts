@@ -40,6 +40,14 @@ describe('getHeadlessCommand', () => {
     expect(getHeadlessCommand({ ...base, dir: `it's mine` })[1]).toBe(`'it'\\''s mine'`)
     expect(getHeadlessCommand({ ...base, dir: 'my $app', windows: true })[1]).toBe('"my $app"')
   })
+
+  it('should double the backslashes windows would read as escaping a quote', () => {
+    const quote = (dir: string) => getHeadlessCommand({ ...base, dir, windows: true })[1]
+    expect(quote('my dir\\')).toBe('"my dir\\\\"')
+    expect(quote('a\\"b')).toBe('"a\\\\\\"b"')
+    // Backslashes away from a quote are literal and must be left alone.
+    expect(quote('a\\b c')).toBe('"a\\b c"')
+  })
 })
 
 describe('wrapCommand', () => {

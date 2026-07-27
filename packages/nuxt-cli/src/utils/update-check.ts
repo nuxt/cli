@@ -10,6 +10,7 @@ import { isGreater, tryParse } from 'verkit'
 import { fetchJson } from './fetch'
 import { debug } from './logger'
 import { detectNpmRegistry } from './registry'
+import { blankLineBefore, trackOutputSpacing } from './stdout'
 
 const RC_FILE = '.nuxtrc'
 const CACHE_KEY = 'updateCheck'
@@ -148,9 +149,13 @@ export interface UpdateNudgeOptions {
 /**
  * Both nudges are written as a labelled line plus an indented instruction, so
  * whatever the user needs to type is on a line of its own that they can select.
+ *
+ * Commands leave the cursor in different places (`init` ends on the blank line
+ * after clack's outro, `dev` and `build` on the line after their last log), so
+ * the leading gap is measured rather than assumed.
  */
 function writeNudge(headline: string, instruction: string): void {
-  process.stdout.write(['', `${colors.blue(S_INFO)} ${headline}`, `  ${instruction}`, ''].join('\n'))
+  process.stdout.write(`${blankLineBefore()}${colors.blue(S_INFO)} ${headline}\n  ${instruction}\n`)
 }
 
 function describeUpdate({ current, latest }: NuxtUpdate, name: string): string {
@@ -200,6 +205,7 @@ export async function scheduleSelfUpdateNudge(name: string, current: string, opt
 }
 
 export function deferNudge(update: NuxtUpdate, options?: UpdateNudgeOptions, render = renderUpdateNudge) {
+  trackOutputSpacing()
   process.once('exit', () => {
     try {
       render(update, options)

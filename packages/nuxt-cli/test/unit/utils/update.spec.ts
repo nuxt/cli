@@ -1,6 +1,8 @@
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { render, screen } from '../../utils/terminal'
+
 const stdEnv = vi.hoisted(() => ({ isCI: false, isTest: false, provider: 'unknown' as string }))
 const rcStore = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 const project = vi.hoisted(() => ({ nuxtVersion: undefined as string | undefined }))
@@ -284,18 +286,14 @@ describe('update check', () => {
     })
   })
 
+  // Rendered through a virtual terminal so the assertions describe what the
+  // user sees, whether or not the environment running them supports colour.
   describe('renderSelfUpdateNudge', () => {
-    it('tells the user what to run next time, without a box', () => {
-      const chunks: string[] = []
-      const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
-        chunks.push(String(chunk))
-        return true
-      })
-      renderSelfUpdateNudge({ current: '4.4.6', latest: '4.5.1' }, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
-      write.mockRestore()
-      const output = chunks.join('')
-      expect(output).toContain('a new version of create-nuxt is available: 4.5.1')
-      expect(output).toContain('(you are on 4.4.6)')
+    it('tells the user what to run next time, without a box', async () => {
+      const output = screen(await render(() => {
+        renderSelfUpdateNudge({ current: '4.4.6', latest: '4.5.1' }, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
+      }))
+      expect(output).toContain('a new version of create-nuxt is available: 4.5.1 (you are on 4.4.6)')
       expect(output).toContain('next time, run pnpm create nuxt@latest to use the latest version')
       expect(output).not.toContain('╭')
     })
@@ -304,35 +302,32 @@ describe('update check', () => {
   describe('renderUpdateNudge', () => {
     const originalColumns = process.stdout.columns
 
-    function captureNudge(columns: number, options?: { name?: string, command?: string }) {
-      const chunks: string[] = []
-      process.stdout.columns = columns
-      const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
-        chunks.push(String(chunk))
-        return true
-      })
-      renderUpdateNudge({ current: '4.0.0', latest: '4.1.0' }, options)
-      write.mockRestore()
+    afterEach(() => {
       process.stdout.columns = originalColumns
-      return chunks.join('')
+    })
+
+    async function captureNudge(columns: number, options?: { name?: string, command?: string }) {
+      process.stdout.columns = columns
+      return screen(await render(() => {
+        renderUpdateNudge({ current: '4.0.0', latest: '4.1.0' }, options)
+      }))
     }
 
-    it('shows both versions and the upgrade command without a box', () => {
-      const output = captureNudge(100)
-      expect(output).toContain('a new version of Nuxt is available: 4.1.0')
-      expect(output).toContain('(you are on 4.0.0)')
+    it('shows both versions and the upgrade command without a box', async () => {
+      const output = await captureNudge(100)
+      expect(output).toContain('a new version of Nuxt is available: 4.1.0 (you are on 4.0.0)')
       expect(output).toContain('run nuxt upgrade to update')
       expect(output).not.toContain('╭')
     })
 
-    it('shows a custom package name and command', () => {
-      const output = captureNudge(100, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
+    it('shows a custom package name and command', async () => {
+      const output = await captureNudge(100, { name: 'create-nuxt', command: 'pnpm create nuxt@latest' })
       expect(output).toContain('create-nuxt')
       expect(output).toContain('pnpm create nuxt@latest')
     })
 
-    it('does not depend on the terminal width', () => {
-      const output = captureNudge(0)
+    it('does not depend on the terminal width', async () => {
+      const output = await captureNudge(0)
       expect(output).toContain('4.1.0')
       expect(output).toContain('nuxt upgrade')
       expect(output).not.toContain('╭')
