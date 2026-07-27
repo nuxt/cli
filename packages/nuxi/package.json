@@ -40,7 +40,7 @@
     "rollup-plugin-visualizer": "^7.0.1",
     "std-env": "^4.2.0",
     "tinyexec": "^1.2.4",
-    "tsdown": "^0.22.7",
+    "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "unplugin-purge-polyfills": "^0.1.0"
   }
