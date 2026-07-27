@@ -24,7 +24,10 @@ interface PooledFork {
 
 export interface ActiveFork {
   pid?: number
-  /** Resolves once the fork reports it is serving requests, rejects if it dies first. */
+  /**
+   * Resolves once the fork holds the listener, whether the app loaded or the
+   * error page is being served, and rejects if it dies before that.
+   */
   serving: Promise<void>
   /** Promote the fork so that a later crash takes the dev session down. */
   promote: () => void
@@ -119,7 +122,8 @@ export class ForkPool {
 
   /**
    * Resolves when the fork has bound its listener and is answering requests, so
-   * the caller can keep the outgoing server up until then.
+   * the caller can keep the outgoing server up until then. A load failure counts:
+   * the fork is serving an error page and owns the port either way.
    */
   private trackServing(fork: PooledFork): Promise<void> {
     return new Promise<void>((resolve, reject) => {
@@ -170,6 +174,10 @@ export class ForkPool {
     this.pool.push(fork)
   }
 
+  /**
+   * `ready` always settles, rejecting if the fork exits at any point, so every
+   * caller has to keep a rejection handler attached to it.
+   */
   private createFork(): PooledFork {
     const childProc = fork(globalThis.__nuxt_cli__.devEntry!, this.rawArgs, {
       // The inspector is opened by the fork that actually serves the app (see

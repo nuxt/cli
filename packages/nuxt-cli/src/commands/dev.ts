@@ -197,7 +197,6 @@ const command = defineCommand({
     })
 
     // On hard restart, use a fork from the pool
-    let cleanupCurrentFork: (() => Promise<void>) | undefined
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -255,8 +254,9 @@ const command = defineCommand({
             : undefined,
           onMessage: (message) => {
             // Handle IPC messages from the fork
-            if (message.type === 'nuxt:internal:dev:ready') {
-              if (startTime) {
+            if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
+              serving = true
+              if (message.type === 'nuxt:internal:dev:ready' && startTime) {
                 debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
               }
             }
@@ -278,19 +278,20 @@ const command = defineCommand({
       catch (error) {
         await fork?.close()
         const detail = error instanceof Error ? error.message : String(error)
-        logger.error(handover
-          ? `Could not restart the dev server, keeping the current one: ${detail}`
-          : `Could not restart the dev server: ${detail}`)
-        if (handover) {
-          onRestart(restart)
+        if (!handover) {
+          // The outgoing server is already closed, so there is nothing left to
+          // serve the app and no watcher left to trigger another attempt.
+          logger.error(`Could not restart the dev server: ${detail}`)
+          process.exit(1)
         }
+        logger.error(`Could not restart the dev server, keeping the current one: ${detail}`)
+        onRestart(restart)
         return
       }
 
       serving = true
       fork.promote()
       const closePrevious = handover ? closeCurrent : undefined
-      cleanupCurrentFork = fork.close
       closeCurrent = fork.close
       currentPid = fork.pid ?? currentPid
       await closePrevious?.()
@@ -303,7 +304,9 @@ const command = defineCommand({
     onRestart(restart)
 
     async function closeAll() {
-      await cleanupCurrentFork?.()
+      if (closeCurrent !== close) {
+        await closeCurrent()
+      }
       await close()
     }
 

@@ -310,10 +310,18 @@ function bindServer(server: HttpServer, port: number, hostname: string, reusePor
       reject(error)
     }
     server.once('error', onError)
-    server.listen({ port, host: hostname || undefined, reusePort, exclusive: !reusePort }, () => {
+    try {
+      server.listen({ port, host: hostname || undefined, reusePort, exclusive: !reusePort }, () => {
+        server.removeListener('error', onError)
+        resolve()
+      })
+    }
+    catch (error) {
+      // Runtimes that do not know the option reject it before the bind, throwing
+      // rather than emitting `error`.
       server.removeListener('error', onError)
-      resolve()
-    })
+      onError(error as NodeJS.ErrnoException)
+    }
   })
 }
 
@@ -331,7 +339,9 @@ let reusePortSupport: Promise<boolean> | undefined
 /**
  * Whether two sockets can bind the same port at once via `SO_REUSEPORT`, probed
  * on an ephemeral port. A single successful bind is not enough: some platforms
- * accept the option and still reject the second socket. Cached per process.
+ * accept the option and still reject the second socket. Support is a property of
+ * the platform rather than of an address, so the loopback probe stands in for
+ * whichever hostname the dev server ends up binding. Cached per process.
  */
 export function isReusePortSupported(): Promise<boolean> {
   reusePortSupport ??= (async () => {
