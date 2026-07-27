@@ -4,7 +4,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand } from '../../src/dev/listen'
+import { copyURL, getNetworkAddresses, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 
@@ -59,6 +59,28 @@ describe('getNetworkAddresses', () => {
     })
 
     expect(getNetworkAddresses()).toEqual(['192.168.1.20'])
+  })
+})
+
+describe('validateHostname', () => {
+  it('should pass through valid hosts', () => {
+    expect(validateHostname('localhost')).toBe('localhost')
+    expect(validateHostname('127.0.0.1')).toBe('127.0.0.1')
+    expect(validateHostname('::1')).toBe('::1')
+    expect(validateHostname('my-app.example.com')).toBe('my-app.example.com')
+    expect(validateHostname('')).toBe('')
+    expect(validateHostname(undefined)).toBeUndefined()
+  })
+
+  it('should fall back to `localhost` for an invalid host', () => {
+    expect(validateHostname('local host')).toBe('localhost')
+    expect(validateHostname('http://localhost')).toBe('localhost')
+    expect(validateHostname('-nope')).toBe('localhost')
+    expect(validateHostname(`${'a'.repeat(64)}.com`)).toBe('localhost')
+  })
+
+  it('should fall back to all interfaces when public', () => {
+    expect(validateHostname('local host', true)).toBe('')
   })
 })
 
@@ -137,6 +159,12 @@ describe('listen', () => {
 
     await start({ port: 0, open: true, openURL: 'https://example.com/foo' })
     expect(spawn.mock.lastCall?.[1]).toContain('https://example.com/foo')
+  })
+
+  it('should bind a fallback host for an invalid `hostname`', async () => {
+    const listener = await start({ port: 0, hostname: 'not a host' })
+
+    expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
   })
 
   it('should use the requested port with `strictPort`', async () => {

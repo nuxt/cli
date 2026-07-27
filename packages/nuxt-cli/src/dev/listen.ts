@@ -65,6 +65,24 @@ export interface Listener {
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
 
+const HOSTNAME_RE = /^(?!-)[\d.:a-z-]{1,253}(?<!-)$/i
+
+/**
+ * Check `hostname` is a plausible host or IP address, falling back to a
+ * bindable default (with a warning) when it is not.
+ */
+export function validateHostname(hostname: string | undefined, isPublic?: boolean): string | undefined {
+  const isValid = !!hostname
+    && HOSTNAME_RE.test(hostname)
+    && hostname.split('.').every(label => label.length <= 63)
+  if (!hostname || isValid) {
+    return hostname
+  }
+  const fallback = isPublic ? '' : 'localhost'
+  logger.warn(`Invalid host \`${hostname}\`, using \`${fallback || '0.0.0.0'}\` instead.`)
+  return fallback
+}
+
 /**
  * External IPv4 addresses other devices can reach. IPv4 link-local addresses
  * (169.254.0.0/16, from a macOS Thunderbolt Bridge or an unconfigured adapter)
@@ -105,7 +123,7 @@ function createSecureServer(certificate: ResolvedCertificate, handler: RequestLi
 }
 
 export async function listen(handler: RequestListener, options: ListenOptions = {}): Promise<Listener> {
-  const hostname = options.hostname ?? (options.public ? '' : 'localhost')
+  const hostname = validateHostname(options.hostname, options.public) ?? (options.public ? '' : 'localhost')
 
   const requestedPort = options.port === undefined || options.port === '' ? undefined : Number(options.port)
   const port = await resolvePort(requestedPort, hostname, options.strictPort)
@@ -264,6 +282,8 @@ function describeBindError(error: NodeJS.ErrnoException, port: number, hostname:
       return new Error(`Port ${port} requires elevated privileges. Pass \`--port\` with a port above 1023.`, { cause: error })
     case 'EADDRNOTAVAIL':
       return new Error(`\`${hostname}\` is not an address of this machine. Pass \`--host\` with a local address, or omit it to listen on localhost.`, { cause: error })
+    case 'ENOTFOUND':
+      return new Error(`\`${hostname}\` could not be resolved. Pass \`--host\` with a local address, or omit it to listen on localhost.`, { cause: error })
   }
   return error
 }
