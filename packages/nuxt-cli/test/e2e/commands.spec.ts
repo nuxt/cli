@@ -48,6 +48,7 @@ describe('commands', () => {
       expect(res.exitCode).toBe(0)
     },
     'curl': 'todo',
+    'task': 'todo',
     'devtools': 'todo',
     'module': 'todo',
     'prepare': async () => {

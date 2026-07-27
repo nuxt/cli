@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { styleText } from 'node:util'
 
-import { resolve } from 'pathe'
+import { join, resolve } from 'pathe'
 
-import { readActiveLock, readLock } from './lockfile'
+import { isProcessAlive, readActiveLock, readLock } from './lockfile'
 import { getNuxtConfig } from './nuxt-config'
 
 const TRAILING_SLASH_RE = /\/$/
@@ -79,8 +79,60 @@ export function toLoopback(url: string): string {
   return parsed.href.replace(TRAILING_SLASH_RE, '')
 }
 
+export interface NitroDevWorker {
+  pid: number
+  /** Socket the worker listens on, when it was given one. */
+  socketPath?: string
+  /** Origin the worker listens on, when it was given a port instead. */
+  url?: string
+}
+
+/**
+ * Locate the Nitro dev worker behind a dev server, from the build info Nitro
+ * writes for its own task runner.
+ *
+ * The worker answers the dev-only routes directly, so reaching it needs neither
+ * the public listener nor the dev proxy in front of it. Nitro 2 records this in
+ * `<buildDir>/nitro.json` and Nitro 3 in `node_modules/.nitro/nitro.dev.json`;
+ * both are internal to Nitro, so everything here is best-effort.
+ */
+export async function findNitroDevWorker(cwd: string, buildDir?: string): Promise<NitroDevWorker | undefined> {
+  const dir = buildDir ? resolve(cwd, buildDir) : await resolveLockDir(cwd)
+
+  for (const path of [join(dir, 'nitro.json'), join(cwd, 'node_modules/.nitro/nitro.dev.json')]) {
+    const dev = readBuildInfo(path)?.dev
+    if (!dev?.pid || !dev.workerAddress || !isProcessAlive(dev.pid)) {
+      continue
+    }
+
+    const { socketPath, host, port } = dev.workerAddress
+    if (socketPath) {
+      return { pid: dev.pid, socketPath }
+    }
+    if (port) {
+      return { pid: dev.pid, url: `http://${host || 'localhost'}:${port}` }
+    }
+  }
+}
+
 export function noDevServerMessage(what: string): string {
   return `No running Nuxt dev server found. Start one with ${styleText('cyan', 'nuxt dev')}, or pass an absolute URL to ${styleText('cyan', what)}.`
+}
+
+interface NitroBuildInfo {
+  dev?: {
+    pid?: number
+    workerAddress?: { socketPath?: string, host?: string, port?: number }
+  }
+}
+
+function readBuildInfo(path: string): NitroBuildInfo | undefined {
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as NitroBuildInfo
+  }
+  catch {
+    return undefined
+  }
 }
 
 async function configuredBuildDir(cwd: string): Promise<string | undefined> {

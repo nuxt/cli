@@ -19,6 +19,7 @@ const commandLoaders = {
   'prepare': () => import('./prepare').then(_rDefault),
   'preview': () => import('./preview').then(_rDefault),
   'start': () => import('./start').then(_rDefault),
+  'task': () => import('./task').then(_rDefault),
   'test': () => import('./test').then(_rDefault),
   'typecheck': () => import('./typecheck').then(_rDefault),
   'upgrade': () => import('./upgrade').then(_rDefault),
