@@ -1,6 +1,7 @@
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions } from '../dev/cert'
 import type { DevListenOverrides } from '../dev/listen'
+import type { ActiveFork } from '../dev/pool'
 import type { DevRestartReason } from '../dev/reason'
 import type { NuxtDevContext } from '../dev/utils'
 
@@ -201,7 +202,30 @@ const command = defineCommand({
     let closeCurrent = close
     let currentPid = process.pid
 
-    async function restartWithFork(reason?: DevRestartReason) {
+    // A hard restart can be asked for from several places at once (the config
+    // watcher, the `r` shortcut, and the fork that is currently serving), and two
+    // overlapping handovers would both bind the port and then race over which one
+    // is recorded as current.
+    let inFlight: Promise<void> | undefined
+    let pendingReason: { reason?: DevRestartReason } | undefined
+
+    function restartWithFork(reason?: DevRestartReason): Promise<void> {
+      if (inFlight) {
+        pendingReason = { reason }
+        return inFlight
+      }
+      inFlight = replaceWithFork(reason).finally(() => {
+        inFlight = undefined
+        const pending = pendingReason
+        pendingReason = undefined
+        if (pending) {
+          void restartWithFork(pending.reason)
+        }
+      })
+      return inFlight
+    }
+
+    async function replaceWithFork(reason?: DevRestartReason) {
       logger.info(formatRestartReason(reason, { rootDir: cwd, hard: true }))
 
       // The inspector port cannot be shared, so the handover has to stay
@@ -223,37 +247,40 @@ const command = defineCommand({
       }
 
       let serving = false
-      const fork = await pool.getFork(context, {
-        listenOverrides: handover
-          ? { port: listener.address.port, handover: true }
-          : undefined,
-        onMessage: (message) => {
-          // Handle IPC messages from the fork
-          if (message.type === 'nuxt:internal:dev:ready') {
-            if (startTime) {
-              debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
-            }
-          }
-          else if (!serving) {
-            // Failures before the fork serves anything are handled by the
-            // handover below, which leaves the outgoing server in place.
-          }
-          else if (message.type === 'nuxt:internal:dev:restart') {
-            // Fork is requesting another restart
-            void restartWithFork(message.reason)
-          }
-          else if (message.type === 'nuxt:internal:dev:rejection') {
-            void restartWithFork({ type: 'error', message: message.message })
-          }
-        },
-      })
-
+      let fork: ActiveFork | undefined
       try {
+        fork = await pool.getFork(context, {
+          listenOverrides: handover
+            ? { port: listener.address.port, handover: true }
+            : undefined,
+          onMessage: (message) => {
+            // Handle IPC messages from the fork
+            if (message.type === 'nuxt:internal:dev:ready') {
+              if (startTime) {
+                debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+              }
+            }
+            else if (!serving) {
+              // Failures before the fork serves anything are handled below, which
+              // leaves the outgoing server in place.
+            }
+            else if (message.type === 'nuxt:internal:dev:restart') {
+              // Fork is requesting another restart
+              void restartWithFork(message.reason)
+            }
+            else if (message.type === 'nuxt:internal:dev:rejection') {
+              void restartWithFork({ type: 'error', message: message.message })
+            }
+          },
+        })
         await fork.serving
       }
       catch (error) {
-        await fork.close()
-        logger.error(`Could not restart the dev server, keeping the current one: ${error instanceof Error ? error.message : error}`)
+        await fork?.close()
+        const detail = error instanceof Error ? error.message : String(error)
+        logger.error(handover
+          ? `Could not restart the dev server, keeping the current one: ${detail}`
+          : `Could not restart the dev server: ${detail}`)
         if (handover) {
           onRestart(restart)
         }
