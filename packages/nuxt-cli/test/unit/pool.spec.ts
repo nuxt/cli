@@ -91,6 +91,20 @@ describe('fork pool', () => {
     exit.mockRestore()
   })
 
+  it('should not end the session when the serving fork is closed deliberately', async () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    const active = await createPool().getFork(context)
+    active.promote()
+
+    const child = forks.find(f => f.pid === active.pid)!
+    const closing = active.close()
+    child.emit('close', 1, null)
+    await closing
+
+    expect(exit).not.toHaveBeenCalled()
+    exit.mockRestore()
+  })
+
   it('should reject when the fork exits before it starts', async () => {
     fork.mockImplementation(() => {
       const child = new FakeFork()

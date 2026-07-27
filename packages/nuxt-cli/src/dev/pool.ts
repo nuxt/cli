@@ -244,6 +244,9 @@ export class ForkPool {
   private killFork(fork: PooledFork, signal: NodeJS.Signals | number = 'SIGTERM'): Promise<void> {
     const wasAlive = fork.state !== 'dead' && !!fork.process && fork.process.exitCode === null
     fork.state = 'dead'
+    // A fork we are shutting down on purpose must not end the session, however
+    // it exits on the way out.
+    fork.serving = false
     if (fork.process) {
       // signal 0 only probes for liveness, so map the `exit` case onto a real signal
       fork.process.kill(signal === 0 ? 'SIGTERM' : signal)
