@@ -29,10 +29,15 @@ export function resolveRootDir(args: { cwd?: string, rootDir?: string }): string
 }
 
 export function relativeToProcess(path: string) {
-  return link(path, {
-    cwd,
-    formatter: absolute => relative(cwd, absolute) || absolute,
-  })
+  return relativeTo(cwd, path)
+}
+
+/** Format `path` relative to `dir`, optionally as a clickable terminal link. */
+export function relativeTo(dir: string, path: string, options: { link?: boolean } = {}) {
+  if (options.link === false) {
+    return relative(dir, resolve(dir, path)) || path
+  }
+  return link(path, { cwd: dir, formatter: absolute => relative(dir, absolute) || absolute })
 }
 
 export function withNodePath(path: string) {
