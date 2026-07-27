@@ -99,6 +99,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     envName: devContext.args.envName,
     showBanner: ctx.showBanner !== false && !ipc.enabled,
     listenOverrides: ctx.listenOverrides,
+    handoverFrom: devContext.handoverFrom,
   })
 
   let address: string

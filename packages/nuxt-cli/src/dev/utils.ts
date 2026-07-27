@@ -49,6 +49,8 @@ export type NuxtDevIPCMessage
 
 export interface NuxtDevContext {
   cwd: string
+  /** PID of the dev server this process is taking over from, if any. */
+  handoverFrom?: number
   args: {
     clear?: boolean
     logLevel?: string
@@ -74,6 +76,7 @@ interface NuxtDevServerOptions {
   loadingTemplate?: ({ loading }: { loading: string }) => string
   showBanner?: boolean
   listenOverrides?: DevListenOverrides
+  handoverFrom?: number
 }
 
 // https://regex101.com/r/7HkR5c/1
@@ -684,6 +687,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
+    }, {
+      // During a handover the outgoing dev server still holds the lock until
+      // this process is ready to serve.
+      takeoverFrom: this.options.handoverFrom,
     })
     if (lock.existing) {
       console.error(formatLockError(lock.existing))

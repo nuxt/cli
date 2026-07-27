@@ -13,6 +13,7 @@ import { satisfies } from 'verkit'
 import { initialize } from '../dev'
 
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
+import { isReusePortSupported } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
@@ -146,6 +147,11 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
+    // With `SO_REUSEPORT` an incoming fork can bind the port before this process
+    // releases it, so a hard restart never leaves the port unserved.
+    const reusePort = ctx.args.fork && !ctx.args.profile && await isReusePortSupported()
+    listenOverrides.reusePort = reusePort
+
     // The inspector belongs to whichever process is currently serving the app:
     // this one until a hard restart hands over to a fork.
     const inspect = resolveInspectOptions(ctx.rawArgs)
@@ -191,39 +197,79 @@ const command = defineCommand({
 
     // On hard restart, use a fork from the pool
     let cleanupCurrentFork: (() => Promise<void>) | undefined
+    // Whatever is serving the app right now: this process, then each fork in turn.
+    let closeCurrent = close
+    let currentPid = process.pid
 
     async function restartWithFork(reason?: DevRestartReason) {
       logger.info(formatRestartReason(reason, { rootDir: cwd, hard: true }))
 
+      // The inspector port cannot be shared, so the handover has to stay
+      // serialised whenever the inspector is open.
+      const handover = reusePort && !inspect
+
       // Get a fork from the pool (warm if available, cold otherwise)
-      const context: NuxtDevContext = { cwd, args: ctx.args }
+      const context: NuxtDevContext = {
+        cwd,
+        args: ctx.args,
+        handoverFrom: handover ? currentPid : undefined,
+      }
 
-      // Release the inspector port before the incoming fork tries to bind it
-      await Promise.all([
-        cleanupCurrentFork?.(),
-        inspect ? closeInspector() : undefined,
-      ])
+      if (!handover) {
+        await Promise.all([
+          closeCurrent(),
+          inspect ? closeInspector() : undefined,
+        ])
+      }
 
-      cleanupCurrentFork = await pool.getFork(context, (message) => {
-        // Handle IPC messages from the fork
-        if (message.type === 'nuxt:internal:dev:ready') {
-          if (startTime) {
-            debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+      let serving = false
+      const fork = await pool.getFork(context, {
+        listenOverrides: handover
+          ? { port: listener.address.port, handover: true }
+          : undefined,
+        onMessage: (message) => {
+          // Handle IPC messages from the fork
+          if (message.type === 'nuxt:internal:dev:ready') {
+            if (startTime) {
+              debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+            }
           }
-        }
-        else if (message.type === 'nuxt:internal:dev:restart') {
-          // Fork is requesting another restart
-          void restartWithFork(message.reason)
-        }
-        else if (message.type === 'nuxt:internal:dev:rejection') {
-          void restartWithFork({ type: 'error', message: message.message })
-        }
+          else if (!serving) {
+            // Failures before the fork serves anything are handled by the
+            // handover below, which leaves the outgoing server in place.
+          }
+          else if (message.type === 'nuxt:internal:dev:restart') {
+            // Fork is requesting another restart
+            void restartWithFork(message.reason)
+          }
+          else if (message.type === 'nuxt:internal:dev:rejection') {
+            void restartWithFork({ type: 'error', message: message.message })
+          }
+        },
       })
+
+      try {
+        await fork.serving
+      }
+      catch (error) {
+        await fork.close()
+        logger.error(`Could not restart the dev server, keeping the current one: ${error instanceof Error ? error.message : error}`)
+        if (handover) {
+          onRestart(restart)
+        }
+        return
+      }
+
+      serving = true
+      fork.promote()
+      const closePrevious = handover ? closeCurrent : undefined
+      cleanupCurrentFork = fork.close
+      closeCurrent = fork.close
+      currentPid = fork.pid ?? currentPid
+      await closePrevious?.()
     }
 
     async function restart(reason?: DevRestartReason) {
-      // Close the in-process dev server
-      await close()
       await restartWithFork(reason)
     }
 

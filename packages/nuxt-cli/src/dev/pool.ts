@@ -18,6 +18,23 @@ interface PooledFork {
   process: ChildProcess
   ready: Promise<void>
   state: 'warming' | 'ready' | 'active' | 'dead'
+  /** Whether this fork is the one serving the app, so its crash ends the session. */
+  serving: boolean
+}
+
+export interface ActiveFork {
+  pid?: number
+  /** Resolves once the fork reports it is serving requests, rejects if it dies first. */
+  serving: Promise<void>
+  /** Promote the fork so that a later crash takes the dev session down. */
+  promote: () => void
+  close: () => Promise<void>
+}
+
+interface GetForkOptions {
+  onMessage?: (message: NuxtDevIPCMessage) => void
+  /** Listen options for this fork only, merged over the pool-wide overrides. */
+  listenOverrides?: Partial<DevListenOverrides>
 }
 
 export class ForkPool {
@@ -59,55 +76,67 @@ export class ForkPool {
     }
   }
 
-  async getFork(context: NuxtDevContext, onMessage?: (message: NuxtDevIPCMessage) => void): Promise<() => Promise<void>> {
+  async getFork(context: NuxtDevContext, options: GetForkOptions = {}): Promise<ActiveFork> {
     // Once the app is served by a fork, file changes are no longer visible to
     // this process, so a restart is the only signal left that more may follow.
     this.warming = true
 
-    // Try to get a ready fork from the pool
-    const readyFork = this.pool.find(f => f.state === 'ready')
+    const pooledFork = this.pool.find(f => f.state === 'ready')
+      ?? this.pool.find(f => f.state === 'warming')
 
-    if (readyFork) {
-      readyFork.state = 'active'
-      if (onMessage) {
-        this.attachMessageHandler(readyFork.process, onMessage)
-      }
-      await this.sendContext(readyFork.process, context)
-
-      this.warmFork()
-
-      return () => this.killFork(readyFork)
+    if (!pooledFork) {
+      debug('No pre-warmed forks available, starting cold fork')
     }
 
-    // No ready fork available, try a warming fork
-    const warmingFork = this.pool.find(f => f.state === 'warming')
-    if (warmingFork) {
-      await warmingFork.ready
-      warmingFork.state = 'active'
-      if (onMessage) {
-        this.attachMessageHandler(warmingFork.process, onMessage)
-      }
-      await this.sendContext(warmingFork.process, context)
-
-      this.warmFork()
-
-      return () => this.killFork(warmingFork)
+    const fork = pooledFork ?? this.createFork()
+    if (!pooledFork) {
+      this.pool.push(fork)
     }
+    await fork.ready
+    fork.state = 'active'
 
-    // No forks in pool, create a cold fork
-    debug('No pre-warmed forks available, starting cold fork')
-    const coldFork = this.createFork()
-    this.pool.push(coldFork)
-    await coldFork.ready
-    coldFork.state = 'active'
-    if (onMessage) {
-      this.attachMessageHandler(coldFork.process, onMessage)
+    const serving = this.trackServing(fork)
+    if (options.onMessage) {
+      this.attachMessageHandler(fork.process, options.onMessage)
     }
-    await this.sendContext(coldFork.process, context)
+    await this.sendContext(fork.process, context, options.listenOverrides)
 
     this.warmFork()
 
-    return () => this.killFork(coldFork)
+    return {
+      pid: fork.process.pid,
+      serving,
+      promote: () => {
+        fork.serving = true
+      },
+      close: () => this.killFork(fork),
+    }
+  }
+
+  /**
+   * Resolves when the fork has bound its listener and is answering requests, so
+   * the caller can keep the outgoing server up until then.
+   */
+  private trackServing(fork: PooledFork): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      function settle(finish: () => void) {
+        fork.process.off('message', onMessage)
+        fork.process.off('close', onExit)
+        fork.process.off('error', onExit)
+        finish()
+      }
+      function onMessage(message: NuxtDevIPCMessage) {
+        if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
+          settle(resolve)
+        }
+      }
+      function onExit() {
+        settle(() => reject(new Error('Dev server fork exited before it was ready.')))
+      }
+      fork.process.on('message', onMessage)
+      fork.process.once('close', onExit)
+      fork.process.once('error', onExit)
+    })
   }
 
   private attachMessageHandler(childProc: ChildProcess, onMessage: (message: NuxtDevIPCMessage) => void): void {
@@ -160,6 +189,7 @@ export class ForkPool {
       process: childProc,
       ready,
       state: 'warming',
+      serving: false,
     }
 
     // Listen for fork-ready message
@@ -177,7 +207,7 @@ export class ForkPool {
 
     // Handle unexpected exit
     childProc.on('close', (errorCode) => {
-      if (pooledFork.state === 'active' && errorCode) {
+      if (pooledFork.serving && errorCode) {
         // Active fork crashed
         process.exit(errorCode)
       }
@@ -187,10 +217,10 @@ export class ForkPool {
     return pooledFork
   }
 
-  private async sendContext(childProc: ChildProcess, context: NuxtDevContext): Promise<void> {
+  private async sendContext(childProc: ChildProcess, context: NuxtDevContext, listenOverrides?: Partial<DevListenOverrides>): Promise<void> {
     childProc.send({
       type: 'nuxt:internal:dev:context',
-      listenOverrides: this.listenOverrides,
+      listenOverrides: { ...this.listenOverrides, ...listenOverrides },
       inspect: this.inspect,
       context,
     })
