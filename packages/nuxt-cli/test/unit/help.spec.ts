@@ -203,6 +203,8 @@ describe('help', () => {
                                         -f, --fork    Enable forked mode (Default: false)                                                                                                                 
                                  --no-f, --no-fork    Disable forked mode                                                                                                                                 
                                  -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)                                                        
+                                        --takeover    Stop a dev server already running on this project and take its place                                                                                
+                                     --no-takeover    Never stop a dev server already running on this project                                                                                             
                                       --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
                                  -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host\`)                                                       
                                         -o, --open    Open the URL in the browser (Default: false)                                                                                                        

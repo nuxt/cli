@@ -4,7 +4,7 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { isAgent, isCI } from 'std-env'
 
-interface LockInfo {
+export interface LockInfo {
   pid: number
   startedAt: number
   command: 'dev' | 'build'
@@ -18,6 +18,13 @@ interface LockInfo {
   port?: number
   hostname?: string
   url?: string
+  /**
+   * PID of the process supervising the holder, when the holder is a dev fork.
+   * Signalling the holder alone would leave its supervisor running.
+   */
+  parentPid?: number
+  /** PID of the process that claimed this lock, written before it signals us. */
+  takenOverBy?: number
 }
 
 const LOCK_FILENAME = 'nuxt.lock'
@@ -40,6 +47,34 @@ function isProcessAlive(pid: number): boolean {
     // Treat it as alive so we don't clobber locks held by other accounts.
     return (err as NodeJS.ErrnoException).code === 'EPERM'
   }
+}
+
+/** Read the lock held for `buildDir`, if there is one. */
+export function readLock(buildDir: string): LockInfo | undefined {
+  return readLockFile(join(buildDir, LOCK_FILENAME))
+}
+
+/**
+ * Record that `byPid` is taking the lock over, so the outgoing holder can
+ * explain its own shutdown. Only ever annotates a lock owned by another
+ * process, and never creates one.
+ */
+export function markTakenOver(buildDir: string, byPid: number): void {
+  const lockPath = join(buildDir, LOCK_FILENAME)
+  const current = readLockFile(lockPath)
+  if (!current || current.pid === byPid) {
+    return
+  }
+  try {
+    writeFileSync(lockPath, JSON.stringify({ ...current, takenOverBy: byPid }, null, 2))
+  }
+  catch {}
+}
+
+/** PID that claimed our own lock, if this process is being taken over. */
+export function getTakeoverPid(buildDir: string): number | undefined {
+  const current = readLock(buildDir)
+  return current?.pid === process.pid ? current.takenOverBy : undefined
 }
 
 function readLockFile(lockPath: string): LockInfo | undefined {
@@ -175,6 +210,7 @@ export function updateLock(
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
     interactive: isInteractiveSession(),
+    takenOverBy: current?.takenOverBy,
     ...info,
   }
   try {
