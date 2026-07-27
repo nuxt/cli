@@ -1,19 +1,20 @@
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions } from '../dev/cert'
 import type { DevListenOverrides } from '../dev/listen'
+import type { DevRestartReason } from '../dev/reason'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
 
-import colors from 'picocolors'
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
 import { initialize } from '../dev'
 
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { ForkPool } from '../dev/pool'
+import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
@@ -161,7 +162,7 @@ const command = defineCommand({
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || ctx.args.profile) {
-      setupShortcuts({ listener, close, onReady, restart: () => reload('Restart requested') })
+      setupShortcuts({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
       setupSignalHandlers(close)
       return {
         listener,
@@ -191,7 +192,9 @@ const command = defineCommand({
     // On hard restart, use a fork from the pool
     let cleanupCurrentFork: (() => Promise<void>) | undefined
 
-    async function restartWithFork() {
+    async function restartWithFork(reason?: DevRestartReason) {
+      logger.info(formatRestartReason(reason, { rootDir: cwd, hard: true }))
+
       // Get a fork from the pool (warm if available, cold otherwise)
       const context: NuxtDevContext = { cwd, args: ctx.args }
 
@@ -210,19 +213,18 @@ const command = defineCommand({
         }
         else if (message.type === 'nuxt:internal:dev:restart') {
           // Fork is requesting another restart
-          void restartWithFork()
+          void restartWithFork(message.reason)
         }
         else if (message.type === 'nuxt:internal:dev:rejection') {
-          logger.info(`Restarting Nuxt due to error: ${colors.cyan(message.message)}`)
-          void restartWithFork()
+          void restartWithFork({ type: 'error', message: message.message })
         }
       })
     }
 
-    async function restart() {
+    async function restart(reason?: DevRestartReason) {
       // Close the in-process dev server
       await close()
-      await restartWithFork()
+      await restartWithFork(reason)
     }
 
     onRestart(restart)
@@ -232,7 +234,7 @@ const command = defineCommand({
       await close()
     }
 
-    setupShortcuts({ listener, close: closeAll, onReady, restart })
+    setupShortcuts({ listener, close: closeAll, onReady, restart: () => restart({ type: 'shortcut' }) })
     setupSignalHandlers(closeAll)
 
     return {

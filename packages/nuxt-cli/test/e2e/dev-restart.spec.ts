@@ -32,7 +32,7 @@ describe('dev server reload', () => {
         expect(started).toBe(true)
       }, { timeout: 30_000, interval: 100 })
 
-      await reload('test reload')
+      await reload({ type: 'shortcut' })
 
       const timer = new Promise<'hanging'>(resolve => setTimeout(resolve, 10_000, 'hanging').unref())
       await expect(Promise.race([inflight, timer])).resolves.toBe('status:503')
