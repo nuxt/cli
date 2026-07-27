@@ -9,7 +9,7 @@ import { createServer as createHttpsServer } from 'node:https'
 import { networkInterfaces, release } from 'node:os'
 import process from 'node:process'
 
-import { checkPort, getPort } from 'get-port-please'
+import { getPort } from 'get-port-please'
 import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
@@ -117,9 +117,10 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     : createHttpServer(handler)
 
   await new Promise<void>((resolve, reject) => {
-    server.once('error', reject)
+    const onError = (error: NodeJS.ErrnoException) => reject(describeBindError(error, port, hostname, options.strictPort))
+    server.once('error', onError)
     server.listen(port, hostname || undefined, () => {
-      server.removeListener('error', reject)
+      server.removeListener('error', onError)
       // Without a persistent handler, any later `error` event is unhandled and
       // takes the whole dev process down.
       server.on('error', error => logger.error(`Dev server error: ${error.message}`))
@@ -232,11 +233,7 @@ async function resolvePort(requestedPort: number | undefined, hostname: string, 
   }
 
   if (strictPort) {
-    const desiredPort = requestedPort ?? 3000
-    if (await checkPort(desiredPort, hostname || undefined) === false) {
-      throw new Error(`Port ${desiredPort} is already in use (\`--strictPort\` is enabled).`)
-    }
-    return desiredPort
+    return requestedPort ?? 3000
   }
 
   const port = await getPort({
@@ -248,6 +245,27 @@ async function resolvePort(requestedPort: number | undefined, hostname: string, 
     logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
   }
   return port
+}
+
+/**
+ * Turn a `listen()` failure into actionable advice, leaving anything we have
+ * nothing better to say about untouched.
+ */
+function describeBindError(error: NodeJS.ErrnoException, port: number, hostname: string, strictPort?: boolean): Error {
+  switch (error.code) {
+    case 'EADDRINUSE':
+      return new Error(
+        strictPort
+          ? `Port ${port} is already in use (\`--strictPort\` is enabled).`
+          : `Port ${port} is already in use.`,
+        { cause: error },
+      )
+    case 'EACCES':
+      return new Error(`Port ${port} requires elevated privileges. Pass \`--port\` with a port above 1023.`, { cause: error })
+    case 'EADDRNOTAVAIL':
+      return new Error(`\`${hostname}\` is not an address of this machine. Pass \`--host\` with a local address, or omit it to listen on localhost.`, { cause: error })
+  }
+  return error
 }
 
 export async function printQRCode(url: string, { showURL = false }: { showURL?: boolean } = {}): Promise<void> {

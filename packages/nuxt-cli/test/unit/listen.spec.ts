@@ -118,7 +118,11 @@ describe('listen', () => {
   it('should throw for a busy port with `strictPort`', async () => {
     const first = await start({ port: 0 })
 
-    await expect(start({ port: first.address.port, strictPort: true })).rejects.toThrow(/already in use/)
+    await expect(start({ port: first.address.port, strictPort: true })).rejects.toThrow(`Port ${first.address.port} is already in use (\`--strictPort\` is enabled).`)
+  })
+
+  it('should explain an unavailable host', async () => {
+    await expect(start({ port: 34567, hostname: '203.0.113.1', strictPort: true })).rejects.toThrow(/is not an address of this machine/)
   })
 
   it('should open the dev server URL', async () => {
