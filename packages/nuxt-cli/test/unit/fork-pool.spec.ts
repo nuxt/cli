@@ -35,6 +35,18 @@ describe('forkPool', () => {
     expect(pool.getStats().total).toBe(1)
   })
 
+  it('should reap a cold fork on shutdown', { timeout: 30_000 }, async () => {
+    const pool = createPool(0)
+    await pool.getFork({ cwd: '/some/project', args: {} })
+    expect(pool.getStats()).toMatchObject({ total: 1, active: 1 })
+
+    const [child] = (pool as unknown as { pool: Array<{ process: ChildProcess }> }).pool.map(f => f.process)
+    ;(pool as unknown as { killAll: (signal: number) => void }).killAll(0)
+    await vi.waitFor(() => {
+      expect(child!.killed).toBe(true)
+    }, { timeout: 10_000, interval: 25 })
+  })
+
   it('should kill every fork on shutdown', { timeout: 30_000 }, async () => {
     const pool = createPool(3)
     pool.startWarming()

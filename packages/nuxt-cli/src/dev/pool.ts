@@ -99,6 +99,7 @@ export class ForkPool {
     // No forks in pool, create a cold fork
     debug('No pre-warmed forks available, starting cold fork')
     const coldFork = this.createFork()
+    this.pool.push(coldFork)
     await coldFork.ready
     coldFork.state = 'active'
     if (onMessage) {
