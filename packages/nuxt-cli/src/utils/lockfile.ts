@@ -2,13 +2,19 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
-import { isAgent } from 'std-env'
+import { isAgent, isCI } from 'std-env'
 
 interface LockInfo {
   pid: number
   startedAt: number
   command: 'dev' | 'build'
   cwd: string
+  /**
+   * Whether the holder was started from a terminal a user is sitting at. Only
+   * the holder can know this, so it is recorded here for other invocations to
+   * read.
+   */
+  interactive: boolean
   port?: number
   hostname?: string
   url?: string
@@ -18,6 +24,11 @@ const LOCK_FILENAME = 'nuxt.lock'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
+
+/** Whether this process is attached to a terminal a user can answer prompts on. */
+export function isInteractiveSession(): boolean {
+  return !!process.stdin.isTTY && !isCI
+}
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -90,7 +101,7 @@ export interface AcquireLockOptions {
  */
 export function acquireLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
   options: AcquireLockOptions = {},
 ): LockResult {
   if (!isLockEnabled()) {
@@ -101,6 +112,7 @@ export function acquireLock(
   const fullInfo: LockInfo = {
     pid: process.pid,
     startedAt: Date.now(),
+    interactive: isInteractiveSession(),
     ...info,
   }
 
@@ -146,7 +158,7 @@ export function acquireLock(
  */
 export function updateLock(
   buildDir: string,
-  info: Omit<LockInfo, 'pid' | 'startedAt'>,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
 ): void {
   if (!isLockEnabled()) {
     return
@@ -160,6 +172,7 @@ export function updateLock(
   const next: LockInfo = {
     pid: process.pid,
     startedAt: current?.startedAt ?? Date.now(),
+    interactive: isInteractiveSession(),
     ...info,
   }
   try {

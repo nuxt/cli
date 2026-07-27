@@ -9,7 +9,7 @@ const isWindows = process.platform === 'win32'
 
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
-  return { ...original, isAgent: true }
+  return { ...original, isAgent: true, isCI: false }
 })
 
 const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
@@ -62,6 +62,7 @@ describe('lockfile', () => {
       expect(written.command).toBe('dev')
       expect(written.cwd).toBe('/project')
       expect(typeof written.startedAt).toBe('number')
+      expect(typeof written.interactive).toBe('boolean')
 
       lock.release!()
       expect(existsSync(lockPath)).toBe(false)
@@ -109,6 +110,21 @@ describe('lockfile', () => {
       }
       finally {
         killSpy.mockRestore()
+      }
+    })
+
+    it('records whether the acquiring process is interactive', () => {
+      const original = process.stdin.isTTY
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      try {
+        const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+        const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+        // `isCI` is mocked false via the `std-env` mock above.
+        expect(written.interactive).toBe(true)
+        lock.release!()
+      }
+      finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: original, configurable: true })
       }
     })
 
@@ -302,6 +318,7 @@ describe('lockfile', () => {
         pid: 12345,
         command: 'dev',
         cwd: '/my/project',
+        interactive: false,
         port: 3000,
         hostname: '127.0.0.1',
         url: 'http://127.0.0.1:3000',
@@ -321,6 +338,7 @@ describe('lockfile', () => {
         pid: 12345,
         command: 'build',
         cwd: '/my/project',
+        interactive: false,
         startedAt: Date.now(),
       })
 
