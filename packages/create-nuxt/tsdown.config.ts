@@ -1,21 +1,10 @@
-import type { UserConfig } from 'tsdown'
-import process from 'node:process'
-import { visualizer } from 'rollup-plugin-visualizer'
-import { defineConfig } from 'tsdown'
-import { purgePolyfills } from 'unplugin-purge-polyfills'
+import type { PackagingContract } from '../../scripts/tsdown.ts'
+import { defineCliConfig } from '../../scripts/tsdown.ts'
 
-const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
+export const packaging: PackagingContract = {}
 
-export default defineConfig({
+export default defineCliConfig({
   entry: ['src/index.ts'],
-  fixedExtension: true,
   deps: { onlyBundle: false },
-  dts: !isAnalysingSize && {
-    oxc: true,
-  },
-  failOnWarn: !isAnalysingSize,
-  plugins: [
-    purgePolyfills.rolldown({ logLevel: 'verbose' }),
-    ...(isAnalysingSize ? [visualizer({ template: 'raw-data' })] : []),
-  ],
-}) satisfies UserConfig as UserConfig
+  ...packaging,
+})

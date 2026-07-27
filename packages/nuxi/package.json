@@ -30,18 +30,16 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "pnpm build",
-    "test:dist": "node ./bin/nuxi.mjs info ../../playground"
+    "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-youch.ts"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "citty": "^0.2.2",
     "jiti": "^2.7.0",
     "picocolors": "^1.1.1",
-    "rollup-plugin-visualizer": "^7.0.1",
     "std-env": "^4.2.0",
     "tinyexec": "^1.2.4",
     "tsdown": "^0.22.14",
-    "typescript": "^6.0.3",
-    "unplugin-purge-polyfills": "^0.1.0"
+    "typescript": "^6.0.3"
   }
 }

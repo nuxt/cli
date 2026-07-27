@@ -57,21 +57,33 @@ importers:
       knip:
         specifier: ^6.29.0
         version: 6.29.0
+      nf3:
+        specifier: ^0.3.22
+        version: 0.3.22
       nuxt:
         specifier: ^4.5.1
         version: 4.5.1(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0(supports-color@10.2.2)))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.0(supports-color@10.2.2)))(@parcel/watcher@2.5.6)(@types/node@24.13.3)(@vue/compiler-sfc@3.5.40)(cac@7.0.0)(db0@0.3.4)(esbuild@0.28.0)(eslint@10.8.0(jiti@2.7.0)(supports-color@10.2.2))(ioredis@5.10.1(supports-color@10.2.2))(lightningcss@1.33.0)(magicast@0.5.3)(optionator@0.9.4)(oxc-parser@0.140.0)(rollup-plugin-visualizer@7.0.1(rolldown@1.2.0)(rollup@4.62.3))(rollup@4.62.3)(srvx@0.12.4)(supports-color@10.2.2)(terser@5.46.2)(typescript@6.0.3)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))(vue-tsc@3.3.8(typescript@6.0.3))(yaml@2.9.0)
       pkg-pr-new:
         specifier: ^0.0.80
         version: 0.0.80
+      rollup-plugin-visualizer:
+        specifier: ^7.0.1
+        version: 7.0.1(rolldown@1.2.0)(rollup@4.62.3)
       std-env:
         specifier: ^4.2.0
         version: 4.2.0
       tinyexec:
         specifier: ^1.2.4
         version: 1.2.4
+      tsdown:
+        specifier: ^0.22.14
+        version: 0.22.14(@volar/typescript@2.4.28)(oxc-resolver@11.24.2)(typescript@6.0.3)(vue-tsc@3.3.8(typescript@6.0.3))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+      unplugin-purge-polyfills:
+        specifier: ^0.1.0
+        version: 0.1.0
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))
@@ -93,21 +105,12 @@ importers:
       citty:
         specifier: ^0.2.2
         version: 0.2.2
-      rollup:
-        specifier: ^4.62.3
-        version: 4.62.3
-      rollup-plugin-visualizer:
-        specifier: ^7.0.1
-        version: 7.0.1(rolldown@1.2.0)(rollup@4.62.3)
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@volar/typescript@2.4.28)(oxc-resolver@11.24.2)(typescript@6.0.3)(vue-tsc@3.3.8(typescript@6.0.3))
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-      unplugin-purge-polyfills:
-        specifier: ^0.1.0
-        version: 0.1.0
 
   packages/create-nuxt-app:
     dependencies:
@@ -129,9 +132,6 @@ importers:
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
-      rollup-plugin-visualizer:
-        specifier: ^7.0.1
-        version: 7.0.1(rolldown@1.2.0)(rollup@4.62.3)
       std-env:
         specifier: ^4.2.0
         version: 4.2.0
@@ -144,9 +144,6 @@ importers:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
-      unplugin-purge-polyfills:
-        specifier: ^0.1.0
-        version: 0.1.0
 
   packages/nuxt-cli:
     dependencies:
@@ -243,12 +240,6 @@ importers:
       verkit:
         specifier: ^0.3.0
         version: 0.3.0
-      youch:
-        specifier: ^4.1.1
-        version: 4.1.1
-      youch-core:
-        specifier: ^0.3.3
-        version: 0.3.3
     devDependencies:
       '@nuxt/kit':
         specifier: ^4.5.1
@@ -283,9 +274,6 @@ importers:
       rollup:
         specifier: ^4.62.3
         version: 4.62.3
-      rollup-plugin-visualizer:
-        specifier: ^7.0.1
-        version: 7.0.1(rolldown@1.2.0)(rollup@4.62.3)
       tsdown:
         specifier: ^0.22.14
         version: 0.22.14(@volar/typescript@2.4.28)(oxc-resolver@11.24.2)(typescript@6.0.3)(vue-tsc@3.3.8(typescript@6.0.3))
@@ -295,12 +283,15 @@ importers:
       undici:
         specifier: ^8.9.0
         version: 8.9.0
-      unplugin-purge-polyfills:
-        specifier: ^0.1.0
-        version: 0.1.0
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
+      youch:
+        specifier: ^4.1.1
+        version: 4.1.1
+      youch-core:
+        specifier: ^0.3.3
+        version: 0.3.3
 
   packages/nuxt-cli/test/fixtures/dev:
     dependencies:
@@ -4785,8 +4776,8 @@ packages:
     resolution: {integrity: sha512-myRT3DiWPHqho5PrJaIRyaMv2kgYf0mUVgBNOYMuCH5Ki1yEiQaf/ZJuQ62nvpc44wL5WDbTX7yGJi1Neevw8w==}
     engines: {node: '>= 0.6'}
 
-  nf3@0.3.16:
-    resolution: {integrity: sha512-Gs0xRPpUm2nDkqbi40NJ9g7qDIcjcJzgExiydnq6LAyqhI2jfno8wG3NKTL+IiJsx799UHOb1CnSd4Wg4SG4Pw==}
+  nf3@0.3.22:
+    resolution: {integrity: sha512-NOcqlHu22X1rUakd0SrqllP8kb3LWFmSAi1svTxaKxz+yB604xlaOmUfI3oO+RkODvaocKDDy8bgthnZL8hrkw==}
 
   nitro@3.0.1-alpha.2:
     resolution: {integrity: sha512-YviDY5J/trS821qQ1fpJtpXWIdPYiOizC/meHavlm1Hfuhx//H+Egd1+4C5SegJRgtWMnRPW9n//6Woaw81cTQ==}
@@ -11550,7 +11541,7 @@ snapshots:
 
   negotiator@0.6.4: {}
 
-  nf3@0.3.16: {}
+  nf3@0.3.22: {}
 
   nitro@3.0.1-alpha.2(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)(chokidar@5.0.0)(ioredis@5.10.1(supports-color@10.2.2))(lru-cache@11.3.5)(rolldown@1.2.0)(rollup@4.62.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0)):
     dependencies:
@@ -11559,7 +11550,7 @@ snapshots:
       db0: 0.3.4
       h3: 1.15.11
       jiti: 2.7.0
-      nf3: 0.3.16
+      nf3: 0.3.22
       ofetch: 2.0.0-alpha.3
       ohash: 2.0.11
       oxc-minify: 0.110.0(@emnapi/core@1.11.2)(@emnapi/runtime@1.11.2)
