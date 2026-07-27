@@ -28,6 +28,13 @@ afterEach(async () => {
 })
 
 describe('forkPool', () => {
+  it('should warm a single fork by default', { timeout: 30_000 }, async () => {
+    const pool = createPool()
+    pool.startWarming()
+    await waitForReady(pool, 1)
+    expect(pool.getStats().total).toBe(1)
+  })
+
   it('should kill every fork on shutdown', { timeout: 30_000 }, async () => {
     const pool = createPool(3)
     pool.startWarming()

@@ -30,7 +30,7 @@ export class ForkPool {
 
   constructor(options: ForkPoolOptions) {
     this.rawArgs = options.rawArgs
-    this.poolSize = options.poolSize ?? 2
+    this.poolSize = options.poolSize ?? 1
     this.listenOverrides = options.listenOverrides
     this.inspect = options.inspect
 

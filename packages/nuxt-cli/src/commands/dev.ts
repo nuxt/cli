@@ -171,7 +171,7 @@ const command = defineCommand({
 
     const pool = new ForkPool({
       rawArgs: ctx.rawArgs,
-      poolSize: 2,
+      poolSize: resolveForkPoolSize(),
       listenOverrides,
       inspect,
     })
@@ -274,6 +274,19 @@ function setupSignalHandlers(close: () => Promise<void>): void {
         })
     })
   }
+}
+
+function resolveForkPoolSize(): number | undefined {
+  const raw = process.env.NUXT_DEV_FORK_POOL_SIZE
+  if (!raw) {
+    return undefined
+  }
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    logger.warn(`Ignoring invalid \`NUXT_DEV_FORK_POOL_SIZE=${raw}\`; expected a non-negative integer.`)
+    return undefined
+  }
+  return parsed
 }
 
 function parsePositiveInteger(value: string | undefined): number | undefined {
