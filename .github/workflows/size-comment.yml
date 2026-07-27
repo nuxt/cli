@@ -56,10 +56,13 @@ jobs:
       - name: 💬 Post or update comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         if: false
+        env:
+          PR_NUMBER: ${{ steps.pr.outputs.result }}
+          COMMENT_BODY: ${{ steps.sizes.outputs.comment }}
         with:
           script: |
-            const prNumber = ${{ steps.pr.outputs.result }};
-            const commentBody = `${{ steps.sizes.outputs.comment }}`;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const commentBody = process.env.COMMENT_BODY;
 
             // Find existing comment
             const comments = await github.rest.issues.listComments({
