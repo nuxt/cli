@@ -153,6 +153,7 @@ interface DevServerEventMap {
   'loading': [loadingMessage: string]
   'ready': [address: string]
   'restart': []
+  'change': []
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
@@ -390,6 +391,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
+    this.#currentNuxt.hooks.hook('builder:watch', () => {
+      this.emit('change')
+    })
+
     // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
@@ -613,7 +618,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#cwd,
       this.options.dotenv.fileName,
       () => this.emit('restart'),
-      file => this.loadDebounced(true, `${file} updated`),
+      (file) => {
+        this.emit('change')
+        this.loadDebounced(true, `${file} updated`)
+      },
       getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
   }

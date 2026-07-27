@@ -63,6 +63,8 @@ interface InitializeReturn {
   /** Reload Nuxt in place, keeping the current listener. */
   reload: (reason?: string) => Promise<void>
   onReady: (callback: (address: string) => void) => void
+  /** Called the first time a watched file changes, before Nuxt reloads. */
+  onFileChange: (callback: () => void) => void
   onRestart: (callback: (devServer: NuxtDevServer) => void) => void
 }
 
@@ -170,6 +172,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       else {
         devServer.once('ready', payload => callback(payload))
       }
+    },
+    onFileChange: (callback: () => void) => {
+      devServer.once('change', callback)
     },
     onRestart: (callback: (devServer: NuxtDevServer) => void) => {
       let restarted = false

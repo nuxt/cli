@@ -153,7 +153,7 @@ const command = defineCommand({
     }
 
     // Start the initial dev server in-process with listener
-    const { listener, close, reload, onRestart, onReady } = await initialize({ cwd, args: ctx.args }, {
+    const { listener, close, reload, onRestart, onReady, onFileChange } = await initialize({ cwd, args: ctx.args }, {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
@@ -176,12 +176,16 @@ const command = defineCommand({
       inspect,
     })
 
-    // When ready, start warming up the fork pool
     onReady((_address) => {
-      pool.startWarming()
       if (startTime) {
         debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
       }
+    })
+
+    // Warming costs a whole extra Node process, so wait until the user shows
+    // signs of editing the project rather than paying for it on every `nuxt dev`.
+    onFileChange(() => {
+      pool.startWarming()
     })
 
     // On hard restart, use a fork from the pool
