@@ -47,6 +47,21 @@ describe('forkPool', () => {
     }, { timeout: 10_000, interval: 25 })
   })
 
+  it('should keep the pool warm after handing out a fork', { timeout: 30_000 }, async () => {
+    const pool = createPool()
+    await pool.getFork({ cwd: '/some/project', args: {} })
+    await waitForReady(pool, 1)
+    expect(pool.getStats().active).toBe(1)
+  })
+
+  it('should never warm a fork when the pool is disabled', { timeout: 30_000 }, async () => {
+    const pool = createPool(0)
+    pool.startWarming()
+    await pool.getFork({ cwd: '/some/project', args: {} })
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    expect(pool.getStats()).toMatchObject({ total: 1, active: 1, ready: 0, warming: 0 })
+  })
+
   it('should kill every fork on shutdown', { timeout: 30_000 }, async () => {
     const pool = createPool(3)
     pool.startWarming()

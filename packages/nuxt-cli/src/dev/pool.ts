@@ -60,6 +60,10 @@ export class ForkPool {
   }
 
   async getFork(context: NuxtDevContext, onMessage?: (message: NuxtDevIPCMessage) => void): Promise<() => Promise<void>> {
+    // Once the app is served by a fork, file changes are no longer visible to
+    // this process, so a restart is the only signal left that more may follow.
+    this.warming = true
+
     // Try to get a ready fork from the pool
     const readyFork = this.pool.find(f => f.state === 'ready')
 
@@ -70,10 +74,7 @@ export class ForkPool {
       }
       await this.sendContext(readyFork.process, context)
 
-      // Start warming a replacement fork
-      if (this.warming) {
-        this.warmFork()
-      }
+      this.warmFork()
 
       return () => this.killFork(readyFork)
     }
@@ -88,10 +89,7 @@ export class ForkPool {
       }
       await this.sendContext(warmingFork.process, context)
 
-      // Start warming a replacement fork
-      if (this.warming) {
-        this.warmFork()
-      }
+      this.warmFork()
 
       return () => this.killFork(warmingFork)
     }
@@ -107,6 +105,8 @@ export class ForkPool {
     }
     await this.sendContext(coldFork.process, context)
 
+    this.warmFork()
+
     return () => this.killFork(coldFork)
   }
 
@@ -120,6 +120,11 @@ export class ForkPool {
   }
 
   private warmFork(): void {
+    const idle = this.pool.filter(f => f.state === 'warming' || f.state === 'ready').length
+    if (idle >= this.poolSize) {
+      return
+    }
+
     const fork = this.createFork()
     fork.ready.then(() => {
       if (fork.state === 'warming') {
