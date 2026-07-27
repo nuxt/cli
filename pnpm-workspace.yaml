@@ -1,4 +1,6 @@
 minimumReleaseAgeExclude:
+  - '@nuxt/*'
+  - nuxt
   - clickable-path
 
 packages:
