@@ -9,7 +9,6 @@ import { parseINI } from 'confbox'
 
 const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
-const REGEX_SPECIAL_RE = /[.*+?^${}()|[\]\\]/g
 
 export interface RegistryMeta {
   registry: string
@@ -84,8 +83,8 @@ async function getRegistry(scope: string | null): Promise<string> {
 
 async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
   const paths = getNpmrcPaths()
-  const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '').replace(REGEX_SPECIAL_RE, '\\$&')
-  const authTokenRegex = new RegExp(`^//${registryHost}/:_authToken=(.+)$`, 'm')
+  const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '')
+  const authTokenKey = `//${registryHost}/:_authToken`
 
   for (const npmrcPath of paths) {
     let fd: FileHandle | undefined
@@ -93,10 +92,11 @@ async function getAuthToken(registry: RegistryMeta['registry']): Promise<Registr
       fd = await fs.promises.open(npmrcPath, 'r')
       if (await fd.stat().then(r => r.isFile())) {
         const npmrcContent = await fd.readFile('utf-8')
-        const authTokenMatch = npmrcContent.match(authTokenRegex)?.[1]
+        const npmConfig = parseINI<Record<string, string | undefined>>(npmrcContent)
+        const authToken = npmConfig[authTokenKey]
 
-        if (authTokenMatch) {
-          return authTokenMatch.trim()
+        if (authToken) {
+          return authToken.trim()
         }
       }
     }
