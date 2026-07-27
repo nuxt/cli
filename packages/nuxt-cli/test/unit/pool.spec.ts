@@ -84,7 +84,6 @@ describe('fork pool', () => {
     expect(exit).not.toHaveBeenCalled()
 
     const promoted = await createPool().getFork(context)
-    promoted.serving.catch(() => {})
     promoted.promote()
     forks.find(f => f.pid === promoted.pid)!.emit('close', 1, null)
     expect(exit).toHaveBeenCalledWith(1)

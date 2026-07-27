@@ -96,6 +96,10 @@ export class ForkPool {
     fork.state = 'active'
 
     const serving = this.trackServing(fork)
+    // Callers that never await `serving` (a caller that only wants the fork, or
+    // one that has already given up on it) must not turn its rejection into an
+    // unhandled rejection.
+    serving.catch(() => {})
     if (options.onMessage) {
       this.attachMessageHandler(fork.process, options.onMessage)
     }
