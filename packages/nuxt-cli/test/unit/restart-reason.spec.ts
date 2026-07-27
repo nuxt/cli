@@ -1,9 +1,10 @@
-import { sep } from 'node:path'
+import type { DevRestartReason } from '../../src/dev/reason'
 
+import { sep } from 'node:path'
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 
-import { formatRestartCause, formatRestartReason, mergeRestartReasons } from '../../src/dev/reason'
+import { formatChangedKeys, formatRestartCause, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from '../../src/dev/reason'
 
 const rootDir = '/project'
 const options = { rootDir, link: false } as const
@@ -37,9 +38,9 @@ describe('formatRestartCause', () => {
       .toBe('nuxt.config.ts, .nuxtrc and 1 other file changed')
   })
 
-  it('should append changed config keys when known', () => {
+  it('should leave changed config keys to the follow-up line', () => {
     expect(formatRestartCause({ type: 'config', files: [join(rootDir, 'nuxt.config.ts')], keys: ['ssr', 'modules'] }, options))
-      .toBe('nuxt.config.ts changed (ssr, modules)')
+      .toBe('nuxt.config.ts changed')
   })
 
   it('should describe non-file causes', () => {
@@ -59,6 +60,60 @@ describe('formatRestartReason', () => {
 
   it('should fall back to the action alone when no reason is known', () => {
     expect(formatRestartReason(undefined, options)).toBe('Reloading Nuxt...')
+  })
+})
+
+describe('formatSkippedReload', () => {
+  it('should name the saved files without promising a reload', () => {
+    expect(formatSkippedReload({ type: 'config', files: [join(rootDir, 'nuxt.config.ts')] }, options))
+      .toBe('nuxt.config.ts saved without changing config.')
+  })
+
+  it('should truncate longer file lists', () => {
+    const files = ['nuxt.config.ts', '.nuxtrc', '.nuxtignore'].map(file => join(rootDir, file))
+    expect(formatSkippedReload({ type: 'config', files }, options))
+      .toBe('nuxt.config.ts, .nuxtrc and 1 other file saved without changing config.')
+  })
+})
+
+describe('formatChangedKeys', () => {
+  it('should quote a single key', () => {
+    expect(formatChangedKeys(['ssr'])).toBe('`ssr` updated')
+  })
+
+  it('should join two keys', () => {
+    expect(formatChangedKeys(['ssr', 'modules'])).toBe('`ssr` and `modules` updated')
+  })
+
+  it('should truncate longer key lists', () => {
+    expect(formatChangedKeys(['ssr', 'modules', 'runtimeConfig.public.foo']))
+      .toBe('`ssr`, `modules` and 1 other key updated')
+    expect(formatChangedKeys(['ssr', 'modules', 'devtools', 'app.head.title']))
+      .toBe('`ssr`, `modules` and 2 other keys updated')
+  })
+
+  it('should report nothing when no keys changed', () => {
+    expect(formatChangedKeys([])).toBeUndefined()
+  })
+})
+
+describe('withConfigKeys', () => {
+  const reason: DevRestartReason = { type: 'config', files: [join(rootDir, 'nuxt.config.ts')] }
+
+  it('should sort the changed keys', () => {
+    expect(withConfigKeys(reason, ['ssr', 'modules', 'runtimeConfig.public.foo']))
+      .toMatchObject({ keys: ['modules', 'runtimeConfig.public.foo', 'ssr'] })
+  })
+
+  it('should leave the reason untouched when there are no keys', () => {
+    expect(withConfigKeys(reason, [])).toBe(reason)
+    expect(withConfigKeys(reason, undefined)).toBe(reason)
+    expect(withConfigKeys(undefined, ['ssr'])).toBeUndefined()
+  })
+
+  it('should ignore keys for reasons that are not config changes', () => {
+    const shortcut = { type: 'shortcut' } as const
+    expect(withConfigKeys(shortcut, ['ssr'])).toBe(shortcut)
   })
 })
 

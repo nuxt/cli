@@ -33,13 +33,22 @@ export function mergeRestartReasons(previous: DevRestartReason | undefined, next
   }
 }
 
+/**
+ * Record which `nuxt.config` keys changed on a config-triggered reload. Keys are
+ * sorted so the printed line does not reorder when config keys are moved around.
+ */
+export function withConfigKeys(reason: DevRestartReason | undefined, keys: string[] | undefined): DevRestartReason | undefined {
+  if (reason?.type !== 'config' || !keys?.length) {
+    return reason
+  }
+  return { ...reason, keys: [...keys].sort() }
+}
+
 /** Describe what caused a reload or restart, without saying what happens next. */
 export function formatRestartCause(reason: DevRestartReason, options: FormatRestartReasonOptions): string {
   switch (reason.type) {
-    case 'config': {
-      const keys = reason.keys?.length ? ` (${reason.keys.join(', ')})` : ''
-      return `${formatFileList(reason.files, options)} changed${keys}`
-    }
+    case 'config':
+      return `${formatFileList(reason.files, options)} changed`
     case 'dist-removed':
       return 'Build output was removed'
     case 'hook':
@@ -51,6 +60,19 @@ export function formatRestartCause(reason: DevRestartReason, options: FormatRest
   }
 }
 
+/** One line saying a config file was written without changing the resolved config. */
+export function formatSkippedReload(reason: Extract<DevRestartReason, { type: 'config' }>, options: FormatRestartReasonOptions): string {
+  return `${formatFileList(reason.files, options)} saved without changing config.`
+}
+
+/** Follow-up line naming the config keys a reload picked up. */
+export function formatChangedKeys(keys: string[]): string | undefined {
+  if (!keys.length) {
+    return undefined
+  }
+  return `${formatTruncatedList(keys.map(key => `\`${key}\``), 'key')} updated`
+}
+
 /** One line saying what caused a reload or restart and what is happening as a result. */
 export function formatRestartReason(reason: DevRestartReason | undefined, options: FormatRestartReasonOptions): string {
   const action = options.hard ? 'Restarting Nuxt in a new process' : 'Reloading Nuxt'
@@ -60,16 +82,20 @@ export function formatRestartReason(reason: DevRestartReason | undefined, option
   return `${formatRestartCause(reason, options)}. ${action}...`
 }
 
-const MAX_LISTED_FILES = 2
+const MAX_LISTED_ITEMS = 2
 
 function formatFileList(files: string[], options: FormatRestartReasonOptions): string {
   const names = files.map(file => options.link === false ? relativeTo(options.rootDir, file, { link: false }) : relativeTo(options.rootDir, file))
   if (names.length === 0) {
     return 'A file'
   }
-  if (names.length <= MAX_LISTED_FILES) {
-    return names.join(' and ')
+  return formatTruncatedList(names, 'file')
+}
+
+function formatTruncatedList(items: string[], noun: string): string {
+  if (items.length <= MAX_LISTED_ITEMS) {
+    return items.join(' and ')
   }
-  const remaining = names.length - MAX_LISTED_FILES
-  return `${names.slice(0, MAX_LISTED_FILES).join(', ')} and ${remaining} other file${remaining === 1 ? '' : 's'}`
+  const remaining = items.length - MAX_LISTED_ITEMS
+  return `${items.slice(0, MAX_LISTED_ITEMS).join(', ')} and ${remaining} other ${noun}${remaining === 1 ? '' : 's'}`
 }

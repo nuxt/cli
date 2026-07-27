@@ -19,6 +19,7 @@ import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
+import colors from 'picocolors'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 
@@ -27,12 +28,13 @@ import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
+import { debug } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError, renderErrorAnsi } from './error'
 import { listen } from './listen'
 import { resolvePortlessURLs } from './portless'
-import { formatRestartReason, mergeRestartReasons } from './reason'
+import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
@@ -150,6 +152,25 @@ export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpSe
   }
 }
 
+interface NuxtConfigDiffEntry {
+  key: string
+}
+
+/**
+ * `onConfigResolved` and `diffNuxtConfig` were added in a later `@nuxt/kit` than the one
+ * whose types are pinned here, and the kit is resolved from the user's project, so both are
+ * treated as optional capabilities. Older kits pass the unknown option through to `c12`,
+ * which ignores it.
+ */
+type LoadNuxtOptionsWithConfigDiff = Parameters<typeof import('@nuxt/kit').loadNuxt>[0] & {
+  onConfigResolved?: (ctx: { rawConfig: Record<string, unknown> }) => void | Promise<void>
+}
+
+function resolveConfigDiffer(kit: Awaited<ReturnType<typeof loadKit>>) {
+  const differ = (kit as { diffNuxtConfig?: (oldConfig: unknown, newConfig: unknown) => NuxtConfigDiffEntry[] }).diffNuxtConfig
+  return typeof differ === 'function' ? differ : undefined
+}
+
 interface DevServerEventMap {
   'loading:error': [error: Error]
   'loading': [loadingMessage: string]
@@ -172,6 +193,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #lockCleanup?: () => void
   #lockedBuildDir?: string
   #pendingReason?: DevRestartReason
+  #rawConfig?: Record<string, unknown>
+  #changedConfigKeys?: string[]
 
   loadDebounced: () => void
   handler: RequestListener
@@ -180,9 +203,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   constructor(private options: NuxtDevServerOptions) {
     super()
 
-    this.loadDebounced = debounce(() => {
+    this.loadDebounced = debounce(async () => {
       const reason = this.#pendingReason
       this.#pendingReason = undefined
+
+      if (reason?.type === 'config' && !this.#loadingError && await this.#isConfigUnchanged()) {
+        // eslint-disable-next-line no-console
+        console.info(formatSkippedReload(reason, { rootDir: this.#cwd }))
+        return
+      }
+
       return this.load(true, reason)
     })
 
@@ -306,10 +336,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#watchConfig()
   }
 
-  async #loadNuxtInstance(urls?: string[]): Promise<void> {
-    const kit = await loadKit(this.options.cwd)
-
-    const loadOptions: Parameters<typeof kit.loadNuxt>[0] = {
+  #createLoadOptions(urls?: string[]): LoadNuxtOptionsWithConfigDiff {
+    const loadOptions: LoadNuxtOptionsWithConfigDiff = {
       cwd: this.options.cwd,
       dev: true,
       ready: false,
@@ -332,6 +360,93 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       // Pass hostname and https info for proper CORS and allowedHosts setup
       const hostname = this.options.listenOverrides?.hostname
       loadOptions.defaults = resolveDevServerDefaults({ hostname, https: !!this.listener?.https }, urls)
+    }
+
+    return loadOptions
+  }
+
+  /**
+   * Resolve the config without instantiating Nuxt, to find out which keys a watched
+   * config file actually changed. Returns `undefined` when no comparison is possible
+   * (no baseline, an older `@nuxt/kit`, or a config that failed to load), in which case
+   * the caller should reload and let the normal path surface any error.
+   */
+  async #resolveConfigChange(urls?: string[]): Promise<string[] | undefined> {
+    const previous = this.#rawConfig
+    if (!previous) {
+      return undefined
+    }
+
+    const kit = await loadKit(this.options.cwd)
+    const diffNuxtConfig = resolveConfigDiffer(kit)
+    if (!diffNuxtConfig || typeof kit.loadNuxtConfig !== 'function') {
+      return undefined
+    }
+
+    let keys: string[] | undefined
+    const loadOptions = this.#createLoadOptions(urls)
+    loadOptions.onConfigResolved = ({ rawConfig }) => {
+      try {
+        keys = diffNuxtConfig(previous, rawConfig).map(entry => entry.key)
+      }
+      catch (error) {
+        // `ohash`'s diff walks the config without a cycle guard
+        debug('Could not diff nuxt config:', error)
+      }
+    }
+
+    try {
+      await kit.loadNuxtConfig(loadOptions)
+    }
+    catch (error) {
+      debug('Could not resolve nuxt config:', error)
+      return undefined
+    }
+
+    return keys
+  }
+
+  /**
+   * Report a reload as a single console entry, so the changed keys stay attached to the
+   * line they explain rather than being prefixed as a separate log message.
+   */
+  #reportReload(reason: DevRestartReason | undefined): void {
+    const lines = [formatRestartReason(reason, { rootDir: this.#cwd })]
+
+    const changedKeys = reason?.type === 'config' && formatChangedKeys(reason.keys ?? [])
+    if (changedKeys) {
+      lines.push(colors.dim(`  ${changedKeys}`))
+    }
+
+    // eslint-disable-next-line no-console
+    console.info(lines.join('\n'))
+  }
+
+  async #isConfigUnchanged(): Promise<boolean> {
+    const urls = this.listener?.getURLs().map(({ url }) => url)
+    return await this.#resolveConfigChange(urls).then(keys => keys?.length === 0)
+  }
+
+  async #loadNuxtInstance(urls?: string[]): Promise<void> {
+    const kit = await loadKit(this.options.cwd)
+    const loadOptions = this.#createLoadOptions(urls)
+
+    const diffNuxtConfig = resolveConfigDiffer(kit)
+    if (diffNuxtConfig) {
+      this.#changedConfigKeys = undefined
+      loadOptions.onConfigResolved = ({ rawConfig }) => {
+        const previous = this.#rawConfig
+        this.#rawConfig = rawConfig
+        if (previous) {
+          try {
+            this.#changedConfigKeys = diffNuxtConfig(previous, rawConfig).map(entry => entry.key)
+          }
+          catch (error) {
+            // `ohash`'s diff walks the config without a cycle guard
+            debug('Could not diff nuxt config:', error)
+          }
+        }
+      }
     }
 
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
@@ -615,16 +730,21 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#handler = undefined
     this.#settleInflightResponses()
     this.emit('loading', this.#loadingMessage)
-    if (reload) {
-      // eslint-disable-next-line no-console
-      console.info(formatRestartReason(reason, { rootDir: this.#cwd }))
-    }
 
     await this.close()
 
     const urls = this.listener.getURLs().map(({ url }) => url)
 
-    await this.#loadNuxtInstance(urls)
+    try {
+      // The changed config keys are only known once the config has been resolved,
+      // so the reason is reported after loading rather than before.
+      await this.#loadNuxtInstance(urls)
+    }
+    finally {
+      if (reload) {
+        this.#reportReload(withConfigKeys(reason, this.#changedConfigKeys))
+      }
+    }
 
     // Configure the Nuxt instance (shared logic with initial load)
     await this.#initializeNuxt(!!reload)
