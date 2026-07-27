@@ -18,7 +18,8 @@ const defaultProjectPkg = {
   dependencies: { '@nuxt/content': '^3.0.0' },
 }
 
-const readPackageJSON = vi.fn(() => Promise.resolve(defaultProjectPkg))
+const readPackageJSON = vi.fn((): Promise<Record<string, unknown>> => Promise.resolve(defaultProjectPkg))
+const readDependencyPackageJson = vi.fn((_name?: string): Promise<Record<string, unknown> | undefined> => Promise.resolve(undefined))
 
 interface CommandsType {
   subCommands: {
@@ -29,6 +30,7 @@ interface CommandsType {
 vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, removeNuxtConfigEntries }))
 vi.mock('nypm', () => ({ removeDependency, detectPackageManager }))
 vi.mock('pkg-types', () => ({ readPackageJSON }))
+vi.mock('../../../../src/utils/package-json', () => ({ readDependencyPackageJson }))
 vi.mock('@clack/prompts', async importOriginal => ({
   ...await importOriginal<typeof import('@clack/prompts')>(),
   confirm: (...args: unknown[]) => confirm(...(args as [])),
@@ -71,6 +73,7 @@ describe('module remove', () => {
     confirm.mockReset().mockResolvedValue(false)
     multiselect.mockReset().mockResolvedValue([])
     readPackageJSON.mockReset().mockImplementation(() => Promise.resolve(defaultProjectPkg))
+    readDependencyPackageJson.mockReset().mockImplementation(() => Promise.resolve(undefined))
   })
 
   it('should remove a Nuxt module by alias', async () => {
@@ -163,10 +166,10 @@ describe('module remove', () => {
   })
 
   it('should not uninstall a module that is not in dependencies', async () => {
-    readPackageJSON.mockImplementation((() => Promise.resolve({
+    readPackageJSON.mockImplementation(() => Promise.resolve({
       devDependencies: { nuxt: '3.0.0' },
       dependencies: {},
-    })) as typeof readPackageJSON)
+    }))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({
@@ -181,21 +184,16 @@ describe('module remove', () => {
 
   it('should remove orphaned peer dependencies when confirmed', async () => {
     confirm.mockResolvedValueOnce(true)
-    readPackageJSON.mockImplementation(((id?: string) => {
-      if (id === '@vee-validate/nuxt') {
-        return Promise.resolve({ peerDependencies: { 'vee-validate': '^4.0.0' } })
-      }
-      if (id === 'vee-validate' || id === 'nuxt') {
-        return Promise.resolve({})
-      }
-      return Promise.resolve({
-        devDependencies: { nuxt: '3.0.0' },
-        dependencies: {
-          '@vee-validate/nuxt': '1.0.0',
-          'vee-validate': '4.0.0',
-        },
-      })
-    }) as typeof readPackageJSON)
+    readPackageJSON.mockImplementation(() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {
+        '@vee-validate/nuxt': '1.0.0',
+        'vee-validate': '4.0.0',
+      },
+    }))
+    readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
+      name === '@vee-validate/nuxt' ? { peerDependencies: { 'vee-validate': '^4.0.0' } } : {},
+    ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({
@@ -214,21 +212,16 @@ describe('module remove', () => {
 
   it('should keep orphaned peer dependencies when declined', async () => {
     confirm.mockResolvedValueOnce(false)
-    readPackageJSON.mockImplementation(((id?: string) => {
-      if (id === '@vee-validate/nuxt') {
-        return Promise.resolve({ peerDependencies: { 'vee-validate': '^4.0.0' } })
-      }
-      if (id === 'vee-validate' || id === 'nuxt') {
-        return Promise.resolve({})
-      }
-      return Promise.resolve({
-        devDependencies: { nuxt: '3.0.0' },
-        dependencies: {
-          '@vee-validate/nuxt': '1.0.0',
-          'vee-validate': '4.0.0',
-        },
-      })
-    }) as typeof readPackageJSON)
+    readPackageJSON.mockImplementation(() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {
+        '@vee-validate/nuxt': '1.0.0',
+        'vee-validate': '4.0.0',
+      },
+    }))
+    readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
+      name === '@vee-validate/nuxt' ? { peerDependencies: { 'vee-validate': '^4.0.0' } } : {},
+    ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({
@@ -246,25 +239,23 @@ describe('module remove', () => {
   })
 
   it('should not treat a peer still required by another dependency as orphaned', async () => {
-    readPackageJSON.mockImplementation(((id?: string) => {
-      if (id === '@vee-validate/nuxt') {
+    readPackageJSON.mockImplementation(() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {
+        '@vee-validate/nuxt': '1.0.0',
+        'some-other-dep': '1.0.0',
+        'vee-validate': '4.0.0',
+      },
+    }))
+    readDependencyPackageJson.mockImplementation((name?: string) => {
+      if (name === '@vee-validate/nuxt') {
         return Promise.resolve({ peerDependencies: { 'vee-validate': '^4.0.0' } })
       }
-      if (id === 'some-other-dep') {
+      if (name === 'some-other-dep') {
         return Promise.resolve({ dependencies: { 'vee-validate': '^4.0.0' } })
       }
-      if (id === 'vee-validate' || id === 'nuxt') {
-        return Promise.resolve({})
-      }
-      return Promise.resolve({
-        devDependencies: { nuxt: '3.0.0' },
-        dependencies: {
-          '@vee-validate/nuxt': '1.0.0',
-          'some-other-dep': '1.0.0',
-          'vee-validate': '4.0.0',
-        },
-      })
-    }) as typeof readPackageJSON)
+      return Promise.resolve({})
+    })
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({

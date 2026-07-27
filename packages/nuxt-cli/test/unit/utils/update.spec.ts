@@ -39,11 +39,17 @@ vi.mock('../../../src/utils/registry', () => ({
   detectNpmRegistry: async () => registry.current,
 }))
 
-vi.mock('pkg-types', () => ({
-  readPackageJSON: async (id?: string) => {
-    if (id === 'nuxt') {
+vi.mock('../../../src/utils/package-json', () => ({
+  readDependencyPackageJson: async (name?: string) => {
+    if (name === 'nuxt') {
       return project.nuxtVersion ? { name: 'nuxt', version: project.nuxtVersion } : undefined
     }
+    return undefined
+  },
+}))
+
+vi.mock('pkg-types', () => ({
+  readPackageJSON: async () => {
     throw new Error('package.json not found')
   },
 }))

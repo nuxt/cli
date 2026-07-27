@@ -8,6 +8,7 @@ import { resolveCatalogEntry } from './catalog'
 import { fetchJson } from './fetch'
 import { tryResolveNuxt } from './kit'
 import { debug } from './logger'
+import { readDependencyPackageJson } from './package-json'
 import { detectNpmRegistry } from './registry'
 
 /** How long to wait on the registry before giving up on a version lookup. */
@@ -15,16 +16,17 @@ const FETCH_TIMEOUT = 10_000
 
 /**
  * Names a resolved `nuxt` dependency can legitimately have, so that a
- * `package.json` reached through `pkg-types`' nearest-file fallback (which
- * happens when `nuxt` cannot be resolved at all) is not mistaken for Nuxt's own.
+ * `package.json` reached by walking up from a resolved entry point (which happens
+ * when the package exposes no `./package.json` export) is not mistaken for Nuxt's
+ * own.
  */
 const NUXT_PACKAGE_NAMES = new Set(['nuxt', 'nuxt-nightly', 'nuxt3', 'nuxt-edge'])
 
 /** Assumed Nuxt version when the project declares no resolvable one. */
 export const DEFAULT_NUXT_VERSION = '3.0.0'
 
-export async function getNuxtVersion(cwd: string, cache = true) {
-  const nuxtPkg = await readPackageJSON('nuxt', { url: cwd, try: true, cache }).catch(() => null)
+export async function getNuxtVersion(cwd: string) {
+  const nuxtPkg = await readDependencyPackageJson('nuxt', cwd).catch(() => null)
   if (nuxtPkg?.version && NUXT_PACKAGE_NAMES.has(nuxtPkg.name!)) {
     return nuxtPkg.version
   }

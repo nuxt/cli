@@ -187,7 +187,7 @@ export default defineCommand({
     logger.step(`Package manager: ${colors.cyan(packageManagerName)} ${packageManagerVersion}`)
 
     // Check currently installed Nuxt version
-    const currentVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
+    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     logger.step(`Current Nuxt version: ${colors.cyan(currentVersion)}`)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
@@ -374,7 +374,7 @@ export default defineCommand({
     }
 
     // Check installed Nuxt version again
-    const upgradedVersion = (await getNuxtVersion(cwd, false)) || '[unknown]'
+    const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
 
     if (upgradedVersion === '[unknown]') {
       return

@@ -20,6 +20,7 @@ import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { getNuxtConfig } from '../utils/nuxt-config'
+import { readDependencyPackageJson } from '../utils/package-json'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
@@ -52,7 +53,7 @@ export default defineCommand({
         if (!url) {
           continue
         }
-        const pkg = await readPackageJSON(name, { url }).catch(() => null)
+        const pkg = await readDependencyPackageJson(name, url)
         if (pkg) {
           return pkg.version!
         }

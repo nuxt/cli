@@ -17,6 +17,7 @@ import { readNuxtConfig, removeNuxtConfigEntries } from '../../utils/config'
 import { CONFIG_KEYS } from '../../utils/config-parse'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
+import { readDependencyPackageJson } from '../../utils/package-json'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
@@ -258,7 +259,7 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
   // peer name -> first removed module that declares it
   const candidates = new Map<string, string>()
   for (const m of removing) {
-    const pkg = await readPackageJSON(m, { from: cwd }).catch(() => null)
+    const pkg = await readDependencyPackageJson(m, cwd)
     if (!pkg?.peerDependencies) {
       continue
     }
@@ -280,7 +281,7 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
     if (removingSet.has(dep) || candidates.has(dep)) {
       continue
     }
-    const depPkg = await readPackageJSON(dep, { from: cwd }).catch(() => null)
+    const depPkg = await readDependencyPackageJson(dep, cwd)
     if (!depPkg) {
       continue
     }
