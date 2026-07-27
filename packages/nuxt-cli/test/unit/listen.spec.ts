@@ -202,6 +202,35 @@ describe('listen', () => {
   })
 })
 
+describe('listener.close', () => {
+  it('should let an in-flight request finish', async () => {
+    let respond: (() => void) | undefined
+    const listener = await listen((_req, res) => {
+      respond = () => res.end('done')
+    }, { port: 0, hostname: '127.0.0.1', showURL: false })
+
+    const response = fetch(listener.url)
+    await vi.waitFor(() => expect(respond).toBeDefined())
+
+    const closed = listener.close()
+    respond!()
+
+    await expect((await response).text()).resolves.toBe('done')
+    await closed
+  })
+
+  it('should not wait for idle keep-alive connections', async () => {
+    const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', showURL: false })
+
+    await fetch(listener.url).then(response => response.text())
+
+    const start = Date.now()
+    await listener.close()
+
+    expect(Date.now() - start).toBeLessThan(500)
+  })
+})
+
 describe('copyURL', () => {
   afterEach(() => {
     restoreEnvironment()

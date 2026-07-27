@@ -69,6 +69,9 @@ const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const DEFAULT_PORTS = { http: 80, https: 443 } as const
 
+/** How long in-flight requests have to finish before their sockets are killed. */
+const CONNECTION_DRAIN_TIMEOUT_MS = 1000
+
 /**
  * Render a URL for display: the port is omitted when it is the protocol
  * default, and percent-encoding is decoded so a non-ASCII `baseURL` is
@@ -270,8 +273,23 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     close: async () => {
       await tunnel?.close()
       return new Promise<void>((resolve, reject) => {
-        server.close(error => (error ? reject(error) : resolve()))
-        server.closeAllConnections?.()
+        let forceClose: NodeJS.Timeout | undefined
+        server.close((error) => {
+          if (forceClose) {
+            clearTimeout(forceClose)
+          }
+          if (error) {
+            reject(error)
+          }
+          else {
+            resolve()
+          }
+        })
+        // Sockets waiting on keep-alive are closed at once, so shutdown is only
+        // delayed while a request is actually being served.
+        server.closeIdleConnections?.()
+        forceClose = setTimeout(() => server.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+        forceClose.unref()
       })
     },
   }
