@@ -153,6 +153,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   let closePromise: Promise<void> | undefined
 
+  const armRestart = createRestartHook(devServer)
+
   return {
     listener: devServer.listener,
     reload: (reason?: DevRestartReason) => devServer.load(true, reason),
@@ -182,26 +184,53 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     onFileChange: (callback: () => void) => {
       devServer.once('change', callback)
     },
-    onRestart: (callback: (reason?: DevRestartReason) => void) => {
-      let restarted = false
-      function restart(reason?: DevRestartReason) {
-        if (!restarted) {
-          restarted = true
-          process.off('uncaughtException', restartOnError)
-          process.off('unhandledRejection', restartOnError)
-          callback(reason)
-        }
-      }
-      function restartOnError(error: unknown) {
-        if (isBrokenPipe(error)) {
-          debug('Ignoring broken pipe:', error)
-          return
-        }
-        restart({ type: 'error', message: formatErrorMessage(error) })
-      }
-      devServer.once('restart', restart)
-      process.on('uncaughtException', restartOnError)
-      process.on('unhandledRejection', restartOnError)
-    },
+    onRestart: armRestart,
+  }
+}
+
+interface RestartSource {
+  once: (event: 'restart', handler: (reason?: DevRestartReason) => void) => void
+}
+
+/**
+ * Connect the triggers for a hard restart (an explicit `restart` event, and
+ * errors that leave this process unable to serve) to a single callback, which
+ * fires at most once per arming. Re-arming after a restart that could not be
+ * completed swaps the callback in without stacking another set of listeners.
+ */
+export function createRestartHook(source: RestartSource): (callback: (reason?: DevRestartReason) => void) => void {
+  let callback: ((reason?: DevRestartReason) => void) | undefined
+  let fired = false
+  let armed = false
+
+  function restart(reason?: DevRestartReason) {
+    if (fired) {
+      return
+    }
+    fired = true
+    armed = false
+    process.off('uncaughtException', restartOnError)
+    process.off('unhandledRejection', restartOnError)
+    callback?.(reason)
+  }
+
+  function restartOnError(error: unknown) {
+    if (isBrokenPipe(error)) {
+      debug('Ignoring broken pipe:', error)
+      return
+    }
+    restart({ type: 'error', message: formatErrorMessage(error) })
+  }
+
+  return (next: (reason?: DevRestartReason) => void) => {
+    callback = next
+    fired = false
+    if (armed) {
+      return
+    }
+    armed = true
+    source.once('restart', restart)
+    process.on('uncaughtException', restartOnError)
+    process.on('unhandledRejection', restartOnError)
   }
 }
