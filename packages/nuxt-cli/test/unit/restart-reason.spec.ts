@@ -1,3 +1,5 @@
+import { sep } from 'node:path'
+
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 
@@ -14,7 +16,7 @@ describe('formatRestartCause', () => {
 
   it('should name nested config files relative to the root directory', () => {
     expect(formatRestartCause({ type: 'config', files: [join(rootDir, '.config/nuxt.ts')] }, options))
-      .toBe('.config/nuxt.ts changed')
+      .toBe(`.config${sep}nuxt.ts changed`)
   })
 
   it('should list two files without truncating', () => {
