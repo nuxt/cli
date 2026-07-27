@@ -51,12 +51,12 @@ describe('formatRestartCause', () => {
 describe('formatRestartReason', () => {
   it('should distinguish an in-place reload from a hard restart', () => {
     const reason = { type: 'shortcut' } as const
-    expect(formatRestartReason(reason, options)).toBe('Restart requested. Reloading Nuxt in place...')
+    expect(formatRestartReason(reason, options)).toBe('Restart requested. Reloading Nuxt...')
     expect(formatRestartReason(reason, { ...options, hard: true })).toBe('Restart requested. Restarting Nuxt in a new process...')
   })
 
   it('should fall back to the action alone when no reason is known', () => {
-    expect(formatRestartReason(undefined, options)).toBe('Reloading Nuxt in place...')
+    expect(formatRestartReason(undefined, options)).toBe('Reloading Nuxt...')
   })
 })
 
