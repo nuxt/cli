@@ -6,7 +6,7 @@ import type { Tunnel } from './tunnel'
 import { spawn } from 'node:child_process'
 import { createServer as createHttpServer } from 'node:http'
 import { createServer as createHttpsServer } from 'node:https'
-import { networkInterfaces, release } from 'node:os'
+import { networkInterfaces } from 'node:os'
 import process from 'node:process'
 
 import { getPort } from 'get-port-please'
@@ -14,6 +14,7 @@ import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
 import { resolveCertificate } from './cert'
+import { detectIsolatedEnvironment, isWsl } from './environment'
 import { resolvePortlessURLs } from './portless'
 import { startTunnel } from './tunnel'
 
@@ -64,6 +65,7 @@ export interface Listener {
 }
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 
 const HOSTNAME_RE = /^(?!-)[\d.:a-z-]{1,253}(?<!-)$/i
 
@@ -202,7 +204,11 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
       lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), qr && displayURL === qrURL))
     }
     if (!anyHost && !tunnel && !portless.url) {
-      lines.push(line(colors.magenta, 'Network:', colors.gray(`use ${colors.white('--host')} to expose`), false))
+      const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
+      const hint = isolated
+        ? `use ${colors.white('--host')} to reach this server from outside ${isolated}`
+        : `use ${colors.white('--host')} to expose`
+      lines.push(line(colors.magenta, 'Network:', colors.gray(hint), false))
     }
     if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
       lines.push(line(colors.magenta, 'Public:', colors.cyan(publicURL), qr && publicURL === qrURL))
@@ -365,18 +371,14 @@ export function resolveOpenCommand(
       : [browser, [...browserArgs, url]]
   }
 
-  // WSL reports itself as Linux but has no X server, so `xdg-open` fails there;
-  // `cmd.exe` opens the browser on the Windows side instead. WSL1 spells the
-  // release `Microsoft`, WSL2 `microsoft-standard-WSL2`.
-  const isWSL = platform === 'linux'
-    && (!!env.WSL_DISTRO_NAME || release().toLowerCase().includes('microsoft'))
-
   if (platform === 'darwin') {
     return ['open', [url]]
   }
   // `cmd /c start` owns the arcane quoting rules; `""` is a dummy window title
   // (otherwise `start` treats a quoted URL as one), and `&`/`^` need escaping.
-  if (platform === 'win32' || isWSL) {
+  // WSL reports itself as Linux but has no X server, so `xdg-open` fails there;
+  // `cmd.exe` opens the browser on the Windows side instead.
+  if (platform === 'win32' || isWsl(platform, env)) {
     return ['cmd.exe', ['/c', 'start', '""', url.replace(/[&^]/g, '^$&')]]
   }
   return ['xdg-open', [url]]
