@@ -1,3 +1,4 @@
+import { existsSync, statSync } from 'node:fs'
 import { delimiter, relative } from 'node:path'
 import process from 'node:process'
 import { link } from 'clickable-path'
@@ -26,6 +27,27 @@ export function resolveRootDir(args: { cwd?: string, rootDir?: string }): string
   }
 
   return resolved
+}
+
+/**
+ * The directory whose Nuxt version a command will actually use, given the root
+ * command's arguments. Commands taking a ROOTDIR positional (`nuxt dev
+ * playground`) run against it rather than against `--cwd`, and a version read
+ * from the wrong directory is worse than no version at all. Positionals that
+ * are not directories belong to some other command shape (`nuxt add page foo`).
+ *
+ * `args` are the root command's, so `_[0]` is the subcommand and `_[1]` is the
+ * first argument to it.
+ */
+export function resolveProjectDir(args: { cwd: string, _: string[] }): string {
+  const [, rootDir] = args._
+  if (args.cwd === '.' && rootDir && !rootDir.startsWith('-')) {
+    const candidate = resolve(rootDir)
+    if (existsSync(candidate) && statSync(candidate).isDirectory()) {
+      return candidate
+    }
+  }
+  return resolve(args.cwd)
 }
 
 export function relativeToProcess(path: string) {

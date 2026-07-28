@@ -15,11 +15,13 @@ import { runCommand } from './run'
 import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
-
-import { logger } from './utils/logger'
+import { getCreateCommand } from './utils/headless'
+import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
+import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
 import { scheduleUpdateNudge } from './utils/update'
+import { scheduleSelfUpdateNudge } from './utils/update-check'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
 // the current process proxy-aware; it propagates the setting to child processes
@@ -46,18 +48,18 @@ const _main = defineCommand({
     const command = ctx.args._[0]
     setupGlobalConsole({ dev: command === 'dev' })
 
-    // Check Node.js version and Nuxt updates in background
-    let backgroundTasks: Promise<any> | undefined
     if (command !== '_dev' && provider !== 'stackblitz') {
-      backgroundTasks = Promise.all([
-        checkEngines(),
-        scheduleUpdateNudge(resolve(ctx.args.cwd), command),
-      ]).catch(err => logger.error(String(err)))
-    }
-
-    // Avoid background check to fix prompt issues
-    if (command === 'init') {
-      await backgroundTasks
+      // The engine check is awaited so its warning cannot land in the middle of
+      // a prompt, but the update checks are left running: they reach the user
+      // through a `process.exit` handler, and a slow or unreachable registry
+      // must never hold up the command.
+      await checkEngines().catch(err => logger.error(String(err)))
+      void Promise.all([
+        scheduleUpdateNudge(resolveProjectDir(ctx.args), command),
+        ...(command === 'init'
+          ? [scheduleSelfUpdateNudge(name, version, { name, command: getCreateCommand() })]
+          : []),
+      ]).catch(err => debug('Failed to check for updates:', err))
     }
 
     if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
