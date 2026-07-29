@@ -9,21 +9,12 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
   try {
     const kitPath = resolveModulePath('@nuxt/kit', { from: tryResolveNuxt(rootDir) || rootDir })
 
-    let kit: typeof import('@nuxt/kit') = await import(pathToFileURL(kitPath).href)
-    if (!kit.writeTypes) {
-      kit = {
-        ...kit,
-        writeTypes: () => {
-          throw new Error('`writeTypes` is not available in this version of `@nuxt/kit`. Please upgrade to v3.7 or newer.')
-        },
-      }
-    }
-    return kit
+    return await import(pathToFileURL(kitPath).href) as typeof import('@nuxt/kit')
   }
   catch (e: any) {
     if (KIT_NOT_FOUND_RE.test(String(e))) {
       throw new Error(
-        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ or `@nuxt/bridge` first.',
+        'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ first.',
       )
     }
     throw e
@@ -31,7 +22,7 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
 }
 
 export function tryResolveNuxt(rootDir: string) {
-  for (const pkg of ['nuxt-nightly', 'nuxt', 'nuxt3', 'nuxt-edge']) {
+  for (const pkg of ['nuxt-nightly', 'nuxt']) {
     const path = resolveModulePath(pkg, { from: withNodePath(rootDir), try: true })
     if (path) {
       return path

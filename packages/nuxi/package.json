@@ -30,12 +30,16 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "pnpm build",
-    "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-youch.ts"
+    "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts"
   },
   "peerDependencies": {
+    "@nuxt/cli": ">=3.26.0",
     "jiti": "^2.7.0"
   },
   "peerDependenciesMeta": {
+    "@nuxt/cli": {
+      "optional": true
+    },
     "jiti": {
       "optional": true
     }

@@ -79,15 +79,8 @@ export default defineCommand({
     }
 
     // Check Nuxt version
-    const nuxtVersion = await getDepVersion('nuxt') || await getDepVersion('nuxt-nightly') || await getDepVersion('nuxt-edge') || await getDepVersion('nuxt3') || '-'
-    const isLegacy = nuxtVersion.startsWith('2')
-    const builder = !isLegacy
-      ? nuxtConfig.builder /* latest schema */ || 'vite'
-      : (nuxtConfig as any /* nuxt v2 */).bridge?.vite
-          ? 'vite' /* bridge vite implementation */
-          : (nuxtConfig as any /* nuxt v2 */).buildModules?.includes('nuxt-vite')
-              ? 'vite' /* nuxt-vite */
-              : 'webpack'
+    const nuxtVersion = await getDepVersion('nuxt') || await getDepVersion('nuxt-nightly') || '-'
+    const builder = nuxtConfig.builder || 'vite'
 
     let packageManager = (await detectPackageManager(cwd))?.name
 
@@ -120,9 +113,6 @@ export default defineCommand({
         .sort()
         .join(', '),
       'Modules': await listModules(nuxtConfig.modules),
-      ...isLegacy
-        ? { 'Build modules': await listModules((nuxtConfig as any /* nuxt v2 */).buildModules || []) }
-        : {},
     }
 
     logger.info(`Nuxt root directory: ${colors.cyan(nuxtConfig.rootDir || cwd)}\n`)
@@ -169,19 +159,13 @@ export default defineCommand({
       logger.info(`Nuxt project info:\n${copyStr}`, { withGuide: false })
     }
 
-    const isNuxt3 = !isLegacy
-    const isBridge = !isNuxt3 && infoObj['Build modules']?.includes('bridge')
-    const repo = isBridge ? 'nuxt/bridge' : 'nuxt/nuxt'
-    const docsURL = (isNuxt3 || isBridge) ? 'https://nuxt.com' : 'https://v2.nuxt.com'
-    logger.info(`👉 Read documentation: ${colors.cyan(docsURL)}`)
-    if (isNuxt3 || isBridge) {
-      logger.info(`👉 Report an issue: ${colors.cyan(`https://github.com/${repo}/issues/new?template=bug-report.yml`)}`, {
-        spacing: 0,
-      })
-      logger.info(`👉 Suggest an improvement: ${colors.cyan(`https://github.com/${repo}/discussions/new`)}`, {
-        spacing: 0,
-      })
-    }
+    logger.info(`👉 Read documentation: ${colors.cyan('https://nuxt.com')}`)
+    logger.info(`👉 Report an issue: ${colors.cyan('https://github.com/nuxt/nuxt/issues/new?template=bug-report.yml')}`, {
+      spacing: 0,
+    })
+    logger.info(`👉 Suggest an improvement: ${colors.cyan('https://github.com/nuxt/nuxt/discussions/new')}`, {
+      spacing: 0,
+    })
   },
 })
 

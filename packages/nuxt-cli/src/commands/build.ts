@@ -96,18 +96,8 @@ export default defineCommand({
       }
       releaseLock = lock.release
 
-      let nitro: ReturnType<typeof kit.useNitro> | undefined
-      // In Bridge, if Nitro is not enabled, useNitro will throw an error
-      try {
-        // Use ? for backward compatibility for Nuxt <= RC.10
-        nitro = kit.useNitro?.()
-        if (nitro) {
-          logger.info(`Nitro preset: ${colors.cyan(nitro.options.preset)}`)
-        }
-      }
-      catch {
-        //
-      }
+      const nitro = kit.useNitro()
+      logger.info(`Nitro preset: ${colors.cyan(nitro.options.preset)}`)
 
       await clearBuildDir(nuxt.options.buildDir)
 
@@ -129,7 +119,7 @@ export default defineCommand({
           logger.info(`You can read more in ${colors.cyan('https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
         }
         // TODO: revisit later if/when nuxt build --prerender will output hybrid
-        const dir = nitro?.options.output.publicDir
+        const dir = nitro.options.output.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
         outro(`✨ You can now deploy ${colors.cyan(publicDir)} to any static hosting! ${colors.gray(`(${formatDuration(Date.now() - start)})`)}`)
       }

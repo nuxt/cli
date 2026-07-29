@@ -566,8 +566,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#currentNuxt.ready()
 
-    const unsub = this.#currentNuxt.hooks.hook('restart', async (options) => {
-      unsub() // We use this instead of `hookOnce` for Nuxt Bridge support
+    this.#currentNuxt.hooks.hookOnce('restart', async (options) => {
       if (options?.hard) {
         this.emit('restart', { type: 'hook' })
         return
@@ -897,7 +896,7 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
   return () => configDirWatcher.close()
 }
 
-// Nuxt <3.6 did not have the loading template defined in the schema
+// Fallback for requests that arrive before the Nuxt instance has loaded
 async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
   const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
   const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: withNodePath(nuxtPath || cwd) })

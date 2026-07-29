@@ -119,6 +119,10 @@ importers:
         version: link:../create-nuxt
 
   packages/nuxi:
+    dependencies:
+      '@nuxt/cli':
+        specifier: workspace:*
+        version: link:../nuxt-cli
     devDependencies:
       '@types/node':
         specifier: ^24.13.3

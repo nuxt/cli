@@ -6,9 +6,6 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   entry: fileURLToPath(
     new URL('../../bin/nuxi.mjs', import.meta.url),
   ),
-  devEntry: fileURLToPath(
-    new URL('../dev/index.mjs', import.meta.url),
-  ),
 }
 
 // To provide subcommands call it as `runCommand(<command>, [<subcommand>, ...])`
