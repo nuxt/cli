@@ -3,8 +3,12 @@ import type { NuxtConfig } from '@nuxt/schema'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
+import { consola } from 'consola'
 import { resolveModulePath } from 'exsolve'
+
 import { join } from 'pathe'
+
+const MODULE_NOT_FOUND_CODES = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND'])
 
 const CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
 
@@ -39,11 +43,11 @@ export async function getNuxtConfig(rootDir: string) {
       if (!LOADER_REQUIRED_CODES.has((error as NodeJS.ErrnoException).code!)) {
         throw error
       }
-      return await importConfigWithJiti(rootDir)
+      return await importConfigWithJiti(rootDir, error)
     }
   }
-  catch {
-    // TODO: Show error as warning if it is not 404
+  catch (error) {
+    consola.warn(`Failed to load \`${configFile}\`: ${error instanceof Error ? error.message : String(error)}`)
     return {}
   }
   finally {
@@ -74,12 +78,27 @@ async function importWithoutTypelessWarning(href: string): Promise<NuxtConfig> {
 }
 
 /**
- * `jiti` is an optional peer dependency, so it is only present when the project
- * (or something in its tree) depends on it. Nuxt does, so this is the normal path
- * for configs that native `import()` cannot handle.
+ * `jiti` is an optional peer dependency, so the plain import is the normal
+ * path when the CLI is installed in a project. When the CLI runs from outside
+ * the project (`npx nuxi`), it is instead resolved from the user's project,
+ * where Nuxt provides it.
  */
-async function importConfigWithJiti(rootDir: string) {
-  const { createJiti } = await import('jiti')
+async function importConfigWithJiti(rootDir: string, cause: unknown) {
+  const { createJiti } = await import('jiti').catch(async (error) => {
+    // a `jiti` that resolves but fails to evaluate is a real error, not a missing peer
+    const code = (error as NodeJS.ErrnoException).code
+    if (code && !MODULE_NOT_FOUND_CODES.has(code)) {
+      throw error
+    }
+    const jitiPath = resolveModulePath('jiti', {
+      try: true,
+      from: pathToFileURL(join(rootDir, '/')).href,
+    })
+    if (!jitiPath) {
+      throw new Error(`${(cause as Error)?.message}. Hint: install \`jiti\` for compatibility.`, { cause })
+    }
+    return await import(pathToFileURL(jitiPath).href) as typeof import('jiti')
+  })
   const jiti = createJiti(rootDir, {
     interopDefault: true,
     // allow using `~` and `@` in `nuxt.config`
