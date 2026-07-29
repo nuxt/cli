@@ -8,6 +8,8 @@ import { resolveModulePath } from 'exsolve'
 
 import { join } from 'pathe'
 
+const MODULE_NOT_FOUND_CODES = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND'])
+
 const CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
 
 /**
@@ -45,7 +47,7 @@ export async function getNuxtConfig(rootDir: string) {
     }
   }
   catch (error) {
-    consola.warn(`Failed to load \`${configFile}\`: ${(error as Error).message}`)
+    consola.warn(`Failed to load \`${configFile}\`: ${error instanceof Error ? error.message : String(error)}`)
     return {}
   }
   finally {
@@ -82,7 +84,12 @@ async function importWithoutTypelessWarning(href: string): Promise<NuxtConfig> {
  * where Nuxt provides it.
  */
 async function importConfigWithJiti(rootDir: string, cause: unknown) {
-  const { createJiti } = await import('jiti').catch(async () => {
+  const { createJiti } = await import('jiti').catch(async (error) => {
+    // a `jiti` that resolves but fails to evaluate is a real error, not a missing peer
+    const code = (error as NodeJS.ErrnoException).code
+    if (code && !MODULE_NOT_FOUND_CODES.has(code)) {
+      throw error
+    }
     const jitiPath = resolveModulePath('jiti', {
       try: true,
       from: pathToFileURL(join(rootDir, '/')).href,
