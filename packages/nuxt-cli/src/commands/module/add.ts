@@ -474,7 +474,6 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     !entry.isLayer
     && !subpath
     && !pkgDependencies.nuxt
-    && !pkgDependencies['nuxt-edge']
     && !pkgDependencies['@nuxt/kit']
   ) {
     logger.warn(`It seems that ${colors.cyan(pkgName)} is not a Nuxt module.`)

@@ -1,5 +1,4 @@
 import type { CommandDef } from 'citty'
-import type { TemplateName } from '../../nuxt-cli/src/utils/templates/names'
 
 import nodeCrypto from 'node:crypto'
 import { builtinModules, createRequire } from 'node:module'
@@ -10,14 +9,12 @@ import { runMain as _runMain, defineCommand } from 'citty'
 import colors from 'picocolors'
 import { provider } from 'std-env'
 
-import { commands } from '../../nuxt-cli/src/commands'
 import { cwdArgs } from '../../nuxt-cli/src/commands/_shared'
+import { isNuxiCommand } from '../../nuxt-cli/src/commands/_utils'
 import { setupGlobalConsole } from '../../nuxt-cli/src/utils/console'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
-import { templateNames } from '../../nuxt-cli/src/utils/templates/names'
 import { description, name, version } from '../package.json'
-import { runCommand } from './run'
 
 // globalThis.crypto support for Node.js 18
 if (!globalThis.crypto) {
@@ -34,6 +31,10 @@ if (!process.getBuiltinModule) {
     }
   }
 }
+
+const commands = {
+  init: () => import('../../nuxt-cli/src/commands/init').then(m => m.default || m),
+} as const
 
 const _main = defineCommand({
   meta: {
@@ -56,7 +57,7 @@ const _main = defineCommand({
 
     // Check Node.js version in background
     let backgroundTasks: Promise<any> | undefined
-    if (command !== '_dev' && provider !== 'stackblitz') {
+    if (provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
         checkEngines(),
       ]).catch(err => logger.error(String(err)))
@@ -67,19 +68,14 @@ const _main = defineCommand({
       await backgroundTasks
     }
 
-    if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
-      logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
-      logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
-      const addTemplate = await import('../../nuxt-cli/src/commands/add-template').then(m => m.default || m)
-      await runCommand(addTemplate, [...ctx.rawArgs.slice(1)]).catch((err) => {
-        console.error(err.message)
-        process.exit(1)
-      })
-      process.exit(0)
-    }
-
-    // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
     if (ctx.args.command && !(ctx.args.command in commands)) {
+      if (isNuxiCommand(ctx.args.command)) {
+        logger.error(`\`nuxt ${ctx.args.command}\` is provided by the \`@nuxt/cli\` installed with Nuxt in your project, and no usable version was found.`)
+        logger.info(`Run this command from your Nuxt project directory, or install Nuxt first (for example with ${colors.cyan('npx nuxi init')} or ${colors.cyan('npm install nuxt')}).`)
+        process.exit(1)
+      }
+
+      // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
       const cwd = resolve(ctx.args.cwd)
       try {
         const { x } = await import('tinyexec')

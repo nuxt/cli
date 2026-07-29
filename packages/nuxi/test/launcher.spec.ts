@@ -76,12 +76,11 @@ describe('loadProjectCli', () => {
     expect(loadProjectCli(['init', root])).toBeNull()
   })
 
-  it('should fall back to a legacy `nuxi` dependency', () => {
+  it('should ignore a legacy `nuxi` dependency', () => {
+    process.chdir(createProject('without-cli', {}))
     const root = createProject('with-legacy', { nuxi: '3.20.0' })
 
-    const cli = loadProjectCli(['dev', '--cwd', root])
-    expect(cli?.name).toBe('nuxi')
-    expect(cli?.version).toBe('3.20.0')
+    expect(loadProjectCli(['dev', '--cwd', root])).toBeNull()
   })
 
   it('should ignore a project CLI that is too old to hand off to', () => {
@@ -90,8 +89,8 @@ describe('loadProjectCli', () => {
     const nuxt2Cli = createProject('with-nuxt-2-cli', { '@nuxt/cli': '2.16.0' })
     expect(loadProjectCli(['dev', '--cwd', nuxt2Cli])).toBeNull()
 
-    const oldNuxi = createProject('with-old-nuxi', { nuxi: '0.10.0' })
-    expect(loadProjectCli(['dev', '--cwd', oldNuxi])).toBeNull()
+    const preDevEntry = createProject('with-pre-dev-entry-cli', { '@nuxt/cli': '3.25.1' })
+    expect(loadProjectCli(['dev', '--cwd', preDevEntry])).toBeNull()
   })
 
   it('should report a missing dev entry', () => {
@@ -102,8 +101,8 @@ describe('loadProjectCli', () => {
 
   it('should never hand off to the launcher\'s own package', () => {
     const root = createProject('with-self', {})
-    mkdirSync(join(root, 'node_modules'), { recursive: true })
-    symlinkSync(fileURLToPath(new URL('../', import.meta.url)), join(root, 'node_modules', 'nuxi'), 'junction')
+    mkdirSync(join(root, 'node_modules', '@nuxt'), { recursive: true })
+    symlinkSync(fileURLToPath(new URL('../', import.meta.url)), join(root, 'node_modules', '@nuxt', 'cli'), 'junction')
     process.chdir(root)
 
     expect(loadProjectCli(['dev'])).toBeNull()

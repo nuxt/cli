@@ -566,8 +566,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#currentNuxt.ready()
 
-    const unsub = this.#currentNuxt.hooks.hook('restart', async (options) => {
-      unsub() // We use this instead of `hookOnce` for Nuxt Bridge support
+    this.#currentNuxt.hooks.hookOnce('restart', async (options) => {
       if (options?.hard) {
         this.emit('restart', { type: 'hook' })
         return

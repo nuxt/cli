@@ -24,7 +24,7 @@ describe('loadKit', () => {
     const rootDir = await mkdtemp(join(tmpdir(), 'nuxi-kit-'))
 
     await expect(loadKit(rootDir)).rejects.toThrowError(
-      'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ or `@nuxt/bridge` first.',
+      'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ first.',
     )
   })
 })

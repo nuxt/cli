@@ -20,7 +20,7 @@ const FETCH_TIMEOUT = 10_000
  * when the package exposes no `./package.json` export) is not mistaken for Nuxt's
  * own.
  */
-const NUXT_PACKAGE_NAMES = new Set(['nuxt', 'nuxt-nightly', 'nuxt3', 'nuxt-edge'])
+const NUXT_PACKAGE_NAMES = new Set(['nuxt', 'nuxt-nightly'])
 
 /** Assumed Nuxt version when the project declares no resolvable one. */
 export const DEFAULT_NUXT_VERSION = '3.0.0'

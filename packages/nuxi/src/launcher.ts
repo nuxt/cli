@@ -16,13 +16,11 @@ const BACKSLASH_RE = /\\/g
 const launcherDist = comparablePath(join(fileURLToPath(new URL('../', import.meta.url)), 'dist'))
 
 /**
- * Oldest project CLI worth handing off to. `@nuxt/cli` v2 is the (unrelated)
- * Nuxt 2 CLI, and `nuxi` below v3 predates the `runMain` entry.
+ * Oldest project CLI worth handing off to: 3.26.0 is the first release that
+ * ships the forkable dev entry alongside `runMain`. (`@nuxt/cli` v2 is the
+ * unrelated Nuxt 2 CLI.)
  */
-const MIN_PROJECT_CLI: Record<string, [major: number, minor: number]> = {
-  '@nuxt/cli': [3, 20],
-  'nuxi': [3, 0],
-}
+const MIN_PROJECT_CLI: [major: number, minor: number] = [3, 26]
 
 /**
  * Run the requested command with the `@nuxt/cli` installed in the user's
@@ -57,25 +55,21 @@ export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
   for (const dir of candidateDirs(rawArgs)) {
     // trailing separators keep `exsolve` from treating the directories as files
     const from = [tryResolveNuxt(dir), ...withNodePath(dir).map(path => join(path, '/'))].filter(Boolean) as string[]
-    // older versions of `nuxt` depend on `nuxi` rather than on `@nuxt/cli`
-    for (const name of ['@nuxt/cli', 'nuxi']) {
-      const entry = resolveModulePath(name, { from, try: true })
-      // resolving to our own build (a global or `npx` install of `nuxi`) would recurse
-      if (!entry || comparablePath(entry).startsWith(`${launcherDist}/`)) {
-        continue
-      }
-      const pkg = findPackage(entry, name)
-      const minimum = MIN_PROJECT_CLI[name]
-      if (pkg?.version && minimum && !isAtLeast(pkg.version, minimum)) {
-        continue
-      }
-      const devEntry = pkg && join(pkg.root, 'dist/dev/index.mjs')
-      return {
-        name,
-        version: pkg?.version,
-        entry,
-        devEntry: devEntry && existsSync(devEntry) ? devEntry : undefined,
-      }
+    const entry = resolveModulePath('@nuxt/cli', { from, try: true })
+    // resolving to our own build (a global or `npx` install of `nuxi`) would recurse
+    if (!entry || comparablePath(entry).startsWith(`${launcherDist}/`)) {
+      continue
+    }
+    const pkg = findPackage(entry, '@nuxt/cli')
+    if (pkg?.version && !isAtLeast(pkg.version, MIN_PROJECT_CLI)) {
+      continue
+    }
+    const devEntry = pkg && join(pkg.root, 'dist/dev/index.mjs')
+    return {
+      name: '@nuxt/cli',
+      version: pkg?.version,
+      entry,
+      devEntry: devEntry && existsSync(devEntry) ? devEntry : undefined,
     }
   }
   return null

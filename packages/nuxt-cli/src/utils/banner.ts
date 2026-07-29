@@ -27,7 +27,7 @@ export function showBanner(nuxt: Nuxt) {
   const { bold, gray, green } = colors
   const cwd = nuxt.options.rootDir
 
-  const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || getPkgVersion(cwd, 'nuxt3') || getPkgVersion(cwd, 'nuxt-edge')
+  const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly')
 
   const nitroVia = { via: ['nuxt', '@nuxt/nitro-server'] }
   const nitroVersion = getPkgVersion(cwd, 'nitropack', nitroVia) || getPkgVersion(cwd, 'nitro', nitroVia) || getPkgVersion(cwd, 'nitropack-nightly') || getPkgVersion(cwd, 'nitropack-edge')

@@ -97,7 +97,6 @@ export default defineCommand({
       releaseLock = lock.release
 
       let nitro: ReturnType<typeof kit.useNitro> | undefined
-      // In Bridge, if Nitro is not enabled, useNitro will throw an error
       try {
         // Use ? for backward compatibility for Nuxt <= RC.10
         nitro = kit.useNitro?.()
