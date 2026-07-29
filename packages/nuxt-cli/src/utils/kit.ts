@@ -9,16 +9,7 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
   try {
     const kitPath = resolveModulePath('@nuxt/kit', { from: tryResolveNuxt(rootDir) || rootDir })
 
-    let kit: typeof import('@nuxt/kit') = await import(pathToFileURL(kitPath).href)
-    if (!kit.writeTypes) {
-      kit = {
-        ...kit,
-        writeTypes: () => {
-          throw new Error('`writeTypes` is not available in this version of `@nuxt/kit`. Please upgrade to v3.7 or newer.')
-        },
-      }
-    }
-    return kit
+    return await import(pathToFileURL(kitPath).href) as typeof import('@nuxt/kit')
   }
   catch (e: any) {
     if (KIT_NOT_FOUND_RE.test(String(e))) {
