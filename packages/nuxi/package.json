@@ -32,6 +32,14 @@
     "prepack": "pnpm build",
     "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-youch.ts"
   },
+  "peerDependencies": {
+    "jiti": "^2.7.0"
+  },
+  "peerDependenciesMeta": {
+    "jiti": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@types/node": "^24.13.3",
     "citty": "^0.2.2",
