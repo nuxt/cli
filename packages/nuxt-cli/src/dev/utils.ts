@@ -33,8 +33,10 @@ import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
+import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
+import { DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 
 export type NuxtParentIPCMessage
@@ -282,9 +284,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #changedConfigKeys?: string[]
   #bound?: BoundServer
   #openedEagerly = false
+  #progress = new DevProgress()
 
   loadDebounced: () => void
   handler: RequestListener
+  /** Live startup progress, streamed to the loading page and the terminal. */
+  progress: DevProgress = this.#progress
   listener!: Listener
 
   constructor(private options: NuxtDevServerOptions) {
@@ -306,8 +311,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#cwd = options.cwd
 
     this.handler = async (req, res) => {
+      // Internal endpoints answer before Nuxt exists, so they are matched ahead
+      // of anything that waits on the first successful load.
+      if (this.#progress.handleRequest(req, res)) {
+        return
+      }
       if (this.#loadingError) {
-        void renderError(req, res, this.#loadingError)
+        // The recovery script makes the page reload itself once the next load
+        // starts, so a fixed file shows up without the reader touching anything.
+        await renderError(req, res, this.#loadingError, { inject: RECOVERY_SCRIPT })
         return
       }
       if (!this.#handler) {
@@ -338,17 +350,21 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return
     }
 
+    const snapshot = this.#progress.snapshot
     res.statusCode = 503
     res.setHeader('Cache-Control', 'no-store')
-    res.setHeader('Refresh', '3')
 
     const accept = req.headers.accept
     if (accept && !accept.includes('text/html') && !accept.includes('*/*')) {
       res.setHeader('Content-Type', 'application/json')
+      res.setHeader('Retry-After', '1')
       res.end(JSON.stringify({
         error: true,
         status: 503,
         message: this.#loadingMessage || 'Dev server is loading...',
+        phase: snapshot.phase,
+        progress: Number(snapshot.progress.toFixed(2)),
+        elapsed: snapshot.elapsed,
         hint: 'Please retry once the dev server is ready.',
       }, null, 2))
       return
@@ -357,11 +373,31 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     res.setHeader('Content-Type', 'text/html')
 
     const message = this.#loadingMessage || 'Loading...'
-    const loadingTemplate = this.options.loadingTemplate
+    const withMessage = { ...snapshot, message }
+
+    // Every Nuxt this CLI supports ships a loading page, so the bare message is
+    // only reached when the project cannot be resolved at all.
+    const template = this.options.loadingTemplate
       || this.#currentNuxt?.options.devServer.loadingTemplate
       || await resolveDefaultLoadingTemplate(this.#cwd)
+    if (!template) {
+      res.setHeader('Refresh', '3')
+      res.end(message)
+      return
+    }
 
-    res.end(loadingTemplate?.({ loading: message }) ?? message)
+    // Nuxt's own page carries this marker in the script it polls itself with, so
+    // finding it says the page will update on its own and can take progress. A
+    // page the project supplied is served untouched and keeps the reload header,
+    // which is the only thing that would move it along.
+    const html = template({ loading: message })
+    if (!html.includes('__NUXT_LOADING__')) {
+      res.setHeader('Refresh', '3')
+      res.end(html)
+      return
+    }
+
+    res.end(withProgress(html, withMessage))
   }
 
   /**
@@ -376,6 +412,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const action = 'Starting'
     this.#loadingMessage = `${action} Nuxt...`
     this.#handler = undefined
+    this.#progress.start(this.#loadingMessage)
     this.emit('loading', this.#loadingMessage)
 
     await this.#bindEagerListener()
@@ -425,6 +462,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#handler = undefined
       this.#loadingError = error as Error
       this.#loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
+      this.#progress.setError(error as Error)
       this.emit('loading:error', error as Error)
     }
     this.#watchConfig()
@@ -705,6 +743,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
+    this.#progress.attachNuxt(this.#currentNuxt.hooks)
+    this.#progress.setPhase('modules')
+
     this.#currentNuxt.hooks.hook('builder:watch', () => {
       this.emit('change')
     })
@@ -790,6 +831,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     const kit = await loadKit(this.options.cwd)
+    this.#progress.setPhase('types')
     // ensure tsconfigs exist before starting the dev server (vite relies on in the initialisation stage)
     const typesPromise = existsSync(join(this.#currentNuxt.options.buildDir, 'tsconfig.json'))
       ? kit.writeTypes(this.#currentNuxt).catch(console.error)
@@ -844,6 +886,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       url: serverUrl,
     })
 
+    this.#progress.setReady()
     this.emit('ready', serverUrl)
   }
 
@@ -916,6 +959,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ? formatRestartReason(reason, { rootDir: this.#cwd, link: false })
       : 'Starting Nuxt...'
     this.#handler = undefined
+    this.#progress.start(this.#loadingMessage, !!reload)
     this.#settleInflightResponses()
     this.emit('loading', this.#loadingMessage)
 

@@ -23,6 +23,7 @@ vi.mock('../../../src/dev/utils', () => ({
     close = closeNuxt
     releaseLock = releaseLock
     load = vi.fn(() => Promise.resolve())
+    progress = { onUpdate: vi.fn(() => () => {}), close: vi.fn() }
 
     constructor(readonly options: Record<string, any>) {
       super()

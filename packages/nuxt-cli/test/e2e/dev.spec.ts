@@ -125,6 +125,37 @@ describe('dev server', () => {
     })
   })
 
+  it('should stream startup progress over SSE', { timeout: 50_000 }, async () => {
+    await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3033 })
+
+    const { result: { close } } = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`]) as any
+
+    try {
+      const response = await fetch(`http://${host}:${port}/__nuxt_dev__/progress`)
+      expect(response.headers.get('content-type')).toBe('text/event-stream')
+
+      const reader = response.body!.getReader()
+      const decoder = new TextDecoder()
+      let stream = ''
+      while (!stream.includes('event: nuxt:ready')) {
+        const { value, done } = await reader.read()
+        if (done) {
+          break
+        }
+        stream += decoder.decode(value)
+      }
+      await reader.cancel()
+
+      expect(stream).toContain('event: nuxt:ready')
+      expect(JSON.parse(stream.split('data: ').pop()!)).toMatchObject({ status: 'ready', progress: 1 })
+    }
+    finally {
+      await close()
+    }
+  })
+
   it('should handle multiple set-cookie headers correctly', { timeout: 50_000 }, async () => {
     await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     const host = '127.0.0.1'

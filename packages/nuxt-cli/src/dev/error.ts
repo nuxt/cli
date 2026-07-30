@@ -11,7 +11,12 @@ import { ErrorParser } from 'youch-core'
 
 import { debug } from '../utils/logger'
 
-export async function renderError(req: IncomingMessage, res: ServerResponse, error: unknown) {
+export interface RenderErrorOptions {
+  /** Markup appended to the rendered page, used to make the error page live. */
+  inject?: string
+}
+
+export async function renderError(req: IncomingMessage, res: ServerResponse, error: unknown, options: RenderErrorOptions = {}) {
   if (res.headersSent) {
     if (!res.writableEnded) {
       res.end()
@@ -29,7 +34,9 @@ export async function renderError(req: IncomingMessage, res: ServerResponse, err
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('X-Frame-Options', 'DENY')
   res.setHeader('Referrer-Policy', 'no-referrer')
-  res.setHeader('Refresh', '3')
+  if (!options.inject) {
+    res.setHeader('Refresh', '3')
+  }
 
   if (useJSON) {
     const err = error as Partial<Error> & { data?: unknown }
@@ -52,7 +59,7 @@ export async function renderError(req: IncomingMessage, res: ServerResponse, err
       headers: req.headers,
     },
   })
-  res.end(html)
+  res.end(options.inject ? html + options.inject : html)
 }
 
 /** Render the error with source-mapped frames as ANSI for terminal output. */

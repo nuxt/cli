@@ -41,7 +41,9 @@ describe('dev server loading screen', () => {
 
       const html = await (response as Response).text()
       expect((response as Response).status).toBe(503)
-      expect((response as Response).headers.get('refresh')).toBe('3')
+      // The page polls for itself and the progress stream pushes to it, so a
+      // reload header would only throw away what it is showing.
+      expect((response as Response).headers.get('refresh')).toBeNull()
       expect(html).toContain('Reloading Nuxt')
       expect(html).toContain('nuxt-loader-bar')
     }

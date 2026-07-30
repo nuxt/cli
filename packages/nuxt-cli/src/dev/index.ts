@@ -11,6 +11,7 @@ import { isRemotePeerError } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
+import { createStartupReporter } from './startup-log'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -187,7 +188,18 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     })
   }
 
-  await devServer.init()
+  const reporter = devContext.args.logLevel === 'silent' || ipc.enabled
+    ? undefined
+    : createStartupReporter()
+  const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
+
+  try {
+    await devServer.init()
+  }
+  finally {
+    unsubscribeProgress?.()
+    reporter?.stop()
+  }
 
   if (process.env.DEBUG) {
     // eslint-disable-next-line no-console
@@ -219,6 +231,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
         ])
       }
       finally {
+        devServer.progress.close()
         devServer.releaseLock()
       }
     })()

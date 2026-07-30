@@ -1,0 +1,189 @@
+import type { DevProgressSnapshot } from '../../src/dev/progress'
+import type { StartupReporter } from '../../src/dev/startup-log'
+
+import { afterEach, describe, expect, it } from 'vitest'
+
+import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
+import { render, screen } from '../utils/terminal'
+
+process.env.FORCE_COLOR = '3'
+
+const { createStartupReporter, formatSummary, isAnimationSupported } = await import('../../src/dev/startup-log')
+
+function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnapshot {
+  return {
+    status: 'loading',
+    phase: 'config',
+    message: 'Loading Nuxt config',
+    index: 0,
+    total: 6,
+    progress: 0,
+    elapsed: 0,
+    reload: false,
+    timings: [],
+    ...overrides,
+  }
+}
+
+describe('startup reporter', () => {
+  const reporters: StartupReporter[] = []
+
+  afterEach(() => {
+    reporters.splice(0).forEach(reporter => reporter.stop())
+  })
+
+  function reporter(animated: boolean): StartupReporter {
+    const instance = createStartupReporter({ animated })
+    reporters.push(instance)
+    return instance
+  }
+
+  it('should keep the progress line in place while loading', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+    })
+
+    expect(screen(renderer)).toMatch(/^. Bundling app 0ms$/)
+  })
+
+  it('should collapse to a summary with a phase breakdown once ready', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        progress: 1,
+        elapsed: 2400,
+        timings: [
+          { phase: 'config', message: 'Loading Nuxt config', duration: 320 },
+          { phase: 'bundle', message: 'Bundling app', duration: 940 },
+        ],
+      }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ◆  Ready in 2.4s
+      │  config 320ms · bundle 940ms"
+    `)
+  })
+
+  it('should log each phase sequentially when the output is not a terminal', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(false)
+      startup.update(snapshot())
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Loading Nuxt config
+      │
+      ●  Bundling app"
+    `)
+  })
+
+  it('should leave foreign output intact', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      process.stdout.write('Nuxt 4.5.1\n')
+      startup.stop()
+    })
+
+    expect(screen(renderer)).toBe('Nuxt 4.5.1')
+  })
+
+  it('should leave the output spacing tracker installed once it is done', async () => {
+    await render(() => {
+      const startup = reporter(true)
+      trackOutputSpacing()
+      observeOutput('mid-line')
+      startup.update(snapshot())
+      startup.stop()
+      process.stdout.write('Nuxt 4.5.1\n')
+    })
+
+    expect(blankLineBefore()).toBe('\n')
+  })
+
+  it('should say nothing more after a build error, which is reported separately', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      startup.update(snapshot({ status: 'error', message: 'boom' }))
+    })
+
+    expect(screen(renderer)).toBe('')
+  })
+
+  it('should describe a reload rather than a first start', () => {
+    expect(formatSummary(snapshot({ status: 'ready', reload: true, elapsed: 900 }))).toBe('Reloaded in 900ms')
+  })
+
+  // `nuxt dev` runs under `consola.wrapAll()`, which moves the real `write` to
+  // `__write` and turns every chunk into a trimmed line of its own.
+  function wrapStdoutAsConsolaDoes(): () => void {
+    const stream = process.stdout as typeof process.stdout & { __write?: typeof process.stdout.write }
+    const original = stream.write
+    stream.__write = original
+    stream.write = ((data: unknown) => {
+      const write = stream.__write!
+      return write.call(stream, `${String(data).trim()}\n`)
+    }) as typeof process.stdout.write
+    return () => {
+      stream.write = original
+      delete stream.__write
+    }
+  }
+
+  it('should keep the progress line in place under the dev console wrapper', async () => {
+    const renderer = await render(async () => {
+      const restore = wrapStdoutAsConsolaDoes()
+      try {
+        const startup = reporter(true)
+        startup.update(snapshot())
+        startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+      }
+      finally {
+        restore()
+      }
+    })
+
+    expect(screen(renderer)).toMatch(/^. Bundling app 0ms$/)
+  })
+
+  it('should clear the line before output that consola writes through `__write`', async () => {
+    const renderer = await render(async () => {
+      const restore = wrapStdoutAsConsolaDoes()
+      try {
+        const startup = reporter(true)
+        startup.update(snapshot())
+        // what consola's own reporter does, bypassing `process.stdout.write`
+        const stream = process.stdout as typeof process.stdout & { __write?: typeof process.stdout.write }
+        stream.__write!.call(process.stdout, 'Nuxt 4.5.2\n')
+        startup.stop()
+      }
+      finally {
+        restore()
+      }
+    })
+
+    expect(screen(renderer)).toBe('Nuxt 4.5.2')
+  })
+
+  it('should draw the line only where a terminal can redraw it', () => {
+    expect(isAnimationSupported({ isTTY: true } as NodeJS.WriteStream)).toBe(true)
+    expect(isAnimationSupported({ isTTY: false } as NodeJS.WriteStream)).toBe(false)
+
+    process.env.NO_COLOR = '1'
+    expect(isAnimationSupported({ isTTY: true } as NodeJS.WriteStream)).toBe(false)
+    delete process.env.NO_COLOR
+  })
+})
