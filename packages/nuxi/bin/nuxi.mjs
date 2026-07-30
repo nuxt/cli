@@ -5,6 +5,10 @@ import nodeModule from 'node:module'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+// rolldown/oxc link mimalloc, whose eager 1GiB arenas inflate RSS on Linux.
+// mimalloc reads this once, when the first addon linking it loads, so keep it above all imports.
+process.env.MIMALLOC_ARENA_EAGER_COMMIT ||= '0'
+
 // https://nodejs.org/api/module.html#moduleenablecompilecachecachedir
 // https://github.com/nodejs/node/pull/54501
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
