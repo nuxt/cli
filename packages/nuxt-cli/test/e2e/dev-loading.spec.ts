@@ -49,4 +49,46 @@ describe('dev server loading screen', () => {
       await close()
     }
   })
+
+  it('should answer requests that arrive before nuxt is ready', { timeout: 90_000 }, async () => {
+    vi.stubEnv('NUXT_IGNORE_LOCK', '1')
+
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3086 })
+    const base = `http://${host}:${port}`
+
+    const answered = (url: string, headers: Record<string, string>) => new Promise<Response>((resolve) => {
+      const poll = async () => {
+        const response = await fetch(url, { headers }).catch(() => undefined)
+        if (!response) {
+          setTimeout(poll, 5)
+          return
+        }
+        resolve(response)
+      }
+      void poll()
+    })
+
+    const html = answered(base, { accept: 'text/html' })
+    const json = answered(`${base}/api/unknown`, { accept: 'application/json' })
+
+    const { close } = await initialize({ cwd: fixtureDir, args: {} }, {
+      listenOverrides: { hostname: host, port },
+      showBanner: false,
+    })
+
+    try {
+      const loadingScreen = await html
+      expect(loadingScreen.status).toBe(503)
+      expect(loadingScreen.headers.get('content-type')).toContain('text/html')
+
+      const loadingJSON = await json
+      expect(loadingJSON.status).toBe(503)
+      expect(await loadingJSON.json()).toMatchObject({ error: true, status: 503 })
+    }
+    finally {
+      await close()
+      vi.unstubAllEnvs()
+    }
+  })
 })

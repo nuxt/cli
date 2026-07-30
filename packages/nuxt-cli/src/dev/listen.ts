@@ -101,7 +101,7 @@ const HOSTNAME_RE = /^(?!-)[\d.:a-z-]{1,253}(?<!-)$/i
  * Check `hostname` is a plausible host or IP address, falling back to a
  * bindable default (with a warning) when it is not.
  */
-export function validateHostname(hostname: string | undefined, isPublic?: boolean): string | undefined {
+export function validateHostname(hostname: string | undefined, isPublic?: boolean, options: { silent?: boolean } = {}): string | undefined {
   const isValid = !!hostname
     && HOSTNAME_RE.test(hostname)
     && hostname.split('.').every(label => label.length <= 63)
@@ -109,8 +109,33 @@ export function validateHostname(hostname: string | undefined, isPublic?: boolea
     return hostname
   }
   const fallback = isPublic ? '' : 'localhost'
-  logger.warn(`Invalid host \`${hostname}\`, using \`${fallback || '0.0.0.0'}\` instead.`)
+  if (!options.silent) {
+    logger.warn(`Invalid host \`${hostname}\`, using \`${fallback || '0.0.0.0'}\` instead.`)
+  }
   return fallback
+}
+
+/** Hostname `bindListener` will bind for `options`. */
+function resolveBindHostname(options: ListenOptions, silent = false): string {
+  const isolated = options.hostname === undefined && !options.public && detectIsolatedEnvironment()
+  return validateHostname(options.hostname, options.public, { silent }) ?? (options.public || isolated ? '' : 'localhost')
+}
+
+/**
+ * Whether an already bound server can serve `options`, so a listener bound
+ * before the Nuxt config was known can be kept rather than rebound.
+ */
+export function matchesBoundTarget(bound: BoundServer, options: ListenOptions): boolean {
+  if (resolveBindHostname(options, true) !== bound.hostname) {
+    return false
+  }
+  if (!!options.https !== !!bound.https) {
+    return false
+  }
+  // Parsed leniently: an unusable port cannot match, and reporting that is
+  // `bindListener`'s job rather than this comparison's.
+  const port = options.port === undefined || options.port === '' ? undefined : Number(options.port)
+  return port === undefined || port === bound.address.port || port === bound.requestedPort
 }
 
 /**
@@ -152,9 +177,22 @@ function createSecureServer(certificate: ResolvedCertificate, handler: RequestLi
   }
 }
 
-export async function listen(handler: RequestListener, options: ListenOptions = {}): Promise<Listener> {
-  const isolatedEnvironment = options.hostname === undefined && !options.public && detectIsolatedEnvironment()
-  const hostname = validateHostname(options.hostname, options.public) ?? (options.public || isolatedEnvironment ? '' : 'localhost')
+/** A bound socket, before any URL resolution, tunnel or console output. */
+export interface BoundServer {
+  server: HttpServer
+  address: AddressInfo
+  https: false | ResolvedCertificate
+  hostname: string
+  /** Port that was asked for, before any in-use fallback. */
+  requestedPort?: number
+}
+
+/**
+ * Bind a socket and nothing else, so the port can be taken before the Nuxt
+ * config is known and requests can be answered while it loads.
+ */
+export async function bindListener(handler: RequestListener, options: ListenOptions = {}): Promise<BoundServer> {
+  const hostname = resolveBindHostname(options)
 
   const requestedPort = parsePort(options.port)
   const port = options.handover && requestedPort
@@ -178,23 +216,29 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   // takes the whole dev process down.
   server.on('error', error => logger.error(`Dev server error: ${error.message}`))
 
-  // Set inside `createListener`, so a failure after the tunnel is up can still
-  // tear down the cloudflared process rather than leaking it until exit.
+  return { server, address: server.address() as AddressInfo, https: certificate, hostname, requestedPort }
+}
+
+/**
+ * Resolve the URLs of an already bound server and, unless `announce` is false,
+ * start any tunnel and print, copy and open the URLs.
+ */
+export async function createListener(bound: BoundServer, options: ListenOptions = {}, { announce = true }: { announce?: boolean } = {}): Promise<Listener> {
+  const { server, address, hostname, https: certificate } = bound
+
+  // Set before anything that can throw, so a failure after the tunnel is up can
+  // still tear down the cloudflared process rather than leaking it until exit.
   let tunnel: Tunnel | undefined
 
   try {
-    return await createListener()
+    return await resolveListener()
   }
   catch (error) {
-    await Promise.all([
-      tunnel?.close().catch(() => {}),
-      closeServer(server).catch(() => {}),
-    ])
+    await tunnel?.close().catch(() => {})
     throw error
   }
 
-  async function createListener(): Promise<Listener> {
-    const address = server.address() as AddressInfo
+  async function resolveListener(): Promise<Listener> {
     const protocol = certificate ? 'https' : 'http'
     const baseURL = options.baseURL || '/'
     const formatURL = (host: string) => formatDisplayURL(protocol, host, address.port, baseURL)
@@ -202,7 +246,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     const anyHost = ANY_HOSTS.has(hostname)
     const url = formatURL(anyHost ? 'localhost' : hostname)
 
-    if (options.tunnel) {
+    if (announce && options.tunnel) {
       const { startTunnel } = await import('./tunnel')
       tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
     }
@@ -271,19 +315,21 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
-    if (options.showURL !== false) {
-      if (qrURL) {
-        await printQRCode(qrURL)
+    if (announce) {
+      if (options.showURL !== false) {
+        if (qrURL) {
+          await printQRCode(qrURL)
+        }
+        showURLs({ qr: !!qrURL })
       }
-      showURLs({ qr: !!qrURL })
-    }
 
-    if (options.clipboard) {
-      await copyURL(publicURL || url)
-    }
+      if (options.clipboard) {
+        await copyURL(publicURL || url)
+      }
 
-    if (options.open) {
-      openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
+      if (options.open) {
+        openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
+      }
     }
 
     return {
@@ -300,6 +346,18 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
         closeServer(server),
       ]).then(() => {}),
     }
+  }
+}
+
+/** Bind and announce in one step, for callers that already know their config. */
+export async function listen(handler: RequestListener, options: ListenOptions = {}): Promise<Listener> {
+  const bound = await bindListener(handler, options)
+  try {
+    return await createListener(bound, options)
+  }
+  catch (error) {
+    await closeServer(bound.server).catch(() => {})
+    throw error
   }
 }
 
@@ -494,7 +552,7 @@ function centerBlock(block: string, blockWidth?: number): string {
   return lines.map(line => indent + line).join('\n')
 }
 
-function resolveOpenURL(target: string, baseURL: string): string {
+export function resolveOpenURL(target: string, baseURL: string): string {
   try {
     return new URL(target, baseURL).href
   }

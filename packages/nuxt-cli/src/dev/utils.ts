@@ -6,7 +6,7 @@ import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResp
 
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
-import type { DevListenOverrides, Listener, ListenOptions } from './listen'
+import type { BoundServer, DevListenOverrides, Listener, ListenOptions } from './listen'
 import type { DevRestartReason } from './reason'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
@@ -24,6 +24,7 @@ import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 
 import { showBanner } from '../utils/banner'
+import { loadDevServerHint, saveDevServerHint } from '../utils/dev-hint'
 import { ActionableError } from '../utils/errors'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -31,7 +32,7 @@ import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../uti
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError, renderErrorAnsi } from './error-lazy'
-import { listen } from './listen'
+import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
@@ -279,6 +280,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #pendingReason?: DevRestartReason
   #rawConfig?: Record<string, unknown>
   #changedConfigKeys?: string[]
+  #bound?: BoundServer
+  #openedEagerly = false
 
   loadDebounced: () => void
   handler: RequestListener
@@ -374,9 +377,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#handler = undefined
     this.emit('loading', this.#loadingMessage)
 
-    await this.#loadNuxtInstance()
+    await this.#bindEagerListener()
 
-    // Acquire lock before binding a listener so parallel agent invocations
+    await this.#loadNuxtInstance(this.#bound && this.listener.getURLs().map(({ url }) => url))
+
+    // Acquire lock before serving so parallel agent invocations
     // fail fast without starting a second server (agent-only).
     this.#acquireDevLock(this.#currentNuxt!.options.buildDir)
 
@@ -540,13 +545,85 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
   }
 
+  /**
+   * Bind a socket before the Nuxt config is known, so the port answers within
+   * milliseconds of spawn and pre-ready requests get the loading screen instead
+   * of hanging. The address is taken from the CLI/env, else from the address the
+   * previous run resolved, else from the schema default.
+   *
+   * A guessed address is only a guess: `#createListener` rebinds if the resolved
+   * config disagrees. Set `NUXT_DEV_EAGER_LISTEN=0` to bind after the config instead.
+   */
+  async #bindEagerListener(): Promise<void> {
+    if (process.env.NUXT_DEV_EAGER_LISTEN === '0' || process.env.NUXT_DEV_EAGER_LISTEN === 'false') {
+      return
+    }
+
+    const overrides = this.options.listenOverrides || {}
+    const hint = loadDevServerHint(this.options.cwd)
+
+    // Without `--https` only `nuxt.config` knows whether https is wanted, and the
+    // certificate options that come with it are not in the hint.
+    if (overrides.httpsEnabled === undefined && hint?.https) {
+      return
+    }
+    const httpsEnabled = !!overrides.httpsEnabled
+
+    const hasExplicitPort = overrides.port !== undefined && overrides.port !== ''
+    const listenOptions: ListenOptions = {
+      ...overrides,
+      port: hasExplicitPort ? overrides.port : hint?.port,
+      hostname: overrides.hostname ?? hint?.hostname,
+      baseURL: hint?.baseURL,
+      https: httpsEnabled ? overrides.https : undefined,
+      showURL: false,
+      open: false,
+      clipboard: false,
+      tunnel: false,
+    }
+
+    try {
+      this.#bound = await bindListener(this.handler, listenOptions)
+    }
+    catch (error) {
+      // An explicit port is the user's instruction, so its failure is a real
+      // error; a guessed one may simply disagree with the config.
+      if (hasExplicitPort) {
+        throw error
+      }
+      debug('Could not bind the dev server before loading Nuxt:', error)
+      return
+    }
+
+    this.listener = await createListener(this.#bound, listenOptions, { announce: false })
+
+    const knowsScheme = overrides.httpsEnabled !== undefined || hint?.https === false
+    if (overrides.open && knowsScheme && (hasExplicitPort || hint?.port === this.#bound.address.port)) {
+      this.#openedEagerly = true
+      openBrowser(overrides.openURL ? resolveOpenURL(overrides.openURL, this.listener.url) : this.listener.url)
+    }
+  }
+
   async #createListener(): Promise<void> {
     if (!this.#currentNuxt) {
       throw new Error('Nuxt must be loaded before creating listener')
     }
 
     const listenOptions = this.#resolveListenOptions()
-    this.listener = await listen(this.handler, listenOptions)
+    this.#persistDevServerHint(listenOptions.baseURL)
+
+    if (this.#bound && !matchesBoundTarget(this.#bound, listenOptions)) {
+      // Only loading screens have been served so far, so rebinding is safe.
+      await this.listener.close()
+      this.#bound = undefined
+      this.#openedEagerly = false
+    }
+
+    this.#bound ??= await bindListener(this.handler, listenOptions)
+    this.listener = await createListener(this.#bound, {
+      ...listenOptions,
+      open: listenOptions.open && !this.#openedEagerly,
+    })
 
     if (listenOptions.public) {
       this.#currentNuxt.options.devServer.cors = { origin: '*' }
@@ -563,7 +640,29 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           allowedHosts: urls.map(u => new URL(u).hostname),
         },
       })
+      const allowedHosts = this.#currentNuxt.options.vite.server?.allowedHosts
+      if (Array.isArray(allowedHosts)) {
+        this.#currentNuxt.options.vite.server!.allowedHosts = dedupe(allowedHosts)
+      }
     }
+  }
+
+  /**
+   * Record the address `nuxt.config` resolves to, so the next run can bind it
+   * before loading the config. CLI and env overrides are deliberately excluded:
+   * a one-off `--port` should not change where the next plain run binds.
+   */
+  #persistDevServerHint(baseURL?: string): void {
+    const devServer = this.#currentNuxt?.options.devServer
+    if (!devServer) {
+      return
+    }
+    saveDevServerHint(this.options.cwd, {
+      port: Number(devServer.port) || undefined,
+      hostname: devServer.host || undefined,
+      https: !!devServer.https,
+      baseURL,
+    })
   }
 
   #resolveListenOptions(): ListenOptions {
@@ -871,6 +970,17 @@ function resolveDevServerHTTPS(certificate: false | ResolvedCertificate): NuxtOp
   return { key: certificate.key!, cert: certificate.cert! }
 }
 
+function dedupe<T>(values: T[]): T[] {
+  return [...new Set(values)]
+}
+
+/**
+ * Config the CLI injects on behalf of the live listener.
+ *
+ * Everything returned here is confined to `vite.server` and `devServer`, which
+ * Vite leaves out of its dependency optimiser hash. A port-derived or per-run
+ * value anywhere else would re-optimise dependencies on every start.
+ */
 function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boolean }, urls: string[] = []): Partial<NuxtConfig> {
   const defaultConfig: Partial<NuxtConfig> = {}
 
@@ -894,6 +1004,16 @@ function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boo
   const portlessOrigins = resolvePortlessURLs().all
   if (portlessOrigins.length > 0) {
     defaultConfig.devServer = defu(defaultConfig.devServer, { cors: { origin: portlessOrigins } })
+  }
+
+  // `defu` concatenates arrays, so the hostname and the listener urls overlap.
+  const allowedHosts = defaultConfig.vite?.server?.allowedHosts
+  if (Array.isArray(allowedHosts)) {
+    defaultConfig.vite!.server!.allowedHosts = dedupe(allowedHosts)
+  }
+  const corsOrigin = defaultConfig.devServer?.cors?.origin
+  if (Array.isArray(corsOrigin)) {
+    defaultConfig.devServer!.cors!.origin = dedupe(corsOrigin)
   }
 
   return defaultConfig

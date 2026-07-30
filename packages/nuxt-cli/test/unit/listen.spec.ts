@@ -1,11 +1,11 @@
-import type { Listener } from '../../src/dev/listen'
+import type { BoundServer, Listener } from '../../src/dev/listen'
 
 import { connect } from 'node:net'
 import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, openBrowser, parsePort, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
+import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -128,6 +128,39 @@ describe('parsePort', () => {
 
   it.each(['nope', '-1', '1.5', '65536', 'Infinity'])('should reject %s', (value) => {
     expect(() => parsePort(value)).toThrow(`Invalid port \`${value}\``)
+  })
+})
+
+describe('matchesBoundTarget', () => {
+  function bound(overrides: Partial<BoundServer> = {}): BoundServer {
+    return {
+      server: undefined as never,
+      address: { address: '127.0.0.1', port: 3000, family: 'IPv4' },
+      https: false,
+      hostname: 'localhost',
+      ...overrides,
+    }
+  }
+
+  it('should accept a listener bound to the resolved address', () => {
+    expect(matchesBoundTarget(bound(), { port: 3000, hostname: 'localhost' })).toBe(true)
+    expect(matchesBoundTarget(bound(), { port: '3000' })).toBe(true)
+    expect(matchesBoundTarget(bound(), {})).toBe(true)
+  })
+
+  it('should accept a port that fell back because the requested one was in use', () => {
+    expect(matchesBoundTarget(bound({ address: { address: '127.0.0.1', port: 3001, family: 'IPv4' }, requestedPort: 3000 }), { port: 3000 })).toBe(true)
+  })
+
+  it('should reject a different port, host or protocol', () => {
+    expect(matchesBoundTarget(bound(), { port: 4000 })).toBe(false)
+    expect(matchesBoundTarget(bound(), { hostname: '0.0.0.0' })).toBe(false)
+    expect(matchesBoundTarget(bound(), { public: true })).toBe(false)
+    expect(matchesBoundTarget(bound(), { https: true })).toBe(false)
+  })
+
+  it('should compare against the host an invalid one falls back to', () => {
+    expect(matchesBoundTarget(bound(), { hostname: 'not a host' })).toBe(true)
   })
 })
 
