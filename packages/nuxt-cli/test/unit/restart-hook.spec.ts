@@ -48,13 +48,16 @@ describe('restart hook', () => {
     expect(callback).toHaveBeenCalledExactlyOnceWith({ type: 'shortcut' })
   })
 
-  it('should restart on an error that is not a broken pipe', () => {
+  it('should restart on an error that is not a broken pipe or an aborted connection', () => {
     const source = new EventEmitter()
     const callback = vi.fn()
     arm(source, callback)
 
     const [onError] = [...installed]
     onError!(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))
+    expect(callback).not.toHaveBeenCalled()
+
+    onError!(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
     expect(callback).not.toHaveBeenCalled()
 
     onError!(new Error('boom'))

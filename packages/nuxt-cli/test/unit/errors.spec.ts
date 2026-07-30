@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { stripCwd } from '../../src/dev/error'
-import { isBrokenPipe } from '../../src/utils/errors'
+import { isAbortedConnection, isBrokenPipe } from '../../src/utils/errors'
 
 describe('isBrokenPipe', () => {
   it('should detect closed pipes', () => {
@@ -13,6 +13,20 @@ describe('isBrokenPipe', () => {
     expect(isBrokenPipe(new Error('boom'))).toBe(false)
     expect(isBrokenPipe(Object.assign(new Error('nope'), { code: 'ENOENT' }))).toBe(false)
     expect(isBrokenPipe(undefined)).toBe(false)
+  })
+})
+
+describe('isAbortedConnection', () => {
+  it('should detect connections dropped by the other end', () => {
+    expect(isAbortedConnection(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))).toBe(true)
+    expect(isAbortedConnection(Object.assign(new Error('aborted'), { code: 'ECONNABORTED' }))).toBe(true)
+    expect(isAbortedConnection(Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }))).toBe(true)
+  })
+
+  it('should ignore other errors', () => {
+    expect(isAbortedConnection(new Error('boom'))).toBe(false)
+    expect(isAbortedConnection(Object.assign(new Error('nope'), { code: 'EADDRINUSE' }))).toBe(false)
+    expect(isAbortedConnection(undefined)).toBe(false)
   })
 })
 

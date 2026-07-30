@@ -6,7 +6,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
-import { isBrokenPipe } from '../utils/errors'
+import { isAbortedConnection, isBrokenPipe } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
@@ -37,7 +37,13 @@ class IPC {
       process.once('disconnect', () => {
         process.exit(0)
       })
-      process.once('unhandledRejection', (reason) => {
+      // `on` rather than `once`, so that an ignored connection error does not
+      // consume the listener and leave a later genuine rejection unreported.
+      process.on('unhandledRejection', (reason) => {
+        if (isAbortedConnection(reason)) {
+          debug('Ignoring aborted connection:', reason)
+          return
+        }
         this.send({ type: 'nuxt:internal:dev:rejection', message: formatErrorMessage(reason) })
         process.exit()
       })
@@ -221,6 +227,10 @@ export function createRestartHook(source: RestartSource): (callback: (reason?: D
   function restartOnError(error: unknown) {
     if (isBrokenPipe(error)) {
       debug('Ignoring broken pipe:', error)
+      return
+    }
+    if (isAbortedConnection(error)) {
+      debug('Ignoring aborted connection:', error)
       return
     }
     restart({ type: 'error', message: formatErrorMessage(error) })
