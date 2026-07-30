@@ -18,6 +18,22 @@ function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.toString() : 'Unhandled Rejection'
 }
 
+/**
+ * Hand an unhandled rejection to the parent process and stop this one, unless
+ * it is only a client that went away — that is traffic, not a crash, and the
+ * session has to survive it.
+ */
+export function createRejectionHandler(report: (message: string) => void, stop: () => void): (reason: unknown) => void {
+  return (reason: unknown) => {
+    if (isAbortedConnection(reason)) {
+      debug('Ignoring aborted connection:', reason)
+      return
+    }
+    report(formatErrorMessage(reason))
+    stop()
+  }
+}
+
 interface InitializeOptions {
   data?: {
     overrides?: NuxtConfig
@@ -39,14 +55,10 @@ class IPC {
       })
       // `on` rather than `once`, so that an ignored connection error does not
       // consume the listener and leave a later genuine rejection unreported.
-      process.on('unhandledRejection', (reason) => {
-        if (isAbortedConnection(reason)) {
-          debug('Ignoring aborted connection:', reason)
-          return
-        }
-        this.send({ type: 'nuxt:internal:dev:rejection', message: formatErrorMessage(reason) })
-        process.exit()
-      })
+      process.on('unhandledRejection', createRejectionHandler(
+        message => this.send({ type: 'nuxt:internal:dev:rejection', message }),
+        () => process.exit(),
+      ))
     }
     process.on('message', async (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
