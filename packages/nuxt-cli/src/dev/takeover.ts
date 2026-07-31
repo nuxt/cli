@@ -72,8 +72,8 @@ export async function takeOverDevServer(buildDir: string, options: TakeoverOptio
   }
 
   // Signalling a `build` is never on the table, and neither is a server on a
-  // port we were not asked for: an explicit `--port` that differs means the user
-  // wants a second server.
+  // port we were not asked for: an explicit `--port` that differs skips the
+  // takeover, and the ordinary lock check decides whether starting is allowed.
   if (existing.command !== 'dev' || !existing.port) {
     return { action: 'none' }
   }
