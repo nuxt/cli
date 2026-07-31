@@ -2,9 +2,10 @@ import type { LockInfo } from '../utils/lockfile'
 
 import process from 'node:process'
 
-import { cancel, isCancel, select } from '@clack/prompts'
+import { cancel, isCancel, select, spinner } from '@clack/prompts'
 import { checkPort } from 'get-port-please'
 import colors from 'picocolors'
+import { isCI } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
 import { isInteractiveSession, isLockEnabled, markTakenOver, readLock } from '../utils/lockfile'
@@ -128,7 +129,7 @@ export async function takeOverDevServer(buildDir: string, options: TakeoverOptio
 async function performTakeover(buildDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {
   const port = existing.port!
   const startedAt = new Date(existing.startedAt).toLocaleTimeString()
-  logger.info(`Taking over the dev server on port ${port} (PID ${existing.pid}, started ${startedAt}).`)
+  const progress = startProgress(`Taking over the dev server on port ${port} (PID ${existing.pid}, started ${startedAt})`)
 
   markTakenOver(buildDir, process.pid)
 
@@ -140,15 +141,52 @@ async function performTakeover(buildDir: string, existing: LockInfo, timeouts: T
   // outright, so the graceful window below simply passes quickly there.
   signalAll(pids, 'SIGTERM')
   if (await waitForRelease(pids, port, existing.hostname, timeouts.graceful ?? TAKEOVER_TIMEOUT_MS)) {
+    progress.stop(`Stopped the dev server on port ${port} (PID ${existing.pid})`)
     return { action: 'taken', port, pid: existing.pid }
   }
 
+  progress.update(`Waiting for the dev server on port ${port} to exit`)
   signalAll(pids, 'SIGKILL')
   if (await waitForRelease(pids, port, existing.hostname, timeouts.force ?? TAKEOVER_KILL_TIMEOUT_MS)) {
+    progress.stop(`Stopped the dev server on port ${port} (PID ${existing.pid})`)
     return { action: 'taken', port, pid: existing.pid }
   }
 
+  progress.fail(`Could not stop the dev server on port ${port}`)
   return { action: 'refused', existing, reason: 'timeout' }
+}
+
+interface TakeoverProgress {
+  update: (message: string) => void
+  stop: (message: string) => void
+  fail: (message: string) => void
+}
+
+/**
+ * Stopping the outgoing server can take several seconds, so a terminal gets a
+ * spinner. Anywhere else (CI, an agent, a piped log) the frames are noise, so
+ * the same information is logged as plain lines.
+ */
+function startProgress(message: string): TakeoverProgress {
+  if (!process.stdout.isTTY || isCI) {
+    logger.info(`${message}.`)
+    return {
+      update: text => logger.info(`${text}.`),
+      stop: text => logger.info(`${text}.`),
+      fail: text => logger.error(`${text}.`),
+    }
+  }
+  const indicator = spinner()
+  indicator.start(message)
+  const finish = (report: (text: string) => void) => (text: string) => {
+    report(text)
+    restoreRawMode()
+  }
+  return {
+    update: text => indicator.message(text),
+    stop: finish(text => indicator.stop(text)),
+    fail: finish(text => indicator.error(text)),
+  }
 }
 
 /** Human-readable explanation for a refusal, including how to override it. */
