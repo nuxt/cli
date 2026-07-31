@@ -1,5 +1,5 @@
 import process from 'node:process'
-import colors from 'picocolors'
+import { styleText } from 'node:util'
 import { debug, logger } from '../utils/logger'
 
 export interface InspectOptions {
@@ -100,7 +100,7 @@ export async function openInspector(options: InspectOptions): Promise<void> {
     inspector.open(options.port, options.host, options.wait)
   }
   catch (error) {
-    logger.warn(`Could not start the inspector on ${colors.cyan(`${options.host}:${options.port}`)}: ${error instanceof Error ? error.message : error}`)
+    logger.warn(`Could not start the inspector on ${styleText('cyan', `${options.host}:${options.port}`)}: ${error instanceof Error ? error.message : error}`)
   }
 }
 

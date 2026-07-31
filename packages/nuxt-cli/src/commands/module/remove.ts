@@ -5,11 +5,11 @@ import type { NuxtModule } from './_utils'
 
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, multiselect } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager, removeDependency } from 'nypm'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 
 import { runCommandDef as runCommand } from '../../run-command'
@@ -60,7 +60,7 @@ export default defineCommand({
     }
 
     if (ctx.args.skipConfig && modules.length === 0) {
-      cancel(`Specify one or more modules to remove when ${colors.cyan('--skipConfig')} is set.`)
+      cancel(`Specify one or more modules to remove when ${styleText('cyan', '--skipConfig')} is set.`)
       process.exit(1)
     }
 
@@ -79,7 +79,7 @@ export default defineCommand({
     const resolvedModules = modules.map(m => resolveModuleName(m, modulesDB, installedNames))
 
     if (resolvedModules.length > 0) {
-      logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x)).join(', ')}, removing...`)
+      logger.info(`Resolved ${resolvedModules.map(x => styleText('cyan', x)).join(', ')}, removing...`)
     }
 
     const proceed = await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
@@ -102,7 +102,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
   if (!skipConfig) {
     const config = await readNuxtConfig(cwd).catch((error) => {
-      logger.error(`Failed to read ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
+      logger.error(`Failed to read ${styleText('cyan', 'nuxt.config')}: ${(error as Error).message}`)
       return undefined
     })
 
@@ -134,22 +134,22 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
           continue
         }
         for (const name of names) {
-          logger.info(`Removing ${colors.cyan(name)} from the ${colors.cyan(key)}`)
+          logger.info(`Removing ${styleText('cyan', name)} from the ${styleText('cyan', key)}`)
         }
         doomed[key] = names
         removedFromConfig.push(...names)
       }
 
       await removeNuxtConfigEntries(config, doomed).catch((error) => {
-        logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
-        logger.error(`Please manually remove ${colors.cyan(modules.join(', ') || 'the relevant modules')} from ${colors.cyan('nuxt.config.ts')}`)
+        logger.error(`Failed to update ${styleText('cyan', 'nuxt.config')}: ${(error as Error).message}`)
+        logger.error(`Please manually remove ${styleText('cyan', modules.join(', ') || 'the relevant modules')} from ${styleText('cyan', 'nuxt.config.ts')}`)
       })
     }
 
     if (modules.length === 0 && removedFromConfig.length === 0) {
       cancel(config
-        ? `No modules configured in ${colors.cyan('nuxt.config')}.`
-        : `No ${colors.cyan('nuxt.config')} found in ${colors.cyan(relativeToProcess(cwd))}.`)
+        ? `No modules configured in ${styleText('cyan', 'nuxt.config')}.`
+        : `No ${styleText('cyan', 'nuxt.config')} found in ${styleText('cyan', relativeToProcess(cwd))}.`)
       return false
     }
   }
@@ -175,7 +175,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     }
 
     if (notInstalledModules.length > 0) {
-      const notInstalledList = notInstalledModules.map(m => colors.cyan(m)).join(', ')
+      const notInstalledList = notInstalledModules.map(m => styleText('cyan', m)).join(', ')
       const are = notInstalledModules.length > 1 ? 'are' : 'is'
       logger.info(`${notInstalledList} ${are} not installed as a dependency`)
     }
@@ -189,7 +189,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const orphanedPeers = await findOrphanedPeers(installedModules, projectPkg, cwd)
     if (orphanedPeers.length > 0) {
       const peersList = orphanedPeers.map(({ peer, source }) =>
-        `${colors.cyan(peer)} (peer of ${colors.cyan(source)})`).join(', ')
+        `${styleText('cyan', peer)} (peer of ${styleText('cyan', source)})`).join(', ')
       const peerDep = orphanedPeers.length > 1 ? 'dependencies' : 'dependency'
       const them = orphanedPeers.length > 1 ? 'them' : 'it'
 
@@ -210,7 +210,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
       }
     }
 
-    const removeList = toRemove.map(m => colors.cyan(m)).join(', ')
+    const removeList = toRemove.map(m => styleText('cyan', m)).join(', ')
     const dependency = toRemove.length > 1 ? 'dependencies' : 'dependency'
     logger.info(`Uninstalling ${removeList} ${dependency}`)
 

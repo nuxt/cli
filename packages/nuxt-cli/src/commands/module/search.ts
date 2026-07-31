@@ -1,9 +1,9 @@
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { byLengthAsc, Fzf } from 'fzf'
-import colors from 'picocolors'
 import { kebabCase, upperFirst } from 'scule'
 
 import { formatInfoBox } from '../../utils/formatting'
@@ -72,13 +72,13 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     const res: Record<string, string> = {
       name: item.name,
       package: item.npm,
-      homepage: colors.cyan(item.website),
+      homepage: styleText('cyan', item.website),
       compatibility: `nuxt: ${item.compatibility?.nuxt || '*'}`,
       repository: item.github,
       description: item.description,
       install: `npx nuxt add ${item.name}`,
-      stars: colors.yellow(formatNumber(item.stats.stars)),
-      monthlyDownloads: colors.yellow(formatNumber(item.stats.downloads)),
+      stars: styleText('yellow', formatNumber(item.stats.stars)),
+      monthlyDownloads: styleText('yellow', formatNumber(item.stats.downloads)),
     }
     if (item.github === item.website) {
       delete res.homepage
@@ -91,13 +91,13 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
 
   if (!results.length) {
     logger.info(
-      `No Nuxt modules found matching query ${colors.magenta(query)} for Nuxt ${colors.cyan(nuxtVersion)}`,
+      `No Nuxt modules found matching query ${styleText('magenta', query)} for Nuxt ${styleText('cyan', nuxtVersion)}`,
     )
     return
   }
 
   logger.success(
-    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${colors.cyan(query)} ${nuxtVersion ? `for Nuxt ${colors.cyan(nuxtVersion)}` : ''}:\n`,
+    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${styleText('cyan', query)} ${nuxtVersion ? `for Nuxt ${styleText('cyan', nuxtVersion)}` : ''}:\n`,
   )
   for (const foundModule of results) {
     const formattedModule: Record<string, string> = {}

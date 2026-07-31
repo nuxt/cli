@@ -9,8 +9,8 @@ import { createServer as createHttpsServer } from 'node:https'
 import { networkInterfaces } from 'node:os'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { getPort } from 'get-port-please'
-import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
@@ -232,22 +232,22 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   function showURLs({ qr = false }: { qr?: boolean } = {}): void {
     const urls = getURLs()
     const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
-    const labelColors = { local: colors.green, network: colors.magenta, tunnel: colors.cyan, public: colors.magenta } as const
+    const labelColors = { local: 'green', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
     const lines: string[] = []
     const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
-      `  ${color('➜')} ${colors.bold(color(label.padEnd(10)))}${value}${isQR ? colors.gray(' [QR code]') : ''}`
+      `  ${color('➜')} ${styleText('bold', color(label.padEnd(10)))}${value}${isQR ? styleText('gray', ' [QR code]') : ''}`
     for (const { url: displayURL, type } of urls) {
-      lines.push(line(labelColors[type], labels[type], colors.cyan(displayURL), qr && displayURL === qrURL))
+      lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
     }
     if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
       const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
       const hint = isolated
-        ? `use ${colors.white('--host')} to reach this server from outside ${isolated}`
-        : `use ${colors.white('--host')} to expose`
-      lines.push(line(colors.magenta, 'Network:', colors.gray(hint), false))
+        ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
+        : `use ${styleText('white', '--host')} to expose`
+      lines.push(line(text => styleText('magenta', text), 'Network:', styleText('gray', hint), false))
     }
     if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
-      lines.push(line(colors.magenta, 'Public:', colors.cyan(publicURL), qr && publicURL === qrURL))
+      lines.push(line(text => styleText('magenta', text), 'Public:', styleText('cyan', publicURL), qr && publicURL === qrURL))
     }
     // eslint-disable-next-line no-console
     console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
@@ -416,7 +416,7 @@ function describeBindError(error: NodeJS.ErrnoException, port: number, hostname:
 
 export async function printQRCode(url: string, { showURL = false }: { showURL?: boolean } = {}): Promise<void> {
   const { renderUnicodeCompact } = await import('uqr')
-  const caption = showURL ? `\n${centerBlock(colors.cyan(url), url.length)}` : ''
+  const caption = showURL ? `\n${centerBlock(styleText('cyan', url), url.length)}` : ''
   // eslint-disable-next-line no-console
   console.log(`\n${centerBlock(renderUnicodeCompact(url))}${caption}\n`)
 }
@@ -513,14 +513,14 @@ export function openBrowser(url: string): void {
     return
   }
   if (!hasDisplayServer()) {
-    logger.warn(`No browser is available in this environment. Open ${colors.cyan(url)} manually.`)
+    logger.warn(`No browser is available in this environment. Open ${styleText('cyan', url)} manually.`)
     return
   }
 
   const [command, args] = resolved
   const onFailure = (error: unknown) => {
     debug('Failed to open browser:', error)
-    logger.warn(`Could not open ${colors.cyan(url)} in a browser.`)
+    logger.warn(`Could not open ${styleText('cyan', url)} in a browser.`)
   }
 
   try {

@@ -1,5 +1,5 @@
 import process from 'node:process'
-import colors from 'picocolors'
+import { styleText } from 'node:util'
 
 import { logger } from './logger'
 
@@ -7,7 +7,7 @@ export function overrideEnv(targetEnv: string) {
   const currentEnv = process.env.NODE_ENV
   if (currentEnv && currentEnv !== targetEnv) {
     logger.warn(
-      `Changing ${colors.cyan('NODE_ENV')} from ${colors.cyan(currentEnv)} to ${colors.cyan(targetEnv)}, to avoid unintended behavior.`,
+      `Changing ${styleText('cyan', 'NODE_ENV')} from ${styleText('cyan', currentEnv)} to ${styleText('cyan', targetEnv)}, to avoid unintended behavior.`,
     )
   }
 

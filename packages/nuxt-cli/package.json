@@ -74,7 +74,6 @@
     "ohash": "^2.0.11",
     "pathe": "^2.0.3",
     "perfect-debounce": "^2.1.0",
-    "picocolors": "^1.1.1",
     "pkg-types": "^2.3.1",
     "pnpm-workspace-yaml": "^1.7.0",
     "rc9": "^3.0.1",

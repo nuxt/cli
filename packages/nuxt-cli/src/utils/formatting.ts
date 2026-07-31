@@ -1,6 +1,5 @@
 import process from 'node:process'
-import { stripVTControlCharacters } from 'node:util'
-import colors from 'picocolors'
+import { stripVTControlCharacters, styleText } from 'node:util'
 
 const AT_MENTION_RE = /\b@([^, ]+)/g
 const BACKTICK_RE = /`([^`]*)`/g
@@ -46,7 +45,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
   let ansiFirstColumnLength = 0
   const entries = Object.entries(infoObj).map(([label, val]) => {
     if (label.length > firstColumnLength) {
-      ansiFirstColumnLength = colors.bold(colors.whiteBright(label)).length + 6
+      ansiFirstColumnLength = styleText(['bold', 'whiteBright'], label).length + 6
       firstColumnLength = label.length + 6
     }
     return [label, val || '-'] as const
@@ -58,10 +57,10 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
   let boxStr = ''
   for (const [label, value] of entries) {
     const formattedValue = value
-      .replace(AT_MENTION_RE, (_, r) => colors.gray(` ${r}`))
+      .replace(AT_MENTION_RE, (_, r) => styleText('gray', ` ${r}`))
       .replace(BACKTICK_RE, (_, r) => r)
 
-    boxStr += (`${colors.bold(colors.whiteBright(label))}`).padEnd(ansiFirstColumnLength)
+    boxStr += styleText(['bold', 'whiteBright'], label).padEnd(ansiFirstColumnLength)
 
     let boxRowLength = firstColumnLength
 
@@ -76,7 +75,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
       if (boxRowLength + wordLength + spaceLength > terminalWidth) {
         // Wrap to next line
         if (currentLine) {
-          boxStr += colors.cyan(currentLine)
+          boxStr += styleText('cyan', currentLine)
         }
         boxStr += `\n${' '.repeat(firstColumnLength)}`
         currentLine = word
@@ -89,7 +88,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
     }
 
     if (currentLine) {
-      boxStr += colors.cyan(currentLine)
+      boxStr += styleText('cyan', currentLine)
     }
 
     boxStr += '\n'

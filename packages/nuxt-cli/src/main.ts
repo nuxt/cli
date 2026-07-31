@@ -4,8 +4,8 @@ import type { TemplateName } from './utils/templates/names'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { defineCommand } from 'citty'
-import colors from 'picocolors'
 import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'
@@ -62,8 +62,8 @@ const _main = defineCommand({
     }
 
     if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {
-      logger.warn(`${colors.yellow('Deprecated:')} Using ${colors.cyan('nuxt add <template> <name>')} is deprecated.`)
-      logger.info(`Please use ${colors.cyan('nuxt add-template <template> <name>')} instead.`)
+      logger.warn(`${styleText('yellow', 'Deprecated:')} Using ${styleText('cyan', 'nuxt add <template> <name>')} is deprecated.`)
+      logger.info(`Please use ${styleText('cyan', 'nuxt add-template <template> <name>')} instead.`)
       await runCommand('add-template', [...ctx.rawArgs.slice(1)]).catch((err) => {
         console.error(err.message)
         process.exit(1)

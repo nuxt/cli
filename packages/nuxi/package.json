@@ -48,7 +48,6 @@
     "@types/node": "^24.13.3",
     "citty": "^0.2.2",
     "jiti": "^2.7.0",
-    "picocolors": "^1.1.1",
     "std-env": "^4.2.0",
     "tinyexec": "^1.2.4",
     "tsdown": "^0.22.14",

@@ -1,10 +1,10 @@
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { relative } from 'pathe'
 
-import colors from 'picocolors'
+import { relative } from 'pathe'
 import { showBanner } from '../utils/banner'
 
 import { overrideEnv } from '../utils/env'
@@ -53,7 +53,7 @@ export default defineCommand({
 
     let releaseLock: (() => void) | undefined
     try {
-      intro(colors.cyan('Building Nuxt for production...'))
+      intro(styleText('cyan', 'Building Nuxt for production...'))
 
       const kit = await loadKit(cwd)
       const nuxt = await kit.loadNuxt({
@@ -97,7 +97,7 @@ export default defineCommand({
       releaseLock = lock.release
 
       const nitro = kit.useNitro()
-      logger.info(`Nitro preset: ${colors.cyan(nitro.options.preset)}`)
+      logger.info(`Nitro preset: ${styleText('cyan', nitro.options.preset)}`)
 
       await clearBuildDir(nuxt.options.buildDir)
 
@@ -115,16 +115,16 @@ export default defineCommand({
 
       if (ctx.args.prerender) {
         if (!nuxt.options.ssr) {
-          logger.warn(`HTML content not prerendered because ${colors.cyan('ssr: false')} was set.`)
-          logger.info(`You can read more in ${colors.cyan('https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
+          logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
+          logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
         }
         // TODO: revisit later if/when nuxt build --prerender will output hybrid
         const dir = nitro.options.output.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-        outro(`✨ You can now deploy ${colors.cyan(publicDir)} to any static hosting! ${colors.gray(`(${formatDuration(Date.now() - start)})`)}`)
+        outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
       }
       else {
-        outro(`✨ Build complete in ${colors.cyan(formatDuration(Date.now() - start))}!`)
+        outro(`✨ Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}!`)
       }
     }
     finally {

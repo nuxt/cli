@@ -3,9 +3,9 @@ import type { PackageJson } from 'pkg-types'
 
 import { existsSync } from 'node:fs'
 
+import { styleText } from 'node:util'
 import { confirm, isCancel } from '@clack/prompts'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { satisfies } from 'verkit'
 
 import { fetchJson } from '../../utils/fetch'
@@ -253,7 +253,7 @@ export async function ensureNuxtDependency(cwd: string, projectPkg: PackageJson)
     return true
   }
 
-  logger.warn(`No ${colors.cyan('nuxt')} dependency detected in ${colors.cyan(relativeToProcess(cwd))}.`)
+  logger.warn(`No ${styleText('cyan', 'nuxt')} dependency detected in ${styleText('cyan', relativeToProcess(cwd))}.`)
 
   const shouldContinue = await confirm({
     message: `Do you want to continue anyway?`,

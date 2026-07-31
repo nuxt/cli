@@ -8,10 +8,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { colourOf, render, screen as visibleScreen } from '../utils/terminal'
 
-// Colours have to be forced before `picocolors` is imported, so the modules
-// under test are loaded dynamically below.
-process.env.FORCE_COLOR = '3'
-
 vi.mock('std-env', () => ({ isCI: false, isTest: false, provider: undefined }))
 
 // The suite may itself run inside a container, so the environment the URL block

@@ -1,9 +1,9 @@
 import type { Session } from 'node:inspector'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
+import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { join, relative } from 'pathe'
-import colors from 'picocolors'
 import { themeColor } from './ascii'
 
 const RELATIVE_PATH_RE = /^(?![^.]{1,2}\/)/
@@ -67,8 +67,8 @@ export async function stopCpuProfile(outDir: string, command: string): Promise<s
           mkdirSync(outDir, { recursive: true })
           writeFileSync(outPath, JSON.stringify(params.profile))
           const nextSteps = [
-            `CPU profile written to ${colors.cyan(relativeOutPath)}.`,
-            `Open it in a CPU profile viewer like your IDE, or ${colors.cyan('https://discoveryjs.github.io/cpupro')}.`,
+            `CPU profile written to ${styleText('cyan', relativeOutPath)}.`,
+            `Open it in a CPU profile viewer like your IDE, or ${styleText('cyan', 'https://discoveryjs.github.io/cpupro')}.`,
           ]
           box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, '', {
             contentAlign: 'left',

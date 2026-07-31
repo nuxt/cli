@@ -6,11 +6,11 @@ import type { RegistryMeta } from '../../utils/registry'
 import type { NuxtModule } from './_utils'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager, packageManagers } from 'nypm'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
 import { satisfies } from 'verkit'
@@ -134,7 +134,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
         process.exit(1)
       }
 
-      logger.info(`Resolved ${resolvedModules.map(x => colors.cyan(x.specifier)).join(', ')}, adding ${describeModules(resolvedModules)}...`)
+      logger.info(`Resolved ${resolvedModules.map(x => styleText('cyan', x.specifier)).join(', ')}, adding ${describeModules(resolvedModules)}...`)
 
       const added = await addModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
@@ -171,7 +171,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     }
 
     if (installedModules.length > 0) {
-      const installedModulesList = installedModules.map(module => colors.cyan(module.pkgName)).join(', ')
+      const installedModulesList = installedModules.map(module => styleText('cyan', module.pkgName)).join(', ')
       const are = installedModules.length > 1 ? 'are' : 'is'
       logger.info(`${installedModulesList} ${are} already installed`)
     }
@@ -179,7 +179,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     if (notInstalledModules.length > 0) {
       const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
 
-      const notInstalledModulesList = notInstalledModules.map(module => colors.cyan(module.pkg)).join(', ')
+      const notInstalledModulesList = notInstalledModules.map(module => styleText('cyan', module.pkg)).join(', ')
       const dependency = notInstalledModules.length > 1 ? 'dependencies' : 'dependency'
       const a = notInstalledModules.length > 1 ? '' : ' a'
       logger.info(`Installing ${notInstalledModulesList} as${a}${isDev ? ' development' : ''} ${dependency}`)
@@ -188,7 +188,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
       const peers = resolveRequiredPeerDependencies(notInstalledModules, dependencies)
       if (peers.length > 0) {
-        logger.info(`Also installing required peer ${peers.length > 1 ? 'dependencies' : 'dependency'} ${peers.map(peer => colors.cyan(peer)).join(', ')}`)
+        logger.info(`Also installing required peer ${peers.length > 1 ? 'dependencies' : 'dependency'} ${peers.map(peer => styleText('cyan', peer)).join(', ')}`)
       }
 
       const verbose = logLevel === 'verbose' || Boolean(process.env.DEBUG)
@@ -198,7 +198,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         indicator: 'timer',
         onCancel: () => installController.abort(),
       })
-      installSpinner.start(`Installing with ${colors.cyan(packageManager.name)}`)
+      installSpinner.start(`Installing with ${styleText('cyan', packageManager.name)}`)
 
       const result = await runInstall({
         cwd,
@@ -216,7 +216,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         installLog.finish(result)
         // Adding modules to `nuxt.config` without their packages installed
         // leaves a project that cannot boot, so stop here instead.
-        logger.info(`${colors.cyan('nuxt.config')} was left unchanged. Resolve the install error and try again.`)
+        logger.info(`${styleText('cyan', 'nuxt.config')} was left unchanged. Resolve the install error and try again.`)
         return false
       }
 
@@ -225,7 +225,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
       const ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
       if (ignoredBuilds.length > 0 && packageManager.name === 'pnpm') {
-        logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}. Run ${colors.cyan('pnpm approve-builds')} if your project needs them.`)
+        logger.warn(`${styleText('cyan', 'pnpm')} did not run build scripts for ${ignoredBuilds.map(name => styleText('cyan', name)).join(', ')}. Run ${styleText('cyan', 'pnpm approve-builds')} if your project needs them.`)
       }
     }
   }
@@ -235,7 +235,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     try {
       let config = await readNuxtConfig(cwd)
       if (!config) {
-        logger.info(`Creating ${colors.cyan('nuxt.config.ts')}`)
+        logger.info(`Creating ${styleText('cyan', 'nuxt.config.ts')}`)
         config = await createNuxtConfig(cwd, getDefaultNuxtConfig())
       }
 
@@ -243,12 +243,12 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       for (const resolved of modules) {
         const key = resolved.isLayer ? 'extends' : 'modules'
         if (config[key].includes(resolved.specifier)) {
-          logger.info(`${colors.cyan(resolved.specifier)} is already in the ${colors.cyan(key)}`)
+          logger.info(`${styleText('cyan', resolved.specifier)} is already in the ${styleText('cyan', key)}`)
 
           continue
         }
 
-        logger.info(`Adding ${colors.cyan(resolved.specifier)} to the ${colors.cyan(key)}`)
+        logger.info(`Adding ${styleText('cyan', resolved.specifier)} to the ${styleText('cyan', key)}`)
 
         toAdd[key] = [...toAdd[key] ?? [], resolved.specifier]
       }
@@ -256,8 +256,8 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       await addNuxtConfigEntries(config, toAdd)
     }
     catch (error) {
-      logger.error(`Failed to update ${colors.cyan('nuxt.config')}: ${(error as Error).message}`)
-      logger.error(`Please manually add ${colors.cyan(modules.map(module => module.specifier).join(', '))} to ${colors.cyan('nuxt.config.ts')}`)
+      logger.error(`Failed to update ${styleText('cyan', 'nuxt.config')}: ${(error as Error).message}`)
+      logger.error(`Please manually add ${styleText('cyan', modules.map(module => module.specifier).join(', '))} to ${styleText('cyan', 'nuxt.config.ts')}`)
     }
   }
 
@@ -274,7 +274,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 async function resolvePackageManager(cwd: string, name?: string): Promise<PackageManager> {
   const requested = name ? packageManagers.find(pm => pm.name === name) : undefined
   if (name && !requested) {
-    logger.warn(`Unknown package manager ${colors.cyan(name)}, detecting one instead.`)
+    logger.warn(`Unknown package manager ${styleText('cyan', name)}, detecting one instead.`)
   }
 
   const detected = await detectPackageManager(cwd, { includeParentDirs: false })
@@ -346,7 +346,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   const spec = parseModuleSpec(moduleName)
 
   if (!spec) {
-    logger.error(`Invalid package name ${colors.cyan(moduleName)}.`)
+    logger.error(`Invalid package name ${styleText('cyan', moduleName)}.`)
     return false
   }
 
@@ -383,7 +383,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
       logger.warn(
-        `The module ${colors.cyan(pkgName)} is not compatible with Nuxt ${colors.cyan(nuxtVersion)} (requires ${colors.cyan(matchedModule.compatibility.nuxt)})`,
+        `The module ${styleText('cyan', pkgName)} is not compatible with Nuxt ${styleText('cyan', nuxtVersion)} (requires ${styleText('cyan', matchedModule.compatibility.nuxt)})`,
       )
       const shouldContinue = await confirm({
         message: 'Do you want to continue installing incompatible version?',
@@ -404,7 +404,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
           }
           else {
             logger.warn(
-              `Recommended version of ${colors.cyan(pkgName)} for Nuxt ${colors.cyan(nuxtVersion)} is ${colors.cyan(_moduleVersion)} but you have requested ${colors.cyan(pkgVersion)}.`,
+              `Recommended version of ${styleText('cyan', pkgName)} for Nuxt ${styleText('cyan', nuxtVersion)} is ${styleText('cyan', _moduleVersion)} but you have requested ${styleText('cyan', pkgVersion)}.`,
             )
             const result = await select({
               message: 'Choose a version:',
@@ -437,7 +437,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   // TODO: spinner
   const pkgUrl = joinURL(meta.registry, `${pkgName}`)
   const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
-    logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${colors.cyan(pkgName)}.` })
+    logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${styleText('cyan', pkgName)}.` })
     return null
   })
   if (!pkgDetails) {
@@ -460,7 +460,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   if (entry.isLayer) {
-    logger.info(`${colors.cyan(pkgName)} is a Nuxt layer, and will be added to ${colors.cyan('extends')}.`)
+    logger.info(`${styleText('cyan', pkgName)} is a Nuxt layer, and will be added to ${styleText('cyan', 'extends')}.`)
   }
 
   const pkgDependencies = Object.assign(
@@ -476,9 +476,9 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     && !pkgDependencies.nuxt
     && !pkgDependencies['@nuxt/kit']
   ) {
-    logger.warn(`It seems that ${colors.cyan(pkgName)} is not a Nuxt module.`)
+    logger.warn(`It seems that ${styleText('cyan', pkgName)} is not a Nuxt module.`)
     const shouldContinue = await confirm({
-      message: `Do you want to continue installing ${colors.cyan(pkgName)} anyway?`,
+      message: `Do you want to continue installing ${styleText('cyan', pkgName)} anyway?`,
       initialValue: false,
     })
     if (isCancel(shouldContinue) || !shouldContinue) {

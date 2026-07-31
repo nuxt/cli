@@ -3,7 +3,7 @@ import type { Listener } from './listen'
 import process from 'node:process'
 import { createInterface } from 'node:readline'
 
-import colors from 'picocolors'
+import { styleText } from 'node:util'
 import { isCI, isTest } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
@@ -97,7 +97,7 @@ async function quit(context: ActionContext): Promise<void> {
 
 function printHelp(context: ActionContext): void {
   const lines = availableShortcuts(context).map(({ keys, description }) =>
-    `  ${colors.dim('press')} ${colors.bold(`${keys[0]} + enter`)} ${colors.dim(`to ${description}`)}`,
+    `  ${styleText('dim', 'press')} ${styleText('bold', `${keys[0]} + enter`)} ${styleText('dim', `to ${description}`)}`,
   )
   // eslint-disable-next-line no-console
   console.log(`\n${lines.join('\n')}\n`)
@@ -120,7 +120,7 @@ export function setupShortcuts(context: ShortcutContext): void {
 
   context.onReady(() => {
     // eslint-disable-next-line no-console
-    console.log(`\n  ${colors.dim('press')} ${colors.bold('h + enter')} ${colors.dim('to see available shortcuts')}\n`)
+    console.log(`\n  ${styleText('dim', 'press')} ${styleText('bold', 'h + enter')} ${styleText('dim', 'to see available shortcuts')}\n`)
   })
 
   restoreRawMode()

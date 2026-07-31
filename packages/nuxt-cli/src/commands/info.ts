@@ -4,11 +4,11 @@ import type { PackageJson } from 'pkg-types'
 import os from 'node:os'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { detectPackageManager } from 'nypm'
 
-import colors from 'picocolors'
+import { detectPackageManager } from 'nypm'
 import { readPackageJSON } from 'pkg-types'
 import { isBun, isDeno, isMinimal } from 'std-env'
 import { writeText } from 'tinyclip'
@@ -115,7 +115,7 @@ export default defineCommand({
       'Modules': await listModules(nuxtConfig.modules),
     }
 
-    logger.info(`Nuxt root directory: ${colors.cyan(nuxtConfig.rootDir || cwd)}\n`)
+    logger.info(`Nuxt root directory: ${styleText('cyan', nuxtConfig.rootDir || cwd)}\n`)
 
     const boxStr = formatInfoBox(infoObj)
 
@@ -144,7 +144,7 @@ export default defineCommand({
     if (copied) {
       box(
         `\n${boxStr}`,
-        ` Nuxt project info ${colors.gray('(copied to clipboard) ')}`,
+        ` Nuxt project info ${styleText('gray', '(copied to clipboard) ')}`,
         {
           contentAlign: 'left',
           titleAlign: 'left',
@@ -159,11 +159,11 @@ export default defineCommand({
       logger.info(`Nuxt project info:\n${copyStr}`, { withGuide: false })
     }
 
-    logger.info(`👉 Read documentation: ${colors.cyan('https://nuxt.com')}`)
-    logger.info(`👉 Report an issue: ${colors.cyan('https://github.com/nuxt/nuxt/issues/new?template=bug-report.yml')}`, {
+    logger.info(`👉 Read documentation: ${styleText('cyan', 'https://nuxt.com')}`)
+    logger.info(`👉 Report an issue: ${styleText('cyan', 'https://github.com/nuxt/nuxt/issues/new?template=bug-report.yml')}`, {
       spacing: 0,
     })
-    logger.info(`👉 Suggest an improvement: ${colors.cyan('https://github.com/nuxt/nuxt/discussions/new')}`, {
+    logger.info(`👉 Suggest an improvement: ${styleText('cyan', 'https://github.com/nuxt/nuxt/discussions/new')}`, {
       spacing: 0,
     })
   },

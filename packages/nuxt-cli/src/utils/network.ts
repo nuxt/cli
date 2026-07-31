@@ -1,7 +1,7 @@
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { basename } from 'pathe'
-import colors from 'picocolors'
 import { isWindows } from 'std-env'
 
 import { logger } from './logger'
@@ -257,14 +257,14 @@ export async function probeNetworkError(url: string, timeout = 3000): Promise<un
 /** A single-line, human-readable explanation of a failed network request. */
 export function describeNetworkError(err: unknown, url?: string): string {
   const host = getHost(url)
-  const target = host ? colors.cyan(host) : 'the network'
+  const target = host ? styleText('cyan', host) : 'the network'
   const { kind, code, status } = classifyNetworkError(err)
 
   switch (kind) {
     case 'proxy-auth':
-      return `Proxy rejected the request to ${target} with status ${colors.yellow('407')} (proxy authentication required).`
+      return `Proxy rejected the request to ${target} with status ${styleText('yellow', '407')} (proxy authentication required).`
     case 'http':
-      return `Request to ${target} failed with status ${colors.yellow(String(status))}.`
+      return `Request to ${target} failed with status ${styleText('yellow', String(status))}.`
     case 'dns':
       return code === 'EAI_AGAIN'
         ? `DNS lookup for ${target} timed out.`
@@ -301,29 +301,29 @@ export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandC
   }
 
   if (kind === 'tls') {
-    return `This usually means a proxy is re-signing TLS traffic. Retry with your organisation's root certificate: ${colors.cyan(formatRetryCommand({ NODE_EXTRA_CA_CERTS: '/path/to/corporate-ca.pem' }, ctx))}`
+    return `This usually means a proxy is re-signing TLS traffic. Retry with your organisation's root certificate: ${styleText('cyan', formatRetryCommand({ NODE_EXTRA_CA_CERTS: '/path/to/corporate-ca.pem' }, ctx))}`
   }
 
   if (kind === 'proxy-auth') {
-    return `Include credentials in your proxy URL, e.g. ${colors.cyan('HTTPS_PROXY=http://user:password@proxy.example.com:8080')}.`
+    return `Include credentials in your proxy URL, e.g. ${styleText('cyan', 'HTTPS_PROXY=http://user:password@proxy.example.com:8080')}.`
   }
 
   if (!hasProxyEnv(env)) {
-    return `If you are behind a proxy, set ${colors.cyan('HTTPS_PROXY')} and ${colors.cyan('NODE_USE_ENV_PROXY=1')} (plus ${colors.cyan('NO_PROXY')} for internal hosts).`
+    return `If you are behind a proxy, set ${styleText('cyan', 'HTTPS_PROXY')} and ${styleText('cyan', 'NODE_USE_ENV_PROXY=1')} (plus ${styleText('cyan', 'NO_PROXY')} for internal hosts).`
   }
 
   if (!supportsEnvProxy(ctx.flags)) {
-    return `A proxy is configured but this version of Node.js cannot use it; upgrade to Node.js 24 (or 22.18+) to enable ${colors.cyan('NODE_USE_ENV_PROXY')}.`
+    return `A proxy is configured but this version of Node.js cannot use it; upgrade to Node.js 24 (or 22.18+) to enable ${styleText('cyan', 'NODE_USE_ENV_PROXY')}.`
   }
 
   if (!proxyInUse()) {
-    return `A proxy is configured but Node.js only reads it at startup. Retry with ${colors.cyan(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, ctx))}`
+    return `A proxy is configured but Node.js only reads it at startup. Retry with ${styleText('cyan', formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, ctx))}`
   }
 
   // A connection dropped mid-handshake through a proxy that is genuinely in use
   // is the usual signature of TLS interception with an untrusted root.
   if (kind === 'reset') {
-    return `The proxy may be re-signing TLS traffic. Retry with your organisation's root certificate: ${colors.cyan(formatRetryCommand({ NODE_EXTRA_CA_CERTS: '/path/to/corporate-ca.pem' }, ctx))}`
+    return `The proxy may be re-signing TLS traffic. Retry with your organisation's root certificate: ${styleText('cyan', formatRetryCommand({ NODE_EXTRA_CA_CERTS: '/path/to/corporate-ca.pem' }, ctx))}`
   }
 }
 
