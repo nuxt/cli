@@ -8,7 +8,6 @@ import type { NuxtDevContext } from '../dev/utils'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
-import { resolve } from 'pathe'
 
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
@@ -21,6 +20,7 @@ import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
+import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
@@ -157,7 +157,7 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    const takeover = await takeOverDevServer(resolveDevBuildDir(cwd), {
+    const takeover = await takeOverDevServer(await resolveLockDir(cwd), {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
     })
@@ -396,16 +396,6 @@ function setupSignalHandlers(close: () => Promise<void>): void {
         })
     })
   }
-}
-
-/**
- * The lock lives in the build directory, which is only known once `nuxt.config`
- * has been resolved. Resolving it here would mean loading the config twice, so
- * a project with a custom `buildDir` gets the plain lock error instead of the
- * cross-terminal takeover.
- */
-function resolveDevBuildDir(cwd: string): string {
-  return resolve(cwd, '.nuxt')
 }
 
 function resolveForkPoolSize(): number | undefined {
