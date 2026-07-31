@@ -8,7 +8,7 @@ import colors from 'picocolors'
 import { isCI } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
-import { isInteractiveSession, isLockEnabled, markTakenOver, readLock } from '../utils/lockfile'
+import { clearTakeover, isInteractiveSession, isLockEnabled, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 
 /** How long the outgoing dev server has to exit and release its port. */
@@ -153,6 +153,7 @@ async function performTakeover(buildDir: string, existing: LockInfo, timeouts: T
   }
 
   progress.fail(`Could not stop the dev server on port ${port}`)
+  clearTakeover(buildDir, process.pid)
   return { action: 'refused', existing, reason: 'timeout' }
 }
 

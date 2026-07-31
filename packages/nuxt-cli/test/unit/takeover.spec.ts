@@ -13,7 +13,7 @@ const checkPort = vi.hoisted(() => vi.fn<(port: number, host?: string) => Promis
 vi.mock('get-port-please', () => ({ checkPort }))
 
 const { formatTakeoverRefusal, takeOverDevServer } = await import('../../src/dev/takeover')
-const { markTakenOver, readLock, updateLock } = await import('../../src/utils/lockfile')
+const { getTakeoverPid, markTakenOver, readLock, updateLock } = await import('../../src/utils/lockfile')
 
 const HOLDER_PID = 424242
 
@@ -211,6 +211,15 @@ describe('takeOverDevServer', () => {
       expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGKILL']])
     })
 
+    it('leaves the holder identifiable after giving up', async () => {
+      writeLock(buildDir)
+      mockProcess({ diesOn: 'never' })
+      await takeOverDevServer(buildDir, { interactive: false, timeouts: { graceful: 200, force: 200 } })
+      const lock = readLock(buildDir)
+      expect(lock?.pid).toBe(HOLDER_PID)
+      expect(lock?.takenOverBy).toBeUndefined()
+    })
+
     it('also signals the supervising process of a dev fork', async () => {
       writeLock(buildDir, { parentPid: 424243 })
       const proc = mockProcess()
@@ -253,11 +262,17 @@ describe('takeOverDevServer', () => {
   })
 
   describe('outgoing side', () => {
-    it('reports the takeover to the process being taken over', async () => {
-      const { getTakeoverPid } = await import('../../src/utils/lockfile')
+    it('reports the takeover to the process being taken over', () => {
+      vi.spyOn(process, 'kill').mockImplementation(() => true as never)
       updateLock(buildDir, { command: 'dev', cwd: '/project', port: 3000 })
       markTakenOver(buildDir, HOLDER_PID)
       expect(getTakeoverPid(buildDir)).toBe(HOLDER_PID)
+    })
+
+    it('does not report a handover to a process that has since exited', () => {
+      updateLock(buildDir, { command: 'dev', cwd: '/project', port: 3000 })
+      markTakenOver(buildDir, 999999999)
+      expect(getTakeoverPid(buildDir)).toBeUndefined()
     })
 
     it('does not annotate a lock owned by the taking-over process', () => {

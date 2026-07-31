@@ -74,10 +74,28 @@ export function markTakenOver(buildDir: string, byPid: number): void {
   writeLockFile(lockPath, { ...current, takenOverBy: byPid })
 }
 
+/**
+ * Drop a takeover claim this process wrote, once it has given up on it. Another
+ * process's claim is left alone.
+ */
+export function clearTakeover(buildDir: string, byPid: number): void {
+  const lockPath = join(buildDir, LOCK_FILENAME)
+  const current = readLockFile(lockPath)
+  if (!current || current.takenOverBy !== byPid) {
+    return
+  }
+  const { takenOverBy: _claim, ...rest } = current
+  writeLockFile(lockPath, rest)
+}
+
 /** PID that claimed our own lock, if this process is being taken over. */
 export function getTakeoverPid(buildDir: string): number | undefined {
   const current = readLock(buildDir)
-  return current?.pid === process.pid ? current.takenOverBy : undefined
+  if (current?.pid !== process.pid || !current.takenOverBy) {
+    return undefined
+  }
+  // A claimer that gave up and exited never took anything over.
+  return isProcessAlive(current.takenOverBy) ? current.takenOverBy : undefined
 }
 
 function readLockFile(lockPath: string): LockInfo | undefined {
