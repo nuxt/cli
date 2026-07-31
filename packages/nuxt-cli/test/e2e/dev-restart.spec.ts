@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
 import { describe, expect, it, vi } from 'vitest'
 import { initialize } from '../../src/dev'
+import { createDevFixture } from '../utils'
 
-const fixtureDir = fileURLToPath(new URL('../fixtures/dev', import.meta.url))
+const fixtureDir = await createDevFixture('dev-restart')
 
 describe('dev server reload', () => {
   it('should settle in-flight requests when nuxt reloads', { timeout: 90_000 }, async () => {

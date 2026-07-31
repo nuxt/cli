@@ -10,6 +10,7 @@ stats.json
 playground-bun*
 playground-deno*
 playground-node*
+packages/nuxt-cli/test/fixtures/.tmp-*
 packages/nuxi/src/utils/completions-data.ts
 packages/nuxt-cli/src/data/nitro-presets.ts
 packages/nuxt-cli/src/data/templates.ts

@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../../src'
+import { createDevFixture } from '../utils'
 
 const NEWLINE_RE = /\r?\n/
 
-const fixtureDir = fileURLToPath(new URL('../fixtures/dev', import.meta.url))
+const fixtureDir = await createDevFixture('dev')
 
 const certsDir = fileURLToPath(new URL('../../../../playground/certs', import.meta.url))
 const httpsCert = join(certsDir, 'cert.dummy')
