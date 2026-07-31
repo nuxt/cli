@@ -1,16 +1,16 @@
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-import { S_INFO } from '@clack/prompts'
+
 import { readUser, updateUser } from 'rc9'
 import { isCI, isTest, provider } from 'std-env'
 import { joinURL } from 'ufo'
 import { isGreater, tryParse } from 'verkit'
 
 import { fetchJson } from './fetch'
-import { debug } from './logger'
+import { debug, writeNotice } from './logger'
 import { detectNpmRegistry } from './registry'
-import { blankLineBefore, trackOutputSpacing } from './stdout'
+import { trackOutputSpacing } from './stdout'
 
 const RC_FILE = '.nuxtrc'
 const CACHE_KEY = 'updateCheck'
@@ -146,25 +146,13 @@ export interface UpdateNudgeOptions {
   command?: string
 }
 
-/**
- * Both nudges are written as a labelled line plus an indented instruction, so
- * whatever the user needs to type is on a line of its own that they can select.
- *
- * Commands leave the cursor in different places (`init` ends on the blank line
- * after clack's outro, `dev` and `build` on the line after their last log), so
- * the leading gap is measured rather than assumed.
- */
-function writeNudge(headline: string, instruction: string): void {
-  process.stdout.write(`${blankLineBefore()}${styleText('blue', S_INFO)} ${headline}\n  ${instruction}\n`)
-}
-
 function describeUpdate({ current, latest }: NuxtUpdate, name: string): string {
   return `a new version of ${name} is available: ${styleText('green', latest)} ${styleText('gray', `(you are on ${current})`)}`
 }
 
 export function renderUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOptions = {}): void {
   const { name = 'Nuxt', command = 'nuxt upgrade' } = options
-  writeNudge(describeUpdate(update, name), `run ${styleText('cyan', command)} to update`)
+  writeNotice(describeUpdate(update, name), `run ${styleText('cyan', command)} to update`)
 }
 
 /**
@@ -173,7 +161,7 @@ export function renderUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOption
  */
 export function renderSelfUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOptions = {}): void {
   const { name = 'the Nuxt CLI', command = 'nuxt upgrade' } = options
-  writeNudge(describeUpdate(update, name), `next time, run ${styleText('cyan', command)} to use the latest version`)
+  writeNotice(describeUpdate(update, name), `next time, run ${styleText('cyan', command)} to use the latest version`)
 }
 
 export interface SelfUpdateNudgeOptions extends UpdateNudgeOptions {

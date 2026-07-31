@@ -28,7 +28,7 @@ import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
-import { debug, logger } from '../utils/logger'
+import { debug, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
 import { renderError, renderErrorAnsi } from './error-lazy'
@@ -694,7 +694,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   releaseLock(): void {
     const takenOverBy = this.#lockedBuildDir && getTakeoverPid(this.#lockedBuildDir)
     if (takenOverBy) {
-      logger.info(`Handed over to another \`nuxt dev\` (PID ${takenOverBy}).`)
+      writeNotice(`Handed over to another \`nuxt dev\` (PID ${takenOverBy}).`)
     }
     this.#lockCleanup?.()
     this.#lockCleanup = undefined

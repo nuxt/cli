@@ -2,9 +2,9 @@ import type { LockInfo } from '../utils/lockfile'
 
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, isCancel, select, spinner } from '@clack/prompts'
 import { checkPort } from 'get-port-please'
-import colors from 'picocolors'
 import { isCI } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
@@ -125,7 +125,7 @@ export async function takeOverDevServer(buildDir: string, options: TakeoverOptio
         return { action: 'refused', existing, reason: 'declined' }
       }
       if (choice === 'start-anyway') {
-        logger.warn(`Starting a second dev server: both will write to ${colors.cyan(buildDir)}, which is unsupported and may corrupt the build.`)
+        logger.warn(`Starting a second dev server: both will write to ${styleText('cyan', buildDir)}, which is unsupported and may corrupt the build.`)
         return { action: 'start-anyway', existing }
       }
     }
@@ -230,9 +230,9 @@ function describeLocation(existing: LockInfo): string {
 }
 
 async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice): Promise<TakeoverChoice> {
-  const location = describeLocation(existing)
+  logger.info(`A Nuxt dev server is already running here (PID ${existing.pid}, ${describeLocation(existing)}).`)
   const choice = await select<TakeoverChoice>({
-    message: `A Nuxt dev server is already running here (PID ${existing.pid}, ${location}). What would you like to do?`,
+    message: 'What would you like to do?',
     initialValue: defaultChoice,
     options: [
       { value: 'takeover', label: `Take over port ${existing.port}`, hint: 'stops the running server (--takeover)' },

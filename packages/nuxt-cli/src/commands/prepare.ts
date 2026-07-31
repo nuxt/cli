@@ -45,7 +45,7 @@ export default defineCommand({
     const owner = readActiveLock(nuxt.options.buildDir)
     if (owner) {
       const label = owner.command === 'dev' ? 'dev server' : 'build'
-      logger.info(`A ${label} (PID ${owner.pid}) is using ${colors.cyan(relativeToProcess(nuxt.options.buildDir))}; refreshing templates in place without clearing it.`)
+      logger.info(`A ${label} (PID ${owner.pid}) is using ${styleText('cyan', relativeToProcess(nuxt.options.buildDir))}; refreshing templates in place without clearing it.`)
     }
     else {
       await clearBuildDir(nuxt.options.buildDir)
