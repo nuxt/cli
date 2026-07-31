@@ -6,7 +6,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { overrideEnv } from '../utils/env.ts'
-import { isBrokenPipe } from '../utils/errors'
+import { isRemotePeerError } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
@@ -16,6 +16,22 @@ const start = Date.now()
 
 function formatErrorMessage(error: unknown): string {
   return error instanceof Error ? error.toString() : 'Unhandled Rejection'
+}
+
+/**
+ * Hand an unhandled rejection to the parent process and stop this one, unless
+ * it is only a client that went away — that is traffic, not a crash, and the
+ * session has to survive it.
+ */
+export function createRejectionHandler(report: (message: string) => void, stop: () => void): (reason: unknown) => void {
+  return (reason: unknown) => {
+    if (isRemotePeerError(reason)) {
+      debug('Ignoring remote peer error:', reason)
+      return
+    }
+    report(formatErrorMessage(reason))
+    stop()
+  }
 }
 
 interface InitializeOptions {
@@ -37,10 +53,10 @@ class IPC {
       process.once('disconnect', () => {
         process.exit(0)
       })
-      process.once('unhandledRejection', (reason) => {
-        this.send({ type: 'nuxt:internal:dev:rejection', message: formatErrorMessage(reason) })
-        process.exit()
-      })
+      process.on('unhandledRejection', createRejectionHandler(
+        message => this.send({ type: 'nuxt:internal:dev:rejection', message }),
+        () => process.exit(),
+      ))
     }
     process.on('message', async (message: NuxtParentIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:context') {
@@ -219,8 +235,8 @@ export function createRestartHook(source: RestartSource): (callback: (reason?: D
   }
 
   function restartOnError(error: unknown) {
-    if (isBrokenPipe(error)) {
-      debug('Ignoring broken pipe:', error)
+    if (isRemotePeerError(error)) {
+      debug('Ignoring remote peer error:', error)
       return
     }
     restart({ type: 'error', message: formatErrorMessage(error) })

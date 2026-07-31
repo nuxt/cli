@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
 import { stripCwd } from '../../src/dev/error'
-import { isBrokenPipe } from '../../src/utils/errors'
+import { isRemotePeerError } from '../../src/utils/errors'
 
-describe('isBrokenPipe', () => {
-  it('should detect closed pipes', () => {
-    expect(isBrokenPipe(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))).toBe(true)
-    expect(isBrokenPipe(Object.assign(new Error('destroyed'), { code: 'ERR_STREAM_DESTROYED' }))).toBe(true)
+describe('isRemotePeerError', () => {
+  it('should detect errors from the other end of a connection', () => {
+    expect(isRemotePeerError(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))).toBe(true)
+    expect(isRemotePeerError(Object.assign(new Error('destroyed'), { code: 'ERR_STREAM_DESTROYED' }))).toBe(true)
+    expect(isRemotePeerError(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))).toBe(true)
+    expect(isRemotePeerError(Object.assign(new Error('aborted'), { code: 'ECONNABORTED' }))).toBe(true)
+    expect(isRemotePeerError(Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }))).toBe(true)
   })
 
   it('should ignore other errors', () => {
-    expect(isBrokenPipe(new Error('boom'))).toBe(false)
-    expect(isBrokenPipe(Object.assign(new Error('nope'), { code: 'ENOENT' }))).toBe(false)
-    expect(isBrokenPipe(undefined)).toBe(false)
+    expect(isRemotePeerError(new Error('boom'))).toBe(false)
+    expect(isRemotePeerError(Object.assign(new Error('nope'), { code: 'ENOENT' }))).toBe(false)
+    expect(isRemotePeerError(undefined)).toBe(false)
   })
 })
 

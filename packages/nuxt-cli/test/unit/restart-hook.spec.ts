@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createRestartHook } from '../../src/dev'
+import { createRejectionHandler, createRestartHook } from '../../src/dev'
 
 const ERROR_EVENTS = ['uncaughtException', 'unhandledRejection'] as const
 
@@ -48,13 +48,16 @@ describe('restart hook', () => {
     expect(callback).toHaveBeenCalledExactlyOnceWith({ type: 'shortcut' })
   })
 
-  it('should restart on an error that is not a broken pipe', () => {
+  it('should restart on an error that is not a remote peer error', () => {
     const source = new EventEmitter()
     const callback = vi.fn()
     arm(source, callback)
 
     const [onError] = [...installed]
     onError!(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))
+    expect(callback).not.toHaveBeenCalled()
+
+    onError!(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
     expect(callback).not.toHaveBeenCalled()
 
     onError!(new Error('boom'))
@@ -104,5 +107,38 @@ describe('restart hook', () => {
     source.emit('restart')
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('rejection handler', () => {
+  it('should report the rejection and stop', () => {
+    const report = vi.fn()
+    const stop = vi.fn()
+
+    createRejectionHandler(report, stop)(new Error('boom'))
+
+    expect(report).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('boom'))
+    expect(stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('should describe a rejection that is not an error', () => {
+    const report = vi.fn()
+
+    createRejectionHandler(report, vi.fn())('nope')
+
+    expect(report).toHaveBeenCalledExactlyOnceWith('Unhandled Rejection')
+  })
+
+  it('should keep the process alive on remote peer errors', () => {
+    const report = vi.fn()
+    const stop = vi.fn()
+    const handle = createRejectionHandler(report, stop)
+
+    handle(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))
+    handle(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
+    handle(Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }))
+
+    expect(report).not.toHaveBeenCalled()
+    expect(stop).not.toHaveBeenCalled()
   })
 })
