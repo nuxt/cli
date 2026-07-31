@@ -4,6 +4,10 @@ import { defineCliConfig, PARSER_PACKAGES, PARSER_SPECIFIERS } from '../../scrip
 export const packaging: PackagingContract = {
   traced: ['youch', 'youch-core'],
   external: PARSER_SPECIFIERS,
+  lazy: {
+    'dist/index.mjs': ['rc9'],
+    'dist/dev/index.mjs': ['youch', 'youch-core', 'source-map-js', 'rc9'],
+  },
 }
 
 export default defineCliConfig({

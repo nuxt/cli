@@ -1,10 +1,12 @@
 import type { PackagingContract } from './tsdown.ts'
 
+import { readFileSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, relative, resolve, sep } from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
+import { parseSync } from 'rolldown/utils'
 
 /**
  * Assert the built output of the package in the current directory still matches
@@ -46,6 +48,46 @@ for (const name of packaging.traced ?? []) {
   }
 }
 
+/** Specifiers a module pulls in eagerly, i.e. everything but `import()`. */
+function staticModuleRequests(path: string, source: string): string[] {
+  const { module } = parseSync(path, source)
+  return [
+    ...module.staticImports.map(entry => entry.moduleRequest.value),
+    ...module.staticExports.flatMap(statement => statement.entries.flatMap(entry => entry.moduleRequest ? [entry.moduleRequest.value] : [])),
+  ]
+}
+
+/**
+ * Every chunk reachable from `from` through static imports, mapped to the bare
+ * specifiers it imports statically.
+ */
+function collectStaticImports(from: string, seen = new Map<string, Set<string>>()): Map<string, Set<string>> {
+  if (seen.has(from)) {
+    return seen
+  }
+  const bare = new Set<string>()
+  seen.set(from, bare)
+
+  let source: string
+  try {
+    source = readFileSync(from, 'utf8')
+  }
+  catch {
+    return seen
+  }
+
+  for (const specifier of staticModuleRequests(from, source)) {
+    if (specifier.startsWith('.')) {
+      collectStaticImports(resolve(dirname(from), specifier), seen)
+    }
+    else {
+      bare.add(specifier)
+    }
+  }
+
+  return seen
+}
+
 const chunks = (await readdir(distDir, { recursive: true, withFileTypes: true }))
   .filter(entry => entry.isFile() && entry.name.endsWith('.mjs') && !resolve(entry.parentPath, entry.name).includes(`${sep}node_modules${sep}`))
   .map(entry => resolve(entry.parentPath, entry.name))
@@ -54,6 +96,17 @@ const sources = await Promise.all(chunks.map(path => readFile(path, 'utf8')))
 for (const specifier of packaging.external ?? []) {
   if (!sources.some(source => source.includes(`"${specifier}"`) || source.includes(`'${specifier}'`))) {
     fail(`no chunk imports \`${specifier}\` as an external specifier; it was bundled or dropped`)
+  }
+}
+
+for (const [entryPath, specifiers] of Object.entries(packaging.lazy ?? {})) {
+  const lazyEntry = resolve(packageDir, entryPath)
+  const eager = collectStaticImports(lazyEntry)
+  for (const specifier of specifiers) {
+    const importer = [...eager].find(([, imported]) => imported.has(specifier))
+    if (importer) {
+      fail(`\`${specifier}\` is statically imported by ${relative(distDir, importer[0])}, which is reachable from ${entryPath}; it should only be reached through a dynamic import`)
+    }
   }
 }
 

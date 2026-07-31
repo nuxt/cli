@@ -15,7 +15,7 @@ const VERSIONS: Record<string, string> = {
   'vue': '3.5.39',
 }
 
-vi.mock('../../../src/utils/versions', () => ({
+vi.mock('../../../src/utils/pkg', () => ({
   getPkgJSON: vi.fn((_cwd: string, pkg: string, options?: { via?: string[] }) => {
     if (pkg === 'vite' && options?.via?.includes('@nuxt/vite-builder')) {
       return { name: 'vite', version: '7.3.1' }

@@ -20,8 +20,7 @@ import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
-import { scheduleUpdateNudge } from './utils/update'
-import { scheduleSelfUpdateNudge } from './utils/update-check'
+import { scheduleSelfUpdateNudge, scheduleUpdateNudge } from './utils/update-lazy'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
 // the current process proxy-aware; it propagates the setting to child processes

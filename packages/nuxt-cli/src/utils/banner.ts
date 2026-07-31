@@ -3,7 +3,7 @@ import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import colors from 'picocolors'
 
 import { logger } from './logger'
-import { getPkgJSON, getPkgVersion } from './versions'
+import { getPkgJSON, getPkgVersion } from './pkg'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string } {
   switch (builder) {

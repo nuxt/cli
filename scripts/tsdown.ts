@@ -26,6 +26,12 @@ export interface PackagingContract {
   traced?: string[]
   /** Specifiers that must survive the build as bare imports. */
   external?: string[]
+  /**
+   * Per emitted entry, the bare specifiers that must not be reachable from it
+   * through static imports alone, i.e. that may only be pulled in by a dynamic
+   * `import()`.
+   */
+  lazy?: Record<string, string[]>
 }
 
 const isAnalysingSize = process.env.BUNDLE_SIZE === 'true'
