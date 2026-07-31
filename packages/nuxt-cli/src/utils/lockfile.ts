@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
@@ -28,6 +29,9 @@ export interface LockInfo {
 }
 
 const LOCK_FILENAME = 'nuxt.lock'
+// Somewhere durable to key build-output locks from: outside every directory a
+// build clears, and already a Nuxt-owned cache location.
+const OUTPUT_LOCK_DIRNAME = 'node_modules/.cache/nuxt'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
@@ -172,11 +176,38 @@ export function acquireLock(
   info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
   options: AcquireLockOptions = {},
 ): LockResult {
+  return acquireLockAt(join(buildDir, LOCK_FILENAME), buildDir, info, options)
+}
+
+/**
+ * Claim the build output directory for the duration of a build.
+ *
+ * Two builds of one project can resolve different build directories, because
+ * `loadNuxtConfig` moves a production build out of `.nuxt` when that already
+ * exists, yet they still write the same output. The marker is keyed by output
+ * path so unrelated outputs stay independent, and is kept outside the directory
+ * it guards because the build empties that.
+ */
+export function acquireOutputLock(
+  rootDir: string,
+  outputDir: string,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
+): LockResult {
+  const dir = join(rootDir, OUTPUT_LOCK_DIRNAME)
+  const key = createHash('sha256').update(outputDir).digest('hex').slice(0, 8)
+  return acquireLockAt(join(dir, `output-${key}.lock`), dir, info)
+}
+
+function acquireLockAt(
+  lockPath: string,
+  dir: string,
+  info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
+  options: AcquireLockOptions = {},
+): LockResult {
   if (!isLockEnabled()) {
     return { release: () => {} }
   }
 
-  const lockPath = join(buildDir, LOCK_FILENAME)
   const fullInfo: LockInfo = {
     pid: process.pid,
     startedAt: Date.now(),
@@ -184,10 +215,10 @@ export function acquireLock(
     ...info,
   }
 
-  // The build dir may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the
-  // lock is acquired before `clearBuildDir` runs, so create it lazily.
+  // The directory may not exist yet (e.g. `rimraf .nuxt && nuxt dev`); the lock
+  // is acquired before `clearBuildDir` runs, so create it lazily.
   try {
-    mkdirSync(buildDir, { recursive: true })
+    mkdirSync(dir, { recursive: true })
   }
   catch {}
 

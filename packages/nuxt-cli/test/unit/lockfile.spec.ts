@@ -12,7 +12,7 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isCI: false }
 })
 
-const { acquireLock, formatLockError, isLockEnabled, readActiveLock, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, acquireOutputLock, formatLockError, isLockEnabled, readActiveLock, updateLock } = await import('../../src/utils/lockfile')
 
 describe('lockfile', () => {
   let tempDir: string
@@ -267,6 +267,63 @@ describe('lockfile', () => {
       expect(process.listenerCount('exit')).toBe(before + 1)
       lock.release!()
       expect(process.listenerCount('exit')).toBe(before)
+    })
+  })
+
+  describe('acquireOutputLock', () => {
+    const outputDir = '/project/.output'
+
+    function foreignHolder(rootDir: string) {
+      const dir = join(rootDir, 'node_modules', '.cache', 'nuxt')
+      const [name] = readdirSync(dir)
+      const lockPath = join(dir, name!)
+      const current = JSON.parse(readFileSync(lockPath, 'utf-8'))
+      writeFileSync(lockPath, JSON.stringify({ ...current, pid: 424242 }))
+      return vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+    }
+
+    it('refuses a second build writing to the same output directory', () => {
+      const first = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      expect(first.release).toBeDefined()
+
+      const killSpy = foreignHolder(tempDir)
+      try {
+        const second = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+        expect(second.existing?.pid).toBe(424242)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('keys the lock by output path, so unrelated outputs are independent', () => {
+      const first = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      const killSpy = foreignHolder(tempDir)
+      try {
+        const other = acquireOutputLock(tempDir, '/project/.output-staging', { command: 'build', cwd: '/project' })
+        expect(other.existing).toBeUndefined()
+        other.release!()
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+      first.release?.()
+    })
+
+    it('releases the lock when the build finishes', () => {
+      const lock = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      const dir = join(tempDir, 'node_modules', '.cache', 'nuxt')
+      expect(readdirSync(dir)).toHaveLength(1)
+      lock.release!()
+      expect(readdirSync(dir)).toHaveLength(0)
+    })
+
+    it('is a no-op when locking is disabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '1'
+      const lock = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      expect(lock.release).toBeDefined()
+      expect(existsSync(join(tempDir, 'node_modules'))).toBe(false)
+      lock.release!()
     })
   })
 
