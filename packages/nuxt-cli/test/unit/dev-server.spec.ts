@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { findDevServer, resolveLockDir } from '../../src/utils/dev-server'
+import { findDevServer, resolveLockDir, toLoopback } from '../../src/utils/dev-server'
 
 let cwd: string
 
@@ -62,6 +62,12 @@ describe('findDevServer', () => {
     })
   })
 
+  it('dials loopback for a server bound to every interface', async () => {
+    await writeLock('.nuxt', { hostname: '0.0.0.0', url: 'http://0.0.0.0:3597' })
+
+    await expect(findDevServer(cwd)).resolves.toMatchObject({ url: 'http://127.0.0.1:3597' })
+  })
+
   it('strips a trailing slash from the recorded URL', async () => {
     await writeLock('.nuxt', { url: 'http://localhost:3000/' })
 
@@ -92,5 +98,18 @@ describe('findDevServer', () => {
     await writeLock('custom')
 
     await expect(findDevServer(cwd, 'custom')).resolves.toMatchObject({ pid: 424242 })
+  })
+})
+
+describe('toLoopback', () => {
+  it.each([
+    ['http://0.0.0.0:3000', 'http://127.0.0.1:3000'],
+    ['http://[::]:3000', 'http://[::1]:3000'],
+    ['https://0.0.0.0:3000/', 'https://127.0.0.1:3000'],
+    ['http://localhost:3000', 'http://localhost:3000'],
+    ['http://192.168.1.5:3000', 'http://192.168.1.5:3000'],
+    ['not a url/', 'not a url'],
+  ])('%s -> %s', (input, expected) => {
+    expect(toLoopback(input)).toBe(expected)
   })
 })

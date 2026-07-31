@@ -8,6 +8,12 @@ import { getNuxtConfig } from './nuxt-config'
 
 const TRAILING_SLASH_RE = /\/$/
 
+/** Loopback address to dial for each wildcard a listener can be bound to. */
+const LOOPBACK_FOR_WILDCARD: Record<string, string> = {
+  '0.0.0.0': '127.0.0.1',
+  '[::]': '[::1]',
+}
+
 export interface RunningDevServer {
   /** Origin the dev server is listening on, without a trailing slash. */
   url: string
@@ -46,8 +52,31 @@ export async function findDevServer(cwd: string, buildDir?: string): Promise<Run
 
   const lock = readActiveLock(dir)
   if (lock?.command === 'dev' && lock.url) {
-    return { url: lock.url.replace(TRAILING_SLASH_RE, ''), pid: lock.pid, cwd: lock.cwd }
+    return { url: toLoopback(lock.url), pid: lock.pid, cwd: lock.cwd }
   }
+}
+
+/**
+ * A dev server bound to every interface records the wildcard it was given, but
+ * that is not an address to connect to: Windows refuses `0.0.0.0` outright, and
+ * Nitro only serves its dev-only routes (the task runner, the VFS viewer) to
+ * requests arriving on the loopback interface.
+ */
+export function toLoopback(url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  }
+  catch {
+    return url.replace(TRAILING_SLASH_RE, '')
+  }
+
+  const loopback = LOOPBACK_FOR_WILDCARD[parsed.hostname]
+  if (loopback) {
+    parsed.hostname = loopback
+  }
+
+  return parsed.href.replace(TRAILING_SLASH_RE, '')
 }
 
 export function noDevServerMessage(what: string): string {
