@@ -45,7 +45,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
   let ansiFirstColumnLength = 0
   const entries = Object.entries(infoObj).map(([label, val]) => {
     if (label.length > firstColumnLength) {
-      ansiFirstColumnLength = styleText('bold', styleText('whiteBright', label)).length + 6
+      ansiFirstColumnLength = styleText(['bold', 'whiteBright'], label).length + 6
       firstColumnLength = label.length + 6
     }
     return [label, val || '-'] as const
@@ -60,7 +60,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
       .replace(AT_MENTION_RE, (_, r) => styleText('gray', ` ${r}`))
       .replace(BACKTICK_RE, (_, r) => r)
 
-    boxStr += (`${styleText('bold', styleText('whiteBright', label))}`).padEnd(ansiFirstColumnLength)
+    boxStr += styleText(['bold', 'whiteBright'], label).padEnd(ansiFirstColumnLength)
 
     let boxRowLength = firstColumnLength
 
