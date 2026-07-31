@@ -6,13 +6,13 @@ import { styleText } from 'node:util'
 import { defineCommand } from 'citty'
 
 import { findDevServer, noDevServerMessage } from '../utils/dev-server'
+import { highlightJson } from '../utils/json-highlight'
 import { logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
 
 const HAS_SCHEME_RE = /^[a-z][a-z\d+.-]*:\/\//i
-const JSON_TOKEN_RE = /("(?:\\.|[^"\\])*")(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g
 const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
 
 /** `curl --fail` uses 22 for an HTTP error response; scripts rely on it. */
@@ -173,12 +173,7 @@ function formatJson(text: string): string {
     return text
   }
 
-  return json.replace(JSON_TOKEN_RE, (match, string: string | undefined, colon: string | undefined) => {
-    if (string) {
-      return colon ? styleText('cyan', string) + colon : styleText('green', string)
-    }
-    return styleText('yellow', match)
-  })
+  return highlightJson(json)
 }
 
 function isJson(value: string): boolean {

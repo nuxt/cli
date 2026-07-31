@@ -7,6 +7,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { stripVTControlCharacters } from 'node:util'
 
 import { runCommand } from 'citty'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -263,7 +264,7 @@ describe('task run', () => {
       name: 'db:seed',
       payload: { count: '3', nested: { flag: 'yes' } },
     })
-    expect(stdout).toBe('{\n  "ok": true\n}\n')
+    expect(stripVTControlCharacters(stdout)).toBe('{\n  "ok": true\n}\n')
   })
 
   it('prints a response that is not a bare result envelope as it came', async () => {
@@ -271,7 +272,7 @@ describe('task run', () => {
     const code = await runTaskCommand(run, ['db:seed', '--url', origin])
 
     expect(code).toBe(0)
-    expect(JSON.parse(stdout)).toEqual({ result: { ok: true }, duration: 12 })
+    expect(JSON.parse(stripVTControlCharacters(stdout))).toEqual({ result: { ok: true }, duration: 12 })
   })
 
   it('merges a JSON payload with dotted arguments', async () => {
