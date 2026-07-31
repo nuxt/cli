@@ -82,6 +82,9 @@ export async function takeOverDevServer(buildDir: string, options: TakeoverOptio
   }
 
   if (!isProcessAlive(existing.pid)) {
+    if (!await isPortFree(existing.port, existing.hostname)) {
+      logger.warn(`The dev server that was using port ${existing.port} is gone, but something is still listening there.`)
+    }
     return { action: 'stale' }
   }
 

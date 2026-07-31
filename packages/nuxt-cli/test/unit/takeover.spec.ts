@@ -13,6 +13,7 @@ const checkPort = vi.hoisted(() => vi.fn<(port: number, host?: string) => Promis
 vi.mock('get-port-please', () => ({ checkPort }))
 
 const { formatTakeoverRefusal, takeOverDevServer } = await import('../../src/dev/takeover')
+const { logger } = await import('../../src/utils/logger')
 const { getTakeoverPid, markTakenOver, readLock, updateLock } = await import('../../src/utils/lockfile')
 
 const HOLDER_PID = 424242
@@ -109,6 +110,23 @@ describe('takeOverDevServer', () => {
     const proc = mockProcess({ alive: false })
     expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
     expect(proc.signals).toHaveLength(0)
+  })
+
+  it('warns when the holder is gone but its port is still taken', async () => {
+    writeLock(buildDir)
+    mockProcess({ alive: false })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('still listening'))
+  })
+
+  it('does not warn when the holder is gone and its port is free', async () => {
+    writeLock(buildDir)
+    checkPort.mockResolvedValue(3000)
+    mockProcess({ alive: false })
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('reports a stale lock when the port is free (recycled PID)', async () => {
