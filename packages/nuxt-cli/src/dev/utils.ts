@@ -1,15 +1,16 @@
 import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
-import type { FSWatcher } from 'node:fs'
+import type { FSWatcher, Stats } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
 import type { DevListenOverrides, Listener, ListenOptions } from './listen'
 import type { DevRestartReason } from './reason'
+import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
-import { existsSync, readdirSync, statSync, watch } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 
@@ -95,24 +96,66 @@ function devForkParentPid(): number | undefined {
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 const TRAILING_SLASH_RE = /\/$/
 
-export class FileChangeTracker {
-  private mtimes = new Map<string, number>()
+/**
+ * Files above this size are tracked by mtime alone.
+ */
+const MAX_HASHED_FILE_SIZE = 256 * 1024
 
+interface TrackedFile {
+  mtimeMs: number
+  /** Absent for directories and for files too large to hash. */
+  contentHash?: string
+}
+
+function hashFileContents(path: string, size: number): string | undefined {
+  if (size > MAX_HASHED_FILE_SIZE) {
+    return undefined
+  }
+  try {
+    return hash('sha1', readFileSync(path), 'hex')
+  }
+  catch {
+    return undefined
+  }
+}
+
+function trackFile(path: string, stats: Stats): TrackedFile {
+  if (stats.isDirectory()) {
+    return { mtimeMs: stats.mtimeMs }
+  }
+  return { mtimeMs: stats.mtimeMs, contentHash: hashFileContents(path, stats.size) }
+}
+
+export class FileChangeTracker {
+  private entries = new Map<string, TrackedFile>()
+
+  /**
+   * Whether a watcher event for `filePath` represents a real change.
+   *
+   * Regular files are compared by content, so identical rewrites (atomic saves,
+   * formatters, `git checkout` of the same revision) do not trigger a reload.
+   * Directories and files over `MAX_HASHED_FILE_SIZE` fall back to mtime.
+   */
   shouldEmitChange(filePath: string): boolean {
     const resolved = resolve(filePath)
     try {
       const stats = statSync(resolved)
-      const currentMtime = stats.mtimeMs
-      const lastMtime = this.mtimes.get(resolved)
+      const previous = this.entries.get(resolved)
+      const current = trackFile(resolved, stats)
 
-      this.mtimes.set(resolved, currentMtime)
+      this.entries.set(resolved, current)
 
-      // emit change for new file or mtime has changed
-      return lastMtime === undefined || currentMtime !== lastMtime
+      if (previous === undefined) {
+        return true
+      }
+      if (previous.contentHash !== undefined && current.contentHash !== undefined) {
+        return previous.contentHash !== current.contentHash
+      }
+      return previous.mtimeMs !== current.mtimeMs
     }
     catch {
       // remove from cache if it has been deleted or is inaccessible
-      this.mtimes.delete(resolved)
+      this.entries.delete(resolved)
       return true
     }
   }
@@ -120,14 +163,14 @@ export class FileChangeTracker {
   prime(filePath: string, recursive: boolean = false): void {
     const resolved = resolve(filePath)
     const stat = statSync(resolved)
-    this.mtimes.set(resolved, stat.mtimeMs)
+    this.entries.set(resolved, trackFile(resolved, stat))
     if (stat.isDirectory()) {
       const entries = readdirSync(resolved)
       for (const entry of entries) {
         const fullPath = resolve(resolved, entry)
         try {
           const stats = statSync(fullPath)
-          this.mtimes.set(fullPath, stats.mtimeMs)
+          this.entries.set(fullPath, trackFile(fullPath, stats))
           if (recursive && stats.isDirectory()) {
             this.prime(fullPath, recursive)
           }
@@ -864,14 +907,43 @@ function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.
   }
 }
 
+/**
+ * Collapse the burst of watcher events a single save produces into one call per
+ * file. A truncate-then-write save is briefly observable as an empty file, and
+ * evaluating it mid-write would report a spurious change.
+ */
+export function perFile(handler: (file: string) => void, delay = 30): { listener: (event: unknown, file: string | null) => void, cancel: () => void } {
+  const timers = new Map<string, NodeJS.Timeout>()
+  return {
+    listener: (_event, file) => {
+      if (!file) {
+        return
+      }
+      clearTimeout(timers.get(file))
+      const timer = setTimeout(() => {
+        timers.delete(file)
+        handler(file)
+      }, delay)
+      timer.unref?.()
+      timers.set(file, timer)
+    },
+    cancel: () => {
+      for (const timer of timers.values()) {
+        clearTimeout(timer)
+      }
+      timers.clear()
+    },
+  }
+}
+
 function watchConfigDir(dir: string, onReload: (path: string) => void, onFile?: (file: string, path: string) => void) {
   const fileWatcher = new FileChangeTracker()
   fileWatcher.prime(dir)
   const watcher = watch(dir)
   let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
 
-  watcher.on('change', (_event, file: string | null) => {
-    if (!file || !fileWatcher.shouldEmitChange(resolve(dir, file))) {
+  const { listener, cancel } = perFile((file) => {
+    if (!fileWatcher.shouldEmitChange(resolve(dir, file))) {
       return
     }
 
@@ -885,8 +957,10 @@ function watchConfigDir(dir: string, onReload: (path: string) => void, onFile?: 
       configDirWatcher ||= createConfigDirWatcher(dir, onReload)
     }
   })
+  watcher.on('change', listener)
 
   return () => {
+    cancel()
     watcher.close()
     configDirWatcher?.()
   }
@@ -898,8 +972,8 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
 
   fileWatcher.prime(configDir)
   const configDirWatcher = watch(configDir)
-  configDirWatcher.on('change', (_event, file: string | null) => {
-    if (!file || !fileWatcher.shouldEmitChange(resolve(configDir, file))) {
+  const { listener, cancel } = perFile((file) => {
+    if (!fileWatcher.shouldEmitChange(resolve(configDir, file))) {
       return
     }
 
@@ -907,8 +981,12 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
       onReload(resolve(configDir, file))
     }
   })
+  configDirWatcher.on('change', listener)
 
-  return () => configDirWatcher.close()
+  return () => {
+    cancel()
+    configDirWatcher.close()
+  }
 }
 
 function isPublicHostname(hostname: string | undefined): boolean {

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, rm, utimes, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -145,20 +145,47 @@ describe('fileWatcher', () => {
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
   })
 
-  it('should detect mtime changes even with same content', async () => {
+  it('should ignore mtime changes when the content is unchanged', async () => {
     await writeFile(testFile, 'same content')
 
-    // First check
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
-
-    // No change
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
 
-    // Manually update mtime to simulate file modification
     const now = Date.now()
     await utimes(testFile, new Date(now), new Date(now + 1000))
 
-    // Should detect the mtime change
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+  })
+
+  it('should ignore an atomic save that rewrites identical content', async () => {
+    await writeFile(testFile, 'export default {}\n')
+    fileWatcher.prime(testFile)
+
+    const tempPath = `${testFile}.tmp`
+    await writeFile(tempPath, 'export default {}\n')
+    await rename(tempPath, testFile)
+
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(false)
+  })
+
+  it('should detect an atomic save that changes content', async () => {
+    await writeFile(testFile, 'export default {}\n')
+    fileWatcher.prime(testFile)
+
+    const tempPath = `${testFile}.tmp`
+    await writeFile(tempPath, 'export default { ssr: false }\n')
+    await rename(tempPath, testFile)
+
+    expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
+  })
+
+  it('should fall back to mtime for files too large to hash', async () => {
+    await writeFile(testFile, 'x'.repeat(300 * 1024))
+    fileWatcher.prime(testFile)
+
+    const now = Date.now()
+    await utimes(testFile, new Date(now), new Date(now + 1000))
+
     expect(fileWatcher.shouldEmitChange(testFile)).toBe(true)
   })
 })
