@@ -48,7 +48,7 @@ describe('restart hook', () => {
     expect(callback).toHaveBeenCalledExactlyOnceWith({ type: 'shortcut' })
   })
 
-  it('should restart on an error that is not a broken pipe or an aborted connection', () => {
+  it('should restart on an error that is not a remote peer error', () => {
     const source = new EventEmitter()
     const callback = vi.fn()
     arm(source, callback)
@@ -129,11 +129,12 @@ describe('rejection handler', () => {
     expect(report).toHaveBeenCalledExactlyOnceWith('Unhandled Rejection')
   })
 
-  it('should keep the process alive when a client aborted the connection', () => {
+  it('should keep the process alive on remote peer errors', () => {
     const report = vi.fn()
     const stop = vi.fn()
     const handle = createRejectionHandler(report, stop)
 
+    handle(Object.assign(new Error('write EPIPE'), { code: 'EPIPE' }))
     handle(Object.assign(new Error('read ECONNRESET'), { code: 'ECONNRESET' }))
     handle(Object.assign(new Error('premature close'), { code: 'ERR_STREAM_PREMATURE_CLOSE' }))
 

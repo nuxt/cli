@@ -4,7 +4,7 @@ import process from 'node:process'
 
 import { consola } from 'consola'
 
-import { isBrokenPipe } from './errors'
+import { isRemotePeerError } from './errors'
 import { debug } from './logger'
 
 // Filter out unwanted logs
@@ -68,8 +68,8 @@ export function restoreRawMode(): void {
 }
 
 function report(label: string, error: unknown) {
-  if (isBrokenPipe(error)) {
-    debug(`${label} ignoring broken pipe:`, error)
+  if (isRemotePeerError(error)) {
+    debug(`${label} ignoring remote peer error:`, error)
     return
   }
   consola.error(label, error)
