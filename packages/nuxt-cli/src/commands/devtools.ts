@@ -1,8 +1,8 @@
 import process from 'node:process'
 
-import { defineCommand } from 'citty'
+import { styleText } from 'node:util'
 
-import colors from 'picocolors'
+import { defineCommand } from 'citty'
 import { x } from 'tinyexec'
 import { logger } from '../utils/logger'
 
@@ -28,7 +28,7 @@ export default defineCommand({
     const command = ctx.args.command
 
     if (!command || !['enable', 'disable'].includes(command)) {
-      logger.error(`Unknown command ${colors.cyan(command || '')}.`)
+      logger.error(`Unknown command ${styleText('cyan', command || '')}.`)
       process.exit(1)
     }
 

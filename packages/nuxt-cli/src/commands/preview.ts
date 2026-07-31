@@ -2,10 +2,10 @@ import { existsSync, promises as fsp } from 'node:fs'
 import { dirname } from 'node:path'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { box, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
-import colors from 'picocolors'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
@@ -73,7 +73,7 @@ const command = defineCommand({
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
-        `Cannot find ${colors.cyan('nitro.json')}. Did you run ${colors.cyan('nuxt build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
+        `Cannot find ${styleText('cyan', 'nitro.json')}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
       )
       process.exit(1)
     }
@@ -97,15 +97,15 @@ const command = defineCommand({
       [
         '',
         'You are previewing a Nuxt app. In production, do not use this CLI. ',
-        `Instead, run ${colors.cyan(nitroJSON.commands.preview)} directly.`,
+        `Instead, run ${styleText('cyan', nitroJSON.commands.preview)} directly.`,
         '',
         ...info.map(
           ([label, value]) =>
-            `${label.padEnd(_infoKeyLen, ' ')} ${colors.cyan(value)}`,
+            `${label.padEnd(_infoKeyLen, ' ')} ${styleText('cyan', value)}`,
         ),
         '',
       ].join('\n'),
-      colors.yellow(' Previewing Nuxt app '),
+      styleText('yellow', ' Previewing Nuxt app '),
       {
         contentAlign: 'left',
         titleAlign: 'left',
@@ -114,7 +114,7 @@ const command = defineCommand({
         contentPadding: 2,
         rounded: true,
         withGuide: true,
-        formatBorder: (text: string) => colors.yellow(text),
+        formatBorder: (text: string) => styleText('yellow', text),
       },
     )
 
@@ -125,17 +125,17 @@ const command = defineCommand({
     if (envExists) {
       if (envLoaded) {
         logger.info(
-          `Loaded ${colors.cyan(envFileName)}. This will not be loaded when running the server in production.`,
+          `Loaded ${styleText('cyan', envFileName)}. This will not be loaded when running the server in production.`,
         )
       }
       else {
         logger.warn(
-          `Could not load Nuxt, so ${colors.cyan(envFileName)} may not be fully applied to the preview server.`,
+          `Could not load Nuxt, so ${styleText('cyan', envFileName)} may not be fully applied to the preview server.`,
         )
       }
     }
     else if (ctx.args.dotenv) {
-      logger.error(`Cannot find ${colors.cyan(envFileName)}.`)
+      logger.error(`Cannot find ${styleText('cyan', envFileName)}.`)
     }
 
     const port = ctx.args.port
@@ -143,7 +143,7 @@ const command = defineCommand({
       ?? process.env.NITRO_PORT
       ?? process.env.PORT
 
-    outro(`Running ${colors.cyan(nitroJSON.commands.preview)} in ${colors.cyan(relativeToProcess(outputPath))}`)
+    outro(`Running ${styleText('cyan', nitroJSON.commands.preview)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
 
     const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
     await x(command, commandArgs, {

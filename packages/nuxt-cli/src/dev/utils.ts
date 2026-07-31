@@ -14,12 +14,12 @@ import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 
 import { pathToFileURL } from 'node:url'
+import { styleText } from 'node:util'
 import defu from 'defu'
 import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
-import colors from 'picocolors'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 
@@ -418,7 +418,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const changedKeys = reason?.type === 'config' && formatChangedKeys(reason.keys ?? [])
     if (changedKeys) {
-      lines.push(colors.dim(`  ${changedKeys}`))
+      lines.push(styleText('dim', `  ${changedKeys}`))
     }
 
     // eslint-disable-next-line no-console

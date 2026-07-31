@@ -1,7 +1,7 @@
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { defineCommand } from 'citty'
-import colors from 'picocolors'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -45,6 +45,6 @@ export default defineCommand({
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)
-    logger.success(`Types generated in ${colors.cyan(relativeToProcess(nuxt.options.buildDir))}.`)
+    logger.success(`Types generated in ${styleText('cyan', relativeToProcess(nuxt.options.buildDir))}.`)
   },
 })

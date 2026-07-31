@@ -1,6 +1,6 @@
 import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 
-import colors from 'picocolors'
+import { styleText } from 'node:util'
 
 import { logger } from './logger'
 import { getPkgJSON, getPkgVersion } from './pkg'
@@ -29,7 +29,6 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
 }
 
 export function showBanner(nuxt: Nuxt) {
-  const { bold, gray, green } = colors
   const cwd = nuxt.options.rootDir
 
   const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly')
@@ -40,12 +39,12 @@ export function showBanner(nuxt: Nuxt) {
   const vueVersion = getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null
 
   logger.info(
-    green(`Nuxt ${bold(nuxtVersion)}`)
-    + gray(' (with ')
-    + (nitroVersion ? gray(`Nitro ${bold(nitroVersion)}`) : '')
-    + gray(`, ${builder.name} ${bold(builder.version)}`)
-    + (builder.provider ? gray(` via ${builder.provider.name} ${bold(builder.provider.version)}`) : '')
-    + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
-    + gray(')'),
+    styleText('green', `Nuxt ${styleText('bold', nuxtVersion)}`)
+    + styleText('gray', ' (with ')
+    + (nitroVersion ? styleText('gray', `Nitro ${styleText('bold', nitroVersion)}`) : '')
+    + styleText('gray', `, ${builder.name} ${styleText('bold', builder.version)}`)
+    + (builder.provider ? styleText('gray', ` via ${builder.provider.name} ${styleText('bold', builder.provider.version)}`) : '')
+    + (vueVersion ? styleText('gray', ` and Vue ${styleText('bold', vueVersion)}`) : '')
+    + styleText('gray', ')'),
   )
 }

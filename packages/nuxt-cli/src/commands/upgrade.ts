@@ -6,11 +6,11 @@ import type { InstallResult } from '../utils/install'
 import { existsSync } from 'node:fs'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, intro, isCancel, note, outro, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager } from 'nypm'
 import { dirname, relative, resolve } from 'pathe'
-import colors from 'picocolors'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
 import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
@@ -171,24 +171,24 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
 
-    intro(colors.cyan('Upgrading Nuxt ...'))
+    intro(styleText('cyan', 'Upgrading Nuxt ...'))
 
     // Check package manager
     const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
     if (!packageManager) {
       logger.error(
-        `Unable to determine the package manager used by this project.\n\nNo lock files found in ${colors.cyan(relativeToProcess(cwd))}, and no ${colors.cyan('packageManager')} field specified in ${colors.cyan('package.json')}.`,
+        `Unable to determine the package manager used by this project.\n\nNo lock files found in ${styleText('cyan', relativeToProcess(cwd))}, and no ${styleText('cyan', 'packageManager')} field specified in ${styleText('cyan', 'package.json')}.`,
       )
-      logger.info(`Please either add the ${colors.cyan('packageManager')} field to ${colors.cyan('package.json')} or execute the installation command for your package manager. For example, you can use ${colors.cyan('pnpm i')}, ${colors.cyan('npm i')}, ${colors.cyan('bun i')}, or ${colors.cyan('yarn i')}, and then try again.`)
+      logger.info(`Please either add the ${styleText('cyan', 'packageManager')} field to ${styleText('cyan', 'package.json')} or execute the installation command for your package manager. For example, you can use ${styleText('cyan', 'pnpm i')}, ${styleText('cyan', 'npm i')}, ${styleText('cyan', 'bun i')}, or ${styleText('cyan', 'yarn i')}, and then try again.`)
       process.exit(1)
     }
     const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
-    logger.step(`Package manager: ${colors.cyan(packageManagerName)} ${packageManagerVersion}`)
+    logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${packageManagerVersion}`)
 
     // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
-    logger.step(`Current Nuxt version: ${colors.cyan(currentVersion)}`)
+    logger.step(`Current Nuxt version: ${styleText('cyan', currentVersion)}`)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
 
@@ -227,13 +227,13 @@ export default defineCommand({
     else {
       logger.error(
         cwd === workspaceDir
-          ? `Unable to find a ${packageManagerName} lock file in ${colors.cyan(relativeToProcess(cwd))}.`
-          : `Unable to find a ${packageManagerName} lock file in ${colors.cyan(relativeToProcess(cwd))} or any directory up to ${colors.cyan(relativeToProcess(workspaceDir))}.`,
+          ? `Unable to find a ${packageManagerName} lock file in ${styleText('cyan', relativeToProcess(cwd))}.`
+          : `Unable to find a ${packageManagerName} lock file in ${styleText('cyan', relativeToProcess(cwd))} or any directory up to ${styleText('cyan', relativeToProcess(workspaceDir))}.`,
       )
     }
 
     const forceRemovals = toRemove
-      .map(p => colors.cyan(p))
+      .map(p => styleText('cyan', p))
       .join(' and ')
 
     let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
@@ -300,12 +300,12 @@ export default defineCommand({
       )
 
       if (unresolved.length > 0) {
-        logger.warn(`Unable to resolve a ${versionType} version for ${unresolved.map(name => colors.cyan(name)).join(', ')} from the npm registry. Their catalog entries were left unchanged.`)
-        logger.info(`Run with ${colors.cyan('DEBUG=nuxi')} to see why the lookup failed.`)
+        logger.warn(`Unable to resolve a ${versionType} version for ${unresolved.map(name => styleText('cyan', name)).join(', ')} from the npm registry. Their catalog entries were left unchanged.`)
+        logger.info(`Run with ${styleText('cyan', 'DEBUG=nuxi')} to see why the lookup failed.`)
       }
 
       if (catalogResult === 'failed') {
-        logger.warn(`Unable to update the catalog entries for ${resolved.map(({ pkg }) => colors.cyan(pkg)).join(', ')}. Check ${colors.cyan('pnpm-workspace.yaml')} is readable and valid.`)
+        logger.warn(`Unable to update the catalog entries for ${resolved.map(({ pkg }) => styleText('cyan', pkg)).join(', ')}. Check ${styleText('cyan', 'pnpm-workspace.yaml')} is readable and valid.`)
       }
 
       // Without a catalog entry pointing at the new version there is nothing for
@@ -314,7 +314,7 @@ export default defineCommand({
         ? resolved.some(({ pkg }) => pkg === 'nuxt')
         : unresolved.includes('nuxt')
       if (nuxtUpgradeFailed) {
-        logger.error(`Unable to upgrade ${colors.cyan('nuxt')} in ${colors.cyan('pnpm-workspace.yaml')}.`)
+        logger.error(`Unable to upgrade ${styleText('cyan', 'nuxt')} in ${styleText('cyan', 'pnpm-workspace.yaml')}.`)
         outro('Upgrade cancelled.')
         process.exit(1)
       }
@@ -336,7 +336,7 @@ export default defineCommand({
 
     if (installFailed) {
       if (catalogResult === 'updated') {
-        logger.info(`Your ${colors.cyan('pnpm-workspace.yaml')} catalog entries were already updated, so review them before retrying.`)
+        logger.info(`Your ${styleText('cyan', 'pnpm-workspace.yaml')} catalog entries were already updated, so review them before retrying.`)
       }
       process.exit(1)
     }
@@ -370,7 +370,7 @@ export default defineCommand({
     cleanupSpinner.stop('Build directories cleaned')
 
     if (method === 'force') {
-      logger.info(`If you encounter any issues, revert the changes and try with ${colors.cyan('--no-force')}`)
+      logger.info(`If you encounter any issues, revert the changes and try with ${styleText('cyan', '--no-force')}`)
     }
 
     // Check installed Nuxt version again
@@ -381,11 +381,11 @@ export default defineCommand({
     }
 
     if (upgradedVersion === currentVersion) {
-      outro(`You were already using the latest version of Nuxt (${colors.green(currentVersion)})`)
+      outro(`You were already using the latest version of Nuxt (${styleText('green', currentVersion)})`)
     }
     else {
       logger.success(
-        `Successfully upgraded Nuxt from ${colors.cyan(currentVersion)} to ${colors.green(upgradedVersion)}`,
+        `Successfully upgraded Nuxt from ${styleText('cyan', currentVersion)} to ${styleText('green', upgradedVersion)}`,
       )
       if (currentVersion === '[unknown]') {
         return
@@ -444,7 +444,7 @@ async function withInstallSpinner(
 
   const ignoredBuilds = takeUnreportedIgnoredBuilds(result.ignoredBuilds)
   if (ignoredBuilds.length > 0) {
-    logger.warn(`Build scripts were not run for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
+    logger.warn(`Build scripts were not run for ${ignoredBuilds.map(name => styleText('cyan', name)).join(', ')}.`)
   }
 
   return !result.success

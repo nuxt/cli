@@ -3,12 +3,12 @@ import type { NuxtAnalyzeMeta } from '@nuxt/schema'
 import { promises as fsp } from 'node:fs'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { intro, note, outro, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
 import { H3, lazyEventHandler } from 'h3-next'
 import { join } from 'pathe'
-import colors from 'picocolors'
 import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'
@@ -74,7 +74,7 @@ export default defineCommand({
     const name = ctx.args.name || 'default'
     const slug = name.trim().replace(NON_WORD_RE, '_')
 
-    intro(colors.cyan('Analyzing bundle size...'))
+    intro(styleText('cyan', 'Analyzing bundle size...'))
 
     const startTime = Date.now()
 
@@ -151,7 +151,7 @@ export default defineCommand({
     tasklog.success('Build complete')
 
     if (skippedPrerenderRoutes > 0) {
-      logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${colors.cyan('--prerender')} to include assets emitted while prerendering.`)
+      logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
     }
 
     const endTime = Date.now()
@@ -169,7 +169,7 @@ export default defineCommand({
     await nuxt.callHook('build:analyze:done', meta)
     await fsp.writeFile(join(analyzeDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
 
-    note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${colors.cyan('nuxt build')} before deploying.`, 'Build location')
+    note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${styleText('cyan', 'nuxt build')} before deploying.`, 'Build location')
 
     if (ctx.args.serve !== false && !process.env.CI) {
       const app = new H3()

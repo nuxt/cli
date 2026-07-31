@@ -7,9 +7,9 @@ import { statSync } from 'node:fs'
 import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { log, S_BAR } from '@clack/prompts'
 import { addDependency, dedupeDependencies, installDependencies, packageManagers } from 'nypm'
-import colors from 'picocolors'
 import { provider } from 'std-env'
 import { normalizeSpawnCommand, x } from 'tinyexec'
 
@@ -179,7 +179,7 @@ export function createInstallLog({ verbose = false } = {}): InstallLog {
       }
       const output = (lines.length > 0 ? lines.join('\n') : result.output).trim()
       if (output) {
-        log.message(output.split('\n'), { symbol: colors.gray(S_BAR) })
+        log.message(output.split('\n'), { symbol: styleText('gray', S_BAR) })
       }
     },
   }

@@ -27,6 +27,8 @@ export async function render(run: (context: RenderContext) => unknown): Promise<
   }
 
   const log = vi.spyOn(console, 'log').mockImplementation((...args: unknown[]) => capture(`${args.join(' ')}\n`))
+  const isTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
   const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
     capture(chunk as string)
     return true
@@ -43,6 +45,12 @@ export async function render(run: (context: RenderContext) => unknown): Promise<
   }
   finally {
     log.mockRestore()
+    if (isTTY) {
+      Object.defineProperty(process.stdout, 'isTTY', isTTY)
+    }
+    else {
+      Reflect.deleteProperty(process.stdout, 'isTTY')
+    }
     write.mockRestore()
   }
 

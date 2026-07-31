@@ -8,12 +8,12 @@ import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { detectPackageManager } from 'nypm'
 import { basename, join, relative, resolve } from 'pathe'
-import colors from 'picocolors'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
@@ -76,12 +76,12 @@ async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
   await showUsage(cmd)
   if (availableTemplates) {
     logger.info(`Available templates:\n${Object.entries(availableTemplates)
-      .map(([name, data]) => `  ${colors.cyan(name)}${data ? ` – ${data.description}` : ''}`)
+      .map(([name, data]) => `  ${styleText('cyan', name)}${data ? ` – ${data.description}` : ''}`)
       .join('\n')}`)
   }
   const label = missingArgs.length === 1 ? 'argument' : 'arguments'
   logger.error(`Non-interactive terminal detected. Missing required ${label}: ${missingArgs
-    .map(name => colors.cyan(name === 'dir' ? '<dir>' : `--${name}`))
+    .map(name => styleText('cyan', name === 'dir' ? '<dir>' : `--${name}`))
     .join(', ')}`)
 }
 
@@ -199,7 +199,7 @@ export default defineCommand({
     // of being silently ignored once a template's own package manager is
     // detected.
     if (ctx.args.packageManager && !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)) {
-      logger.error(`Invalid package manager: ${colors.cyan(ctx.args.packageManager)}. Choose one of ${packageManagerOptions.map(pm => colors.cyan(pm)).join(', ')}.`)
+      logger.error(`Invalid package manager: ${styleText('cyan', ctx.args.packageManager)}. Choose one of ${packageManagerOptions.map(pm => styleText('cyan', pm)).join(', ')}.`)
       process.exit(ARG_ERROR_EXIT_CODE)
     }
 
@@ -214,7 +214,7 @@ export default defineCommand({
       process.stdout.write(`\n${nuxtIcon}\n\n`)
     }
 
-    intro(colors.bold(`Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+    intro(styleText('bold', `Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
 
     let availableTemplates: Record<string, TemplateData> = {}
 
@@ -280,7 +280,7 @@ export default defineCommand({
         options: Object.entries(availableTemplates).map(([name, data]) => {
           return {
             value: name,
-            label: data ? `${colors.whiteBright(name)} – ${data.description}` : name,
+            label: data ? `${styleText('whiteBright', name)} – ${data.description}` : name,
             hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
           }
         }),
@@ -324,7 +324,7 @@ export default defineCommand({
 
     const cwd = resolve(ctx.args.cwd)
     let templateDownloadPath = resolve(cwd, dir)
-    logger.step(`Creating project in ${colors.cyan(relativeToProcess(templateDownloadPath))}`)
+    logger.step(`Creating project in ${styleText('cyan', relativeToProcess(templateDownloadPath))}`)
 
     let shouldForce = Boolean(ctx.args.force)
 
@@ -333,12 +333,12 @@ export default defineCommand({
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       if (isNonInteractive) {
-        logger.error(`The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. Pass ${colors.cyan('--force')} to override it or choose a different directory.`)
+        logger.error(`The directory ${styleText('cyan', relativeToProcess(templateDownloadPath))} already exists. Pass ${styleText('cyan', '--force')} to override it or choose a different directory.`)
         process.exit(1)
       }
 
       const selectedAction = await select({
-        message: `The directory ${colors.cyan(relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
+        message: `The directory ${styleText('cyan', relativeToProcess(templateDownloadPath))} already exists. What would you like to do?`,
         options: [
           { value: 'override', label: 'Override its contents' },
           { value: 'different', label: 'Select different directory' },
@@ -383,7 +383,7 @@ export default defineCommand({
     const registry = process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
 
     const downloadSpinner = spinner()
-    downloadSpinner.start(`Downloading ${colors.cyan(templateName)} template`)
+    downloadSpinner.start(`Downloading ${styleText('cyan', templateName)} template`)
 
     try {
       template = await downloadTemplate(templateName, {
@@ -414,7 +414,7 @@ export default defineCommand({
         }
       }
 
-      downloadSpinner.stop(`Downloaded ${colors.cyan(template.name)} template`)
+      downloadSpinner.stop(`Downloaded ${styleText('cyan', template.name)} template`)
     }
     catch (err) {
       downloadSpinner.error('Template download failed')
@@ -427,7 +427,7 @@ export default defineCommand({
       logNetworkError(diagnosable, {
         url: registry,
         hints: [
-          `Retry with ${colors.cyan('--offline')} or ${colors.cyan('--preferOffline')} to use a cached template, or set ${colors.cyan('NUXI_INIT_REGISTRY')} to a reachable mirror.`,
+          `Retry with ${styleText('cyan', '--offline')} or ${styleText('cyan', '--preferOffline')} to use a cached template, or set ${styleText('cyan', 'NUXI_INIT_REGISTRY')} to a reachable mirror.`,
         ],
       })
       process.exit(1)
@@ -454,7 +454,7 @@ export default defineCommand({
 
       if (!nightlyChannelVersion) {
         nightlySpinner.error('Nightly version not found')
-        logger.error(`Nightly channel version for tag ${colors.cyan(nightlyChannelTag)} not found.`)
+        logger.error(`Nightly channel version for tag ${styleText('cyan', nightlyChannelTag)} not found.`)
         process.exit(1)
       }
 
@@ -471,7 +471,7 @@ export default defineCommand({
       }
 
       await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
-      nightlySpinner.stop(`Updated to nightly version ${colors.cyan(nightlyChannelVersion)}`)
+      nightlySpinner.stop(`Updated to nightly version ${styleText('cyan', nightlyChannelVersion)}`)
     }
 
     let installFailure: InstallResult | undefined
@@ -508,7 +508,7 @@ export default defineCommand({
       selectedPackageManager = packageManagerArg
       if (templatePackageManager && templatePackageManager.name !== packageManagerArg) {
         skipInstallOnConflict = true
-        logger.warn(`The ${colors.cyan(template.name)} template is configured for ${colors.cyan(templatePackageManager.name)}, but ${colors.cyan(packageManagerArg)} was requested. Skipping dependency installation to avoid installing against ${colors.cyan(templatePackageManager.name)}'s lockfile and config. Reconcile the package manager (or use ${colors.cyan(templatePackageManager.name)}) and install manually.`)
+        logger.warn(`The ${styleText('cyan', template.name)} template is configured for ${styleText('cyan', templatePackageManager.name)}, but ${styleText('cyan', packageManagerArg)} was requested. Skipping dependency installation to avoid installing against ${styleText('cyan', templatePackageManager.name)}'s lockfile and config. Reconcile the package manager (or use ${styleText('cyan', templatePackageManager.name)}) and install manually.`)
       }
     }
     else if (templatePackageManager) {
@@ -516,7 +516,7 @@ export default defineCommand({
       const pinned = templatePackageManager.version
         ? `${templatePackageManager.name}@${templatePackageManager.version}`
         : templatePackageManager.name
-      logger.info(`Using ${colors.cyan(pinned)} as configured by the ${colors.cyan(template.name)} template.`)
+      logger.info(`Using ${styleText('cyan', pinned)} as configured by the ${styleText('cyan', template.name)} template.`)
     }
     else if (isNonInteractive) {
       // No explicit `--packageManager`, the template pins none, and we can't
@@ -541,7 +541,7 @@ export default defineCommand({
     }
 
     if (selectedPackageManager === 'yarn' && await useYarnNodeModulesLinker(template.dir)) {
-      logger.info(`Created ${colors.cyan('.yarnrc.yml')} with ${colors.cyan('nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
+      logger.info(`Created ${styleText('cyan', '.yarnrc.yml')} with ${styleText('cyan', 'nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
     }
 
     // Determine if we should init git
@@ -575,7 +575,7 @@ export default defineCommand({
         onCancel: () => installController.abort(),
       })
 
-      installSpinner.start(`Installing dependencies with ${colors.cyan(selectedPackageManager)}`)
+      installSpinner.start(`Installing dependencies with ${styleText('cyan', selectedPackageManager)}`)
 
       const result = await runInstall({
         cwd: template.dir,
@@ -609,14 +609,14 @@ export default defineCommand({
         }
         else {
           gitSpinner.error('Git initialization failed')
-          logger.message(git.stderr.trim().split('\n'), { symbol: colors.gray(S_BAR) })
+          logger.message(git.stderr.trim().split('\n'), { symbol: styleText('gray', S_BAR) })
         }
       }
 
       // `approve-builds` is a pnpm command, so only pnpm gets the offer even if
       // another package manager ever prints the same notice.
       if (ignoredBuilds.length > 0 && selectedPackageManager === 'pnpm') {
-        logger.warn(`${colors.cyan('pnpm')} did not run build scripts for ${ignoredBuilds.map(name => colors.cyan(name)).join(', ')}.`)
+        logger.warn(`${styleText('cyan', 'pnpm')} did not run build scripts for ${ignoredBuilds.map(name => styleText('cyan', name)).join(', ')}.`)
 
         const approve = isNonInteractive
           ? false
@@ -645,7 +645,7 @@ export default defineCommand({
     // adding them to `nuxt.config` anyway would leave it unable to boot.
     if (installFailure) {
       if (requestedModules.length) {
-        logger.warn(`Skipping module installation. Add ${requestedModules.map(mod => colors.cyan(mod)).join(', ')} with ${colors.cyan('nuxt module add')} once dependencies are installed.`)
+        logger.warn(`Skipping module installation. Add ${requestedModules.map(mod => styleText('cyan', mod)).join(', ')} with ${styleText('cyan', 'nuxt module add')} once dependencies are installed.`)
       }
     }
 
@@ -719,7 +719,7 @@ export default defineCommand({
             const { toInstall, skipped } = filterModules(modules, allDependencies)
 
             if (skipped.length) {
-              logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => colors.cyan(m)).join(', ')}`)
+              logger.info(`The following modules are already included as dependencies of another module and will not be installed: ${skipped.map(m => styleText('cyan', m)).join(', ')}`)
             }
             modulesToAdd.push(...toInstall)
           }
@@ -741,10 +741,10 @@ export default defineCommand({
     }
 
     if (installFailure) {
-      logger.warn(`Created your project from the ${colors.cyan(template.name)} template, but its dependencies are not installed.`)
+      logger.warn(`Created your project from the ${styleText('cyan', template.name)} template, but its dependencies are not installed.`)
     }
     else {
-      logger.step(`Created your project from the ${colors.cyan(template.name)} template`)
+      logger.step(`Created your project from the ${styleText('cyan', template.name)} template`)
     }
 
     // The command carries no `--cwd`, so both it and the next steps are
@@ -769,7 +769,7 @@ export default defineCommand({
       })
       logger.info([
         'to scaffold this project again without prompts:',
-        ...headlessCommand.map(line => colors.dim(line)),
+        ...headlessCommand.map(line => styleText('dim', line)),
       ].join('\n'))
     }
 
@@ -783,8 +783,8 @@ export default defineCommand({
 
     logger.message([
       'Next steps:',
-      ...nextSteps.map(step => `› ${colors.cyan(step)}`),
-    ], { symbol: colors.gray(S_BAR) })
+      ...nextSteps.map(step => `› ${styleText('cyan', step)}`),
+    ], { symbol: styleText('gray', S_BAR) })
 
     outro('✨ Happy building!')
 
@@ -806,7 +806,7 @@ async function getModuleDependencies(moduleName: string) {
     return Object.keys(dependencies)
   }
   catch (err) {
-    logNetworkError(err, { url, level: 'warn', prefix: `Could not get dependencies for ${colors.cyan(moduleName)}.` })
+    logNetworkError(err, { url, level: 'warn', prefix: `Could not get dependencies for ${styleText('cyan', moduleName)}.` })
     return []
   }
 }

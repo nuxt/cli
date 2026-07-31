@@ -4,9 +4,6 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { render, screen } from '../../utils/terminal'
 
-// Colours have to be forced before `picocolors` is imported by the module under test.
-process.env.FORCE_COLOR = '3'
-
 const VERSIONS: Record<string, string> = {
   'webpack': '5.99.0',
   '@rspack/core': '1.3.0',

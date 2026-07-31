@@ -3,12 +3,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
 import { addDevDependency, detectPackageManager } from 'nypm'
 import { dirname, resolve } from 'pathe'
-import colors from 'picocolors'
 import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
@@ -84,7 +84,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
     packages: ['golar', '@golar/vue'],
     docs: 'https://golar.dev/languages/vue/',
     configFiles: GOLAR_CONFIG_FILES,
-    configNote: `Golar also requires a ${colors.cyan('golar.config.ts')} file. One will be created automatically the first time Golar is used.`,
+    configNote: `Golar also requires a ${styleText('cyan', 'golar.config.ts')} file. One will be created automatically the first time Golar is used.`,
     resolve(cwd, { cache = true } = {}) {
       const bin = resolveGolarBin(cwd)
       const vuePlugin = resolveModulePath('@golar/vue', { from: withNodePath(cwd), try: true, cache })
@@ -130,7 +130,7 @@ export default defineCommand({
 
     const checkerArg = ctx.args.checker
     if (checkerArg && !Object.hasOwn(TYPE_CHECKERS, checkerArg)) {
-      logger.error(`Unknown type checker ${colors.cyan(checkerArg)}. Expected one of: ${CHECKER_PRIORITY.join(', ')}.`)
+      logger.error(`Unknown type checker ${styleText('cyan', checkerArg)}. Expected one of: ${CHECKER_PRIORITY.join(', ')}.`)
       process.exitCode = 1
       return
     }
@@ -152,7 +152,7 @@ export default defineCommand({
     const useProjectReferences = ctx.args.build ?? supportsProjectReferences(tsConfig)
 
     if (ctx.args.build === undefined && !useProjectReferences && hasNuxtProjectReferences(tsConfig)) {
-      logger.warn(`Your ${colors.cyan('tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${colors.cyan('"files": []')} to your ${colors.cyan('tsconfig.json')}, or pass ${colors.cyan('--build')} to override.`)
+      logger.warn(`Your ${styleText('cyan', 'tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${styleText('cyan', '"files": []')} to your ${styleText('cyan', 'tsconfig.json')}, or pass ${styleText('cyan', '--build')} to override.`)
     }
 
     const start = Date.now()
@@ -163,13 +163,13 @@ export default defineCommand({
 
     if (result.exitCode === 0) {
       if (hasTTY) {
-        logger.success(`Type check passed in ${colors.cyan(duration)}.`)
+        logger.success(`Type check passed in ${styleText('cyan', duration)}.`)
       }
       return
     }
 
     if (hasTTY) {
-      logger.error(`Type check failed in ${colors.cyan(duration)}.`)
+      logger.error(`Type check failed in ${styleText('cyan', duration)}.`)
     }
     process.exitCode = result.exitCode ?? 1
   },
@@ -249,7 +249,7 @@ async function ensureGolarConfig(cwd: string) {
   const pkg = await readPackageJSON(cwd).catch(() => null)
   const filename = pkg?.type === 'module' ? 'golar.config.ts' : 'golar.config.mts'
   await writeFile(resolve(cwd, filename), GOLAR_CONFIG_TEMPLATE)
-  logger.info(`Created ${colors.cyan(filename)}`)
+  logger.info(`Created ${styleText('cyan', filename)}`)
 }
 
 async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
@@ -265,7 +265,7 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
 
   let selected = preferred
   if (!selected) {
-    logger.warn(`No type checker found for ${colors.cyan('nuxt typecheck')}.`)
+    logger.warn(`No type checker found for ${styleText('cyan', 'nuxt typecheck')}.`)
 
     const answer = await select<TypeChecker>({
       message: 'Which type checker would you like to use?',
@@ -302,7 +302,7 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
 
   const resolved = TYPE_CHECKERS[selected].resolve(cwd, { cache: false })
   if (!resolved.bin) {
-    logger.error(`Failed to resolve ${colors.cyan(selected)} after installation. Please check your installation.`)
+    logger.error(`Failed to resolve ${styleText('cyan', selected)} after installation. Please check your installation.`)
     return
   }
 
@@ -312,13 +312,13 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
 }
 
 function printInstallInstructions(pmCommand: string, devFlag: string, checkers: readonly TypeChecker[]) {
-  logger.error(`A type checker is required for ${colors.cyan('nuxt typecheck')}. Install ${checkers.length > 1 ? 'one of the following' : 'it as a devDependency'}:\n`)
+  logger.error(`A type checker is required for ${styleText('cyan', 'nuxt typecheck')}. Install ${checkers.length > 1 ? 'one of the following' : 'it as a devDependency'}:\n`)
 
   for (const checker of checkers) {
     const meta = TYPE_CHECKERS[checker]
     const command = formatInstallCommand(checker, pmCommand, devFlag)
-    const docs = meta.docs ? ` (see ${colors.cyan(meta.docs)})` : ''
-    logger.info(`${colors.cyan(meta.label)}${docs}:\n\n  ${colors.bold(command)}\n`)
+    const docs = meta.docs ? ` (see ${styleText('cyan', meta.docs)})` : ''
+    logger.info(`${styleText('cyan', meta.label)}${docs}:\n\n  ${styleText('bold', command)}\n`)
     if (meta.configNote) {
       logger.info(`${meta.configNote}\n`)
     }
@@ -337,7 +337,7 @@ async function installMissingPackages(options: {
   installCommand: string
 }): Promise<boolean> {
   const { cwd, packageManager, pmName, packages, installCommand } = options
-  const list = packages.map(name => colors.cyan(name)).join(' and ')
+  const list = packages.map(name => styleText('cyan', name)).join(' and ')
   const plural = packages.length > 1
   const devDependency = plural ? 'devDependencies' : 'a devDependency'
 
@@ -347,12 +347,12 @@ async function installMissingPackages(options: {
   })
 
   if (isCancel(shouldInstall) || !shouldInstall) {
-    cancel(`Skipping installation. Run ${colors.bold(installCommand)} to install manually.`)
+    cancel(`Skipping installation. Run ${styleText('bold', installCommand)} to install manually.`)
     return false
   }
 
   const spin = spinner()
-  spin.start(`Installing ${list} with ${colors.cyan(pmName)}`)
+  spin.start(`Installing ${list} with ${styleText('cyan', pmName)}`)
   try {
     await addDevDependency(packages, { cwd, packageManager, silent: true })
     spin.stop(`Installed ${list}`)
@@ -361,7 +361,7 @@ async function installMissingPackages(options: {
   catch (error) {
     spin.error(`Failed to install ${list}`)
     logger.error(error instanceof Error ? error.message : String(error))
-    logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${colors.bold(installCommand)}\n`)
+    logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${styleText('bold', installCommand)}\n`)
     return false
   }
 }

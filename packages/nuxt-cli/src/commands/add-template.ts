@@ -3,10 +3,10 @@ import type { TemplateName } from '../utils/templates/names'
 import { existsSync, promises as fsp } from 'node:fs'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { cancel, intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { dirname, extname, resolve } from 'pathe'
-import colors from 'picocolors'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -43,15 +43,15 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd)
 
-    intro(colors.cyan('Adding template...'))
+    intro(styleText('cyan', 'Adding template...'))
 
     const templateName = ctx.args.template as TemplateName
 
     // Validate template name
     if (!templateNames.includes(templateName)) {
-      const templateNames = Object.keys(templates).map(name => colors.cyan(name))
+      const templateNames = Object.keys(templates).map(name => styleText('cyan', name))
       const lastTemplateName = templateNames.pop()
-      logger.error(`Template ${colors.cyan(templateName)} is not supported.`)
+      logger.error(`Template ${styleText('cyan', templateName)} is not supported.`)
       logger.info(`Possible values are ${templateNames.join(', ')} or ${lastTemplateName}.`)
       process.exit(1)
     }
@@ -79,15 +79,15 @@ export default defineCommand({
 
     // Ensure not overriding user code
     if (!ctx.args.force && existsSync(res.path)) {
-      logger.error(`File exists at ${colors.cyan(relativeToProcess(res.path))}.`)
-      logger.info(`Use ${colors.cyan('--force')} to override or use a different name.`)
+      logger.error(`File exists at ${styleText('cyan', relativeToProcess(res.path))}.`)
+      logger.info(`Use ${styleText('cyan', '--force')} to override or use a different name.`)
       process.exit(1)
     }
 
     // Ensure parent directory exists
     const parentDir = dirname(res.path)
     if (!existsSync(parentDir)) {
-      logger.step(`Creating directory ${colors.cyan(relativeToProcess(parentDir))}.`)
+      logger.step(`Creating directory ${styleText('cyan', relativeToProcess(parentDir))}.`)
       if (templateName === 'page') {
         logger.info('This enables vue-router functionality!')
       }
@@ -96,7 +96,7 @@ export default defineCommand({
 
     // Write file
     await fsp.writeFile(res.path, `${res.contents.trim()}\n`)
-    logger.success(`Created ${colors.cyan(relativeToProcess(res.path))}.`)
-    outro(`Generated a new ${colors.cyan(templateName)}!`)
+    logger.success(`Created ${styleText('cyan', relativeToProcess(res.path))}.`)
+    outro(`Generated a new ${styleText('cyan', templateName)}!`)
   },
 })

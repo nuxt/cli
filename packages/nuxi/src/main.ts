@@ -5,8 +5,8 @@ import { builtinModules, createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
+import { styleText } from 'node:util'
 import { runMain as _runMain, defineCommand } from 'citty'
-import colors from 'picocolors'
 import { provider } from 'std-env'
 
 import { cwdArgs } from '../../nuxt-cli/src/commands/_shared'
@@ -71,7 +71,7 @@ const _main = defineCommand({
     if (ctx.args.command && !(ctx.args.command in commands)) {
       if (isNuxiCommand(ctx.args.command)) {
         logger.error(`\`nuxt ${ctx.args.command}\` is provided by the \`@nuxt/cli\` installed with Nuxt in your project, and no usable version was found.`)
-        logger.info(`Run this command from your Nuxt project directory, or install Nuxt first (for example with ${colors.cyan('npx nuxi init')} or ${colors.cyan('npm install nuxt')}).`)
+        logger.info(`Run this command from your Nuxt project directory, or install Nuxt first (for example with ${styleText('cyan', 'npx nuxi init')} or ${styleText('cyan', 'npm install nuxt')}).`)
         process.exit(1)
       }
 
