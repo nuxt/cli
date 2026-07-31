@@ -18,6 +18,9 @@ const VERSIONS: Record<string, string> = {
 vi.mock('../../../src/utils/pkg', () => ({
   getPkgJSON: vi.fn((_cwd: string, pkg: string, options?: { via?: string[] }) => {
     if (pkg === 'vite' && options?.via?.includes('@nuxt/vite-builder')) {
+      if (_cwd === '/vite-plus') {
+        return { name: '@voidzero-dev/vite-plus-core', version: '0.2.6', bundledVersions: { vite: '8.1.5' } }
+      }
       return { name: 'vite', version: '7.3.1' }
     }
     return null
@@ -40,6 +43,14 @@ describe('getBuilder', () => {
     expect(getBuilder('/any', 'vite')).toEqual({ name: 'Vite', version: '7.3.1' })
   })
 
+  it('resolves the bundled vite version from Vite+', () => {
+    expect(getBuilder('/vite-plus', 'vite')).toEqual({
+      name: 'Vite',
+      version: '8.1.5',
+      provider: { name: 'Vite+', version: '0.2.6' },
+    })
+  })
+
   it('resolves webpack version via @nuxt/webpack-builder', () => {
     expect(getBuilder('/any', 'webpack')).toEqual({ name: 'Webpack', version: '5.99.0' })
   })
@@ -57,6 +68,16 @@ describe('showBanner', () => {
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
       ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should identify Vite+ as the Vite provider', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/vite-plus', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 8.1.5 via Vite+ 0.2.6 and Vue 3.5.39)"
     `)
   })
 })
