@@ -13,11 +13,9 @@ import { getPort } from 'get-port-please'
 import colors from 'picocolors'
 
 import { debug, logger } from '../utils/logger'
-import { resolveCertificate } from './cert'
 import { detectIsolatedEnvironment, isWsl } from './environment'
 import { resolvePortlessURLs } from './portless'
 import { resolveStackblitzURL } from './stackblitz'
-import { startTunnel } from './tunnel'
 
 export interface ListenOptions {
   port?: string | number
@@ -162,7 +160,11 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     : await resolvePort(requestedPort, hostname, options.strictPort)
 
   const httpsOptions = options.https === true ? {} : options.https
-  const certificate = httpsOptions ? await resolveCertificate(httpsOptions) : false
+  // `cert` and `tunnel` reach `dev/binaries.ts`, which pulls in `rc9` and the
+  // clack spinner. Neither is wanted unless `--https` or `--tunnel` is passed.
+  const certificate = httpsOptions
+    ? await import('./cert').then(({ resolveCertificate }) => resolveCertificate(httpsOptions))
+    : false
   const server = certificate
     ? createSecureServer(certificate, handler)
     : createHttpServer(handler)
@@ -184,6 +186,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
 
   let tunnel: Tunnel | undefined
   if (options.tunnel) {
+    const { startTunnel } = await import('./tunnel')
     tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
   }
 

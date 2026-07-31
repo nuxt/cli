@@ -36,6 +36,7 @@
     "nf3": "^0.3.23",
     "nuxt": "^4.5.1",
     "pkg-pr-new": "^0.0.80",
+    "rolldown": "^1.2.0",
     "rollup-plugin-visualizer": "^7.0.1",
     "std-env": "^4.2.0",
     "tinyexec": "^1.2.4",

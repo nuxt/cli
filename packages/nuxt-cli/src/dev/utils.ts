@@ -31,7 +31,7 @@ import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { debug } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { withNodePath } from '../utils/paths'
-import { renderError, renderErrorAnsi } from './error'
+import { renderError, renderErrorAnsi } from './error-lazy'
 import { listen } from './listen'
 import { resolvePortlessURLs } from './portless'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
@@ -231,7 +231,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     this.handler = async (req, res) => {
       if (this.#loadingError) {
-        renderError(req, res, this.#loadingError)
+        void renderError(req, res, this.#loadingError)
         return
       }
       await _initPromise

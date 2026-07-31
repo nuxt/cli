@@ -2,6 +2,8 @@
 
 import inspector from 'node:inspector'
 import nodeModule from 'node:module'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -11,16 +13,22 @@ process.env.MIMALLOC_ARENA_EAGER_COMMIT ||= '0'
 
 // https://nodejs.org/api/module.html#moduleenablecompilecachecachedir
 // https://github.com/nodejs/node/pull/54501
+//
+// handle `<tmpdir>/node-compile-cache` if owned by another user
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
-  try {
-    const { directory } = nodeModule.enableCompileCache()
-    if (directory) {
-      // allow child process to share the same cache directory
-      process.env.NODE_COMPILE_CACHE ||= directory
+  for (const candidate of [undefined, join(homedir(), '.cache', 'nuxt', 'compile-cache')]) {
+    let directory
+    try {
+      ({ directory } = nodeModule.enableCompileCache(candidate))
     }
-  }
-  catch {
-    // Ignore errors
+    catch {
+      continue
+    }
+    if (directory) {
+      // allow child processes to share the same cache directory
+      process.env.NODE_COMPILE_CACHE ||= directory
+      break
+    }
   }
 }
 
