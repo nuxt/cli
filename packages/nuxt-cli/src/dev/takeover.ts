@@ -61,7 +61,7 @@ export interface TakeoverOptions {
  * because a takeover adopts the port the outgoing server was using.
  */
 export async function takeOverDevServer(buildDir: string, options: TakeoverOptions = {}): Promise<TakeoverResult> {
-  if (!isLockEnabled('dev')) {
+  if (!isLockEnabled()) {
     return { action: 'none' }
   }
 

@@ -9,7 +9,7 @@ const isWindows = process.platform === 'win32'
 
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
-  return { ...original, isAgent: true, isCI: false }
+  return { ...original, isCI: false }
 })
 
 const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
@@ -28,12 +28,8 @@ describe('lockfile', () => {
   })
 
   describe('isLockEnabled', () => {
-    it('is enabled for dev by default', () => {
-      expect(isLockEnabled('dev')).toBe(true)
-    })
-
-    it('is enabled for build when isAgent is true (mocked)', () => {
-      expect(isLockEnabled('build')).toBe(true)
+    it('is enabled by default', () => {
+      expect(isLockEnabled()).toBe(true)
     })
 
     it('nUXT_IGNORE_LOCK=1 disables locking', () => {
@@ -48,7 +44,7 @@ describe('lockfile', () => {
 
     it('nUXT_LOCK=0 disables locking', () => {
       process.env.NUXT_LOCK = '0'
-      expect(isLockEnabled('dev')).toBe(false)
+      expect(isLockEnabled()).toBe(false)
     })
 
     it('nUXT_IGNORE_LOCK takes precedence over NUXT_LOCK', () => {

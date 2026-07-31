@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
-import { isAgent, isCI } from 'std-env'
+import { isCI } from 'std-env'
 
 export interface LockInfo {
   pid: number
@@ -107,19 +107,12 @@ function isLockActive(info: LockInfo): boolean {
 }
 
 /**
- * Locking is always enabled for `dev`, because two dev servers sharing one
- * build directory corrupt each other's output. `build` locking stays limited to
- * agents. `NUXT_LOCK=1` forces it on, `NUXT_IGNORE_LOCK=1` and `NUXT_LOCK=0`
- * force it off.
+ * Locking is always enabled: `dev` and `build` share one build directory, and
+ * two processes writing it corrupt each other's output. `NUXT_IGNORE_LOCK=1`
+ * and `NUXT_LOCK=0` opt out.
  */
-export function isLockEnabled(command: LockInfo['command'] = 'dev'): boolean {
-  if (process.env.NUXT_IGNORE_LOCK || process.env.NUXT_LOCK === '0' || process.env.NUXT_LOCK === 'false') {
-    return false
-  }
-  if (process.env.NUXT_LOCK === '1' || process.env.NUXT_LOCK === 'true') {
-    return true
-  }
-  return command === 'dev' || isAgent
+export function isLockEnabled(): boolean {
+  return !process.env.NUXT_IGNORE_LOCK && process.env.NUXT_LOCK !== '0' && process.env.NUXT_LOCK !== 'false'
 }
 
 type LockResult
@@ -141,7 +134,7 @@ export function acquireLock(
   info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
   options: AcquireLockOptions = {},
 ): LockResult {
-  if (!isLockEnabled(info.command)) {
+  if (!isLockEnabled()) {
     return { release: () => {} }
   }
 
@@ -197,7 +190,7 @@ export function updateLock(
   buildDir: string,
   info: Omit<LockInfo, 'pid' | 'startedAt' | 'interactive'>,
 ): void {
-  if (!isLockEnabled(info.command)) {
+  if (!isLockEnabled()) {
     return
   }
   const lockPath = join(buildDir, LOCK_FILENAME)
