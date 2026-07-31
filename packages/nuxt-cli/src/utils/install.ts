@@ -9,7 +9,7 @@ import process from 'node:process'
 
 import { styleText } from 'node:util'
 import { log, S_BAR } from '@clack/prompts'
-import { addDependency, dedupeDependencies, installDependencies, packageManagers } from 'nypm'
+import { addDependency, dedupeDependencies, detectPackageManager, installDependencies, packageManagers } from 'nypm'
 import { provider } from 'std-env'
 import { normalizeSpawnCommand, x } from 'tinyexec'
 
@@ -44,6 +44,16 @@ export function resolvePackageManagerDescriptor(name: PackageManagerName, versio
     version: resolvedVersion,
     majorVersion: resolvedVersion?.split('.')[0] ?? descriptor?.majorVersion,
   }
+}
+
+/**
+ * Detect the package manager a project uses, looking at the project itself
+ * before its parent directories, so a project nested inside another workspace is
+ * not installed with that workspace's package manager.
+ */
+export async function detectProjectPackageManager(cwd: string): Promise<PackageManager | undefined> {
+  return await detectPackageManager(cwd, { includeParentDirs: false })
+    ?? await detectPackageManager(cwd)
 }
 
 export interface InstallOptions {

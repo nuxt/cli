@@ -6,7 +6,16 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { applySourceMap, stripCwd } from '../../src/dev/error'
-import { isRemotePeerError } from '../../src/utils/errors'
+import { ActionableError, isRemotePeerError } from '../../src/utils/errors'
+
+describe('actionableError', () => {
+  it('should print its advice instead of a stack trace', () => {
+    const error = new ActionableError('Run `pnpm install` first.')
+
+    expect(error.stack).toBe('Run `pnpm install` first.')
+    expect(error.message).toBe('Run `pnpm install` first.')
+  })
+})
 
 describe('isRemotePeerError', () => {
   it('should detect errors from the other end of a connection', () => {

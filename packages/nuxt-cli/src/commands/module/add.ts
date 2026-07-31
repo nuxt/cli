@@ -9,7 +9,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { detectPackageManager, packageManagers } from 'nypm'
+import { packageManagers } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { findMaxSatisfying, satisfies } from 'verkit'
@@ -17,7 +17,7 @@ import { findMaxSatisfying, satisfies } from 'verkit'
 import { runCommandDef as runCommand } from '../../run-command'
 import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
 import { fetchJson } from '../../utils/fetch'
-import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
+import { createInstallLog, detectProjectPackageManager, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { detectNpmRegistry } from '../../utils/registry'
@@ -272,9 +272,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 /**
  * Resolve the package manager to install with, preferring an explicit choice
  * (e.g. the one selected during `nuxt init`) and otherwise detecting one from
- * the project itself before looking at parent directories, so a project nested
- * inside another workspace is not installed with that workspace's package
- * manager.
+ * the project.
  */
 async function resolvePackageManager(cwd: string, name?: string): Promise<PackageManager> {
   const requested = name ? packageManagers.find(pm => pm.name === name) : undefined
@@ -282,8 +280,7 @@ async function resolvePackageManager(cwd: string, name?: string): Promise<Packag
     logger.warn(`Unknown package manager ${styleText('cyan', name)}, detecting one instead.`)
   }
 
-  const detected = await detectPackageManager(cwd, { includeParentDirs: false })
-    ?? await detectPackageManager(cwd)
+  const detected = await detectProjectPackageManager(cwd)
 
   if (!requested) {
     return detected ?? resolvePackageManagerDescriptor('npm')

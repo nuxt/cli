@@ -10,7 +10,8 @@ import { join } from 'pathe'
 
 const MODULE_NOT_FOUND_CODES = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND'])
 
-const CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
+/** Extensions a `nuxt.config` can have, in resolution order. */
+export const CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
 
 /**
  * Errors that mean the config needs a loader rather than that it is broken:
