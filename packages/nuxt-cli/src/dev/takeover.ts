@@ -8,7 +8,7 @@ import colors from 'picocolors'
 import { isCI } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
-import { clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
+import { clearStaleLock, clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 
 /** How long the outgoing dev server has to exit and release its port. */
@@ -30,7 +30,7 @@ export type TakeoverRefusalReason
 export type TakeoverResult
   /** Nothing to take over, or nothing we are willing to touch. */
   = | { action: 'none' }
-  /** A lock was found but its owner is gone; it will be cleaned up on acquire. */
+  /** A lock was found but its owner is gone, so it has been removed. */
     | { action: 'stale' }
   /** The previous server is gone and its port is ours. */
     | { action: 'taken', port: number, pid: number }
@@ -71,28 +71,33 @@ export async function takeOverDevServer(buildDir: string, options: TakeoverOptio
     return { action: 'none' }
   }
 
-  // Signalling a `build` is never on the table, and neither is a server on a
-  // port we were not asked for: an explicit `--port` that differs skips the
-  // takeover, and the ordinary lock check decides whether starting is allowed.
+  // Signalling a `build` is never on the table, and a dev server that has not
+  // bound a port yet cannot be identified well enough to touch.
   if (existing.command !== 'dev' || !existing.port) {
     return { action: 'none' }
   }
-  if (options.requestedPort !== undefined && options.requestedPort !== existing.port) {
-    return { action: 'none' }
-  }
 
-  if (!isProcessAlive(existing.pid)) {
-    if (!await isPortFree(existing.port, existing.hostname)) {
+  const alive = isProcessAlive(existing.pid)
+  const portFree = await isPortFree(existing.port, existing.hostname)
+
+  // Either signal alone means the recorded server is gone: an exited process
+  // cannot come back, and a free port means the PID was recycled inside the
+  // lock's trust window, so it now belongs to a stranger we must not signal.
+  // The lock is dropped here because `acquireLock` only judges liveness by PID
+  // and would otherwise refuse to start on behalf of a server that is not there.
+  if (!alive || portFree) {
+    if (!alive && !portFree) {
       logger.warn(`The dev server that was using port ${existing.port} is gone, but something is still listening there.`)
     }
+    clearStaleLock(buildDir, existing)
     return { action: 'stale' }
   }
 
-  // An alive PID with a free port means the PID was recycled inside the lock's
-  // trust window and belongs to an unrelated process. Signalling it would kill
-  // a stranger.
-  if (await isPortFree(existing.port, existing.hostname)) {
-    return { action: 'stale' }
+  // A live server on a port we were not asked for is left alone: an explicit
+  // `--port` that differs skips the takeover, and the ordinary lock check
+  // decides whether starting is allowed.
+  if (options.requestedPort !== undefined && options.requestedPort !== existing.port) {
+    return { action: 'none' }
   }
 
   if (options.takeover === false) {

@@ -96,6 +96,27 @@ describe('takeOverDevServer', () => {
     const proc = mockProcess()
     expect(await takeOverDevServer(buildDir, { requestedPort: 4000, interactive: false })).toEqual({ action: 'none' })
     expect(proc.signals).toHaveLength(0)
+    expect(readLock(buildDir)).toBeDefined()
+  })
+
+  it('drops a stale lock even when a different port was requested', async () => {
+    writeLock(buildDir)
+    checkPort.mockResolvedValue(3000)
+    mockProcess()
+    expect(await takeOverDevServer(buildDir, { requestedPort: 4000, interactive: false })).toEqual({ action: 'stale' })
+    expect(readLock(buildDir)).toBeUndefined()
+  })
+
+  it('leaves a lock that was replaced while it was inspected', async () => {
+    writeLock(buildDir)
+    checkPort.mockResolvedValue(3000)
+    mockProcess({ alive: false })
+    checkPort.mockImplementation(async () => {
+      writeLock(buildDir, { pid: 555555, startedAt: Date.now() + 1 })
+      return 3000
+    })
+    expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
+    expect(readLock(buildDir)).toMatchObject({ pid: 555555 })
   })
 
   it('takes over when the explicit port matches the holder\'s', async () => {
@@ -110,6 +131,7 @@ describe('takeOverDevServer', () => {
     const proc = mockProcess({ alive: false })
     expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
     expect(proc.signals).toHaveLength(0)
+    expect(readLock(buildDir)).toBeUndefined()
   })
 
   it('warns when the holder is gone but its port is still taken', async () => {
@@ -135,6 +157,7 @@ describe('takeOverDevServer', () => {
     const proc = mockProcess()
     expect(await takeOverDevServer(buildDir, { interactive: false })).toEqual({ action: 'stale' })
     expect(proc.signals).toHaveLength(0)
+    expect(readLock(buildDir)).toBeUndefined()
   })
 
   describe('decision matrix', () => {

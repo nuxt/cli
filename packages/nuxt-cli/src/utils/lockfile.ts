@@ -65,6 +65,25 @@ export function readActiveLock(buildDir: string): LockInfo | undefined {
 }
 
 /**
+ * Remove a lock whose holder has gone away, so the next `acquireLock` is not
+ * refused on behalf of a process that cannot come back. Liveness is the
+ * caller's judgement: a dead PID is not the only way for a holder to be gone,
+ * and the port a dev server recorded is the more reliable signal.
+ *
+ * The lock is re-read and matched on identity, so one that has been replaced
+ * since the caller inspected it is left alone.
+ */
+export function clearStaleLock(buildDir: string, info: LockInfo): boolean {
+  const lockPath = join(buildDir, LOCK_FILENAME)
+  const current = readLockFile(lockPath)
+  if (!current || current.pid !== info.pid || current.startedAt !== info.startedAt) {
+    return false
+  }
+  tryUnlink(lockPath)
+  return true
+}
+
+/**
  * Record that `byPid` is taking the lock over, so the outgoing holder can
  * explain its own shutdown. Only ever annotates a lock owned by another
  * process, and never creates one.
