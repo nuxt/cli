@@ -20,7 +20,11 @@ function runBin(env: NodeJS.ProcessEnv): Promise<string> {
     child.stderr.setEncoding('utf8')
     child.stderr.on('data', chunk => stderr += chunk)
     child.on('error', reject)
-    child.on('exit', () => {
+    child.on('close', (code, signal) => {
+      if (code !== 0) {
+        reject(new Error(`\`nuxi --version\` exited with ${signal ?? code}: ${stderr}`))
+        return
+      }
       const match = stderr.match(/CACHEDIR=(.*)/)
       resolve(match?.[1]?.trim() ?? 'none')
     })
