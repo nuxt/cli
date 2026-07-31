@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -314,6 +314,13 @@ describe('lockfile', () => {
       process.env.NUXT_IGNORE_LOCK = '1'
       updateLock(tempDir, { command: 'dev', cwd: '/project' })
       expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
+    })
+
+    it('leaves no temporary files behind', () => {
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      updateLock(tempDir, { command: 'dev', cwd: '/project', port: 3000 })
+      expect(readdirSync(tempDir)).toEqual(['nuxt.lock'])
+      lock.release!()
     })
   })
 

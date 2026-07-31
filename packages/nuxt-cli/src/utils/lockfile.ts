@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -65,10 +65,7 @@ export function markTakenOver(buildDir: string, byPid: number): void {
   if (!current || current.pid === byPid) {
     return
   }
-  try {
-    writeFileSync(lockPath, JSON.stringify({ ...current, takenOverBy: byPid }, null, 2))
-  }
-  catch {}
+  writeLockFile(lockPath, { ...current, takenOverBy: byPid })
 }
 
 /** PID that claimed our own lock, if this process is being taken over. */
@@ -83,6 +80,23 @@ function readLockFile(lockPath: string): LockInfo | undefined {
   }
   catch {
     return undefined
+  }
+}
+
+/**
+ * Replace a lock we own. Writing a sibling temp file and renaming it into place
+ * keeps the window where a reader could see a truncated file from existing: a
+ * partial read looks like a corrupted lock, which another process would treat as
+ * stale and claim.
+ */
+function writeLockFile(lockPath: string, info: LockInfo): void {
+  const tmpPath = `${lockPath}.${process.pid}.tmp`
+  try {
+    writeFileSync(tmpPath, JSON.stringify(info, null, 2))
+    renameSync(tmpPath, lockPath)
+  }
+  catch {
+    tryUnlink(tmpPath)
   }
 }
 
@@ -206,10 +220,7 @@ export function updateLock(
     takenOverBy: current?.takenOverBy,
     ...info,
   }
-  try {
-    writeFileSync(lockPath, JSON.stringify(next, null, 2))
-  }
-  catch {}
+  writeLockFile(lockPath, next)
 }
 
 function makeRelease(lockPath: string): () => void {
