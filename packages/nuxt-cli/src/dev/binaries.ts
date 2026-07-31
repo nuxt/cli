@@ -10,7 +10,7 @@ import { confirm, isCancel, progress, spinner } from '@clack/prompts'
 import { basename, dirname, join } from 'pathe'
 import { readUser, updateUser } from 'rc9'
 
-import { restoreRawMode } from '../utils/console'
+import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 
@@ -32,7 +32,13 @@ interface ConsentOptions {
  * `cacheName` overrides the cached filename, so version-pinned tools can key
  * their cache entry by version without affecting the `PATH` lookup.
  */
-export async function resolveTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
+export function resolveTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
+  // The consent prompt and the download indicator both redraw by moving the
+  // cursor, so they need stdout back from consola for the duration.
+  return withDirectStdout(() => locateTool(name, options))
+}
+
+async function locateTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
   const existing = findInPath(name)
   if (existing) {
     return existing

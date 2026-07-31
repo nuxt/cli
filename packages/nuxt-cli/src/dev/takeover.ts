@@ -7,7 +7,7 @@ import { cancel, isCancel, select, spinner } from '@clack/prompts'
 import { checkPort } from 'get-port-please'
 import { isCI } from 'std-env'
 
-import { restoreRawMode } from '../utils/console'
+import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { clearStaleLock, clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 
@@ -61,7 +61,13 @@ export interface TakeoverOptions {
  * Must be called before anything binds a port or writes to the build directory,
  * because a takeover adopts the port the outgoing server was using.
  */
-export async function takeOverDevServer(buildDir: string, options: TakeoverOptions = {}): Promise<TakeoverResult> {
+export function takeOverDevServer(buildDir: string, options: TakeoverOptions = {}): Promise<TakeoverResult> {
+  // The prompt and the spinner below both redraw by moving the cursor, so they
+  // need stdout back from consola for the duration.
+  return withDirectStdout(() => resolveTakeover(buildDir, options))
+}
+
+async function resolveTakeover(buildDir: string, options: TakeoverOptions): Promise<TakeoverResult> {
   if (!isLockEnabled()) {
     return { action: 'none' }
   }

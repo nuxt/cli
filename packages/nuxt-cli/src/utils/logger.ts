@@ -1,10 +1,8 @@
-import process from 'node:process'
-
 import { styleText } from 'node:util'
 import { log, S_INFO } from '@clack/prompts'
 import { createDebug } from 'obug'
 
-import { blankLineBefore } from './stdout'
+import { blankLineBefore, writeDirect } from './stdout'
 
 export const logger = log
 export const debug = createDebug('nuxi')
@@ -23,5 +21,5 @@ export const debug = createDebug('nuxi')
  */
 export function writeNotice(headline: string, instruction?: string): void {
   const body = instruction ? `${headline}\n  ${instruction}\n` : `${headline}\n`
-  process.stdout.write(`${blankLineBefore()}${styleText('blue', S_INFO)} ${body}`)
+  writeDirect(`${blankLineBefore()}${styleText('blue', S_INFO)} ${body}`)
 }

@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline'
 import { styleText } from 'node:util'
 import { isCI, isTest } from 'std-env'
 
-import { restoreRawMode } from '../utils/console'
+import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
 
 export interface ShortcutContext {
@@ -58,8 +58,8 @@ const shortcuts: Shortcut[] = [
   {
     keys: ['c', 'clear'],
     description: 'clear the console',
-    action: (context) => {
-      process.stdout.write('\u001B[2J\u001B[3J\u001B[H')
+    action: async (context) => {
+      await withDirectStdout(() => process.stdout.write('\u001B[2J\u001B[3J\u001B[H'))
       context.listener.showURLs()
     },
   },

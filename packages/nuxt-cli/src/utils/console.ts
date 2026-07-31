@@ -6,6 +6,7 @@ import { consola } from 'consola'
 
 import { isRemotePeerError } from './errors'
 import { debug } from './logger'
+import { trackOutputSpacing } from './stdout'
 
 // Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
@@ -34,6 +35,7 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
 
   // Wrap all console logs with consola for better DX
   if (opts.dev) {
+    trackOutputSpacing()
     consola.wrapAll()
   }
   else {
@@ -64,6 +66,31 @@ export function restoreRawMode(): void {
   }
   if (process.stdin.isRaw) {
     process.stdin.setRawMode(false)
+  }
+}
+
+/**
+ * Run `fn` with `process.stdout` and `process.stderr` writing straight to the
+ * terminal again.
+ *
+ * `consola.wrapAll()` swaps `stream.write` for a call that trims each chunk and
+ * logs it as a line of its own. That is fine for stray `console.log`s, but it
+ * breaks anything that positions the cursor itself: clack redraws a frame with
+ * several small writes (a cursor move, an erase, the new lines) and every one of
+ * them would come back with a newline attached, so each keypress pushes the
+ * prompt further down the screen.
+ */
+export async function withDirectStdout<T>(fn: () => T | Promise<T>): Promise<T> {
+  const wrapped = process.stdout as typeof process.stdout & { __write?: typeof process.stdout.write }
+  if (!wrapped.__write || wrapped.write === wrapped.__write) {
+    return fn()
+  }
+  consola.restoreStd()
+  try {
+    return await fn()
+  }
+  finally {
+    consola.wrapStd()
   }
 }
 
