@@ -54,6 +54,12 @@ export function readLock(buildDir: string): LockInfo | undefined {
   return readLockFile(join(buildDir, LOCK_FILENAME))
 }
 
+/** The lock on `buildDir` when another process is currently holding it. */
+export function readActiveLock(buildDir: string): LockInfo | undefined {
+  const info = readLock(buildDir)
+  return info && isLockActive(info) ? info : undefined
+}
+
 /**
  * Record that `byPid` is taking the lock over, so the outgoing holder can
  * explain its own shutdown. Only ever annotates a lock owned by another

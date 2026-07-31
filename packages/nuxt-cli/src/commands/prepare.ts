@@ -5,6 +5,7 @@ import { defineCommand } from 'citty'
 
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { readActiveLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
@@ -41,7 +42,14 @@ export default defineCommand({
         ...ctx.data?.overrides,
       },
     })
-    await clearBuildDir(nuxt.options.buildDir)
+    const owner = readActiveLock(nuxt.options.buildDir)
+    if (owner) {
+      const label = owner.command === 'dev' ? 'dev server' : 'build'
+      logger.info(`A ${label} (PID ${owner.pid}) is using ${colors.cyan(relativeToProcess(nuxt.options.buildDir))}; refreshing templates in place without clearing it.`)
+    }
+    else {
+      await clearBuildDir(nuxt.options.buildDir)
+    }
 
     await buildNuxt(nuxt)
     await writeTypes(nuxt)

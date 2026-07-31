@@ -12,7 +12,7 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isCI: false }
 })
 
-const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, formatLockError, isLockEnabled, readActiveLock, updateLock } = await import('../../src/utils/lockfile')
 
 describe('lockfile', () => {
   let tempDir: string
@@ -321,6 +321,50 @@ describe('lockfile', () => {
       updateLock(tempDir, { command: 'dev', cwd: '/project', port: 3000 })
       expect(readdirSync(tempDir)).toEqual(['nuxt.lock'])
       lock.release!()
+    })
+  })
+
+  describe('readActiveLock', () => {
+    it('returns the lock when another live process holds it', () => {
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+      try {
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: 424242,
+          command: 'dev',
+          cwd: '/other',
+          startedAt: Date.now(),
+          interactive: false,
+        }))
+
+        expect(readActiveLock(tempDir)?.pid).toBe(424242)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('ignores a dead holder and our own lock', () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 999999999,
+        command: 'dev',
+        cwd: '/other',
+        startedAt: Date.now(),
+        interactive: false,
+      }))
+      expect(readActiveLock(tempDir)).toBeUndefined()
+
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: process.pid,
+        command: 'dev',
+        cwd: '/project',
+        startedAt: Date.now(),
+        interactive: false,
+      }))
+      expect(readActiveLock(tempDir)).toBeUndefined()
+    })
+
+    it('returns nothing when there is no lock', () => {
+      expect(readActiveLock(tempDir)).toBeUndefined()
     })
   })
 
