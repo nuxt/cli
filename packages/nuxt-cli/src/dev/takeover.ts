@@ -8,7 +8,7 @@ import colors from 'picocolors'
 import { isCI } from 'std-env'
 
 import { restoreRawMode } from '../utils/console'
-import { clearTakeover, isInteractiveSession, isLockEnabled, markTakenOver, readLock } from '../utils/lockfile'
+import { clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 
 /** How long the outgoing dev server has to exit and release its port. */
@@ -195,7 +195,7 @@ function startProgress(message: string): TakeoverProgress {
 
 /** Human-readable explanation for a refusal, including how to override it. */
 export function formatTakeoverRefusal(existing: LockInfo, reason: TakeoverRefusalReason): string {
-  const location = existing.url ? existing.url : 'starting up (no URL yet)'
+  const location = describeLocation(existing)
   const lines = [
     '',
     reason === 'timeout'
@@ -220,8 +220,12 @@ export function formatTakeoverRefusal(existing: LockInfo, reason: TakeoverRefusa
   return lines.join('\n')
 }
 
+function describeLocation(existing: LockInfo): string {
+  return existing.url || 'starting up (no URL yet)'
+}
+
 async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice): Promise<TakeoverChoice> {
-  const location = existing.url || 'starting up (no URL yet)'
+  const location = describeLocation(existing)
   const choice = await select<TakeoverChoice>({
     message: `A Nuxt dev server is already running here (PID ${existing.pid}, ${location}). What would you like to do?`,
     initialValue: defaultChoice,
@@ -246,16 +250,6 @@ function signalAll(pids: number[], signal: NodeJS.Signals): void {
       process.kill(pid, signal)
     }
     catch {}
-  }
-}
-
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-    return true
-  }
-  catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'EPERM'
   }
 }
 

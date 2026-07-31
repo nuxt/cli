@@ -41,7 +41,7 @@ export function isInteractiveSession(): boolean {
   return !!process.stdin.isTTY && !isCI
 }
 
-function isProcessAlive(pid: number): boolean {
+export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
     return true
@@ -222,6 +222,11 @@ function acquireLockAt(
   }
   catch {}
 
+  const blockingLock = (): LockInfo | undefined => {
+    const existing = readLockFile(lockPath)
+    return existing && existing.pid !== options.takeoverFrom && isLockActive(existing) ? existing : undefined
+  }
+
   // Try exclusive-create up to twice: the first attempt may race with a stale
   // lock that we then clean up and retry.
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -233,8 +238,8 @@ function acquireLockAt(
       if ((err as NodeJS.ErrnoException).code !== 'EEXIST') {
         throw err
       }
-      const existing = readLockFile(lockPath)
-      if (existing && existing.pid !== options.takeoverFrom && isLockActive(existing)) {
+      const existing = blockingLock()
+      if (existing) {
         return { existing }
       }
       // Stale, corrupted, self-owned, or handed over; remove and retry.
@@ -242,12 +247,8 @@ function acquireLockAt(
     }
   }
 
-  // Two failures in a row; surface whatever we can read.
-  const existing = readLockFile(lockPath)
-  if (existing && existing.pid !== options.takeoverFrom && isLockActive(existing)) {
-    return { existing }
-  }
-  return { release: () => {} }
+  const existing = blockingLock()
+  return existing ? { existing } : { release: () => {} }
 }
 
 /**
@@ -296,8 +297,7 @@ function makeRelease(lockPath: string): () => void {
   // `exit` fires on normal termination, including after Node's default signal
   // handling (SIGINT → exit 130) when no custom signal handler runs. We
   // deliberately do not install SIGINT/SIGTERM listeners: that would suppress
-  // Node's default signal behavior and other shutdown logic, which was the
-  // cause of the earlier review concern.
+  // Node's default signal behavior and other shutdown logic.
   process.on('exit', release)
 
   return release
