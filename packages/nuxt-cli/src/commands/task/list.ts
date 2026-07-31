@@ -1,16 +1,14 @@
+import type { TaskList } from './_utils'
+
 import process from 'node:process'
 import { styleText } from 'node:util'
 
 import { defineCommand } from 'citty'
 
 import { logger } from '../../utils/logger'
+import { resolveRootDir } from '../../utils/paths'
 import { rootDirArgs } from '../_shared'
-import { fetchTasks, reportTaskError, resolveTaskServer, taskArgs } from './_utils'
-
-interface TaskList {
-  tasks?: Record<string, { description?: string }>
-  scheduledTasks?: { cron: string, tasks: string[] }[] | false
-}
+import { emptyTaskListHint, fetchTasks, missingTaskRoutesHint, reportTaskError, resolveTaskServer, taskArgs } from './_utils'
 
 export default defineCommand({
   meta: {
@@ -22,11 +20,15 @@ export default defineCommand({
     ...taskArgs,
   },
   async run(ctx) {
+    const cwd = resolveRootDir(ctx.args)
     const server = await resolveTaskServer(ctx.args)
     const response = await fetchTasks(server)
 
     if (!response.ok) {
       reportTaskError(response)
+      if (response.status === 404) {
+        logger.info(missingTaskRoutesHint())
+      }
       process.exit(1)
     }
 
@@ -34,7 +36,7 @@ export default defineCommand({
     const names = Object.keys(tasks).sort()
 
     if (names.length === 0) {
-      logger.info(`No tasks found. Add one in ${styleText('cyan', 'server/tasks/')} and enable ${styleText('cyan', 'nitro.experimental.tasks')}.`)
+      logger.info(`No tasks found. ${await emptyTaskListHint(cwd)}`)
       return
     }
 

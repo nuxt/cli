@@ -1,12 +1,16 @@
 import type { ArgDef } from 'citty'
 
+import { readdirSync } from 'node:fs'
 import http from 'node:http'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
+import { join, resolve } from 'pathe'
+
 import { findDevServer, findNitroDevWorker, noDevServerMessage, toLoopback } from '../../utils/dev-server'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
+import { getNuxtConfig } from '../../utils/nuxt-config'
 import { resolveRootDir } from '../../utils/paths'
 
 const TRAILING_SLASH_RE = /\/$/
@@ -45,6 +49,11 @@ export interface TaskResponse {
   ok: boolean
   status: number
   data: unknown
+}
+
+export interface TaskList {
+  tasks?: Record<string, { description?: string }>
+  scheduledTasks?: { cron: string, tasks: string[] }[] | false
 }
 
 /**
@@ -139,6 +148,67 @@ export function reportTaskError(response: TaskResponse): void {
     if (stack.length > 0) {
       process.stderr.write(styleText('dim', `${stack.map(line => `  ${line}`).join('\n')}\n`))
     }
+  }
+}
+
+/**
+ * Advice for a server that answered but has no tasks to run.
+ *
+ * Nitro only scans the tasks directory when `nitro.experimental.tasks` is on,
+ * so a project with the flag off is indistinguishable over HTTP from one that
+ * has no tasks at all. Task files on disk are what tell the two apart.
+ */
+export async function emptyTaskListHint(cwd: string): Promise<string> {
+  const enable = styleText('cyan', 'nitro: { experimental: { tasks: true } }')
+  const dir = await resolveTasksDir(cwd)
+  const label = styleText('cyan', `${dir}/`)
+
+  return hasFiles(resolve(cwd, dir))
+    ? `Found task files in ${label} but the server reports none. Add ${enable} to your Nuxt config and restart the dev server.`
+    : `Add a task in ${label} and enable tasks with ${enable} in your Nuxt config.`
+}
+
+/** Advice for a server that does not expose the task routes at all. */
+export function missingTaskRoutesHint(): string {
+  return `Nitro only serves its task routes in development, so this needs a running ${styleText('cyan', 'nuxt dev')} server.`
+}
+
+/**
+ * Explain a task the server does not have. Only the task list can tell a
+ * mistyped name from a project whose tasks are not enabled, which is worth one
+ * more request on a path that has already failed.
+ */
+export async function reportUnknownTask(server: TaskServer, cwd: string): Promise<void> {
+  const response = await fetchTasks(server)
+  if (!response.ok) {
+    if (response.status === 404) {
+      logger.info(missingTaskRoutesHint())
+    }
+    return
+  }
+
+  const names = Object.keys((response.data as TaskList | undefined)?.tasks || {}).sort()
+  logger.info(names.length === 0
+    ? await emptyTaskListHint(cwd)
+    : `Available tasks: ${names.map(name => styleText('cyan', name)).join(', ')}`)
+}
+
+async function resolveTasksDir(cwd: string): Promise<string> {
+  try {
+    const config = await getNuxtConfig(cwd)
+    return join(config.serverDir || join(config.srcDir || '.', 'server'), 'tasks')
+  }
+  catch {
+    return 'server/tasks'
+  }
+}
+
+function hasFiles(dir: string): boolean {
+  try {
+    return readdirSync(dir).length > 0
+  }
+  catch {
+    return false
   }
 }
 

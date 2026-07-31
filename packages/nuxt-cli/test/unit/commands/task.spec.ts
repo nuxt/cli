@@ -26,6 +26,12 @@ const requests: ReceivedRequest[] = []
 /** Set to `true` to emulate a Nitro version that only accepts `GET`. */
 let getOnly = false
 let envelope: unknown = { result: { ok: true } }
+/** Set to `false` to emulate a server with no dev task routes at all. */
+let tasksRoute = true
+let taskList: unknown = {
+  tasks: { 'db:migrate': { description: 'Migrate the database' }, 'db:seed': {} },
+  scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+}
 
 const server = createServer(async (req, res) => {
   const chunks: Buffer[] = []
@@ -38,11 +44,14 @@ const server = createServer(async (req, res) => {
 
   res.setHeader('content-type', 'application/json')
 
+  if (!tasksRoute) {
+    res.statusCode = 404
+    res.end(JSON.stringify({ statusCode: 404, message: `Page not found: ${url}` }))
+    return
+  }
+
   if (url === '/_nitro/tasks') {
-    res.end(JSON.stringify({
-      tasks: { 'db:migrate': { description: 'Migrate the database' }, 'db:seed': {} },
-      scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
-    }))
+    res.end(JSON.stringify(taskList))
     return
   }
 
@@ -73,6 +82,11 @@ beforeAll(async () => {
 beforeEach(async () => {
   requests.length = 0
   getOnly = false
+  tasksRoute = true
+  taskList = {
+    tasks: { 'db:migrate': { description: 'Migrate the database' }, 'db:seed': {} },
+    scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+  }
   envelope = { result: { ok: true } }
   stdout = ''
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-task-test-'))
@@ -154,6 +168,50 @@ describe('task list', () => {
 
     expect(code).toBe(1)
     expect(requests).toHaveLength(0)
+  })
+
+  it('explains how to enable tasks when the server reports none', async () => {
+    taskList = { tasks: {} }
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(0)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('experimental: { tasks: true }'))
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('Add a task in'))
+  })
+
+  it('points at the flag rather than the directory when task files exist', async () => {
+    taskList = { tasks: {} }
+    await mkdir(join(cwd, 'server', 'tasks'), { recursive: true })
+    await writeFile(join(cwd, 'server', 'tasks', 'hello.ts'), 'export default defineTask({})')
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(0)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('Found task files in'))
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('server/tasks/'))
+  })
+
+  it('looks for tasks under a configured `serverDir`', async () => {
+    taskList = { tasks: {} }
+    await writeFile(join(cwd, 'nuxt.config.mjs'), 'export default { serverDir: "api" }')
+    await mkdir(join(cwd, 'api', 'tasks'), { recursive: true })
+    await writeFile(join(cwd, 'api', 'tasks', 'hello.ts'), 'export default defineTask({})')
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(0)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('api/tasks/'))
+  })
+
+  it('explains that task routes only exist in development', async () => {
+    tasksRoute = false
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
+    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(1)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('only serves its task routes in development'))
   })
 })
 
@@ -243,5 +301,24 @@ describe('task run', () => {
     const code = await runTaskCommand(run, ['unknown', '--url', origin])
 
     expect(code).toBe(1)
+  })
+
+  it('lists what is available when the task name is unknown', async () => {
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
+    const code = await runTaskCommand(run, ['unknown', '--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(1)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('db:migrate'))
+  })
+
+  it('explains how to enable tasks when the server has none at all', async () => {
+    taskList = { tasks: {} }
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    vi.spyOn(logger, 'error').mockImplementation(() => {})
+    const code = await runTaskCommand(run, ['unknown', '--url', origin, `--cwd=${cwd}`])
+
+    expect(code).toBe(1)
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('experimental: { tasks: true }'))
   })
 })

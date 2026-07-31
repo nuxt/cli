@@ -4,8 +4,9 @@ import { styleText } from 'node:util'
 import { defineCommand } from 'citty'
 
 import { logger } from '../../utils/logger'
+import { resolveRootDir } from '../../utils/paths'
 import { rootDirArgs } from '../_shared'
-import { format, reportTaskError, resolveTaskServer, runTask, taskArgs } from './_utils'
+import { format, reportTaskError, reportUnknownTask, resolveTaskServer, runTask, taskArgs } from './_utils'
 
 const PAYLOAD_PREFIX = 'payload.'
 
@@ -42,6 +43,9 @@ export default defineCommand({
 
     if (!response.ok) {
       reportTaskError(response)
+      if (response.status === 404) {
+        await reportUnknownTask(server, resolveRootDir(ctx.args))
+      }
       process.exit(1)
     }
 
