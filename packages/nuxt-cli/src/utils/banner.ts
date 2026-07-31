@@ -5,7 +5,7 @@ import colors from 'picocolors'
 import { logger } from './logger'
 import { getPkgJSON, getPkgVersion } from './pkg'
 
-export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string } {
+export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
   switch (builder) {
     case 'rspack':
     case '@nuxt/rspack-builder':
@@ -18,7 +18,12 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
     default: {
       const pkgJSON = getPkgJSON(cwd, 'vite', { via: ['nuxt', '@nuxt/vite-builder'] })
       const isRolldown = pkgJSON.name.includes('rolldown')
-      return { name: isRolldown ? 'Rolldown-Vite' : 'Vite', version: pkgJSON.version || 'unknown' }
+      const isVitePlus = pkgJSON.name === '@voidzero-dev/vite-plus-core'
+      return {
+        name: isRolldown ? 'Rolldown-Vite' : 'Vite',
+        version: (isVitePlus ? pkgJSON.bundledVersions?.vite : pkgJSON.version) || 'unknown',
+        provider: isVitePlus ? { name: 'Vite+', version: pkgJSON.version || 'unknown' } : undefined,
+      }
     }
   }
 }
@@ -39,6 +44,7 @@ export function showBanner(nuxt: Nuxt) {
     + gray(' (with ')
     + (nitroVersion ? gray(`Nitro ${bold(nitroVersion)}`) : '')
     + gray(`, ${builder.name} ${bold(builder.version)}`)
+    + (builder.provider ? gray(` via ${builder.provider.name} ${bold(builder.provider.version)}`) : '')
     + (vueVersion ? gray(` and Vue ${bold(vueVersion)}`) : '')
     + gray(')'),
   )
