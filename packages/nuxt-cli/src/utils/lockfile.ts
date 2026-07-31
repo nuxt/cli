@@ -95,7 +95,7 @@ export function clearTakeover(buildDir: string, byPid: number): void {
 /** PID that claimed our own lock, if this process is being taken over. */
 export function getTakeoverPid(buildDir: string): number | undefined {
   const current = readLock(buildDir)
-  if (current?.pid !== process.pid || !current.takenOverBy) {
+  if (!current || current.pid !== process.pid || !current.takenOverBy) {
     return undefined
   }
   // A claimer that gave up and exited never took anything over.
