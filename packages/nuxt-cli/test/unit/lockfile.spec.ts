@@ -37,6 +37,11 @@ describe('lockfile', () => {
       expect(isLockEnabled()).toBe(false)
     })
 
+    it('nUXT_IGNORE_LOCK=0 keeps locking enabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '0'
+      expect(isLockEnabled()).toBe(true)
+    })
+
     it('nUXT_LOCK=1 forces locking on', () => {
       process.env.NUXT_LOCK = '1'
       expect(isLockEnabled()).toBe(true)

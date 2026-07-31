@@ -85,7 +85,12 @@ interface NuxtDevServerOptions {
  * running with nothing to serve.
  */
 function devForkParentPid(): number | undefined {
-  return process.env.__NUXT__FORK && process.send ? process.ppid : undefined
+  if (!process.env.__NUXT__FORK || !process.send) {
+    return undefined
+  }
+  // A supervisor that already exited leaves us reparented to init, which must
+  // never be signalled.
+  return process.ppid > 1 ? process.ppid : undefined
 }
 
 // https://regex101.com/r/7HkR5c/1

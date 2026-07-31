@@ -154,7 +154,14 @@ function isLockActive(info: LockInfo): boolean {
  * and `NUXT_LOCK=0` opt out.
  */
 export function isLockEnabled(): boolean {
-  return !process.env.NUXT_IGNORE_LOCK && process.env.NUXT_LOCK !== '0' && process.env.NUXT_LOCK !== 'false'
+  if (isEnvFlagSet(process.env.NUXT_IGNORE_LOCK)) {
+    return false
+  }
+  return process.env.NUXT_LOCK !== '0' && process.env.NUXT_LOCK !== 'false'
+}
+
+function isEnvFlagSet(value: string | undefined): boolean {
+  return !!value && value !== '0' && value !== 'false'
 }
 
 type LockResult
