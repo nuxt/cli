@@ -3,13 +3,13 @@ import process from 'node:process'
 import { defineCommand } from 'citty'
 import { provider } from 'std-env'
 
-import init from '../../nuxt-cli/src/commands/init'
-import { setupInitCompletions } from '../../nuxt-cli/src/completions-init'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { getCreateCommand, isPinnedCreateInvocation } from '../../nuxt-cli/src/utils/headless'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { scheduleSelfUpdateNudge } from '../../nuxt-cli/src/utils/update-check'
 import { description, name, version } from '../package.json'
+import { setupInitCompletions } from './completions'
+import init from './init'
 
 const _main = defineCommand({
   meta: {

@@ -26,7 +26,7 @@ describe('help', () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 
-      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|dev|devtools|generate|info|init|module|prepare|preview|test|typecheck|upgrade
+      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|dev|devtools|generate|info|module|prepare|preview|test|typecheck|upgrade
 
       ARGUMENTS
 
@@ -47,7 +47,6 @@ describe('help', () => {
             devtools    Enable or disable devtools in a Nuxt project                    
             generate    Build Nuxt and prerender all routes                             
                 info    Get information about Nuxt project                              
-                init    Initialize a fresh project                                      
               module    Manage Nuxt modules                                             
              prepare    Prepare Nuxt for development/build                              
              preview    Launches Nitro server for local testing after \`nuxt build\`.     
@@ -277,29 +276,9 @@ describe('help', () => {
 
   it('nuxt init', async () => {
     expect(await usage(commands.init, main)).toMatchInlineSnapshot(`
-      "Initialize a fresh project (nuxt init v0.0.0)
+      "Scaffold a fresh project (moved to create-nuxt) (nuxt init v0.0.0)
 
-      USAGE nuxt init [OPTIONS] [DIR]
-
-      ARGUMENTS
-
-        DIR    Project directory (Default: )
-
-      OPTIONS
-
-                         --cwd=<directory>    Specify the directory to create the project in (Default: .)   
-          --logLevel=<silent|info|verbose>    Specify build-time log level                                  
-                 -t, --template=<template>    Template name                                                 
-                               -f, --force    Override existing directory                                   
-                                 --offline    Force offline mode                                            
-                           --preferOffline    Prefer offline mode                                           
-                                 --install    Skip installing dependencies (Default: true)                  
-                              --no-install                                                                  
-                                 --gitInit    Initialize git repository                                     
-                                   --shell    Start shell after installation in project directory           
-        --packageManager=<package_manager>    Package manager choice (npm, pnpm, yarn, bun, deno, aube, nub)
-                   -M, --modules=<modules>    Nuxt modules to install (comma separated without spaces)      
-                       --nightly=<nightly>    Use Nuxt nightly release channel (3x or latest)               
+      USAGE nuxt init 
       "
     `)
   })

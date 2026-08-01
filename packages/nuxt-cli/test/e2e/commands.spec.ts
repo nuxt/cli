@@ -3,8 +3,7 @@ import type { commands } from '../../src/commands'
 
 import { existsSync } from 'node:fs'
 
-import { readdir, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
@@ -115,22 +114,13 @@ describe('commands', () => {
       expect(existsSync(join(fixtureDir, 'dist/index.html'))).toBeTruthy()
     },
     'init': async () => {
-      const dir = tmpdir()
-      const pm = 'pnpm'
-      const installPath = join(dir, pm)
+      const res = await x(nuxi, ['init', 'my-app'], {
+        throwOnError: false,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
 
-      await rm(installPath, { recursive: true, force: true })
-      try {
-        await x(nuxi, ['init', installPath, `--packageManager=${pm}`, '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
-          throwOnError: true,
-          nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
-        })
-        const files = await readdir(installPath).catch(() => [])
-        expect(files).toContain('nuxt.config.ts')
-      }
-      finally {
-        await rm(installPath, { recursive: true, force: true })
-      }
+      expect(res.exitCode).toBe(1)
+      expect(res.stdout + res.stderr).toContain('create nuxt@latest my-app')
     },
     'info': 'todo',
   }

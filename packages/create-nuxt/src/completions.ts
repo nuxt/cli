@@ -1,6 +1,6 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
-import { templates } from './data/templates'
+import { templates } from '../../nuxt-cli/src/data/templates'
 
 export async function setupInitCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
   const completion = await tab(command)

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { detectTemplatePackageManager, getNextSteps, useYarnNodeModulesLinker } from '../../../src/commands/init'
+import { detectTemplatePackageManager, getNextSteps, useYarnNodeModulesLinker } from '../../src/init'
 
 describe('useYarnNodeModulesLinker', () => {
   let dir: string

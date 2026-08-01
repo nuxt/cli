@@ -33,7 +33,7 @@ if (!process.getBuiltinModule) {
 }
 
 const commands = {
-  init: () => import('../../nuxt-cli/src/commands/init').then(m => m.default || m),
+  init: () => import('../../create-nuxt/src/init').then(m => m.default || m),
 } as const
 
 const _main = defineCommand({

@@ -34,8 +34,12 @@ const MIN_PROJECT_CLI: [major: number, minor: number] = [3, 26]
 export async function runMain(): Promise<void> {
   const rawArgs = process.argv.slice(2)
 
-  const cli = loadProjectCli(rawArgs)
-  const delegate = cli && await loadDelegate(cli, commandName(rawArgs))
+  const command = commandName(rawArgs)
+
+  // `@nuxt/cli` only redirects `init` to `create-nuxt`, so scaffolding is served
+  // from the copy bundled here rather than handed off to the project.
+  const cli = command === 'init' ? null : loadProjectCli(rawArgs)
+  const delegate = cli && await loadDelegate(cli, command)
   if (delegate) {
     return delegate()
   }
