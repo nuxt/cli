@@ -15,12 +15,11 @@ import { runCommand } from './run'
 import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
-import { getCreateCommand } from './utils/headless'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
-import { scheduleSelfUpdateNudge, scheduleUpdateNudge } from './utils/update-lazy'
+import { scheduleUpdateNudge } from './utils/update-lazy'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
 // the current process proxy-aware; it propagates the setting to child processes
@@ -53,12 +52,8 @@ const _main = defineCommand({
       // through a `process.exit` handler, and a slow or unreachable registry
       // must never hold up the command.
       await checkEngines().catch(err => logger.error(String(err)))
-      void Promise.all([
-        scheduleUpdateNudge(resolveProjectDir(ctx.args), command),
-        ...(command === 'init'
-          ? [scheduleSelfUpdateNudge(name, version, { name, command: getCreateCommand() })]
-          : []),
-      ]).catch(err => debug('Failed to check for updates:', err))
+      void scheduleUpdateNudge(resolveProjectDir(ctx.args), command)
+        .catch(err => debug('Failed to check for updates:', err))
     }
 
     if (command === 'add' && ctx.rawArgs[1] && templateNames.includes(ctx.rawArgs[1] as TemplateName)) {

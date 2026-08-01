@@ -1,7 +1,6 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import tab from '@bomb.sh/tab/citty'
 import { nitroPresets } from './data/nitro-presets'
-import { templates } from './data/templates'
 
 export async function initCompletions<T extends ArgsDef = ArgsDef>(command: CommandDef<T>) {
   const completion = await tab(command)
@@ -39,18 +38,6 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     }
   }
 
-  const initCommand = completion.commands.get('init')
-  if (initCommand) {
-    const templateOption = initCommand.options.get('template')
-    if (templateOption) {
-      templateOption.handler = (complete) => {
-        for (const template in templates) {
-          complete(template, templates[template as 'content']?.description || '')
-        }
-      }
-    }
-  }
-
   const addCommand = completion.commands.get('add')
   if (addCommand) {
     const cwdOption = addCommand.options.get('cwd')
@@ -61,7 +48,7 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     }
   }
 
-  const logLevelCommands = ['dev', 'build', 'generate', 'preview', 'prepare', 'init']
+  const logLevelCommands = ['dev', 'build', 'generate', 'preview', 'prepare']
   for (const cmdName of logLevelCommands) {
     const cmd = completion.commands.get(cmdName)
     if (cmd) {

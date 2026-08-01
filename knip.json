@@ -32,11 +32,6 @@
         "test/fixtures/*"
       ]
     },
-    "packages/create-nuxt": {
-      "ignoreDependencies": [
-        "@bomb.sh/tab"
-      ]
-    },
     "packages/nuxi": {
       "ignoreDependencies": [
         "jiti"

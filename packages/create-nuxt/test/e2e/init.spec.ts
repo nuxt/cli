@@ -8,8 +8,8 @@ import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
 
-const fixtureDir = fileURLToPath(new URL('../../../playground', import.meta.url))
-const createNuxt = fileURLToPath(new URL('../bin/create-nuxt.mjs', import.meta.url))
+const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
+const createNuxt = fileURLToPath(new URL('../../bin/create-nuxt.mjs', import.meta.url))
 
 describe('non-interactive mode (no TTY)', () => {
   it('shows help and exits with code 2 when required arguments are missing', { timeout: isWindows ? 200000 : 50000 }, async () => {

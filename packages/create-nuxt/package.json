@@ -31,8 +31,15 @@
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.21",
+    "@clack/prompts": "^1.7.0",
     "@types/node": "^24.13.3",
     "citty": "^0.2.2",
+    "giget": "^3.3.1",
+    "nypm": "^0.6.8",
+    "pathe": "^2.0.3",
+    "pkg-types": "^2.3.1",
+    "std-env": "^4.2.0",
+    "tinyexec": "^1.2.4",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3"
   }

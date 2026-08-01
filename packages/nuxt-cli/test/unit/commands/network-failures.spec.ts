@@ -9,7 +9,6 @@ import process from 'node:process'
 
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import initCommand from '../../../src/commands/init'
 import moduleCommand from '../../../src/commands/module'
 import * as moduleUtils from '../../../src/commands/module/_utils'
 import addCommand from '../../../src/commands/module/add'
@@ -62,29 +61,7 @@ describe('network failures reported by commands', () => {
   afterEach(async () => {
     await rm(dir, { recursive: true, force: true })
     vi.restoreAllMocks()
-    delete process.env.NUXI_INIT_REGISTRY
     delete process.env.COREPACK_NPM_REGISTRY
-  })
-
-  it('names the unreachable registry when a template cannot be downloaded', async () => {
-    dir = await mkdtemp(join(tmpdir(), 'nuxt-init-network-'))
-    process.env.NUXI_INIT_REGISTRY = `http://127.0.0.1:${port}/templates`
-
-    const { output, exitCode } = await runFailing(initCommand, [
-      `--cwd=${dir}`,
-      'app',
-      '--template=minimal',
-      '--packageManager=npm',
-      '--gitInit=false',
-      '--install=false',
-      '--no-modules',
-    ])
-
-    expect(output).toContain('Template download failed')
-    expect(output).toContain(`Connection to 127.0.0.1:${port} was refused.`)
-    expect(output).toContain('--offline')
-    expect(output).toContain('NUXI_INIT_REGISTRY')
-    expect(exitCode).toBe(1)
   })
 
   it('names the unreachable npm registry when module metadata cannot be fetched', async () => {
