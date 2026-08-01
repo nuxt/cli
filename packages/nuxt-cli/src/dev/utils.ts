@@ -13,10 +13,8 @@ import { existsSync, readdirSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 
-import { pathToFileURL } from 'node:url'
 import { styleText } from 'node:util'
 import defu from 'defu'
-import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
@@ -30,9 +28,9 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
 import { debug } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { withNodePath } from '../utils/paths'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { listen } from './listen'
+import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 
@@ -73,7 +71,7 @@ interface NuxtDevServerOptions {
   envName?: string
   clear?: boolean
   overrides: NuxtConfig
-  loadingTemplate?: ({ loading }: { loading: string }) => string
+  loadingTemplate?: (data: { loading?: string }) => string
   showBanner?: boolean
   listenOverrides?: DevListenOverrides
   handoverFrom?: number
@@ -243,7 +241,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         this.#handler(req, res)
       }
       else {
-        this.#renderLoadingScreen(req, res)
+        await this.#renderLoadingScreen(req, res).catch((error) => {
+          debug('Could not render the loading screen:', error)
+          if (res.headersSent) {
+            res.end()
+            return
+          }
+          res.statusCode = 503
+          res.end('Dev server is loading...')
+        })
       }
     }
   }
@@ -272,14 +278,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     res.setHeader('Content-Type', 'text/html')
+
+    const message = this.#loadingMessage || 'Loading...'
     const loadingTemplate = this.options.loadingTemplate
       || this.#currentNuxt?.options.devServer.loadingTemplate
-      || await resolveLoadingTemplate(this.#cwd)
-    res.end(
-      loadingTemplate({
-        loading: this.#loadingMessage || 'Loading...',
-      }),
-    )
+      || await resolveDefaultLoadingTemplate(this.#cwd)
+
+    res.end(loadingTemplate?.({ loading: message }) ?? message)
   }
 
   async init(): Promise<void> {
@@ -894,15 +899,6 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
   })
 
   return () => configDirWatcher.close()
-}
-
-// Fallback for requests that arrive before the Nuxt instance has loaded
-async function resolveLoadingTemplate(cwd: string): Promise<({ loading }: { loading?: string }) => string> {
-  const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
-  const uiTemplatesPath = resolveModulePath('@nuxt/ui-templates', { from: withNodePath(nuxtPath || cwd) })
-  const r: { loading: (opts?: { loading?: string }) => string } = await import(pathToFileURL(uiTemplatesPath).href)
-
-  return r.loading || ((params: { loading: string }) => `<h2>${params.loading}</h2>`)
 }
 
 function isPublicHostname(hostname: string | undefined): boolean {
