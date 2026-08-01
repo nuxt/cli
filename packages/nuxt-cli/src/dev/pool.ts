@@ -1,11 +1,12 @@
 import type { ChildProcess } from 'node:child_process'
 import type { InspectOptions } from './inspect'
 import type { DevListenOverrides } from './listen'
-import type { NuxtDevContext, NuxtDevIPCMessage } from './utils'
+import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import { fork } from 'node:child_process'
 import process from 'node:process'
-import { debug } from '../utils/logger'
+import { debug, logger } from '../utils/logger'
+import { DEV_SHUTDOWN_TIMEOUT_MS, FORCE_KILL_TIMEOUT_MS } from './shutdown'
 
 interface ForkPoolOptions {
   rawArgs: string[]
@@ -54,13 +55,9 @@ export class ForkPool {
     this.listenOverrides = options.listenOverrides
     this.inspect = options.inspect
 
-    // Graceful shutdown
-    for (const signal of [
-      'exit',
-      'SIGTERM' /* Graceful shutdown */,
-      'SIGINT' /* Ctrl-C */,
-      'SIGQUIT' /* Ctrl-\ */,
-    ] as const) {
+    // last-resort for forks that outlive this process. nuxt closes forks gracefully
+    // on `SIGINT`/`SIGTERM`, so we skip them.
+    for (const signal of ['exit', 'SIGQUIT'] as const) {
       process.once(signal, () => {
         this.killAll(signal === 'exit' ? 0 : signal)
       })
@@ -116,7 +113,7 @@ export class ForkPool {
       promote: () => {
         fork.serving = true
       },
-      close: () => this.killFork(fork),
+      close: () => this.closeFork(fork),
     }
   }
 
@@ -223,6 +220,9 @@ export class ForkPool {
       // entry, or a kill), which would leave `ready` pending forever.
       readyReject(new Error('Dev server fork exited before it finished starting.'))
       if (pooledFork.serving && errorCode) {
+        // Ending the session on the crash of the process that holds the listener is
+        // silent otherwise, leaving no clue as to what stopped the dev server.
+        logger.error(`The dev server process (PID ${childProc.pid}) exited with code ${errorCode}.`)
         // Active fork crashed
         process.exit(errorCode)
       }
@@ -239,6 +239,42 @@ export class ForkPool {
       inspect: this.inspect,
       context,
     })
+  }
+
+  /**
+   * Ask a fork to shut down and wait for its `close` hooks to run, so nitro plugins
+   * and anything else the app opened get to tear down before the process goes away.
+   * A fork that takes too long is signalled instead.
+   */
+  private async closeFork(fork: PooledFork): Promise<void> {
+    if (fork.state === 'dead' || fork.process.exitCode !== null || !fork.process.connected) {
+      return this.killFork(fork)
+    }
+
+    fork.state = 'dead'
+    // A fork we are shutting down on purpose must not end the session.
+    fork.serving = false
+    this.removeFork(fork)
+
+    const exited = waitForExit(fork.process)
+    fork.process.send({ type: 'nuxt:internal:dev:shutdown' } satisfies NuxtParentIPCMessage, (error) => {
+      if (error) {
+        fork.process.kill('SIGTERM')
+      }
+    })
+
+    if (await settlesWithin(exited, DEV_SHUTDOWN_TIMEOUT_MS)) {
+      return
+    }
+
+    debug(`Dev server fork ${fork.process.pid} did not shut down in time, terminating it`)
+    fork.process.kill('SIGTERM')
+    if (await settlesWithin(exited, FORCE_KILL_TIMEOUT_MS)) {
+      return
+    }
+
+    fork.process.kill('SIGKILL')
+    await settlesWithin(exited, FORCE_KILL_TIMEOUT_MS)
   }
 
   private killFork(fork: PooledFork, signal: NodeJS.Signals | number = 'SIGTERM'): Promise<void> {
@@ -291,4 +327,23 @@ export class ForkPool {
       active: this.pool.filter(f => f.state === 'active').length,
     }
   }
+}
+
+function waitForExit(child: ChildProcess): Promise<void> {
+  return new Promise<void>((resolve) => {
+    child.once('exit', () => resolve())
+    child.once('close', () => resolve())
+  })
+}
+
+/** Resolves `true` if the promise settles before the timeout, `false` otherwise. */
+function settlesWithin(promise: Promise<void>, timeout: number): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const timer = setTimeout(resolve, timeout, false)
+    timer.unref?.()
+    void promise.then(() => {
+      clearTimeout(timer)
+      resolve(true)
+    })
+  })
 }
