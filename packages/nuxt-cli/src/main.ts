@@ -11,7 +11,7 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs } from './commands/_shared'
-import { runCommand } from './run'
+import { runCommand, setCurrentCommand } from './run'
 import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
@@ -44,6 +44,7 @@ const _main = defineCommand({
     normaliseCwdArg(ctx.rawArgs)
 
     const command = ctx.args._[0]
+    setCurrentCommand(command)
     setupGlobalConsole({ dev: command === 'dev' })
 
     if (command !== '_dev' && provider !== 'stackblitz') {

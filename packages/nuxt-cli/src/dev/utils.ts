@@ -36,6 +36,7 @@ import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeResta
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
+    | { type: 'nuxt:internal:dev:shutdown' }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }

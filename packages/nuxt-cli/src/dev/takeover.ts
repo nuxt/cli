@@ -10,9 +10,8 @@ import { isCI } from 'std-env'
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { clearStaleLock, clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
+import { DEV_SHUTDOWN_TIMEOUT_MS } from './shutdown'
 
-/** How long the outgoing dev server has to exit and release its port. */
-const TAKEOVER_TIMEOUT_MS = 5000
 /** How long a `SIGKILL`ed process has to disappear before we give up. */
 const TAKEOVER_KILL_TIMEOUT_MS = 1000
 const TAKEOVER_POLL_INTERVAL_MS = 100
@@ -154,7 +153,7 @@ async function performTakeover(buildDir: string, existing: LockInfo, timeouts: T
   // On Windows `SIGTERM` is not delivered as a signal and terminates the process
   // outright, so the graceful window below simply passes quickly there.
   signalAll(pids, 'SIGTERM')
-  if (await waitForRelease(pids, port, existing.hostname, timeouts.graceful ?? TAKEOVER_TIMEOUT_MS)) {
+  if (await waitForRelease(pids, port, existing.hostname, timeouts.graceful ?? DEV_SHUTDOWN_TIMEOUT_MS)) {
     progress.stop(`Stopped the dev server on port ${port} (PID ${existing.pid})`)
     return { action: 'taken', port, pid: existing.pid }
   }

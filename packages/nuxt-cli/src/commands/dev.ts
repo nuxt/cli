@@ -19,14 +19,16 @@ import { isReusePortSupported } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
+import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
+import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
 
-const SHUTDOWN_TIMEOUT_MS = 3000
+const SHUTDOWN_NOTICE_MS = 1500
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 
 const command = defineCommand({
@@ -356,19 +358,39 @@ type ArgsT = Exclude<
  * Registering any listener for these signals (the fork pool and the CPU
  * profiler both do) suppresses Node's default exit behaviour, so Ctrl-C would
  * otherwise leave the server, its forks and any tunnel running.
+ *
+ * Shutdown is given enough time for `close` hooks (nitro plugins closing database
+ * connections, and so on) to finish; a second Ctrl-C skips the wait.
  */
 function setupSignalHandlers(close: () => Promise<void>): void {
+  let closing = false
   for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.once(signal, () => {
+    process.on(signal, () => {
+      if (closing) {
+        process.exit(130)
+      }
+      closing = true
+
+      const notice = setTimeout(() => {
+        logger.info('Shutting down... press Ctrl-C again to exit immediately.')
+      }, SHUTDOWN_NOTICE_MS)
+      notice.unref?.()
+
       // Ctrl-C should always give the terminal back, even if a watcher or an
       // open connection stops the graceful shutdown from settling.
-      const deadline = setTimeout(() => process.exit(), SHUTDOWN_TIMEOUT_MS)
+      const deadline = setTimeout(() => {
+        const summary = summariseActiveResources()
+        logger.warn(`The dev server did not shut down within ${SUPERVISOR_SHUTDOWN_TIMEOUT_MS / 1000}s${summary ? `: ${summary}` : ''}. Exiting anyway.`)
+        process.exit()
+      }, SUPERVISOR_SHUTDOWN_TIMEOUT_MS)
+
       close()
         .catch((error) => {
           console.error(error)
           process.exitCode = 1
         })
         .finally(() => {
+          clearTimeout(notice)
           clearTimeout(deadline)
           process.exit()
         })

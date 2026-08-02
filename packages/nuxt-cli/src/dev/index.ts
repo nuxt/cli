@@ -45,13 +45,24 @@ interface InitializeOptions {
 // IPC Hooks
 class IPC {
   enabled = !!process.send && !process.title?.includes('vitest') && process.env.__NUXT__FORK
+  #shutdown?: () => Promise<void>
+  #closing?: Promise<void>
+
   constructor() {
     // only kill process if it is a fork
     if (this.enabled) {
+      // The terminal delivers Ctrl-C to the whole process group, so this fork has to
+      // run its own shutdown rather than being terminated mid-request.
+      for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+        process.once(signal, () => void this.close())
+      }
       // Without a parent there is nobody to reap this process, and it may be
-      // holding the dev server port or the inspector port.
+      // holding the dev server port or the inspector port. A shutdown that is
+      // already running exits on its own once the `close` hooks have finished.
       process.once('disconnect', () => {
-        process.exit(0)
+        if (!this.#closing) {
+          process.exit(0)
+        }
       })
       process.on('unhandledRejection', createRejectionHandler(
         message => this.send({ type: 'nuxt:internal:dev:rejection', message }),
@@ -65,8 +76,35 @@ class IPC {
         }
         await initialize(message.context, { listenOverrides: message.listenOverrides })
       }
+      else if (message.type === 'nuxt:internal:dev:shutdown') {
+        await this.close()
+      }
     })
     this.send({ type: 'nuxt:internal:dev:fork-ready' })
+  }
+
+  /** Register the shutdown routine to run before this fork exits. */
+  onShutdown(handler: () => Promise<void>): void {
+    this.#shutdown = handler
+  }
+
+  /**
+   * Run the dev server's `close` hooks to completion before exiting, so user code
+   * (nitro plugins, database connections) can tear itself down.
+   */
+  close(): Promise<void> {
+    this.#closing ??= (async () => {
+      try {
+        await this.#shutdown?.()
+      }
+      catch (error) {
+        debug('Could not shut the dev server down cleanly:', error)
+      }
+      finally {
+        process.exit(0)
+      }
+    })()
+    return this.#closing
   }
 
   send<T extends NuxtDevIPCMessage>(message: T) {
@@ -171,24 +209,28 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   const armRestart = createRestartHook(devServer)
 
+  const close = () => {
+    closePromise ??= (async () => {
+      devServer.closeWatchers()
+      try {
+        await Promise.all([
+          devServer.listener.close(),
+          devServer.close(),
+        ])
+      }
+      finally {
+        devServer.releaseLock()
+      }
+    })()
+    return closePromise
+  }
+
+  ipc.onShutdown(close)
+
   return {
     listener: devServer.listener,
     reload: (reason?: DevRestartReason) => devServer.load(true, reason),
-    close: () => {
-      closePromise ??= (async () => {
-        devServer.closeWatchers()
-        try {
-          await Promise.all([
-            devServer.listener.close(),
-            devServer.close(),
-          ])
-        }
-        finally {
-          devServer.releaseLock()
-        }
-      })()
-      return closePromise
-    },
+    close,
     onReady: (callback: (address: string) => void) => {
       if (address) {
         callback(address)
