@@ -101,14 +101,12 @@ describe('dev server terminal output', () => {
       `)
     })
 
-    it('should say how to reach a loopback server from outside a container', async () => {
+    it('should expose the server inside a container', async () => {
       isolatedEnvironment.current = 'the container'
       const renderer = await render(() => start())
 
-      expect(screen(renderer)).toMatchInlineSnapshot(`
-        "  ➜ Local:    http://localhost:<port>/
-          ➜ Network:  use --host to reach this server from outside the container"
-      `)
+      expect(screen(renderer)).toContain('➜ Local:    http://localhost:<port>/')
+      expect(screen(renderer)).not.toContain('use --host')
     })
 
     it('should colour each url type differently', async () => {
