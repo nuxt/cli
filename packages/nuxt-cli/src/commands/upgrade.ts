@@ -161,11 +161,11 @@ export default defineCommand({
       description: 'Force upgrade to recreate lockfile and node_modules',
     },
     channel: {
-      type: 'string',
+      type: 'enum',
       alias: 'ch',
       default: 'stable',
       description: 'Specify a channel to install from',
-      valueHint: 'stable|nightly|v3|v4|v4-nightly|v3-nightly',
+      options: ['stable', 'nightly', 'v3', 'v4', 'v4-nightly', 'v3-nightly'],
     },
   },
   async run(ctx) {
@@ -173,7 +173,6 @@ export default defineCommand({
 
     intro(styleText('cyan', 'Upgrading Nuxt ...'))
 
-    // Check package manager
     const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
     if (!packageManager) {
       logger.error(
@@ -186,19 +185,16 @@ export default defineCommand({
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
     logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${packageManagerVersion}`)
 
-    // Check currently installed Nuxt version
     const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
     logger.step(`Current Nuxt version: ${styleText('cyan', currentVersion)}`)
 
     const pkg = await readPackageJSON(cwd).catch(() => null)
 
-    // Check if Nuxt is a dependency or devDependency
     const nuxtDependencyType = pkg ? checkNuxtDependencyType(pkg) : 'dependencies'
     const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
 
     const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
 
-    // Install latest version
     const packageNames = ['nuxt', ...packagesToUpdate]
     const { npmPackages, nuxtVersion } = await getRequiredNewVersion(packageNames, ctx.args.channel)
 
@@ -217,7 +213,6 @@ export default defineCommand({
       }
     }
 
-    // Force install
     const toRemove = ['node_modules']
 
     const lockFile = findLockFile(cwd, workspaceDir, lockFileCandidates)
@@ -280,13 +275,15 @@ export default defineCommand({
       const resolved: Array<{ catalog: string, pkg: string, specifier: string }> = []
       const unresolved: string[] = []
 
-      for (const { catalog, current, spec } of catalogUpdates) {
-        const specifier = await resolveCatalogSpecifier(spec, current)
-        if (!specifier) {
-          unresolved.push(spec.name)
-          continue
+      const specifiers = await Promise.all(catalogUpdates.map(({ current, spec }) => resolveCatalogSpecifier(spec, current)))
+      for (const [index, specifier] of specifiers.entries()) {
+        const { catalog, spec } = catalogUpdates[index]!
+        if (specifier) {
+          resolved.push({ catalog, pkg: spec.name, specifier })
         }
-        resolved.push({ catalog, pkg: spec.name, specifier })
+        else {
+          unresolved.push(spec.name)
+        }
       }
 
       if (resolved.length > 0) {
@@ -347,7 +344,7 @@ export default defineCommand({
         recreateLockfile ? `Recreating ${forceRemovals}` : 'Deduping dependencies',
         recreateLockfile ? 'Lockfile recreated' : 'Dependencies deduped',
         { verbose },
-        hooks => runDedupe({ cwd, packageManager, recreateLockfile, ...hooks }),
+        hooks => runDedupe({ cwd, packageManager, recreateLockfile, lockFile, ...hooks }),
       )
 
       if (failed) {
@@ -373,7 +370,6 @@ export default defineCommand({
       logger.info(`If you encounter any issues, revert the changes and try with ${styleText('cyan', '--no-force')}`)
     }
 
-    // Check installed Nuxt version again
     const upgradedVersion = (await getNuxtVersion(cwd)) || '[unknown]'
 
     if (upgradedVersion === '[unknown]') {
@@ -450,7 +446,6 @@ async function withInstallSpinner(
   return !result.success
 }
 
-// Find which lock file is in use since `nypm.detectPackageManager` doesn't return this
 export function findLockFile(cwd: string, workspaceDir: string, lockFiles: string | Array<string> | undefined) {
   const candidates = typeof lockFiles === 'string' ? [lockFiles] : lockFiles
 

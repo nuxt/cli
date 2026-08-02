@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { chmod, mkdtemp, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -135,20 +135,28 @@ describe('runDedupe', () => {
     expect(lines).toEqual(['all done'])
   })
 
-  it.skipIf(process.platform === 'win32')('should install after removing the lockfile when recreating it', async () => {
+  it.skipIf(process.platform === 'win32')('should install after removing node_modules and the selected lockfile', async () => {
     const { dir, command } = await createFakePackageManager()
-    const lockFile = join(dir, 'pnpm-lock.yaml')
-    await writeFile(lockFile, 'lockfileVersion: 9.0\n')
+    const appDir = join(dir, 'app')
+    const nodeModules = join(appDir, 'node_modules')
+    const localLockFile = join(appDir, 'pnpm-lock.yaml')
+    const workspaceLockFile = join(dir, 'pnpm-lock.yaml')
+    await mkdir(nodeModules, { recursive: true })
+    await writeFile(localLockFile, 'lockfileVersion: 9.0\n')
+    await writeFile(workspaceLockFile, 'lockfileVersion: 9.0\n')
 
     const result = await runDedupe({
-      cwd: dir,
+      cwd: appDir,
       packageManager: { name: 'pnpm', command, lockFile: 'pnpm-lock.yaml' },
       recreateLockfile: true,
+      lockFile: '../pnpm-lock.yaml',
     })
 
     expect(result.success).toBe(true)
     expect(result.command).toContain(`${command} install`)
-    expect(existsSync(lockFile)).toBe(false)
+    expect(existsSync(nodeModules)).toBe(false)
+    expect(existsSync(workspaceLockFile)).toBe(false)
+    expect(existsSync(localLockFile)).toBe(true)
   })
 
   it('should report a missing package manager instead of throwing', async () => {

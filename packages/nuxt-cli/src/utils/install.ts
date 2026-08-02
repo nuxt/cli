@@ -3,7 +3,7 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process'
 
 import type { PackageManager, PackageManagerName } from 'nypm'
 import { spawn } from 'node:child_process'
-import { statSync } from 'node:fs'
+import { rmSync, statSync } from 'node:fs'
 import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
 
@@ -108,8 +108,10 @@ export async function runInstall(options: InstallOptions): Promise<InstallResult
 }
 
 export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'workspace'> {
-  /** Delete the lockfile and resolve dependencies from scratch. */
+  /** Delete node_modules and the lockfile, then resolve dependencies from scratch. */
   recreateLockfile?: boolean
+  /** Lockfile path relative to cwd. */
+  lockFile?: string
 }
 
 /**
@@ -117,10 +119,20 @@ export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'de
  * output handling as {@link runInstall}.
  */
 export async function runDedupe(options: DedupeOptions): Promise<InstallResult> {
+  if (options.recreateLockfile) {
+    rmSync(resolve(options.cwd, 'node_modules'), { recursive: true, force: true })
+    const lockFiles = options.lockFile
+      ? [options.lockFile]
+      : [options.packageManager.lockFile].flat().filter(Boolean) as string[]
+    for (const lockFile of lockFiles) {
+      rmSync(resolve(options.cwd, lockFile), { force: true })
+    }
+    return await runInstall(options)
+  }
+
   const { exec } = await dedupeDependencies({
     cwd: options.cwd,
     packageManager: options.packageManager,
-    recreateLockfile: options.recreateLockfile,
     dry: true,
   })
 
