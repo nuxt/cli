@@ -46,8 +46,9 @@ export default defineCommand({
     const cwd = resolveRootDir(ctx.args)
 
     const profileArg = ctx.args.profile
-    const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
-    if (profileArg) {
+    const profiling = profileArg !== undefined
+    const perfValue = profileArg === 'verbose' ? true : profiling ? 'quiet' : undefined
+    if (profiling) {
       await startCpuProfile()
     }
 
@@ -66,7 +67,6 @@ export default defineCommand({
         envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
         overrides: {
           logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-          // TODO: remove in 3.8
           _generate: ctx.args.prerender,
           nitro: {
             static: ctx.args.prerender,
@@ -113,14 +113,6 @@ export default defineCommand({
 
       await kit.writeTypes(nuxt)
 
-      nuxt.hook('build:error', async (err) => {
-        logger.error(`Nuxt build error: ${err}`)
-        if (profileArg) {
-          await stopCpuProfile(cwd, 'build')
-        }
-        process.exit(1)
-      })
-
       await kit.buildNuxt(nuxt)
 
       if (ctx.args.prerender) {
@@ -128,7 +120,6 @@ export default defineCommand({
           logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
           logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
         }
-        // TODO: revisit later if/when nuxt build --prerender will output hybrid
         const dir = nitro.options.output.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
         outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
@@ -138,10 +129,10 @@ export default defineCommand({
       }
     }
     finally {
-      for (const release of releaseLocks) {
+      for (const release of releaseLocks.reverse()) {
         release()
       }
-      if (profileArg) {
+      if (profiling) {
         await stopCpuProfile(cwd, 'build')
       }
     }
