@@ -369,7 +369,7 @@ describe('help', () => {
   })
 
   it('nuxt test', async () => {
-    expect(await usage(commands.test, main)).toMatchInlineSnapshot(`
+    expect((await usage(commands.test, main)).replaceAll(/ +$/gm, '')).toMatchInlineSnapshot(`
       "Run tests (nuxt test v0.0.0)
 
       USAGE nuxt test [OPTIONS] [ROOTDIR]
@@ -380,9 +380,8 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
-                                   --dev    Run in dev mode             
-                                 --watch    Watch mode                  
+          --dev    Run in dev mode
+        --watch    Watch mode
       "
     `)
   })

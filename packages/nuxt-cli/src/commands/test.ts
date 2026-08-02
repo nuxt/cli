@@ -1,11 +1,11 @@
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 import { defineCommand } from 'citty'
-
-import { logger } from '../utils/logger'
+import { resolveModulePath } from 'exsolve'
 
 import { resolveRootDir } from '../utils/paths'
-import { logLevelArgs, rootDirArgs } from './_shared'
+import { rootDirArgs } from './_shared'
 
 export default defineCommand({
   meta: {
@@ -14,7 +14,6 @@ export default defineCommand({
   },
   args: {
     ...rootDirArgs,
-    ...logLevelArgs,
     dev: {
       type: 'boolean',
       description: 'Run in dev mode',
@@ -29,35 +28,28 @@ export default defineCommand({
 
     const cwd = resolveRootDir(ctx.args)
 
-    const { runTests } = await importTestUtils()
+    const { runTests } = await importTestUtils(cwd)
     await runTests({
       rootDir: cwd,
       dev: ctx.args.dev,
       watch: ctx.args.watch,
-      ...{},
     })
   },
 })
 
-async function importTestUtils(): Promise<typeof import('@nuxt/test-utils')> {
-  let err
-  for (const pkg of [
-    '@nuxt/test-utils-nightly',
-    '@nuxt/test-utils-edge',
-    '@nuxt/test-utils',
-  ]) {
-    try {
-      const exports = await import(pkg)
-      // Detect old @nuxt/test-utils
-      if (!exports.runTests) {
-        throw new Error('Invalid version of `@nuxt/test-utils` is installed!')
-      }
-      return exports
+export async function importTestUtils(rootDir: string): Promise<typeof import('@nuxt/test-utils')> {
+  for (const pkg of ['@nuxt/test-utils-nightly', '@nuxt/test-utils-edge', '@nuxt/test-utils']) {
+    const entry = resolveModulePath(pkg, { from: rootDir, try: true })
+    if (!entry) {
+      continue
     }
-    catch (_err) {
-      err = _err
+
+    const exports = await import(pathToFileURL(entry).href)
+    if (typeof exports.runTests !== 'function') {
+      throw new TypeError(`The installed version of \`${pkg}\` does not support \`nuxt test\`.`)
     }
+    return exports
   }
-  logger.error(String(err))
-  throw new Error('`@nuxt/test-utils` seems missing. Run `npm i -D @nuxt/test-utils` or `yarn add -D @nuxt/test-utils` to install.')
+
+  throw new Error('`@nuxt/test-utils` is not installed in this project. Install it as a development dependency to use `nuxt test`.')
 }
