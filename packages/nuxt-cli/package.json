@@ -60,6 +60,7 @@
   "dependencies": {
     "@bomb.sh/tab": "^0.0.21",
     "@clack/prompts": "^1.7.0",
+    "args-tokenizer": "^0.3.0",
     "citty": "^0.2.2",
     "clickable-path": "^0.0.1",
     "confbox": "^0.2.4",

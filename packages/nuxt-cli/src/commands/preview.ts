@@ -4,12 +4,14 @@ import process from 'node:process'
 
 import { styleText } from 'node:util'
 import { box, outro } from '@clack/prompts'
+import { tokenizeArgs } from 'args-tokenizer'
 import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { withPrependedPath } from '../utils/path-env'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
@@ -153,14 +155,17 @@ const command = defineCommand({
 
     outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
 
-    const [command, ...commandArgs] = previewCommand.trim().split(/\s+/) as [string, ...string[]]
+    const [command, ...commandArgs] = tokenizeArgs(previewCommand) as [string, ...string[]]
     await x(command, commandArgs, {
       throwOnError: true,
       nodeOptions: {
         stdio: 'inherit',
         cwd: outputPath,
         env: {
-          ...process.env,
+          ...withPrependedPath(process.env, [
+            resolve(outputPath, 'node_modules/.bin'),
+            resolve(cwd, 'node_modules/.bin'),
+          ]),
           NUXT_PORT: port,
           NITRO_PORT: port,
           NUXT_HOST: host,
