@@ -194,7 +194,14 @@ async function readRequestBody(data: string | undefined): Promise<string | undef
     return Buffer.concat(chunks).toString('utf-8')
   }
   if (data.startsWith('@')) {
-    return await readFile(data.slice(1), 'utf-8')
+    const path = data.slice(1)
+    try {
+      return await readFile(path, 'utf-8')
+    }
+    catch (error) {
+      logger.error(`Could not read ${styleText('cyan', path)}: ${(error as Error).message}`)
+      process.exit(1)
+    }
   }
   return data
 }

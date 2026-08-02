@@ -7,7 +7,7 @@ import { styleText } from 'node:util'
 
 import { join, resolve } from 'pathe'
 
-import { findDevServer, findNitroDevWorker, noDevServerMessage, toLoopback } from '../../utils/dev-server'
+import { findDevServer, findNitroDevWorker, noDevServerMessage, resolveLockDir, toLoopback } from '../../utils/dev-server'
 import { highlightJson } from '../../utils/json-highlight'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
@@ -76,12 +76,14 @@ export async function resolveTaskServer(args: { url?: string, cwd?: string, root
 
   const cwd = resolveRootDir(args)
 
-  const server = await findDevServer(cwd)
+  const buildDir = await resolveLockDir(cwd)
+
+  const server = await findDevServer(cwd, buildDir)
   if (server) {
     return { base: server.url }
   }
 
-  const worker = await findNitroDevWorker(cwd)
+  const worker = await findNitroDevWorker(cwd, buildDir)
   if (worker?.socketPath) {
     return { base: 'http://localhost', socketPath: worker.socketPath }
   }

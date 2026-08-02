@@ -192,6 +192,22 @@ describe('curl', () => {
     expect(requests).toHaveLength(0)
   })
 
+  it('reads a request body from a file', async () => {
+    const path = join(cwd, 'body.json')
+    await writeFile(path, '{"from":"file"}')
+    const code = await run([`${origin}/api/hello`, '-d', `@${path}`])
+
+    expect(code).toBe(0)
+    expect(requests[0]?.body).toBe('{"from":"file"}')
+  })
+
+  it('reports a missing request body file instead of throwing', async () => {
+    const code = await run([`${origin}/api/hello`, '-d', `@${join(cwd, 'nope.json')}`])
+
+    expect(code).toBe(1)
+    expect(requests).toHaveLength(0)
+  })
+
   it('sends every value of a repeated -H flag', async () => {
     const code = await run([`${origin}/api/hello`, '-H', 'x-one: 1', '--header=x-two: 2'])
 
