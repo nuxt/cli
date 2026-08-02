@@ -93,9 +93,14 @@ describe('help', () => {
 
       OPTIONS
 
-                       --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-        --logLevel=<silent|info|verbose>    Specify build-time log level                                
-                                 --force    Force override file if it already exists (Default: false)   
+                                                      --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                                       --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                                --force    Overwrite the file if it already exists (Default: false)    
+                                                 --mode=<client|server>    Add a client or server suffix to a component or plugin      
+        --method=<connect|delete|get|head|options|patch|post|put|trace>    Add an HTTP method suffix to an API route                   
+                                                               --global    Create global route middleware                              
+                                                                  --api    Create a server route in the API directory                  
+                                                                --pages    Include NuxtPage and NuxtLayout in the app template         
       "
     `)
   })

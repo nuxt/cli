@@ -1,12 +1,12 @@
 import type { TemplateName } from '../utils/templates/names'
 
-import { existsSync, promises as fsp } from 'node:fs'
+import { promises as fsp } from 'node:fs'
 import process from 'node:process'
-
 import { styleText } from 'node:util'
-import { cancel, intro, outro } from '@clack/prompts'
+
+import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { dirname, extname, resolve } from 'pathe'
+import { dirname, resolve } from 'pathe'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -25,8 +25,30 @@ export default defineCommand({
     ...logLevelArgs,
     force: {
       type: 'boolean',
-      description: 'Force override file if it already exists',
+      description: 'Overwrite the file if it already exists',
       default: false,
+    },
+    mode: {
+      type: 'string',
+      valueHint: 'client|server',
+      description: 'Add a client or server suffix to a component or plugin',
+    },
+    method: {
+      type: 'string',
+      valueHint: 'connect|delete|get|head|options|patch|post|put|trace',
+      description: 'Add an HTTP method suffix to an API route',
+    },
+    global: {
+      type: 'boolean',
+      description: 'Create global route middleware',
+    },
+    api: {
+      type: 'boolean',
+      description: 'Create a server route in the API directory',
+    },
+    pages: {
+      type: 'boolean',
+      description: 'Include NuxtPage and NuxtLayout in the app template',
     },
     template: {
       type: 'positional',
@@ -47,55 +69,56 @@ export default defineCommand({
 
     const templateName = ctx.args.template as TemplateName
 
-    // Validate template name
     if (!templateNames.includes(templateName)) {
-      const templateNames = Object.keys(templates).map(name => styleText('cyan', name))
-      const lastTemplateName = templateNames.pop()
+      const supported = templateNames.map(name => styleText('cyan', name))
+      const last = supported.pop()
       logger.error(`Template ${styleText('cyan', templateName)} is not supported.`)
-      logger.info(`Possible values are ${templateNames.join(', ')} or ${lastTemplateName}.`)
+      logger.info(`Possible values are ${supported.join(', ')} or ${last}.`)
       process.exit(1)
     }
 
-    // Validate options
-    const ext = extname(ctx.args.name)
-    const name
-      = ext === '.vue' || ext === '.ts'
-        ? ctx.args.name.replace(ext, '')
-        : ctx.args.name
+    if (ctx.args.mode && ctx.args.mode !== 'client' && ctx.args.mode !== 'server') {
+      logger.error(`Mode must be ${styleText('cyan', 'client')} or ${styleText('cyan', 'server')}.`)
+      process.exit(1)
+    }
+    if (ctx.args.method && !['connect', 'delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace'].includes(ctx.args.method)) {
+      logger.error(`HTTP method ${styleText('cyan', ctx.args.method)} is not supported.`)
+      process.exit(1)
+    }
+
+    const ext = ['.vue', '.ts'].find(ext => ctx.args.name.endsWith(ext))
+    const name = ext
+      ? ctx.args.name.slice(0, -ext.length)
+      : ctx.args.name
 
     if (!name) {
-      cancel('name argument is missing!')
+      logger.error('Template name must not be empty.')
       process.exit(1)
     }
 
-    // Load config in order to respect srcDir
     const kit = await loadKit(cwd)
     const config = await kit.loadNuxtConfig({ cwd })
-
-    // Resolve template
-    const template = templates[templateName as keyof typeof templates]
-
-    const res = template({ name, args: ctx.args, nuxtOptions: config })
-
-    // Ensure not overriding user code
-    if (!ctx.args.force && existsSync(res.path)) {
-      logger.error(`File exists at ${styleText('cyan', relativeToProcess(res.path))}.`)
-      logger.info(`Use ${styleText('cyan', '--force')} to override or use a different name.`)
-      process.exit(1)
-    }
-
-    // Ensure parent directory exists
+    const res = templates[templateName]({ name, args: ctx.args, nuxtOptions: config })
     const parentDir = dirname(res.path)
-    if (!existsSync(parentDir)) {
-      logger.step(`Creating directory ${styleText('cyan', relativeToProcess(parentDir))}.`)
+    const createdDir = await fsp.mkdir(parentDir, { recursive: true })
+    if (createdDir) {
+      logger.step(`Created directory ${styleText('cyan', relativeToProcess(parentDir))}.`)
       if (templateName === 'page') {
         logger.info('This enables vue-router functionality!')
       }
-      await fsp.mkdir(parentDir, { recursive: true })
     }
 
-    // Write file
-    await fsp.writeFile(res.path, `${res.contents.trim()}\n`)
+    try {
+      await fsp.writeFile(res.path, `${res.contents.trim()}\n`, { flag: ctx.args.force ? 'w' : 'wx' })
+    }
+    catch (error) {
+      if (!ctx.args.force && (error as NodeJS.ErrnoException).code === 'EEXIST') {
+        logger.error(`File exists at ${styleText('cyan', relativeToProcess(res.path))}.`)
+        logger.info(`Use ${styleText('cyan', '--force')} to overwrite it or use a different name.`)
+        process.exit(1)
+      }
+      throw error
+    }
     logger.success(`Created ${styleText('cyan', relativeToProcess(res.path))}.`)
     outro(`Generated a new ${styleText('cyan', templateName)}!`)
   },
