@@ -64,8 +64,6 @@ export default defineCommand({
       process.exit(1)
     }
 
-    // With no inputs, the multiselect picker runs inside `removeModules` against the
-    // configured modules. Otherwise resolve aliases/names to canonical npm package names.
     const installedNames = getProjectDependencies(projectPkg)
 
     const needsDB = modules.some(m => !installedNames.has(m) && !installedNames.has(basePackageName(m)))
@@ -84,11 +82,10 @@ export default defineCommand({
 
     const proceed = await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
-    if (!proceed) {
-      process.exit(0)
+    if (proceed !== true) {
+      process.exit(proceed === false ? 1 : 0)
     }
 
-    // Run prepare command if uninstall is not skipped
     if (!ctx.args.skipInstall) {
       await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
     }
@@ -96,7 +93,7 @@ export default defineCommand({
 })
 
 // -- Internal Utils --
-async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean> {
+async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean | undefined> {
   const removedFromConfig: string[] = []
   const dependencies = getProjectDependencies(projectPkg)
 
@@ -118,7 +115,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
       if (isCancel(picked)) {
         cancel('No modules selected.')
-        return false
+        return
       }
 
       toRemove = new Set(picked as string[])
@@ -140,17 +137,21 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
         removedFromConfig.push(...names)
       }
 
-      await removeNuxtConfigEntries(config, doomed).catch((error) => {
+      try {
+        await removeNuxtConfigEntries(config, doomed)
+      }
+      catch (error) {
         logger.error(`Failed to update ${styleText('cyan', 'nuxt.config')}: ${(error as Error).message}`)
-        logger.error(`Please manually remove ${styleText('cyan', modules.join(', ') || 'the relevant modules')} from ${styleText('cyan', 'nuxt.config.ts')}`)
-      })
+        logger.error(`Please manually remove ${styleText('cyan', [...toRemove].join(', ') || 'the relevant modules')} from ${styleText('cyan', 'nuxt.config.ts')}`)
+        return false
+      }
     }
 
     if (modules.length === 0 && removedFromConfig.length === 0) {
       cancel(config
         ? `No modules configured in ${styleText('cyan', 'nuxt.config')}.`
         : `No ${styleText('cyan', 'nuxt.config')} found in ${styleText('cyan', relativeToProcess(cwd))}.`)
-      return false
+      return
     }
   }
 
@@ -202,7 +203,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
       if (isCancel(alsoRemove)) {
         cancel('Aborted.')
-        return false
+        return
       }
 
       if (alsoRemove) {
@@ -249,14 +250,13 @@ function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Se
     || m.aliases?.includes(input),
   )
 
-  return matched?.npm || input
+  return matched?.npm ? basePackageName(matched.npm) : input
 }
 
 async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cwd: string): Promise<OrphanedPeer[]> {
   const projectDeps = getProjectDependencies(projectPkg)
   const removingSet = new Set(removing)
 
-  // peer name -> first removed module that declares it
   const candidates = new Map<string, string>()
   for (const m of removing) {
     const pkg = await readDependencyPackageJson(m, cwd)
@@ -264,7 +264,7 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
       continue
     }
     for (const peer of Object.keys(pkg.peerDependencies)) {
-      if (!projectDeps.has(peer) || removingSet.has(peer) || candidates.has(peer)) {
+      if (pkg.peerDependenciesMeta?.[peer]?.optional || !projectDeps.has(peer) || removingSet.has(peer) || candidates.has(peer)) {
         continue
       }
       candidates.set(peer, m)
@@ -275,13 +275,10 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
     return []
   }
 
-  // Strike out peers that another retained dep still needs
   const stillNeeded = new Set<string>()
-  for (const dep of projectDeps) {
-    if (removingSet.has(dep) || candidates.has(dep)) {
-      continue
-    }
-    const depPkg = await readDependencyPackageJson(dep, cwd)
+  const retained = [...projectDeps].filter(dep => !removingSet.has(dep) && !candidates.has(dep))
+  const packages = await Promise.all(retained.map(dep => readDependencyPackageJson(dep, cwd)))
+  for (const depPkg of packages) {
     if (!depPkg) {
       continue
     }

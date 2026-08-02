@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { basePackageName, parseModuleSpec, resolveModuleEntry } from '../../../../src/commands/module/_utils'
 import { describeModules } from '../../../../src/commands/module/add'
+import { normalizeNuxtVersion } from '../../../../src/commands/module/search'
 
 describe('parseModuleSpec', () => {
   it('should parse plain and scoped package names', () => {
@@ -27,6 +28,9 @@ describe('parseModuleSpec', () => {
   it('should reject invalid specs', () => {
     expect(parseModuleSpec('Not Valid')).toBeUndefined()
     expect(parseModuleSpec('@scope')).toBeUndefined()
+    expect(parseModuleSpec('pkg@')).toBeUndefined()
+    expect(parseModuleSpec('pkg//nuxt')).toBeUndefined()
+    expect(parseModuleSpec('.pkg')).toBeUndefined()
   })
 })
 
@@ -70,6 +74,14 @@ describe('resolveModuleEntry', () => {
   it('should detect layers that only publish a `nuxt.config`', () => {
     expect(resolveModuleEntry({ files: ['nuxt.config.ts', 'components'] })).toEqual({ isLayer: true })
     expect(resolveModuleEntry({ files: ['index.js'] })).toEqual({ isLayer: false })
+  })
+})
+
+describe('normalizeNuxtVersion', () => {
+  it('should expand major and minor shorthands', () => {
+    expect(normalizeNuxtVersion('3')).toBe('3.0.0')
+    expect(normalizeNuxtVersion('3.12')).toBe('3.12.0')
+    expect(normalizeNuxtVersion('4.0.1')).toBe('4.0.1')
   })
 })
 

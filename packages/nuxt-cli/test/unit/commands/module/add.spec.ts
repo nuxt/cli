@@ -6,9 +6,9 @@ import * as runCommands from '../../../../src/run-command'
 import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 
-const { readNuxtConfig, addNuxtConfigModules, detectPackageManager } = vi.hoisted(() => ({
-  readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [] })),
-  addNuxtConfigModules: vi.fn(() => Promise.resolve()),
+const { readNuxtConfig, addNuxtConfigEntries, detectPackageManager } = vi.hoisted(() => ({
+  readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+  addNuxtConfigEntries: vi.fn(() => Promise.resolve()),
   detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', command: 'npm' })),
 }))
 
@@ -23,7 +23,7 @@ function applyMocks() {
   vi.mock('../../../../src/utils/config', async () => {
     return {
       readNuxtConfig,
-      addNuxtConfigModules,
+      addNuxtConfigEntries,
       createNuxtConfig: vi.fn(),
     }
   })
@@ -66,12 +66,12 @@ function applyMocks() {
               nuxt: v3,
             },
           },
-          '2.9.0': {
+          '2.13.1': {
             devDependencies: {
               nuxt: v3,
             },
           },
-          '2.13.1': {
+          '2.9.0': {
             devDependencies: {
               nuxt: v3,
             },

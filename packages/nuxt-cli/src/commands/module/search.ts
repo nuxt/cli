@@ -41,10 +41,20 @@ export default defineCommand({
     },
   },
   async setup(ctx) {
-    const nuxtVersion = await getNuxtVersion(ctx.args.cwd).catch(() => DEFAULT_NUXT_VERSION)
+    const nuxtVersion = ctx.args.nuxtVersion
+      ? normalizeNuxtVersion(ctx.args.nuxtVersion)
+      : await getNuxtVersion(ctx.args.cwd).catch(() => DEFAULT_NUXT_VERSION)
     return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
   },
 })
+
+export function normalizeNuxtVersion(version: string): string {
+  return /^\d+$/.test(version)
+    ? `${version}.0.0`
+    : /^\d+\.\d+$/.test(version)
+      ? `${version}.0`
+      : version
+}
 
 async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const allModules = await fetchModules().catch((err) => {
@@ -84,7 +94,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
       delete res.homepage
     }
     if (item.name === item.npm) {
-      delete res.packageName
+      delete res.package
     }
     return res
   })

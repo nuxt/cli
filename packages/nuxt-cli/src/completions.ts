@@ -38,13 +38,10 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     }
   }
 
-  const addCommand = completion.commands.get('add')
-  if (addCommand) {
-    const cwdOption = addCommand.options.get('cwd')
+  for (const name of ['add', 'module add', 'module remove', 'module search']) {
+    const cwdOption = completion.commands.get(name)?.options.get('cwd')
     if (cwdOption) {
-      cwdOption.handler = (complete) => {
-        complete('.', 'Current directory')
-      }
+      cwdOption.handler = complete => complete('.', 'Current directory')
     }
   }
 

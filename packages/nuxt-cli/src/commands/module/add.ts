@@ -13,7 +13,7 @@ import { detectPackageManager, packageManagers } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { joinURL } from 'ufo'
-import { satisfies } from 'verkit'
+import { findMaxSatisfying, satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run-command'
 import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
@@ -88,7 +88,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
         process.exit(1)
       }
 
-      // If no modules specified, show interactive search
+      let modulesDB: NuxtModule[]
       if (modules.length === 0) {
         const modulesSpinner = spinner()
         modulesSpinner.start('Fetching available modules')
@@ -102,28 +102,36 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
           getNuxtVersion(cwd),
         ])
 
-        const compatibleModules = allModules.filter(m =>
+        modulesDB = allModules
+        const compatibleModules = modulesDB.filter(m =>
           !m.compatibility.nuxt || checkNuxtCompatibility(m, nuxtVersion),
         )
 
         modulesSpinner.stop('Modules loaded')
 
-        const result = await selectModulesAutocomplete({
+        const selection = await selectModulesAutocomplete({
           modules: compatibleModules,
           message: 'Search modules to add (Esc to finish):',
         })
+        modules = selection.selected
 
-        if (result.selected.length === 0) {
+        if (modules.length === 0) {
           cancel('No modules selected.')
           process.exit(0)
         }
-
-        modules = result.selected
+      }
+      else {
+        modulesDB = await fetchModules().catch((err) => {
+          logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
+          return []
+        })
       }
 
+      let nuxtVersionPromise: Promise<string> | undefined
+      const getProjectNuxtVersion = () => nuxtVersionPromise ||= getNuxtVersion(cwd)
       const resolvedModules: ResolvedModule[] = []
-      for (const moduleName of modules) {
-        const resolvedModule = await resolveModule(moduleName, cwd)
+      for (const moduleName of new Set(modules)) {
+        const resolvedModule = await resolveModule(moduleName, cwd, modulesDB, getProjectNuxtVersion)
         if (resolvedModule) {
           resolvedModules.push(resolvedModule)
         }
@@ -142,7 +150,6 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
         process.exit(1)
       }
 
-      // Run prepare command if install is not skipped
       if (!ctx.args.skipInstall) {
         await runCommand(prepareCommand, forwardCommandArgs(ctx.args))
       }
@@ -154,7 +161,6 @@ export default defineAddCommand()
 
 // -- Internal Utils --
 async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false, packageManager: packageManagerName, logLevel }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean, packageManager?: string, logLevel?: string }, projectPkg: PackageJson): Promise<boolean> {
-  // Add dependencies
   if (!skipInstall) {
     const installedModules: ResolvedModule[] = []
     const notInstalledModules: ResolvedModule[] = []
@@ -230,7 +236,6 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     }
   }
 
-  // Update nuxt.config.ts
   if (!skipConfig) {
     try {
       let config = await readNuxtConfig(cwd)
@@ -258,6 +263,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
     catch (error) {
       logger.error(`Failed to update ${styleText('cyan', 'nuxt.config')}: ${(error as Error).message}`)
       logger.error(`Please manually add ${styleText('cyan', modules.map(module => module.specifier).join(', '))} to ${styleText('cyan', 'nuxt.config.ts')}`)
+      return false
     }
   }
 
@@ -342,7 +348,7 @@ export default defineNuxtConfig({
 })`
 }
 
-async function resolveModule(moduleName: string, cwd: string): Promise<ModuleResolution> {
+async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtModule[], getProjectNuxtVersion: () => Promise<string>): Promise<ModuleResolution> {
   const spec = parseModuleSpec(moduleName)
 
   if (!spec) {
@@ -352,11 +358,6 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
 
   let { pkgName, pkgVersion } = spec
   let subpath = spec.subpath
-
-  const modulesDB = await fetchModules().catch((err) => {
-    logNetworkError(err, { url: MODULES_API_URL, level: 'warn', prefix: 'Cannot search in the Nuxt Modules database.' })
-    return []
-  })
 
   const bareName = subpath ? `${pkgName}/${subpath}` : pkgName
   const matchedModule = modulesDB.find(
@@ -377,8 +378,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
   }
 
   if (matchedModule && matchedModule.compatibility.nuxt) {
-    // Get local Nuxt version
-    const nuxtVersion = await getNuxtVersion(cwd)
+    const nuxtVersion = await getProjectNuxtVersion()
 
     // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
@@ -449,7 +449,7 @@ async function resolveModule(moduleName: string, cwd: string): Promise<ModuleRes
     version = pkgDetails['dist-tags'][version]
   }
   else {
-    version = Object.keys(pkgDetails.versions)?.findLast(v => satisfies(v, version)) || version
+    version = findMaxSatisfying(Object.keys(pkgDetails.versions || {}), version) || version
   }
 
   const pkg = pkgDetails.versions[version!] || {}

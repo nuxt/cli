@@ -13,28 +13,6 @@ import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 
-export const categories = [
-  'Analytics',
-  'CMS',
-  'CSS',
-  'Database',
-  'Date',
-  'Deployment',
-  'Devtools',
-  'Extensions',
-  'Ecommerce',
-  'Fonts',
-  'Images',
-  'Libraries',
-  'Monitoring',
-  'Payment',
-  'Performance',
-  'Request',
-  'SEO',
-  'Security',
-  'UI',
-]
-
 interface NuxtApiModulesResponse {
   version: string
   generatedAt: string
@@ -90,7 +68,7 @@ export interface NuxtModule {
   github: string
   website: string
   learn_more: string
-  category: (typeof categories)[number]
+  category: string
   type: ModuleType
   maintainers: MaintainerInfo[]
   contributors?: GitHubContributor[]

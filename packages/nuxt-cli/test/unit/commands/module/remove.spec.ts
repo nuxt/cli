@@ -92,6 +92,33 @@ describe('module remove', () => {
     })
   })
 
+  it('should strip a database module subpath before uninstalling', async () => {
+    readPackageJSON.mockResolvedValueOnce({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: { example: '1.0.0' },
+    })
+    vi.mocked(utils.fetchModules).mockResolvedValueOnce([{
+      name: 'example',
+      npm: 'example/nuxt',
+      aliases: ['example-module'],
+      compatibility: { nuxt: '3.0.0', requires: {}, versionMap: {} },
+      description: '',
+      repo: '',
+      github: '',
+      website: '',
+      learn_more: '',
+      category: '',
+      type: 'community',
+      maintainers: [],
+      stats: { downloads: 0, stars: 0, maintainers: 0, contributors: 0, modules: 0 },
+    }])
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({ args: { cwd: '/fake-dir', skipConfig: true, _: ['example-module'] } })
+
+    expect(removeDependency).toHaveBeenCalledWith(['example'], expect.objectContaining({ cwd: '/fake-dir' }))
+  })
+
   it('should remove a Nuxt module by npm name', async () => {
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({
@@ -148,6 +175,20 @@ describe('module remove', () => {
         _: ['@nuxt/content'],
       },
     })
+
+    expect(removeDependency).not.toHaveBeenCalled()
+  })
+
+  it('should stop before uninstall when the config update fails', async () => {
+    removeNuxtConfigEntries.mockRejectedValueOnce(new Error('read only'))
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await expect(removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        _: ['@nuxt/content'],
+      },
+    })).rejects.toThrow('process.exit unexpectedly called with "1"')
 
     expect(removeDependency).not.toHaveBeenCalled()
   })
@@ -210,6 +251,27 @@ describe('module remove', () => {
     )
   })
 
+  it('should not suggest removing optional peer dependencies', async () => {
+    readPackageJSON.mockImplementation(() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {
+        '@example/nuxt': '1.0.0',
+        'optional-package': '1.0.0',
+      },
+    }))
+    readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
+      name === '@example/nuxt'
+        ? { peerDependencies: { 'optional-package': '^1.0.0' }, peerDependenciesMeta: { 'optional-package': { optional: true } } }
+        : {},
+    ))
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({ args: { cwd: '/fake-dir', _: ['@example/nuxt'] } })
+
+    expect(confirm).not.toHaveBeenCalled()
+    expect(removeDependency).toHaveBeenCalledWith(['@example/nuxt'], expect.objectContaining({ cwd: '/fake-dir' }))
+  })
+
   it('should keep orphaned peer dependencies when declined', async () => {
     confirm.mockResolvedValueOnce(false)
     readPackageJSON.mockImplementation(() => Promise.resolve({
@@ -236,6 +298,35 @@ describe('module remove', () => {
       ['@vee-validate/nuxt'],
       expect.objectContaining({ cwd: '/fake-dir' }),
     )
+  })
+
+  it('should inspect retained dependencies in parallel', async () => {
+    let pending = 0
+    let peak = 0
+    readPackageJSON.mockImplementation(() => Promise.resolve({
+      devDependencies: { nuxt: '3.0.0' },
+      dependencies: {
+        '@vee-validate/nuxt': '1.0.0',
+        'first': '1.0.0',
+        'second': '1.0.0',
+        'vee-validate': '4.0.0',
+      },
+    }))
+    readDependencyPackageJson.mockImplementation(async (name?: string) => {
+      if (name === '@vee-validate/nuxt') {
+        return { peerDependencies: { 'vee-validate': '^4.0.0' } }
+      }
+      pending++
+      peak = Math.max(peak, pending)
+      await Promise.resolve()
+      pending--
+      return {}
+    })
+
+    const removeCommand = await (commands as CommandsType).subCommands.remove()
+    await removeCommand.setup({ args: { cwd: '/fake-dir', _: ['@vee-validate/nuxt'] } })
+
+    expect(peak).toBeGreaterThan(1)
   })
 
   it('should not treat a peer still required by another dependency as orphaned', async () => {

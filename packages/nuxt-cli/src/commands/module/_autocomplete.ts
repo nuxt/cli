@@ -19,10 +19,6 @@ interface AutocompleteResult {
   cancelled: boolean
 }
 
-/**
- * Interactive fuzzy search for selecting Nuxt modules
- * Returns object with selected module npm package names and cancellation status
- */
 export async function selectModulesAutocomplete(options: AutocompleteOptions): Promise<AutocompleteResult> {
   const { modules, message = 'Search and select modules:' } = options
 
@@ -31,7 +27,6 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     return { selected: [], cancelled: false }
   }
 
-  // Sort: official modules first, then alphabetically
   const sortedModules = modules.toSorted((a, b) => {
     if (a.type === 'official' && b.type !== 'official')
       return -1
@@ -40,26 +35,28 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     return a.npm.localeCompare(b.npm)
   })
 
-  // Setup fzf for fast fuzzy search
   const fzf = new Fzf(sortedModules, {
     selector: m => `${m.npm} ${m.name} ${m.category}`,
     casing: 'case-insensitive',
     tiebreakers: [byLengthAsc],
   })
 
-  // Build options for clack multiselect
   const clackOptions: Option<string>[] = sortedModules.map(m => ({
     value: m.npm,
     label: m.npm,
     hint: m.description.replace(TRAILING_DOT_RE, ''),
   }))
 
-  // Custom filter function using fzf for fuzzy matching
+  const matches = new Map<string, Set<string>>()
   const filter = (search: string, option: Option<string>): boolean => {
     if (!search)
       return true
-    const results = fzf.find(search)
-    return results.some(r => r.item.npm === option.value)
+    let results = matches.get(search)
+    if (!results) {
+      results = new Set(fzf.find(search).map(r => r.item.npm))
+      matches.set(search, results)
+    }
+    return results.has(option.value)
   }
 
   const result = await autocompleteMultiselect({
@@ -69,9 +66,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     required: false,
   })
 
-  if (isCancel(result)) {
-    return { selected: [], cancelled: true }
-  }
-
-  return { selected: result, cancelled: false }
+  return isCancel(result)
+    ? { selected: [], cancelled: true }
+    : { selected: result, cancelled: false }
 }
