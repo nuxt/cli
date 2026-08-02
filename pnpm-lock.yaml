@@ -223,9 +223,6 @@ importers:
       pkg-types:
         specifier: ^2.3.1
         version: 2.3.1
-      pnpm-workspace-yaml:
-        specifier: ^1.7.0
-        version: 1.7.0
       rc9:
         specifier: ^3.0.1
         version: 3.0.1
@@ -5102,9 +5099,6 @@ packages:
 
   pnpm-workspace-yaml@1.6.1:
     resolution: {integrity: sha512-yTeZntGWi8m9WNuhoVsP0DpFc4sC1U0+rr/qR6Zi9n2g3sxXY+JfccjXjjruNz96tM8I09yaJUA86doRnNLkbg==}
-
-  pnpm-workspace-yaml@1.7.0:
-    resolution: {integrity: sha512-cgjaozHkjWL4H8oKZydEWE4mg31XydK3/1cLKjHvwnFAXutp45yAlMKljpOdZEq4TtLuzYAMvy9j05wRm3aoPw==}
 
   postcss-calc@10.1.1:
     resolution: {integrity: sha512-NYEsLHh8DgG/PRH2+G9BTuUdtf9ViS+vdoQ0YA5OQdGsfN4ztiwtDWNtBl9EKeqNMFnIu8IKZ0cLxEQ5r5KVMw==}
@@ -12483,10 +12477,6 @@ snapshots:
   pluralize@8.0.0: {}
 
   pnpm-workspace-yaml@1.6.1:
-    dependencies:
-      yaml: 2.9.0
-
-  pnpm-workspace-yaml@1.7.0:
     dependencies:
       yaml: 2.9.0
 
