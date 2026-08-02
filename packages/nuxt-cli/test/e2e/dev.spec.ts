@@ -1,9 +1,11 @@
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../../src'
+import { NuxtDevServer } from '../../src/dev/utils'
 import { createDevFixture } from '../utils'
 
 const NEWLINE_RE = /\r?\n/
@@ -18,6 +20,63 @@ const httpsPfx = join(certsDir, 'pfx.dummy')
 describe('dev server', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+  })
+
+  it('should serve the loading screen during initial startup', { timeout: 50_000 }, async () => {
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3030 })
+    const buildDir = join(fixtureDir, `.nuxt-loading-screen-${port}`)
+    const devServer = new NuxtDevServer({
+      cwd: fixtureDir,
+      dotenv: {},
+      overrides: {
+        buildDir,
+        hooks: {
+          ready: () => sleep(2000),
+        },
+      },
+      loadingTemplate: ({ loading }) => `<p>${loading}</p>`,
+      listenOverrides: { hostname: host, port },
+    })
+    const initPromise = devServer.init()
+    let initializationFailure: { error: unknown } | undefined
+    void initPromise.catch((error) => {
+      initializationFailure = { error }
+    })
+
+    try {
+      const deadline = Date.now() + 10_000
+      let response: Response | undefined
+      while (!response) {
+        if (initializationFailure) {
+          throw initializationFailure.error
+        }
+        if (Date.now() >= deadline) {
+          throw new Error('Timed out waiting for the dev server listener')
+        }
+        response = await fetch(`http://${host}:${port}`, {
+          headers: { accept: 'text/html' },
+        }).catch(() => undefined)
+        if (!response) {
+          await sleep(20)
+        }
+      }
+
+      expect(response.status).toBe(503)
+      expect(response.headers.get('refresh')).toBe('3')
+      await expect(response.text()).resolves.toContain('Starting Nuxt...')
+      await initPromise
+    }
+    finally {
+      await initPromise.catch(() => {})
+      devServer.closeWatchers()
+      await Promise.all([
+        devServer.listener?.close(),
+        devServer.close(),
+      ])
+      devServer.releaseLock()
+      await rm(buildDir, { recursive: true, force: true })
+    }
   })
 
   it('should expose dev server address to nuxt options', { timeout: 50_000 }, async () => {
