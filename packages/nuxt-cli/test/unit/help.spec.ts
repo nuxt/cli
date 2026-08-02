@@ -26,7 +26,7 @@ describe('help', () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 
-      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|dev|devtools|generate|info|module|prepare|preview|test|typecheck|upgrade
+      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|curl|dev|devtools|generate|info|module|prepare|preview|task|test|typecheck|upgrade
 
       ARGUMENTS
 
@@ -43,6 +43,7 @@ describe('help', () => {
              analyze    Build Nuxt and analyze production bundle (experimental)         
                build    Build Nuxt for production deployment                            
              cleanup    Clean up generated Nuxt files and caches                        
+                curl    Send an HTTP request to your running Nuxt dev server            
                  dev    Run Nuxt development server                                     
             devtools    Enable or disable devtools in a Nuxt project                    
             generate    Build Nuxt and prerender all routes                             
@@ -50,6 +51,7 @@ describe('help', () => {
               module    Manage Nuxt modules                                             
              prepare    Prepare Nuxt for development/build                              
              preview    Launches Nitro server for local testing after \`nuxt build\`.     
+                task    List and run Nitro tasks on your dev server                     
                 test    Run tests                                                       
            typecheck    Runs type-checking throughout your app using \`vue-tsc\` or Golar.
              upgrade    Upgrade Nuxt                                                    
