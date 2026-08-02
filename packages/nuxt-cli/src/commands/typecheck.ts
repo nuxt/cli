@@ -86,7 +86,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
     configFiles: GOLAR_CONFIG_FILES,
     configNote: `Golar also requires a ${styleText('cyan', 'golar.config.ts')} file. One will be created automatically the first time Golar is used.`,
     resolve(cwd, { cache = true } = {}) {
-      const bin = resolveGolarBin(cwd)
+      const bin = resolveGolarBin(cwd, cache)
       const vuePlugin = resolveModulePath('@golar/vue', { from: withNodePath(cwd), try: true, cache })
       return {
         bin,
@@ -135,19 +135,19 @@ export default defineCommand({
       return
     }
 
-    const [tsConfig, typechecker] = await Promise.all([
+    const typechecker = await resolveTypeChecker(cwd, checkerArg as TypeChecker | undefined)
+    if (!typechecker) {
+      process.exitCode = 1
+      return
+    }
+
+    const [tsConfig] = await Promise.all([
       readTSConfig(cwd).catch(() => ({} as TSConfig)),
-      resolveTypeChecker(cwd, checkerArg as TypeChecker | undefined),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
         ...(ctx.args.extends && { extends: ctx.args.extends }),
       }),
     ])
-
-    if (!typechecker) {
-      process.exitCode = 1
-      return
-    }
 
     const useProjectReferences = ctx.args.build ?? supportsProjectReferences(tsConfig)
 
@@ -217,8 +217,8 @@ function hasCheckerConfig(checker: TypeChecker, cwd: string) {
   return TYPE_CHECKERS[checker].configFiles?.some(file => existsSync(resolve(cwd, file))) ?? false
 }
 
-function resolveGolarBin(cwd: string): string | undefined {
-  const entry = resolveModulePath('golar/unstable', { from: withNodePath(cwd), try: true })
+function resolveGolarBin(cwd: string, cache = true): string | undefined {
+  const entry = resolveModulePath('golar/unstable', { from: withNodePath(cwd), try: true, cache })
   if (!entry) {
     return undefined
   }
@@ -301,8 +301,8 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
   }
 
   const resolved = TYPE_CHECKERS[selected].resolve(cwd, { cache: false })
-  if (!resolved.bin) {
-    logger.error(`Failed to resolve ${styleText('cyan', selected)} after installation. Please check your installation.`)
+  if (!resolved.bin || resolved.missing.length > 0) {
+    logger.error(`Failed to resolve ${styleText('cyan', resolved.missing.join(' and ') || selected)} after installation. Please check your installation.`)
     return
   }
 
@@ -378,7 +378,11 @@ async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'i
     },
   })
 
-  await writeTypes(nuxt)
-  await buildNuxt(nuxt)
-  await nuxt.close()
+  try {
+    await writeTypes(nuxt)
+    await buildNuxt(nuxt)
+  }
+  finally {
+    await nuxt.close()
+  }
 }
