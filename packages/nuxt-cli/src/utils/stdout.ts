@@ -58,3 +58,13 @@ export function trackOutputSpacing(): void {
     return (write as (...args: unknown[]) => boolean)(chunk, encoding, callback)
   }) as typeof process.stdout.write
 }
+
+/**
+ * Write to stdout bypassing consola's line wrapping, for output that carries its
+ * own newlines (see {@link withDirectStdout}). Consola would trim the chunk,
+ * dropping any deliberate leading or trailing blank line.
+ */
+export function writeDirect(chunk: string): void {
+  const stdout = process.stdout as typeof process.stdout & { __write?: typeof process.stdout.write }
+  ;(stdout.__write || stdout.write).call(process.stdout, chunk)
+}

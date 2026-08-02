@@ -11,7 +11,7 @@ import { overrideEnv } from '../utils/env'
 import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { acquireLock, formatLockError } from '../utils/lockfile'
+import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
@@ -51,7 +51,7 @@ export default defineCommand({
       await startCpuProfile()
     }
 
-    let releaseLock: (() => void) | undefined
+    const releaseLocks: Array<() => void> = []
     try {
       intro(styleText('cyan', 'Building Nuxt for production...'))
 
@@ -94,10 +94,20 @@ export default defineCommand({
         logger.error(formatLockError(lock.existing))
         throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
       }
-      releaseLock = lock.release
+      releaseLocks.push(lock.release)
 
       const nitro = kit.useNitro()
       logger.info(`Nitro preset: ${styleText('cyan', nitro.options.preset)}`)
+
+      const outputLock = acquireOutputLock(nuxt.options.rootDir, nitro.options.output.dir, {
+        command: 'build',
+        cwd,
+      })
+      if (outputLock.existing) {
+        logger.error(formatLockError(outputLock.existing))
+        throw new Error(`Another Nuxt build is already writing to ${relative(process.cwd(), nitro.options.output.dir)} (PID ${outputLock.existing.pid}).`)
+      }
+      releaseLocks.push(outputLock.release)
 
       await clearBuildDir(nuxt.options.buildDir)
 
@@ -128,7 +138,9 @@ export default defineCommand({
       }
     }
     finally {
-      releaseLock?.()
+      for (const release of releaseLocks) {
+        release()
+      }
       if (profileArg) {
         await stopCpuProfile(cwd, 'build')
       }

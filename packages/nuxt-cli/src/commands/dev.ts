@@ -8,6 +8,7 @@ import type { NuxtDevContext } from '../dev/utils'
 import process from 'node:process'
 
 import { defineCommand } from 'citty'
+import { resolve } from 'pathe'
 
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
@@ -18,6 +19,7 @@ import { isReusePortSupported } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
+import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
@@ -62,6 +64,11 @@ const command = defineCommand({
       type: 'string',
       description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port`)',
       alias: ['p'],
+    },
+    'takeover': {
+      type: 'boolean',
+      description: 'Stop a dev server already running on this project and take its place',
+      negativeDescription: 'Never stop a dev server already running on this project',
     },
     'strictPort': {
       type: 'boolean',
@@ -148,6 +155,21 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
+    const takeover = await takeOverDevServer(resolveDevBuildDir(cwd), {
+      requestedPort: parseRequestedPort(listenOverrides.port),
+      takeover: ctx.args.takeover,
+    })
+    if (takeover.action === 'refused') {
+      logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
+      process.exit(1)
+    }
+    if (takeover.action === 'start-anyway') {
+      process.env.NUXT_IGNORE_LOCK = '1'
+    }
+    if (takeover.action === 'taken') {
+      listenOverrides.port = takeover.port
+    }
+
     // With `SO_REUSEPORT` an incoming fork can bind the port before this process
     // releases it, so a hard restart never leaves the port unserved.
     const reusePort = ctx.args.fork && !ctx.args.profile && await isReusePortSupported()
@@ -161,7 +183,7 @@ const command = defineCommand({
     }
 
     // Start the initial dev server in-process with listener
-    const { listener, close, reload, onRestart, onReady, onFileChange } = await initialize({ cwd, args: ctx.args }, {
+    const { listener, close, reload, onRestart, onReady, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
       showBanner: true,
@@ -352,6 +374,21 @@ function setupSignalHandlers(close: () => Promise<void>): void {
         })
     })
   }
+}
+
+/**
+ * The lock lives in the build directory, which is only known once `nuxt.config`
+ * has been resolved. Resolving it here would mean loading the config twice, so
+ * a project with a custom `buildDir` gets the plain lock error instead of the
+ * cross-terminal takeover.
+ */
+function resolveDevBuildDir(cwd: string): string {
+  return resolve(cwd, '.nuxt')
+}
+
+function parseRequestedPort(port: string | number | undefined): number | undefined {
+  const parsed = Number(port)
+  return port === undefined || port === '' || !Number.isInteger(parsed) || parsed <= 0 ? undefined : parsed
 }
 
 function resolveForkPoolSize(): number | undefined {

@@ -25,8 +25,8 @@ import { joinURL } from 'ufo'
 import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
-import { acquireLock, formatLockError, updateLock } from '../utils/lockfile'
-import { debug } from '../utils/logger'
+import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
+import { debug, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { listen } from './listen'
@@ -75,6 +75,20 @@ interface NuxtDevServerOptions {
   showBanner?: boolean
   listenOverrides?: DevListenOverrides
   handoverFrom?: number
+}
+
+/**
+ * PID of the process supervising this one, when this is a dev fork. Recorded in
+ * the lock so a takeover stops the supervisor too, rather than leaving it
+ * running with nothing to serve.
+ */
+function devForkParentPid(): number | undefined {
+  if (!process.env.__NUXT__FORK || !process.send) {
+    return undefined
+  }
+  // A supervisor that already exited leaves us reparented to init, which must
+  // never be signalled.
+  return process.ppid > 1 ? process.ppid : undefined
 }
 
 // https://regex101.com/r/7HkR5c/1
@@ -656,6 +670,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     updateLock(currentBuildDir, {
       command: 'dev',
       cwd: this.options.cwd,
+      parentPid: devForkParentPid(),
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
@@ -672,6 +687,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   /** Release the lock file. Call only on final shutdown, not during reloads. */
   releaseLock(): void {
+    const takenOverBy = this.#lockedBuildDir && getTakeoverPid(this.#lockedBuildDir)
+    if (takenOverBy) {
+      writeNotice(`Handed over to another \`nuxt dev\` (PID ${takenOverBy}).`)
+    }
     this.#lockCleanup?.()
     this.#lockCleanup = undefined
     this.#lockedBuildDir = undefined
@@ -681,6 +700,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const lock = acquireLock(buildDir, {
       command: 'dev',
       cwd: this.options.cwd,
+      parentPid: devForkParentPid(),
     }, {
       // During a handover the outgoing dev server still holds the lock until
       // this process is ready to serve.

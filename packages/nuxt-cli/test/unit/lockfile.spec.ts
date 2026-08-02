@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -9,10 +9,10 @@ const isWindows = process.platform === 'win32'
 
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
-  return { ...original, isAgent: true }
+  return { ...original, isCI: false }
 })
 
-const { acquireLock, formatLockError, isLockEnabled, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, acquireOutputLock, formatLockError, isLockEnabled, readActiveLock, updateLock } = await import('../../src/utils/lockfile')
 
 describe('lockfile', () => {
   let tempDir: string
@@ -28,7 +28,7 @@ describe('lockfile', () => {
   })
 
   describe('isLockEnabled', () => {
-    it('is enabled when isAgent is true (mocked)', () => {
+    it('is enabled by default', () => {
       expect(isLockEnabled()).toBe(true)
     })
 
@@ -37,9 +37,19 @@ describe('lockfile', () => {
       expect(isLockEnabled()).toBe(false)
     })
 
+    it('nUXT_IGNORE_LOCK=0 keeps locking enabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '0'
+      expect(isLockEnabled()).toBe(true)
+    })
+
     it('nUXT_LOCK=1 forces locking on', () => {
       process.env.NUXT_LOCK = '1'
       expect(isLockEnabled()).toBe(true)
+    })
+
+    it('nUXT_LOCK=0 disables locking', () => {
+      process.env.NUXT_LOCK = '0'
+      expect(isLockEnabled()).toBe(false)
     })
 
     it('nUXT_IGNORE_LOCK takes precedence over NUXT_LOCK', () => {
@@ -62,6 +72,7 @@ describe('lockfile', () => {
       expect(written.command).toBe('dev')
       expect(written.cwd).toBe('/project')
       expect(typeof written.startedAt).toBe('number')
+      expect(typeof written.interactive).toBe('boolean')
 
       lock.release!()
       expect(existsSync(lockPath)).toBe(false)
@@ -109,6 +120,21 @@ describe('lockfile', () => {
       }
       finally {
         killSpy.mockRestore()
+      }
+    })
+
+    it('records whether the acquiring process is interactive', () => {
+      const original = process.stdin.isTTY
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      try {
+        const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+        const written = JSON.parse(readFileSync(join(tempDir, 'nuxt.lock'), 'utf-8'))
+        // `isCI` is mocked false via the `std-env` mock above.
+        expect(written.interactive).toBe(true)
+        lock.release!()
+      }
+      finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: original, configurable: true })
       }
     })
 
@@ -249,6 +275,63 @@ describe('lockfile', () => {
     })
   })
 
+  describe('acquireOutputLock', () => {
+    const outputDir = '/project/.output'
+
+    function foreignHolder(rootDir: string) {
+      const dir = join(rootDir, 'node_modules', '.cache', 'nuxt')
+      const [name] = readdirSync(dir)
+      const lockPath = join(dir, name!)
+      const current = JSON.parse(readFileSync(lockPath, 'utf-8'))
+      writeFileSync(lockPath, JSON.stringify({ ...current, pid: 424242 }))
+      return vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+    }
+
+    it('refuses a second build writing to the same output directory', () => {
+      const first = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      expect(first.release).toBeDefined()
+
+      const killSpy = foreignHolder(tempDir)
+      try {
+        const second = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+        expect(second.existing?.pid).toBe(424242)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('keys the lock by output path, so unrelated outputs are independent', () => {
+      const first = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      const killSpy = foreignHolder(tempDir)
+      try {
+        const other = acquireOutputLock(tempDir, '/project/.output-staging', { command: 'build', cwd: '/project' })
+        expect(other.existing).toBeUndefined()
+        other.release!()
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+      first.release?.()
+    })
+
+    it('releases the lock when the build finishes', () => {
+      const lock = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      const dir = join(tempDir, 'node_modules', '.cache', 'nuxt')
+      expect(readdirSync(dir)).toHaveLength(1)
+      lock.release!()
+      expect(readdirSync(dir)).toHaveLength(0)
+    })
+
+    it('is a no-op when locking is disabled', () => {
+      process.env.NUXT_IGNORE_LOCK = '1'
+      const lock = acquireOutputLock(tempDir, outputDir, { command: 'build', cwd: '/project' })
+      expect(lock.release).toBeDefined()
+      expect(existsSync(join(tempDir, 'node_modules'))).toBe(false)
+      lock.release!()
+    })
+  })
+
   describe('updateLock', () => {
     it('overwrites our own lock with new metadata', () => {
       const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
@@ -294,6 +377,57 @@ describe('lockfile', () => {
       updateLock(tempDir, { command: 'dev', cwd: '/project' })
       expect(existsSync(join(tempDir, 'nuxt.lock'))).toBe(false)
     })
+
+    it('leaves no temporary files behind', () => {
+      const lock = acquireLock(tempDir, { command: 'dev', cwd: '/project' })
+      updateLock(tempDir, { command: 'dev', cwd: '/project', port: 3000 })
+      expect(readdirSync(tempDir)).toEqual(['nuxt.lock'])
+      lock.release!()
+    })
+  })
+
+  describe('readActiveLock', () => {
+    it('returns the lock when another live process holds it', () => {
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
+      try {
+        writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+          pid: 424242,
+          command: 'dev',
+          cwd: '/other',
+          startedAt: Date.now(),
+          interactive: false,
+        }))
+
+        expect(readActiveLock(tempDir)?.pid).toBe(424242)
+      }
+      finally {
+        killSpy.mockRestore()
+      }
+    })
+
+    it('ignores a dead holder and our own lock', () => {
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: 999999999,
+        command: 'dev',
+        cwd: '/other',
+        startedAt: Date.now(),
+        interactive: false,
+      }))
+      expect(readActiveLock(tempDir)).toBeUndefined()
+
+      writeFileSync(join(tempDir, 'nuxt.lock'), JSON.stringify({
+        pid: process.pid,
+        command: 'dev',
+        cwd: '/project',
+        startedAt: Date.now(),
+        interactive: false,
+      }))
+      expect(readActiveLock(tempDir)).toBeUndefined()
+    })
+
+    it('returns nothing when there is no lock', () => {
+      expect(readActiveLock(tempDir)).toBeUndefined()
+    })
   })
 
   describe('formatLockError', () => {
@@ -302,6 +436,7 @@ describe('lockfile', () => {
         pid: 12345,
         command: 'dev',
         cwd: '/my/project',
+        interactive: false,
         port: 3000,
         hostname: '127.0.0.1',
         url: 'http://127.0.0.1:3000',
@@ -321,6 +456,7 @@ describe('lockfile', () => {
         pid: 12345,
         command: 'build',
         cwd: '/my/project',
+        interactive: false,
         startedAt: Date.now(),
       })
 
