@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
+import { note } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { findDevServer, noDevServerMessage } from '../utils/dev-server'
@@ -14,6 +15,9 @@ import { rootDirArgs } from './_shared'
 
 const HAS_SCHEME_RE = /^[a-z][a-z\d+.-]*:\/\//i
 const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
+const TEXT_CONTENT_TYPE_RE = /^(?:text\/|application\/(?:[\w.+-]+\+)?(?:json|xml|yaml)\b|application\/(?:javascript|ecmascript|x-www-form-urlencoded|x-ndjson)\b)/i
+
+const BINARY_SNIFF_BYTES = 4096
 
 /** `curl --fail` uses 22 for an HTTP error response; scripts rely on it. */
 const HTTP_ERROR_EXIT_CODE = 22
@@ -49,10 +53,20 @@ export default defineCommand({
       description: 'Request body. Use `@-` to read stdin and `@<file>` to read a file.',
       valueHint: 'data',
     },
+    include: {
+      type: 'boolean',
+      alias: 'i',
+      description: 'Include the response status line and headers in the output',
+    },
+    head: {
+      type: 'boolean',
+      alias: 'I',
+      description: 'Send a `HEAD` request and show only the response headers',
+    },
     verbose: {
       type: 'boolean',
       alias: 'v',
-      description: 'Print request and response headers',
+      description: 'Print request and response headers to stderr',
     },
   },
   async run(ctx) {
@@ -66,7 +80,7 @@ export default defineCommand({
     const url = await resolveRequestUrl(input, cwd)
 
     const headers = new Headers()
-    for (const header of toArray(ctx.args.header)) {
+    for (const header of collectRepeated(ctx.rawArgs, 'header', 'H')) {
       const separator = header.indexOf(':')
       if (separator <= 0) {
         logger.error(`Invalid header ${styleText('cyan', header)}. Expected ${styleText('cyan', 'Name: Value')}.`)
@@ -78,12 +92,13 @@ export default defineCommand({
       headers.set('user-agent', 'nuxt-cli')
     }
 
-    const body = await readRequestBody(single(ctx.args.data, 'data', '-d'))
+    const body = await readRequestBody(ctx.args.data)
     if (body !== undefined && !headers.has('content-type') && isJson(body)) {
       headers.set('content-type', 'application/json')
     }
 
-    const method = (single(ctx.args.method, 'method', '-X') || (body === undefined ? 'GET' : 'POST')).toUpperCase()
+    const defaultMethod = ctx.args.head ? 'HEAD' : (body === undefined ? 'GET' : 'POST')
+    const method = (ctx.args.method || defaultMethod).toUpperCase()
 
     if (body !== undefined && (method === 'GET' || method === 'HEAD')) {
       logger.error(`A ${styleText('cyan', method)} request cannot have a body. Remove ${styleText('cyan', '-d')} or use a different method.`)
@@ -109,11 +124,11 @@ export default defineCommand({
     }
 
     if (ctx.args.verbose) {
-      process.stderr.write(`< HTTP/1.1 ${response.status} ${response.statusText}\n`)
-      for (const [name, value] of response.headers) {
-        process.stderr.write(`< ${name}: ${value}\n`)
-      }
-      process.stderr.write('<\n')
+      process.stderr.write(formatResponseHead(response, '< '))
+    }
+
+    if (ctx.args.include || ctx.args.head) {
+      process.stdout.write(formatResponseHead(response, ''))
     }
 
     await writeResponseBody(response)
@@ -138,12 +153,33 @@ async function resolveRequestUrl(input: string, cwd: string): Promise<URL> {
   return new URL(input.startsWith('/') ? input : `/${input}`, server.url)
 }
 
-function single(value: string | string[] | undefined, name: string, alias: string): string | undefined {
-  if (Array.isArray(value)) {
-    logger.error(`Expected a single ${styleText('cyan', `--${name}`)} value but received ${value.length}. Pass ${styleText('cyan', alias)} once.`)
-    process.exit(1)
+/**
+ * citty keeps only the last value of a repeated string flag, so repeatable
+ * options are read back off the raw argv instead of `ctx.args`.
+ */
+function collectRepeated(rawArgs: string[], name: string, alias: string): string[] {
+  const values: string[] = []
+  const end = rawArgs.indexOf('--')
+  const argv = end === -1 ? rawArgs : rawArgs.slice(0, end)
+
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]!
+    if (arg === `--${name}` || arg === `-${alias}`) {
+      const value = argv[++index]
+      if (value !== undefined) {
+        values.push(value)
+      }
+      continue
+    }
+    if (arg.startsWith(`--${name}=`)) {
+      values.push(arg.slice(name.length + 3))
+    }
+    else if (arg.startsWith(`-${alias}=`)) {
+      values.push(arg.slice(alias.length + 2))
+    }
   }
-  return value
+
+  return values
 }
 
 async function readRequestBody(data: string | undefined): Promise<string | undefined> {
@@ -163,18 +199,47 @@ async function readRequestBody(data: string | undefined): Promise<string | undef
   return data
 }
 
+function formatResponseHead(response: Response, prefix: string): string {
+  let head = `${prefix}HTTP/1.1 ${response.status} ${response.statusText}\n`
+  for (const [name, value] of response.headers) {
+    head += `${prefix}${name}: ${value}\n`
+  }
+  return `${head}${prefix.trimEnd()}\n`
+}
+
 async function writeResponseBody(response: Response): Promise<void> {
   const contentType = response.headers.get('content-type') || ''
-  const text = await response.text()
-  if (!text) {
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (!buffer.length) {
     return
   }
 
-  const pretty = process.stdout.isTTY && JSON_CONTENT_TYPE_RE.test(contentType)
-  process.stdout.write(pretty ? formatJson(text) : text)
-  if (process.stdout.isTTY && !text.endsWith('\n')) {
+  if (!process.stdout.isTTY) {
+    process.stdout.write(buffer)
+    return
+  }
+
+  if (isBinary(buffer, contentType)) {
+    note('Binary data not shown in terminal. Redirect the output to a file to save it.', 'Response body')
+    return
+  }
+
+  const text = buffer.toString('utf-8')
+  process.stdout.write(JSON_CONTENT_TYPE_RE.test(contentType) ? formatJson(text) : text)
+  if (!text.endsWith('\n')) {
     process.stdout.write('\n')
   }
+}
+
+/**
+ * A textual content type is trusted outright; anything else is sniffed for a
+ * NUL byte, which no valid UTF-8 text response contains.
+ */
+function isBinary(buffer: Buffer, contentType: string): boolean {
+  if (TEXT_CONTENT_TYPE_RE.test(contentType)) {
+    return false
+  }
+  return buffer.subarray(0, BINARY_SNIFF_BYTES).includes(0)
 }
 
 function formatJson(text: string): string {
@@ -201,11 +266,4 @@ function isJson(value: string): boolean {
   catch {
     return false
   }
-}
-
-function toArray(value: string | string[] | undefined): string[] {
-  if (value === undefined) {
-    return []
-  }
-  return Array.isArray(value) ? value : [value]
 }

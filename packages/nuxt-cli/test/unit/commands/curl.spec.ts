@@ -21,6 +21,8 @@ interface ReceivedRequest {
 
 const requests: ReceivedRequest[] = []
 
+const BINARY_BODY = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x00, 0x1A, 0x0A, 0x00])
+
 const server = createServer(async (req, res) => {
   const chunks: Buffer[] = []
   for await (const chunk of req) {
@@ -40,6 +42,12 @@ const server = createServer(async (req, res) => {
     return
   }
 
+  if (req.url === '/binary') {
+    res.setHeader('content-type', 'application/octet-stream')
+    res.end(BINARY_BODY)
+    return
+  }
+
   res.setHeader('content-type', 'application/json')
   res.end(JSON.stringify({ hello: 'world' }))
 })
@@ -48,6 +56,7 @@ let origin: string
 let cwd: string
 let stdout: string
 let isTTY: boolean
+const chunks: Buffer[] = []
 
 beforeAll(async () => {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -60,7 +69,9 @@ beforeEach(async () => {
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-curl-test-'))
   isTTY = process.stdout.isTTY
   process.stdout.isTTY = false
+  chunks.length = 0
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
+    chunks.push(Buffer.from(chunk))
     stdout += String(chunk)
     return true
   })
@@ -172,5 +183,55 @@ describe('curl', () => {
 
     expect(code).toBe(1)
     expect(requests).toHaveLength(0)
+  })
+
+  it('rejects a body on a GET request', async () => {
+    const code = await run([`${origin}/api/hello`, '-X', 'GET', '-d', '{}'])
+
+    expect(code).toBe(1)
+    expect(requests).toHaveLength(0)
+  })
+
+  it('sends every value of a repeated -H flag', async () => {
+    const code = await run([`${origin}/api/hello`, '-H', 'x-one: 1', '--header=x-two: 2'])
+
+    expect(code).toBe(0)
+    expect(requests[0]?.headers['x-one']).toBe('1')
+    expect(requests[0]?.headers['x-two']).toBe('2')
+  })
+
+  it('sends a HEAD request and prints only the headers with -I', async () => {
+    const code = await run([`${origin}/api/hello`, '-I'])
+
+    expect(code).toBe(0)
+    expect(requests[0]?.method).toBe('HEAD')
+    expect(stdout).toContain('HTTP/1.1 200 OK')
+    expect(stdout).toContain('content-type: application/json')
+    expect(stdout).not.toContain('hello')
+  })
+
+  it('prints headers before the body with -i', async () => {
+    const code = await run([`${origin}/api/hello`, '-i'])
+
+    expect(code).toBe(0)
+    expect(requests[0]?.method).toBe('GET')
+    expect(stdout).toContain('HTTP/1.1 200 OK')
+    expect(stdout.endsWith('{"hello":"world"}')).toBe(true)
+  })
+
+  it('writes binary responses byte for byte when piped', async () => {
+    const code = await run([`${origin}/binary`])
+
+    expect(code).toBe(0)
+    expect(Buffer.concat(chunks).equals(BINARY_BODY)).toBe(true)
+  })
+
+  it('does not write binary responses to a terminal', async () => {
+    process.stdout.isTTY = true
+    const code = await run([`${origin}/binary`])
+
+    expect(code).toBe(0)
+    expect(stdout).toContain('Binary data not shown in terminal')
+    expect(stdout).not.toContain('PNG')
   })
 })
