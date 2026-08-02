@@ -26,7 +26,7 @@ describe('help', () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 
-      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|dev|devtools|generate|info|module|prepare|preview|test|typecheck|upgrade
+      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|curl|dev|devtools|generate|info|module|prepare|preview|test|typecheck|upgrade
 
       ARGUMENTS
 
@@ -43,6 +43,7 @@ describe('help', () => {
              analyze    Build Nuxt and analyze production bundle (experimental)         
                build    Build Nuxt for production deployment                            
              cleanup    Clean up generated Nuxt files and caches                        
+                curl    Send an HTTP request to your running Nuxt dev server            
                  dev    Run Nuxt development server                                     
             devtools    Enable or disable devtools in a Nuxt project                    
             generate    Build Nuxt and prerender all routes                             
