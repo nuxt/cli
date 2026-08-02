@@ -8,7 +8,7 @@ import { isCI } from 'std-env'
 export interface LockInfo {
   pid: number
   startedAt: number
-  command: 'dev' | 'build'
+  command: 'dev' | 'build' | 'analyze'
   cwd: string
   /**
    * Whether the holder was started from a terminal a user is sitting at. Only

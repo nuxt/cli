@@ -7,13 +7,13 @@ import { styleText } from 'node:util'
 import { intro, note, outro, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
-import { H3, lazyEventHandler } from 'h3-next'
-import { join } from 'pathe'
+import { join, relative, resolve } from 'pathe'
 import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
+import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
@@ -72,7 +72,7 @@ export default defineCommand({
 
     const cwd = resolveRootDir(ctx.args)
     const name = ctx.args.name || 'default'
-    const slug = name.trim().replace(NON_WORD_RE, '_')
+    const slug = name.trim().replace(NON_WORD_RE, '_') || 'default'
 
     intro(styleText('cyan', 'Analyzing bundle size...'))
 
@@ -131,62 +131,86 @@ export default defineCommand({
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
-    const outDir
-      = nuxt.options.nitro.output?.dir || join(nuxt.options.rootDir, '.output')
+    const outDir = resolve(nuxt.options.rootDir, nuxt.options.nitro.output?.dir || '.output')
 
     nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
       filename: join(analyzeDir, 'client.html'),
     })
 
-    const tasklog = taskLog({
-      title: 'Building Nuxt with analysis enabled',
-      retainLog: false,
-      limit: 1,
-    })
-
-    tasklog.message('Clearing analyze directory...')
-    await clearDir(analyzeDir)
-    tasklog.message('Building Nuxt...')
-    await buildNuxt(nuxt)
-    tasklog.success('Build complete')
-
-    if (skippedPrerenderRoutes > 0) {
-      logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
+    const lockInfo = { command: 'analyze' as const, cwd }
+    const lock = acquireLock(buildDir, lockInfo)
+    if (lock.existing) {
+      logger.error(formatLockError(lock.existing))
+      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
     }
 
-    const endTime = Date.now()
-
-    const meta: NuxtAnalyzeMeta = {
-      name,
-      slug,
-      startTime,
-      endTime,
-      analyzeDir,
-      buildDir,
-      outDir,
+    const outputLock = acquireOutputLock(nuxt.options.rootDir, outDir, lockInfo)
+    if (outputLock.existing) {
+      lock.release()
+      logger.error(formatLockError(outputLock.existing))
+      throw new Error(`Another Nuxt build is already writing to ${relative(process.cwd(), outDir)} (PID ${outputLock.existing.pid}).`)
     }
 
-    await nuxt.callHook('build:analyze:done', meta)
-    await fsp.writeFile(join(analyzeDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
+    try {
+      const tasklog = taskLog({
+        title: 'Building Nuxt with analysis enabled',
+        retainLog: false,
+        limit: 1,
+      })
+
+      tasklog.message('Clearing analyze directory...')
+      await clearDir(analyzeDir)
+      tasklog.message('Building Nuxt...')
+      await buildNuxt(nuxt)
+      tasklog.success('Build complete')
+
+      if (skippedPrerenderRoutes > 0) {
+        logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
+      }
+
+      const meta: NuxtAnalyzeMeta = {
+        name,
+        slug,
+        startTime,
+        endTime: Date.now(),
+        analyzeDir,
+        buildDir,
+        outDir,
+      }
+
+      await nuxt.callHook('build:analyze:done', meta)
+      await fsp.writeFile(join(analyzeDir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf-8')
+    }
+    finally {
+      outputLock.release()
+      lock.release()
+    }
 
     note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${styleText('cyan', 'nuxt build')} before deploying.`, 'Build location')
 
     if (ctx.args.serve !== false && !process.env.CI) {
-      const app = new H3()
-
-      const opts = { headers: { 'content-type': 'text/html' } }
-      const serveFile = (filePath: string) => lazyEventHandler(async () => {
-        const contents = await fsp.readFile(filePath, 'utf-8')
-        return () => new Response(contents, opts)
-      })
+      const headers = { 'content-type': 'text/html' }
+      const readReport = (name: string) => fsp.readFile(join(analyzeDir, name), 'utf8').catch(() => undefined)
+      const reports = new Map([
+        ['/client', await readReport('client.html')],
+        ['/nitro', await readReport('nitro.html')],
+      ])
 
       logger.step('Starting stats server...')
 
-      app.use('/client', serveFile(join(analyzeDir, 'client.html')))
-      app.use('/nitro', serveFile(join(analyzeDir, 'nitro.html')))
-      app.use(() => new Response(indexHtml, opts))
-
-      await serve(app).serve()
+      await serve({
+        hostname: process.env.HOST || 'localhost',
+        fetch(request) {
+          const pathname = new URL(request.url).pathname.replace(/\/$/, '')
+          if (reports.has(pathname)) {
+            const report = reports.get(pathname)
+            return report === undefined
+              ? new Response('This report was not generated by the analyze build.', { status: 404, headers })
+              : new Response(report, { headers })
+          }
+          return new Response(indexHtml, { headers })
+        },
+      }).ready()
     }
     else {
       outro('✨ Analysis build complete!')

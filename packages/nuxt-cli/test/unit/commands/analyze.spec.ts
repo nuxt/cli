@@ -1,10 +1,10 @@
 import type { Nuxt } from '@nuxt/schema'
 
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
 
 import { runCommand } from 'citty'
+import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import analyze from '../../../src/commands/analyze'
@@ -24,22 +24,27 @@ function createHooks() {
   }
 }
 
-const { loadNuxt, buildNuxt } = vi.hoisted(() => ({
-  loadNuxt: vi.fn(),
+const { acquireLock, acquireOutputLock, buildNuxt, loadNuxt, releaseBuildLock, releaseOutputLock } = vi.hoisted(() => ({
+  acquireLock: vi.fn(),
+  acquireOutputLock: vi.fn(),
   buildNuxt: vi.fn(),
+  loadNuxt: vi.fn(),
+  releaseBuildLock: vi.fn(),
+  releaseOutputLock: vi.fn(),
 }))
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({ loadNuxt, buildNuxt }),
 }))
 
+vi.mock('../../../src/utils/lockfile', () => ({
+  acquireLock,
+  acquireOutputLock,
+  formatLockError: vi.fn(() => 'locked'),
+}))
+
 let cwd: string
 
-/**
- * Runs the command against a stub Nuxt, driving the same sequence Nitro does:
- * route rules and explicit routes are gathered into a set, `prerender:routes`
- * gets a chance to change it, and `prerender.ignore` filters what is left.
- */
 async function runAnalyze({ args = [], routes = [] }: { args?: string[], routes?: string[] } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
@@ -80,6 +85,8 @@ async function runAnalyze({ args = [], routes = [] }: { args?: string[], routes?
 describe('nuxt analyze command', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
+    acquireLock.mockReturnValue({ release: releaseBuildLock })
+    acquireOutputLock.mockReturnValue({ release: releaseOutputLock })
     cwd = await mkdtemp(join(tmpdir(), 'nuxt-analyze-'))
   })
 
@@ -109,5 +116,46 @@ describe('nuxt analyze command', () => {
     expect(prerendered).toEqual(['/', '/about'])
     expect(overrides.nitro?.prerender).toBeUndefined()
     expect(output).not.toContain('Skipped prerendering')
+  })
+
+  it('should write metadata and fall back to a non-empty slug', async () => {
+    await runAnalyze({ args: ['--name=   '] })
+
+    const meta = JSON.parse(await readFile(join(cwd, 'analyze/meta.json'), 'utf8'))
+    expect(meta).toMatchObject({
+      name: '   ',
+      slug: 'default',
+      analyzeDir: join(cwd, 'analyze'),
+      buildDir: join(cwd, '.nuxt'),
+      outDir: join(cwd, '.output'),
+    })
+    expect(meta.endTime).toBeGreaterThanOrEqual(meta.startTime)
+  })
+
+  it('should lock build directories and release both locks', async () => {
+    await runAnalyze()
+
+    expect(acquireLock).toHaveBeenCalledWith(join(cwd, '.nuxt'), { command: 'analyze', cwd })
+    expect(acquireOutputLock).toHaveBeenCalledWith(cwd, join(cwd, '.output'), { command: 'analyze', cwd })
+    expect(releaseOutputLock).toHaveBeenCalledOnce()
+    expect(releaseBuildLock).toHaveBeenCalledOnce()
+  })
+
+  it('should release locks when the build fails', async () => {
+    buildNuxt.mockRejectedValueOnce(new Error('build failed'))
+
+    await expect(runAnalyze()).rejects.toThrow('build failed')
+    expect(releaseOutputLock).toHaveBeenCalledOnce()
+    expect(releaseBuildLock).toHaveBeenCalledOnce()
+  })
+
+  it('should release the build lock when the output is locked', async () => {
+    acquireOutputLock.mockReturnValueOnce({
+      existing: { command: 'build', pid: 42 },
+    })
+
+    await expect(runAnalyze()).rejects.toThrow('Another Nuxt build is already writing')
+    expect(buildNuxt).not.toHaveBeenCalled()
+    expect(releaseBuildLock).toHaveBeenCalledOnce()
   })
 })

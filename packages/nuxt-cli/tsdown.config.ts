@@ -12,7 +12,6 @@ export const packaging: PackagingContract = {
 
 export default defineCliConfig({
   entry: ['src/index.ts', 'src/dev/index.ts'],
-  // h3 is inlined as we have two different versions (+ rou3 is a transitive dep of h3-next)
-  deps: { onlyBundle: ['h3', 'rou3'], neverBundle: PARSER_PACKAGES },
+  deps: { onlyBundle: ['h3'], neverBundle: PARSER_PACKAGES },
   ...packaging,
 })

@@ -265,7 +265,7 @@ importers:
         version: 4.5.1
       '@nuxt/test-utils':
         specifier: ^4.1.0
-        version: 4.1.0(esbuild@0.28.0)(h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)))(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)
+        version: 4.1.0(esbuild@0.28.0)(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
@@ -275,9 +275,6 @@ importers:
       h3:
         specifier: ^1.15.11
         version: 1.15.11
-      h3-next:
-        specifier: npm:h3@^2.0.1-rc.26
-        version: h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4))
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
@@ -4084,16 +4081,6 @@ packages:
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
 
-  h3@2.0.1-rc.26:
-    resolution: {integrity: sha512-GDxlvDsKxgjRvG5UBRJYyGJTMWLV30CJ4cV+e7QCTgftDHihrvio1fVPbNembhEr6J4WNm8IWy3fookgyTweLw==}
-    engines: {node: '>=20.11.1'}
-    hasBin: true
-    peerDependencies:
-      crossws: ^0.4.9
-    peerDependenciesMeta:
-      crossws:
-        optional: true
-
   has-flag@4.0.0:
     resolution: {integrity: sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==}
     engines: {node: '>=8'}
@@ -7827,52 +7814,6 @@ snapshots:
       rc9: 3.0.1
       std-env: 4.2.0
 
-  '@nuxt/test-utils@4.1.0(esbuild@0.28.0)(h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)))(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)':
-    dependencies:
-      '@clack/prompts': 1.7.0
-      '@nuxt/devtools-kit': 2.7.0(magicast@0.5.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
-      '@nuxt/kit': 3.21.10(magicast@0.5.3)
-      c12: 3.3.4(magicast@0.5.3)
-      consola: 3.4.2
-      defu: 6.1.7
-      destr: 2.0.5
-      estree-walker: 3.0.3
-      exsolve: 1.1.1
-      fake-indexeddb: 6.2.5
-      get-port-please: 3.2.0
-      h3: 1.15.11
-      local-pkg: 1.2.1
-      magic-string: 1.1.0
-      node-fetch-native: 1.6.7
-      node-mock-http: 1.0.4
-      nypm: 0.6.8
-      ofetch: 1.5.1
-      pathe: 2.0.3
-      perfect-debounce: 2.1.0
-      radix3: 1.1.2
-      scule: 1.3.0
-      std-env: 4.2.0
-      tinyexec: 1.2.4
-      ufo: 1.6.4
-      unplugin: 3.3.0(esbuild@0.28.0)(rolldown@1.2.0)(rollup@4.62.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
-      vitest-environment-nuxt: 2.0.0(esbuild@0.28.0)(h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)))(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)
-      vue: 3.5.40(typescript@6.0.3)
-    optionalDependencies:
-      h3-next: h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4))
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
-    transitivePeerDependencies:
-      - '@farmfe/core'
-      - '@rspack/core'
-      - bun-types-no-globals
-      - esbuild
-      - magicast
-      - rolldown
-      - rollup
-      - typescript
-      - unloader
-      - vite
-      - webpack
-
   '@nuxt/test-utils@4.1.0(esbuild@0.28.0)(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)':
     dependencies:
       '@clack/prompts': 1.7.0
@@ -9096,7 +9037,7 @@ snapshots:
       obug: 2.1.4
       std-env: 4.2.0
       tinyrainbow: 3.1.0
-      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))
+      vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
 
   '@vitest/eslint-plugin@1.6.23(@typescript-eslint/eslint-plugin@8.65.0(@typescript-eslint/parser@8.65.0(eslint@10.8.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3))(eslint@10.8.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3))(eslint@10.8.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)(vitest@4.1.10)':
     dependencies:
@@ -10670,13 +10611,6 @@ snapshots:
       radix3: 1.1.2
       ufo: 1.6.4
       uncrypto: 0.1.3
-
-  h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)):
-    dependencies:
-      rou3: 0.9.1
-      srvx: 0.12.4
-    optionalDependencies:
-      crossws: 0.4.10(srvx@0.12.4)
 
   has-flag@4.0.0: {}
 
@@ -13690,33 +13624,6 @@ snapshots:
       jiti: 2.7.0
       terser: 5.46.2
       yaml: 2.9.0
-
-  vitest-environment-nuxt@2.0.0(esbuild@0.28.0)(h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)))(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10):
-    dependencies:
-      '@nuxt/test-utils': 4.1.0(esbuild@0.28.0)(h3@2.0.1-rc.26(crossws@0.4.10(srvx@0.12.4)))(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@8.1.5(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10)
-    transitivePeerDependencies:
-      - '@cucumber/cucumber'
-      - '@farmfe/core'
-      - '@jest/globals'
-      - '@playwright/test'
-      - '@rspack/core'
-      - '@testing-library/vue'
-      - '@vitest/ui'
-      - '@vue/test-utils'
-      - bun-types-no-globals
-      - esbuild
-      - h3-next
-      - happy-dom
-      - jsdom
-      - magicast
-      - playwright-core
-      - rolldown
-      - rollup
-      - typescript
-      - unloader
-      - vite
-      - vitest
-      - webpack
 
   vitest-environment-nuxt@2.0.0(esbuild@0.28.0)(magicast@0.5.3)(rolldown@1.2.0)(rollup@4.62.3)(typescript@6.0.3)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))(vitest@4.1.10):
     dependencies:
