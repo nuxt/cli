@@ -427,7 +427,7 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   // Fetch package on npm
   let version = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
-  const meta: RegistryMeta = await detectNpmRegistry(pkgScope)
+  const meta: RegistryMeta = await detectNpmRegistry(pkgScope, cwd)
   const headers: HeadersInit = {}
 
   if (meta.authToken) {

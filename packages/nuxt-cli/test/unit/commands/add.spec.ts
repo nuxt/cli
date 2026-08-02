@@ -193,7 +193,7 @@ describe('nuxt add command', () => {
     )
   })
 
-  it('should install multiple modules', async () => {
+  it('should install multiple modules with one modules database request', async () => {
     const addCommand = await (commands as CommandsType).subCommands.add()
 
     await addCommand.setup({
@@ -203,6 +203,7 @@ describe('nuxt add command', () => {
       },
     })
 
+    expect(utils.fetchModules).toHaveBeenCalledTimes(1)
     expect(runInstall).toHaveBeenCalledWith(
       expect.objectContaining({
         cwd: '/fake-dir',
@@ -212,6 +213,17 @@ describe('nuxt add command', () => {
         workspace: false,
       }),
     )
+  })
+
+  it('should resolve duplicate modules once', async () => {
+    const addCommand = await (commands as CommandsType).subCommands.add()
+
+    await addCommand.setup({ args: { cwd: '/fake-dir', _: ['ui', 'ui'] } })
+
+    expect(mock$fetch).toHaveBeenCalledTimes(1)
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@nuxt/ui@3.0.0'],
+    }))
   })
 
   it('should skip installation when skipInstall is true', async () => {

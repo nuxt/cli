@@ -37,11 +37,8 @@ export function getRegistryFromContent(content: string, scope: string | null): s
   }
 }
 
-function getNpmrcPaths(): string[] {
-  const userNpmrcPath = join(homedir(), '.npmrc')
-  const cwdNpmrcPath = join(process.cwd(), '.npmrc')
-
-  return [cwdNpmrcPath, userNpmrcPath]
+function getNpmrcPaths(cwd: string): string[] {
+  return [join(cwd, '.npmrc'), join(homedir(), '.npmrc')]
 }
 
 async function getRegistryFromFile(paths: string[], scope: string | null) {
@@ -68,21 +65,15 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
   return null
 }
 
-async function getRegistry(scope: string | null): Promise<string> {
+async function getRegistry(scope: string | null, cwd: string): Promise<string> {
   if (process.env.COREPACK_NPM_REGISTRY) {
     return process.env.COREPACK_NPM_REGISTRY
   }
-  const registry = await getRegistryFromFile(getNpmrcPaths(), scope)
-
-  if (registry) {
-    process.env.COREPACK_NPM_REGISTRY = registry
-  }
-
-  return registry || 'https://registry.npmjs.org'
+  return await getRegistryFromFile(getNpmrcPaths(cwd), scope) || 'https://registry.npmjs.org'
 }
 
-async function getAuthToken(registry: RegistryMeta['registry']): Promise<RegistryMeta['authToken']> {
-  const paths = getNpmrcPaths()
+async function getAuthToken(registry: RegistryMeta['registry'], cwd: string): Promise<RegistryMeta['authToken']> {
+  const paths = getNpmrcPaths(cwd)
   const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '')
   const authTokenKey = `//${registryHost}/:_authToken`
 
@@ -111,9 +102,9 @@ async function getAuthToken(registry: RegistryMeta['registry']): Promise<Registr
   return null
 }
 
-export async function detectNpmRegistry(scope: string | null): Promise<RegistryMeta> {
-  const registry = await getRegistry(scope)
-  const authToken = await getAuthToken(registry)
+export async function detectNpmRegistry(scope: string | null, cwd = process.cwd()): Promise<RegistryMeta> {
+  const registry = await getRegistry(scope, cwd)
+  const authToken = await getAuthToken(registry, cwd)
 
   return {
     registry,

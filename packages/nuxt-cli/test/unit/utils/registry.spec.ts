@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest'
-import { getRegistryFromContent } from '../../../src/utils/registry'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import process from 'node:process'
+import { afterEach, describe, expect, it } from 'vitest'
+import { detectNpmRegistry, getRegistryFromContent } from '../../../src/utils/registry'
+
+const directories: string[] = []
+
+afterEach(async () => {
+  await Promise.all(directories.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
+})
 
 describe('getRegistryFromContent', () => {
   it('extracts scoped registry when scope is provided', () => {
@@ -54,5 +64,22 @@ registry=https://registry.npmjs.org/ # with comment
 
     expect(getRegistryFromContent(content, null)).toBe('https://registry.npmjs.org/')
     expect(getRegistryFromContent(content, '@myorg')).toBe('https://my-registry.org/')
+  })
+})
+
+describe('detectNpmRegistry', () => {
+  it('reads registry and credentials from the project directory', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'nuxt-registry-'))
+    directories.push(directory)
+    await writeFile(join(directory, '.npmrc'), [
+      'registry=https://registry.example.com/',
+      '//registry.example.com/:_authToken=secret',
+    ].join('\n'))
+
+    await expect(detectNpmRegistry(null, directory)).resolves.toEqual({
+      registry: 'https://registry.example.com/',
+      authToken: 'secret',
+    })
+    expect(process.env.COREPACK_NPM_REGISTRY).toBeUndefined()
   })
 })
