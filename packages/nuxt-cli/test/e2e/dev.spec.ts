@@ -39,10 +39,21 @@ describe('dev server', () => {
       listenOverrides: { hostname: host, port },
     })
     const initPromise = devServer.init()
+    let initializationFailure: { error: unknown } | undefined
+    void initPromise.catch((error) => {
+      initializationFailure = { error }
+    })
 
     try {
+      const deadline = Date.now() + 10_000
       let response: Response | undefined
       while (!response) {
+        if (initializationFailure) {
+          throw initializationFailure.error
+        }
+        if (Date.now() >= deadline) {
+          throw new Error('Timed out waiting for the dev server listener')
+        }
         response = await fetch(`http://${host}:${port}`, {
           headers: { accept: 'text/html' },
         }).catch(() => undefined)
