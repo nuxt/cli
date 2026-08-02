@@ -116,14 +116,15 @@ export function getNextSteps(options: {
   dir: string
   shell: boolean
   installFailure?: unknown
+  installSkipped?: boolean
   recoveryCommands: string[]
   packageManager: PackageManagerName
 }): string[] {
-  const { dir, shell, installFailure, recoveryCommands, packageManager } = options
+  const { dir, shell, installFailure, installSkipped, recoveryCommands, packageManager } = options
   const runCmd = packageManager === 'deno' ? 'task' : 'run'
   return [
     !shell && dir !== '.' && `cd ${dir}`,
-    installFailure && `${packageManager} install`,
+    (installFailure || installSkipped) && `${packageManager} install`,
     ...recoveryCommands,
     `${packageManager} ${runCmd} dev`,
   ].filter((step): step is string => typeof step === 'string')
@@ -459,7 +460,7 @@ export default defineCommand({
       }
 
       const nightlyNuxtPackageJsonVersion = `npm:nuxt-nightly@${nightlyChannelVersion}`
-      const packageJsonPath = resolve(cwd, dir)
+      const packageJsonPath = join(template.dir, 'package.json')
 
       const packageJson = await readPackageJSON(packageJsonPath)
 
@@ -470,7 +471,7 @@ export default defineCommand({
         packageJson.devDependencies.nuxt = nightlyNuxtPackageJsonVersion
       }
 
-      await writePackageJSON(join(packageJsonPath, 'package.json'), packageJson)
+      await writePackageJSON(packageJsonPath, packageJson)
       nightlySpinner.stop(`Updated to nightly version ${styleText('cyan', nightlyChannelVersion)}`)
     }
 
@@ -599,20 +600,6 @@ export default defineCommand({
 
       installLog.finish(result)
 
-      if (gitInit) {
-        const gitSpinner = spinner()
-        gitSpinner.start('Initializing git repository')
-
-        const git = await x('git', ['init', template.dir], { throwOnError: false })
-        if (git.exitCode === 0) {
-          gitSpinner.stop('Git repository initialized')
-        }
-        else {
-          gitSpinner.error('Git initialization failed')
-          logger.message(git.stderr.trim().split('\n'), { symbol: styleText('gray', S_BAR) })
-        }
-      }
-
       // `approve-builds` is a pnpm command, so only pnpm gets the offer even if
       // another package manager ever prints the same notice.
       if (ignoredBuilds.length > 0 && selectedPackageManager === 'pnpm') {
@@ -631,6 +618,23 @@ export default defineCommand({
         else {
           recoveryCommands.push('pnpm approve-builds')
         }
+      }
+    }
+
+    if (gitInit) {
+      const gitSpinner = spinner()
+      gitSpinner.start('Initializing git repository')
+
+      const git = await x('git', ['init'], {
+        throwOnError: false,
+        nodeOptions: { cwd: template.dir },
+      })
+      if (git.exitCode === 0) {
+        gitSpinner.stop('Git repository initialized')
+      }
+      else {
+        gitSpinner.error('Git initialization failed')
+        logger.message(git.stderr.trim().split('\n'), { symbol: styleText('gray', S_BAR) })
       }
     }
 
@@ -731,7 +735,7 @@ export default defineCommand({
     if (modulesToAdd.length > 0) {
       const args: string[] = [
         ...modulesToAdd,
-        `--cwd=${templateDownloadPath}`,
+        `--cwd=${template.dir}`,
         installRequested && !skipInstallOnConflict ? '' : '--skipInstall',
         `--packageManager=${selectedPackageManager}`,
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
@@ -777,6 +781,7 @@ export default defineCommand({
       dir: projectDir,
       shell: !!ctx.args.shell,
       installFailure,
+      installSkipped: !installRequested && !skipInstallOnConflict,
       recoveryCommands,
       packageManager: selectedPackageManager,
     })

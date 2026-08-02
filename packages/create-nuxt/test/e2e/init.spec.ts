@@ -37,12 +37,14 @@ describe('non-interactive mode (no TTY)', () => {
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      const result = await x(createNuxt, [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=true', '--preferOffline', '--install=false'], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
 
       expect(existsSync(join(installPath, 'package.json'))).toBeTruthy()
+      expect(existsSync(join(installPath, '.git'))).toBeTruthy()
+      expect(result.stdout + result.stderr).toContain('pnpm install')
     }
     finally {
       await rm(installPath, { recursive: true, force: true })

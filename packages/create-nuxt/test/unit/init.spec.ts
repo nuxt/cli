@@ -54,6 +54,14 @@ describe('getNextSteps', () => {
     expect(getNextSteps({ ...base, dir: 'my-app', shell: true })).toEqual(['npm run dev'])
   })
 
+  it('should include install when dependency installation was skipped', () => {
+    expect(getNextSteps({
+      ...base,
+      dir: 'my-app',
+      installSkipped: true,
+    })).toEqual(['cd my-app', 'npm install', 'npm run dev'])
+  })
+
   it('should ask for a retried install before recovery commands', () => {
     expect(getNextSteps({
       ...base,
