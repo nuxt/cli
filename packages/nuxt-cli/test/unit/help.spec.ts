@@ -341,7 +341,8 @@ describe('help', () => {
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
-                       -p, --port=<port>    Port to listen on                                                                                                                                   
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
       "
     `)
@@ -362,7 +363,8 @@ describe('help', () => {
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                     --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
               -e, --extends=<layer-name>    Extend from a Nuxt layer                                                                                                                            
-                       -p, --port=<port>    Port to listen on                                                                                                                                   
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
                        --dotenv=<dotenv>    Path to \`.env\` file to load, relative to the root directory                                                                                         
       "
     `)

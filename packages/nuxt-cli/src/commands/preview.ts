@@ -25,8 +25,13 @@ const command = defineCommand({
     ...extendsArgs,
     port: {
       type: 'string',
-      description: 'Port to listen on',
+      description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT`)',
       alias: ['p'],
+    },
+    host: {
+      type: 'string',
+      description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST`)',
+      alias: ['h'],
     },
     ...dotEnvArgs,
   },
@@ -35,20 +40,18 @@ const command = defineCommand({
 
     const cwd = resolveRootDir(ctx.args)
 
-    const { loadNuxt } = await loadKit(cwd)
-
-    // Loading Nuxt applies the dotenv file to `process.env` as a side effect, so
-    // the preview server inherits the same variables the dev/build commands see.
     let envLoaded = false
+    let resolvedOutputDir: string | undefined
 
-    const resolvedOutputDir = await new Promise<string>((res) => {
-      loadNuxt({
+    try {
+      const { loadNuxt } = await loadKit(cwd)
+      const nuxt = await loadNuxt({
         cwd,
         dotenv: {
           cwd,
           fileName: ctx.args.dotenv,
         },
-        envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
+        envName: ctx.args.envName,
         ready: true,
         overrides: {
           ...(ctx.args.extends && { extends: ctx.args.extends }),
@@ -56,20 +59,20 @@ const command = defineCommand({
             function (_, nuxt) {
               envLoaded = true
               nuxt.hook('nitro:init', (nitro) => {
-                res(resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json'))
+                resolvedOutputDir = resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json')
               })
             },
           ],
         },
       })
-        .then(nuxt => nuxt.close())
-        .catch(() => {})
-        .finally(() => res(''))
-    })
+      await nuxt.close()
+    }
+    catch {}
 
-    const defaultOutput = resolve(cwd, '.output', 'nitro.json') // for backwards compatibility
-
-    const nitroJSONPaths = [resolvedOutputDir, defaultOutput].filter(Boolean)
+    const nitroJSONPaths = [...new Set([
+      resolvedOutputDir,
+      resolve(cwd, '.output', 'nitro.json'),
+    ].filter((path): path is string => !!path))]
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
     if (!nitroJSONPath) {
       logger.error(
@@ -80,7 +83,8 @@ const command = defineCommand({
     const outputPath = dirname(nitroJSONPath)
     const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
 
-    if (!nitroJSON.commands.preview) {
+    const previewCommand = nitroJSON.commands?.preview
+    if (typeof previewCommand !== 'string' || !previewCommand.trim()) {
       logger.error('Preview is not supported for this build.')
       process.exit(1)
     }
@@ -97,7 +101,7 @@ const command = defineCommand({
       [
         '',
         'You are previewing a Nuxt app. In production, do not use this CLI. ',
-        `Instead, run ${styleText('cyan', nitroJSON.commands.preview)} directly.`,
+        `Instead, run ${styleText('cyan', previewCommand)} directly.`,
         '',
         ...info.map(
           ([label, value]) =>
@@ -139,13 +143,17 @@ const command = defineCommand({
     }
 
     const port = ctx.args.port
-      ?? process.env.NUXT_PORT
-      ?? process.env.NITRO_PORT
-      ?? process.env.PORT
+      || process.env.NUXT_PORT
+      || process.env.NITRO_PORT
+      || process.env.PORT
+    const host = ctx.args.host
+      || process.env.NUXT_HOST
+      || process.env.NITRO_HOST
+      || process.env.HOST
 
-    outro(`Running ${styleText('cyan', nitroJSON.commands.preview)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
+    outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
 
-    const [command, ...commandArgs] = nitroJSON.commands.preview.split(' ')
+    const [command, ...commandArgs] = previewCommand.trim().split(/\s+/) as [string, ...string[]]
     await x(command, commandArgs, {
       throwOnError: true,
       nodeOptions: {
@@ -155,6 +163,8 @@ const command = defineCommand({
           ...process.env,
           NUXT_PORT: port,
           NITRO_PORT: port,
+          NUXT_HOST: host,
+          NITRO_HOST: host,
         },
       },
     })
