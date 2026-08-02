@@ -17,12 +17,12 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
     case '@nuxt/vite-builder':
     default: {
       const pkgJSON = getPkgJSON(cwd, 'vite', { via: ['nuxt', '@nuxt/vite-builder'] })
-      const isRolldown = pkgJSON.name.includes('rolldown')
-      const isVitePlus = pkgJSON.name === '@voidzero-dev/vite-plus-core'
+      const isRolldown = pkgJSON?.name.includes('rolldown')
+      const isVitePlus = pkgJSON?.name === '@voidzero-dev/vite-plus-core'
       return {
         name: isRolldown ? 'Rolldown-Vite' : 'Vite',
-        version: (isVitePlus ? pkgJSON.bundledVersions?.vite : pkgJSON.version) || 'unknown',
-        provider: isVitePlus ? { name: 'Vite+', version: pkgJSON.version || 'unknown' } : undefined,
+        version: (isVitePlus ? pkgJSON?.bundledVersions?.vite : pkgJSON?.version) || 'unknown',
+        provider: isVitePlus ? { name: 'Vite+', version: pkgJSON?.version || 'unknown' } : undefined,
       }
     }
   }

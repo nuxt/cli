@@ -15,6 +15,9 @@ const VERSIONS: Record<string, string> = {
 vi.mock('../../../src/utils/pkg', () => ({
   getPkgJSON: vi.fn((_cwd: string, pkg: string, options?: { via?: string[] }) => {
     if (pkg === 'vite' && options?.via?.includes('@nuxt/vite-builder')) {
+      if (_cwd === '/missing') {
+        return null
+      }
       if (_cwd === '/vite-plus') {
         return { name: '@voidzero-dev/vite-plus-core', version: '0.2.6', bundledVersions: { vite: '8.1.5' } }
       }
@@ -38,6 +41,10 @@ const { getBuilder, showBanner } = await import('../../../src/utils/banner')
 describe('getBuilder', () => {
   it('resolves vite version via nuxt -> @nuxt/vite-builder', () => {
     expect(getBuilder('/any', 'vite')).toEqual({ name: 'Vite', version: '7.3.1' })
+  })
+
+  it('reports an unknown vite version when vite is unavailable', () => {
+    expect(getBuilder('/missing', 'vite')).toEqual({ name: 'Vite', version: 'unknown', provider: undefined })
   })
 
   it('resolves the bundled vite version from Vite+', () => {

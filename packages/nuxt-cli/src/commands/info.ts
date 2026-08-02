@@ -1,4 +1,4 @@
-import type { NuxtConfig, NuxtModule } from '@nuxt/schema'
+import type { NuxtModule } from '@nuxt/schema'
 import type { PackageJson } from 'pkg-types'
 
 import os from 'node:os'
@@ -36,66 +36,52 @@ export default defineCommand({
     ...rootDirArgs,
   },
   async run(ctx) {
-    // Resolve rootDir
     const cwd = resolveRootDir(ctx.args)
-
-    // Load Nuxt config
-    const nuxtConfig = await getNuxtConfig(cwd)
-
-    // Find nearest package.json
-    const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
+    const [nuxtConfig, projectPkg, detectedPackageManager] = await Promise.all([
+      getNuxtConfig(cwd),
+      readPackageJSON(cwd).catch(() => ({} as PackageJson)),
+      detectPackageManager(cwd),
+    ])
     const { dependencies = {}, devDependencies = {} } = projectPkg
-
-    // Utils to query a dependency version
     const nuxtPath = tryResolveNuxt(cwd)
-    async function getDepVersion(name: string) {
-      for (const url of [cwd, nuxtPath]) {
-        if (!url) {
-          continue
-        }
-        const pkg = await readDependencyPackageJson(name, url)
-        if (pkg) {
-          return pkg.version!
-        }
+    const versions = new Map<string, Promise<string | undefined>>()
+    const getDepVersion = (name: string) => {
+      let version = versions.get(name)
+      if (!version) {
+        version = resolveDependencyVersion(name, [cwd, nuxtPath], cwd, projectPkg, dependencies, devDependencies)
+        versions.set(name, version)
       }
-      return resolveCatalogEntry(cwd, projectPkg, name)?.specifier
-        ?? (dependencies[name] || devDependencies[name])
+      return version
     }
 
-    async function listModules(arr: NonNullable<NuxtConfig['modules']> = []) {
-      const info: string[] = []
-      for (let m of arr) {
-        if (Array.isArray(m)) {
-          m = m[0]
-        }
-        const name = normalizeConfigModule(m, cwd)
-        if (name) {
-          const npmName = name!.split('/').splice(0, 2).join('/') // @foo/bar/baz => @foo/bar
-          const v = await getDepVersion(npmName)
-          info.push(`\`${v ? `${name}@${v}` : name}\``)
-        }
+    const modulesPromise = Promise.all((nuxtConfig.modules || []).map(async (module) => {
+      const name = normalizeConfigModule(module, cwd)
+      if (!name) {
+        return null
       }
-      return info.join(', ')
-    }
-
-    // Check Nuxt version
-    const nuxtVersion = await getDepVersion('nuxt') || await getDepVersion('nuxt-nightly') || '-'
+      const specifier = Array.isArray(module) ? module[0] : module
+      const packageName = typeof specifier === 'string' && getPackageName(specifier)
+      const version = packageName && await getDepVersion(packageName)
+      return `\`${version ? `${name}@${version}` : name}\``
+    }))
+    const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
+      modulesPromise,
+      getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
+      getDepVersion('nitropack').then(version => version || getDepVersion('nitro')),
+    ])
     const builder = nuxtConfig.builder || 'vite'
-
-    let packageManager = (await detectPackageManager(cwd))?.name
-
-    if (packageManager) {
-      packageManager += `@${getPackageManagerVersion(packageManager)}`
-    }
-
+    const packageManager = detectedPackageManager
+      ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.command)}`
+      : 'unknown'
     const osType = os.type()
-    const builderInfo = typeof builder === 'string'
+    const cpus = os.cpus()
+    const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
       ? getBuilder(cwd, builder)
       : { name: 'custom', version: '0.0.0' }
 
     const infoObj = {
       'Operating system': osType === 'Darwin' ? `macOS ${os.release()}` : osType === 'Windows_NT' ? `Windows ${os.release()}` : `${osType} ${os.release()}`,
-      'CPU': `${os.cpus()[0]?.model || 'unknown'} (${os.cpus().length} cores)`,
+      'CPU': `${cpus[0]?.model || 'unknown'} (${cpus.length} cores)`,
       ...isBun
         // @ts-expect-error Bun global
         ? { 'Bun version': Bun?.version as string }
@@ -104,41 +90,22 @@ export default defineCommand({
           ? { 'Deno version': Deno?.version.deno as string }
           : { 'Node.js version': process.version as string },
       'nuxt/cli version': nuxiVersion,
-      'Package manager': packageManager ?? 'unknown',
+      'Package manager': packageManager,
       'Nuxt version': nuxtVersion,
-      'Nitro version': await getDepVersion('nitropack') || await getDepVersion('nitro'),
+      'Nitro version': nitroVersion,
       'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
       'Config': Object.keys(nuxtConfig)
         .map(key => `\`${key}\``)
         .sort()
         .join(', '),
-      'Modules': await listModules(nuxtConfig.modules),
+      'Modules': modules.filter(module => module !== null).join(', '),
     }
 
     logger.info(`Nuxt root directory: ${styleText('cyan', nuxtConfig.rootDir || cwd)}\n`)
 
     const boxStr = formatInfoBox(infoObj)
 
-    let firstColumnLength = 0
-    let secondColumnLength = 0
-    const entries = Object.entries(infoObj).map(([label, val]) => {
-      if (label.length > firstColumnLength) {
-        firstColumnLength = label.length + 4
-      }
-      if ((val || '').length > secondColumnLength) {
-        secondColumnLength = (val || '').length + 2
-      }
-      return [label, val || '-'] as const
-    })
-
-    // formatted for copy-pasting into an issue
-    let copyStr = `| ${' '.repeat(firstColumnLength)} | ${' '.repeat(secondColumnLength)} |\n| ${'-'.repeat(firstColumnLength)} | ${'-'.repeat(secondColumnLength)} |\n`
-    for (const [label, value] of entries) {
-      if (!isMinimal) {
-        copyStr += `| ${`**${label}**`.padEnd(firstColumnLength)} | ${(value.includes('`') ? value : `\`${value}\``).padEnd(secondColumnLength)} |\n`
-      }
-    }
-
+    const copyStr = formatMarkdownTable(infoObj)
     const copied = !isMinimal && await writeText(copyStr).then(() => true).catch(() => false)
 
     if (copied) {
@@ -169,20 +136,69 @@ export default defineCommand({
   },
 })
 
-function normalizeConfigModule(
-  module: NuxtModule<any, any> | string | false | null | undefined,
+async function resolveDependencyVersion(
+  name: string,
+  roots: Array<string | null>,
+  cwd: string,
+  projectPkg: PackageJson,
+  dependencies: Record<string, string>,
+  devDependencies: Record<string, string>,
+): Promise<string | undefined> {
+  for (const root of roots) {
+    if (!root) {
+      continue
+    }
+    const pkg = await readDependencyPackageJson(name, root)
+    if (pkg?.version) {
+      return pkg.version
+    }
+  }
+  return resolveCatalogEntry(cwd, projectPkg, name)?.specifier
+    ?? dependencies[name]
+    ?? devDependencies[name]
+}
+
+export function formatMarkdownTable(info: Record<string, string | undefined>): string {
+  const entries = Object.entries(info).map(([label, value]) => [label, value || '-'] as const)
+  const labelWidth = Math.max(...entries.map(([label]) => label.length + 4))
+  const valueWidth = Math.max(...entries.map(([, value]) => value.length + (value.includes('`') ? 0 : 2)))
+  const rows = entries.map(([label, value]) => {
+    const formattedValue = value.includes('`') ? value : `\`${value}\``
+    return `| ${`**${label}**`.padEnd(labelWidth)} | ${formattedValue.padEnd(valueWidth)} |`
+  })
+  return [
+    `| ${' '.repeat(labelWidth)} | ${' '.repeat(valueWidth)} |`,
+    `| ${'-'.repeat(labelWidth)} | ${'-'.repeat(valueWidth)} |`,
+    ...rows,
+    '',
+  ].join('\n')
+}
+
+export function getPackageName(name: string): string | undefined {
+  if (name.startsWith('.') || name.startsWith('/') || /^[a-z]:[\\/]/i.test(name) || name.endsWith('()')) {
+    return undefined
+  }
+  const parts = name.split('/')
+  return name.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+}
+
+export function normalizeConfigModule(
+  module: NuxtModule<any, any> | string | false | null | undefined | readonly [(NuxtModule<any, any> | string | undefined)?, unknown?],
   rootDir: string,
 ): string | null {
   if (!module) {
     return null
   }
   if (typeof module === 'string') {
-    return module
-      .split(rootDir)
-      .pop()! // Strip rootDir
-      .split('node_modules')
-      .pop()! // Strip node_modules
-      .replace(LEADING_SLASH_RE, '')
+    const normalized = module.replaceAll('\\', '/')
+    const normalizedRoot = rootDir.replaceAll('\\', '/').replace(/\/$/, '')
+    const nodeModulesIndex = normalized.lastIndexOf('/node_modules/')
+    if (nodeModulesIndex !== -1) {
+      return normalized.slice(nodeModulesIndex + '/node_modules/'.length)
+    }
+    return normalized.startsWith(`${normalizedRoot}/`)
+      ? normalized.slice(normalizedRoot.length + 1)
+      : normalized.replace(LEADING_SLASH_RE, '')
   }
   if (typeof module === 'function') {
     return `${module.name}()`
