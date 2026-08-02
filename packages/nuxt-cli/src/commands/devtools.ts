@@ -1,10 +1,5 @@
-import process from 'node:process'
-
-import { styleText } from 'node:util'
-
 import { defineCommand } from 'citty'
 import { x } from 'tinyexec'
-import { logger } from '../utils/logger'
 
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
@@ -15,7 +10,6 @@ export default defineCommand({
     description: 'Enable or disable devtools in a Nuxt project',
   },
   args: {
-    // `command` has to precede the `dir` positional supplied by `rootDirArgs`
     command: {
       type: 'positional',
       description: 'Command to run',
@@ -27,14 +21,13 @@ export default defineCommand({
     const cwd = resolveRootDir(ctx.args)
     const command = ctx.args.command
 
-    if (!command || !['enable', 'disable'].includes(command)) {
-      logger.error(`Unknown command ${styleText('cyan', command || '')}.`)
-      process.exit(1)
+    if (command !== 'enable' && command !== 'disable') {
+      throw new Error(`Unknown devtools command \`${command}\`. Expected \`enable\` or \`disable\`.`)
     }
 
     await x(
       'npx',
-      ['@nuxt/devtools-wizard@latest', command, cwd],
+      ['--yes', '@nuxt/devtools-wizard@latest', command],
       {
         throwOnError: true,
         nodeOptions: {
