@@ -363,8 +363,14 @@ export default defineCommand({
     catch {
       // Use default buildDir (.nuxt)
     }
-    await cleanupNuxtDirs(cwd, buildDir, { silent: true })
-    cleanupSpinner.stop('Build directories cleaned')
+    try {
+      await cleanupNuxtDirs(cwd, buildDir, { silent: true })
+      cleanupSpinner.stop('Build directories cleaned')
+    }
+    catch (err) {
+      cleanupSpinner.stop('Could not clean build directories')
+      logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error ? err.message : err}`)
+    }
 
     if (method === 'force') {
       logger.info(`If you encounter any issues, revert the changes and try with ${styleText('cyan', '--no-force')}`)

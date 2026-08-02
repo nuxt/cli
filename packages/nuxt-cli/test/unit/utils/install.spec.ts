@@ -159,6 +159,16 @@ describe('runDedupe', () => {
     expect(existsSync(localLockFile)).toBe(true)
   })
 
+  it('should report unsupported dedupe commands as failures', async () => {
+    const result = await runDedupe({
+      cwd: process.cwd(),
+      packageManager: { name: 'bun', command: 'bun' },
+    })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Deduplication is not supported for bun')
+  })
+
   it('should report a missing package manager instead of throwing', async () => {
     const result = await runDedupe({
       cwd: process.cwd(),

@@ -130,11 +130,24 @@ export async function runDedupe(options: DedupeOptions): Promise<InstallResult> 
     return await runInstall(options)
   }
 
-  const { exec } = await dedupeDependencies({
-    cwd: options.cwd,
-    packageManager: options.packageManager,
-    dry: true,
-  })
+  let exec
+  try {
+    ({ exec } = await dedupeDependencies({
+      cwd: options.cwd,
+      packageManager: options.packageManager,
+      recreateLockfile: false,
+      dry: true,
+    }))
+  }
+  catch (error) {
+    return {
+      success: false,
+      output: '',
+      command: '',
+      ignoredBuilds: [],
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
 
   if (!exec) {
     return { success: true, output: '', command: '', ignoredBuilds: [] }
