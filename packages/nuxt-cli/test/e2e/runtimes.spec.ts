@@ -7,7 +7,7 @@ import { rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 import { fileURLToPath } from 'node:url'
-import { getPort, waitForPort } from 'get-port-please'
+import { checkPort, getPort, waitForPort } from 'get-port-please'
 import { isCI } from 'std-env'
 import { WebSocket } from 'undici'
 import { it as _it, afterAll, beforeAll, describe, expect, vi } from 'vitest'
@@ -108,6 +108,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     server = await startDevServer({
       cwd,
       runtime: runtimeName,
+      basePort: 3100 + runtimes.indexOf(runtimeName) * 10,
     })
   })
 
@@ -261,11 +262,13 @@ interface DevServerInstance {
 async function startDevServer(options: {
   cwd: string
   port?: number
+  /** Port to prefer, if free. Each runtime gets its own range so a server that is slow to release its listener cannot collide with the next one. */
+  basePort?: number
   runtime?: 'node' | 'bun' | 'deno'
   env?: Record<string, string>
 }): Promise<DevServerInstance> {
-  const { cwd, port: preferredPort, runtime = 'node', env = {} } = options
-  const port = preferredPort || await getPort({ port: 3100 })
+  const { cwd, port: preferredPort, basePort = 3100, runtime = 'node', env = {} } = options
+  const port = preferredPort || await getPort({ port: basePort, host: '127.0.0.1' })
   const host = '127.0.0.1'
   const url = `http://${host}:${port}`
 
@@ -328,16 +331,40 @@ async function startDevServer(options: {
     url,
     port,
     close: async () => {
-      return new Promise<void>((resolve) => {
-        child.kill('SIGTERM')
-        setTimeout(() => {
-          if (!child.killed) {
+      await new Promise<void>((resolve) => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          resolve()
+          return
+        }
+
+        // `child.killed` only records that a signal was sent, so escalation has to
+        // look at whether the process has actually gone away.
+        const force = setTimeout(() => {
+          if (child.exitCode === null && child.signalCode === null) {
             child.kill('SIGKILL')
           }
         }, 5000)
-        child.on('exit', () => resolve())
+        force.unref?.()
+
+        child.on('exit', () => {
+          clearTimeout(force)
+          resolve()
+        })
+        child.kill('SIGTERM')
       })
+
+      await waitForPortRelease(port, host)
     },
+  }
+}
+
+/** Wait for a dev server's listener to be released, so the next runtime can bind it. */
+async function waitForPortRelease(port: number, host: string, retries = 50, delay = 100): Promise<void> {
+  for (let i = 0; i < retries; i++) {
+    if (await checkPort(port, host)) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, delay))
   }
 }
 
