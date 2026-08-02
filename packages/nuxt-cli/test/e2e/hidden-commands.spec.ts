@@ -10,12 +10,6 @@ const bins = {
   'nuxi': join(fileURLToPath(new URL('../../../nuxi', import.meta.url)), 'bin/nuxi.mjs'),
 }
 
-/**
- * Commands that must stay dispatchable but are kept out of help output.
- *
- * `_dev` is spawned by `@nuxt/test-utils` (see its `src/e2e/server.ts`) and
- * `start` is a long-standing alias of `preview`.
- */
 const hiddenCommands = ['_dev', 'start'] as const
 
 function run(bin: string, args: string[]) {

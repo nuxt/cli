@@ -1,7 +1,5 @@
 import process from 'node:process'
 import { defineCommand } from 'citty'
-
-import { isTest } from 'std-env'
 import { resolveRootDir } from '../utils/paths'
 
 import { dotEnvArgs, envNameArgs, logLevelArgs, rootDirArgs } from './_shared'
@@ -24,13 +22,12 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    if (!process.send && !isTest) {
-      console.warn('`nuxt _dev` is an internal command and should not be used directly. Please use `nuxt dev` instead.')
-    }
-
     const cwd = resolveRootDir(ctx.args)
+    const listenOverrides = process.env._PORT
+      ? { port: process.env._PORT, hostname: '127.0.0.1', showURL: false } as const
+      : undefined
 
     const { initialize } = await import('../dev')
-    await initialize({ cwd, args: ctx.args }, ctx)
+    await initialize({ cwd, args: ctx.args }, { data: ctx.data, listenOverrides })
   },
 })

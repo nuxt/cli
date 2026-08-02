@@ -438,15 +438,6 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
 }
 
 function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
-  // _PORT is used by `@nuxt/test-utils` to launch the dev server on a specific port
-  if (process.env._PORT) {
-    return {
-      port: process.env._PORT || 0,
-      hostname: '127.0.0.1',
-      showURL: false,
-    } as const
-  }
-
   const httpsOptions: HTTPSOptions = {
     cert: args['https.cert']
       || args.sslCert
