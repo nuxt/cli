@@ -47,6 +47,7 @@ const server = createServer(async (req, res) => {
 let origin: string
 let cwd: string
 let stdout: string
+let isTTY: boolean
 
 beforeAll(async () => {
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
@@ -57,6 +58,8 @@ beforeEach(async () => {
   requests.length = 0
   stdout = ''
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-curl-test-'))
+  isTTY = process.stdout.isTTY
+  process.stdout.isTTY = false
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
     stdout += String(chunk)
     return true
@@ -65,6 +68,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  process.stdout.isTTY = isTTY
   vi.restoreAllMocks()
   await rm(cwd, { recursive: true, force: true })
 })

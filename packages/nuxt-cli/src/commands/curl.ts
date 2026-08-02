@@ -78,12 +78,17 @@ export default defineCommand({
       headers.set('user-agent', 'nuxt-cli')
     }
 
-    const body = await readRequestBody(ctx.args.data)
+    const body = await readRequestBody(single(ctx.args.data, 'data', '-d'))
     if (body !== undefined && !headers.has('content-type') && isJson(body)) {
       headers.set('content-type', 'application/json')
     }
 
-    const method = (ctx.args.method || (body === undefined ? 'GET' : 'POST')).toUpperCase()
+    const method = (single(ctx.args.method, 'method', '-X') || (body === undefined ? 'GET' : 'POST')).toUpperCase()
+
+    if (body !== undefined && (method === 'GET' || method === 'HEAD')) {
+      logger.error(`A ${styleText('cyan', method)} request cannot have a body. Remove ${styleText('cyan', '-d')} or use a different method.`)
+      process.exit(1)
+    }
 
     if (ctx.args.verbose) {
       process.stderr.write(`> ${method} ${url.pathname}${url.search} HTTP/1.1\n`)
@@ -131,6 +136,14 @@ async function resolveRequestUrl(input: string, cwd: string): Promise<URL> {
   }
 
   return new URL(input.startsWith('/') ? input : `/${input}`, server.url)
+}
+
+function single(value: string | string[] | undefined, name: string, alias: string): string | undefined {
+  if (Array.isArray(value)) {
+    logger.error(`Expected a single ${styleText('cyan', `--${name}`)} value but received ${value.length}. Pass ${styleText('cyan', alias)} once.`)
+    process.exit(1)
+  }
+  return value
 }
 
 async function readRequestBody(data: string | undefined): Promise<string | undefined> {

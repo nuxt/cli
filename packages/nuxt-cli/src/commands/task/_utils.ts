@@ -254,6 +254,7 @@ function socketRequest(socketPath: string, path: string, options: RequestOptions
       res.on('data', (chunk: string) => {
         body += chunk
       })
+      res.on('error', reject)
       res.on('end', () => {
         const status = res.statusCode || 0
         resolve({ ok: status >= 200 && status < 300, status, data: parseBody(body) })

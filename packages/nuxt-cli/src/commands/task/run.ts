@@ -97,8 +97,13 @@ function resolvePayload(args: Record<string, unknown>): Record<string, unknown> 
   return payload
 }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
 function assign(target: Record<string, unknown>, path: string[], value: unknown): void {
   const key = path[0]!
+  if (UNSAFE_KEYS.has(key)) {
+    return
+  }
   if (path.length === 1) {
     target[key] = value
     return
