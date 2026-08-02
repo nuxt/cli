@@ -2,7 +2,7 @@ import type { CommandDef } from 'citty'
 
 const _rDefault = (r: any) => (r.default || r) as Promise<CommandDef>
 
-export const commands = {
+const commandLoaders = {
   'add': () => import('./add').then(_rDefault),
   'add-template': () => import('./add-template').then(_rDefault),
   'analyze': () => import('./analyze').then(_rDefault),
@@ -22,3 +22,5 @@ export const commands = {
   'typecheck': () => import('./typecheck').then(_rDefault),
   'upgrade': () => import('./upgrade').then(_rDefault),
 } as const
+
+export const commands = Object.assign(Object.create(null), commandLoaders) as typeof commandLoaders

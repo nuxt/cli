@@ -17,6 +17,7 @@ import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
+import { withLocalBinPath } from './utils/path-env'
 import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
 import { scheduleUpdateNudge } from './utils/update-lazy'
@@ -68,23 +69,26 @@ const _main = defineCommand({
     }
 
     // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
-    if (ctx.args.command && !(ctx.args.command in commands)) {
+    if (ctx.args.command && !Object.hasOwn(commands, ctx.args.command)) {
       const cwd = resolve(ctx.args.cwd)
       try {
         const { x } = await import('tinyexec')
-        // `tinyexec` will resolve command from local binaries
-        await x(`nuxt-${ctx.args.command}`, ctx.rawArgs.slice(1), {
-          nodeOptions: { stdio: 'inherit', cwd },
-          throwOnError: true,
+        const result = await x(`nuxt-${ctx.args.command}`, ctx.rawArgs.slice(1), {
+          nodeOptions: {
+            stdio: 'inherit',
+            cwd,
+            env: withLocalBinPath(cwd),
+          },
+          throwOnError: false,
         })
+        process.exit(result.exitCode ?? 1)
       }
       catch (err) {
-        // TODO: use windows err code as well
         if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
           return
         }
+        throw err
       }
-      process.exit()
     }
   },
 })

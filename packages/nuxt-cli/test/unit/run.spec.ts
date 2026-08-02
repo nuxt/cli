@@ -65,4 +65,10 @@ describe('runCommand', () => {
 
     expect(argv).toEqual(['--clear', '--cwd', '.'])
   })
+
+  it('should reject inherited command properties', async () => {
+    const { runCommand } = await import('../../src/run')
+
+    await expect(runCommand('toString', [])).rejects.toThrow('Invalid command toString')
+  })
 })

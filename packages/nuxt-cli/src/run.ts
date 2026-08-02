@@ -46,7 +46,7 @@ export async function runCommand(
   argv: string[] = process.argv.slice(2),
   data: { overrides?: Record<string, any> } = {},
 ): Promise<{ result: unknown }> {
-  if (!(name in commands)) {
+  if (!Object.hasOwn(commands, name)) {
     throw new Error(`Invalid command ${name}`)
   }
 

@@ -3,7 +3,7 @@ import type { commands } from '../../src/commands'
 
 import { existsSync } from 'node:fs'
 
-import { rm } from 'node:fs/promises'
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
@@ -133,13 +133,39 @@ describe('commands', () => {
     expect(res.stderr).toBe('[error] No command specified.\n')
   })
 
-  // TODO: FIXME - windows currently throws 'nuxt-foo' is not recognized as an internal or external command, operable program or batch file.
+  // TODO: on Windows tinyexec falls back to `cmd.exe`, which reports the missing binary itself rather than surfacing ENOENT
   it.skipIf(isWindows)('throws error if wrong command is provided', async () => {
     const res = await x(nuxi, ['foo'], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
     })
     expect(res.exitCode).toBe(1)
     expect(res.stderr).toBe('[error] Unknown command foo\n')
+  })
+
+  it.skipIf(isWindows)('rejects command names inherited from Object.prototype', async () => {
+    const res = await x(nuxi, ['toString'], {
+      nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+    })
+    expect(res.exitCode).toBe(1)
+    expect(res.stderr).toBe('[error] Unknown command toString\n')
+  })
+
+  it.skipIf(isWindows)('forwards the exit status of a local command', async () => {
+    const binDir = join(fixtureDir, 'node_modules/.bin')
+    const bin = join(binDir, 'nuxt-exit-test')
+    await mkdir(binDir, { recursive: true })
+    await writeFile(bin, '#!/bin/sh\nexit 42\n')
+    await chmod(bin, 0o755)
+
+    try {
+      const res = await x(nuxi, ['exit-test'], {
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(42)
+    }
+    finally {
+      await rm(bin, { force: true })
+    }
   })
 
   const testsToRun = Object.entries(tests).filter(([_, value]) => value !== 'todo')
