@@ -899,8 +899,8 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
 
   fileWatcher.prime(configDir)
   const configDirWatcher = watch(configDir)
-  configDirWatcher.on('change', (_event, file: string) => {
-    if (!fileWatcher.shouldEmitChange(resolve(configDir, file))) {
+  configDirWatcher.on('change', (_event, file: string | null) => {
+    if (!file || !fileWatcher.shouldEmitChange(resolve(configDir, file))) {
       return
     }
 

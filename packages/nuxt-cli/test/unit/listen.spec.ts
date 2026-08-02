@@ -5,7 +5,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
+import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, openBrowser, parsePort, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -115,6 +115,22 @@ describe('validateHostname', () => {
   })
 })
 
+describe('parsePort', () => {
+  it.each([
+    ['0', 0],
+    ['3000', 3000],
+    [65_535, 65_535],
+    ['', undefined],
+    [undefined, undefined],
+  ])('should parse %j as %j', (value, expected) => {
+    expect(parsePort(value)).toBe(expected)
+  })
+
+  it.each(['nope', '-1', '1.5', '65536', 'Infinity'])('should reject %s', (value) => {
+    expect(() => parsePort(value)).toThrow(`Invalid port \`${value}\``)
+  })
+})
+
 describe('resolveOpenCommand', () => {
   const url = 'http://localhost:3000/'
 
@@ -180,6 +196,10 @@ describe('listen', () => {
     expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
   })
 
+  it('should reject an invalid port before binding', async () => {
+    await expect(start({ port: 'nope' })).rejects.toThrow('Invalid port `nope`; expected an integer between 0 and 65535.')
+  })
+
   it('should fall back to another port by default', async () => {
     const first = await start({ port: 0 })
     const second = await start({ port: first.address.port })
@@ -242,6 +262,29 @@ describe('listen', () => {
 })
 
 describe('listener.close', () => {
+  it('should close the listener while a tunnel is still shutting down', async () => {
+    let closeTunnel: (() => void) | undefined
+    vi.doMock('../../src/dev/tunnel', () => ({
+      startTunnel: async () => ({
+        url: 'https://example.test',
+        close: () => new Promise<void>((resolve) => {
+          closeTunnel = resolve
+        }),
+      }),
+    }))
+
+    const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', baseURL: '/dashboard/', showURL: false, tunnel: true })
+    expect(listener.publicURL).toBe('https://example.test/dashboard/')
+    expect(listener.getURLs()).toContainEqual({ url: 'https://example.test/dashboard/', type: 'tunnel' })
+
+    const closed = listener.close()
+
+    await vi.waitFor(() => expect(listener.server.listening).toBe(false))
+    closeTunnel!()
+    await closed
+    vi.doUnmock('../../src/dev/tunnel')
+  })
+
   it('should let an in-flight request finish', async () => {
     let respond: (() => void) | undefined
     const listener = await listen((_req, res) => {

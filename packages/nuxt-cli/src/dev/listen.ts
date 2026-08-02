@@ -155,7 +155,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   const isolatedEnvironment = options.hostname === undefined && !options.public && detectIsolatedEnvironment()
   const hostname = validateHostname(options.hostname, options.public) ?? (options.public || isolatedEnvironment ? '' : 'localhost')
 
-  const requestedPort = options.port === undefined || options.port === '' ? undefined : Number(options.port)
+  const requestedPort = parsePort(options.port)
   const port = options.handover && requestedPort
     ? requestedPort
     : await resolvePort(requestedPort, hostname, options.strictPort)
@@ -191,6 +191,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
   }
 
+  const tunnelURL = tunnel?.url && tunnel.url + baseURL
   const portless = resolvePortlessURLs()
   const portlessURL = portless.url && portless.url + baseURL
   const portlessShareURL = portless.shareURL && portless.shareURL + baseURL
@@ -198,8 +199,8 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
 
   function getURLs(): ListenURL[] {
     const urls: ListenURL[] = []
-    if (tunnel) {
-      urls.push({ url: tunnel.url, type: 'tunnel' })
+    if (tunnelURL) {
+      urls.push({ url: tunnelURL, type: 'tunnel' })
     }
     for (const portlessURL of portless.all) {
       urls.push({ url: portlessURL + baseURL, type: 'public' })
@@ -221,7 +222,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
 
   // The StackBlitz URL points at the editor rather than at a host another
   // device can open, so it is not a QR code candidate.
-  const shareableURL = options.publicURL || tunnel?.url || portlessShareURL || portlessURL
+  const shareableURL = options.publicURL || tunnelURL || portlessShareURL || portlessURL
   const publicURL = shareableURL || stackblitzURL
 
   const qrURL = options.qr === false
@@ -278,29 +279,33 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
     https: certificate,
     getURLs,
     showURLs,
-    close: async () => {
-      await tunnel?.close()
-      return new Promise<void>((resolve, reject) => {
-        let forceClose: NodeJS.Timeout | undefined
-        server.close((error) => {
-          if (forceClose) {
-            clearTimeout(forceClose)
-          }
-          if (error) {
-            reject(error)
-          }
-          else {
-            resolve()
-          }
-        })
-        // Sockets waiting on keep-alive are closed at once, so shutdown is only
-        // delayed while a request is actually being served.
-        server.closeIdleConnections?.()
-        forceClose = setTimeout(() => server.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
-        forceClose.unref()
-      })
-    },
+    close: () => Promise.all([
+      tunnel?.close(),
+      closeServer(server),
+    ]).then(() => {}),
   }
+}
+
+function closeServer(server: HttpServer): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let forceClose: NodeJS.Timeout | undefined
+    server.close((error) => {
+      if (forceClose) {
+        clearTimeout(forceClose)
+      }
+      if (error) {
+        reject(error)
+      }
+      else {
+        resolve()
+      }
+    })
+    // Sockets waiting on keep-alive are closed at once, so shutdown is only
+    // delayed while a request is actually being served.
+    server.closeIdleConnections?.()
+    forceClose = setTimeout(() => server.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+    forceClose.unref()
+  })
 }
 
 function bindServer(server: HttpServer, port: number, hostname: string, reusePort: boolean): Promise<void> {
@@ -370,6 +375,17 @@ export function isReusePortSupported(): Promise<boolean> {
     }
   })()
   return reusePortSupport
+}
+
+export function parsePort(value: string | number | undefined): number | undefined {
+  if (value === undefined || value === '') {
+    return undefined
+  }
+  const port = Number(value)
+  if (!Number.isInteger(port) || port < 0 || port > 65_535) {
+    throw new Error(`Invalid port \`${value}\`; expected an integer between 0 and 65535.`)
+  }
+  return port
 }
 
 async function resolvePort(requestedPort: number | undefined, hostname: string, strictPort?: boolean): Promise<number> {

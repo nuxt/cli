@@ -15,7 +15,7 @@ import { satisfies } from 'verkit'
 import { initialize } from '../dev'
 
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
-import { isReusePortSupported } from '../dev/listen'
+import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
@@ -158,7 +158,7 @@ const command = defineCommand({
     const listenOverrides = resolveListenOverrides(ctx.args)
 
     const takeover = await takeOverDevServer(resolveDevBuildDir(cwd), {
-      requestedPort: parseRequestedPort(listenOverrides.port),
+      requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
     })
     if (takeover.action === 'refused') {
@@ -406,11 +406,6 @@ function setupSignalHandlers(close: () => Promise<void>): void {
  */
 function resolveDevBuildDir(cwd: string): string {
   return resolve(cwd, '.nuxt')
-}
-
-function parseRequestedPort(port: string | number | undefined): number | undefined {
-  const parsed = Number(port)
-  return port === undefined || port === '' || !Number.isInteger(parsed) || parsed <= 0 ? undefined : parsed
 }
 
 function resolveForkPoolSize(): number | undefined {
