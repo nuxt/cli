@@ -1,6 +1,5 @@
 import { existsSync, promises as fsp } from 'node:fs'
 import { join } from 'pathe'
-import { debug } from '../utils/logger'
 
 export async function clearDir(path: string, exclude?: string[]) {
   if (!exclude) {
@@ -21,15 +20,4 @@ export async function clearDir(path: string, exclude?: string[]) {
 
 export function clearBuildDir(path: string) {
   return clearDir(path, ['cache', 'analyze', 'nuxt.json', 'nuxt.lock'])
-}
-
-export async function rmRecursive(paths: string[]) {
-  await Promise.all(
-    paths
-      .filter(p => typeof p === 'string')
-      .map(async (path) => {
-        debug(`Removing recursive path: ${path}`)
-        await fsp.rm(path, { recursive: true, force: true }).catch(() => {})
-      }),
-  )
 }

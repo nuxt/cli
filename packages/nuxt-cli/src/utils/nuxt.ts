@@ -5,8 +5,7 @@ import { promises as fsp } from 'node:fs'
 import { hash } from 'ohash'
 import { dirname, resolve } from 'pathe'
 
-import { logger } from '../utils/logger'
-import { rmRecursive } from './fs'
+import { debug, logger } from '../utils/logger'
 
 const GIT_ID_RE = /\.([0-9a-f]{7,8})$/
 
@@ -20,21 +19,29 @@ interface NuxtProjectManifest {
   }
 }
 
-/** `silent` is for callers that already report progress themselves. */
 export async function cleanupNuxtDirs(rootDir: string, buildDir: string, options: { silent?: boolean } = {}) {
+  const root = resolve(rootDir)
+  const build = resolve(root, buildDir)
+  if (build === root || root.startsWith(build.endsWith('/') ? build : `${build}/`)) {
+    throw new Error('Cannot clean a build directory that contains the project root.')
+  }
+
   if (!options.silent) {
     logger.info('Cleaning up generated Nuxt files and caches...')
   }
 
-  await rmRecursive(
-    [
-      buildDir,
-      '.output',
-      'dist',
-      'node_modules/.vite',
-      'node_modules/.cache',
-    ].map(dir => resolve(rootDir, dir)),
-  )
+  const paths = new Set([
+    build,
+    '.output',
+    'dist',
+    'node_modules/.vite',
+    'node_modules/.cache',
+  ].map(dir => resolve(root, dir)))
+
+  await Promise.all([...paths].map((path) => {
+    debug(`Removing recursive path: ${path}`)
+    return fsp.rm(path, { recursive: true, force: true })
+  }))
 }
 
 export function nuxtVersionToGitIdentifier(version: string) {
