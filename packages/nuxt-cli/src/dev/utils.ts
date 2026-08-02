@@ -217,14 +217,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return this.load(true, reason)
     })
 
-    let _initResolve: () => void
-    const _initPromise = new Promise<void>((resolve) => {
-      _initResolve = resolve
-    })
-    this.once('ready', () => {
-      _initResolve()
-    })
-
     this.#cwd = options.cwd
 
     this.handler = async (req, res) => {
@@ -232,15 +224,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         void renderError(req, res, this.#loadingError)
         return
       }
-      await _initPromise
-      if (this.#handler) {
-        this.#inflightResponses.add(res)
-        res.once('close', () => {
-          this.#inflightResponses.delete(res)
-        })
-        this.#handler(req, res)
-      }
-      else {
+      if (!this.#handler) {
         await this.#renderLoadingScreen(req, res).catch((error) => {
           debug('Could not render the loading screen:', error)
           if (res.headersSent) {
@@ -250,7 +234,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           res.statusCode = 503
           res.end('Dev server is loading...')
         })
+        return
       }
+      this.#inflightResponses.add(res)
+      res.once('close', () => {
+        this.#inflightResponses.delete(res)
+      })
+      this.#handler(req, res)
     }
   }
 
