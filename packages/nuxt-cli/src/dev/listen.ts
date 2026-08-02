@@ -152,7 +152,8 @@ function createSecureServer(certificate: ResolvedCertificate, handler: RequestLi
 }
 
 export async function listen(handler: RequestListener, options: ListenOptions = {}): Promise<Listener> {
-  const hostname = validateHostname(options.hostname, options.public) ?? (options.public ? '' : 'localhost')
+  const isolatedEnvironment = options.hostname === undefined && !options.public && detectIsolatedEnvironment()
+  const hostname = validateHostname(options.hostname, options.public) ?? (options.public || isolatedEnvironment ? '' : 'localhost')
 
   const requestedPort = options.port === undefined || options.port === '' ? undefined : Number(options.port)
   const port = options.handover && requestedPort

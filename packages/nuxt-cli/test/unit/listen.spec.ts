@@ -1,5 +1,6 @@
 import type { Listener } from '../../src/dev/listen'
 
+import { connect } from 'node:net'
 import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,8 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, openBrowser, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
+const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
 
 vi.mock('tinyclip', () => ({ writeText }))
+vi.mock('../../src/dev/environment', () => ({
+  detectIsolatedEnvironment: () => isolatedEnvironment.current,
+  isWsl: (platform: NodeJS.Platform, env: NodeJS.ProcessEnv) => platform === 'linux' && !!env.WSL_DISTRO_NAME,
+}))
 
 const spawn = vi.hoisted(() => vi.fn((_command: string, _args: string[]) => ({
   once: () => {},
@@ -146,6 +152,7 @@ describe('listen', () => {
 
   afterEach(async () => {
     restoreEnvironment()
+    isolatedEnvironment.current = undefined
     await Promise.all(listeners.splice(0).map(listener => listener.close()))
   })
 
@@ -154,6 +161,24 @@ describe('listen', () => {
     listeners.push(listener)
     return listener
   }
+
+  it('should accept connections on both loopback addresses in an isolated environment', async () => {
+    isolatedEnvironment.current = 'the container'
+    const listener = await start({ port: 0 })
+    const request = (host: string) => new Promise<string>((resolve, reject) => {
+      const socket = connect({ host, port: listener.address.port }, () => socket.write('GET / HTTP/1.0\r\n\r\n'))
+      let response = ''
+      socket.setEncoding('utf8')
+      socket.on('data', chunk => response += chunk)
+      socket.on('end', () => resolve(response))
+      socket.on('error', reject)
+    })
+
+    const responses = await Promise.all([request('127.0.0.1'), request('::1')])
+
+    expect(responses.every(response => response.endsWith('\r\n\r\nok'))).toBe(true)
+    expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
+  })
 
   it('should fall back to another port by default', async () => {
     const first = await start({ port: 0 })
