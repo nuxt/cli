@@ -33,7 +33,7 @@
     "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts"
   },
   "peerDependencies": {
-    "@nuxt/cli": ">=3.26.0",
+    "@nuxt/cli": ">=3.37.0",
     "jiti": "^2.7.0"
   },
   "peerDependenciesMeta": {
@@ -49,7 +49,7 @@
     "citty": "^0.2.2",
     "jiti": "^2.7.0",
     "std-env": "^4.2.0",
-    "tinyexec": "^1.2.4",
+    "tinyexec": "^1.3.0",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3"
   }
