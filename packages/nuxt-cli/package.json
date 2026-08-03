@@ -96,7 +96,7 @@
     "jiti": "^2.7.0",
     "nitro": "^3.0.1-alpha.2",
     "nitropack": "^2.13.4",
-    "rolldown": "^1.2.0",
+    "rolldown": "^1.2.1",
     "rollup": "^4.62.3",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
