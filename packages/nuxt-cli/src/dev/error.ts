@@ -2,10 +2,10 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { SourceLoader, StackFrame } from 'youch-core/types'
 
 import { readFile } from 'node:fs/promises'
+import { SourceMap } from 'node:module'
 import process from 'node:process'
 
 import { dirname, normalize, resolve } from 'pathe'
-import { SourceMapConsumer } from 'source-map-js'
 import { Youch } from 'youch'
 import { ErrorParser } from 'youch-core'
 
@@ -87,20 +87,18 @@ const sourceLoader: SourceLoader = async (frame) => {
  * Rewrite a frame to its original position. Isolated per frame so a malformed
  * `.map` costs only that frame's mapping rather than the whole stack.
  */
-async function applySourceMap(frame: StackFrame): Promise<void> {
+export async function applySourceMap(frame: StackFrame): Promise<void> {
   const rawSourceMap = await readFile(`${frame.fileName}.map`, 'utf8').catch(() => undefined)
   if (!rawSourceMap) {
     return
   }
-  const consumer = new SourceMapConsumer(JSON.parse(rawSourceMap))
-  const originalPosition = consumer.originalPositionFor({
-    line: frame.lineNumber!,
-    column: frame.columnNumber!,
-  })
-  if (originalPosition.source && originalPosition.line) {
-    frame.fileName = resolve(dirname(frame.fileName!), originalPosition.source)
-    frame.lineNumber = originalPosition.line
-    frame.columnNumber = originalPosition.column || 0
+  const payload = JSON.parse(rawSourceMap)
+  const entry = new SourceMap(payload).findEntry(frame.lineNumber! - 1, frame.columnNumber!)
+  if ('originalSource' in entry && entry.originalSource !== undefined && entry.originalLine !== undefined) {
+    const source = payload.sourceRoot ? `${payload.sourceRoot.replace(/\/?$/, '/')}${entry.originalSource}` : entry.originalSource
+    frame.fileName = resolve(dirname(frame.fileName!), source)
+    frame.lineNumber = entry.originalLine + 1
+    frame.columnNumber = entry.originalColumn || 0
   }
 }
 
