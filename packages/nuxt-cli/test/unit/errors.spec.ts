@@ -58,7 +58,7 @@ describe('applySourceMap', () => {
       { version: 3, sources: ['src/foo.ts'], names: [], mappings },
       { lineNumber: 2, columnNumber: 2 },
     )
-    expect(frame.fileName?.endsWith(join('src', 'foo.ts'))).toBe(true)
+    expect(frame.fileName?.endsWith('src/foo.ts')).toBe(true)
     expect(frame.lineNumber).toBe(2)
     expect(frame.columnNumber).toBe(2)
   })
@@ -68,7 +68,7 @@ describe('applySourceMap', () => {
       { version: 3, sourceRoot: '../src', sources: ['foo.ts'], names: [], mappings },
       { lineNumber: 2, columnNumber: 2 },
     )
-    expect(frame.fileName?.endsWith(join('src', 'foo.ts'))).toBe(true)
+    expect(frame.fileName?.endsWith('src/foo.ts')).toBe(true)
   })
 
   it('should leave a frame with no mapping untouched', async () => {
