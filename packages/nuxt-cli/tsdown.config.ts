@@ -6,7 +6,7 @@ export const packaging: PackagingContract = {
   external: PARSER_SPECIFIERS,
   lazy: {
     'dist/index.mjs': ['rc9'],
-    'dist/dev/index.mjs': ['youch', 'youch-core', 'source-map-js', 'rc9'],
+    'dist/dev/index.mjs': ['youch', 'youch-core', 'rc9'],
   },
 }
 
