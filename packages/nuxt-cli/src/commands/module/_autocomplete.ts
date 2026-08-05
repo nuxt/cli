@@ -2,7 +2,7 @@ import type { Option } from '@clack/prompts'
 import type { NuxtModule } from './_utils'
 
 import { autocompleteMultiselect, isCancel } from '@clack/prompts'
-import { byLengthAsc, Fzf } from 'fzf'
+import fuzzysort from 'fuzzysort'
 import { hasTTY } from 'std-env'
 
 import { logger } from '../../utils/logger'
@@ -35,11 +35,12 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     return a.npm.localeCompare(b.npm)
   })
 
-  const fzf = new Fzf(sortedModules, {
-    selector: m => `${m.npm} ${m.name} ${m.category}`,
-    casing: 'case-insensitive',
-    tiebreakers: [byLengthAsc],
-  })
+  const targets = sortedModules.map(m => ({
+    value: m.npm,
+    npm: fuzzysort.prepare(m.npm),
+    name: fuzzysort.prepare(m.name),
+    category: fuzzysort.prepare(m.category),
+  }))
 
   const clackOptions: Option<string>[] = sortedModules.map(m => ({
     value: m.npm,
@@ -53,7 +54,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
       return true
     let results = matches.get(search)
     if (!results) {
-      results = new Set(fzf.find(search).map(r => r.item.npm))
+      results = new Set(fuzzysort.go(search, targets, { keys: ['npm', 'name', 'category'] }).map(r => r.obj.value))
       matches.set(search, results)
     }
     return results.has(option.value)

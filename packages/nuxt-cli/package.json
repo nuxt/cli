@@ -67,7 +67,7 @@
     "consola": "^3.4.2",
     "defu": "^6.1.7",
     "exsolve": "^1.1.1",
-    "fzf": "^0.5.2",
+    "fuzzysort": "^3.1.0",
     "get-port-please": "^3.2.0",
     "nypm": "^0.6.9",
     "obug": "^2.1.4",
