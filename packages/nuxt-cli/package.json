@@ -36,7 +36,7 @@
   "peerDependencies": {
     "@nuxt/schema": "^4.5.1",
     "jiti": "^2.7.0",
-    "oxc-parser": ">=0.142.0",
+    "oxc-parser": ">=0.143.0",
     "rolldown": "^1.0.0-rc.16 || ^1.0.0",
     "serve": "^14.2.6"
   },
@@ -99,7 +99,7 @@
     "rollup": "^4.62.4",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
-    "undici": "^8.9.0",
+    "undici": "^8.10.0",
     "vitest": "^4.1.10",
     "youch": "^4.1.1",
     "youch-core": "^0.3.3"
