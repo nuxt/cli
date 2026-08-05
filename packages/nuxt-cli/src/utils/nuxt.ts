@@ -1,8 +1,8 @@
 import type { Nuxt } from '@nuxt/schema'
 
+import { createHash } from 'node:crypto'
 import { promises as fsp } from 'node:fs'
 
-import { hash } from 'ohash'
 import { dirname, resolve } from 'pathe'
 
 import { debug, logger } from '../utils/logger'
@@ -64,7 +64,10 @@ export function resolveNuxtManifest(nuxt: Nuxt): NuxtProjectManifest {
       nuxt: nuxt._version,
     },
   }
-  manifest._hash = hash(manifest)
+  manifest._hash = createHash('sha256')
+    .update(JSON.stringify([manifest.project.rootDir, manifest.versions.nuxt]))
+    .digest('base64url')
+    .slice(0, 10)
   return manifest
 }
 

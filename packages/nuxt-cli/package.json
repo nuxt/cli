@@ -71,7 +71,6 @@
     "get-port-please": "^3.2.0",
     "nypm": "^0.6.9",
     "obug": "^2.1.4",
-    "ohash": "^2.0.11",
     "pathe": "^2.0.3",
     "perfect-debounce": "^2.1.0",
     "pkg-types": "^2.3.1",
