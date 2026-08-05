@@ -1,5 +1,7 @@
 import type { NuxtModule } from '../../../../src/commands/module/_utils'
 
+import { stripVTControlCharacters as stripAnsi } from 'node:util'
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // Mock std-env before importing the module
@@ -125,7 +127,7 @@ describe('selectModulesAutocomplete', () => {
       let capturedOptions: any[] = []
 
       mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
-        capturedOptions = opts.options
+        capturedOptions = opts.options.call({ userInput: '' })
         return []
       })
 
@@ -345,7 +347,7 @@ describe('selectModulesAutocomplete', () => {
 
       let capturedOptions: any[] = []
       mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
-        capturedOptions = opts.options
+        capturedOptions = opts.options.call({ userInput: '' })
         return []
       })
 
@@ -357,9 +359,82 @@ describe('selectModulesAutocomplete', () => {
 
       expect(capturedOptions[0]).toEqual({
         value: '@nuxt/test',
-        label: '@nuxt/test',
-        hint: 'A test module', // trailing period removed
+        label: expect.stringContaining('@nuxt/test'),
       })
+      // trailing period removed
+      expect(stripAnsi(capturedOptions[0].label)).toBe('@nuxt/test  A test module')
+    })
+
+    it('should show a description on every option, not only the focused one', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedOptions: any[] = []
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedOptions = opts.options.call({ userInput: '' })
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [
+          createMockModule({ npm: '@nuxt/one', description: 'First module' }),
+          createMockModule({ npm: '@nuxt/two', description: 'Second module' }),
+        ],
+      })
+
+      expect(capturedOptions.map((o: any) => stripAnsi(o.label))).toEqual([
+        '@nuxt/one  First module',
+        '@nuxt/two  Second module',
+      ])
+      expect(capturedOptions.every((o: any) => o.hint === undefined)).toBe(true)
+    })
+
+    it('should highlight the matched part of the name as the user types', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedOptions: any[] = []
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedOptions = opts.options.call({ userInput: 'img' })
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [createMockModule({ npm: '@nuxt/image', description: 'Images' })],
+      })
+
+      expect(capturedOptions[0].label).not.toBe(stripAnsi(capturedOptions[0].label))
+      expect(stripAnsi(capturedOptions[0].label)).toBe('@nuxt/image  Images')
+    })
+
+    it('should truncate descriptions to the terminal width', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      Object.defineProperty(process.stdout, 'columns', { value: 60, writable: true, configurable: true })
+
+      let capturedOptions: any[] = []
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedOptions = opts.options.call({ userInput: '' })
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [createMockModule({ npm: '@nuxt/test', description: 'A'.repeat(200) })],
+      })
+
+      const label = stripAnsi(capturedOptions[0].label)
+      expect(label.length).toBeLessThanOrEqual(60 - 5)
+      expect(label.endsWith('…')).toBe(true)
     })
 
     it('should set required to false', async () => {
