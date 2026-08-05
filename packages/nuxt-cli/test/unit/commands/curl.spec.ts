@@ -32,6 +32,7 @@ const ASSETS: Record<string, [contentType: string, body: string]> = {
   '/sitemap.xml': ['application/xml', '<urlset><url><loc>/</loc></url></urlset>'],
   '/config.yaml': ['application/yaml', 'name: nuxt\nport: 3000'],
   '/log.ndjson': ['application/x-ndjson', '{"a":1}\n{"b":[true,null]}\n'],
+  '/events.ndjson': ['application/ndjson', '{"a":1}\n{"b":[true,null]}\n'],
   '/fix.diff': ['text/x-diff', '- const a = 1\n+ const a = 2'],
   '/deploy.sh': ['application/x-sh', 'echo "hi"'],
   '/untyped': ['text/plain', '{"hello":"world"}'],
@@ -292,17 +293,30 @@ describe('curl', () => {
     expect(stripVTControlCharacters(stdout)).toBe('<urlset>\n  <url>\n    <loc>/</loc>\n  </url>\n</urlset>\n')
   })
 
+  it('leaves the body untouched for a terminal when --no-pretty is set', async () => {
+    process.stdout.isTTY = true
+    expect(await run([`${origin}/sitemap.xml`, '--no-pretty'])).toBe(0)
+    expect(stdout).toBe('<urlset><url><loc>/</loc></url></urlset>')
+    expect(stdout).not.toContain('\u001B[')
+  })
+
+  it('formats a piped body when --pretty is forced', async () => {
+    expect(await run([`${origin}/sitemap.xml`, '--pretty'])).toBe(0)
+    expect(stripVTControlCharacters(stdout)).toBe('<urlset>\n  <url>\n    <loc>/</loc>\n  </url>\n</urlset>\n')
+  })
+
   it('takes a text/plain body at its word, even when it looks like json', async () => {
     process.stdout.isTTY = true
     expect(await run([`${origin}/untyped`])).toBe(0)
     expect(stdout).toBe('{"hello":"world"}\n')
   })
 
-  it('highlights newline-delimited json a record at a time', async () => {
+  it.each(['/log.ndjson', '/events.ndjson'])('highlights newline-delimited json a record at a time (%s)', async (path) => {
     process.stdout.isTTY = true
-    const code = await run([`${origin}/log.ndjson`])
+    const code = await run([`${origin}${path}`])
 
     expect(code).toBe(0)
+    expect(stdout).toContain('\u001B[')
     expect(stripVTControlCharacters(stdout)).toBe('{"a":1}\n{"b":[true,null]}\n')
   })
 

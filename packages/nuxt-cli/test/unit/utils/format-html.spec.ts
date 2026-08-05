@@ -63,5 +63,6 @@ describe('formatHtml', () => {
   it('does not lose content when tags are unbalanced', () => {
     expect(formatHtml('<div>unclosed<p>x</div>')).toContain('unclosed')
     expect(formatHtml('</div>')).toBe('</div>')
+    expect(formatHtml('<div><p>x</p></span><p>y</p></div>')).toBe('<div>\n  <p>x</p>\n  </span>\n  <p>y</p>\n</div>')
   })
 })

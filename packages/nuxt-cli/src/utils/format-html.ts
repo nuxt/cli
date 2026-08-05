@@ -18,10 +18,9 @@ export function formatHtml(html: string, indent = '  '): string {
   const lines: string[] = []
   const stack: { name: string, line: number }[] = []
   let line = ''
-  let depth = 0
   let position = 0
 
-  const pad = (): string => indent.repeat(Math.max(depth, 0))
+  const pad = (): string => indent.repeat(stack.length)
   const push = (text: string): void => {
     lines.push(pad() + text.replace(/\n[^\S\n]*/g, `\n${pad()}`))
   }
@@ -61,16 +60,23 @@ export function formatHtml(html: string, indent = '  '): string {
     }
 
     if (closing) {
-      const open = stack.pop()
+      const index = stack.findLastIndex(entry => entry.name === name)
+      // A stray closing tag is printed where it stands, without dedenting.
+      if (index === -1) {
+        flush()
+        push(node)
+        continue
+      }
+      const open = stack[index]!
       // A block with only inline children stays on the line it opened on.
-      if (open?.name === name && open.line === lines.length && line.trim() && !line.includes('\n')) {
+      if (index === stack.length - 1 && open.line === lines.length && line.trim() && !line.includes('\n')) {
         lines[open.line - 1] += `${line.trim()}${node}`
         line = ''
-        depth--
+        stack.length = index
         continue
       }
       flush()
-      depth--
+      stack.length = index
       push(node)
       continue
     }
@@ -78,7 +84,6 @@ export function formatHtml(html: string, indent = '  '): string {
     flush()
     push(node)
     if (!selfClosing) {
-      depth++
       stack.push({ name, line: lines.length })
     }
   }

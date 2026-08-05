@@ -22,7 +22,7 @@ const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
 const MARKUP_CONTENT_TYPE_RE = /^(?:text\/(?:html|xml)|(?:application|image)\/(?:[\w.+-]+\+)?xml)\b/i
 
 /** Newline-delimited JSON keeps one record per line, so each line is highlighted on its own. */
-const NDJSON_CONTENT_TYPE_RE = /^application\/(?:x-ndjson|jsonl|json-seq)\b/i
+const NDJSON_CONTENT_TYPE_RE = /^application\/(?:(?:x-)?ndjson|jsonl)\b/i
 
 /** Languages worth highlighting a response body in, keyed by content type. */
 const CONTENT_TYPE_LANGUAGES: [RegExp, HighlightLanguage][] = [
@@ -36,7 +36,8 @@ const CONTENT_TYPE_LANGUAGES: [RegExp, HighlightLanguage][] = [
   [/^(?:text|application)\/x-python\b/i, 'py'],
   [/^message\/http\b/i, 'http'],
 ]
-const TEXT_CONTENT_TYPE_RE = /^(?:text\/|application\/(?:[\w.+-]+\+)?(?:json|xml|yaml)\b|application\/(?:javascript|ecmascript|x-www-form-urlencoded|x-ndjson)\b)/i
+/** Textual types with no highlighter of their own. */
+const TEXT_CONTENT_TYPE_RE = /^(?:text\/|application\/x-www-form-urlencoded\b)/i
 
 const BINARY_SNIFF_BYTES = 4096
 
@@ -88,6 +89,10 @@ export default defineCommand({
       type: 'boolean',
       alias: 'v',
       description: 'Print request and response headers to stderr',
+    },
+    pretty: {
+      type: 'boolean',
+      description: 'Reindent and syntax-highlight output (default: on for a terminal, off when piped). Use `--pretty`/`--no-pretty` to force reindenting.',
     },
   },
   async run(ctx) {
@@ -144,15 +149,17 @@ export default defineCommand({
       process.exit(1)
     }
 
+    const pretty = ctx.args.pretty ?? Boolean(process.stdout.isTTY)
+
     if (ctx.args.verbose) {
-      process.stderr.write(formatResponseHead(response, '< ', process.stderr))
+      process.stderr.write(formatResponseHead(response, '< ', process.stderr, ctx.args.pretty ?? Boolean(process.stderr.isTTY)))
     }
 
     if (ctx.args.include || ctx.args.head) {
-      process.stdout.write(formatResponseHead(response, '', process.stdout))
+      process.stdout.write(formatResponseHead(response, '', process.stdout, pretty))
     }
 
-    await writeResponseBody(response)
+    await writeResponseBody(response, pretty)
 
     if (!response.ok) {
       process.exit(HTTP_ERROR_EXIT_CODE)
@@ -240,33 +247,38 @@ function statusStyle(status: number): 'green' | 'cyan' | 'yellow' | 'red' {
   return 'green'
 }
 
-function formatResponseHead(response: Response, prefix: string, stream: NodeJS.WriteStream): string {
-  const status = styleText(statusStyle(response.status), `${response.status} ${response.statusText}`.trimEnd(), { stream })
-  let head = `${prefix}${styleText('dim', 'HTTP/1.1', { stream })} ${status}\n`
+function formatResponseHead(response: Response, prefix: string, stream: NodeJS.WriteStream, pretty: boolean): string {
+  const paint = (style: Parameters<typeof styleText>[0], text: string): string =>
+    pretty ? styleText(style, text, { stream }) : text
+  const status = paint(statusStyle(response.status), `${response.status} ${response.statusText}`.trimEnd())
+  let head = `${prefix}${paint('dim', 'HTTP/1.1')} ${status}\n`
   for (const [name, value] of response.headers) {
-    head += `${prefix}${styleText('blue', name, { stream })}: ${value}\n`
+    head += `${prefix}${paint('blue', name)}: ${value}\n`
   }
   return `${head}${prefix.trimEnd()}\n`
 }
 
-async function writeResponseBody(response: Response): Promise<void> {
+async function writeResponseBody(response: Response, pretty: boolean): Promise<void> {
   const contentType = response.headers.get('content-type') || ''
   const buffer = Buffer.from(await response.arrayBuffer())
   if (!buffer.length) {
     return
   }
 
-  if (!process.stdout.isTTY) {
+  if (!pretty) {
     process.stdout.write(buffer)
     return
   }
 
-  if (isBinary(buffer, contentType)) {
+  const renderer = resolveRenderer(contentType)
+
+  if (isBinary(buffer, contentType, renderer)) {
     note('Binary data not shown in terminal. Redirect the output to a file to save it.', 'Response body')
     return
   }
 
-  const body = formatBody(buffer.toString('utf-8'), contentType)
+  const text = buffer.toString('utf-8')
+  const body = renderer?.(text) ?? text
   process.stdout.write(body)
   if (!body.endsWith('\n')) {
     process.stdout.write('\n')
@@ -274,38 +286,45 @@ async function writeResponseBody(response: Response): Promise<void> {
 }
 
 /**
- * A textual content type is trusted outright; anything else is sniffed for a
- * NUL byte, which no valid UTF-8 text response contains.
+ * A content type we can render, or one matching `TEXT_CONTENT_TYPE_RE`, is
+ * trusted outright; anything else is sniffed for a NUL byte, which no valid
+ * UTF-8 text response contains.
  */
-function isBinary(buffer: Buffer, contentType: string): boolean {
-  if (TEXT_CONTENT_TYPE_RE.test(contentType)) {
+function isBinary(buffer: Buffer, contentType: string, renderer: ((text: string) => string) | undefined): boolean {
+  if (renderer || TEXT_CONTENT_TYPE_RE.test(contentType)) {
     return false
   }
   return buffer.subarray(0, BINARY_SNIFF_BYTES).includes(0)
 }
 
-function formatBody(text: string, contentType: string): string {
+function renderJson(text: string): string {
+  let json: string
+  try {
+    json = JSON.stringify(JSON.parse(text), null, 2)
+  }
+  catch {
+    return text
+  }
+  return highlight(json, 'json')
+}
+
+/**
+ * How to render a response body of `contentType`, or `undefined` to print it
+ * verbatim. Recognising a renderer is also what marks a type as text, so
+ * `isBinary` never sniffs something we already know how to highlight.
+ */
+function resolveRenderer(contentType: string): ((text: string) => string) | undefined {
   if (JSON_CONTENT_TYPE_RE.test(contentType)) {
-    let json: string
-    try {
-      json = JSON.stringify(JSON.parse(text), null, 2)
-    }
-    catch {
-      return text
-    }
-    return highlight(json, 'json')
+    return renderJson
   }
-
   if (NDJSON_CONTENT_TYPE_RE.test(contentType)) {
-    return text.replace(/[^\n]+/g, line => highlight(line, 'json'))
+    return text => text.replace(/[^\n]+/g, line => highlight(line, 'json'))
   }
-
   if (MARKUP_CONTENT_TYPE_RE.test(contentType)) {
-    return highlight(formatHtml(text), 'html')
+    return text => highlight(formatHtml(text), 'html')
   }
-
   const language = CONTENT_TYPE_LANGUAGES.find(([pattern]) => pattern.test(contentType))?.[1]
-  return language ? highlight(text, language) : text
+  return language ? text => highlight(text, language) : undefined
 }
 
 function isJson(value: string): boolean {

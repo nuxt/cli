@@ -84,6 +84,7 @@ const ALIASES: Record<string, string> = {
   sh: 'bash',
   shell: 'bash',
   typescript: 'ts',
+  xml: 'html',
   yml: 'yaml',
   zsh: 'bash',
 }
@@ -101,7 +102,6 @@ function resolveLanguage(name: string): Language {
 const EXPANSIONS: Record<string, { type: ShjToken, match: RegExp }> = {
   num: { type: 'num', match: /(\.e?|\b)\d(e-|[\d.oxa-fA-F_])*(\.|\b)/g },
   str: { type: 'str', match: /(["'])(\\[\s\S]|(?!\1)[^\r\n\\])*\1?/g },
-  strDouble: { type: 'str', match: /"((?!")[^\r\n\\]|\\[\s\S])*"?/g },
 }
 
 const THEME: Partial<Record<ShjToken, Style>> = {
