@@ -7,7 +7,8 @@ import { note } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { findDevServer, noDevServerMessage } from '../utils/dev-server'
-import { highlightJson } from '../utils/json-highlight'
+import { formatHtml } from '../utils/format-html'
+import { highlight } from '../utils/highlight'
 import { logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { resolveRootDir } from '../utils/paths'
@@ -15,6 +16,7 @@ import { rootDirArgs } from './_shared'
 
 const HAS_SCHEME_RE = /^[a-z][a-z\d+.-]*:\/\//i
 const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
+const HTML_CONTENT_TYPE_RE = /^(?:text\/html|application\/xhtml\+xml)\b/i
 const TEXT_CONTENT_TYPE_RE = /^(?:text\/|application\/(?:[\w.+-]+\+)?(?:json|xml|yaml)\b|application\/(?:javascript|ecmascript|x-www-form-urlencoded|x-ndjson)\b)/i
 
 const BINARY_SNIFF_BYTES = 4096
@@ -232,7 +234,7 @@ async function writeResponseBody(response: Response): Promise<void> {
   }
 
   const text = buffer.toString('utf-8')
-  process.stdout.write(JSON_CONTENT_TYPE_RE.test(contentType) ? formatJson(text) : text)
+  process.stdout.write(formatBody(text, contentType))
   if (!text.endsWith('\n')) {
     process.stdout.write('\n')
   }
@@ -249,16 +251,23 @@ function isBinary(buffer: Buffer, contentType: string): boolean {
   return buffer.subarray(0, BINARY_SNIFF_BYTES).includes(0)
 }
 
-function formatJson(text: string): string {
-  let json: string
-  try {
-    json = JSON.stringify(JSON.parse(text), null, 2)
-  }
-  catch {
-    return text
+function formatBody(text: string, contentType: string): string {
+  if (JSON_CONTENT_TYPE_RE.test(contentType)) {
+    let json: string
+    try {
+      json = JSON.stringify(JSON.parse(text), null, 2)
+    }
+    catch {
+      return text
+    }
+    return highlight(json, 'json')
   }
 
-  return highlightJson(json)
+  if (HTML_CONTENT_TYPE_RE.test(contentType)) {
+    return highlight(formatHtml(text), 'html')
+  }
+
+  return text
 }
 
 function isJson(value: string): boolean {

@@ -12,6 +12,6 @@ export const packaging: PackagingContract = {
 
 export default defineCliConfig({
   entry: ['src/index.ts', 'src/dev/index.ts'],
-  deps: { onlyBundle: ['h3'], neverBundle: PARSER_PACKAGES },
+  deps: { onlyBundle: ['h3', '@speed-highlight/core'], neverBundle: PARSER_PACKAGES },
   ...packaging,
 })
