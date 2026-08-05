@@ -8,7 +8,7 @@ import { styleText } from 'node:util'
 import { join, resolve } from 'pathe'
 
 import { findDevServer, findNitroDevWorker, noDevServerMessage, resolveLockDir, toLoopback } from '../../utils/dev-server'
-import { highlightJson } from '../../utils/json-highlight'
+import { highlight } from '../../utils/highlight'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { getNuxtConfig } from '../../utils/nuxt-config'
@@ -216,7 +216,7 @@ function hasFiles(dir: string): boolean {
 }
 
 export function format(value: unknown): string {
-  return typeof value === 'string' ? value : highlightJson(JSON.stringify(value, null, 2))
+  return typeof value === 'string' ? value : highlight(JSON.stringify(value, null, 2), 'json')
 }
 
 async function request(server: TaskServer, path: string, options: RequestOptions = {}): Promise<TaskResponse> {
