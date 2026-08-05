@@ -97,7 +97,7 @@
     "rolldown": "^1.2.1",
     "rollup": "^4.62.4",
     "tsdown": "^0.22.14",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "undici": "^8.10.0",
     "vitest": "^4.1.10",
     "youch": "^4.1.1",
