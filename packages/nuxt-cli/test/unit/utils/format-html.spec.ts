@@ -51,6 +51,8 @@ describe('formatHtml', () => {
 
   it('does not confuse a `>` inside an attribute for the end of a tag', () => {
     expect(formatHtml('<div data-x="a>b" data-y=\'{"a":1}\'>t</div>')).toBe('<div data-x="a>b" data-y=\'{"a":1}\'>t</div>')
+    expect(formatHtml('<div data-x="a>b"><p>x</p></div>')).toBe('<div data-x="a>b">\n  <p>x</p>\n</div>')
+    expect(formatHtml('<div title="a<b"><p>x</p></div>')).toBe('<div title="a<b">\n  <p>x</p>\n</div>')
   })
 
   it('leaves comments, self-closing tags and bare text alone', () => {

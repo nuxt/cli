@@ -4,7 +4,7 @@ const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input'
 /** Elements whose content is text rather than markup, and so is never reindented. */
 const RAW = new Set(['pre', 'textarea', 'script', 'style'])
 
-const NODE_RE = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[!/]?[a-z][^>]*>/gi
+const NODE_RE = /<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<[!/]?[a-z](?:[^>"']|"[^"]*"|'[^']*')*>/gi
 const TAG_NAME_RE = /^<\/?\s*([a-z][\w:-]*)/i
 
 /**

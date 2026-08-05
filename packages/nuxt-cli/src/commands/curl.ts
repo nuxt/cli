@@ -233,9 +233,9 @@ async function writeResponseBody(response: Response): Promise<void> {
     return
   }
 
-  const text = buffer.toString('utf-8')
-  process.stdout.write(formatBody(text, contentType))
-  if (!text.endsWith('\n')) {
+  const body = formatBody(buffer.toString('utf-8'), contentType)
+  process.stdout.write(body)
+  if (!body.endsWith('\n')) {
     process.stdout.write('\n')
   }
 }
