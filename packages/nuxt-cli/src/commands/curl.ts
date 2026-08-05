@@ -1,3 +1,5 @@
+import type { HighlightLanguage } from '../utils/highlight'
+
 import { Buffer } from 'node:buffer'
 import { readFile } from 'node:fs/promises'
 import process from 'node:process'
@@ -16,7 +18,24 @@ import { rootDirArgs } from './_shared'
 
 const HAS_SCHEME_RE = /^[a-z][a-z\d+.-]*:\/\//i
 const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
-const HTML_CONTENT_TYPE_RE = /^(?:text\/html|application\/xhtml\+xml)\b/i
+/** Markup reindented as HTML: the HTML rules cover XML documents too. */
+const MARKUP_CONTENT_TYPE_RE = /^(?:text\/(?:html|xml)|(?:application|image)\/(?:[\w.+-]+\+)?xml)\b/i
+
+/** Newline-delimited JSON keeps one record per line, so each line is highlighted on its own. */
+const NDJSON_CONTENT_TYPE_RE = /^application\/(?:x-ndjson|jsonl|json-seq)\b/i
+
+/** Languages worth highlighting a response body in, keyed by content type. */
+const CONTENT_TYPE_LANGUAGES: [RegExp, HighlightLanguage][] = [
+  [/^text\/(?:x-)?markdown\b/i, 'md'],
+  [/^(?:text|application)\/(?:x-)?(?:[\w.+-]+\+)?ya?ml\b/i, 'yaml'],
+  [/^text\/css\b/i, 'css'],
+  [/^(?:text|application)\/(?:x-)?(?:java|ecma)script\b/i, 'js'],
+  [/^(?:text|application)\/(?:x-)?typescript\b/i, 'ts'],
+  [/^(?:text\/x-(?:diff|patch)|application\/x-patch)\b/i, 'diff'],
+  [/^(?:text\/x-(?:sh|shellscript)|application\/x-sh(?:ellscript)?)\b/i, 'bash'],
+  [/^(?:text|application)\/x-python\b/i, 'py'],
+  [/^message\/http\b/i, 'http'],
+]
 const TEXT_CONTENT_TYPE_RE = /^(?:text\/|application\/(?:[\w.+-]+\+)?(?:json|xml|yaml)\b|application\/(?:javascript|ecmascript|x-www-form-urlencoded|x-ndjson)\b)/i
 
 const BINARY_SNIFF_BYTES = 4096
@@ -126,11 +145,11 @@ export default defineCommand({
     }
 
     if (ctx.args.verbose) {
-      process.stderr.write(formatResponseHead(response, '< '))
+      process.stderr.write(formatResponseHead(response, '< ', process.stderr))
     }
 
     if (ctx.args.include || ctx.args.head) {
-      process.stdout.write(formatResponseHead(response, ''))
+      process.stdout.write(formatResponseHead(response, '', process.stdout))
     }
 
     await writeResponseBody(response)
@@ -208,10 +227,24 @@ async function readRequestBody(data: string | undefined): Promise<string | undef
   return data
 }
 
-function formatResponseHead(response: Response, prefix: string): string {
-  let head = `${prefix}HTTP/1.1 ${response.status} ${response.statusText}\n`
+function statusStyle(status: number): 'green' | 'cyan' | 'yellow' | 'red' {
+  if (status >= 500) {
+    return 'red'
+  }
+  if (status >= 400) {
+    return 'yellow'
+  }
+  if (status >= 300) {
+    return 'cyan'
+  }
+  return 'green'
+}
+
+function formatResponseHead(response: Response, prefix: string, stream: NodeJS.WriteStream): string {
+  const status = styleText(statusStyle(response.status), `${response.status} ${response.statusText}`.trimEnd(), { stream })
+  let head = `${prefix}${styleText('dim', 'HTTP/1.1', { stream })} ${status}\n`
   for (const [name, value] of response.headers) {
-    head += `${prefix}${name}: ${value}\n`
+    head += `${prefix}${styleText('blue', name, { stream })}: ${value}\n`
   }
   return `${head}${prefix.trimEnd()}\n`
 }
@@ -263,11 +296,16 @@ function formatBody(text: string, contentType: string): string {
     return highlight(json, 'json')
   }
 
-  if (HTML_CONTENT_TYPE_RE.test(contentType)) {
+  if (NDJSON_CONTENT_TYPE_RE.test(contentType)) {
+    return text.replace(/[^\n]+/g, line => highlight(line, 'json'))
+  }
+
+  if (MARKUP_CONTENT_TYPE_RE.test(contentType)) {
     return highlight(formatHtml(text), 'html')
   }
 
-  return text
+  const language = CONTENT_TYPE_LANGUAGES.find(([pattern]) => pattern.test(contentType))?.[1]
+  return language ? highlight(text, language) : text
 }
 
 function isJson(value: string): boolean {

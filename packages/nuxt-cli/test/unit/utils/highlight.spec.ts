@@ -52,4 +52,58 @@ describe('highlight', () => {
       expect(stripVTControlCharacters(highlight(html, 'html'))).toBe(html)
     })
   })
+
+  describe('md', () => {
+    const md = [
+      '# Title',
+      '',
+      'Some **bold** and `code`.',
+      '',
+      '```ts [app.ts]',
+      'const a = 1',
+      '```',
+      '',
+    ].join('\n')
+
+    it('colours headings, emphasis and inline code', () => {
+      const highlighted = highlight(md, 'md')
+
+      expect(highlighted).toContain(styleText('magenta', '# Title'))
+      expect(highlighted).toContain(styleText('yellow', '**bold**'))
+      expect(highlighted).toContain(styleText('green', '`code`'))
+    })
+
+    it('colours a fenced block with the language of its info string', () => {
+      expect(highlight(md, 'md')).toContain(styleText('magenta', 'const'))
+      expect(highlight('```typescript\nconst a = 1\n```\n', 'md')).toContain(styleText('magenta', 'const'))
+    })
+
+    it('colours a vue fence, reading its script block as typescript', () => {
+      const highlighted = highlight('```vue [app.vue]\n<script setup lang="ts">\ninterface Props { msg: string }\n</script>\n<style>.a{color:red}</style>\n```\n', 'md')
+
+      expect(highlighted).toContain(styleText('magenta', 'interface'))
+      expect(highlighted).toContain(styleText('blue', 'style'))
+      expect(highlighted).toContain(styleText('blue', 'color'))
+    })
+
+    it.each<[fence: string, token: string, colour: 'cyan' | 'magenta' | 'red']>([
+      ['```bash\necho "hi"\n```\n', 'echo', 'cyan'],
+      ['```sh\necho "hi"\n```\n', 'echo', 'cyan'],
+      ['```diff\n- a\n+ b\n```\n', '- a', 'red'],
+      ['```python\ndef a(): pass\n```\n', 'def', 'magenta'],
+      ['```http\nGET /x HTTP/1.1\n```\n', 'GET', 'magenta'],
+    ])('colours a %j fence', (fence, token, colour) => {
+      expect(highlight(fence, 'md')).toContain(styleText(colour, token))
+    })
+
+    it('leaves a fence in an unknown language unstyled', () => {
+      const highlighted = highlight('```zig\nconst a = 1\n```\n', 'md')
+
+      expect(highlighted).toContain('\nconst a = 1\n')
+    })
+
+    it('leaves the document untouched', () => {
+      expect(stripVTControlCharacters(highlight(md, 'md'))).toBe(md)
+    })
+  })
 })

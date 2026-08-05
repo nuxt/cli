@@ -6,6 +6,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { stripVTControlCharacters } from 'node:util'
 
 import { runCommand } from 'citty'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -23,6 +24,19 @@ const requests: ReceivedRequest[] = []
 
 const BINARY_BODY = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x00, 0x1A, 0x0A, 0x00])
 
+const ASSETS: Record<string, [contentType: string, body: string]> = {
+  '/app.css': ['text/css', '.a { color: red }'],
+  '/entry.js': ['text/javascript', 'export const a = 1'],
+  '/plugin.ts': ['application/typescript', 'export const a: string = \'x\''],
+  '/readme.md': ['text/markdown', '# Title'],
+  '/sitemap.xml': ['application/xml', '<urlset><url><loc>/</loc></url></urlset>'],
+  '/config.yaml': ['application/yaml', 'name: nuxt\nport: 3000'],
+  '/log.ndjson': ['application/x-ndjson', '{"a":1}\n{"b":[true,null]}\n'],
+  '/fix.diff': ['text/x-diff', '- const a = 1\n+ const a = 2'],
+  '/deploy.sh': ['application/x-sh', 'echo "hi"'],
+  '/untyped': ['text/plain', '{"hello":"world"}'],
+}
+
 const server = createServer(async (req, res) => {
   const chunks: Buffer[] = []
   for await (const chunk of req) {
@@ -39,6 +53,13 @@ const server = createServer(async (req, res) => {
     res.statusCode = 404
     res.setHeader('content-type', 'application/json')
     res.end(JSON.stringify({ statusCode: 404, message: 'Page not found' }))
+    return
+  }
+
+  const asset = ASSETS[req.url!]
+  if (asset) {
+    res.setHeader('content-type', asset[0])
+    res.end(asset[1])
     return
   }
 
@@ -240,6 +261,49 @@ describe('curl', () => {
 
     expect(code).toBe(0)
     expect(Buffer.concat(chunks).equals(BINARY_BODY)).toBe(true)
+  })
+
+  it.each([
+    ['/app.css', 'color'],
+    ['/entry.js', 'const'],
+    ['/plugin.ts', 'string'],
+    ['/readme.md', '# Title'],
+    ['/sitemap.xml', 'urlset'],
+    ['/config.yaml', 'name'],
+    ['/log.ndjson', '{"a":1}'],
+    ['/fix.diff', '+ const a = 2'],
+    ['/deploy.sh', 'echo'],
+  ])('highlights %s in a terminal', async (path, token) => {
+    process.stdout.isTTY = true
+    const code = await run([`${origin}${path}`])
+
+    expect(code).toBe(0)
+    expect(stdout).toContain('\u001B[')
+    expect(stripVTControlCharacters(stdout)).toContain(token)
+  })
+
+  it('indents an xml response for a terminal, but leaves a pipe untouched', async () => {
+    expect(await run([`${origin}/sitemap.xml`])).toBe(0)
+    expect(stdout).toBe('<urlset><url><loc>/</loc></url></urlset>')
+
+    stdout = ''
+    process.stdout.isTTY = true
+    expect(await run([`${origin}/sitemap.xml`])).toBe(0)
+    expect(stripVTControlCharacters(stdout)).toBe('<urlset>\n  <url>\n    <loc>/</loc>\n  </url>\n</urlset>\n')
+  })
+
+  it('takes a text/plain body at its word, even when it looks like json', async () => {
+    process.stdout.isTTY = true
+    expect(await run([`${origin}/untyped`])).toBe(0)
+    expect(stdout).toBe('{"hello":"world"}\n')
+  })
+
+  it('highlights newline-delimited json a record at a time', async () => {
+    process.stdout.isTTY = true
+    const code = await run([`${origin}/log.ndjson`])
+
+    expect(code).toBe(0)
+    expect(stripVTControlCharacters(stdout)).toBe('{"a":1}\n{"b":[true,null]}\n')
   })
 
   it('does not write binary responses to a terminal', async () => {
