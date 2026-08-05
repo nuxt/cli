@@ -64,6 +64,12 @@ const server = createServer(async (req, res) => {
     return
   }
 
+  if (req.url === '/latin1') {
+    res.setHeader('content-type', 'text/plain; charset=iso-8859-1')
+    res.end(Buffer.from('café', 'latin1'))
+    return
+  }
+
   if (req.url === '/binary') {
     res.setHeader('content-type', 'application/octet-stream')
     res.end(BINARY_BODY)
@@ -303,6 +309,12 @@ describe('curl', () => {
   it('formats a piped body when --pretty is forced', async () => {
     expect(await run([`${origin}/sitemap.xml`, '--pretty'])).toBe(0)
     expect(stripVTControlCharacters(stdout)).toBe('<urlset>\n  <url>\n    <loc>/</loc>\n  </url>\n</urlset>\n')
+  })
+
+  it('decodes the body with the charset the response declares', async () => {
+    process.stdout.isTTY = true
+    expect(await run([`${origin}/latin1`])).toBe(0)
+    expect(stdout).toBe('café\n')
   })
 
   it('takes a text/plain body at its word, even when it looks like json', async () => {

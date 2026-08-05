@@ -277,12 +277,26 @@ async function writeResponseBody(response: Response, pretty: boolean): Promise<v
     return
   }
 
-  const text = buffer.toString('utf-8')
+  const text = decodeBody(buffer, contentType)
   const body = renderer?.(text) ?? text
   process.stdout.write(body)
   if (!body.endsWith('\n')) {
     process.stdout.write('\n')
   }
+}
+
+/** Decode with the charset the response declares, falling back to UTF-8 when it is absent or unknown. */
+function decodeBody(buffer: Buffer, contentType: string): string {
+  const charset = /;\s*charset=["']?([\w-]+)/i.exec(contentType)?.[1]
+  if (charset) {
+    try {
+      return new TextDecoder(charset).decode(buffer)
+    }
+    catch {
+      // fall through to UTF-8
+    }
+  }
+  return buffer.toString('utf-8')
 }
 
 /**
