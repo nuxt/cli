@@ -15,6 +15,15 @@ import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './_utils'
 
 const DASH_RE = /-/g
 
+/**
+ * Every result is rendered as its own box, so a query that happens to be a
+ * subsequence of half the registry (`stripe` matches 178 of 316 modules at any
+ * score) must not turn into a screenful of boxes. The score cut removes the
+ * incidental matches and the limit caps what is left.
+ */
+const SCORE_THRESHOLD = 0.5
+const RESULT_LIMIT = 20
+
 const { format: formatNumber } = new Intl.NumberFormat('en-GB', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -77,7 +86,12 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     ].filter(Boolean).join(' ')),
   }))
 
-  const results = fuzzysort.go(query, targets, { keys: ['name', 'npm', 'rest'], all: !query }).map(({ obj: { item } }) => {
+  const results = fuzzysort.go(query, targets, {
+    keys: ['name', 'npm', 'rest'],
+    all: !query,
+    threshold: SCORE_THRESHOLD,
+    limit: RESULT_LIMIT,
+  }).map(({ obj: { item } }) => {
     const res: Record<string, string> = {
       name: item.name,
       package: item.npm,
