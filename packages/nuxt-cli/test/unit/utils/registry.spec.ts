@@ -77,7 +77,7 @@ describe('detectNpmRegistry', () => {
     ].join('\n'))
 
     await expect(detectNpmRegistry(null, directory)).resolves.toEqual({
-      registry: 'https://registry.example.com/',
+      registry: 'https://registry.example.com',
       authToken: 'secret',
     })
     expect(process.env.COREPACK_NPM_REGISTRY).toBeUndefined()

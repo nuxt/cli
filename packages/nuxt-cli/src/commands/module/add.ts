@@ -12,7 +12,6 @@ import { defineCommand } from 'citty'
 import { detectPackageManager, packageManagers } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
-import { joinURL } from 'ufo'
 import { findMaxSatisfying, satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run-command'
@@ -435,7 +434,7 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   }
 
   // TODO: spinner
-  const pkgUrl = joinURL(meta.registry, `${pkgName}`)
+  const pkgUrl = `${meta.registry}/${pkgName}`
   const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
     logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${styleText('cyan', pkgName)}.` })
     return null

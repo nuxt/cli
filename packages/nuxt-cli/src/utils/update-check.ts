@@ -4,7 +4,6 @@ import { styleText } from 'node:util'
 
 import { readUser, updateUser } from 'rc9'
 import { isCI, isTest, provider } from 'std-env'
-import { joinURL } from 'ufo'
 import { isGreater, tryParse } from 'verkit'
 
 import { fetchJson } from './fetch'
@@ -85,7 +84,7 @@ async function resolveLatestVersion(name: string): Promise<string | undefined> {
   let latest: string | undefined
   try {
     const { registry, authToken } = await detectNpmRegistry(null)
-    latest = (await fetchJson<{ latest?: string }>(joinURL(registry, `-/package/${name}/dist-tags`), {
+    latest = (await fetchJson<{ latest?: string }>(`${registry}/-/package/${name}/dist-tags`, {
       headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
       timeout: FETCH_TIMEOUT,
       retry: 0,

@@ -1,5 +1,4 @@
 import { readPackageJSON } from 'pkg-types'
-import { joinURL } from 'ufo'
 import { coerce, findMaxSatisfying } from 'verkit'
 
 import { resolveCatalogEntry } from './catalog'
@@ -44,7 +43,7 @@ export async function resolveRegistryVersion(pkg: string, range: string): Promis
     const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
     const { registry, authToken } = await detectNpmRegistry(scope)
 
-    packument = await fetchJson(joinURL(registry, pkg), {
+    packument = await fetchJson(`${registry}/${pkg}`, {
       headers: {
         // The abbreviated packument is a fraction of the size of the full one and
         // still carries every version and dist-tag.

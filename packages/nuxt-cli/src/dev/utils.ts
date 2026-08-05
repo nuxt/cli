@@ -21,7 +21,6 @@ import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 
-import { joinURL } from 'ufo'
 import { showBanner } from '../utils/banner'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -589,10 +588,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         const nuxt = this.#currentNuxt
         if (!nuxt || !nuxt.server)
           return
-        const viteHmrPath = joinURL(
-          nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL,
-          nuxt.options.app.buildAssetsDir,
-        )
+        const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
+        const assetsDir = nuxt.options.app.buildAssetsDir
+        const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${assetsDir.replace(/^\//, '')}`
         if (req.url?.startsWith(viteHmrPath)) {
           return // Skip for Vite HMR
         }

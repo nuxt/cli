@@ -11,6 +11,7 @@ const PROTOCOL_RE = /^https?:\/\//
 const TRAILING_SLASH_RE = /\/$/
 
 export interface RegistryMeta {
+  /** Registry URL without a trailing slash, so paths can be appended directly. */
   registry: string
   authToken: string | null
 }
@@ -66,15 +67,16 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
 }
 
 async function getRegistry(scope: string | null, cwd: string): Promise<string> {
-  if (process.env.COREPACK_NPM_REGISTRY) {
-    return process.env.COREPACK_NPM_REGISTRY
-  }
-  return await getRegistryFromFile(getNpmrcPaths(cwd), scope) || 'https://registry.npmjs.org'
+  const registry = process.env.COREPACK_NPM_REGISTRY
+    || await getRegistryFromFile(getNpmrcPaths(cwd), scope)
+    || 'https://registry.npmjs.org'
+
+  return registry.replace(TRAILING_SLASH_RE, '')
 }
 
 async function getAuthToken(registry: RegistryMeta['registry'], cwd: string): Promise<RegistryMeta['authToken']> {
   const paths = getNpmrcPaths(cwd)
-  const registryHost = registry.replace(PROTOCOL_RE, '').replace(TRAILING_SLASH_RE, '')
+  const registryHost = registry.replace(PROTOCOL_RE, '')
   const authTokenKey = `//${registryHost}/:_authToken`
 
   for (const npmrcPath of paths) {

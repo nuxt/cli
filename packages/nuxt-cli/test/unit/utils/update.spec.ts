@@ -156,7 +156,7 @@ describe('update check', () => {
     })
 
     it('queries the configured registry with its auth token', async () => {
-      registry.current = { registry: 'https://npm.example.com/', authToken: 'secret' }
+      registry.current = { registry: 'https://npm.example.com', authToken: 'secret' }
       fetchMock.mockResolvedValue({ latest: '4.1.0' })
       await checkForNuxtUpdate('/project')
       expect(fetchMock).toHaveBeenCalledWith(
