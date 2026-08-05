@@ -3,7 +3,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { byLengthAsc, Fzf } from 'fzf'
+import fuzzysort from 'fuzzysort'
 import { kebabCase, upperFirst } from 'scule'
 
 import { formatInfoBox } from '../../utils/formatting'
@@ -64,21 +64,20 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
   const compatibleModules = allModules.filter(m =>
     checkNuxtCompatibility(m, nuxtVersion),
   )
-  const fzf = new Fzf(compatibleModules, {
-    selector: m => [
-      m.name,
-      m.npm,
-      m.repo,
-      m.tags?.join(' '),
-      m.category,
-      m.description,
-      m.maintainers.map(maintainer => `${maintainer.name} ${maintainer.github}`).join(' '),
-    ].filter(Boolean).join(' '),
-    casing: 'case-insensitive',
-    tiebreakers: [byLengthAsc],
-  })
+  const targets = compatibleModules.map(item => ({
+    item,
+    name: fuzzysort.prepare(item.name),
+    npm: fuzzysort.prepare(item.npm),
+    rest: fuzzysort.prepare([
+      item.repo,
+      item.tags?.join(' '),
+      item.category,
+      item.description,
+      item.maintainers.map(maintainer => `${maintainer.name} ${maintainer.github}`).join(' '),
+    ].filter(Boolean).join(' ')),
+  }))
 
-  const results = fzf.find(query).map(({ item }) => {
+  const results = fuzzysort.go(query, targets, { keys: ['name', 'npm', 'rest'], all: !query }).map(({ obj: { item } }) => {
     const res: Record<string, string> = {
       name: item.name,
       package: item.npm,
