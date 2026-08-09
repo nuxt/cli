@@ -569,6 +569,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         && newManifest
         && previousManifest._hash !== newManifest._hash
       ) {
+        debug(`Clearing ${this.#currentNuxt.options.buildDir} (manifest hash ${previousManifest._hash} -> ${newManifest._hash}).`)
         await clearBuildDir(this.#currentNuxt.options.buildDir)
       }
     }
