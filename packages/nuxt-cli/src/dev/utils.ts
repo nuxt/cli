@@ -8,9 +8,10 @@ import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
 import type { DevListenOverrides, Listener, ListenOptions } from './listen'
 import type { DevRestartReason } from './reason'
+import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
-import { existsSync, readdirSync, readFileSync, statSync, watch } from 'node:fs'
+import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 
@@ -111,11 +112,35 @@ function hashFileContents(path: string, size: number): string | undefined {
   if (size > MAX_HASHED_FILE_SIZE) {
     return undefined
   }
+  let fd: number | undefined
   try {
-    return hash('sha1', readFileSync(path), 'hex')
+    fd = openSync(path, 'r')
+    // The stat'd size can be stale, so cap the read rather than trusting it; an
+    // extra byte means the file outgrew the limit and falls back to mtime.
+    const buffer = Buffer.allocUnsafe(MAX_HASHED_FILE_SIZE + 1)
+    let read = 0
+    while (read < buffer.length) {
+      const bytes = readSync(fd, buffer, read, buffer.length - read, read)
+      if (bytes === 0) {
+        break
+      }
+      read += bytes
+    }
+    if (read > MAX_HASHED_FILE_SIZE) {
+      return undefined
+    }
+    return hash('sha1', buffer.subarray(0, read), 'hex')
   }
   catch {
     return undefined
+  }
+  finally {
+    if (fd !== undefined) {
+      try {
+        closeSync(fd)
+      }
+      catch {}
+    }
   }
 }
 
