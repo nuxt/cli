@@ -30,7 +30,7 @@
     "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts"
   },
   "devDependencies": {
-    "@bomb.sh/tab": "^0.0.21",
+    "@bomb.sh/tab": "^0.0.22",
     "@clack/prompts": "^1.7.0",
     "@types/node": "^24.13.3",
     "citty": "^0.2.2",
