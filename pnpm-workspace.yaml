@@ -5,6 +5,7 @@ minimumReleaseAgeExclude:
   - nuxt-nightly
   - vue
   - '@vue/*'
+  - fuzzysort@4.0.1
 
 packages:
   - packages/*
