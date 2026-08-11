@@ -93,7 +93,7 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
       return true
     let results = matches.get(search)
     if (!results) {
-      results = new Set(fuzzysort.go(search, targets, { keys: ['npm', 'name', 'category'] }).map(r => r.obj.value))
+      results = new Set(fuzzysort.go(search, targets, { keys: ['npm', 'name', 'category'], threshold: 0, limit: 0 }).map(r => r.obj.value))
       matches.set(search, results)
     }
     return results.has(option.value)

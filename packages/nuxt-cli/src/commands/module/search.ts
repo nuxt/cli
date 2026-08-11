@@ -88,7 +88,6 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
 
   const results = fuzzysort.go(query, targets, {
     keys: ['name', 'npm', 'rest'],
-    all: !query,
     threshold: SCORE_THRESHOLD,
     limit: RESULT_LIMIT,
   }).map(({ obj: { item } }) => {
