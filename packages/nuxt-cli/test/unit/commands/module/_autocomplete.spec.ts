@@ -337,6 +337,52 @@ describe('selectModulesAutocomplete', () => {
       expect(capturedFilter!('tail', { value: '@nuxt/tailwind', label: '@nuxt/tailwind' })).toBe(true)
       expect(capturedFilter!('tail', { value: '@nuxt/image', label: '@nuxt/image' })).toBe(false)
     })
+
+    it('should keep every match, not just the first handful', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedFilter: ((search: string, option: any) => boolean) | undefined
+
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedFilter = opts.filter
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      const modules = Array.from({ length: 30 }, (_, i) => createMockModule({
+        npm: `nuxt-module-${i}`,
+        name: `module-${i}`,
+      }))
+
+      await selectModulesAutocomplete({ modules })
+
+      const matched = modules.filter(m => capturedFilter!('module', { value: m.npm, label: m.npm }))
+      expect(matched).toHaveLength(30)
+    })
+
+    it('should keep low-scoring subsequence matches', async () => {
+      vi.doMock('std-env', () => ({
+        hasTTY: true,
+      }))
+
+      let capturedFilter: ((search: string, option: any) => boolean) | undefined
+
+      mockAutocompleteMultiselect.mockImplementation(async (opts: any) => {
+        capturedFilter = opts.filter
+        return []
+      })
+
+      const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
+
+      await selectModulesAutocomplete({
+        modules: [createMockModule({ npm: '@nuxt/typescript-build', name: 'typescript-build', category: 'Devtools' })],
+      })
+
+      expect(capturedFilter!('tsb', { value: '@nuxt/typescript-build', label: '@nuxt/typescript-build' })).toBe(true)
+    })
   })
 
   describe('options structure', () => {
