@@ -137,11 +137,39 @@ describe('preflight', () => {
     chmodSync(buildDir, 0o555)
 
     try {
-      await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/Nuxt cannot write to[\s\S]*chmod u\+w \.nuxt/)
+      await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/Nuxt cannot write to[\s\S]*chmod u\+wx \.nuxt/)
     }
     finally {
       chmodSync(buildDir, 0o755)
     }
+  })
+
+  it.skipIf(process.getuid?.() === 0 || process.platform === 'win32')('should explain a build directory that cannot be searched', async () => {
+    write('nuxt.config.ts')
+    installNuxt()
+    const buildDir = join(tempDir, '.nuxt')
+    mkdirSync(buildDir)
+    chmodSync(buildDir, 0o655)
+
+    try {
+      await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/Nuxt cannot write to/)
+    }
+    finally {
+      chmodSync(buildDir, 0o755)
+    }
+  })
+
+  it('should explain a missing package.json', async () => {
+    write('nuxt.config.ts')
+
+    await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/no readable[\s\S]*package\.json/)
+  })
+
+  it('should explain an unparseable package.json', async () => {
+    write('nuxt.config.ts')
+    write('package.json', '{ not json')
+
+    await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/no readable[\s\S]*package\.json/)
   })
 
   it('should explain that nuxt is not a dependency', async () => {

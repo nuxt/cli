@@ -171,21 +171,22 @@ async function resolveProjectDirectory(cwd: string, interactive: boolean): Promi
  * from whichever write happens to get there first, long after the banner.
  *
  * Only the default build directory is checked; a configured one is not known
- * until the config has been read. `W_OK` reflects neither Windows ACLs nor the
- * privileges of a root user, so on those the check passes and the write still
- * fails, as it did before.
+ * until the config has been read. Write access is not enough on its own: a
+ * directory also has to be searchable for anything inside it to be opened.
+ * Neither bit reflects Windows ACLs or the privileges of a root user, so on
+ * those the check passes and the write still fails, as it did before.
  */
 function checkWritableBuildDir(cwd: string): void {
   const buildDir = join(cwd, '.nuxt')
   const target = existsSync(buildDir) ? buildDir : cwd
   try {
-    accessSync(target, constants.W_OK)
+    accessSync(target, constants.W_OK | constants.X_OK)
   }
   catch {
     throw new ActionableError([
       `${styleText('red', 'Nuxt cannot write to')} ${styleText('cyan', target)}${styleText('red', '.')}`,
       '',
-      `Grant write access with ${styleText('cyan', `chmod u+w ${relativeTo(cwd, target, { link: false })}`)}, or remove the directory and try again.`,
+      `Grant write access with ${styleText('cyan', `chmod u+wx ${relativeTo(cwd, target, { link: false })}`)}, or remove the directory and try again.`,
     ].join('\n'))
   }
 }
@@ -195,8 +196,18 @@ async function checkDependencies(cwd: string, interactive: boolean): Promise<voi
     return
   }
 
+  // Reachable with a `nuxt.config` and no usable manifest, where an install has
+  // nothing to install from.
   const packageJson = readPackageJson(cwd)
-  if (packageJson && !declaresNuxt(packageJson)) {
+  if (!packageJson) {
+    throw new ActionableError([
+      `${styleText('red', 'There is no readable')} ${styleText('cyan', 'package.json')} ${styleText('red', 'in')} ${styleText('cyan', cwd)}${styleText('red', '.')}`,
+      '',
+      `Create or repair it, then add ${styleText('cyan', 'nuxt')} as a dependency.`,
+    ].join('\n'))
+  }
+
+  if (!declaresNuxt(packageJson)) {
     const { name } = await detectInstaller(cwd)
     throw new ActionableError([
       `${styleText('red', '`nuxt` is not a dependency of this project.')}`,
