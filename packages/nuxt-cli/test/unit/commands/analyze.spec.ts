@@ -24,8 +24,9 @@ function createHooks() {
   }
 }
 
-const { acquireLock, acquireOutputLock, buildNuxt, loadNuxt, releaseBuildLock, releaseOutputLock } = vi.hoisted(() => ({
+const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, releaseBuildLock, releaseOutputLock } = vi.hoisted(() => ({
   acquireLock: vi.fn(),
+  formatLockError: vi.fn(() => 'locked'),
   acquireOutputLock: vi.fn(),
   buildNuxt: vi.fn(),
   loadNuxt: vi.fn(),
@@ -40,7 +41,7 @@ vi.mock('../../../src/utils/kit', () => ({
 vi.mock('../../../src/utils/lockfile', () => ({
   acquireLock,
   acquireOutputLock,
-  formatLockError: vi.fn(() => 'locked'),
+  formatLockError,
 }))
 
 let cwd: string
@@ -154,7 +155,11 @@ describe('nuxt analyze command', () => {
       existing: { command: 'build', pid: 42 },
     })
 
-    await expect(runAnalyze()).rejects.toThrow('Another Nuxt build is already writing')
+    await expect(runAnalyze()).rejects.toThrow('locked')
+    expect(formatLockError).toHaveBeenCalledWith(
+      expect.objectContaining({ pid: 42 }),
+      { outputDir: expect.stringContaining('.output') },
+    )
     expect(buildNuxt).not.toHaveBeenCalled()
     expect(releaseBuildLock).toHaveBeenCalledOnce()
   })

@@ -8,6 +8,7 @@ import { relative } from 'pathe'
 import { showBanner } from '../utils/banner'
 
 import { overrideEnv } from '../utils/env'
+import { ActionableError } from '../utils/errors'
 import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
@@ -91,8 +92,7 @@ export default defineCommand({
         cwd,
       })
       if (lock.existing) {
-        logger.error(formatLockError(lock.existing))
-        throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+        throw new ActionableError(formatLockError(lock.existing))
       }
       releaseLocks.push(lock.release)
 
@@ -104,8 +104,7 @@ export default defineCommand({
         cwd,
       })
       if (outputLock.existing) {
-        logger.error(formatLockError(outputLock.existing))
-        throw new Error(`Another Nuxt build is already writing to ${relative(process.cwd(), nitro.options.output.dir)} (PID ${outputLock.existing.pid}).`)
+        throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), nitro.options.output.dir) }))
       }
       releaseLocks.push(outputLock.release)
 

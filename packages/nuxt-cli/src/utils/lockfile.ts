@@ -3,7 +3,8 @@ import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from '
 import process from 'node:process'
 
 import { join } from 'pathe'
-import { isCI } from 'std-env'
+
+import { isInteractiveSession } from './stdout'
 
 export interface LockInfo {
   pid: number
@@ -35,11 +36,6 @@ const OUTPUT_LOCK_DIRNAME = 'node_modules/.cache/nuxt'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
-
-/** Whether this process is attached to a terminal a user can answer prompts on. */
-export function isInteractiveSession(): boolean {
-  return !!process.stdin.isTTY && !isCI
-}
 
 export function isProcessAlive(pid: number): boolean {
   try {
@@ -330,17 +326,22 @@ function makeRelease(lockPath: string): () => void {
 }
 
 /**
- * Format an error message when a Nuxt process is already running.
+ * Format an error message when a Nuxt process holds a lock this one needs.
  * Designed to be actionable for both humans and LLM agents.
+ *
+ * `outputDir` names the build output being contended, when the lock is over one
+ * rather than over the project itself.
  */
-export function formatLockError(info: LockInfo): string {
+export function formatLockError(info: LockInfo, options: { outputDir?: string } = {}): string {
   const isWindows = process.platform === 'win32'
   const killCmd = isWindows ? `taskkill /PID ${info.pid} /F` : `kill ${info.pid}`
   const label = info.command === 'dev' ? 'dev server' : 'build'
 
   const lines = [
     '',
-    `Another Nuxt ${label} is already running:`,
+    options.outputDir
+      ? `Another Nuxt ${label} is already writing to ${options.outputDir}:`
+      : `Another Nuxt ${label} is already running:`,
     '',
   ]
 

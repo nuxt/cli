@@ -5,6 +5,7 @@ import build from '../../../src/commands/build'
 
 const mocks = vi.hoisted(() => ({
   acquireLock: vi.fn(),
+  formatLockError: vi.fn(() => 'lock details'),
   acquireOutputLock: vi.fn(),
   buildNuxt: vi.fn(),
   clearBuildDir: vi.fn(),
@@ -32,7 +33,7 @@ vi.mock('../../../src/utils/kit', () => ({
 vi.mock('../../../src/utils/lockfile', () => ({
   acquireLock: mocks.acquireLock,
   acquireOutputLock: mocks.acquireOutputLock,
-  formatLockError: vi.fn(() => 'lock details'),
+  formatLockError: mocks.formatLockError,
 }))
 vi.mock('../../../src/utils/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
@@ -124,7 +125,11 @@ describe('build', () => {
       existing: { pid: 42, command: 'build', cwd: '/other/project', startedAt: Date.now() },
     })
 
-    await expect(run()).rejects.toThrow(/Another Nuxt build is already writing to .*\.output \(PID 42\)\./)
+    await expect(run()).rejects.toThrow('lock details')
+    expect(mocks.formatLockError).toHaveBeenCalledWith(
+      expect.objectContaining({ pid: 42 }),
+      { outputDir: expect.stringContaining('.output') },
+    )
 
     expect(mocks.clearBuildDir).not.toHaveBeenCalled()
     expect(mocks.buildNuxt).not.toHaveBeenCalled()

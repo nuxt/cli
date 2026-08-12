@@ -1,5 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
+import { ActionableError } from './errors'
 import { withNodePath } from './paths'
 
 // `exsolve` and Node.js word their resolution failures differently
@@ -13,7 +14,7 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
   }
   catch (e: any) {
     if (KIT_NOT_FOUND_RE.test(String(e))) {
-      throw new Error(
+      throw new ActionableError(
         'nuxi requires `@nuxt/kit` to be installed in your project. Try installing `nuxt` v3+ first.',
       )
     }

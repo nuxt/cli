@@ -451,6 +451,18 @@ describe('lockfile', () => {
       expect(message).toContain('connect to')
     })
 
+    it('names the contended output directory', () => {
+      const message = formatLockError({
+        pid: 12345,
+        command: 'build',
+        cwd: '/my/project',
+        interactive: false,
+        startedAt: Date.now(),
+      }, { outputDir: '.output' })
+
+      expect(message).toContain('already writing to .output')
+    })
+
     it('formats build lock without URL', () => {
       const message = formatLockError({
         pid: 12345,

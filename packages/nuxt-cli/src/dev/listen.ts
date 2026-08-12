@@ -12,6 +12,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { getPort } from 'get-port-please'
 
+import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
 import { resolvePortlessURLs } from './portless'
@@ -383,7 +384,7 @@ export function parsePort(value: string | number | undefined): number | undefine
   }
   const port = Number(value)
   if (!Number.isInteger(port) || port < 0 || port > 65_535) {
-    throw new Error(`Invalid port \`${value}\`; expected an integer between 0 and 65535.`)
+    throw new ActionableError(`Invalid port \`${value}\`; expected an integer between 0 and 65535.`)
   }
   return port
 }

@@ -24,6 +24,7 @@ import { toNodeHandler } from 'srvx/node'
 import { provider } from 'std-env'
 
 import { showBanner } from '../utils/banner'
+import { ActionableError } from '../utils/errors'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
@@ -775,8 +776,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       takeoverFrom: this.options.handoverFrom,
     })
     if (lock.existing) {
-      console.error(formatLockError(lock.existing))
-      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+      throw new ActionableError(formatLockError(lock.existing))
     }
     // Swap atomically: install the new release before freeing the old one so
     // we're never unlocked in between.
