@@ -8,8 +8,9 @@ import { checkPort } from 'get-port-please'
 import { isCI } from 'std-env'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
-import { clearStaleLock, clearTakeover, isInteractiveSession, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
+import { clearStaleLock, clearTakeover, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
+import { isInteractiveSession } from '../utils/stdout'
 import { DEV_SHUTDOWN_TIMEOUT_MS } from './shutdown'
 
 /** How long a `SIGKILL`ed process has to disappear before we give up. */

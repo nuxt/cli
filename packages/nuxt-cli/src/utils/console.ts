@@ -4,10 +4,7 @@ import process from 'node:process'
 
 import { consola } from 'consola'
 
-import { hasTTY, isTest } from 'std-env'
-
 import { isRemotePeerError } from './errors'
-import { isInteractiveSession } from './lockfile'
 import { debug } from './logger'
 import { trackOutputSpacing } from './stdout'
 
@@ -48,15 +45,6 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   process.on('unhandledRejection', err => report('[unhandledRejection]', err))
 
   process.on('uncaughtException', err => report('[uncaughtException]', err))
-}
-
-/**
- * Whether a question can be asked and answered right now. `hasTTY` is required
- * as well as an interactive session, so a prompt cannot be written into a
- * redirected stdout where nobody will see it.
- */
-export function isInteractive(): boolean {
-  return isInteractiveSession() && hasTTY && !isTest
 }
 
 /**

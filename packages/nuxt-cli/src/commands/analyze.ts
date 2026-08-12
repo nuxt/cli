@@ -11,6 +11,7 @@ import { join, relative, resolve } from 'pathe'
 import { serve } from 'srvx'
 
 import { overrideEnv } from '../utils/env'
+import { ActionableError } from '../utils/errors'
 import { clearDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
@@ -140,15 +141,13 @@ export default defineCommand({
     const lockInfo = { command: 'analyze' as const, cwd }
     const lock = acquireLock(buildDir, lockInfo)
     if (lock.existing) {
-      logger.error(formatLockError(lock.existing))
-      throw new Error(`Another Nuxt ${lock.existing.command} is already running (PID ${lock.existing.pid}).`)
+      throw new ActionableError(formatLockError(lock.existing))
     }
 
     const outputLock = acquireOutputLock(nuxt.options.rootDir, outDir, lockInfo)
     if (outputLock.existing) {
       lock.release()
-      logger.error(formatLockError(outputLock.existing))
-      throw new Error(`Another Nuxt build is already writing to ${relative(process.cwd(), outDir)} (PID ${outputLock.existing.pid}).`)
+      throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), outDir) }))
     }
 
     try {

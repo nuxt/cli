@@ -1,6 +1,7 @@
 import { defineCommand } from 'citty'
 import { x } from 'tinyexec'
 
+import { ActionableError } from '../utils/errors'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
 
@@ -22,7 +23,7 @@ export default defineCommand({
     const command = ctx.args.command
 
     if (command !== 'enable' && command !== 'disable') {
-      throw new Error(`Unknown devtools command \`${command}\`. Expected \`enable\` or \`disable\`.`)
+      throw new ActionableError(`Unknown devtools command \`${command}\`. Expected \`enable\` or \`disable\`.`)
     }
 
     await x(

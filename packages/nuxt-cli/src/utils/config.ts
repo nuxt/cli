@@ -6,6 +6,7 @@ import { resolveModulePath } from 'exsolve'
 import { dirname, extname, join, normalize } from 'pathe'
 
 import { CONFIG_KEYS, locateConfig } from './config-parse'
+import { ActionableError } from './errors'
 
 export interface NuxtConfigFile {
   /** Absolute path to the config file. */
@@ -65,7 +66,7 @@ export async function readNuxtConfig(cwd: string): Promise<NuxtConfigFile | unde
 
   const ext = extname(file)
   if (!EDITABLE_EXTENSIONS.includes(ext)) {
-    throw new Error(`Unsupported config file extension: ${ext} (${file}) (supported: ${EDITABLE_EXTENSIONS.join(', ')})`)
+    throw new ActionableError(`Unsupported config file extension: ${ext} (${file}) (supported: ${EDITABLE_EXTENSIONS.join(', ')})`)
   }
 
   const source = await readFile(file, 'utf8')

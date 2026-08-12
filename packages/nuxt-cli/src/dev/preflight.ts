@@ -6,12 +6,13 @@ import { styleText } from 'node:util'
 import { confirm, isCancel, spinner } from '@clack/prompts'
 import { dirname, join } from 'pathe'
 
-import { isInteractive, restoreRawMode, withDirectStdout } from '../utils/console'
+import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
 import { tryResolveNuxt } from '../utils/kit'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
 import { relativeTo } from '../utils/paths'
+import { isInteractive } from '../utils/stdout'
 
 const NUXT_PACKAGES = ['nuxt', 'nuxt-nightly']
 

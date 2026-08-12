@@ -9,6 +9,7 @@ import process from 'node:process'
 
 import { join } from 'pathe'
 
+import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { findInPath, getCacheDir, resolveTool } from './binaries'
 
@@ -58,7 +59,7 @@ async function generateCertificate(options: HTTPSOptions): Promise<ResolvedCerti
     const generated = await generateWithMkcert(certPath, keyPath, domains)
       || generateWithOpenssl(certPath, keyPath, domains, options.validityDays)
     if (!generated) {
-      throw new Error('Could not generate a development certificate. Install `mkcert` (https://github.com/FiloSottile/mkcert) or provide `--https.cert` and `--https.key`.')
+      throw new ActionableError('Could not generate a development certificate. Install `mkcert` (https://github.com/FiloSottile/mkcert) or provide `--https.cert` and `--https.key`.')
     }
   }
 

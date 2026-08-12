@@ -1,5 +1,21 @@
 import process from 'node:process'
 
+import { hasTTY, isCI, isTest } from 'std-env'
+
+/** Whether this process is attached to a terminal a user can answer prompts on. */
+export function isInteractiveSession(): boolean {
+  return !!process.stdin.isTTY && !isCI
+}
+
+/**
+ * Whether a question can be asked and answered right now. `hasTTY` is required
+ * as well as an interactive session, so a prompt cannot be written into a
+ * redirected stdout where nobody will see it.
+ */
+export function isInteractive(): boolean {
+  return isInteractiveSession() && hasTTY && !isTest
+}
+
 /** One blank line needs two newlines: one to end the last line, one to skip a row. */
 const BLANK_LINE = 2
 
