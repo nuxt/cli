@@ -1,3 +1,5 @@
+import { resolve } from 'pathe'
+
 function cwdArgIndex(rawArgs: string[]): number {
   const end = rawArgs.indexOf('--')
   const index = rawArgs.findIndex(arg => arg === '--cwd' || arg.startsWith('--cwd='))
@@ -27,4 +29,27 @@ export function normaliseCwdArg(rawArgs: string[]): void {
 
   const separator = rawArgs.indexOf('--')
   rawArgs.splice(separator === -1 ? rawArgs.length : separator, 0, `--cwd=${cwd}`)
+}
+
+/**
+ * Point already-normalised `rawArgs` at `cwd`, so a process launched with them
+ * (a dev fork) runs against the same directory as this one.
+ *
+ * A positional resolving to `previousCwd` is dropped along with any existing
+ * `--cwd`: it named the directory being moved away from, and leaving it would
+ * disagree with the directory being moved to.
+ */
+export function replaceCwdArg(rawArgs: string[], cwd: string, previousCwd: string): void {
+  const separator = rawArgs.indexOf('--')
+  const end = separator === -1 ? rawArgs.length : separator
+
+  for (let index = end - 1; index >= 0; index--) {
+    const arg = rawArgs[index]!
+    if (arg.startsWith('--cwd=') || (!arg.startsWith('-') && resolve(arg) === previousCwd)) {
+      rawArgs.splice(index, 1)
+    }
+  }
+
+  const remaining = rawArgs.indexOf('--')
+  rawArgs.splice(remaining === -1 ? rawArgs.length : remaining, 0, `--cwd=${cwd}`)
 }

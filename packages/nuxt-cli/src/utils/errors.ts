@@ -7,6 +7,20 @@ const REMOTE_PEER_ERROR_CODES = new Set([
 ])
 
 /**
+ * An error whose message already contains everything the user needs: what went
+ * wrong and the command to run. The stack is replaced with the message so the
+ * terminal shows the advice rather than frames inside `dist`.
+ */
+export class ActionableError extends Error {
+  override name = 'ActionableError'
+
+  constructor(message: string) {
+    super(message)
+    this.stack = message
+  }
+}
+
+/**
  * Errors that say something about the other end of a connection rather than
  * about this process: a broken pipe, a client hanging up mid-request, a tab
  * closed mid-navigation. These should not be reported as crashes or trigger

@@ -16,10 +16,12 @@ import { initialize } from '../dev'
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
+import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { setupShortcuts } from '../dev/shortcuts'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
+import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
@@ -153,7 +155,11 @@ const command = defineCommand({
   },
   async run(ctx) {
     // Prepare
-    const cwd = resolveRootDir(ctx.args)
+    const requestedCwd = resolveRootDir(ctx.args)
+    const cwd = await preflight({ cwd: requestedCwd })
+    if (cwd !== requestedCwd) {
+      replaceCwdArg(ctx.rawArgs, cwd, requestedCwd)
+    }
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
