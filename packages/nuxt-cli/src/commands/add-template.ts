@@ -6,7 +6,7 @@ import { styleText } from 'node:util'
 
 import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { dirname, resolve } from 'pathe'
+import { dirname, extname, resolve } from 'pathe'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -99,6 +99,15 @@ export default defineCommand({
     const kit = await loadKit(cwd)
     const config = await kit.loadNuxtConfig({ cwd })
     const res = templates[templateName]({ name, args: ctx.args, nuxtOptions: config })
+    const stubPath = resolve(config.rootDir, 'stubs', `${templateName}${extname(res.path)}`)
+    try {
+      res.contents = await fsp.readFile(stubPath, 'utf8')
+    }
+    catch (error) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+        throw error
+      }
+    }
     const parentDir = dirname(res.path)
     const createdDir = await fsp.mkdir(parentDir, { recursive: true })
     if (createdDir) {
