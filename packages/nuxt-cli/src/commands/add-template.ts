@@ -100,8 +100,9 @@ export default defineCommand({
     const config = await kit.loadNuxtConfig({ cwd })
     const res = templates[templateName]({ name, args: ctx.args, nuxtOptions: config })
     const stubPath = resolve(config.rootDir, 'stubs', `${templateName}${extname(res.path)}`)
+    let contents = `${res.contents.trim()}\n`
     try {
-      res.contents = await fsp.readFile(stubPath, 'utf8')
+      contents = await fsp.readFile(stubPath, 'utf8')
     }
     catch (error) {
       if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
@@ -118,7 +119,7 @@ export default defineCommand({
     }
 
     try {
-      await fsp.writeFile(res.path, `${res.contents.trim()}\n`, { flag: ctx.args.force ? 'w' : 'wx' })
+      await fsp.writeFile(res.path, contents, { flag: ctx.args.force ? 'w' : 'wx' })
     }
     catch (error) {
       if (!ctx.args.force && (error as NodeJS.ErrnoException).code === 'EEXIST') {

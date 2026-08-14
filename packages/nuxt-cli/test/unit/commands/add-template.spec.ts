@@ -33,13 +33,22 @@ describe('add-template command', () => {
     expect(await readFile(path, 'utf8')).toMatch(/\n$/)
   })
 
-  it('uses a project stub when one exists for the template', async () => {
+  it('preserves project stub contents exactly', async () => {
     await mkdir(join(cwd, 'stubs'))
-    await writeFile(join(cwd, 'stubs/component.vue'), '<template>custom component</template>\n')
+    await writeFile(join(cwd, 'stubs/component.vue'), '  <template>custom component</template>\n\n')
 
     await run('component', 'user-card')
 
-    await expect(readFile(join(cwd, 'components/user-card.vue'), 'utf8')).resolves.toBe('<template>custom component</template>\n')
+    await expect(readFile(join(cwd, 'components/user-card.vue'), 'utf8')).resolves.toBe('  <template>custom component</template>\n\n')
+  })
+
+  it('preserves an empty project stub', async () => {
+    await mkdir(join(cwd, 'stubs'))
+    await writeFile(join(cwd, 'stubs/component.vue'), '')
+
+    await run('component', 'empty-card')
+
+    await expect(readFile(join(cwd, 'components/empty-card.vue'), 'utf8')).resolves.toBe('')
   })
 
   it('exposes template-specific options', async () => {
