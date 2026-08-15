@@ -279,6 +279,10 @@ describe('help', () => {
       ARGUMENTS
 
         ROOTDIR    The root directory of your Nuxt project (default: .)
+
+      OPTIONS
+
+        --json    Print project info as JSON
       "
     `)
   })
