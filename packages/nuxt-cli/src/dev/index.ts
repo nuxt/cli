@@ -130,12 +130,13 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   overrideEnv('development')
 
   const profileArg = devContext.args.profile
-  const perfValue = profileArg === 'verbose' ? true : profileArg ? 'quiet' : undefined
+  const profiling = profileArg !== undefined
+  const perfValue = profileArg === 'verbose' ? true : profiling ? 'quiet' : undefined
   const perfOverrides = perfValue
     ? { debug: { perf: perfValue } } as NuxtConfig
     : {}
 
-  if (profileArg) {
+  if (profiling) {
     await startCpuProfile()
   }
 
@@ -192,7 +193,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     console.debug(`Dev server (internal) initialized in ${Date.now() - start}ms`)
   }
 
-  if (profileArg) {
+  if (profiling) {
     for (const signal of [
       'exit',
       'SIGTERM' /* Graceful shutdown */,
