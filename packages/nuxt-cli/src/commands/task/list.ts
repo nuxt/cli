@@ -5,9 +5,10 @@ import { styleText } from 'node:util'
 
 import { defineCommand } from 'citty'
 
+import { withDirectStdout } from '../../utils/console'
 import { logger } from '../../utils/logger'
 import { resolveRootDir } from '../../utils/paths'
-import { rootDirArgs } from '../_shared'
+import { jsonArgs, rootDirArgs } from '../_shared'
 import { emptyTaskListHint, fetchTasks, missingTaskRoutesHint, reportTaskError, resolveTaskServer, taskArgs } from './_utils'
 
 export default defineCommand({
@@ -18,6 +19,7 @@ export default defineCommand({
   args: {
     ...rootDirArgs,
     ...taskArgs,
+    ...jsonArgs,
   },
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
@@ -34,6 +36,15 @@ export default defineCommand({
 
     const { tasks = {}, scheduledTasks } = (response.data || {}) as TaskList
     const names = Object.keys(tasks).sort()
+
+    if (ctx.args.json) {
+      const payload = JSON.stringify({
+        tasks: names.map(name => ({ name, description: tasks[name]?.description || null })),
+        scheduledTasks: (scheduledTasks || []).map(({ cron, tasks }) => ({ cron, tasks })),
+      }, null, 2)
+      await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+      return
+    }
 
     if (names.length === 0) {
       logger.info(`No tasks found. ${await emptyTaskListHint(cwd)}`)

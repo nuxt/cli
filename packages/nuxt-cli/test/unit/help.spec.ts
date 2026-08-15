@@ -491,6 +491,7 @@ describe('help', () => {
 
           --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)                      
         --nuxtVersion=<2|3>    Filter by Nuxt version and list compatible modules only (auto detected by default)
+                     --json    Print output as JSON                                                              
       "
     `)
   })

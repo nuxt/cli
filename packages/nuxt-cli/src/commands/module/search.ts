@@ -6,11 +6,12 @@ import { defineCommand } from 'citty'
 import fuzzysort from 'fuzzysort'
 import { kebabCase, upperFirst } from 'scule'
 
+import { withDirectStdout } from '../../utils/console'
 import { formatInfoBox } from '../../utils/formatting'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { DEFAULT_NUXT_VERSION, getNuxtVersion } from '../../utils/versions'
-import { cwdArgs } from '../_shared'
+import { cwdArgs, jsonArgs } from '../_shared'
 import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from './_utils'
 
 const DASH_RE = /-/g
@@ -48,12 +49,13 @@ export default defineCommand({
       required: false,
       valueHint: '2|3',
     },
+    ...jsonArgs,
   },
   async setup(ctx) {
     const nuxtVersion = ctx.args.nuxtVersion
       ? normalizeNuxtVersion(ctx.args.nuxtVersion)
       : await getNuxtVersion(ctx.args.cwd).catch(() => DEFAULT_NUXT_VERSION)
-    return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion)
+    return findModuleByKeywords(ctx.args._.join(' '), nuxtVersion, ctx.args.json)
   },
 })
 
@@ -65,7 +67,7 @@ export function normalizeNuxtVersion(version: string): string {
       : version
 }
 
-async function findModuleByKeywords(query: string, nuxtVersion: string) {
+async function findModuleByKeywords(query: string, nuxtVersion: string, json?: boolean) {
   const allModules = await fetchModules().catch((err) => {
     logNetworkError(err, { url: MODULES_API_URL })
     process.exit(1)
@@ -86,11 +88,33 @@ async function findModuleByKeywords(query: string, nuxtVersion: string) {
     ].filter(Boolean).join(' ')),
   }))
 
-  const results = fuzzysort.go(query, targets, {
+  const matches = fuzzysort.go(query, targets, {
     keys: ['name', 'npm', 'rest'],
     threshold: SCORE_THRESHOLD,
     limit: RESULT_LIMIT,
-  }).map(({ obj: { item } }) => {
+  }).map(({ obj: { item } }) => item)
+
+  if (json) {
+    const payload = JSON.stringify({
+      query,
+      nuxtVersion,
+      modules: matches.map(item => ({
+        name: item.name,
+        package: item.npm,
+        description: item.description,
+        homepage: item.website,
+        repository: item.github,
+        compatibility: item.compatibility?.nuxt || '*',
+        stars: item.stats.stars,
+        monthlyDownloads: item.stats.downloads,
+        install: `npx nuxt add ${item.name}`,
+      })),
+    }, null, 2)
+    await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+    return
+  }
+
+  const results = matches.map((item) => {
     const res: Record<string, string> = {
       name: item.name,
       package: item.npm,
