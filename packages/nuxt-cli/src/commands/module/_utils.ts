@@ -39,7 +39,6 @@ interface Stats {
 
 interface ModuleCompatibility {
   nuxt: string
-  requires: { bridge?: boolean | 'optional' }
   versionMap: {
     [nuxtVersion: string]: string
   }

@@ -70,6 +70,18 @@ describe('module search', () => {
     expect(JSON.parse(stdout)).toEqual({ query: 'zzzzzz', nuxtVersion: '4.0.0', modules: [] })
   })
 
+  it('lists only modules compatible with the requested Nuxt version', async () => {
+    fetchModules.mockResolvedValue([
+      { ...moduleEntry('image'), compatibility: { nuxt: '^3.0.0' } },
+      { ...moduleEntry('imagery'), compatibility: { nuxt: '^4.0.0' } },
+    ])
+    await runCommand(search, { rawArgs: ['image', '--json', '--nuxtVersion', '4'] })
+
+    const { nuxtVersion, modules } = JSON.parse(stdout)
+    expect(nuxtVersion).toBe('4.0.0')
+    expect(modules.map((entry: { name: string }) => entry.name)).toEqual(['imagery'])
+  })
+
   it('leaves the human output untouched without `--json`', async () => {
     await runCommand(search, { rawArgs: ['image', '--nuxtVersion', '4.0.0'] })
 

@@ -34,7 +34,7 @@ function databaseEntry(name: string, npm: string): NuxtModule {
   return {
     name,
     npm,
-    compatibility: { nuxt: '', requires: {}, versionMap: {} },
+    compatibility: { nuxt: '', versionMap: {} },
     description: '',
     repo: '',
     github: '',

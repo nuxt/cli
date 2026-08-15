@@ -45,7 +45,6 @@ describe('module remove', () => {
       npm: '@nuxt/content',
       compatibility: {
         nuxt: '3.0.0',
-        requires: {},
         versionMap: {},
       },
       description: '',
@@ -101,7 +100,7 @@ describe('module remove', () => {
       name: 'example',
       npm: 'example/nuxt',
       aliases: ['example-module'],
-      compatibility: { nuxt: '3.0.0', requires: {}, versionMap: {} },
+      compatibility: { nuxt: '3.0.0', versionMap: {} },
       description: '',
       repo: '',
       github: '',

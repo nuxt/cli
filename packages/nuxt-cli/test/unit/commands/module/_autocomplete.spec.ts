@@ -36,7 +36,6 @@ function createMockModule(overrides: Partial<NuxtModule> = {}): NuxtModule {
     npm: '@nuxt/test-module',
     compatibility: {
       nuxt: '^3.0.0',
-      requires: {},
       versionMap: {},
     },
     description: 'A test module',

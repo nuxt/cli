@@ -97,7 +97,6 @@ describe('module add', () => {
       npm: '@nuxt/content',
       compatibility: {
         nuxt: '3.0.0',
-        requires: {},
         versionMap: {},
       },
       description: '',
