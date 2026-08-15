@@ -11,7 +11,8 @@ import { join } from 'pathe'
 
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
-import { findInPath, getCacheDir, resolveTool } from './binaries'
+import { findInPath } from '../utils/path-env'
+import { getCacheDir, resolveTool } from './binaries'
 
 export interface HTTPSOptions {
   cert?: string
