@@ -10,6 +10,7 @@ export default defineConfig({
     exclude: [
       ...defaultExclude,
       'playground/**',
+      'packages/*/test/fixtures/.tmp-*/**',
     ],
   },
 }) satisfies ViteUserConfig as ViteUserConfig
