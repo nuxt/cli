@@ -106,13 +106,24 @@ export async function findNitroDevWorker(cwd: string, buildDir?: string): Promis
     }
 
     const { socketPath, host, port } = dev.workerAddress
-    if (socketPath) {
+    if (typeof socketPath === 'string' && socketPath) {
       return { pid: dev.pid, socketPath }
     }
-    if (port) {
+    if (typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65_535 && isLocalHost(host)) {
       return { pid: dev.pid, url: `http://${host || 'localhost'}:${port}` }
     }
   }
+}
+
+const LOCAL_HOSTS = new Set(['', 'localhost', '127.0.0.1', '::1', '[::1]', '0.0.0.0', '::', '[::]'])
+
+/**
+ * Whether an address recorded by Nitro belongs to this machine. The worker is
+ * always local, and the file naming it lives in the project, so an address
+ * pointing anywhere else is not one we should send task payloads to.
+ */
+function isLocalHost(host: string | undefined): boolean {
+  return LOCAL_HOSTS.has(host ?? '')
 }
 
 export function noDevServerMessage(what: string): string {
