@@ -70,7 +70,6 @@ export class ForkPool {
     }
     this.warming = true
 
-    // Start warming forks up to pool size
     for (let i = 0; i < this.poolSize; i++) {
       this.warmFork()
     }
@@ -165,7 +164,6 @@ export class ForkPool {
         fork.state = 'ready'
       }
     }).catch(() => {
-      // Fork failed to warm, remove from pool
       this.removeFork(fork)
     })
     this.pool.push(fork)
@@ -201,20 +199,17 @@ export class ForkPool {
       serving: false,
     }
 
-    // Listen for fork-ready message
     childProc.on('message', (message: NuxtDevIPCMessage) => {
       if (message.type === 'nuxt:internal:dev:fork-ready') {
         readyResolve()
       }
     })
 
-    // Handle errors
     childProc.on('error', (err) => {
       readyReject(err)
       this.removeFork(pooledFork)
     })
 
-    // Handle unexpected exit
     childProc.on('close', (errorCode) => {
       // A fork can exit without ever emitting `error` (a throw while loading the
       // entry, or a kill), which would leave `ready` pending forever.
@@ -223,7 +218,6 @@ export class ForkPool {
         // Ending the session on the crash of the process that holds the listener is
         // silent otherwise, leaving no clue as to what stopped the dev server.
         logger.error(`The dev server process (PID ${childProc.pid}) exited with code ${errorCode}.`)
-        // Active fork crashed
         process.exit(errorCode)
       }
       this.removeFork(pooledFork)

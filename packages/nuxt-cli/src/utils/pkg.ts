@@ -32,8 +32,6 @@ export interface PkgJSONOptions {
  * unless `strict` is set, in which case only the chain is used.
  */
 export function getPkgJSON(cwd: string, pkg: string, options?: PkgJSONOptions) {
-  // Build list of locations to try resolving pkg from.
-  // When `via` is provided, walk the chain first; then fall back to cwd/nuxt.
   const roots: string[] = []
 
   if (options?.via && options.via.length > 0) {
@@ -49,7 +47,6 @@ export function getPkgJSON(cwd: string, pkg: string, options?: PkgJSONOptions) {
     }
   }
 
-  // Fallback: direct resolution from cwd or nuxt's location
   if (!options?.strict || !options.via?.length) {
     roots.push(cwd)
     const nuxtPath = tryResolveNuxt(cwd)

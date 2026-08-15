@@ -154,7 +154,6 @@ const command = defineCommand({
     },
   },
   async run(ctx) {
-    // Prepare
     const requestedCwd = resolveRootDir(ctx.args)
     const cwd = await preflight({ cwd: requestedCwd })
     if (cwd !== requestedCwd) {
@@ -190,7 +189,6 @@ const command = defineCommand({
       await openInspector(inspect)
     }
 
-    // Start the initial dev server in-process with listener
     const { listener, close, reload, onRestart, onReady, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
@@ -226,7 +224,6 @@ const command = defineCommand({
       pool.startWarming()
     })
 
-    // On hard restart, use a fork from the pool
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -261,7 +258,6 @@ const command = defineCommand({
       // serialised whenever the inspector is open.
       const handover = reusePort && !inspect
 
-      // Get a fork from the pool (warm if available, cold otherwise)
       const context: NuxtDevContext = {
         cwd,
         args: ctx.args,
@@ -283,7 +279,6 @@ const command = defineCommand({
             ? { port: listener.address.port, handover: true }
             : undefined,
           onMessage: (message) => {
-            // Handle IPC messages from the fork
             if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
               serving = true
               if (message.type === 'nuxt:internal:dev:ready' && startTime) {
@@ -295,7 +290,6 @@ const command = defineCommand({
               // leaves the outgoing server in place.
             }
             else if (message.type === 'nuxt:internal:dev:restart') {
-              // Fork is requesting another restart
               void restartWithFork(message.reason)
             }
             else if (message.type === 'nuxt:internal:dev:rejection') {
