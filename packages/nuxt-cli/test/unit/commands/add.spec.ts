@@ -68,7 +68,6 @@ describe('nuxt add command', () => {
         npm: '@nuxt/ui',
         compatibility: {
           nuxt: '^3.0.0',
-          requires: {},
           versionMap: {},
         },
         description: 'Nuxt UI',
@@ -92,7 +91,6 @@ describe('nuxt add command', () => {
         npm: '@nuxt/icon',
         compatibility: {
           nuxt: '^3.0.0',
-          requires: {},
           versionMap: {},
         },
         description: 'Nuxt Icon',
