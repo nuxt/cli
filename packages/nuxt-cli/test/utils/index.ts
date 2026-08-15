@@ -3,10 +3,16 @@ import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isCI } from 'std-env'
 
-export async function fetchWithPolling(url: string, options: RequestInit = {}, maxAttempts = 10, interval = 100): Promise<Response | null> {
+/**
+ * Poll `url` until it answers, allowing for a server that is still booting.
+ *
+ * The deadline is a wall-clock budget rather than an attempt count, so a slow
+ * machine gets the same number of seconds as a fast one.
+ */
+export async function fetchWithPolling(url: string, options: RequestInit = {}, timeout = isCI ? 120_000 : 30_000, interval = 100): Promise<Response | null> {
+  const deadline = Date.now() + timeout
   let response: Response | null = null
-  let attempts = 0
-  while (attempts < maxAttempts) {
+  do {
     try {
       response = await fetch(url, options)
       if (response.ok) {
@@ -16,9 +22,8 @@ export async function fetchWithPolling(url: string, options: RequestInit = {}, m
     catch {
       // Ignore errors and retry
     }
-    attempts++
-    await new Promise(resolve => setTimeout(resolve, isCI ? interval * 10 : interval))
-  }
+    await new Promise(resolve => setTimeout(resolve, interval))
+  } while (Date.now() < deadline)
   return response
 }
 
