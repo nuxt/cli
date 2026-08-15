@@ -10,9 +10,9 @@ import { getPort } from 'get-port-please'
 import { isWindows } from 'std-env'
 import { x } from 'tinyexec'
 import { describe, expect, it } from 'vitest'
-import { fetchWithPolling } from '../utils'
+import { createPlaygroundFixture, fetchWithPolling } from '../utils'
 
-const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
+const fixtureDir = await createPlaygroundFixture('commands')
 const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 describe('commands', () => {

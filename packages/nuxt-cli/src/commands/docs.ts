@@ -13,7 +13,7 @@ import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withSpinner } from '../utils/spinner'
 import { isInteractive } from '../utils/stdout'
-import { rootDirArgs } from './_shared'
+import { cwdArgs } from './_shared'
 
 const MAX_RESULTS = 8
 
@@ -28,7 +28,7 @@ export default defineCommand({
       description: 'Words to search the documentation for',
       required: false,
     },
-    ...rootDirArgs,
+    ...cwdArgs,
     open: {
       type: 'boolean',
       description: 'Open the best match in a browser',
@@ -36,7 +36,7 @@ export default defineCommand({
     },
   },
   async run(ctx) {
-    const query = ctx.args._.slice(0, !ctx.args._.includes('--') ? undefined : ctx.args._.indexOf('--')).join(' ').trim()
+    const query = ctx.args._.join(' ').trim()
     if (!query) {
       return visit(DOCS_PATH, ctx.args.open)
     }
