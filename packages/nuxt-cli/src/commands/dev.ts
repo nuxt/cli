@@ -177,9 +177,13 @@ const command = defineCommand({
       listenOverrides.port = takeover.port
     }
 
+    // `--profile` takes an optional value, so its presence rather than its
+    // truthiness is what says the profiler was asked for.
+    const profiling = ctx.args.profile !== undefined
+
     // With `SO_REUSEPORT` an incoming fork can bind the port before this process
     // releases it, so a hard restart never leaves the port unserved.
-    const reusePort = ctx.args.fork && !ctx.args.profile && await isReusePortSupported()
+    const reusePort = ctx.args.fork && !profiling && await isReusePortSupported()
     listenOverrides.reusePort = reusePort
 
     // The inspector belongs to whichever process is currently serving the app:
@@ -196,7 +200,7 @@ const command = defineCommand({
     })
 
     // Disable forking when profiling to capture all activity in one process
-    if (!ctx.args.fork || ctx.args.profile) {
+    if (!ctx.args.fork || profiling) {
       setupShortcuts({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
       setupSignalHandlers(close)
       return {
