@@ -28,7 +28,7 @@ import { ActionableError } from '../utils/errors'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
-import { debug, writeNotice } from '../utils/logger'
+import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { listen } from './listen'
@@ -682,8 +682,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#currentNuxt.options.devServer.url = getAddressURL(addr, !!this.listener.https)
     this.#currentNuxt.options.devServer.https = resolveDevServerHTTPS(this.listener.https)
 
-    if (this.listener.https && !process.env.NODE_TLS_REJECT_UNAUTHORIZED) {
-      console.warn('You might need `NODE_TLS_REJECT_UNAUTHORIZED=0` environment variable to make https work.')
+    if (this.listener.https && process.env.NODE_TLS_REJECT_UNAUTHORIZED !== '0' && !process.env.NODE_EXTRA_CA_CERTS) {
+      const caRoot = this.listener.https.caRoot
+      logger.warn(caRoot
+        ? `Node does not read your system trust store, so requests to this server from Node will not trust its certificate.\n       Set \`NODE_EXTRA_CA_CERTS=${join(caRoot, 'rootCA.pem')}\` to fix that.`
+        : 'Node does not read your system trust store, so requests to this server from Node will not trust its certificate.\n       Set `NODE_EXTRA_CA_CERTS` to the certificate authority that issued it, or install `mkcert` for a locally-trusted certificate.')
     }
 
     const kit = await loadKit(this.options.cwd)

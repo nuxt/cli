@@ -3,7 +3,7 @@ import type { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { createHash, createPrivateKey, X509Certificate } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import process from 'node:process'
 
@@ -31,6 +31,12 @@ export interface ResolvedCertificate {
   /** Path the `pfx` buffer was read from, for reporting back to `devServer.https`. */
   pfxPath?: string
   passphrase?: string
+  /**
+   * Directory holding the local certificate authority `mkcert` issued the
+   * certificate from. Node does not read the system trust store, so a client
+   * running under Node needs this root passed explicitly.
+   */
+  caRoot?: string
 }
 
 export async function resolveCertificate(options: HTTPSOptions): Promise<ResolvedCertificate> {
@@ -57,17 +63,20 @@ async function generateCertificate(options: HTTPSOptions): Promise<ResolvedCerti
   const certPath = join(dir, 'cert.pem')
   const keyPath = join(dir, 'key.pem')
 
+  const caRootPath = join(dir, 'caroot')
+
   if (!isCertificateUsable(certPath, keyPath, domains)) {
-    const generated = await generateWithMkcert(certPath, keyPath, domains)
-      || generateWithOpenssl(certPath, keyPath, domains, options.validityDays)
-    if (!generated) {
+    const caRoot = await generateWithMkcert(certPath, keyPath, domains)
+    if (caRoot === undefined && !generateWithOpenssl(certPath, keyPath, domains, options.validityDays)) {
       throw new ActionableError('Could not generate a development certificate. Install `mkcert` (https://github.com/FiloSottile/mkcert) or provide `--https.cert` and `--https.key`.')
     }
+    await writeFile(caRootPath, caRoot ?? '', 'utf8').catch(error => debug('Could not record the certificate authority root:', error))
   }
 
   return {
     cert: await readFile(certPath, 'utf8'),
     key: await readFile(keyPath, 'utf8'),
+    caRoot: await readFile(caRootPath, 'utf8').then(value => value.trim() || undefined).catch(() => undefined),
   }
 }
 
@@ -96,19 +105,20 @@ function isCertificateUsable(certPath: string, keyPath: string, domains: string[
   }
 }
 
-async function generateWithMkcert(certPath: string, keyPath: string, domains: string[]): Promise<boolean> {
+/** The certificate authority root `mkcert` issued from, or `undefined` if it could not be used. */
+async function generateWithMkcert(certPath: string, keyPath: string, domains: string[]): Promise<string | undefined> {
   const binary = await resolveMkcert()
   if (!binary) {
-    return false
+    return undefined
   }
   try {
     execFileSync(binary, ['-install'], { stdio: ['inherit', 'ignore', 'inherit'] })
     execFileSync(binary, ['-cert-file', certPath, '-key-file', keyPath, ...domains], { stdio: 'ignore' })
-    return true
+    return execFileSync(binary, ['-CAROOT'], { encoding: 'utf8' }).trim() || ''
   }
   catch (error) {
     debug('Failed to generate certificate with mkcert:', error)
-    return false
+    return undefined
   }
 }
 
