@@ -108,6 +108,9 @@ export async function addNuxtConfigEntries(config: NuxtConfigFile, entries: Conf
       edits.push(buildInsert(source, location, array, names))
     }
     else {
+      if (location.dynamic) {
+        throw new ActionableError(`Could not add \`${key}\` to ${config.file}: the config spreads or computes keys, so a new \`${key}\` could be silently overridden. Add ${names.map(name => `\`${name}\``).join(', ')} to \`${key}\` by hand.`)
+      }
       created.push(buildProperty(source, location, key, names))
     }
   }
