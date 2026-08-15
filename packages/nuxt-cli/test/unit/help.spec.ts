@@ -26,7 +26,7 @@ describe('help', () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 
-      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|curl|dev|devtools|generate|info|module|prepare|preview|task|test|typecheck|upgrade
+      USAGE nuxt [OPTIONS] [COMMAND] add|add-template|analyze|build|cleanup|curl|dev|devtools|docs|generate|info|module|prepare|preview|task|test|typecheck|upgrade
 
       ARGUMENTS
 
@@ -46,6 +46,7 @@ describe('help', () => {
                 curl    Send an HTTP request to your running Nuxt dev server            
                  dev    Run Nuxt development server                                     
             devtools    Enable or disable devtools in a Nuxt project                    
+                docs    Search or open the Nuxt documentation                           
             generate    Build Nuxt and prerender all routes                             
                 info    Get information about Nuxt project                              
               module    Manage Nuxt modules                                             
@@ -244,6 +245,25 @@ describe('help', () => {
 
         COMMAND=<enable|disable>    Command to run (Required)                           
                          ROOTDIR    The root directory of your Nuxt project (default: .)
+      "
+    `)
+  })
+
+  it('nuxt docs', async () => {
+    expect(await usage(commands.docs, main)).toMatchInlineSnapshot(`
+      "Search or open the Nuxt documentation (nuxt docs v0.0.0)
+
+      USAGE nuxt docs [OPTIONS] [QUERY] [ROOTDIR]
+
+      ARGUMENTS
+
+          QUERY    Words to search the documentation for               
+        ROOTDIR    The root directory of your Nuxt project (default: .)
+
+      OPTIONS
+
+           --open    Open the best match in a browser (Default: true)
+        --no-open                                                    
       "
     `)
   })

@@ -34,6 +34,7 @@
     "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-youch.ts"
   },
   "peerDependencies": {
+    "@nuxt/docs": "^4.0.0",
     "@nuxt/schema": "^4.5.2",
     "jiti": "^2.7.0",
     "oxc-parser": ">=0.143.0",
@@ -41,6 +42,9 @@
     "serve": "^14.2.6"
   },
   "peerDependenciesMeta": {
+    "@nuxt/docs": {
+      "optional": true
+    },
     "@nuxt/schema": {
       "optional": true
     },

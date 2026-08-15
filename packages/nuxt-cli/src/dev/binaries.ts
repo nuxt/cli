@@ -1,7 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { chmodSync, existsSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 
 import process from 'node:process'
 
@@ -9,6 +8,7 @@ import { confirm, isCancel, progress, spinner } from '@clack/prompts'
 import { basename, dirname, join } from 'pathe'
 import { readUser, updateUser } from 'rc9'
 
+import { getCacheDir } from '../utils/cache'
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
@@ -95,13 +95,6 @@ async function confirmToolInstall(options: ConsentOptions): Promise<boolean> {
 }
 
 const RESPONSE_TIMEOUT_MS = 30_000
-
-export function getCacheDir(...segments: string[]): string {
-  const base = process.env.XDG_CACHE_HOME || join(homedir(), '.cache')
-  const dir = join(base, 'nuxt', ...segments)
-  mkdirSync(dir, { recursive: true })
-  return dir
-}
 
 async function downloadBinary(url: string, destination: string, options: { archive?: boolean, name?: string } = {}): Promise<string | undefined> {
   const label = options.name || url

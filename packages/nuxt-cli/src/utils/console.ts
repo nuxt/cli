@@ -68,6 +68,21 @@ export function restoreRawMode(): void {
 }
 
 /**
+ * Give up `process.stdin` after a prompt in a command that is about to finish.
+ *
+ * A resumed stdin is an active handle, so a one-shot command would otherwise sit
+ * there with nothing left to do until the terminal closes.
+ */
+export function releaseStdin(): void {
+  restoreRawMode()
+  if (!process.stdin.isTTY) {
+    return
+  }
+  process.stdin.pause()
+  process.stdin.unref()
+}
+
+/**
  * Run `fn` with `process.stdout` and `process.stderr` writing straight to the
  * terminal again.
  *
