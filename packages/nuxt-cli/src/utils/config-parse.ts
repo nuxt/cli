@@ -151,6 +151,8 @@ function locateWithParser(parseSync: ParseSync, source: string, filename: string
     throw new UnknownAstError('the config object does not hold ESTree properties')
   }
 
+  const dynamic = object.properties.some((property: any) => property.type === 'SpreadElement' || property.computed === true)
+
   const propertyStarts = object.properties.map((property: any) => property.start)
   const keys = {} as Record<ConfigKey, ArrayLocation>
 
@@ -165,6 +167,7 @@ function locateWithParser(parseSync: ParseSync, source: string, filename: string
     objectStart: object.start,
     propertyStarts,
     keys,
+    dynamic,
     quote: detectQuote(source, allElements(keys)),
   }
 }
@@ -287,7 +290,7 @@ function locateWithScan(source: string): ConfigLocation {
     throw new ConfigShapeError('Default export is missing in the config file!')
   }
 
-  const properties = scanProperties(source, objectStart)
+  const { properties, complete } = scanProperties(source, objectStart)
   const keys = {} as Record<ConfigKey, ArrayLocation>
 
   for (const key of CONFIG_KEYS) {
@@ -299,6 +302,7 @@ function locateWithScan(source: string): ConfigLocation {
     objectStart,
     propertyStarts: properties.map(property => property.start),
     keys,
+    dynamic: !complete,
     quote: detectQuote(source, allElements(keys)),
   }
 }
@@ -357,23 +361,26 @@ interface ScannedProperty {
   valueStart: number
 }
 
-function scanProperties(source: string, objectStart: number): ScannedProperty[] {
+function scanProperties(source: string, objectStart: number): { properties: ScannedProperty[], complete: boolean } {
   const objectEnd = matchBracket(source, objectStart)
   if (objectEnd === undefined) {
     throw new ConfigShapeError('The config object is not terminated.')
   }
 
   const properties: ScannedProperty[] = []
+  let complete = true
   let at = skipTrivia(source, objectStart + 1)
 
   while (at < objectEnd) {
     const start = at
     const key = readKey(source, at)
     if (!key) {
+      complete = false
       break
     }
     at = skipTrivia(source, key.end)
     if (source[at] !== ':') {
+      complete = false
       break
     }
     const valueStart = at + 1
@@ -381,6 +388,7 @@ function scanProperties(source: string, objectStart: number): ScannedProperty[] 
 
     const valueEnd = skipValue(source, valueStart, objectEnd)
     if (valueEnd === undefined) {
+      complete = false
       break
     }
     at = skipTrivia(source, valueEnd)
@@ -389,7 +397,7 @@ function scanProperties(source: string, objectStart: number): ScannedProperty[] 
     }
   }
 
-  return properties
+  return { properties, complete }
 }
 
 function readKey(source: string, at: number): { value: string, end: number } | undefined {
@@ -566,6 +574,12 @@ export interface ConfigLocation {
   /** Offsets of each property key in the exported object, used to match indentation. */
   propertyStarts: number[]
   keys: Record<ConfigKey, ArrayLocation>
+  /**
+   * Whether the object holds something that could define a key we cannot see: a
+   * spread, a computed key, or (for the scanner) a property it could not read.
+   * Adding a key such a config may already set would silently shadow it.
+   */
+  dynamic: boolean
   /** Quote character to use for new entries. */
   quote: string
 }
