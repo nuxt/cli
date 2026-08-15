@@ -226,7 +226,6 @@ export default defineCommand({
     if (!ctx.args.template || !ctx.args.dir) {
       const defaultTemplates = await import('../../nuxt-cli/src/data/templates').then(r => r.templates)
       if (ctx.args.offline || ctx.args.preferOffline) {
-        // In offline mode, use static templates directly
         availableTemplates = defaultTemplates
       }
       else {
@@ -297,7 +296,6 @@ export default defineCommand({
       prompted = true
     }
 
-    // Fallback to default if still not set
     templateName ||= DEFAULT_TEMPLATE_NAME
 
     if (typeof templateName !== 'string') {
@@ -329,8 +327,6 @@ export default defineCommand({
 
     let shouldForce = Boolean(ctx.args.force)
 
-    // Prompt the user if the template download directory already exists
-    // when no `--force` flag is provided
     const shouldVerify = !shouldForce && existsSync(templateDownloadPath)
     if (shouldVerify) {
       if (isNonInteractive) {
@@ -371,14 +367,12 @@ export default defineCommand({
           break
         }
 
-        // 'Abort'
         case 'abort':
         default:
           process.exit(1)
       }
     }
 
-    // Download template
     let template: DownloadTemplateResult
 
     const registry = process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
@@ -482,7 +476,6 @@ export default defineCommand({
     const recoveryCommands: string[] = []
 
     const currentPackageManager = detectCurrentPackageManager()
-    // Resolve package manager
     const packageManagerArg = ctx.args.packageManager as PackageManagerName
     const packageManagerSelectOptions = packageManagerOptions.map(pm => ({
       label: pm,
@@ -545,7 +538,6 @@ export default defineCommand({
       logger.info(`Created ${styleText('cyan', '.yarnrc.yml')} with ${styleText('cyan', 'nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
     }
 
-    // Determine if we should init git
     let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
     if (gitInit === undefined) {
       const result = await confirm({
@@ -561,8 +553,6 @@ export default defineCommand({
       prompted = true
     }
 
-    // Install project dependencies and initialize git
-    // or skip installation based on the '--no-install' flag
     if (!installRequested || skipInstallOnConflict) {
       if (!skipInstallOnConflict) {
         logger.info('Skipping install dependencies step.')
@@ -652,13 +642,9 @@ export default defineCommand({
         logger.warn(`Skipping module installation. Add ${requestedModules.map(mod => styleText('cyan', mod)).join(', ')} with ${styleText('cyan', 'nuxt module add')} once dependencies are installed.`)
       }
     }
-
-    // Get modules from arg (if provided)
     else if (ctx.args.modules !== undefined) {
       modulesToAdd.push(...requestedModules)
     }
-
-    // ...or offer to browse and install modules (if not offline nor non-interactive)
     else if (!ctx.args.offline && !ctx.args.preferOffline && !isNonInteractive) {
       // Requested before the prompt so the list is ready if the user says yes,
       // but a failure is only reported to users who asked for it (and never
@@ -731,7 +717,6 @@ export default defineCommand({
       }
     }
 
-    // Add modules
     if (modulesToAdd.length > 0) {
       const args: string[] = [
         ...modulesToAdd,

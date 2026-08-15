@@ -376,7 +376,6 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   if (matchedModule && matchedModule.compatibility.nuxt) {
     const nuxtVersion = await getProjectNuxtVersion()
 
-    // Check for Module Compatibility
     if (!checkNuxtCompatibility(matchedModule, nuxtVersion)) {
       logger.warn(
         `The module ${styleText('cyan', pkgName)} is not compatible with Nuxt ${styleText('cyan', nuxtVersion)} (requires ${styleText('cyan', matchedModule.compatibility.nuxt)})`,
@@ -390,7 +389,6 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
       }
     }
 
-    // Match corresponding version of module for local Nuxt version
     const versionMap = matchedModule.compatibility.versionMap
     if (versionMap) {
       for (const [_nuxtVersion, _moduleVersion] of Object.entries(versionMap)) {
@@ -420,7 +418,6 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     }
   }
 
-  // Fetch package on npm
   let version = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
   const meta: RegistryMeta = await detectNpmRegistry(pkgScope, cwd)
@@ -440,7 +437,6 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     return false
   }
 
-  // fully resolve the version
   if (pkgDetails['dist-tags']?.[version]) {
     version = pkgDetails['dist-tags'][version]
   }

@@ -20,7 +20,7 @@ function formatErrorMessage(error: unknown): string {
 
 /**
  * Hand an unhandled rejection to the parent process and stop this one, unless
- * it is only a client that went away — that is traffic, not a crash, and the
+ * it is only a client that went away. That is traffic, not a crash, and the
  * session has to survive it.
  */
 export function createRejectionHandler(report: (message: string) => void, stop: () => void): (reason: unknown) => void {
@@ -42,7 +42,6 @@ interface InitializeOptions {
   showBanner?: boolean
 }
 
-// IPC Hooks
 class IPC {
   enabled = !!process.send && !process.title?.includes('vitest') && process.env.__NUXT__FORK
   #shutdown?: () => Promise<void>
@@ -186,7 +185,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     })
   }
 
-  // Init server
   await devServer.init()
 
   if (process.env.DEBUG) {

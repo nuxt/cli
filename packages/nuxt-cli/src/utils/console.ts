@@ -8,7 +8,6 @@ import { isRemotePeerError } from './errors'
 import { debug } from './logger'
 import { trackOutputSpacing } from './stdout'
 
-// Filter out unwanted logs
 // TODO: Use better API from consola for intercepting logs
 function wrapReporter(reporter: ConsolaReporter) {
   return ({
@@ -33,7 +32,6 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   consola.options.formatOptions.date = false
   consola.options.reporters = consola.options.reporters.map(wrapReporter)
 
-  // Wrap all console logs with consola for better DX
   if (opts.dev) {
     trackOutputSpacing()
     consola.wrapAll()

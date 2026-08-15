@@ -61,7 +61,6 @@ export async function generateCompletionData() {
       }
     }
     catch (error) {
-      // Skip if we can't fetch the file
       console.warn(`Could not fetch description for ${file.name}:`, error)
     }
   }

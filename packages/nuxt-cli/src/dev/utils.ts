@@ -399,7 +399,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     try {
       this.closeWatchers()
 
-      // For reloads, we already have a listener, so use the existing flow
       await this.#load(reload, reason)
 
       this.#loadingError = undefined
@@ -538,11 +537,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before creating listener')
     }
 
-    // Merge config values with CLI overrides
     const listenOptions = this.#resolveListenOptions()
     this.listener = await listen(this.handler, listenOptions)
 
-    // Apply devServer overrides based on whether listener is public
     if (listenOptions.public) {
       this.#currentNuxt.options.devServer.cors = { origin: '*' }
       if (this.#currentNuxt.options.vite?.server) {
@@ -551,7 +548,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return
     }
 
-    // Get listener URLs for configuring allowed hosts
     const urls = this.listener.getURLs().map(({ url }) => url)
     if (urls.length > 0) {
       this.#currentNuxt.options.vite = defu(this.#currentNuxt.options.vite, {
@@ -574,7 +570,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
-    // Resolve public flag
     const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
 
     // `--https` (or its absence) wins over the config; `https.*` arguments and
@@ -583,7 +578,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const https = (httpsEnabled ?? !!nuxtConfig.devServer?.https)
       && defu(typeof overrides.https === 'object' ? overrides.https : {}, httpsFromConfig)
 
-    // Resolve baseURL
     const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
       ? nuxtConfig.app.baseURL.slice(1)
       : nuxtConfig.app?.baseURL
@@ -607,7 +601,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.emit('change')
     })
 
-    // Connect Vite HMR
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
@@ -616,13 +609,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       })
     }
 
-    // Remove websocket handlers on close
     this.#currentNuxt.hooks.hookOnce('close', () => {
       this.#closeWebSocketConnections()
       this.listener.server.removeAllListeners('upgrade')
     })
 
-    // Write manifest and also check if we need cache invalidation
     if (!reload) {
       const previousManifest = await loadNuxtManifest(this.#currentNuxt.options.buildDir)
       const newManifest = resolveNuxtManifest(this.#currentNuxt)
@@ -666,7 +657,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         }
         nuxt.server.upgrade(req, socket as any, head)
 
-        // Track WebSocket connections
         this.#websocketConnections.add(socket)
         socket.on('close', () => {
           this.#websocketConnections.delete(socket)
@@ -700,7 +690,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nitro server has not been initialized.')
     }
 
-    // Watch dist directory
     const distDir = join(this.#currentNuxt.options.buildDir, 'dist')
     await mkdir(distDir, { recursive: true })
     this.#fileChangeTracker.prime(distDir)
@@ -727,7 +716,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#handler = toNodeListener(this.#currentNuxt.server.app)
     }
 
-    // Emit ready with the server URL
     const serverUrl = getAddressURL(addr, !!this.listener.https).replace(TRAILING_SLASH_RE, '')
 
     // Re-acquire if buildDir changed (nuxt.config edits can move it on reload);
@@ -835,7 +823,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
     }
 
-    // Configure the Nuxt instance (shared logic with initial load)
     await this.#initializeNuxt(!!reload)
   }
 

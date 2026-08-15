@@ -51,7 +51,6 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
     return [label, val || '-'] as const
   })
 
-  // get maximum width of terminal
   const terminalWidth = Math.max(process.stdout.columns || 80, firstColumnLength) - 8 /* box padding + extra margin */
 
   let boxStr = ''
@@ -64,7 +63,6 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
 
     let boxRowLength = firstColumnLength
 
-    // Split by spaces and wrap as needed
     const words = formattedValue.split(' ')
     let currentLine = ''
 
@@ -73,7 +71,6 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
       const spaceLength = currentLine ? 1 : 0
 
       if (boxRowLength + wordLength + spaceLength > terminalWidth) {
-        // Wrap to next line
         if (currentLine) {
           boxStr += styleText('cyan', currentLine)
         }

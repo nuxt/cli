@@ -55,7 +55,6 @@ const _main = defineCommand({
     setupGlobalConsole({ dev: command === 'dev' })
     debug(`Running \`nuxt ${command}\` command`)
 
-    // Check Node.js version in background
     let backgroundTasks: Promise<any> | undefined
     if (provider !== 'stackblitz') {
       backgroundTasks = Promise.all([
@@ -63,7 +62,7 @@ const _main = defineCommand({
       ]).catch(err => logger.error(String(err)))
     }
 
-    // Avoid background check to fix prompt issues
+    // Awaited so the engine warning cannot land in the middle of a prompt.
     if (command === 'init') {
       await backgroundTasks
     }
