@@ -44,7 +44,12 @@ async function locateTool(name: string, options: { url?: string, archive?: boole
     return existing
   }
   const cacheName = options.cacheName || name
-  const destination = join(getCacheDir('bin'), process.platform === 'win32' ? `${cacheName}.exe` : cacheName)
+  const cacheDir = getCacheDir('bin')
+  const destination = join(cacheDir, process.platform === 'win32' ? `${cacheName}.exe` : cacheName)
+  if (dirname(destination) !== cacheDir) {
+    debug(`Refusing to cache \`${name}\` outside ${cacheDir}.`)
+    return undefined
+  }
   if (existsSync(destination)) {
     return destination
   }

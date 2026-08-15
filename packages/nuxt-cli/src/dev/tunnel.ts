@@ -9,11 +9,27 @@ import { resolveTool } from './binaries'
 
 const TUNNEL_URL_RE = /https:\/\/(?!api\.)[\w-]+\.trycloudflare\.com/
 
+const DEFAULT_CLOUDFLARED_VERSION = '2026.7.3'
+const CLOUDFLARED_VERSION_RE = /^[\w.-]+$/
+
 /**
- * Pinned so a bad Cloudflare release cannot break `--tunnel` for everyone.
- * Set `CLOUDFLARED_VERSION` (or `latest`) to override.
+ * Version of `cloudflared` to download. Pinned so a bad Cloudflare release
+ * cannot break `--tunnel` for everyone; `CLOUDFLARED_VERSION` (or `latest`)
+ * overrides it.
+ *
+ * The value reaches both a release URL and a cache filename, so anything that
+ * is not a bare version is rejected rather than allowed to traverse either.
  */
-const CLOUDFLARED_VERSION = process.env.CLOUDFLARED_VERSION || '2026.7.3'
+export function resolveCloudflaredVersion(version = process.env.CLOUDFLARED_VERSION): string {
+  if (!version) {
+    return DEFAULT_CLOUDFLARED_VERSION
+  }
+  if (!CLOUDFLARED_VERSION_RE.test(version)) {
+    logger.warn(`Ignoring invalid \`CLOUDFLARED_VERSION\` value \`${version}\`.`)
+    return DEFAULT_CLOUDFLARED_VERSION
+  }
+  return version
+}
 
 /** How long to wait for `cloudflared` to exit on `SIGINT` before `SIGKILL`. */
 const SHUTDOWN_TIMEOUT_MS = 5000
@@ -146,6 +162,7 @@ const CLOUDFLARED_ASSETS: Record<string, Partial<Record<typeof process.arch, str
 }
 
 async function resolveCloudflared(): Promise<string | undefined> {
+  const CLOUDFLARED_VERSION = resolveCloudflaredVersion()
   const base = CLOUDFLARED_VERSION === 'latest'
     ? 'https://github.com/cloudflare/cloudflared/releases/latest/download'
     : `https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}`
