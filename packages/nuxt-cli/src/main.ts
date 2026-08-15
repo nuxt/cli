@@ -14,11 +14,9 @@ import { cwdArgs } from './commands/_shared'
 import { runCommand, setCurrentCommand } from './run'
 import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
-import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { findInPath, withLocalBinPath } from './utils/path-env'
-import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
 import { findUnknownFlags, suggestFlags } from './utils/unknown-args'
 import { scheduleUpdateNudge } from './utils/update-lazy'
@@ -49,13 +47,14 @@ const _main = defineCommand({
     setCurrentCommand(command)
     setupGlobalConsole({ dev: command === 'dev' })
 
-    if (command !== '_dev' && provider !== 'stackblitz') {
+    if (command && command !== '_dev' && provider !== 'stackblitz') {
       // The engine check is awaited so its warning cannot land in the middle of
       // a prompt, but the update checks are left running: they reach the user
       // through a `process.exit` handler, and a slow or unreachable registry
       // must never hold up the command.
-      await checkEngines().catch(err => logger.error(String(err)))
-      void scheduleUpdateNudge(resolveProjectDir(ctx.args), command)
+      await import('./utils/engines').then(({ checkEngines }) => checkEngines()).catch(err => logger.error(String(err)))
+      void import('./utils/paths')
+        .then(({ resolveProjectDir }) => scheduleUpdateNudge(resolveProjectDir(ctx.args), command))
         .catch(err => debug('Failed to check for updates:', err))
     }
 
