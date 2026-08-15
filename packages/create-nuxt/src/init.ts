@@ -76,7 +76,7 @@ async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
   await showUsage(cmd)
   if (availableTemplates) {
     logger.info(`Available templates:\n${Object.entries(availableTemplates)
-      .map(([name, data]) => `  ${styleText('cyan', name)}${data ? ` – ${data.description}` : ''}`)
+      .map(([name, data]) => `  ${styleText('cyan', name)}${data ? ` · ${data.description}` : ''}`)
       .join('\n')}`)
   }
   const label = missingArgs.length === 1 ? 'argument' : 'arguments'
@@ -280,7 +280,7 @@ export default defineCommand({
         options: Object.entries(availableTemplates).map(([name, data]) => {
           return {
             value: name,
-            label: data ? `${styleText('whiteBright', name)} – ${data.description}` : name,
+            label: data ? `${styleText('whiteBright', name)} · ${data.description}` : name,
             hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
           }
         }),
