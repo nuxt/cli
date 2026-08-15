@@ -150,12 +150,14 @@ export async function removeNuxtConfigEntries(config: NuxtConfigFile, entries: C
       continue
     }
 
-    edits.push(...doomed.map(element => buildRemoval(source, array, element)))
+    const removals = doomed.map(element => buildRemoval(source, array, element, doomed))
 
     const orphanedComma = findOrphanedComma(source, array, doomed)
     if (orphanedComma !== undefined) {
-      edits.push({ start: orphanedComma, end: orphanedComma + 1, text: '' })
+      removals.push({ start: orphanedComma, end: orphanedComma + 1, text: '' })
     }
+
+    edits.push(...mergeRemovals(removals))
   }
 
   if (!edits.length) {
@@ -163,6 +165,27 @@ export async function removeNuxtConfigEntries(config: NuxtConfigFile, entries: C
   }
 
   await writeFile(config.file, applyEdits(source, edits), 'utf8')
+}
+
+/**
+ * Combine deletions that overlap into one range.
+ *
+ * Removing consecutive entries produces ranges that reach over each other,
+ * because each entry takes the separator that attached it to the one before.
+ * Applied separately they would delete text twice over.
+ */
+function mergeRemovals(removals: Edit[]): Edit[] {
+  const sorted = [...removals].sort((a, b) => a.start - b.start)
+  const merged: Edit[] = []
+  for (const removal of sorted) {
+    const previous = merged.at(-1)
+    if (previous && removal.start <= previous.end) {
+      previous.end = Math.max(previous.end, removal.end)
+      continue
+    }
+    merged.push({ ...removal })
+  }
+  return merged
 }
 
 /**
@@ -207,11 +230,20 @@ function readNames(location: ConfigLocation, key: ConfigKey): string[] {
   return location.keys[key].elements.map(element => element.name).filter((name): name is string => name !== null)
 }
 
-/** Splice edits into `source`, working backwards so earlier offsets stay valid. */
+/**
+ * Splice edits into `source`, working backwards so earlier offsets stay valid.
+ *
+ * An edit reaching into one that has already been applied is clipped rather than
+ * left to consume the text that moved into its range, which would corrupt the
+ * file rather than simply misplacing a separator.
+ */
 function applyEdits(source: string, edits: Edit[]): string {
   let result = source
+  let applied = source.length
   for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end)
+    const end = Math.max(edit.start, Math.min(edit.end, applied))
+    result = result.slice(0, edit.start) + edit.text + result.slice(end)
+    applied = edit.start
   }
   return result
 }
@@ -293,7 +325,7 @@ function buildInsert(source: string, location: ConfigLocation, array: ArrayLocat
   return { start: close, end: close, text: separator + entries.join(', ') }
 }
 
-function buildRemoval(source: string, location: ArrayLocation, element: ArrayElement): Edit {
+function buildRemoval(source: string, location: ArrayLocation, element: ArrayElement, doomed: ArrayElement[]): Edit {
   let start = element.start
   let end = element.end
   if (source[end] === ',') {
@@ -314,8 +346,12 @@ function buildRemoval(source: string, location: ArrayLocation, element: ArrayEle
     end++
   }
   if (source[end] === ']') {
+    // The separator before the entry goes with it, but only back as far as an
+    // entry that is staying: reaching into one that is also being removed would
+    // overlap its own edit and swallow the text between them.
     const index = location.elements.indexOf(element)
-    start = location.elements[index - 1]?.end ?? start
+    const previous = location.elements.slice(0, index).filter(candidate => !doomed.includes(candidate)).at(-1)
+    start = previous?.end ?? start
   }
   else if (source[end] === '\n' || source[end] === '\r') {
     // The entry ended the line, so take the space that separated it from the

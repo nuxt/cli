@@ -221,6 +221,18 @@ describe.each([
     expect(result).toBe('export default defineNuxtConfig({\n  modules: [\n    \'b\',\n  ],\n})\n')
   })
 
+  it('should remove consecutive trailing entries from an inline array', async () => {
+    const result = await remove('export default defineNuxtConfig({ modules: [\'a\', \'b\', \'c\'] })\n', ['b', 'c'])
+
+    expect(result).toBe('export default defineNuxtConfig({ modules: [\'a\'] })\n')
+  })
+
+  it('should remove consecutive trailing entries from an inline array with a trailing comma', async () => {
+    const result = await remove('export default defineNuxtConfig({ modules: [\'a\', \'b\', \'c\',] })\n', ['b', 'c'])
+
+    expect(result).toBe('export default defineNuxtConfig({ modules: [\'a\'] })\n')
+  })
+
   it('should keep array-form entries that were not named', async () => {
     const result = await remove('export default defineNuxtConfig({\n  modules: [\n    [\'a\', { q: 1 }],\n    \'b\',\n  ],\n})\n', ['b'])
 
