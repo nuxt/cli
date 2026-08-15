@@ -290,6 +290,43 @@ describe('listener.close', () => {
     vi.doUnmock('../../src/dev/tunnel')
   })
 
+  it('should close the tunnel when setup fails after it started', async () => {
+    const closeTunnel = vi.fn(() => Promise.resolve())
+    vi.doMock('../../src/dev/tunnel', () => ({
+      startTunnel: async () => ({ url: 'https://example.test', close: closeTunnel }),
+    }))
+    vi.doMock('uqr', () => ({
+      renderUnicodeCompact: () => {
+        throw new Error('qr unavailable')
+      },
+    }))
+
+    await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
+
+    expect(closeTunnel).toHaveBeenCalledTimes(1)
+    vi.doUnmock('../../src/dev/tunnel')
+    vi.doUnmock('uqr')
+  })
+
+  it('should release the port when setup fails after binding', async () => {
+    vi.doMock('../../src/dev/tunnel', () => ({
+      startTunnel: async () => {
+        throw new Error('tunnel unavailable')
+      },
+    }))
+
+    const probe = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', showURL: false })
+    const port = probe.address.port
+    await probe.close()
+
+    await expect(listen((_req, res) => res.end('ok'), { port, hostname: '127.0.0.1', showURL: false, strictPort: true, tunnel: true })).rejects.toThrow('tunnel unavailable')
+    vi.doUnmock('../../src/dev/tunnel')
+
+    const listener = await listen((_req, res) => res.end('ok'), { port, hostname: '127.0.0.1', showURL: false, strictPort: true })
+    expect(listener.address.port).toBe(port)
+    await listener.close()
+  })
+
   it('should let an in-flight request finish', async () => {
     let respond: (() => void) | undefined
     const listener = await listen((_req, res) => {

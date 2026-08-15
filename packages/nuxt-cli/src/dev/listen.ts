@@ -178,112 +178,128 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   // takes the whole dev process down.
   server.on('error', error => logger.error(`Dev server error: ${error.message}`))
 
-  const address = server.address() as AddressInfo
-  const protocol = certificate ? 'https' : 'http'
-  const baseURL = options.baseURL || '/'
-  const formatURL = (host: string) => formatDisplayURL(protocol, host, address.port, baseURL)
-
-  const anyHost = ANY_HOSTS.has(hostname)
-  const url = formatURL(anyHost ? 'localhost' : hostname)
-
+  // Set inside `createListener`, so a failure after the tunnel is up can still
+  // tear down the cloudflared process rather than leaking it until exit.
   let tunnel: Tunnel | undefined
-  if (options.tunnel) {
-    const { startTunnel } = await import('./tunnel')
-    tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
+
+  try {
+    return await createListener()
+  }
+  catch (error) {
+    await Promise.all([
+      tunnel?.close().catch(() => {}),
+      closeServer(server).catch(() => {}),
+    ])
+    throw error
   }
 
-  const tunnelURL = tunnel?.url && tunnel.url + baseURL
-  const portless = resolvePortlessURLs()
-  const portlessURL = portless.url && portless.url + baseURL
-  const portlessShareURL = portless.shareURL && portless.shareURL + baseURL
-  const stackblitzURL = resolveStackblitzURL()
+  async function createListener(): Promise<Listener> {
+    const address = server.address() as AddressInfo
+    const protocol = certificate ? 'https' : 'http'
+    const baseURL = options.baseURL || '/'
+    const formatURL = (host: string) => formatDisplayURL(protocol, host, address.port, baseURL)
 
-  function getURLs(): ListenURL[] {
-    const urls: ListenURL[] = []
-    if (tunnelURL) {
-      urls.push({ url: tunnelURL, type: 'tunnel' })
+    const anyHost = ANY_HOSTS.has(hostname)
+    const url = formatURL(anyHost ? 'localhost' : hostname)
+
+    if (options.tunnel) {
+      const { startTunnel } = await import('./tunnel')
+      tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
     }
-    for (const portlessURL of portless.all) {
-      urls.push({ url: portlessURL + baseURL, type: 'public' })
-    }
-    if (stackblitzURL) {
-      urls.push({ url: stackblitzURL, type: 'public' })
-    }
-    if (anyHost) {
-      urls.push({ url: formatURL('localhost'), type: 'local' })
-      for (const address of getNetworkAddresses()) {
-        urls.push({ url: formatURL(address), type: 'network' })
+
+    const tunnelURL = tunnel?.url && tunnel.url + baseURL
+    const portless = resolvePortlessURLs()
+    const portlessURL = portless.url && portless.url + baseURL
+    const portlessShareURL = portless.shareURL && portless.shareURL + baseURL
+    const stackblitzURL = resolveStackblitzURL()
+
+    function getURLs(): ListenURL[] {
+      const urls: ListenURL[] = []
+      if (tunnelURL) {
+        urls.push({ url: tunnelURL, type: 'tunnel' })
       }
+      for (const portlessURL of portless.all) {
+        urls.push({ url: portlessURL + baseURL, type: 'public' })
+      }
+      if (stackblitzURL) {
+        urls.push({ url: stackblitzURL, type: 'public' })
+      }
+      if (anyHost) {
+        urls.push({ url: formatURL('localhost'), type: 'local' })
+        for (const address of getNetworkAddresses()) {
+          urls.push({ url: formatURL(address), type: 'network' })
+        }
+      }
+      else {
+        urls.push({ url, type: 'local' })
+      }
+      return urls
     }
-    else {
-      urls.push({ url, type: 'local' })
+
+    // The StackBlitz URL points at the editor rather than at a host another
+    // device can open, so it is not a QR code candidate.
+    const shareableURL = options.publicURL || tunnelURL || portlessShareURL || portlessURL
+    const publicURL = shareableURL || stackblitzURL
+
+    const qrURL = options.qr === false
+      ? undefined
+      : shareableURL
+        || getURLs().find(({ type }) => type === 'network')?.url
+        || (options.qr ? url : undefined)
+
+    function showURLs({ qr = false }: { qr?: boolean } = {}): void {
+      const urls = getURLs()
+      const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
+      const labelColors = { local: 'green', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
+      const lines: string[] = []
+      const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
+        `  ${color('➜')} ${styleText('bold', color(label.padEnd(10)))}${value}${isQR ? styleText('gray', ' [QR code]') : ''}`
+      for (const { url: displayURL, type } of urls) {
+        lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
+      }
+      if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
+        const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
+        const hint = isolated
+          ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
+          : `use ${styleText('white', '--host')} to expose`
+        lines.push(line(text => styleText('magenta', text), 'Network:', styleText('gray', hint), false))
+      }
+      if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
+        lines.push(line(text => styleText('magenta', text), 'Public:', styleText('cyan', publicURL), qr && publicURL === qrURL))
+      }
+      // eslint-disable-next-line no-console
+      console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
-    return urls
-  }
 
-  // The StackBlitz URL points at the editor rather than at a host another
-  // device can open, so it is not a QR code candidate.
-  const shareableURL = options.publicURL || tunnelURL || portlessShareURL || portlessURL
-  const publicURL = shareableURL || stackblitzURL
-
-  const qrURL = options.qr === false
-    ? undefined
-    : shareableURL
-      || getURLs().find(({ type }) => type === 'network')?.url
-      || (options.qr ? url : undefined)
-
-  function showURLs({ qr = false }: { qr?: boolean } = {}): void {
-    const urls = getURLs()
-    const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
-    const labelColors = { local: 'green', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
-    const lines: string[] = []
-    const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
-      `  ${color('➜')} ${styleText('bold', color(label.padEnd(10)))}${value}${isQR ? styleText('gray', ' [QR code]') : ''}`
-    for (const { url: displayURL, type } of urls) {
-      lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
+    if (options.showURL !== false) {
+      if (qrURL) {
+        await printQRCode(qrURL)
+      }
+      showURLs({ qr: !!qrURL })
     }
-    if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
-      const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
-      const hint = isolated
-        ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
-        : `use ${styleText('white', '--host')} to expose`
-      lines.push(line(text => styleText('magenta', text), 'Network:', styleText('gray', hint), false))
+
+    if (options.clipboard) {
+      await copyURL(publicURL || url)
     }
-    if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {
-      lines.push(line(text => styleText('magenta', text), 'Public:', styleText('cyan', publicURL), qr && publicURL === qrURL))
+
+    if (options.open) {
+      openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
     }
-    // eslint-disable-next-line no-console
-    console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
-  }
 
-  if (options.showURL !== false) {
-    if (qrURL) {
-      await printQRCode(qrURL)
+    return {
+      url,
+      publicURL,
+      qrURL,
+      address,
+      server,
+      https: certificate,
+      getURLs,
+      showURLs,
+      close: () => Promise.all([
+        tunnel?.close(),
+        closeServer(server),
+      ]).then(() => {}),
     }
-    showURLs({ qr: !!qrURL })
-  }
-
-  if (options.clipboard) {
-    await copyURL(publicURL || url)
-  }
-
-  if (options.open) {
-    openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
-  }
-
-  return {
-    url,
-    publicURL,
-    qrURL,
-    address,
-    server,
-    https: certificate,
-    getURLs,
-    showURLs,
-    close: () => Promise.all([
-      tunnel?.close(),
-      closeServer(server),
-    ]).then(() => {}),
   }
 }
 
