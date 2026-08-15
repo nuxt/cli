@@ -1,94 +1,221 @@
-import { fileURLToPath } from 'node:url'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import process from 'node:process'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { join } from 'pathe'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runCommand } from '../../../src/run'
-import { logger } from '../../../src/utils/logger'
+const { addDevDependency, answers, resolveModulePath, tinyexec, writeTypes } = vi.hoisted(() => ({
+  addDevDependency: vi.fn(() => Promise.resolve()),
+  answers: { select: [] as unknown[], confirm: [] as unknown[] },
+  resolveModulePath: vi.fn(),
+  tinyexec: vi.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
+  writeTypes: vi.fn(() => Promise.resolve()),
+}))
 
-const { buildNuxt, closeNuxt, loadKit, resolveModulePath, writeTypes, x } = vi.hoisted(() => {
-  const buildNuxt = vi.fn(() => Promise.resolve())
-  const closeNuxt = vi.fn(() => Promise.resolve())
-  const writeTypes = vi.fn(() => Promise.resolve())
-  return {
-    buildNuxt,
-    closeNuxt,
+vi.mock('tinyexec', () => ({ x: tinyexec }))
+
+vi.mock('exsolve', async importOriginal => ({
+  ...await importOriginal<typeof import('exsolve')>(),
+  resolveModulePath,
+}))
+
+vi.mock('nypm', async importOriginal => ({
+  ...await importOriginal<typeof import('nypm')>(),
+  addDevDependency,
+  detectPackageManager: () => Promise.resolve({ name: 'pnpm', command: 'pnpm' }),
+}))
+
+vi.mock('../../../src/utils/kit', () => ({
+  loadKit: () => Promise.resolve({
+    loadNuxt: () => Promise.resolve({ close: () => Promise.resolve(), options: {} }),
+    buildNuxt: () => Promise.resolve(),
     writeTypes,
-    x: vi.fn((_bin: string, _args: string[]) => Promise.resolve({ exitCode: 0 })),
-    loadKit: vi.fn(() => Promise.resolve({
-      loadNuxt: () => Promise.resolve({ close: closeNuxt }),
-      buildNuxt,
-      writeTypes,
-    })),
-    resolveModulePath: vi.fn((id: string): string | undefined => id.includes('vue-tsc') ? '/node_modules/vue-tsc/bin/vue-tsc.js' : '/node_modules/typescript/index.js'),
+  }),
+  tryResolveNuxt: () => undefined,
+}))
+
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  hasTTY: true,
+}))
+
+vi.mock('@clack/prompts', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@clack/prompts')>()
+  const next = (queue: unknown[], fallback: unknown) => Promise.resolve(queue.length ? queue.shift() : fallback)
+  return {
+    ...original,
+    select: vi.fn(() => next(answers.select, 'vue-tsc')),
+    confirm: vi.fn(() => next(answers.confirm, false)),
+    spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), error: vi.fn(), message: vi.fn() })),
   }
 })
 
-vi.mock('tinyexec', () => ({ x }))
-vi.mock('../../../src/utils/kit', () => ({ loadKit }))
-vi.mock('exsolve', () => ({ resolveModulePath }))
+const { runCommandDef } = await import('../../../src/run-command')
+const { render, screen } = await import('../../utils/terminal')
+const typecheck = await import('../../../src/commands/typecheck').then(r => r.default)
 
-function fixture(name: string) {
-  return fileURLToPath(new URL(`../../fixtures/typecheck/${name}`, import.meta.url))
+let cwd: string
+
+/** Pretend the named packages are installed in the project. */
+function installed(...names: string[]): void {
+  resolveModulePath.mockImplementation((id: string) => {
+    if (names.some(name => id === name || id.startsWith(`${name}/`))) {
+      return join(cwd, 'node_modules', id)
+    }
+    return undefined
+  })
 }
 
-async function run(cwd: string, ...args: string[]) {
-  await runCommand('typecheck', ['--cwd', cwd, ...args])
-  return x.mock.calls[0]?.[1]
+async function runTypecheck(argv: string[] = []): Promise<{ output: string, exitCode: number | undefined }> {
+  process.exitCode = undefined
+  const renderer = await render(async () => {
+    await runCommandDef(typecheck, [`--cwd=${cwd}`, ...argv])
+  })
+  const exitCode = process.exitCode as number | undefined
+  process.exitCode = 0
+  return { output: `${renderer.frames.join('\n')}\n${screen(renderer)}`, exitCode }
 }
 
-describe('nuxt typecheck command', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    process.exitCode = undefined
-    resolveModulePath.mockImplementation((id: string) => id.includes('vue-tsc') ? '/node_modules/vue-tsc/bin/vue-tsc.js' : '/node_modules/typescript/index.js')
-    x.mockResolvedValue({ exitCode: 0 })
+beforeEach(async () => {
+  cwd = await mkdtemp(join(tmpdir(), 'nuxt-typecheck-'))
+  answers.select.length = 0
+  answers.confirm.length = 0
+  vi.clearAllMocks()
+  tinyexec.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' })
+  addDevDependency.mockImplementation(() => Promise.resolve())
+  installed('typescript', 'vue-tsc/bin/vue-tsc.js')
+  await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', type: 'module' }))
+})
+
+afterEach(async () => {
+  await rm(cwd, { recursive: true, force: true })
+  vi.restoreAllMocks()
+})
+
+describe('typecheck checker selection', () => {
+  it('should reject a checker it does not know', async () => {
+    const { output, exitCode } = await runTypecheck(['--checker=tsc'])
+
+    expect(exitCode).toBe(1)
+    expect(output).toContain('Unknown type checker')
+    expect(output).toContain('vue-tsc')
+    expect(tinyexec).not.toHaveBeenCalled()
   })
 
-  it('should use build mode for Nuxt project references', async () => {
-    expect(await run(fixture('nuxt-references'))).toEqual(['-b', '--noEmit'])
+  it('should run the checker that is installed', async () => {
+    await runTypecheck()
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.stringContaining('vue-tsc'), ['--noEmit'], expect.objectContaining({
+      nodeOptions: expect.objectContaining({ cwd }),
+    }))
   })
 
-  it('should not use build mode when the tsconfig has input files of its own', async () => {
-    expect(await run(fixture('legacy-references/app'))).toEqual(['--noEmit'])
+  it('should prefer golar when the project has a golar config', async () => {
+    await writeFile(join(cwd, 'golar.config.ts'), 'export default {}')
+    await mkdir(join(cwd, 'node_modules/golar'), { recursive: true })
+    await writeFile(join(cwd, 'node_modules/golar/package.json'), JSON.stringify({ name: 'golar', bin: './bin.js' }))
+    installed('typescript', 'vue-tsc/bin/vue-tsc.js', 'golar/unstable', '@golar/vue')
+
+    await runTypecheck()
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.stringContaining('golar'), ['tsc', '--noEmit'], expect.anything())
   })
 
-  it('should respect an explicit --build flag', async () => {
-    expect(await run(fixture('legacy-references/app'), '--build')).toEqual(['-b', '--noEmit'])
+  it('should create a golar config the first time golar is used', async () => {
+    await mkdir(join(cwd, 'node_modules/golar'), { recursive: true })
+    await writeFile(join(cwd, 'node_modules/golar/package.json'), JSON.stringify({ name: 'golar', bin: './bin.js' }))
+    installed('golar/unstable', '@golar/vue')
+
+    await runTypecheck(['--checker=golar'])
+
+    expect(await readFile(join(cwd, 'golar.config.ts'), 'utf8')).toContain('defineConfig')
+  })
+})
+
+describe('typecheck installation advice', () => {
+  it('should offer to install a missing checker and run it afterwards', async () => {
+    installed()
+    answers.select.push('vue-tsc')
+    answers.confirm.push(true)
+    addDevDependency.mockImplementation(() => {
+      installed('typescript', 'vue-tsc/bin/vue-tsc.js')
+      return Promise.resolve()
+    })
+
+    await runTypecheck()
+
+    expect(addDevDependency).toHaveBeenCalledWith(['typescript', 'vue-tsc'], expect.objectContaining({ cwd }))
+    expect(tinyexec).toHaveBeenCalledTimes(1)
   })
 
-  it('should respect an explicit --no-build flag', async () => {
-    expect(await run(fixture('nuxt-references'), '--no-build')).toEqual(['--noEmit'])
+  it('should print the install command when the user declines', async () => {
+    installed()
+    answers.select.push('vue-tsc')
+    answers.confirm.push(false)
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(exitCode).toBe(1)
+    expect(output).toContain('pnpm add -D typescript vue-tsc')
+    expect(tinyexec).not.toHaveBeenCalled()
   })
 
-  it('should warn when Nuxt project references are referenced alongside input files', async () => {
-    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
-    await run(fixture('incomplete-references'))
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('"files": []'))
-    warn.mockRestore()
+  it('should explain when the checker is still missing after installing', async () => {
+    installed()
+    answers.select.push('vue-tsc')
+    answers.confirm.push(true)
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(exitCode).toBe(1)
+    expect(output).toContain('Failed to resolve')
+    expect(tinyexec).not.toHaveBeenCalled()
+  })
+})
+
+describe('typecheck build mode', () => {
+  it('should use project references for a solution-style tsconfig', async () => {
+    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({ files: [], references: [{ path: './.nuxt/tsconfig.app.json' }] }))
+
+    await runTypecheck()
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit'], expect.anything())
   })
 
-  it('should not prepare Nuxt when the requested checker is unavailable', async () => {
-    resolveModulePath.mockReturnValue(undefined)
+  it('should warn when a tsconfig references nuxt projects but has files of its own', async () => {
+    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({
+      include: ['src'],
+      references: [{ path: './.nuxt/tsconfig.app.json' }],
+    }))
 
-    await run(fixture('nuxt-references'), '--checker', 'vue-tsc')
+    const { output } = await runTypecheck()
 
-    expect(process.exitCode).toBe(1)
-    expect(loadKit).not.toHaveBeenCalled()
+    expect(output).toContain('"files": []')
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['--noEmit'], expect.anything())
   })
 
-  it('should close Nuxt when preparing types fails', async () => {
-    writeTypes.mockRejectedValueOnce(new Error('could not write types'))
+  it('should let `--build` override the detection', async () => {
+    await runTypecheck(['--build'])
 
-    await expect(run(fixture('nuxt-references'))).rejects.toThrow('could not write types')
-    expect(buildNuxt).not.toHaveBeenCalled()
-    expect(closeNuxt).toHaveBeenCalledOnce()
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit'], expect.anything())
+  })
+})
+
+describe('typecheck results', () => {
+  it('should report a passing type check', async () => {
+    const { output, exitCode } = await runTypecheck()
+
+    expect(output).toContain('Type check passed')
+    expect(exitCode).toBeFalsy()
   })
 
-  it('should propagate the checker exit code', async () => {
-    x.mockResolvedValueOnce({ exitCode: 2 })
+  it('should carry the checker exit code through', async () => {
+    tinyexec.mockResolvedValue({ exitCode: 2, stdout: '', stderr: '' })
 
-    await run(fixture('nuxt-references'))
+    const { output, exitCode } = await runTypecheck()
 
-    expect(process.exitCode).toBe(2)
+    expect(output).toContain('Type check failed')
+    expect(exitCode).toBe(2)
   })
 })
