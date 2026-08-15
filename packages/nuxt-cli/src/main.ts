@@ -20,6 +20,7 @@ import { setupProxySupport } from './utils/network'
 import { withLocalBinPath } from './utils/path-env'
 import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
+import { findUnknownFlags, suggestFlags } from './utils/unknown-args'
 import { scheduleUpdateNudge } from './utils/update-lazy'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
@@ -68,6 +69,10 @@ const _main = defineCommand({
       process.exit(0)
     }
 
+    if (command && Object.hasOwn(commands, command)) {
+      await warnUnknownFlags(command, ctx.rawArgs)
+    }
+
     // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
     if (ctx.args.command && !Object.hasOwn(commands, ctx.args.command)) {
       const cwd = resolve(ctx.args.cwd)
@@ -92,5 +97,40 @@ const _main = defineCommand({
     }
   },
 })
+
+/**
+ * Report long flags the resolved command does not declare. Unknown flags are
+ * otherwise parsed and silently ignored, so a misspelling looks like the flag
+ * simply had no effect.
+ */
+async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<void> {
+  let def: CommandDef<any>
+  try {
+    def = await commands[command as keyof typeof commands]() as CommandDef<any>
+    const subCommands = await resolveLazy(def.subCommands)
+    const subCommand = rawArgs.slice(1).find(arg => !arg.startsWith('-'))
+    if (subCommands && subCommand && Object.hasOwn(subCommands, subCommand)) {
+      def = await resolveLazy(subCommands[subCommand]) as CommandDef<any>
+    }
+  }
+  catch (err) {
+    debug('Could not check arguments:', err)
+    return
+  }
+
+  const argsDef = { ...cwdArgs, ...await resolveLazy(def.args) }
+  const unknown = findUnknownFlags(argsDef, rawArgs.slice(1))
+  if (unknown.flags.length === 0) {
+    return
+  }
+
+  for (const { flag, suggestion } of await suggestFlags(unknown)) {
+    logger.warn(`Unknown option ${styleText('cyan', flag)}.${suggestion ? ` Did you mean ${styleText('cyan', suggestion)}?` : ''}`)
+  }
+}
+
+function resolveLazy<T>(value: T | (() => T | Promise<T>) | undefined): Promise<T | undefined> {
+  return Promise.resolve(typeof value === 'function' ? (value as () => T | Promise<T>)() : value)
+}
 
 export const main = _main as CommandDef<any>
