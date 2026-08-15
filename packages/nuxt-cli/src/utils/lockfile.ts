@@ -36,6 +36,10 @@ const OUTPUT_LOCK_DIRNAME = 'node_modules/.cache/nuxt'
 // PID recycling safety net. Locks older than this cannot be trusted because a
 // recycled PID could match a dead build's record.
 const MAX_LOCK_AGE_MS = 24 * 60 * 60 * 1000
+// A lock written by a machine whose clock runs slightly ahead of ours is still
+// plausible; anything further into the future is not, and would otherwise keep
+// `isLockActive` true indefinitely.
+const MAX_LOCK_CLOCK_SKEW_MS = 5 * 60 * 1000
 
 export function isProcessAlive(pid: number): boolean {
   try {
@@ -119,10 +123,88 @@ export function getTakeoverPid(buildDir: string): number | undefined {
 
 function readLockFile(lockPath: string): LockInfo | undefined {
   try {
-    return JSON.parse(readFileSync(lockPath, 'utf-8')) as LockInfo
+    return parseLockInfo(JSON.parse(readFileSync(lockPath, 'utf-8')))
   }
   catch {
     return undefined
+  }
+}
+
+const LOCK_COMMANDS = new Set<LockInfo['command']>(['dev', 'build', 'analyze'])
+const MAX_LOCK_STRING_LENGTH = 1024
+// C0 and C1 control characters, which would otherwise reach the terminal when a
+// lock is described to the user.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F-\u009F]/g
+const LOCK_HOSTNAME_RE = /^[\w.:[\]-]{1,253}$/
+
+function lockPid(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 2 ** 31 - 1
+    ? value
+    : undefined
+}
+
+function lockText(value: unknown): string | undefined {
+  return typeof value === 'string'
+    ? value.slice(0, MAX_LOCK_STRING_LENGTH).replace(CONTROL_CHARS_RE, '')
+    : undefined
+}
+
+function lockURL(value: unknown): string | undefined {
+  const text = lockText(value)
+  if (!text) {
+    return undefined
+  }
+  try {
+    const url = new URL(text)
+    return url.protocol === 'http:' || url.protocol === 'https:' ? text : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Validate a parsed `nuxt.lock` document.
+ *
+ * A lock lives in the build directory, so it can arrive with a cloned project
+ * and is read before any of that project's code runs. Everything taken from it
+ * is either signalled, connected to, or printed, so a record that does not have
+ * the exact shape written by {@link acquireLock} is discarded rather than
+ * repaired.
+ */
+export function parseLockInfo(raw: unknown): LockInfo | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return undefined
+  }
+  const input = raw as Record<string, unknown>
+
+  const pid = lockPid(input.pid)
+  const command = input.command as LockInfo['command']
+  const startedAt = input.startedAt
+  if (!pid || !LOCK_COMMANDS.has(command) || typeof startedAt !== 'number' || !Number.isFinite(startedAt)) {
+    return undefined
+  }
+  if (startedAt > Date.now() + MAX_LOCK_CLOCK_SKEW_MS) {
+    return undefined
+  }
+
+  const port = input.port
+  const hostname = lockText(input.hostname)
+  const parentPid = lockPid(input.parentPid)
+  const takenOverBy = lockPid(input.takenOverBy)
+
+  return {
+    pid,
+    startedAt,
+    command,
+    cwd: lockText(input.cwd) ?? '',
+    interactive: input.interactive === true,
+    ...typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65_535 ? { port } : {},
+    ...hostname && LOCK_HOSTNAME_RE.test(hostname) ? { hostname } : {},
+    ...lockURL(input.url) ? { url: lockURL(input.url) } : {},
+    ...parentPid ? { parentPid } : {},
+    ...takenOverBy ? { takenOverBy } : {},
   }
 }
 
