@@ -10,12 +10,14 @@ import { defineCommand } from 'citty'
 
 import { detectPackageManager } from 'nypm'
 import { readPackageJSON } from 'pkg-types'
+import { camelCase } from 'scule'
 import { isBun, isDeno, isMinimal } from 'std-env'
 import { writeText } from 'tinyclip'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
 import { resolveCatalogEntry } from '../utils/catalog'
+import { withDirectStdout } from '../utils/console'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -28,6 +30,22 @@ import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
 
+/** JSON key for each display label, so `--json` output stays stable if a label is reworded. */
+const JSON_KEYS: Record<string, string> = {
+  'Operating system': 'operatingSystem',
+  'CPU': 'cpu',
+  'Bun version': 'bunVersion',
+  'Deno version': 'denoVersion',
+  'Node.js version': 'nodeVersion',
+  'nuxt/cli version': 'cliVersion',
+  'Package manager': 'packageManager',
+  'Nuxt version': 'nuxtVersion',
+  'Nitro version': 'nitroVersion',
+  'Builder': 'builder',
+  'Config': 'config',
+  'Modules': 'modules',
+}
+
 export default defineCommand({
   meta: {
     name: 'info',
@@ -35,6 +53,10 @@ export default defineCommand({
   },
   args: {
     ...rootDirArgs,
+    json: {
+      type: 'boolean',
+      description: 'Print project info as JSON',
+    },
   },
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
@@ -63,13 +85,15 @@ export default defineCommand({
       const specifier = Array.isArray(module) ? module[0] : module
       const packageName = typeof specifier === 'string' && getPackageName(specifier)
       const version = packageName && await getDepVersion(packageName)
-      return `\`${version ? `${name}@${version}` : name}\``
+      return version ? `${name}@${version}` : name
     }))
     const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
       resolveNitroVersion(cwd, getDepVersion),
     ])
+    const configKeys = Object.keys(nuxtConfig).sort()
+    const moduleNames = modules.filter(module => module !== null)
     const builder = nuxtConfig.builder || 'vite'
     const packageManager = detectedPackageManager
       ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.command)}`
@@ -95,11 +119,23 @@ export default defineCommand({
       'Nuxt version': nuxtVersion,
       'Nitro version': nitroVersion,
       'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
-      'Config': Object.keys(nuxtConfig)
-        .map(key => `\`${key}\``)
-        .sort()
-        .join(', '),
-      'Modules': modules.filter(module => module !== null).join(', '),
+      'Config': configKeys.map(key => `\`${key}\``).join(', '),
+      'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
+    }
+
+    if (ctx.args.json) {
+      // Arrays come from the source values rather than the rendered string, so a
+      // key or module path containing `, ` stays a single entry.
+      const lists: Record<string, string[]> = { config: configKeys, modules: moduleNames }
+      const payload = JSON.stringify({
+        rootDir: nuxtConfig.rootDir || cwd,
+        ...Object.fromEntries(Object.entries(infoObj).map(([label, value]) => {
+          const key = JSON_KEYS[label] ?? camelCase(label)
+          return [key, lists[key] ?? (value?.replaceAll('`', '') || null)]
+        })),
+      }, null, 2)
+      await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+      return
     }
 
     logger.info(`Nuxt root directory: ${styleText('cyan', nuxtConfig.rootDir || cwd)}\n`)
