@@ -156,6 +156,27 @@ describe('task list', () => {
     expect(stdout).toContain('0 * * * *')
   })
 
+  it('prints machine readable output with `--json`', async () => {
+    const code = await runTaskCommand(list, ['--url', origin, '--json'])
+
+    expect(code).toBe(0)
+    expect(JSON.parse(stdout)).toEqual({
+      tasks: [
+        { name: 'db:migrate', description: 'Migrate the database' },
+        { name: 'db:seed', description: null },
+      ],
+      scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+    })
+  })
+
+  it('prints an empty payload with `--json` when the server exposes no tasks', async () => {
+    taskList = { tasks: {} }
+    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`, '--json'])
+
+    expect(code).toBe(0)
+    expect(JSON.parse(stdout)).toEqual({ tasks: [], scheduledTasks: [] })
+  })
+
   it('finds the dev server from the lock file', async () => {
     await writeLock(origin)
     const code = await runTaskCommand(list, [`--cwd=${cwd}`])

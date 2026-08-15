@@ -62,3 +62,10 @@ export const rootDirArgs = {
     default: undefined,
   },
 } as const satisfies Record<string, ArgDef>
+
+export const jsonArgs = {
+  json: {
+    type: 'boolean',
+    description: 'Print output as JSON',
+  },
+} as const satisfies Record<string, ArgDef>
