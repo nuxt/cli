@@ -25,7 +25,7 @@ afterEach(() => {
       Object.defineProperty(stdin, key, descriptors[key])
     }
     else {
-      delete (stdin as Record<string, unknown>)[key]
+      delete (stdin as unknown as Record<string, unknown>)[key]
     }
   }
 })
