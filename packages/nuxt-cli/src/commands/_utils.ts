@@ -7,6 +7,7 @@ export const nuxiCommands = [
   'analyze',
   'build',
   'cleanup',
+  'completion',
   '_dev',
   'dev',
   'devtools',

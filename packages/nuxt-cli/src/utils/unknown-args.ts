@@ -1,10 +1,9 @@
 import type { ArgsDef } from 'citty'
 
+import { flagPolicy, suggestClosest } from './suggest'
+
 /** Always accepted by citty, so never reported as unknown. */
 const BUILTIN_FLAGS = ['help', 'version']
-
-/** Low enough to catch a wrong case (`--loglevel`) or a dropped letter, high enough not to invent a match. */
-const SUGGESTION_THRESHOLD = 0.3
 
 const LEADING_DASHES_RE = /^--/
 const NEGATION_RE = /^no-/
@@ -53,11 +52,10 @@ export function findUnknownFlags(argsDef: ArgsDef, rawArgs: string[]): UnknownFl
  * separately so the fuzzy matcher is only loaded once something is wrong.
  */
 export async function suggestFlags({ flags, known }: UnknownFlags): Promise<Array<{ flag: string, suggestion?: string }>> {
-  const { default: fuzzysort } = await import('fuzzysort')
-  return flags.map((flag) => {
-    const [match] = fuzzysort.go(flag.replace(NEGATION_RE, ''), known, { limit: 1, threshold: SUGGESTION_THRESHOLD })
-    return { flag: `--${flag}`, suggestion: match && `--${match.target}` }
-  })
+  return Promise.all(flags.map(async (flag) => {
+    const match = await suggestClosest(flag.replace(NEGATION_RE, ''), known, flagPolicy)
+    return { flag: `--${flag}`, suggestion: match && `--${match}` }
+  }))
 }
 
 /**

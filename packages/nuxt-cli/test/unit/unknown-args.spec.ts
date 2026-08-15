@@ -12,6 +12,8 @@ const argsDef = {
   'logLevel': { type: 'string' },
   'fork': { type: 'boolean' },
   'https': { type: 'boolean' },
+  'dotenv': { type: 'string' },
+  'strictPort': { type: 'boolean' },
   'open.url': { type: 'string' },
   'port': { type: 'string', alias: ['p'] },
 } satisfies ArgsDef
@@ -48,6 +50,13 @@ describe('suggestFlags', () => {
     await expect(suggestFlags(findUnknownFlags(argsDef, ['--loglevel', '--jsn']))).resolves.toEqual([
       { flag: '--loglevel', suggestion: '--logLevel' },
       { flag: '--jsn', suggestion: '--json' },
+    ])
+  })
+
+  it('should suggest through a transposition', async () => {
+    await expect(suggestFlags(findUnknownFlags(argsDef, ['--dotnev', '--strcitPort']))).resolves.toEqual([
+      { flag: '--dotnev', suggestion: '--dotenv' },
+      { flag: '--strcitPort', suggestion: '--strictPort' },
     ])
   })
 

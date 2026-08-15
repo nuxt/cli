@@ -10,10 +10,11 @@ import { runMain as _runMain, defineCommand } from 'citty'
 import { provider } from 'std-env'
 
 import { cwdArgs } from '../../nuxt-cli/src/commands/_shared'
-import { isNuxiCommand } from '../../nuxt-cli/src/commands/_utils'
+import { isNuxiCommand, nuxiCommands } from '../../nuxt-cli/src/commands/_utils'
 import { setupGlobalConsole } from '../../nuxt-cli/src/utils/console'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
+import { findInPath, withLocalBinPath } from '../../nuxt-cli/src/utils/path-env'
 import { description, name, version } from '../package.json'
 
 // globalThis.crypto support for Node.js 18
@@ -76,24 +77,39 @@ const _main = defineCommand({
 
       // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
       const cwd = resolve(ctx.args.cwd)
-      try {
-        const { x } = await import('tinyexec')
-        // `tinyexec` will resolve command from local binaries
-        await x(`nuxt-${ctx.args.command}`, ctx.rawArgs.slice(1), {
-          nodeOptions: { stdio: 'inherit', cwd },
-          throwOnError: true,
-        })
+      const env = withLocalBinPath(cwd)
+      // Resolved before spawning rather than after failing: Windows runs a bare
+      // name through `cmd.exe`, which reports its own error instead of `ENOENT`,
+      // so a missing binary would otherwise look like one that ran and failed.
+      const binary = findInPath(`nuxt-${ctx.args.command}`, env)
+      if (!binary) {
+        return reportUnknownCommand(ctx.args.command)
       }
-      catch (err) {
-        // TODO: use windows err code as well
-        if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
-          return
-        }
-      }
-      process.exit()
+      const { x } = await import('tinyexec')
+      // The resolved path is spawned rather than the bare name: `tinyexec` would
+      // otherwise search `node_modules/.bin` relative to this process's directory,
+      // which is not the directory the command was asked to run in.
+      const result = await x(binary, ctx.rawArgs.slice(1), {
+        nodeOptions: { stdio: 'inherit', cwd, env },
+        nodePath: false,
+        throwOnError: false,
+      })
+      process.exit(result.exitCode ?? 0)
     }
   },
 })
+
+async function reportUnknownCommand(command: string): Promise<void> {
+  const { suggestCommand } = await import('../../nuxt-cli/src/utils/suggest-command')
+  const suggestion = await suggestCommand(command, nuxiCommands.filter(name => !name.startsWith('_')))
+  if (!suggestion) {
+    return
+  }
+
+  logger.error(`Unknown command ${styleText('cyan', command)}. Did you mean ${styleText('cyan', `nuxt ${suggestion}`)}?`)
+  logger.info(`Run ${styleText('cyan', 'nuxt --help')} to see all commands.`)
+  process.exit(1)
+}
 
 export const main = _main as CommandDef<any>
 

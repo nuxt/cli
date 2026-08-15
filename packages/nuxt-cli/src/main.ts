@@ -17,7 +17,7 @@ import { setupGlobalConsole } from './utils/console'
 import { checkEngines } from './utils/engines'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
-import { withLocalBinPath } from './utils/path-env'
+import { findInPath, withLocalBinPath } from './utils/path-env'
 import { resolveProjectDir } from './utils/paths'
 import { templateNames } from './utils/templates/names'
 import { findUnknownFlags, suggestFlags } from './utils/unknown-args'
@@ -76,24 +76,24 @@ const _main = defineCommand({
     // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
     if (ctx.args.command && !Object.hasOwn(commands, ctx.args.command)) {
       const cwd = resolve(ctx.args.cwd)
-      try {
-        const { x } = await import('tinyexec')
-        const result = await x(`nuxt-${ctx.args.command}`, ctx.rawArgs.slice(1), {
-          nodeOptions: {
-            stdio: 'inherit',
-            cwd,
-            env: withLocalBinPath(cwd),
-          },
-          throwOnError: false,
-        })
-        process.exit(result.exitCode ?? 1)
+      const env = withLocalBinPath(cwd)
+      // Resolved before spawning rather than after failing: Windows runs a bare
+      // name through `cmd.exe`, which reports its own error instead of `ENOENT`,
+      // so a missing binary would otherwise look like one that ran and failed.
+      const binary = findInPath(`nuxt-${ctx.args.command}`, env)
+      if (!binary) {
+        return reportUnknownCommand(ctx.args.command)
       }
-      catch (err) {
-        if (err instanceof Error && 'code' in err && err.code === 'ENOENT') {
-          return
-        }
-        throw err
-      }
+      const { x } = await import('tinyexec')
+      // The resolved path is spawned rather than the bare name: `tinyexec` would
+      // otherwise search `node_modules/.bin` relative to this process's directory,
+      // which is not the directory the command was asked to run in.
+      const result = await x(binary, ctx.rawArgs.slice(1), {
+        nodeOptions: { stdio: 'inherit', cwd, env },
+        nodePath: false,
+        throwOnError: false,
+      })
+      process.exit(result.exitCode ?? 1)
     }
   },
 })
@@ -131,6 +131,26 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
 
 function resolveLazy<T>(value: T | (() => T | Promise<T>) | undefined): Promise<T | undefined> {
   return Promise.resolve(typeof value === 'function' ? (value as () => T | Promise<T>)() : value)
+}
+
+/**
+ * Report a command that neither the CLI nor a local `nuxt-` binary provides.
+ *
+ * With a confident suggestion this is the whole error, since a full help dump
+ * buries the one line the user needs. Otherwise nothing is printed and citty
+ * falls back to showing usage.
+ */
+async function reportUnknownCommand(command: string): Promise<void> {
+  const { suggestCommand } = await import('./utils/suggest-command')
+  const names = Object.keys(commands).filter(name => !name.startsWith('_'))
+  const suggestion = await suggestCommand(command, names)
+  if (!suggestion) {
+    return
+  }
+
+  logger.error(`Unknown command ${styleText('cyan', command)}. Did you mean ${styleText('cyan', `nuxt ${suggestion}`)}?`)
+  logger.info(`Run ${styleText('cyan', 'nuxt --help')} to see all commands.`)
+  process.exit(1)
 }
 
 export const main = _main as CommandDef<any>

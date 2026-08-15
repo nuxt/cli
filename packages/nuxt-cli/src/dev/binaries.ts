@@ -2,7 +2,6 @@ import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { delimiter } from 'node:path'
 
 import process from 'node:process'
 
@@ -13,6 +12,7 @@ import { readUser, updateUser } from 'rc9'
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
+import { findInPath } from '../utils/path-env'
 
 interface ConsentOptions {
   /** Key under `tools` in the user `.nuxtrc` used to persist acceptance. */
@@ -96,21 +96,6 @@ export function getCacheDir(...segments: string[]): string {
   const dir = join(base, 'nuxt', ...segments)
   mkdirSync(dir, { recursive: true })
   return dir
-}
-
-export function findInPath(name: string): string | undefined {
-  const extensions = process.platform === 'win32' ? ['.exe', '.cmd', '.bat'] : ['']
-  for (const dir of (process.env.PATH || '').split(delimiter)) {
-    if (!dir) {
-      continue
-    }
-    for (const extension of extensions) {
-      const candidate = join(dir, name + extension)
-      if (existsSync(candidate)) {
-        return candidate
-      }
-    }
-  }
 }
 
 async function downloadBinary(url: string, destination: string, options: { archive?: boolean, name?: string } = {}): Promise<string | undefined> {
