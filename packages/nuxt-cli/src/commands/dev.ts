@@ -411,7 +411,7 @@ function resolveForkPoolSize(): number | undefined {
   return parsed
 }
 
-function parsePositiveInteger(value: string | undefined): number | undefined {
+export function parsePositiveInteger(value: string | undefined): number | undefined {
   const parsed = Number(value)
   if (!value || !Number.isInteger(parsed) || parsed <= 0) {
     if (value) {
@@ -422,7 +422,7 @@ function parsePositiveInteger(value: string | undefined): number | undefined {
   return parsed
 }
 
-function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
+export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
   const httpsOptions: HTTPSOptions = {
     cert: args['https.cert']
       || args.sslCert
