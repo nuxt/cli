@@ -50,6 +50,14 @@ describe('commands', () => {
     'curl': 'todo',
     'task': 'todo',
     'devtools': 'todo',
+    'docs': async () => {
+      const res = await x(nuxi, ['docs', '--no-open'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir, env: { ...process.env, BROWSER: 'none' } },
+      })
+      expect(res.exitCode).toBe(0)
+      expect(res.stdout + res.stderr).toContain('https://nuxt.com/docs')
+    },
     'module': 'todo',
     'prepare': async () => {
       const res = await x(nuxi, ['prepare'], {

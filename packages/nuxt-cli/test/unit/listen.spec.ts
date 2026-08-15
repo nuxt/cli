@@ -158,6 +158,12 @@ describe('resolveOpenCommand', () => {
     expect(resolveOpenCommand(url, 'darwin', { BROWSER: 'Firefox', BROWSER_ARGS: '--private-window' })).toEqual(['open', ['-a', 'Firefox', url, '--args', '--private-window']])
     expect(resolveOpenCommand(url, 'darwin', { BROWSER: '/usr/local/bin/firefox' })).toEqual(['/usr/local/bin/firefox', [url]])
   })
+
+  it('should treat a `BROWSER` naming the platform launcher as the default', () => {
+    expect(resolveOpenCommand(url, 'darwin', { BROWSER: 'open' })).toEqual(['open', [url]])
+    expect(resolveOpenCommand(url, 'linux', { BROWSER: 'xdg-open' })).toEqual(['xdg-open', [url]])
+    expect(resolveOpenCommand(url, 'win32', { BROWSER: 'start' })).toEqual(['cmd.exe', ['/c', 'start', '""', url]])
+  })
 })
 
 describe('listen', () => {

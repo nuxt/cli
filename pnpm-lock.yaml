@@ -178,6 +178,9 @@ importers:
       '@clack/prompts':
         specifier: ^1.7.0
         version: 1.7.0
+      '@nuxt/docs':
+        specifier: ^4.0.0
+        version: 4.5.2
       args-tokenizer:
         specifier: ^0.3.0
         version: 0.3.0
@@ -1145,6 +1148,9 @@ packages:
     peerDependenciesMeta:
       '@vitejs/devtools':
         optional: true
+
+  '@nuxt/docs@4.5.2':
+    resolution: {integrity: sha512-ApTWGl5RVgpB//cJslorqs6kiokKNwpQcBn/fOVjb0fJ41uOdx0X/vYh8M9cp+BXQxxwJjcc/RrrlGDM8WYN0g==}
 
   '@nuxt/eslint-config@1.17.0':
     resolution: {integrity: sha512-5lHecnGvi7RxGsR3Amvnl47bxb3F4wFD9KQgbbmhd6prz3OAAbgQio9EK88tPyNHt7+dxIFFOnCH6TJNl/QbqQ==}
@@ -7516,6 +7522,8 @@ snapshots:
       - uploadthing
       - utf-8-validate
       - vue
+
+  '@nuxt/docs@4.5.2': {}
 
   '@nuxt/eslint-config@1.17.0(@typescript-eslint/utils@8.66.0(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3))(@vue/compiler-sfc@3.5.41)(eslint@10.8.1(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@6.0.3)':
     dependencies:

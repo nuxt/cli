@@ -5,8 +5,9 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getCacheDir, resolveTool } from '../../../src/dev/binaries'
+import { resolveTool } from '../../../src/dev/binaries'
 import { resolveCloudflaredVersion } from '../../../src/dev/tunnel'
+import { getCacheDir } from '../../../src/utils/cache'
 
 let cacheHome: string
 const originalCacheHome = process.env.XDG_CACHE_HOME

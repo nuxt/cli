@@ -504,6 +504,8 @@ function resolveOpenURL(target: string, baseURL: string): string {
   }
 }
 
+const DEFAULT_LAUNCHERS = new Set(['open', 'xdg-open', 'start', 'cmd', 'cmd.exe'])
+
 /**
  * Resolve the command that opens `url`, honouring the de facto `BROWSER` and
  * `BROWSER_ARGS` environment variables (`BROWSER=none` disables opening).
@@ -518,7 +520,10 @@ export function resolveOpenCommand(
     return
   }
 
-  if (browser) {
+  // A `BROWSER` naming the platform launcher itself is asking for the default
+  // behaviour, not for a browser called `open`/`xdg-open` (`open -a open <url>`
+  // fails).
+  if (browser && !DEFAULT_LAUNCHERS.has(browser)) {
     const browserArgs = env.BROWSER_ARGS?.trim().split(/\s+/).filter(Boolean) ?? []
     return platform === 'darwin' && !browser.includes('/')
       ? ['open', ['-a', browser, url, ...(browserArgs.length > 0 ? ['--args', ...browserArgs] : [])]]
