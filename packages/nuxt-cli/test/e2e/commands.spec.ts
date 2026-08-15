@@ -97,7 +97,7 @@ describe('commands', () => {
       })
 
       // Test that server responds
-      const response = await fetchWithPolling(`http://127.0.0.1:${port}`, {}, 30, 300)
+      const response = await fetchWithPolling(`http://127.0.0.1:${port}`)
       expect.soft(response?.status).toBe(200)
 
       controller.abort()
@@ -190,7 +190,7 @@ describe('extends support', () => {
     })
 
     // Test that server responds
-    const response = await fetchWithPolling(`http://127.0.0.1:${port}/extended`, {}, 30, 300)
+    const response = await fetchWithPolling(`http://127.0.0.1:${port}/extended`)
     expect.soft(response?.status).toBe(200)
     expect(await response?.text()).toContain('This is an extended page from a layer.')
 
