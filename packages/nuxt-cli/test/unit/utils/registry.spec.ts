@@ -83,3 +83,59 @@ describe('detectNpmRegistry', () => {
     expect(process.env.COREPACK_NPM_REGISTRY).toBeUndefined()
   })
 })
+
+describe('auth token scoping', () => {
+  async function npmrc(...lines: string[]): Promise<string> {
+    const directory = await mkdtemp(join(tmpdir(), 'nuxt-registry-'))
+    directories.push(directory)
+    await writeFile(join(directory, '.npmrc'), lines.join('\n'))
+    return directory
+  }
+
+  it('should not return a token registered for a different registry', async () => {
+    const directory = await npmrc(
+      'registry=https://registry.example.com/',
+      '//registry.other.com/:_authToken=secret',
+    )
+
+    await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({ authToken: null })
+  })
+
+  it('should not return a token for a lookalike host', async () => {
+    const directory = await npmrc(
+      'registry=https://registry.example.com.evil.test/',
+      '//registry.example.com/:_authToken=secret',
+    )
+
+    await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({
+      registry: 'https://registry.example.com.evil.test',
+      authToken: null,
+    })
+  })
+
+  it('should resolve the token of the scoped registry that is actually used', async () => {
+    const directory = await npmrc(
+      'registry=https://registry.example.com/',
+      '@scope:registry=https://scoped.example.com/',
+      '//registry.example.com/:_authToken=default-token',
+      '//scoped.example.com/:_authToken=scoped-token',
+    )
+
+    await expect(detectNpmRegistry('@scope', directory)).resolves.toEqual({
+      registry: 'https://scoped.example.com',
+      authToken: 'scoped-token',
+    })
+  })
+
+  it('should prefer COREPACK_NPM_REGISTRY over the project npmrc', async () => {
+    const directory = await npmrc('registry=https://registry.example.com/')
+    process.env.COREPACK_NPM_REGISTRY = 'https://corepack.example.com/'
+
+    try {
+      await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({ registry: 'https://corepack.example.com' })
+    }
+    finally {
+      delete process.env.COREPACK_NPM_REGISTRY
+    }
+  })
+})

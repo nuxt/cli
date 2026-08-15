@@ -5,11 +5,13 @@ import { describe, expect, it } from 'vitest'
 import { renderError } from '../../../src/dev/error'
 import { NuxtDevServer } from '../../../src/dev/utils'
 
-interface FakeResponse extends ServerResponse {
+interface FakeResponse {
   body: string
   statusCode: number
+  headersSent: boolean
   headers: Record<string, string>
   finished: Promise<void>
+  response: ServerResponse
 }
 
 function createRequest(accept?: string, url = '/'): IncomingMessage {
@@ -42,13 +44,17 @@ function createResponse(): FakeResponse {
       done()
     },
   }
-  return res as unknown as FakeResponse
+  return new Proxy(res, {
+    get(target, key) {
+      return key === 'response' ? target : Reflect.get(target, key)
+    },
+  }) as unknown as FakeResponse
 }
 
 describe('renderError', () => {
   it('should escape an error message in the html error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html'), res, new Error('<script>alert(1)</script>'))
+    await renderError(createRequest('text/html'), res.response, new Error('<script>alert(1)</script>'))
 
     expect(res.statusCode).toBe(500)
     expect(res.headers['content-type']).toBe('text/html')
@@ -58,14 +64,14 @@ describe('renderError', () => {
 
   it('should escape a reflected request url in the html error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html', '/</script><script>alert(1)</script>'), res, new Error('boom'))
+    await renderError(createRequest('text/html', '/</script><script>alert(1)</script>'), res.response, new Error('boom'))
 
     expect(res.body).not.toContain('<script>alert(1)</script>')
   })
 
   it('should answer a non-html client with json', async () => {
     const res = createResponse()
-    await renderError(createRequest('application/json'), res, new Error('boom'))
+    await renderError(createRequest('application/json'), res.response, new Error('boom'))
 
     expect(res.headers['content-type']).toBe('application/json')
     expect(JSON.parse(res.body)).toMatchObject({ error: true, status: 500, message: 'boom' })
@@ -73,7 +79,7 @@ describe('renderError', () => {
 
   it('should send hardening headers with the error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html'), res, new Error('boom'))
+    await renderError(createRequest('text/html'), res.response, new Error('boom'))
 
     expect(res.headers).toMatchObject({
       'cache-control': 'no-store',
@@ -86,14 +92,14 @@ describe('renderError', () => {
   it('should not write a body once headers have been sent', async () => {
     const res = createResponse()
     res.headersSent = true
-    await renderError(createRequest('text/html'), res, new Error('boom'))
+    await renderError(createRequest('text/html'), res.response, new Error('boom'))
 
     expect(res.body).toBe('')
   })
 
   it('should render a non-error rejection value', async () => {
     const res = createResponse()
-    await renderError(createRequest('application/json'), res, 'just a string')
+    await renderError(createRequest('application/json'), res.response, 'just a string')
 
     expect(JSON.parse(res.body)).toMatchObject({ status: 500, message: 'Unknown error' })
   })
@@ -108,7 +114,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(({ loading }) => `<p>${loading}</p>`)
     const res = createResponse()
 
-    server.handler(createRequest('text/html'), res)
+    server.handler(createRequest('text/html'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.statusCode).toBe(503)
@@ -120,7 +126,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(() => '<p>ignored</p>')
     const res = createResponse()
 
-    server.handler(createRequest('application/json'), res)
+    server.handler(createRequest('application/json'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.statusCode).toBe(503)
@@ -131,7 +137,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(() => 'loading')
     const res = createResponse()
 
-    server.handler(createRequest('text/html'), res)
+    server.handler(createRequest('text/html'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.headers).toMatchObject({ 'cache-control': 'no-store', 'refresh': '3' })
