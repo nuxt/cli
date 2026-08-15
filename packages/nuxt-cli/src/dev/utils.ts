@@ -360,6 +360,14 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     res.end(loadingTemplate?.({ loading: message }) ?? message)
   }
 
+  /**
+   * Load Nuxt, bind the listener and serve the app.
+   *
+   * Rejects if the first load fails, because there is no server to hand back;
+   * a later {@link load} instead catches, emits `loading:error` and serves the
+   * error page, so a caller that only listens for the event will never hear
+   * about a failed startup.
+   */
   async init(): Promise<void> {
     const action = 'Starting'
     this.#loadingMessage = `${action} Nuxt...`
