@@ -6,7 +6,7 @@ import { styleText } from 'node:util'
 
 import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { dirname, resolve } from 'pathe'
+import { dirname, isAbsolute, relative, resolve } from 'pathe'
 
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
@@ -99,6 +99,13 @@ export default defineCommand({
     const kit = await loadKit(cwd)
     const config = await kit.loadNuxtConfig({ cwd })
     const res = templates[templateName]({ name, args: ctx.args, nuxtOptions: config })
+
+    if (escapesRoot(cwd, res.path)) {
+      logger.error(`Refusing to write outside ${styleText('cyan', cwd)}: ${styleText('cyan', res.path)}.`)
+      logger.info('Pass a name relative to the project, without leading slashes or `..` segments.')
+      process.exit(1)
+    }
+
     const parentDir = dirname(res.path)
     const createdDir = await fsp.mkdir(parentDir, { recursive: true })
     if (createdDir) {
@@ -123,3 +130,8 @@ export default defineCommand({
     outro(`Generated a new ${styleText('cyan', templateName)}!`)
   },
 })
+
+export function escapesRoot(root: string, path: string): boolean {
+  const rel = relative(resolve(root), resolve(path))
+  return !rel || rel.startsWith('../') || rel === '..' || isAbsolute(rel)
+}
