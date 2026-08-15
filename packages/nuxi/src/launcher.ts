@@ -11,6 +11,9 @@ import { withNodePath } from '../../nuxt-cli/src/utils/paths'
 
 const FLAG_RE = /^-/
 
+/** Launcher-level flags whose value is a separate argument, so it is not the command. */
+const VALUE_FLAGS = new Set(['--cwd'])
+
 const BACKSLASH_RE = /\\/g
 
 const launcherDist = comparablePath(join(fileURLToPath(new URL('../', import.meta.url)), 'dist'))
@@ -116,8 +119,17 @@ export function supportsCommand(main: unknown, command: string): boolean {
   return command in subCommands
 }
 
-function commandName(rawArgs: string[]) {
-  return rawArgs.find(arg => !FLAG_RE.test(arg))
+/** The command being run, skipping the value of any flag written as `--flag value`. */
+export function commandName(rawArgs: string[]): string | undefined {
+  for (let i = 0; i < rawArgs.length; i++) {
+    const arg = rawArgs[i]!
+    if (!FLAG_RE.test(arg)) {
+      return arg
+    }
+    if (VALUE_FLAGS.has(arg)) {
+      i++
+    }
+  }
 }
 
 /**

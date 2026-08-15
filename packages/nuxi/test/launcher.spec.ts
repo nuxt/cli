@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { loadProjectCli, supportsCommand } from '../src/launcher'
+import { commandName, loadProjectCli, supportsCommand } from '../src/launcher'
 
 const cwd = process.cwd()
 let nodePath: string | undefined
@@ -112,6 +112,23 @@ describe('loadProjectCli', () => {
     process.chdir(createProject('without-cli', {}))
 
     expect(loadProjectCli(['dev'])).toBeNull()
+  })
+})
+
+describe('commandName', () => {
+  it('should read the first positional', () => {
+    expect(commandName(['dev', '--port', '3000'])).toBe('dev')
+    expect(commandName(['--port=3000', 'dev'])).toBe('dev')
+  })
+
+  it('should not mistake a `--cwd` value for the command', () => {
+    expect(commandName(['--cwd', 'my-app', 'dev'])).toBe('dev')
+    expect(commandName(['--cwd=my-app', 'dev'])).toBe('dev')
+  })
+
+  it('should be undefined when no command is given', () => {
+    expect(commandName(['--help'])).toBeUndefined()
+    expect(commandName(['--cwd', 'my-app'])).toBeUndefined()
   })
 })
 
