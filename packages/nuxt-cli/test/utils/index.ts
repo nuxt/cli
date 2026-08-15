@@ -28,25 +28,25 @@ export async function fetchWithPolling(url: string, options: RequestInit = {}, t
 }
 
 /**
- * Clone the shared `dev` fixture into a project private to a single spec file.
+ * Copy a fixture into a project private to a single spec file.
  *
- * The dev e2e specs each wipe `.nuxt` and take the dev lock inside their
- * fixture, so pointing more than one of them at `fixtures/dev` makes them race
- * whenever vitest runs the files in parallel.
+ * The e2e specs build, clear and take locks inside their fixture, so pointing
+ * more than one of them at the same directory makes them race whenever vitest
+ * runs the files in parallel.
  *
  * Installed packages are linked in one by one rather than by symlinking
  * `node_modules` wholesale, so that the caches tooling writes underneath it
  * (`node_modules/.cache/vite`) belong to a single spec.
  */
-export async function createDevFixture(name: string): Promise<string> {
-  const source = fileURLToPath(new URL('../fixtures/dev', import.meta.url))
+async function createFixture(source: string, name: string): Promise<string> {
   const target = fileURLToPath(new URL(`../fixtures/.tmp-${name}`, import.meta.url))
 
   await rm(target, { recursive: true, force: true })
   await cp(source, target, {
     recursive: true,
-    filter: entry => !entry.includes('node_modules') && !entry.includes(`${sep}.nuxt`),
+    filter: entry => !entry.includes('node_modules') && !entry.includes(`${sep}.nuxt`) && !entry.includes(`${sep}.output`),
   })
+
   const sourceModules = join(source, 'node_modules')
   const targetModules = join(target, 'node_modules')
   await mkdir(targetModules, { recursive: true })
@@ -58,4 +58,14 @@ export async function createDevFixture(name: string): Promise<string> {
   }
 
   return target
+}
+
+/** Copy of the shared `dev` fixture, private to a single spec file. */
+export function createDevFixture(name: string): Promise<string> {
+  return createFixture(fileURLToPath(new URL('../fixtures/dev', import.meta.url)), name)
+}
+
+/** Copy of the workspace playground, private to a single spec file. */
+export function createPlaygroundFixture(name: string): Promise<string> {
+  return createFixture(fileURLToPath(new URL('../../../../playground', import.meta.url)), name)
 }

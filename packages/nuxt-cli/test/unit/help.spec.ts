@@ -253,17 +253,17 @@ describe('help', () => {
     expect(await usage(commands.docs, main)).toMatchInlineSnapshot(`
       "Search or open the Nuxt documentation (nuxt docs v0.0.0)
 
-      USAGE nuxt docs [OPTIONS] [QUERY] [ROOTDIR]
+      USAGE nuxt docs [OPTIONS] [QUERY]
 
       ARGUMENTS
 
-          QUERY    Words to search the documentation for               
-        ROOTDIR    The root directory of your Nuxt project (default: .)
+        QUERY    Words to search the documentation for
 
       OPTIONS
 
-           --open    Open the best match in a browser (Default: true)
-        --no-open                                                    
+        --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                   --open    Open the best match in a browser (Default: true)            
+                --no-open                                                                
       "
     `)
   })
