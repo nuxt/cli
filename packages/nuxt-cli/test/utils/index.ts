@@ -1,4 +1,4 @@
-import { cp, rm, symlink } from 'node:fs/promises'
+import { cp, mkdir, readdir, rm, symlink } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isCI } from 'std-env'
@@ -28,6 +28,10 @@ export async function fetchWithPolling(url: string, options: RequestInit = {}, m
  * The dev e2e specs each wipe `.nuxt` and take the dev lock inside their
  * fixture, so pointing more than one of them at `fixtures/dev` makes them race
  * whenever vitest runs the files in parallel.
+ *
+ * Installed packages are linked in one by one rather than by symlinking
+ * `node_modules` wholesale, so that the caches tooling writes underneath it
+ * (`node_modules/.cache/vite`) belong to a single spec.
  */
 export async function createDevFixture(name: string): Promise<string> {
   const source = fileURLToPath(new URL('../fixtures/dev', import.meta.url))
@@ -38,7 +42,15 @@ export async function createDevFixture(name: string): Promise<string> {
     recursive: true,
     filter: entry => !entry.includes('node_modules') && !entry.includes(`${sep}.nuxt`),
   })
-  await symlink(join(source, 'node_modules'), join(target, 'node_modules'), 'junction')
+  const sourceModules = join(source, 'node_modules')
+  const targetModules = join(target, 'node_modules')
+  await mkdir(targetModules, { recursive: true })
+  for (const entry of await readdir(sourceModules)) {
+    if (entry === '.cache' || entry === '.vite') {
+      continue
+    }
+    await symlink(join(sourceModules, entry), join(targetModules, entry), 'junction')
+  }
 
   return target
 }
