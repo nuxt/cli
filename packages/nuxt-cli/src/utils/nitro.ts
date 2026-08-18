@@ -21,7 +21,7 @@ export const NITRO_PKGS = [...NITRO_DEP_NAMES, 'nitro-nightly', 'nitropack-night
  * a copy installed outside the Nuxt dependency chain cannot shadow the Nitro
  * version Nuxt actually uses.
  */
-export const NITRO_SERVER_PKG = '@nuxt/nitro-server'
+const NITRO_SERVER_PKG = '@nuxt/nitro-server'
 
 /**
  * Packages whose declared Nitro dependency is authoritative.
@@ -29,7 +29,39 @@ export const NITRO_SERVER_PKG = '@nuxt/nitro-server'
  * Nightly releases are usually aliased onto `nuxt`, so `nuxt-nightly` only
  * covers an install under its own name.
  */
-export const NUXT_PKGS = ['nuxt', 'nuxt-nightly']
+const NUXT_PKGS = ['nuxt', 'nuxt-nightly']
+
+export interface NitroDependency {
+  /** The Nitro package name the installed Nuxt declares. */
+  name: string
+  /** The dependency path from the project to the package declaring it. */
+  via: string[]
+}
+
+/**
+ * The Nitro package the installed Nuxt depends on, directly or through
+ * `@nuxt/nitro-server`, or `undefined` when no owning manifest can be read.
+ */
+export function resolveNuxtNitroDependency(
+  readManifest: (name: string, via?: string[]) => PackageJson | null | undefined,
+): NitroDependency | undefined {
+  for (const owner of NUXT_PKGS) {
+    const manifest = readManifest(owner)
+    if (!manifest) {
+      continue
+    }
+    const name = findNitroPkgName(manifest)
+    if (name) {
+      return { name, via: [owner] }
+    }
+    if (manifest.dependencies?.[NITRO_SERVER_PKG]) {
+      const serverName = findNitroPkgName(readManifest(NITRO_SERVER_PKG, [owner]))
+      if (serverName) {
+        return { name: serverName, via: [owner, NITRO_SERVER_PKG] }
+      }
+    }
+  }
+}
 
 /** The name of the Nitro package a manifest depends on. */
 export function findNitroPkgName(manifest: PackageJson | null | undefined): string | undefined {
