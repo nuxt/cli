@@ -19,6 +19,7 @@ import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { findNitroPkgName, NITRO_OWNERS } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
 import { getPackageManagerVersion } from '../utils/packageManagers'
@@ -67,7 +68,7 @@ export default defineCommand({
     const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
-      getDepVersion('nitropack').then(version => version || getDepVersion('nitro')),
+      resolveNitroPkgName([nuxtPath, cwd]).then(name => name && getDepVersion(name)),
     ])
     const builder = nuxtConfig.builder || 'vite'
     const packageManager = detectedPackageManager
@@ -135,6 +136,21 @@ export default defineCommand({
     })
   },
 })
+
+/**
+ * The Nitro package the installed Nuxt declares, or `undefined` when no owning
+ * manifest can be read.
+ */
+async function resolveNitroPkgName(roots: Array<string | null>): Promise<string | undefined> {
+  for (const owner of NITRO_OWNERS) {
+    for (const root of roots) {
+      const name = root && findNitroPkgName(await readDependencyPackageJson(owner, root))
+      if (name) {
+        return name
+      }
+    }
+  }
+}
 
 async function resolveDependencyVersion(
   name: string,
