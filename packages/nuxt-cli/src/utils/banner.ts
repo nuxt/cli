@@ -3,7 +3,7 @@ import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import { styleText } from 'node:util'
 
 import { logger } from './logger'
-import { findNitroPkgName, NITRO_OWNERS, NITRO_PKGS } from './nitro'
+import { findNitroPkgName, NITRO_PKGS, NITRO_SERVER_PKG, NUXT_PKGS } from './nitro'
 import { getPkgJSON, getPkgVersion } from './pkg'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
@@ -29,15 +29,18 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
   }
 }
 
-/** The dependency path from the project to a package known to depend on Nitro. */
-function nitroOwnerVia(owner: string) {
-  return owner === '@nuxt/nitro-server' ? ['nuxt', owner] : [owner]
-}
-
 function getNitroVersion(cwd: string) {
-  for (const owner of NITRO_OWNERS) {
-    const via = nitroOwnerVia(owner)
-    const name = findNitroPkgName(getPkgJSON(cwd, owner, { via: via.slice(0, -1) }))
+  for (const owner of NUXT_PKGS) {
+    const manifest = getPkgJSON(cwd, owner)
+    if (!manifest) {
+      continue
+    }
+    let via = [owner]
+    let name = findNitroPkgName(manifest)
+    if (!name && manifest.dependencies?.[NITRO_SERVER_PKG]) {
+      name = findNitroPkgName(getPkgJSON(cwd, NITRO_SERVER_PKG, { via }))
+      via = [owner, NITRO_SERVER_PKG]
+    }
     if (name) {
       return getPkgVersion(cwd, name, { via })
     }

@@ -10,19 +10,26 @@ import type { PackageJson } from 'pkg-types'
 const NITRO_DEP_NAMES = ['nitro', 'nitropack']
 
 /**
- * Names Nitro is resolvable under when it cannot be found through an owner,
+ * Names Nitro is resolvable under when it cannot be found through Nuxt,
  * including the aliased releases in case one is installed directly.
  */
 export const NITRO_PKGS = [...NITRO_DEP_NAMES, 'nitro-nightly', 'nitropack-nightly', 'nitropack-edge']
 
 /**
- * Packages that depend on Nitro, nearest first.
- *
- * Nitro is a dependency of `@nuxt/nitro-server` (itself a dependency of `nuxt`),
- * or of `nuxt` in versions that predate it. Nightly releases are usually aliased
- * onto `nuxt`, so `nuxt-nightly` only covers an install under its own name.
+ * The package that declares Nitro in Nuxt versions where `nuxt` itself does
+ * not. Only consulted when the installed Nuxt declares it as a dependency, so
+ * a copy installed outside the Nuxt dependency chain cannot shadow the Nitro
+ * version Nuxt actually uses.
  */
-export const NITRO_OWNERS = ['@nuxt/nitro-server', 'nuxt', 'nuxt-nightly']
+export const NITRO_SERVER_PKG = '@nuxt/nitro-server'
+
+/**
+ * Packages whose declared Nitro dependency is authoritative.
+ *
+ * Nightly releases are usually aliased onto `nuxt`, so `nuxt-nightly` only
+ * covers an install under its own name.
+ */
+export const NUXT_PKGS = ['nuxt', 'nuxt-nightly']
 
 /** The name of the Nitro package a manifest depends on. */
 export function findNitroPkgName(manifest: PackageJson | null | undefined): string | undefined {

@@ -19,13 +19,15 @@ const CWD_VERSIONS: Record<string, Record<string, string>> = {
 }
 
 const NUXT_WITH_NITROPACK = { name: 'nuxt', version: '4.4.6', dependencies: { nitropack: '^2.13.4' } }
+const NUXT_WITH_NITRO_SERVER = { name: 'nuxt', version: '5.0.0', dependencies: { '@nuxt/nitro-server': '^5.0.0' } }
 const NITRO_SERVER = { name: '@nuxt/nitro-server', version: '5.0.0', dependencies: { nitro: '^3.0.0' } }
 
 const MANIFESTS: Record<string, Record<string, unknown>> = {
   '/any': { nuxt: NUXT_WITH_NITROPACK },
   '/missing': { nuxt: NUXT_WITH_NITROPACK },
   '/vite-plus': { nuxt: NUXT_WITH_NITROPACK },
-  '/nitro-v3': { 'nuxt': { ...NUXT_WITH_NITROPACK, version: '5.0.0' }, '@nuxt/nitro-server': NITRO_SERVER },
+  '/nitro-v3': { 'nuxt': NUXT_WITH_NITRO_SERVER, '@nuxt/nitro-server': NITRO_SERVER },
+  '/direct-server': { 'nuxt': NUXT_WITH_NITROPACK, '@nuxt/nitro-server': NITRO_SERVER },
   '/no-owner': {},
   '/no-nitro': {},
 }
@@ -100,6 +102,16 @@ describe('showBanner', () => {
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
       ●  Nuxt 5.0.0 (with Nitro 3.0.0, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should follow nuxt\'s declared nitropack over a directly installed @nuxt/nitro-server', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/direct-server', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
     `)
   })
 

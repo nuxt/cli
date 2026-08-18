@@ -19,7 +19,7 @@ import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { findNitroPkgName, NITRO_OWNERS } from '../utils/nitro'
+import { findNitroPkgName, NITRO_PKGS, NITRO_SERVER_PKG, NUXT_PKGS } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
 import { getPackageManagerVersion } from '../utils/packageManagers'
@@ -68,7 +68,7 @@ export default defineCommand({
     const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
-      resolveNitroPkgName([nuxtPath, cwd]).then(name => name && getDepVersion(name)),
+      resolveNitroVersion([nuxtPath, cwd], getDepVersion),
     ])
     const builder = nuxtConfig.builder || 'vite'
     const packageManager = detectedPackageManager
@@ -137,16 +137,44 @@ export default defineCommand({
   },
 })
 
+async function resolveNitroVersion(
+  roots: Array<string | null>,
+  getDepVersion: (name: string) => Promise<string | undefined>,
+): Promise<string | undefined> {
+  const name = await resolveNitroPkgName(roots)
+  if (name) {
+    return getDepVersion(name)
+  }
+  // The owning manifest may be unreadable (`exports` withholding `package.json`,
+  // or nitro installed without nuxt), so fall back to whatever is resolvable.
+  for (const pkg of NITRO_PKGS) {
+    const version = await getDepVersion(pkg)
+    if (version) {
+      return version
+    }
+  }
+}
+
 /**
- * The Nitro package the installed Nuxt declares, or `undefined` when no owning
- * manifest can be read.
+ * The Nitro package the installed Nuxt declares (directly or via
+ * `@nuxt/nitro-server`), or `undefined` when no owning manifest can be read.
  */
 async function resolveNitroPkgName(roots: Array<string | null>): Promise<string | undefined> {
-  for (const owner of NITRO_OWNERS) {
+  for (const owner of NUXT_PKGS) {
     for (const root of roots) {
-      const name = root && findNitroPkgName(await readDependencyPackageJson(owner, root))
+      const manifest = root && await readDependencyPackageJson(owner, root)
+      if (!root || !manifest) {
+        continue
+      }
+      const name = findNitroPkgName(manifest)
       if (name) {
         return name
+      }
+      if (manifest.dependencies?.[NITRO_SERVER_PKG]) {
+        const serverName = findNitroPkgName(await readDependencyPackageJson(NITRO_SERVER_PKG, root))
+        if (serverName) {
+          return serverName
+        }
       }
     }
   }
