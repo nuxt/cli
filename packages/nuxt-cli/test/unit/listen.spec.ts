@@ -259,6 +259,11 @@ describe('listen', () => {
     const listener = await start({ port, strictPort: true })
     expect(listener.address.port).toBe(port)
   })
+
+  it('should still assign a random port with `strictPort` and port `0`', async () => {
+    const listener = await start({ port: 0, strictPort: true })
+    expect(listener.address.port).toBeGreaterThan(0)
+  })
 })
 
 describe('listener.close', () => {

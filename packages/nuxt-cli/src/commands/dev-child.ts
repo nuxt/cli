@@ -24,7 +24,7 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
     const listenOverrides = process.env._PORT
-      ? { port: process.env._PORT, hostname: '127.0.0.1', showURL: false } as const
+      ? { port: process.env._PORT, hostname: '127.0.0.1', showURL: false, strictPort: true } as const
       : undefined
 
     const { initialize } = await import('../dev')

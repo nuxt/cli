@@ -36,7 +36,22 @@ describe('nuxt _dev command', () => {
           port: '4321',
           hostname: '127.0.0.1',
           showURL: false,
+          strictPort: true,
         },
+      }),
+    )
+  })
+
+  it('should still allow a random port with `_PORT=0`', async () => {
+    vi.stubEnv('_PORT', '0')
+    const { runCommand } = await import('../../../src/run')
+
+    await runCommand('_dev', [])
+
+    expect(initialize).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        listenOverrides: expect.objectContaining({ port: '0', strictPort: true }),
       }),
     )
   })
