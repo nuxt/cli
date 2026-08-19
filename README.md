@@ -51,6 +51,10 @@ nuxt add nuxt-shiki
 nuxt add nuxt-seo-kit
 ```
 
+## Custom templates
+
+To override a built-in `add-template` template, add a matching file to the project `stubs` directory. For example, `stubs/component.vue` is used instead of the default component contents when running `nuxt add-template component <name>`.
+
 ## Update Notifications
 
 Once a day, `nuxt/cli` checks in the background whether a newer version of Nuxt has been released and, if so, prints a short nudge to run `nuxt upgrade` after the command finishes. The `latest` dist-tag is read from the registry configured in your `.npmrc` and cached in your user-level `.nuxtrc`.

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -31,6 +31,24 @@ describe('add-template command', () => {
     const path = join(cwd, 'components/admin/user-card.vue')
     expect(await readFile(path, 'utf8')).toContain('Component: admin/user-card')
     expect(await readFile(path, 'utf8')).toMatch(/\n$/)
+  })
+
+  it('preserves project stub contents exactly', async () => {
+    await mkdir(join(cwd, 'stubs'))
+    await writeFile(join(cwd, 'stubs/component.vue'), '  <template>custom component</template>\n\n')
+
+    await run('component', 'user-card')
+
+    await expect(readFile(join(cwd, 'components/user-card.vue'), 'utf8')).resolves.toBe('  <template>custom component</template>\n\n')
+  })
+
+  it('preserves an empty project stub', async () => {
+    await mkdir(join(cwd, 'stubs'))
+    await writeFile(join(cwd, 'stubs/component.vue'), '')
+
+    await run('component', 'empty-card')
+
+    await expect(readFile(join(cwd, 'components/empty-card.vue'), 'utf8')).resolves.toBe('')
   })
 
   it('exposes template-specific options', async () => {
