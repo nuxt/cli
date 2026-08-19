@@ -19,6 +19,7 @@ import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { resolveNitroVersion } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
 import { getPackageManagerVersion } from '../utils/packageManagers'
@@ -67,7 +68,7 @@ export default defineCommand({
     const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
-      getDepVersion('nitropack').then(version => version || getDepVersion('nitro')),
+      resolveNitroVersion(cwd, getDepVersion),
     ])
     const builder = nuxtConfig.builder || 'vite'
     const packageManager = detectedPackageManager

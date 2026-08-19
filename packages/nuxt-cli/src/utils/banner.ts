@@ -3,6 +3,7 @@ import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import { styleText } from 'node:util'
 
 import { logger } from './logger'
+import { getNitroVersion } from './nitro'
 import { getPkgJSON, getPkgVersion } from './pkg'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
@@ -33,18 +34,24 @@ export function showBanner(nuxt: Nuxt) {
 
   const nuxtVersion = nuxt._version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly')
 
-  const nitroVia = { via: ['nuxt', '@nuxt/nitro-server'] }
-  const nitroVersion = getPkgVersion(cwd, 'nitropack', nitroVia) || getPkgVersion(cwd, 'nitro', nitroVia) || getPkgVersion(cwd, 'nitropack-nightly') || getPkgVersion(cwd, 'nitropack-edge')
+  const nitroVersion = getNitroVersion(cwd)
   const builder = getBuilder(cwd, nuxt.options.builder)
   const vueVersion = getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null
 
+  const builderPart = `${builder.name} ${styleText('bold', builder.version)}${builder.provider ? ` via ${builder.provider.name} ${styleText('bold', builder.provider.version)}` : ''}`
+
+  const parts = [
+    nitroVersion ? `Nitro ${styleText('bold', nitroVersion)}` : null,
+    builderPart,
+    vueVersion ? `Vue ${styleText('bold', vueVersion)}` : null,
+  ].filter((part): part is string => !!part)
+
+  const detail = parts.length > 1
+    ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
+    : parts[0]
+
   logger.info(
     styleText('green', `Nuxt ${styleText('bold', nuxtVersion)}`)
-    + styleText('gray', ' (with ')
-    + (nitroVersion ? styleText('gray', `Nitro ${styleText('bold', nitroVersion)}`) : '')
-    + styleText('gray', `, ${builder.name} ${styleText('bold', builder.version)}`)
-    + (builder.provider ? styleText('gray', ` via ${builder.provider.name} ${styleText('bold', builder.provider.version)}`) : '')
-    + (vueVersion ? styleText('gray', ` and Vue ${styleText('bold', vueVersion)}`) : '')
-    + styleText('gray', ')'),
+    + styleText('gray', ` (with ${detail})`),
   )
 }

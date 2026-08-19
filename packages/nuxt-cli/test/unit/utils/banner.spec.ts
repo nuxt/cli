@@ -9,30 +9,50 @@ const VERSIONS: Record<string, string> = {
   '@rspack/core': '1.3.0',
   'nuxt': '4.4.6',
   'nitropack': '2.13.4',
+  'nitro': '3.0.0',
   'vue': '3.5.39',
 }
 
+const CWD_VERSIONS: Record<string, Record<string, string>> = {
+  '/no-owner': { nitro: '' },
+  '/no-nitro': { nitro: '', nitropack: '' },
+}
+
+const NUXT_WITH_NITROPACK = { name: 'nuxt', version: '4.4.6', dependencies: { nitropack: '^2.13.4' } }
+const NUXT_WITH_NITRO_SERVER = { name: 'nuxt', version: '5.0.0', dependencies: { '@nuxt/nitro-server': '^5.0.0' } }
+const NITRO_SERVER = { name: '@nuxt/nitro-server', version: '5.0.0', dependencies: { nitro: '^3.0.0' } }
+
+const MANIFESTS: Record<string, Record<string, unknown>> = {
+  '/any': { nuxt: NUXT_WITH_NITROPACK },
+  '/missing': { nuxt: NUXT_WITH_NITROPACK },
+  '/vite-plus': { nuxt: NUXT_WITH_NITROPACK },
+  '/nitro-v3': { 'nuxt': NUXT_WITH_NITRO_SERVER, '@nuxt/nitro-server': NITRO_SERVER },
+  '/direct-server': { 'nuxt': NUXT_WITH_NITROPACK, '@nuxt/nitro-server': NITRO_SERVER },
+  '/no-owner': {},
+  '/no-nitro': {},
+}
+
 vi.mock('../../../src/utils/pkg', () => ({
-  getPkgJSON: vi.fn((_cwd: string, pkg: string, options?: { via?: string[] }) => {
+  getPkgJSON: vi.fn((cwd: string, pkg: string, options?: { via?: string[] }) => {
     if (pkg === 'vite' && options?.via?.includes('@nuxt/vite-builder')) {
-      if (_cwd === '/missing') {
+      if (cwd === '/missing') {
         return null
       }
-      if (_cwd === '/vite-plus') {
+      if (cwd === '/vite-plus') {
         return { name: '@voidzero-dev/vite-plus-core', version: '0.2.6', bundledVersions: { vite: '8.1.5' } }
       }
       return { name: 'vite', version: '7.3.1' }
     }
-    return null
+    return MANIFESTS[cwd]?.[pkg] ?? null
   }),
-  getPkgVersion: vi.fn((_cwd: string, pkg: string, options?: { via?: string[] }) => {
+  getPkgVersion: vi.fn((cwd: string, pkg: string, options?: { via?: string[] }) => {
     if (pkg === 'webpack' && !options?.via?.includes('@nuxt/webpack-builder')) {
       return ''
     }
     if (pkg === '@rspack/core' && !options?.via?.includes('@nuxt/rspack-builder')) {
       return ''
     }
-    return VERSIONS[pkg] || ''
+    return CWD_VERSIONS[cwd]?.[pkg] ?? VERSIONS[pkg] ?? ''
   }),
 }))
 
@@ -72,6 +92,46 @@ describe('showBanner', () => {
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
       ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should prefer the nitro version declared by nuxt', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '5.0.0', options: { rootDir: '/nitro-v3', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 5.0.0 (with Nitro 3.0.0, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should follow nuxt\'s declared nitropack over a directly installed @nuxt/nitro-server', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/direct-server', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should fall back to an installed nitro when no owner declares it', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/no-owner', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should omit nitro when no version can be resolved', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/no-nitro', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Vite 7.3.1 and Vue 3.5.39)"
     `)
   })
 
