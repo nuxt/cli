@@ -27,20 +27,33 @@ const NITRO_SERVER_PKG = '@nuxt/nitro-server'
  */
 const NUXT_PKGS = ['nuxt', 'nuxt-nightly']
 
-export interface NitroDependency {
-  /** The Nitro package name the installed Nuxt declares. */
+interface NitroCandidate {
+  /** The name Nitro is installed under. */
   name: string
-  /** The dependency path from the project to the package declaring it. */
-  via: string[]
+  /** The dependency path to resolve it through, when Nuxt declares it. */
+  via?: string[]
+}
+
+/**
+ * The Nitro packages to look for, the one the installed Nuxt depends on first.
+ *
+ * The plain names are kept as later candidates so Nitro is still found when no
+ * owning manifest can be read (`exports` withholding `package.json`, or Nitro
+ * installed without Nuxt).
+ */
+function getNitroCandidates(cwd: string): NitroCandidate[] {
+  const candidates: NitroCandidate[] = NITRO_PKGS.map(name => ({ name }))
+  const declared = getNuxtNitroDependency(cwd)
+  return declared ? [declared, ...candidates] : candidates
 }
 
 /**
  * The Nitro package the installed Nuxt depends on, directly or through
  * `@nuxt/nitro-server`, or `undefined` when no owning manifest can be read.
  */
-export function resolveNuxtNitroDependency(
-  readManifest: (name: string, via?: string[]) => PackageJson | null | undefined,
-): NitroDependency | undefined {
+function getNuxtNitroDependency(cwd: string): NitroCandidate | undefined {
+  const readManifest = (name: string, via?: string[]) => getPkgJSON(cwd, name, { via, strict: true })
+
   for (const owner of NUXT_PKGS) {
     const manifest = readManifest(owner)
     if (!manifest) {
@@ -51,28 +64,18 @@ export function resolveNuxtNitroDependency(
       return { name, via: [owner] }
     }
     if (manifest.dependencies?.[NITRO_SERVER_PKG]) {
-      const serverName = findNitroPkgName(readManifest(NITRO_SERVER_PKG, [owner]))
-      if (serverName) {
-        return { name: serverName, via: [owner, NITRO_SERVER_PKG] }
+      const server = findNitroPkgName(readManifest(NITRO_SERVER_PKG, [owner]))
+      if (server) {
+        return { name: server, via: [owner, NITRO_SERVER_PKG] }
       }
     }
   }
 }
 
-/** A Nitro package to look for, optionally through a dependency path. */
-type NitroCandidate = Pick<NitroDependency, 'name'> & Partial<NitroDependency>
-
-/**
- * The Nitro packages to look for, the one the installed Nuxt depends on first.
- *
- * The plain names are kept as later candidates so Nitro is still found when no
- * owning manifest can be read (`exports` withholding `package.json`, or Nitro
- * installed without Nuxt).
- */
-function getNitroCandidates(cwd: string): NitroCandidate[] {
-  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via, strict: true }))
-  const candidates: NitroCandidate[] = NITRO_PKGS.map(name => ({ name }))
-  return dep ? [dep, ...candidates] : candidates
+/** The name of the Nitro package a manifest depends on. */
+function findNitroPkgName(manifest: PackageJson | null | undefined): string | undefined {
+  const deps = manifest?.dependencies
+  return deps && NITRO_PKGS.find(name => name in deps)
 }
 
 /** The version of the first candidate installed in the project. */
@@ -111,10 +114,4 @@ export async function resolveNitroVersion(
       return declared
     }
   }
-}
-
-/** The name of the Nitro package a manifest depends on. */
-export function findNitroPkgName(manifest: PackageJson | null | undefined): string | undefined {
-  const deps = manifest?.dependencies
-  return deps && NITRO_PKGS.find(name => name in deps)
 }
