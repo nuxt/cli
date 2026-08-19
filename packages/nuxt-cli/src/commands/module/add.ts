@@ -60,6 +60,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
       moduleName: {
         type: 'positional',
         description: `Specify one or more modules${layers ? ' or layers' : ''} to install by name, separated by spaces`,
+        multiple: true,
       },
       skipInstall: {
         type: 'boolean',
@@ -80,7 +81,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
     },
     async setup(ctx) {
       const cwd = resolve(ctx.args.cwd)
-      let modules = ctx.args._.map(e => e.trim()).filter(Boolean)
+      let modules = ctx.args.moduleName.map(e => e.trim()).filter(Boolean)
       const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
       if (!await ensureNuxtDependency(cwd, projectPkg)) {

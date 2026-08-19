@@ -122,7 +122,7 @@ describe('module add', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['content'],
+        moduleName: ['content'],
       },
     })
 
@@ -140,7 +140,7 @@ describe('module add', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['content@2.9.0'],
+        moduleName: ['content@2.9.0'],
       },
     })
 
@@ -158,7 +158,7 @@ describe('module add', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['content@2'],
+        moduleName: ['content@2'],
       },
     })
 
@@ -176,7 +176,7 @@ describe('module add', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['content@3.1'],
+        moduleName: ['content@3.1'],
       },
     })
 

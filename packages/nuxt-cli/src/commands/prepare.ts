@@ -38,7 +38,7 @@ export default defineCommand({
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })

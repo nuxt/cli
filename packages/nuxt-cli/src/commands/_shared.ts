@@ -53,6 +53,7 @@ export const extendsArgs = {
     description: 'Extend from a Nuxt layer',
     valueHint: 'layer-name',
     alias: ['e'],
+    multiple: true,
   },
 } as const satisfies Record<string, ArgDef>
 

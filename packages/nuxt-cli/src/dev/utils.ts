@@ -57,7 +57,7 @@ export interface NuxtDevContext {
     logLevel?: string
     dotenv?: string
     envName?: string
-    extends?: string
+    extends?: string[]
     profile?: string | boolean
   }
 }

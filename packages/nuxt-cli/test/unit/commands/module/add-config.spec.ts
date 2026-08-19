@@ -55,7 +55,7 @@ async function addModule(name: string, pkg: Record<string, unknown>) {
   manifest = { devDependencies: { nuxt: '3.0.0' }, ...pkg }
 
   const addCommand = await (commands as CommandsType).subCommands.add()
-  await addCommand.setup({ args: { cwd: '/fake-dir', _: [name] } })
+  await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: [name] } })
 
   return addNuxtConfigEntries.mock.calls.at(-1)![1]
 }
@@ -106,7 +106,7 @@ describe('module add config', () => {
     manifest = { devDependencies: { nuxt: '3.0.0' }, exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' } }
 
     const addCommand = await (commands as CommandsType).subCommands.add()
-    await addCommand.setup({ args: { cwd: '/fake-dir', _: ['maz-ui/nuxt'] } })
+    await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['maz-ui/nuxt'] } })
 
     expect(installUtils.runInstall).toHaveBeenCalledWith(expect.objectContaining({
       dependencies: ['maz-ui@1.0.0'],

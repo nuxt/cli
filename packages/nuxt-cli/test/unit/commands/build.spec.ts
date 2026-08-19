@@ -80,7 +80,7 @@ describe('build', () => {
         logLevel: undefined,
         _generate: true,
         nitro: { static: true, preset: 'cloudflare' },
-        extends: 'base',
+        extends: ['base'],
         debug: { templates: true, perf: true },
       },
     })

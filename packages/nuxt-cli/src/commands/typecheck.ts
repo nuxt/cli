@@ -145,7 +145,7 @@ export default defineCommand({
       readTSConfig(cwd).catch(() => ({} as TSConfig)),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
       }),
     ])
 

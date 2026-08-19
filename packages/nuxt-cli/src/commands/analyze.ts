@@ -89,7 +89,7 @@ export default defineCommand({
         fileName: ctx.args.dotenv,
       },
       overrides: defu(ctx.data?.overrides, {
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
         build: {
           analyze: {
             enabled: true,

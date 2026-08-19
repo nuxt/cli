@@ -56,7 +56,7 @@ const command = defineCommand({
         envName: ctx.args.envName,
         ready: true,
         overrides: {
-          ...(ctx.args.extends && { extends: ctx.args.extends }),
+          ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
           modules: [
             function (_, nuxt) {
               envLoaded = true
