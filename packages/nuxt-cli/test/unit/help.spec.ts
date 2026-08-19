@@ -34,7 +34,7 @@ describe('help', () => {
 
       OPTIONS
 
-        --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+        --cwd=<directory>    Specify the root directory of your Nuxt project
 
       COMMANDS
 

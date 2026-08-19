@@ -39,15 +39,15 @@ export function resolveRootDir(args: { cwd?: string, rootDir?: string }): string
  * `args` are the root command's, so `_[0]` is the subcommand and `_[1]` is the
  * first argument to it.
  */
-export function resolveProjectDir(args: { cwd: string, _: string[] }): string {
+export function resolveProjectDir(args: { cwd?: string, _: string[] }): string {
   const [, rootDir] = args._
-  if (args.cwd === '.' && rootDir && !rootDir.startsWith('-')) {
+  if ((args.cwd ?? '.') === '.' && rootDir && !rootDir.startsWith('-')) {
     const candidate = resolve(rootDir)
     if (existsSync(candidate) && statSync(candidate).isDirectory()) {
       return candidate
     }
   }
-  return resolve(args.cwd)
+  return resolve(args.cwd ?? '.')
 }
 
 export function relativeToProcess(path: string) {

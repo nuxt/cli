@@ -9,6 +9,22 @@ export const cwdArgs = {
   },
 } as const satisfies Record<string, ArgDef>
 
+/**
+ * The root command's `--cwd`, forwarded to every subcommand so it can be passed
+ * before the command name.
+ *
+ * No default, unlike {@link cwdArgs}: commands taking a ROOTDIR positional treat an
+ * explicit `--cwd` as an override of it, and cannot tell the two apart if it is
+ * always set.
+ */
+export const globalCwdArgs = {
+  cwd: {
+    ...cwdArgs.cwd,
+    default: undefined as string | undefined,
+    inherit: true,
+  },
+} as const satisfies Record<string, ArgDef>
+
 export const logLevelArgs = {
   logLevel: {
     type: 'string',
@@ -50,9 +66,9 @@ export const profileArgs = {
 } as const satisfies Record<string, ArgDef>
 
 /**
- * `--cwd` is deliberately not declared here: it is an undocumented alias for ROOTDIR,
- * normalised out of `rawArgs` by `normaliseCwdArg` and read back off `args.cwd`.
- * No default, so `resolveRootDir` can tell an explicit ROOTDIR from an absent one.
+ * `--cwd` is deliberately not declared here: commands taking a ROOTDIR positional
+ * inherit it from the root command (see {@link globalCwdArgs}) rather than listing
+ * it twice in their own help.
  */
 export const rootDirArgs = {
   rootDir: {

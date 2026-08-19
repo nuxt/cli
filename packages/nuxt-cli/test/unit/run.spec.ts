@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { runCommandDef } from '../../src/run-command'
 
 let clear: boolean | undefined
+let cwd: string | undefined
 
 const devCommand = defineCommand({
   meta: { name: 'dev' },
@@ -16,6 +17,7 @@ const devCommand = defineCommand({
   },
   run(ctx) {
     clear = ctx.args.clear
+    cwd = ctx.args.cwd as string | undefined
   },
 })
 
@@ -56,14 +58,17 @@ describe('runCommand', () => {
     expect(argv).toEqual(['--clear'])
   })
 
-  it('should not modify a `--cwd` it normalises', async () => {
+  it('should parse a `--cwd` the command does not declare', async () => {
     const { runCommand } = await import('../../src/run')
-    const argv = ['--clear', '--cwd', '.']
+    const argv = ['--clear', '--cwd', 'apps/web']
 
     await runCommand('dev', argv)
-    await runCommandDef(devCommand, argv)
+    expect(cwd).toBe('apps/web')
 
-    expect(argv).toEqual(['--clear', '--cwd', '.'])
+    await runCommandDef(devCommand, argv)
+    expect(cwd).toBe('apps/web')
+
+    expect(argv).toEqual(['--clear', '--cwd', 'apps/web'])
   })
 
   it('should reject inherited command properties', async () => {

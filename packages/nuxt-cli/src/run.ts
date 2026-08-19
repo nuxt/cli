@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { runCommand as _runCommand, runMain as _runMain } from 'citty'
 
 import { commands } from './commands'
+import { globalCwdArgs } from './commands/_shared'
 import { main } from './main'
-import { normaliseCwdArg } from './utils/args'
 import { warnOnHang } from './utils/hang'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
@@ -50,11 +50,9 @@ export async function runCommand(
     throw new Error(`Invalid command ${name}`)
   }
 
-  const rawArgs = [...argv]
-  normaliseCwdArg(rawArgs)
-
   return await _runCommand(await commands[name as keyof typeof commands](), {
-    rawArgs,
+    rawArgs: [...argv],
+    inheritedArgs: globalCwdArgs,
     data: {
       overrides: data.overrides || {},
     },

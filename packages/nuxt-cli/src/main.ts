@@ -10,9 +10,8 @@ import { provider } from 'std-env'
 
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
-import { cwdArgs } from './commands/_shared'
+import { cwdArgs, globalCwdArgs } from './commands/_shared'
 import { runCommand, setCurrentCommand } from './run'
-import { normaliseCwdArg } from './utils/args'
 import { setupGlobalConsole } from './utils/console'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
@@ -33,7 +32,7 @@ const _main = defineCommand({
     description,
   },
   args: {
-    ...cwdArgs,
+    ...globalCwdArgs,
     command: {
       type: 'positional',
       required: false,
@@ -41,8 +40,6 @@ const _main = defineCommand({
   },
   subCommands: commands,
   async setup(ctx) {
-    normaliseCwdArg(ctx.rawArgs)
-
     const command = ctx.args._[0]
     setCurrentCommand(command)
     setupGlobalConsole({ dev: command === 'dev' })
@@ -74,7 +71,7 @@ const _main = defineCommand({
 
     // allow running arbitrary commands if there's a locally registered binary with `nuxt-` prefix
     if (ctx.args.command && !Object.hasOwn(commands, ctx.args.command)) {
-      const cwd = resolve(ctx.args.cwd)
+      const cwd = resolve(ctx.args.cwd || '.')
       const env = withLocalBinPath(cwd)
       // Resolved before spawning rather than after failing: Windows runs a bare
       // name through `cmd.exe`, which reports its own error instead of `ENOENT`,
