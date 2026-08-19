@@ -148,10 +148,12 @@ const command = defineCommand({
     'sslCert': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.cert` instead.',
+      hidden: true,
     },
     'sslKey': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.key` instead.',
+      hidden: true,
     },
   },
   async run(ctx) {

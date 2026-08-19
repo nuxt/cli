@@ -229,8 +229,6 @@ describe('help', () => {
         --https.validityDays=<https_validity_days>    Validity in days for a generated self-signed certificate                                                                                            
                 --https.domains=<https_domains>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.                                                            
                                --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
-                              --sslCert=<ssl_cert>    (DEPRECATED) Use \`--https.cert\` instead.                                                                                                            
-                                --sslKey=<ssl_key>    (DEPRECATED) Use \`--https.key\` instead.                                                                                                             
       "
     `)
   })
