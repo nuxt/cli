@@ -16,6 +16,7 @@ const VERSIONS: Record<string, string> = {
 const CWD_VERSIONS: Record<string, Record<string, string>> = {
   '/no-owner': { nitro: '' },
   '/no-nitro': { nitro: '', nitropack: '' },
+  '/no-vue': { vue: '' },
 }
 
 const NUXT_WITH_NITROPACK = { name: 'nuxt', version: '4.4.6', dependencies: { nitropack: '^2.13.4' } }
@@ -30,6 +31,7 @@ const MANIFESTS: Record<string, Record<string, unknown>> = {
   '/direct-server': { 'nuxt': NUXT_WITH_NITROPACK, '@nuxt/nitro-server': NITRO_SERVER },
   '/no-owner': {},
   '/no-nitro': {},
+  '/no-vue': { nuxt: NUXT_WITH_NITROPACK },
 }
 
 vi.mock('../../../src/utils/pkg', () => ({
@@ -142,6 +144,16 @@ describe('showBanner', () => {
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
       ●  Nuxt 4.4.6 (with Nitro 2.13.4, Vite 8.1.5 via Vite+ 0.2.6 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should print a single version without a conjunction', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/no-vue', builder: 'vite' } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Nitro 2.13.4 and Vite 7.3.1)"
     `)
   })
 })
