@@ -1,6 +1,6 @@
 import type { TSConfig } from 'pkg-types'
 import { existsSync, readFileSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { readdir, readFile, realpath, writeFile } from 'node:fs/promises'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
@@ -167,6 +167,10 @@ export default defineCommand({
       }
       return
     }
+    const vueVersions = await findVueVersions(cwd)
+    if (vueVersions.length > 1) {
+      logger.warn(`Multiple versions of ${styleText('cyan', 'vue')} are installed (${vueVersions.join(', ')}). This can break template type augmentations. Dedupe your dependencies or pin a single Vue version before investigating type errors.`)
+    }
 
     if (hasTTY) {
       logger.error(`Type check failed in ${styleText('cyan', duration)}.`)
@@ -174,6 +178,70 @@ export default defineCommand({
     process.exitCode = result.exitCode ?? 1
   },
 })
+
+async function findVueVersions(cwd: string): Promise<string[]> {
+  const versions = new Set<string>()
+  const pending: string[] = []
+  const visited = new Set<string>()
+
+  for (let directory = cwd; ; directory = dirname(directory)) {
+    pending.push(resolve(directory, 'node_modules'))
+    const parent = dirname(directory)
+    if (parent === directory) {
+      break
+    }
+  }
+  pending.reverse()
+
+  while (pending.length > 0 && versions.size < 2) {
+    const nodeModules = pending.pop()!
+    const resolvedNodeModules = await realpath(nodeModules).catch(() => undefined)
+    if (!resolvedNodeModules || visited.has(resolvedNodeModules)) {
+      continue
+    }
+    visited.add(resolvedNodeModules)
+
+    const resolvedVuePath = await realpath(resolve(resolvedNodeModules, 'vue')).catch(() => undefined)
+    if (resolvedVuePath) {
+      try {
+        const manifest = JSON.parse(await readFile(resolve(resolvedVuePath, 'package.json'), 'utf8')) as { version?: unknown }
+        if (typeof manifest.version === 'string') {
+          versions.add(manifest.version)
+        }
+      }
+      catch {
+        // Ignore incomplete package installations.
+      }
+    }
+
+    const entries = await readdir(resolvedNodeModules, { withFileTypes: true }).catch(() => [])
+    for (const entry of entries) {
+      if (entry.name === '.bin' || entry.name === 'vue') {
+        continue
+      }
+      const packagePath = resolve(resolvedNodeModules, entry.name)
+      if (entry.name.startsWith('@')) {
+        const scopedPackages = await readdir(packagePath).catch(() => [])
+        for (const packageName of scopedPackages) {
+          pending.push(resolve(packagePath, packageName, 'node_modules'))
+        }
+      }
+      else if (entry.name === '.pnpm') {
+        const packages = await readdir(packagePath).catch(() => [])
+        for (const packageName of packages) {
+          if (packageName.startsWith('vue@')) {
+            pending.push(resolve(packagePath, packageName, 'node_modules'))
+          }
+        }
+      }
+      else {
+        pending.push(resolve(packagePath, 'node_modules'))
+      }
+    }
+  }
+
+  return [...versions].sort()
+}
 
 const NUXT_PROJECT_REFERENCE_RE = /(?:^|[/\\])tsconfig\.(?:app|server|shared|node)\.json$/
 

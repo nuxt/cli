@@ -1,6 +1,9 @@
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { runCommand } from '../../../src/run'
 import { logger } from '../../../src/utils/logger'
@@ -31,6 +34,21 @@ function fixture(name: string) {
   return fileURLToPath(new URL(`../../fixtures/typecheck/${name}`, import.meta.url))
 }
 
+const tempDirs: string[] = []
+
+async function vueProject(...versions: string[]) {
+  const cwd = await mkdtemp(join(tmpdir(), 'nuxt-typecheck-'))
+  tempDirs.push(cwd)
+  for (const [index, version] of versions.entries()) {
+    const vueDir = index === 0
+      ? join(cwd, 'node_modules/vue')
+      : join(cwd, `node_modules/dependency-${index}/node_modules/vue`)
+    await mkdir(vueDir, { recursive: true })
+    await writeFile(join(vueDir, 'package.json'), JSON.stringify({ name: 'vue', version }))
+  }
+  return cwd
+}
+
 async function run(cwd: string, ...args: string[]) {
   await runCommand('typecheck', ['--cwd', cwd, ...args])
   return x.mock.calls[0]?.[1]
@@ -42,6 +60,10 @@ describe('nuxt typecheck command', () => {
     process.exitCode = undefined
     resolveModulePath.mockImplementation((id: string) => id.includes('vue-tsc') ? '/node_modules/vue-tsc/bin/vue-tsc.js' : '/node_modules/typescript/index.js')
     x.mockResolvedValue({ exitCode: 0 })
+  })
+
+  afterEach(async () => {
+    await Promise.all(tempDirs.splice(0).map(directory => rm(directory, { recursive: true, force: true })))
   })
 
   it('should use build mode for Nuxt project references', async () => {
@@ -64,6 +86,26 @@ describe('nuxt typecheck command', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     await run(fixture('incomplete-references'))
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('"files": []'))
+    warn.mockRestore()
+  })
+
+  it('should warn when multiple Vue versions are installed', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    x.mockResolvedValueOnce({ exitCode: 2 })
+
+    await run(await vueProject('3.5.40', '3.5.41'))
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('3.5.40, 3.5.41'))
+    warn.mockRestore()
+  })
+
+  it('should not warn for duplicate copies of the same Vue version', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    x.mockResolvedValueOnce({ exitCode: 2 })
+
+    await run(await vueProject('3.5.41', '3.5.41'))
+
+    expect(warn).not.toHaveBeenCalled()
     warn.mockRestore()
   })
 
