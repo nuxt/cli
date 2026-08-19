@@ -423,8 +423,8 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   const meta: RegistryMeta = await detectNpmRegistry(pkgScope, cwd)
   const headers: HeadersInit = {}
 
-  if (meta.authToken) {
-    headers.Authorization = `Bearer ${meta.authToken}`
+  if (meta.authorization) {
+    headers.Authorization = meta.authorization
   }
 
   // TODO: spinner

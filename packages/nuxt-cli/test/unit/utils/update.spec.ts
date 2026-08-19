@@ -7,7 +7,7 @@ const stdEnv = vi.hoisted(() => ({ isCI: false, isTest: false, provider: 'unknow
 const rcStore = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 const project = vi.hoisted(() => ({ nuxtVersion: undefined as string | undefined }))
 const fetchMock = vi.hoisted(() => vi.fn())
-const registry = vi.hoisted(() => ({ current: { registry: 'https://registry.npmjs.org', authToken: null as string | null } }))
+const registry = vi.hoisted(() => ({ current: { registry: 'https://registry.npmjs.org', authToken: null as string | null, authorization: null as string | null } }))
 
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
@@ -68,7 +68,7 @@ describe('update check', () => {
     stdEnv.provider = 'unknown'
     rcStore.current = {}
     project.nuxtVersion = '4.0.0'
-    registry.current = { registry: 'https://registry.npmjs.org', authToken: null }
+    registry.current = { registry: 'https://registry.npmjs.org', authToken: null, authorization: null }
     fetchMock.mockReset()
     process.stdout.isTTY = true
     delete process.env.NUXT_IGNORE_UPDATE_CHECK
@@ -156,7 +156,7 @@ describe('update check', () => {
     })
 
     it('queries the configured registry with its auth token', async () => {
-      registry.current = { registry: 'https://npm.example.com', authToken: 'secret' }
+      registry.current = { registry: 'https://npm.example.com', authToken: 'secret', authorization: 'Bearer secret' }
       fetchMock.mockResolvedValue({ latest: '4.1.0' })
       await checkForNuxtUpdate('/project')
       expect(fetchMock).toHaveBeenCalledWith(

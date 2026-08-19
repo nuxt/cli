@@ -9,7 +9,10 @@ import { detectNpmRegistry } from '../../../src/utils/registry'
 import { getNuxtVersion, resolveRegistryVersion } from '../../../src/utils/versions'
 
 vi.mock('../../../src/utils/fetch', () => ({ fetchJson: vi.fn() }))
-vi.mock('../../../src/utils/registry', () => ({ detectNpmRegistry: vi.fn() }))
+vi.mock('../../../src/utils/registry', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/utils/registry')>(),
+  detectNpmRegistry: vi.fn(),
+}))
 
 describe('getNuxtVersion', () => {
   let tempDir: string
@@ -52,7 +55,7 @@ describe('getNuxtVersion', () => {
 
 describe('resolveRegistryVersion', () => {
   beforeEach(() => {
-    vi.mocked(detectNpmRegistry).mockResolvedValue({ registry: 'https://registry.example.com/', authToken: null })
+    vi.mocked(detectNpmRegistry).mockResolvedValue({ registry: 'https://registry.example.com/', authToken: null, authorization: null })
   })
 
   it('should prefer a matching dist-tag', async () => {
@@ -77,5 +80,15 @@ describe('resolveRegistryVersion', () => {
     vi.mocked(fetchJson).mockRejectedValue(new Error('ECONNREFUSED'))
 
     expect(await resolveRegistryVersion('nuxt', 'latest')).toBeUndefined()
+  })
+
+  it('should read a public package from npm when the configured registry rejects us', async () => {
+    vi.mocked(fetchJson).mockClear()
+    vi.mocked(fetchJson)
+      .mockRejectedValueOnce(Object.assign(new Error('Unauthorized'), { status: 401 }))
+      .mockResolvedValueOnce({ 'dist-tags': { latest: '4.2.0' } })
+
+    expect(await resolveRegistryVersion('nuxt', 'latest')).toBe('4.2.0')
+    expect(vi.mocked(fetchJson).mock.calls[1]![0]).toBe('https://registry.npmjs.org/nuxt')
   })
 })

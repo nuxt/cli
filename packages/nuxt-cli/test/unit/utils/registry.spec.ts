@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -79,6 +80,7 @@ describe('detectNpmRegistry', () => {
     await expect(detectNpmRegistry(null, directory)).resolves.toEqual({
       registry: 'https://registry.example.com',
       authToken: 'secret',
+      authorization: 'Bearer secret',
     })
     expect(process.env.COREPACK_NPM_REGISTRY).toBeUndefined()
   })
@@ -124,6 +126,45 @@ describe('auth token scoping', () => {
     await expect(detectNpmRegistry('@scope', directory)).resolves.toEqual({
       registry: 'https://scoped.example.com',
       authToken: 'scoped-token',
+      authorization: 'Bearer scoped-token',
+    })
+  })
+
+  it('should resolve a token registered against the registry path, as npm does', async () => {
+    const directory = await npmrc(
+      'registry=https://proxy.example.com/npm/',
+      '//proxy.example.com/npm/:_authToken=path-token',
+    )
+
+    await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({ authToken: 'path-token' })
+  })
+
+  it('should expand an environment reference in a token', async () => {
+    const directory = await npmrc(
+      'registry=https://registry.example.com/',
+      // eslint-disable-next-line no-template-curly-in-string
+      '//registry.example.com/:_authToken=${NUXT_TEST_NPM_TOKEN}',
+    )
+    process.env.NUXT_TEST_NPM_TOKEN = 'from-env'
+
+    try {
+      await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({ authToken: 'from-env' })
+    }
+    finally {
+      delete process.env.NUXT_TEST_NPM_TOKEN
+    }
+  })
+
+  it('should authorise with basic credentials when that is all there is', async () => {
+    const directory = await npmrc(
+      'registry=https://registry.example.com/',
+      '//registry.example.com/:username=alice',
+      `//registry.example.com/:_password=${Buffer.from('hunter2').toString('base64')}`,
+    )
+
+    await expect(detectNpmRegistry(null, directory)).resolves.toMatchObject({
+      authToken: null,
+      authorization: `Basic ${Buffer.from('alice:hunter2').toString('base64')}`,
     })
   })
 
