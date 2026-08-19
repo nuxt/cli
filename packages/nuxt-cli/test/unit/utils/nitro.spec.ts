@@ -1,8 +1,14 @@
 import type { PackageJson } from 'pkg-types'
 
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { findNitroPkgName, resolveNuxtNitroDependency } from '../../../src/utils/nitro'
+import { findNitroPkgName, getNitroVersion, resolveNitroVersion, resolveNuxtNitroDependency } from '../../../src/utils/nitro'
+import { getPkgJSON, getPkgVersion } from '../../../src/utils/pkg'
+
+vi.mock('../../../src/utils/pkg', () => ({
+  getPkgJSON: vi.fn(),
+  getPkgVersion: vi.fn(),
+}))
 
 describe('findNitroPkgName', () => {
   it('should read the declared nitro dependency', () => {
@@ -68,5 +74,72 @@ describe('resolveNuxtNitroDependency', () => {
   it('should return undefined when no manifest is readable', () => {
     expect(resolveNuxtNitroDependency(() => null)).toBeUndefined()
     expect(resolveNuxtNitroDependency(reader({ nuxt: { dependencies: { vue: '^3.5.0' } } }))).toBeUndefined()
+  })
+})
+
+describe('getNitroVersion', () => {
+  beforeEach(() => {
+    vi.mocked(getPkgJSON).mockReset()
+    vi.mocked(getPkgVersion).mockReset()
+  })
+
+  it('should resolve the version through the nuxt dependency chain', () => {
+    vi.mocked(getPkgJSON).mockImplementation((_cwd, pkg) => ({
+      'nuxt': { dependencies: { '@nuxt/nitro-server': '^4.5.2' } },
+      '@nuxt/nitro-server': { dependencies: { nitropack: '^2.13.4' } },
+    }[pkg] ?? null))
+    vi.mocked(getPkgVersion).mockReturnValue('2.13.4')
+
+    expect(getNitroVersion('/project')).toBe('2.13.4')
+    expect(getPkgVersion).toHaveBeenCalledWith('/project', 'nitropack', { via: ['nuxt', '@nuxt/nitro-server'], strict: true })
+  })
+
+  it('should fall back to a directly resolvable nitro package', () => {
+    vi.mocked(getPkgJSON).mockReturnValue(null)
+    vi.mocked(getPkgVersion).mockImplementation((_cwd, pkg) => pkg === 'nitropack' ? '2.13.4' : '')
+
+    expect(getNitroVersion('/project')).toBe('2.13.4')
+  })
+
+  it('should fall back when the declared package cannot be resolved', () => {
+    vi.mocked(getPkgJSON).mockImplementation((_cwd, pkg) => pkg === 'nuxt' ? { dependencies: { nitro: '^3.0.0' } } : null)
+    vi.mocked(getPkgVersion).mockImplementation((_cwd, pkg, options) => pkg === 'nitropack' && !options?.via ? '2.13.4' : '')
+
+    expect(getNitroVersion('/project')).toBe('2.13.4')
+  })
+
+  it('should return an empty string when nitro is not installed', () => {
+    vi.mocked(getPkgJSON).mockReturnValue(null)
+    vi.mocked(getPkgVersion).mockReturnValue('')
+
+    expect(getNitroVersion('/project')).toBe('')
+  })
+})
+
+describe('resolveNitroVersion', () => {
+  beforeEach(() => {
+    vi.mocked(getPkgJSON).mockReset()
+    vi.mocked(getPkgVersion).mockReset()
+  })
+
+  it('should prefer the installed version', async () => {
+    vi.mocked(getPkgJSON).mockReturnValue(null)
+    vi.mocked(getPkgVersion).mockImplementation((_cwd, pkg) => pkg === 'nitropack' ? '2.13.4' : '')
+
+    await expect(resolveNitroVersion('/project', async () => '2.0.0')).resolves.toBe('2.13.4')
+  })
+
+  it('should fall back to a declared version when nothing is installed', async () => {
+    vi.mocked(getPkgJSON).mockReturnValue(null)
+    vi.mocked(getPkgVersion).mockReturnValue('')
+
+    await expect(resolveNitroVersion('/project', async name => name === 'nitropack' ? '^2.13.4' : undefined)).resolves.toBe('^2.13.4')
+  })
+
+  it('should return undefined when no version can be found', async () => {
+    vi.mocked(getPkgJSON).mockReturnValue(null)
+    vi.mocked(getPkgVersion).mockReturnValue('')
+
+    await expect(resolveNitroVersion('/project', async () => undefined)).resolves.toBeUndefined()
   })
 })

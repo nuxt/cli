@@ -3,9 +3,16 @@ import { resolveModulePath } from 'exsolve'
 
 import { tryResolveNuxt } from './kit'
 
-export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string[] }) {
+export function getPkgVersion(cwd: string, pkg: string, options?: PkgJSONOptions) {
   const pkgJSON = getPkgJSON(cwd, pkg, options)
   return pkgJSON?.version ?? ''
+}
+
+export interface PkgJSONOptions {
+  /** The dependency path to walk before resolving the package. */
+  via?: string[]
+  /** Resolve only through `via`, without falling back to `cwd` or `nuxt`. */
+  strict?: boolean
 }
 
 /**
@@ -21,9 +28,10 @@ export function getPkgVersion(cwd: string, pkg: string, options?: { via?: string
  *   getPkgJSON(cwd, 'webpack', { via: ['@nuxt/webpack-builder'] })
  *
  * Each entry is resolved from the location of the previous one,
- * starting from cwd. Falls back to direct resolution from cwd/nuxt.
+ * starting from cwd. Falls back to direct resolution from cwd/nuxt,
+ * unless `strict` is set, in which case only the chain is used.
  */
-export function getPkgJSON(cwd: string, pkg: string, options?: { via?: string[] }) {
+export function getPkgJSON(cwd: string, pkg: string, options?: PkgJSONOptions) {
   // Build list of locations to try resolving pkg from.
   // When `via` is provided, walk the chain first; then fall back to cwd/nuxt.
   const roots: string[] = []
@@ -42,10 +50,12 @@ export function getPkgJSON(cwd: string, pkg: string, options?: { via?: string[] 
   }
 
   // Fallback: direct resolution from cwd or nuxt's location
-  roots.push(cwd)
-  const nuxtPath = tryResolveNuxt(cwd)
-  if (nuxtPath) {
-    roots.push(nuxtPath)
+  if (!options?.strict || !options.via?.length) {
+    roots.push(cwd)
+    const nuxtPath = tryResolveNuxt(cwd)
+    if (nuxtPath) {
+      roots.push(nuxtPath)
+    }
   }
 
   for (const root of roots) {

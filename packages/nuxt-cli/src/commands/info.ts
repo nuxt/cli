@@ -19,12 +19,11 @@ import { resolveCatalogEntry } from '../utils/catalog'
 import { formatInfoBox } from '../utils/formatting'
 import { tryResolveNuxt } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { NITRO_PKGS, resolveNuxtNitroDependency } from '../utils/nitro'
+import { resolveNitroVersion } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { resolveRootDir } from '../utils/paths'
-import { getPkgJSON } from '../utils/pkg'
 import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
@@ -137,24 +136,6 @@ export default defineCommand({
     })
   },
 })
-
-async function resolveNitroVersion(
-  cwd: string,
-  getDepVersion: (name: string) => Promise<string | undefined>,
-): Promise<string | undefined> {
-  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via }))
-  if (dep) {
-    return getDepVersion(dep.name)
-  }
-  // The owning manifest may be unreadable (`exports` withholding `package.json`,
-  // or nitro installed without nuxt), so fall back to whatever is resolvable.
-  for (const pkg of NITRO_PKGS) {
-    const version = await getDepVersion(pkg)
-    if (version) {
-      return version
-    }
-  }
-}
 
 async function resolveDependencyVersion(
   name: string,

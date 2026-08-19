@@ -3,7 +3,7 @@ import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import { styleText } from 'node:util'
 
 import { logger } from './logger'
-import { NITRO_PKGS, resolveNuxtNitroDependency } from './nitro'
+import { getNitroVersion } from './nitro'
 import { getPkgJSON, getPkgVersion } from './pkg'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
@@ -29,22 +29,6 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
   }
 }
 
-function getNitroVersion(cwd: string) {
-  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via }))
-  if (dep) {
-    return getPkgVersion(cwd, dep.name, { via: dep.via })
-  }
-  // The owning manifest may be unreadable (`exports` withholding `package.json`,
-  // or nitro installed without nuxt), so fall back to whatever is resolvable.
-  for (const name of NITRO_PKGS) {
-    const version = getPkgVersion(cwd, name)
-    if (version) {
-      return version
-    }
-  }
-  return ''
-}
-
 export function showBanner(nuxt: Nuxt) {
   const cwd = nuxt.options.rootDir
 
@@ -64,7 +48,7 @@ export function showBanner(nuxt: Nuxt) {
 
   const detail = parts.length > 1
     ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`
-    : parts.join('')
+    : parts[0]
 
   logger.info(
     styleText('green', `Nuxt ${styleText('bold', nuxtVersion)}`)

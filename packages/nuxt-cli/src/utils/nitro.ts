@@ -1,5 +1,7 @@
 import type { PackageJson } from 'pkg-types'
 
+import { getPkgJSON, getPkgVersion } from './pkg'
+
 /**
  * Dependency names Nitro is declared under, newest naming first, so a manifest
  * that declares more than one resolves to the current name.
@@ -13,7 +15,7 @@ const NITRO_DEP_NAMES = ['nitro', 'nitropack']
  * Names Nitro is resolvable under when it cannot be found through Nuxt,
  * including the aliased releases in case one is installed directly.
  */
-export const NITRO_PKGS = [...NITRO_DEP_NAMES, 'nitro-nightly', 'nitropack-nightly', 'nitropack-edge']
+const NITRO_PKGS = [...NITRO_DEP_NAMES, 'nitro-nightly', 'nitropack-nightly', 'nitropack-edge']
 
 /**
  * The package that declares Nitro in Nuxt versions where `nuxt` itself does
@@ -59,6 +61,48 @@ export function resolveNuxtNitroDependency(
       if (serverName) {
         return { name: serverName, via: [owner, NITRO_SERVER_PKG] }
       }
+    }
+  }
+}
+
+/**
+ * The version of Nitro the installed Nuxt depends on.
+ *
+ * Falls back to any resolvable Nitro package when the owning manifest cannot be
+ * read (`exports` withholding `package.json`, or Nitro installed without Nuxt).
+ */
+export function getNitroVersion(cwd: string): string {
+  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via, strict: true }))
+  const declared = dep && getPkgVersion(cwd, dep.name, { via: dep.via, strict: true })
+  if (declared) {
+    return declared
+  }
+  for (const name of NITRO_PKGS) {
+    const version = getPkgVersion(cwd, name)
+    if (version) {
+      return version
+    }
+  }
+  return ''
+}
+
+/**
+ * The version of Nitro the installed Nuxt depends on, falling back to the
+ * version `getDepVersion` reports when no Nitro package can be resolved from
+ * the project (for example when it is only declared in a catalog).
+ */
+export async function resolveNitroVersion(
+  cwd: string,
+  getDepVersion: (name: string) => Promise<string | undefined>,
+): Promise<string | undefined> {
+  const version = getNitroVersion(cwd)
+  if (version) {
+    return version
+  }
+  for (const name of NITRO_PKGS) {
+    const declared = await getDepVersion(name)
+    if (declared) {
+      return declared
     }
   }
 }
