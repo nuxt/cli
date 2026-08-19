@@ -5,6 +5,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 
 import process from 'node:process'
 import defu from 'defu'
+import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env.ts'
 import { isRemotePeerError } from '../utils/errors'
 import { debug } from '../utils/logger'
@@ -149,7 +150,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     ),
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
     clear: devContext.args.clear,
-    dotenv: { cwd: devContext.cwd, fileName: devContext.args.dotenv },
+    dotenv: { cwd: devContext.cwd, fileName: resolveDotenvFileNames(devContext.args.dotenv) },
     envName: devContext.args.envName,
     showBanner: ctx.showBanner !== false && !ipc.enabled,
     listenOverrides: ctx.listenOverrides,

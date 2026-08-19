@@ -13,6 +13,7 @@ import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
+import { resolveDotenvFileNames } from '../utils/args'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { resolveRootDir, withNodePath } from '../utils/paths'
@@ -366,11 +367,11 @@ async function installMissingPackages(options: {
   }
 }
 
-async function writeTypes(cwd: string, dotenv?: string, logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
+async function writeTypes(cwd: string, dotenv?: string[], logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
   const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
   const nuxt = await loadNuxt({
     cwd,
-    dotenv: { cwd, fileName: dotenv },
+    dotenv: { cwd, fileName: resolveDotenvFileNames(dotenv) },
     overrides: {
       _prepare: true,
       logLevel,

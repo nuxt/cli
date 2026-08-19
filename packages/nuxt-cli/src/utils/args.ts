@@ -27,3 +27,12 @@ export function replaceCwdArg(rawArgs: string[], cwd: string, previousCwd: strin
 
   rawArgs.splice(0, end, ...kept, `--cwd=${cwd}`)
 }
+
+/**
+ * The `.env` files a command was asked to load, or `undefined` when it was not
+ * asked for any: an empty list would tell `c12` to load nothing at all, rather
+ * than to fall back to `.env`.
+ */
+export function resolveDotenvFileNames(dotenv: string[] | undefined): string[] | undefined {
+  return dotenv?.length ? dotenv : undefined
+}

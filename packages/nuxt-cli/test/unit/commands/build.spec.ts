@@ -106,6 +106,14 @@ describe('build', () => {
     expect(calls).toEqual([...calls].sort((a, b) => a! - b!))
   })
 
+  it('should load every requested `.env` file, in the order given', async () => {
+    await run(['--dotenv', '.env.development', '--dotenv', '.env.local'])
+
+    expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
+      dotenv: { cwd, fileName: ['.env.development', '.env.local'] },
+    }))
+  })
+
   it('propagates build errors without terminating programmatic callers', async () => {
     const error = new Error('build failed')
     mocks.buildNuxt.mockRejectedValue(error)

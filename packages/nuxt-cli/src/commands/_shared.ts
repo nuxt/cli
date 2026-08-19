@@ -43,7 +43,8 @@ export const envNameArgs = {
 export const dotEnvArgs = {
   dotenv: {
     type: 'string',
-    description: 'Path to `.env` file to load, relative to the root directory',
+    description: 'Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.',
+    multiple: true,
   },
 } as const satisfies Record<string, ArgDef>
 
