@@ -59,29 +59,36 @@ export function resolveNuxtNitroDependency(
   }
 }
 
+/** A Nitro package to look for, optionally through a dependency path. */
+type NitroCandidate = Pick<NitroDependency, 'name'> & Partial<NitroDependency>
+
 /**
- * The version of Nitro the installed Nuxt depends on.
+ * The Nitro packages to look for, the one the installed Nuxt depends on first.
  *
- * Falls back to any resolvable Nitro package when the owning manifest cannot be
- * read (`exports` withholding `package.json`, or Nitro installed without Nuxt).
+ * The plain names are kept as later candidates so Nitro is still found when no
+ * owning manifest can be read (`exports` withholding `package.json`, or Nitro
+ * installed without Nuxt).
  */
-export function getNitroVersion(cwd: string): string {
-  return resolveInstalledNitro(cwd).version
+function getNitroCandidates(cwd: string): NitroCandidate[] {
+  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via, strict: true }))
+  const candidates: NitroCandidate[] = NITRO_PKGS.map(name => ({ name }))
+  return dep ? [dep, ...candidates] : candidates
 }
 
-function resolveInstalledNitro(cwd: string): { name?: string, version: string } {
-  const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via, strict: true }))
-  const declared = dep && getPkgVersion(cwd, dep.name, { via: dep.via, strict: true })
-  if (declared) {
-    return { name: dep.name, version: declared }
-  }
-  for (const name of NITRO_PKGS) {
-    const version = getPkgVersion(cwd, name)
+/** The version of the first candidate installed in the project. */
+function getInstalledVersion(cwd: string, candidates: NitroCandidate[]): string {
+  for (const { name, via } of candidates) {
+    const version = getPkgVersion(cwd, name, via && { via, strict: true })
     if (version) {
-      return { name, version }
+      return version
     }
   }
-  return { name: dep?.name, version: '' }
+  return ''
+}
+
+/** The version of Nitro the installed Nuxt depends on. */
+export function getNitroVersion(cwd: string): string {
+  return getInstalledVersion(cwd, getNitroCandidates(cwd))
 }
 
 /**
@@ -93,14 +100,12 @@ export async function resolveNitroVersion(
   cwd: string,
   getDepVersion: (name: string) => Promise<string | undefined>,
 ): Promise<string | undefined> {
-  const { name: owned, version } = resolveInstalledNitro(cwd)
+  const candidates = getNitroCandidates(cwd)
+  const version = getInstalledVersion(cwd, candidates)
   if (version) {
     return version
   }
-  // Nuxt's own dependency is asked for first, so a stale declaration of the
-  // other name cannot win when neither package is resolvable.
-  const names = owned ? [owned, ...NITRO_PKGS.filter(name => name !== owned)] : NITRO_PKGS
-  for (const name of names) {
+  for (const { name } of candidates) {
     const declared = await getDepVersion(name)
     if (declared) {
       return declared
