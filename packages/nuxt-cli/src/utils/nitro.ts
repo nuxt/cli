@@ -72,18 +72,22 @@ export function resolveNuxtNitroDependency(
  * read (`exports` withholding `package.json`, or Nitro installed without Nuxt).
  */
 export function getNitroVersion(cwd: string): string {
+  return resolveInstalledNitro(cwd).version
+}
+
+function resolveInstalledNitro(cwd: string): { name?: string, version: string } {
   const dep = resolveNuxtNitroDependency((name, via) => getPkgJSON(cwd, name, { via, strict: true }))
   const declared = dep && getPkgVersion(cwd, dep.name, { via: dep.via, strict: true })
   if (declared) {
-    return declared
+    return { name: dep.name, version: declared }
   }
   for (const name of NITRO_PKGS) {
     const version = getPkgVersion(cwd, name)
     if (version) {
-      return version
+      return { name, version }
     }
   }
-  return ''
+  return { name: dep?.name, version: '' }
 }
 
 /**
@@ -95,11 +99,14 @@ export async function resolveNitroVersion(
   cwd: string,
   getDepVersion: (name: string) => Promise<string | undefined>,
 ): Promise<string | undefined> {
-  const version = getNitroVersion(cwd)
+  const { name: owned, version } = resolveInstalledNitro(cwd)
   if (version) {
     return version
   }
-  for (const name of NITRO_PKGS) {
+  // Nuxt's own dependency is asked for first, so a stale declaration of the
+  // other name cannot win when neither package is resolvable.
+  const names = owned ? [owned, ...NITRO_PKGS.filter(name => name !== owned)] : NITRO_PKGS
+  for (const name of names) {
     const declared = await getDepVersion(name)
     if (declared) {
       return declared

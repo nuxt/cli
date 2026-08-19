@@ -129,6 +129,13 @@ describe('resolveNitroVersion', () => {
     await expect(resolveNitroVersion('/project', async () => '2.0.0')).resolves.toBe('2.13.4')
   })
 
+  it('should prefer the declared version of the package nuxt depends on', async () => {
+    vi.mocked(getPkgJSON).mockImplementation((_cwd, pkg) => pkg === 'nuxt' ? { dependencies: { nitropack: '^2.13.4' } } : null)
+    vi.mocked(getPkgVersion).mockReturnValue('')
+
+    await expect(resolveNitroVersion('/project', async name => ({ nitro: '^3.0.0', nitropack: '^2.13.4' }[name]))).resolves.toBe('^2.13.4')
+  })
+
   it('should fall back to a declared version when nothing is installed', async () => {
     vi.mocked(getPkgJSON).mockReturnValue(null)
     vi.mocked(getPkgVersion).mockReturnValue('')
