@@ -1,0 +1,288 @@
+diff --git a/dist/index.d.mts b/dist/index.d.mts
+index a1366a146c3e54139fd82fd9d562a4f4329fa733..de79b9a2be12feb563d9e5b572a7f0ec0bb8cced 100644
+--- a/dist/index.d.mts
++++ b/dist/index.d.mts
+@@ -4,27 +4,34 @@ type _ArgDef<T extends ArgType, VT extends boolean | number | string> = {
+   type?: T;
+   description?: string;
+   valueHint?: string;
++  hidden?: boolean;
+   alias?: string | string[];
+   default?: VT;
+   required?: boolean;
++  multiple?: boolean;
++  inherit?: boolean;
+   options?: string[];
+ };
+-type BooleanArgDef = Omit<_ArgDef<"boolean", boolean>, "options"> & {
++type BooleanArgDef = Omit<_ArgDef<"boolean", boolean>, "options" | "multiple"> & {
+   negativeDescription?: string;
+ };
+ type StringArgDef = Omit<_ArgDef<"string", string>, "options">;
+ type EnumArgDef = _ArgDef<"enum", string>;
+-type PositionalArgDef = Omit<_ArgDef<"positional", string>, "alias" | "options">;
++type PositionalArgDef = Omit<_ArgDef<"positional", string>, "alias" | "options" | "hidden" | "inherit">;
+ type ArgDef = BooleanArgDef | StringArgDef | PositionalArgDef | EnumArgDef;
+ type ArgsDef = Record<string, ArgDef>;
+ type Arg = ArgDef & {
+   name: string;
+   alias: string[];
++  multiple?: boolean;
+ };
+-type ResolveParsedArgType<T extends ArgDef, VT> = T extends {
++type ResolveScalarArgType<T extends ArgDef, VT> = T extends {
+   default?: any;
+   required?: boolean;
+ } ? T["default"] extends NonNullable<VT> ? VT : T["required"] extends true ? VT : VT | undefined : VT | undefined;
++type ResolveParsedArgType<T extends ArgDef, VT> = T extends {
++  multiple: true;
++} ? VT[] : ResolveScalarArgType<T, VT>;
+ type ParsedPositionalArg<T extends ArgDef> = T extends {
+   type: "positional";
+ } ? ResolveParsedArgType<T, string> : never;
+@@ -86,6 +93,7 @@ interface RunCommandOptions {
+   rawArgs: string[];
+   data?: any;
+   showUsage?: boolean;
++  inheritedArgs?: ArgsDef;
+ }
+ declare function runCommand<T extends ArgsDef = ArgsDef>(cmd: CommandDef<T>, opts: RunCommandOptions): Promise<{
+   result: unknown;
+diff --git a/dist/index.mjs b/dist/index.mjs
+index d0af470ebf46490d35a130436b67f287c46bdb0f..59d8d72cae4bb091a660cfb576e066333af64857 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -26,6 +26,7 @@ var CLIError = class extends Error {
+ function parseRawArgs(args = [], opts = {}) {
+ 	const booleans = new Set(opts.boolean || []);
+ 	const strings = new Set(opts.string || []);
++	const multiples = new Set(opts.multiple || []);
+ 	const aliasMap = opts.alias || {};
+ 	const defaults = opts.default || {};
+ 	const aliasToMain = /* @__PURE__ */ new Map();
+@@ -42,17 +43,20 @@ function parseRawArgs(args = [], opts = {}) {
+ 		}
+ 	}
+ 	const options = {};
+-	function getType(name) {
+-		if (booleans.has(name)) return "boolean";
++	function isInSet(name, set) {
++		if (set.has(name)) return true;
+ 		const aliases = mainToAliases.get(name) || [];
+-		for (const alias of aliases) if (booleans.has(alias)) return "boolean";
+-		return "string";
++		for (const alias of aliases) if (set.has(alias)) return true;
++		return false;
++	}
++	function getType(name) {
++		return isInSet(name, booleans) ? "boolean" : "string";
+ 	}
+ 	function isStringType(name) {
+-		if (strings.has(name)) return true;
+-		const aliases = mainToAliases.get(name) || [];
+-		for (const alias of aliases) if (strings.has(alias)) return true;
+-		return false;
++		return isInSet(name, strings);
++	}
++	function isMultiple(name) {
++		return isInSet(name, multiples);
+ 	}
+ 	const allOptions = new Set([
+ 		...booleans,
+@@ -63,7 +67,8 @@ function parseRawArgs(args = [], opts = {}) {
+ 	]);
+ 	for (const name of allOptions) if (!options[name]) options[name] = {
+ 		type: getType(name),
+-		default: defaults[name]
++		default: defaults[name],
++		multiple: isMultiple(name)
+ 	};
+ 	for (const [alias, main] of aliasToMain.entries()) if (alias.length === 1 && options[main] && !options[main].short) options[main].short = alias;
+ 	const processedArgs = [];
+@@ -97,12 +102,13 @@ function parseRawArgs(args = [], opts = {}) {
+ 	}
+ 	const out = { _: [] };
+ 	out._ = parsed.positionals;
+-	for (const [key, value] of Object.entries(parsed.values)) {
+-		let coerced = value;
+-		if (getType(key) === "boolean" && typeof value === "string") coerced = value !== "false";
+-		else if (isStringType(key) && typeof value === "boolean") coerced = "";
+-		out[key] = coerced;
++	function coerceValue(key, value) {
++		if (Array.isArray(value)) return value.map((item) => coerceValue(key, item));
++		if (getType(key) === "boolean" && typeof value === "string") return value !== "false";
++		if (isStringType(key) && typeof value === "boolean") return "";
++		return value;
+ 	}
++	for (const [key, value] of Object.entries(parsed.values)) out[key] = coerceValue(key, value);
+ 	for (const [name] of Object.entries(negatedFlags)) {
+ 		out[name] = false;
+ 		const mainName = aliasToMain.get(name);
+@@ -130,19 +136,28 @@ const gray = /* @__PURE__ */ _c(90);
+ const underline = /* @__PURE__ */ _c(4, 24);
+ //#endregion
+ //#region src/args.ts
++function assertEnumValue(arg, value) {
++	if (arg.type !== "enum" || value === void 0) return;
++	const options = arg.options || [];
++	if (options.length > 0 && !options.includes(value)) throw new CLIError(`Invalid value for argument: ${cyan(`--${arg.name}`)} (${cyan(value)}). Expected one of: ${options.map((o) => cyan(o)).join(", ")}.`, "EARG");
++}
+ function parseArgs(rawArgs, argsDef) {
+ 	const parseOptions = {
+ 		boolean: [],
+ 		string: [],
++		multiple: [],
+ 		alias: {},
+ 		default: {}
+ 	};
+ 	const args = resolveArgs(argsDef);
++	const positionals = args.filter(({ type }) => type === "positional");
++	for (const [index, positional] of positionals.entries()) if (positional.multiple && index < positionals.length - 1) throw new CLIError(`A "multiple" positional argument must be the last positional argument, but "${positional.name}" is not.`, "EARG");
+ 	for (const arg of args) {
+ 		if (arg.type === "positional") continue;
+ 		if (arg.type === "string" || arg.type === "enum") parseOptions.string.push(arg.name);
+ 		else if (arg.type === "boolean") parseOptions.boolean.push(arg.name);
+-		if (arg.default !== void 0) parseOptions.default[arg.name] = arg.default;
++		if (arg.multiple) parseOptions.multiple.push(arg.name);
++		if (arg.default !== void 0 && !arg.multiple) parseOptions.default[arg.name] = arg.default;
+ 		if (arg.alias) parseOptions.alias[arg.name] = arg.alias;
+ 		const camelName = camelCase(arg.name);
+ 		const kebabName = kebabCase(arg.name);
+@@ -158,16 +173,21 @@ function parseArgs(rawArgs, argsDef) {
+ 	const parsedArgsProxy = new Proxy(parsed, { get(target, prop) {
+ 		return target[prop] ?? target[camelCase(prop)] ?? target[kebabCase(prop)];
+ 	} });
+-	for (const [, arg] of args.entries()) if (arg.type === "positional") {
++	for (const [, arg] of args.entries()) if (arg.type === "positional" && arg.multiple) {
++		if (positionalArguments.length === 0 && arg.required !== false) throw new CLIError(`Missing required positional argument: ${arg.name.toUpperCase()}`, "EARG");
++		parsedArgsProxy[arg.name] = positionalArguments;
++	} else if (arg.type === "positional") {
+ 		const nextPositionalArgument = positionalArguments.shift();
+ 		if (nextPositionalArgument !== void 0) parsedArgsProxy[arg.name] = nextPositionalArgument;
+ 		else if (arg.default === void 0 && arg.required !== false) throw new CLIError(`Missing required positional argument: ${arg.name.toUpperCase()}`, "EARG");
+ 		else parsedArgsProxy[arg.name] = arg.default;
+-	} else if (arg.type === "enum") {
+-		const argument = parsedArgsProxy[arg.name];
+-		const options = arg.options || [];
+-		if (argument !== void 0 && options.length > 0 && !options.includes(argument)) throw new CLIError(`Invalid value for argument: ${cyan(`--${arg.name}`)} (${cyan(argument)}). Expected one of: ${options.map((o) => cyan(o)).join(", ")}.`, "EARG");
+-	} else if (arg.required && parsedArgsProxy[arg.name] === void 0) throw new CLIError(`Missing required argument: --${arg.name}`, "EARG");
++	} else if (arg.multiple) {
++		const values = parsedArgsProxy[arg.name] ?? [];
++		for (const value of values) assertEnumValue(arg, value);
++		if (arg.required && values.length === 0) throw new CLIError(`Missing required argument: --${arg.name}`, "EARG");
++		parsedArgsProxy[arg.name] = values;
++	} else if (arg.type === "enum") assertEnumValue(arg, parsedArgsProxy[arg.name]);
++	else if (arg.required && parsedArgsProxy[arg.name] === void 0) throw new CLIError(`Missing required argument: --${arg.name}`, "EARG");
+ 	return parsedArgsProxy;
+ }
+ function resolveArgs(argsDef) {
+@@ -193,7 +213,10 @@ function defineCommand(def) {
+ 	return def;
+ }
+ async function runCommand(cmd, opts) {
+-	const cmdArgs = await resolveValue(cmd.args || {});
++	const cmdArgs = {
++		...opts.inheritedArgs,
++		...await resolveValue(cmd.args || {})
++	};
+ 	const parsedArgs = parseArgs(opts.rawArgs, cmdArgs);
+ 	const context = {
+ 		rawArgs: opts.rawArgs,
+@@ -214,14 +237,21 @@ async function runCommand(cmd, opts) {
+ 			if (explicitName) {
+ 				const subCommand = await _findSubCommand(subCommands, explicitName);
+ 				if (!subCommand) throw new CLIError(`Unknown command ${cyan(explicitName)}`, "E_UNKNOWN_COMMAND");
+-				await runCommand(subCommand, { rawArgs: opts.rawArgs.slice(subCommandArgIndex + 1) });
++				const inheritedArgs = _inheritedArgs(cmdArgs);
++				await runCommand(subCommand, {
++					rawArgs: [..._collectInheritedRawArgs(opts.rawArgs.slice(0, subCommandArgIndex), cmdArgs, inheritedArgs), ...opts.rawArgs.slice(subCommandArgIndex + 1)],
++					inheritedArgs
++				});
+ 			} else {
+ 				const defaultSubCommand = await resolveValue(cmd.default);
+ 				if (defaultSubCommand) {
+ 					if (cmd.run) throw new CLIError(`Cannot specify both 'run' and 'default' on the same command.`, "E_DEFAULT_CONFLICT");
+ 					const subCommand = await _findSubCommand(subCommands, defaultSubCommand);
+ 					if (!subCommand) throw new CLIError(`Default sub command ${cyan(defaultSubCommand)} not found in subCommands.`, "E_UNKNOWN_COMMAND");
+-					await runCommand(subCommand, { rawArgs: opts.rawArgs });
++					await runCommand(subCommand, {
++						rawArgs: opts.rawArgs,
++						inheritedArgs: _inheritedArgs(cmdArgs)
++					});
+ 				} else if (!cmd.run) throw new CLIError(`No command specified.`, "E_NO_COMMAND");
+ 			}
+ 		}
+@@ -278,14 +308,42 @@ function findSubCommandIndex(rawArgs, argsDef) {
+ 	return -1;
+ }
+ function _isValueFlag(flag, argsDef) {
++	return _matchArg(flag, argsDef, (def) => def.type === "string" || def.type === "enum") !== void 0;
++}
++function _matchArg(flag, argsDef, filter) {
+ 	const name = flag.replace(/^-{1,2}/, "");
++	const direct = _findArg(name, argsDef, filter);
++	if (direct || !name.startsWith("no-")) return direct;
++	return _findArg(name.slice(3), argsDef, (def) => def.type === "boolean" && filter(def));
++}
++function _findArg(name, argsDef, filter) {
+ 	const normalized = camelCase(name);
+ 	for (const [key, def] of Object.entries(argsDef)) {
+-		if (def.type !== "string" && def.type !== "enum") continue;
+-		if (normalized === camelCase(key)) return true;
+-		if ((Array.isArray(def.alias) ? def.alias : def.alias ? [def.alias] : []).includes(name)) return true;
++		if (!filter(def)) continue;
++		if (normalized === camelCase(key)) return def;
++		if (toArray(def.alias).includes(name)) return def;
++	}
++}
++function _inheritedArgs(argsDef) {
++	const inherited = {};
++	for (const [name, def] of Object.entries(argsDef)) if (def.type !== "positional" && def.inherit) inherited[name] = def;
++	return inherited;
++}
++function _collectInheritedRawArgs(rawArgs, argsDef, inherited) {
++	if (Object.keys(inherited).length === 0) return [];
++	const collected = [];
++	for (let i = 0; i < rawArgs.length; i++) {
++		const arg = rawArgs[i];
++		if (!arg.startsWith("-")) continue;
++		const [flag] = arg.split("=", 1);
++		const takesValue = !arg.includes("=") && _isValueFlag(flag, argsDef);
++		if (_matchArg(flag, inherited, () => true)) {
++			collected.push(arg);
++			if (takesValue && i + 1 < rawArgs.length) collected.push(rawArgs[i + 1]);
++		}
++		if (takesValue) i++;
+ 	}
+-	return false;
++	return collected;
+ }
+ //#endregion
+ //#region src/usage.ts
+@@ -307,11 +365,12 @@ async function renderUsage(cmd, parent) {
+ 	const commandsLines = [];
+ 	const usageLine = [];
+ 	for (const arg of cmdArgs) if (arg.type === "positional") {
+-		const name = arg.name.toUpperCase();
++		const name = arg.name.toUpperCase() + (arg.multiple ? "..." : "");
+ 		const isRequired = arg.required !== false && arg.default === void 0;
+ 		posLines.push([cyan(name + renderValueHint(arg)), renderDescription(arg, isRequired)]);
+ 		usageLine.push(isRequired ? `<${name}>` : `[${name}]`);
+ 	} else {
++		if (arg.hidden) continue;
+ 		const isRequired = arg.required === true && arg.default === void 0;
+ 		const argStr = [...(arg.alias || []).map((a) => `-${a}`), `--${arg.name}`].join(", ") + renderValueHint(arg);
+ 		argLines.push([cyan(argStr), renderDescription(arg, isRequired)]);
+@@ -364,9 +423,10 @@ async function renderUsage(cmd, parent) {
+ function renderValueHint(arg) {
+ 	const valueHint = arg.valueHint ? `=<${arg.valueHint}>` : "";
+ 	const fallbackValueHint = valueHint || `=<${snakeCase(arg.name)}>`;
++	const repeat = arg.multiple ? "..." : "";
+ 	if (!arg.type || arg.type === "positional" || arg.type === "boolean") return valueHint;
+-	if (arg.type === "enum" && arg.options?.length) return `=<${arg.options.join("|")}>`;
+-	return fallbackValueHint;
++	if (arg.type === "enum" && arg.options?.length) return `=<${arg.options.join("|")}>${repeat}`;
++	return fallbackValueHint + repeat;
+ }
+ function renderDescription(arg, required) {
+ 	const requiredHint = required ? gray("(Required)") : "";

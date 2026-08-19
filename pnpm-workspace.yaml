@@ -32,3 +32,6 @@ allowBuilds:
   '@parcel/watcher': false
   esbuild: false
   unrs-resolver: false
+
+patchedDependencies:
+  citty@0.2.2: patches/citty@0.2.2.patch

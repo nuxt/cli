@@ -17,6 +17,9 @@ overrides:
   nuxi: workspace:*
   rolldown: 1.2.4
 
+patchedDependencies:
+  citty@0.2.2: 24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac
+
 importers:
 
   .:
@@ -101,7 +104,7 @@ importers:
     devDependencies:
       '@bomb.sh/tab':
         specifier: ^0.0.22
-        version: 0.0.22(cac@7.0.0)(citty@0.2.2)
+        version: 0.0.22(cac@7.0.0)(citty@0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac))
       '@clack/prompts':
         specifier: ^1.7.0
         version: 1.7.0
@@ -110,7 +113,7 @@ importers:
         version: 24.13.3
       citty:
         specifier: ^0.2.2
-        version: 0.2.2
+        version: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       giget:
         specifier: ^3.3.1
         version: 3.3.1
@@ -153,7 +156,7 @@ importers:
         version: 24.13.3
       citty:
         specifier: ^0.2.2
-        version: 0.2.2
+        version: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       jiti:
         specifier: ^2.7.0
         version: 2.7.0
@@ -172,9 +175,6 @@ importers:
 
   packages/nuxt-cli:
     dependencies:
-      '@bomb.sh/tab':
-        specifier: ^0.0.22
-        version: 0.0.22(cac@7.0.0)(citty@0.2.2)
       '@clack/prompts':
         specifier: ^1.7.0
         version: 1.7.0
@@ -184,9 +184,6 @@ importers:
       args-tokenizer:
         specifier: ^0.3.0
         version: 0.3.0
-      citty:
-        specifier: ^0.2.2
-        version: 0.2.2
       clickable-path:
         specifier: ^0.0.1
         version: 0.0.1
@@ -254,6 +251,9 @@ importers:
         specifier: ^0.3.2
         version: 0.3.2
     devDependencies:
+      '@bomb.sh/tab':
+        specifier: ^0.0.22
+        version: 0.0.22(cac@7.0.0)(citty@0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac))
       '@nuxt/kit':
         specifier: ^4.5.2
         version: 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.143.0)(rolldown@1.2.4)(unplugin@3.3.0(esbuild@0.28.0)(rolldown@1.2.4)(rollup@4.62.4)(vite@8.2.0(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0)))
@@ -269,6 +269,9 @@ importers:
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.3
+      citty:
+        specifier: ^0.2.2
+        version: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       giget:
         specifier: ^3.3.1
         version: 3.3.1
@@ -6826,10 +6829,10 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@bomb.sh/tab@0.0.22(cac@7.0.0)(citty@0.2.2)':
+  '@bomb.sh/tab@0.0.22(cac@7.0.0)(citty@0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac))':
     optionalDependencies:
       cac: 7.0.0
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
 
   '@clack/core@1.4.3':
     dependencies:
@@ -7833,7 +7836,7 @@ snapshots:
   '@nuxt/telemetry@2.8.0(@nuxt/kit@4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.143.0)(rolldown@1.2.4)(unplugin@3.3.0(esbuild@0.28.0)(rolldown@1.2.4)(rollup@4.62.4)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0))))':
     dependencies:
       '@nuxt/kit': 4.5.2(magic-string@1.1.0)(magicast@0.5.4)(oxc-parser@0.143.0)(rolldown@1.2.4)(unplugin@3.3.0(esbuild@0.28.0)(rolldown@1.2.4)(rollup@4.62.4)(vite@7.3.3(@types/node@24.13.3)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.46.2)(yaml@2.9.0)))
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       consola: 3.4.2
       ofetch: 2.0.0-alpha.3
       rc9: 3.0.1
@@ -9646,7 +9649,7 @@ snapshots:
     dependencies:
       consola: 3.4.2
 
-  citty@0.2.2: {}
+  citty@0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac): {}
 
   cli-boxes@3.0.0: {}
 
@@ -10970,7 +10973,7 @@ snapshots:
     dependencies:
       '@parcel/watcher': 2.5.6
       '@parcel/watcher-wasm': 2.5.6
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       consola: 3.4.2
       crossws: 0.4.10(srvx@0.12.5)
       defu: 6.1.7
@@ -11549,7 +11552,7 @@ snapshots:
       archiver: 7.0.1
       c12: 3.3.4(magicast@0.5.4)
       chokidar: 5.0.0
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       compatx: 0.2.0
       confbox: 0.2.4
       consola: 3.4.2
@@ -11660,7 +11663,7 @@ snapshots:
       archiver: 7.0.1
       c12: 3.3.4(magicast@0.5.4)
       chokidar: 5.0.0
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       compatx: 0.2.0
       confbox: 0.2.4
       consola: 3.4.2
@@ -12080,7 +12083,7 @@ snapshots:
 
   nypm@0.6.9:
     dependencies:
-      citty: 0.2.2
+      citty: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
       pathe: 2.0.3
       tinyexec: 1.3.0
 

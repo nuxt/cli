@@ -62,10 +62,8 @@
     }
   },
   "dependencies": {
-    "@bomb.sh/tab": "^0.0.22",
     "@clack/prompts": "^1.7.0",
     "args-tokenizer": "^0.3.0",
-    "citty": "^0.2.2",
     "clickable-path": "^0.0.1",
     "confbox": "^0.2.4",
     "consola": "^3.4.2",
@@ -88,11 +86,13 @@
     "verkit": "^0.3.2"
   },
   "devDependencies": {
+    "@bomb.sh/tab": "^0.0.22",
     "@nuxt/kit": "^4.5.2",
     "@nuxt/schema": "^4.5.2",
     "@nuxt/test-utils": "^4.1.0",
     "@speed-highlight/core": "^2.0.0",
     "@types/node": "^24.13.3",
+    "citty": "^0.2.2",
     "giget": "^3.3.1",
     "h3": "^1.15.11",
     "jiti": "^2.7.0",
