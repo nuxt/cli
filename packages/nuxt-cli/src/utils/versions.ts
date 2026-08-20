@@ -1,5 +1,5 @@
 import { readPackageJSON } from 'pkg-types'
-import { coerce, findMaxSatisfying } from 'verkit'
+import { coerce, findMaxSatisfying, normalize } from 'verkit'
 
 import { resolveCatalogEntry } from './catalog'
 import { fetchJson } from './fetch'
@@ -29,7 +29,8 @@ export async function getNuxtVersion(cwd: string) {
   const pkg = await readPackageJSON(cwd)
   const pkgDep = resolveCatalogEntry(cwd, pkg, 'nuxt')?.specifier
     ?? (pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt)
-  return (pkgDep && coerce(pkgDep)) || DEFAULT_NUXT_VERSION
+  const coerced = pkgDep && coerce(pkgDep)
+  return (coerced && normalize(coerced)) || DEFAULT_NUXT_VERSION
 }
 
 /**
