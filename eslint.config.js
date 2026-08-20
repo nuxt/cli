@@ -38,6 +38,17 @@ export default createConfigForNuxt({
     },
   },
   {
+    // Benchmark tooling is run directly with node, like `scripts/`,
+    // which `@antfu/eslint-config` already exempts from these rules.
+    files: ['bench/**'],
+    rules: {
+      'no-console': 'off',
+      'antfu/no-top-level-await': 'off',
+      'node/prefer-global/buffer': 'off',
+      'node/prefer-global/process': 'off',
+    },
+  },
+  {
     files: ['**/*.yml'],
     rules: {
       '@stylistic/spaced-comment': 'off',

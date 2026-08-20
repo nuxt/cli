@@ -1,0 +1,95 @@
+name: cli-bench-comment
+
+on:
+  workflow_run:
+    workflows: [cli-bench]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-slim
+    steps:
+      - name: ⏬ Download report from workflow run
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: cli-bench-report
+          path: bench-report
+
+      - name: 💬 Post or update comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const { readFileSync } = require('node:fs');
+
+            // Resolve the PR from the triggering run's head SHA
+            const run = context.payload.workflow_run;
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${run.head_repository.owner.login}:${run.head_branch}`,
+              per_page: 10,
+            });
+            const pr = prs.find(pr => pr.head.sha === run.head_sha);
+            if (!pr) {
+              console.log(`no open PR found for ${run.head_sha}, skipping`);
+              return;
+            }
+            const prNumber = pr.number;
+
+            const marker = '<!-- cli-bench-report -->';
+            // Cap size and strip everything that could render as HTML, a link,
+            // or an image.
+            const sanitise = path => readFileSync(path, 'utf8')
+              .slice(0, 50_000)
+              .replace(/</g, '&lt;')
+              .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+              .replace(/(?:https?:\/\/|www\.)\S+/gi, '[url removed]')
+              .replace(/\[/g, '\\[');
+            const body = [
+              marker,
+              '### CLI benchmark',
+              '',
+              sanitise('bench-report/summary.md'),
+              '<details>',
+              '<summary>Full report</summary>',
+              '',
+              sanitise('bench-report/report.md'),
+              '',
+              '</details>',
+              '',
+              '_Interleaved runs on a shared runner: trust the deltas, not the absolute timings. The `dev`, `restart` and `build` suites run locally via `pnpm bench:cli`._',
+            ].join('\n');
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const existing = comments.data.find(comment =>
+              comment.user.type === 'Bot' && comment.body.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
