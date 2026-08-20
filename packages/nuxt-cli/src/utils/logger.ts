@@ -4,7 +4,50 @@ import { createDebug } from 'obug'
 
 import { blankLineBefore, writeDirect } from './stdout'
 
-export const logger = log
+type LoggerImpl = Pick<typeof log, 'info' | 'warn' | 'error' | 'success' | 'step' | 'message'>
+
+let impl: LoggerImpl = log
+let depth = 0
+
+/**
+ * Whether the CLI itself is emitting a log right now.
+ *
+ * The app, its build tools and the CLI all log through consola, so a reporter
+ * cannot otherwise tell whose message it is holding. Checked synchronously,
+ * while the call is on the stack.
+ */
+export function isEmittingCliLog(): boolean {
+  return depth > 0
+}
+
+function emit<T>(write: () => T): T {
+  depth++
+  try {
+    return write()
+  }
+  finally {
+    depth--
+  }
+}
+
+/**
+ * Swap the presentation of CLI logs, or restore the default when called with
+ * nothing. The interactive dev UI uses this to drop clack's connecting `│`
+ * guideline, which reads as a stray artefact next to a persistent footer.
+ */
+export function setLoggerImpl(next?: LoggerImpl): void {
+  impl = next ?? log
+}
+
+export const logger: LoggerImpl = {
+  info: message => emit(() => impl.info(message)),
+  warn: message => emit(() => impl.warn(message)),
+  error: message => emit(() => impl.error(message)),
+  success: message => emit(() => impl.success(message)),
+  step: message => emit(() => impl.step(message)),
+  message: (message, options) => emit(() => impl.message(message, options)),
+}
+
 export const debug = createDebug('nuxi')
 
 /**

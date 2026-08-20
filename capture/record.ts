@@ -103,7 +103,7 @@ if (unknown.length) {
  */
 async function warmUpFixture(): Promise<void> {
   console.log('warming up the fixture app')
-  const session = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40 })
+  const session = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40, env: { NUXT_TUI: 'plain' } })
   try {
     await session.waitFor(/warmed up|Vite client built/, 240_000)
     await session.wait(500)
@@ -118,7 +118,7 @@ async function ensureDevServer(): Promise<void> {
   if (devServer) {
     return
   }
-  devServer = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40 })
+  devServer = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40, env: { NUXT_TUI: 'plain' } })
   await devServer.waitFor(/warmed up|Vite client built/, 240_000)
   await devServer.wait(1500)
 }

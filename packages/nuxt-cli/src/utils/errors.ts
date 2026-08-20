@@ -30,3 +30,10 @@ export function isRemotePeerError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | undefined)?.code
   return !!code && REMOTE_PEER_ERROR_CODES.has(code)
 }
+
+/**
+ * Marks an `uncaughtException` listener that keeps the process alive (by
+ * replacing the crashed server) rather than letting it exit. The interactive
+ * dev UI leaves the terminal to such a listener instead of tearing down.
+ */
+export const KEEPS_PROCESS_ALIVE: unique symbol = Symbol.for('nuxt:keeps-process-alive')

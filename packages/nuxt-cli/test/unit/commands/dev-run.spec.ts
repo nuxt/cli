@@ -93,7 +93,20 @@ beforeEach(() => {
   takeOverDevServer.mockResolvedValue({ action: 'none' })
   isReusePortSupported.mockResolvedValue(true)
   preflight.mockImplementation((options: { cwd: string }) => Promise.resolve(options.cwd))
-  initialize.mockImplementation(() => Promise.resolve({ listener, close, onRestart, onReady, onFileChange, reload: vi.fn() }))
+  initialize.mockImplementation(() => Promise.resolve({
+    listener,
+    close,
+    onRestart,
+    onReady,
+    onFileChange,
+    reload: vi.fn(),
+    onLoading: vi.fn(),
+    onEachReady: vi.fn(),
+    onLog: vi.fn(),
+    onRequests: vi.fn(),
+    onRoutes: vi.fn(),
+    onBuilding: vi.fn(),
+  }))
   exit = vi.spyOn(process, 'exit').mockImplementation((() => {
     throw new Error('process.exit')
   }) as never)

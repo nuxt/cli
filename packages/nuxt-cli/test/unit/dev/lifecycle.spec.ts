@@ -28,6 +28,7 @@ type Hook = (...args: any[]) => unknown
 interface FakeNuxt {
   options: Record<string, any>
   callHook: (name: string, ...args: unknown[]) => Promise<void>
+  hook: (name: string, fn: Hook) => void
   hooks: {
     hook: (name: string, fn: Hook) => void
     hookOnce: (name: string, fn: Hook) => void
@@ -60,6 +61,7 @@ function createNuxt(overrides: Record<string, any> = {}): FakeNuxt {
       _layers: [],
       ...overrides,
     },
+    hook: (name, fn) => void hooks.set(name, [...hooks.get(name) || [], fn]),
     hooks: {
       hook: (name, fn) => void hooks.set(name, [...hooks.get(name) || [], fn]),
       hookOnce: (name, fn) => void hooks.set(name, [...hooks.get(name) || [], fn]),
@@ -180,6 +182,24 @@ describe('dev server startup', () => {
 
     expect(writeTypes).toHaveBeenCalledTimes(1)
     expect(buildNuxt).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('dev server request feed', () => {
+  it('should keep its own loading and error responses out of the feed', async () => {
+    const server = createServer({ captureUIEvents: true })
+    await server.init()
+    const seen: Array<{ url: string, status: number }> = []
+    server.on('request', event => seen.push({ url: event.url, status: event.status }))
+
+    await expect(get(server, '/app')).resolves.toMatchObject({ status: 200 })
+
+    loadNuxt.mockImplementation(() => Promise.reject(new Error('config exploded')))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+    await expect(get(server, '/broken')).resolves.toMatchObject({ status: 500 })
+
+    await vi.waitFor(() => expect(seen).toContainEqual({ url: '/app', status: 200 }))
+    expect(seen).not.toContainEqual(expect.objectContaining({ url: '/broken' }))
   })
 })
 

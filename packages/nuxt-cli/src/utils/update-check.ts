@@ -10,6 +10,7 @@ import { fetchJson } from './fetch'
 import { debug, writeNotice } from './logger'
 import { detectNpmRegistry } from './registry'
 import { trackOutputSpacing } from './stdout'
+import { terminalLink } from './terminal-link'
 
 const RC_FILE = '.nuxtrc'
 const CACHE_KEY = 'updateCheck'
@@ -143,15 +144,39 @@ export interface UpdateNudgeOptions {
   name?: string
   /** Command that gets the user onto the new version. */
   command?: string
+  /** Package the version belongs to, used to find its release notes. */
+  pkg?: string
 }
 
-function describeUpdate({ current, latest }: NuxtUpdate, name: string): string {
-  return `a new version of ${name} is available: ${styleText('green', latest)} ${styleText('gray', `(you are on ${current})`)}`
+/** Repositories whose releases are published under a `v`-prefixed tag. */
+const RELEASE_REPOS: Record<string, string> = {
+  'nuxt': 'nuxt/nuxt',
+  '@nuxt/cli': 'nuxt/cli',
+  'nuxi': 'nuxt/cli',
+  'create-nuxt': 'nuxt/cli',
+}
+
+/**
+ * The release notes for a published version, when the package has a known
+ * repository. Nightlies are skipped: their versions have no matching tag.
+ */
+export function releaseNotesUrl(pkg: string, version: string): string | undefined {
+  const repo = RELEASE_REPOS[pkg]
+  if (!repo || version.includes('nightly')) {
+    return undefined
+  }
+  return `https://github.com/${repo}/releases/tag/v${version}`
+}
+
+function describeUpdate({ current, latest }: NuxtUpdate, name: string, pkg: string): string {
+  const notes = releaseNotesUrl(pkg, latest)
+  const version = styleText('green', latest)
+  return `a new version of ${name} is available: ${notes ? terminalLink(version, notes) : version} ${styleText('gray', `(you are on ${current})`)}`
 }
 
 export function renderUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOptions = {}): void {
-  const { name = 'Nuxt', command = 'nuxt upgrade' } = options
-  writeNotice(describeUpdate(update, name), `run ${styleText('cyan', command)} to update`)
+  const { name = 'Nuxt', command = 'nuxt upgrade', pkg = 'nuxt' } = options
+  writeNotice(describeUpdate(update, name, pkg), `run ${styleText('cyan', command)} to update`)
 }
 
 /**
@@ -159,8 +184,8 @@ export function renderUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOption
  * for and only needs to know what to type next time.
  */
 export function renderSelfUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOptions = {}): void {
-  const { name = 'the Nuxt CLI', command = 'nuxt upgrade' } = options
-  writeNotice(describeUpdate(update, name), `next time, run ${styleText('cyan', command)} to use the latest version`)
+  const { name = 'the Nuxt CLI', command = 'nuxt upgrade', pkg = '@nuxt/cli' } = options
+  writeNotice(describeUpdate(update, name, pkg), `next time, run ${styleText('cyan', command)} to use the latest version`)
 }
 
 export interface SelfUpdateNudgeOptions extends UpdateNudgeOptions {

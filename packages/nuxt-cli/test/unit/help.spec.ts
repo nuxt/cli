@@ -206,6 +206,8 @@ describe('help', () => {
                      -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                                          --inspect    Enable the Node.js inspector for the process serving your app (\`--inspect=[host:]port\`)                                                             
                                      --inspect-brk    Enable the Node.js inspector and wait for a debugger to attach (\`--inspect-brk=[host:]port\`)                                                        
+                                             --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
+                                          --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
                                            --clear    Clear console on restart (Default: false)                                                                                                           
                                         -f, --fork    Enable forked mode (Default: false)                                                                                                                 
                                  --no-f, --no-fork    Disable forked mode                                                                                                                                 
