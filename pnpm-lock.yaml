@@ -205,9 +205,6 @@ importers:
       get-port-please:
         specifier: ^3.2.0
         version: 3.2.0
-      nypm:
-        specifier: ^0.6.9
-        version: 0.6.9
       obug:
         specifier: ^2.1.4
         version: 2.1.4
@@ -287,6 +284,9 @@ importers:
       nitropack:
         specifier: 2.13.4
         version: 2.13.4(oxc-parser@0.143.0)(rolldown@1.2.4)(srvx@0.12.5)(supports-color@10.2.2)(vite@8.2.0(@types/node@24.13.3)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.46.2)(yaml@2.9.0))
+      nypm:
+        specifier: ^0.6.9
+        version: 0.6.9
       rolldown:
         specifier: 1.2.4
         version: 1.2.4
