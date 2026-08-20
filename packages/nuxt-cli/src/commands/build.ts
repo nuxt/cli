@@ -5,6 +5,7 @@ import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { relative } from 'pathe'
+import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 
 import { overrideEnv } from '../utils/env'
@@ -63,7 +64,7 @@ export default defineCommand({
         ready: false,
         dotenv: {
           cwd,
-          fileName: ctx.args.dotenv,
+          fileName: resolveDotenvFileNames(ctx.args.dotenv),
         },
         envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
         overrides: {
@@ -73,7 +74,7 @@ export default defineCommand({
             static: ctx.args.prerender,
             preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
           },
-          ...(ctx.args.extends && { extends: ctx.args.extends }),
+          ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
           ...ctx.data?.overrides,
           ...((perfValue || ctx.data?.overrides?.debug) && {
             debug: {

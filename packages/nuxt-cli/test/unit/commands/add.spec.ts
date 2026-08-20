@@ -153,7 +153,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
       },
     })
 
@@ -176,7 +176,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@nuxt/icon'],
+        moduleName: ['@nuxt/icon'],
       },
     })
 
@@ -197,7 +197,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui', 'icon'],
+        moduleName: ['ui', 'icon'],
       },
     })
 
@@ -216,7 +216,7 @@ describe('nuxt add command', () => {
   it('should resolve duplicate modules once', async () => {
     const addCommand = await (commands as CommandsType).subCommands.add()
 
-    await addCommand.setup({ args: { cwd: '/fake-dir', _: ['ui', 'ui'] } })
+    await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['ui', 'ui'] } })
 
     expect(mock$fetch).toHaveBeenCalledTimes(1)
     expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
@@ -230,7 +230,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
         skipInstall: true,
       },
     })
@@ -245,7 +245,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
         skipConfig: true,
       },
     })
@@ -260,7 +260,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
         dev: true,
       },
     })
@@ -301,7 +301,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui@2.5.0'],
+        moduleName: ['ui@2.5.0'],
       },
     })
 
@@ -319,7 +319,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
       },
     })
 
@@ -336,7 +336,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
       },
     })
 
@@ -352,7 +352,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
       },
     })
 
@@ -371,7 +371,7 @@ describe('nuxt add command', () => {
     await addCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['ui'],
+        moduleName: ['ui'],
         skipInstall: true,
       },
     })

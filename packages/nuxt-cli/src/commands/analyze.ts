@@ -10,6 +10,7 @@ import { defu } from 'defu'
 import { join, relative, resolve } from 'pathe'
 import { serve } from 'srvx'
 
+import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
 import { clearDir } from '../utils/fs'
@@ -86,10 +87,10 @@ export default defineCommand({
       ready: false,
       dotenv: {
         cwd,
-        fileName: ctx.args.dotenv,
+        fileName: resolveDotenvFileNames(ctx.args.dotenv),
       },
       overrides: defu(ctx.data?.overrides, {
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
         build: {
           analyze: {
             enabled: true,

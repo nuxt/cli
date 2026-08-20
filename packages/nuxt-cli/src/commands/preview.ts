@@ -9,6 +9,7 @@ import { defineCommand } from 'citty'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
+import { resolveDotenvFileNames } from '../utils/args'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { withPrependedPath } from '../utils/path-env'
@@ -51,12 +52,12 @@ const command = defineCommand({
         cwd,
         dotenv: {
           cwd,
-          fileName: ctx.args.dotenv,
+          fileName: resolveDotenvFileNames(ctx.args.dotenv),
         },
         envName: ctx.args.envName,
         ready: true,
         overrides: {
-          ...(ctx.args.extends && { extends: ctx.args.extends }),
+          ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
           modules: [
             function (_, nuxt) {
               envLoaded = true
@@ -124,24 +125,22 @@ const command = defineCommand({
       },
     )
 
-    const envFileName = ctx.args.dotenv || '.env'
+    const envFileNames = resolveDotenvFileNames(ctx.args.dotenv) ?? ['.env']
+    const existing = envFileNames.filter(fileName => existsSync(resolve(cwd, fileName)))
+    const missing = envFileNames.filter(fileName => !existing.includes(fileName))
 
-    const envExists = existsSync(resolve(cwd, envFileName))
-
-    if (envExists) {
+    if (existing.length > 0) {
+      const list = existing.map(fileName => styleText('cyan', fileName)).join(', ')
       if (envLoaded) {
-        logger.info(
-          `Loaded ${styleText('cyan', envFileName)}. This will not be loaded when running the server in production.`,
-        )
+        logger.info(`Loaded ${list}. This will not be loaded when running the server in production.`)
       }
       else {
-        logger.warn(
-          `Could not load Nuxt, so ${styleText('cyan', envFileName)} may not be fully applied to the preview server.`,
-        )
+        logger.warn(`Could not load Nuxt, so ${list} may not be fully applied to the preview server.`)
       }
     }
-    else if (ctx.args.dotenv) {
-      logger.error(`Cannot find ${styleText('cyan', envFileName)}.`)
+
+    if (ctx.args.dotenv.length > 0 && missing.length > 0) {
+      logger.error(`Cannot find ${missing.map(fileName => styleText('cyan', fileName)).join(', ')}.`)
     }
 
     const port = ctx.args.port

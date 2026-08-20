@@ -3,6 +3,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { defineCommand } from 'citty'
 
+import { resolveDotenvFileNames } from '../utils/args'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { readActiveLock } from '../utils/lockfile'
@@ -32,13 +33,13 @@ export default defineCommand({
       cwd,
       dotenv: {
         cwd,
-        fileName: ctx.args.dotenv,
+        fileName: resolveDotenvFileNames(ctx.args.dotenv),
       },
       envName: ctx.args.envName, // nuxt will fall back to NODE_ENV
       overrides: {
         _prepare: true,
         logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
-        ...(ctx.args.extends && { extends: ctx.args.extends }),
+        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
         ...ctx.data?.overrides,
       },
     })

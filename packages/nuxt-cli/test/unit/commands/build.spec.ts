@@ -80,7 +80,7 @@ describe('build', () => {
         logLevel: undefined,
         _generate: true,
         nitro: { static: true, preset: 'cloudflare' },
-        extends: 'base',
+        extends: ['base'],
         debug: { templates: true, perf: true },
       },
     })
@@ -104,6 +104,14 @@ describe('build', () => {
       mocks.releaseBuildDir,
     ].map(mock => mock.mock.invocationCallOrder[0])
     expect(calls).toEqual([...calls].sort((a, b) => a! - b!))
+  })
+
+  it('should load every requested `.env` file, in the order given', async () => {
+    await run(['--dotenv', '.env.development', '--dotenv', '.env.local'])
+
+    expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
+      dotenv: { cwd, fileName: ['.env.development', '.env.local'] },
+    }))
   })
 
   it('propagates build errors without terminating programmatic callers', async () => {

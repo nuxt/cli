@@ -68,6 +68,7 @@ export default defineCommand({
       alias: 'H',
       description: 'Request header in `Name: Value` form. Can be repeated.',
       valueHint: 'header',
+      multiple: true,
     },
     data: {
       type: 'string',
@@ -106,7 +107,7 @@ export default defineCommand({
     const url = await resolveRequestUrl(input, cwd)
 
     const headers = new Headers()
-    for (const header of collectRepeated(ctx.rawArgs, 'header', 'H')) {
+    for (const header of ctx.args.header) {
       const separator = header.indexOf(':')
       if (separator <= 0) {
         logger.error(`Invalid header ${styleText('cyan', header)}. Expected ${styleText('cyan', 'Name: Value')}.`)
@@ -179,35 +180,6 @@ async function resolveRequestUrl(input: string, cwd: string): Promise<URL> {
   }
 
   return new URL(input.startsWith('/') ? input : `/${input}`, server.url)
-}
-
-/**
- * citty keeps only the last value of a repeated string flag, so repeatable
- * options are read back off the raw argv instead of `ctx.args`.
- */
-function collectRepeated(rawArgs: string[], name: string, alias: string): string[] {
-  const values: string[] = []
-  const end = rawArgs.indexOf('--')
-  const argv = end === -1 ? rawArgs : rawArgs.slice(0, end)
-
-  for (let index = 0; index < argv.length; index++) {
-    const arg = argv[index]!
-    if (arg === `--${name}` || arg === `-${alias}`) {
-      const value = argv[++index]
-      if (value !== undefined) {
-        values.push(value)
-      }
-      continue
-    }
-    if (arg.startsWith(`--${name}=`)) {
-      values.push(arg.slice(name.length + 3))
-    }
-    else if (arg.startsWith(`-${alias}=`)) {
-      values.push(arg.slice(alias.length + 2))
-    }
-  }
-
-  return values
 }
 
 async function readRequestBody(data: string | undefined): Promise<string | undefined> {

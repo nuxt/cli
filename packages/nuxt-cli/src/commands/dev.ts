@@ -141,16 +141,19 @@ const command = defineCommand({
     },
     'https.domains': {
       type: 'string',
-      description: 'Comma-separated domains for a generated certificate',
+      description: 'Domain for a generated certificate. Can be repeated, or given as a comma-separated list.',
+      multiple: true,
     },
     ...profileArgs,
     'sslCert': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.cert` instead.',
+      hidden: true,
     },
     'sslKey': {
       type: 'string',
       description: '(DEPRECATED) Use `--https.key` instead.',
+      hidden: true,
     },
   },
   async run(ctx) {
@@ -441,9 +444,7 @@ export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverri
     pfx: args['https.pfx'] || undefined,
     passphrase: args['https.passphrase'] || undefined,
     validityDays: parsePositiveInteger(args['https.validityDays']),
-    domains: args['https.domains']
-      ? args['https.domains'].split(',').map(domain => domain.trim()).filter(Boolean)
-      : undefined,
+    domains: args['https.domains']?.flatMap(value => value.split(',')).map(domain => domain.trim()).filter(Boolean),
   }
 
   const host = (args.host as string | boolean | undefined)
