@@ -5,7 +5,7 @@ import { withNodePath } from '../utils/paths'
 
 export type LoadingTemplate = (data: { loading?: string }) => string
 
-let cached: Promise<LoadingTemplate | undefined> | undefined
+const cache = new Map<string, Promise<LoadingTemplate | undefined>>()
 
 /**
  * The loading page Nuxt itself would render, read from the project's own
@@ -15,12 +15,18 @@ let cached: Promise<LoadingTemplate | undefined> | undefined
  * `devServer.loadingTemplate` with something unusable.
  */
 export function resolveDefaultLoadingTemplate(cwd: string): Promise<LoadingTemplate | undefined> {
-  return cached ??= importDefaultLoadingTemplate(cwd)
+  let template = cache.get(cwd)
+  if (!template) {
+    template = importDefaultLoadingTemplate(cwd)
+    cache.set(cwd, template)
+  }
+  return template
 }
 
 async function importDefaultLoadingTemplate(cwd: string): Promise<LoadingTemplate | undefined> {
   try {
-    const schemaPath = resolveModulePath('@nuxt/schema', { from: withNodePath(cwd), try: true })
+    const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
+    const schemaPath = resolveModulePath('@nuxt/schema', { from: withNodePath(nuxtPath || cwd), try: true })
     if (!schemaPath) {
       return
     }

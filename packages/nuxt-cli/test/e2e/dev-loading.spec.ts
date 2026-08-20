@@ -91,4 +91,42 @@ describe('dev server loading screen', () => {
       vi.unstubAllEnvs()
     }
   })
+
+  it('should answer the page\'s own readiness poll with the page, not json', { timeout: 90_000 }, async () => {
+    vi.stubEnv('NUXT_IGNORE_LOCK', '1')
+
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3087 })
+    const base = `http://${host}:${port}`
+
+    // `fetch(location.href)` from the loading page sends `accept: *\/*`. Answered
+    // with json, the page cannot find its own marker, decides the app is up and
+    // reloads, which loops for as long as the build takes.
+    const polled = new Promise<Response>((resolve) => {
+      const poll = async () => {
+        const response = await fetch(base, { headers: { accept: '*/*' } }).catch(() => undefined)
+        if (!response || response.status !== 503) {
+          setTimeout(poll, 5)
+          return
+        }
+        resolve(response)
+      }
+      void poll()
+    })
+
+    const { close } = await initialize({ cwd: fixtureDir, args: {} }, {
+      listenOverrides: { hostname: host, port },
+      showBanner: false,
+    })
+
+    try {
+      const response = await polled
+      expect(response.headers.get('content-type')).toContain('text/html')
+      expect(await response.text()).toContain('__NUXT_LOADING__')
+    }
+    finally {
+      await close()
+      vi.unstubAllEnvs()
+    }
+  })
 })

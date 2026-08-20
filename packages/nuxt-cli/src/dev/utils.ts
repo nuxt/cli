@@ -342,7 +342,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     res.setHeader('Cache-Control', 'no-store')
     res.setHeader('Refresh', '3')
 
-    if (!req.headers.accept?.includes('text/html')) {
+    const accept = req.headers.accept
+    if (accept && !accept.includes('text/html') && !accept.includes('*/*')) {
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify({
         error: true,
