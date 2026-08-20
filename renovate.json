@@ -14,6 +14,10 @@
       "description": "Pinned in .github/workflows/ci.yml; 2.7.5+ regress nuxi dev server / ws tests. Surface bumps as their own PR for manual approval."
     },
     {
+      "matchDepTypes": ["peerDependencies"],
+      "rangeStrategy": "widen"
+    },
+    {
       "matchPackageNames": ["rolldown", "@rolldown/**"],
       "groupName": "rolldown",
       "groupSlug": "rolldown"

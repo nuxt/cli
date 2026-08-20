@@ -179,7 +179,7 @@ importers:
         specifier: ^1.7.0
         version: 1.7.0
       '@nuxt/docs':
-        specifier: ^4.5.2
+        specifier: ^4.0.0
         version: 4.5.2
       args-tokenizer:
         specifier: ^0.3.0
@@ -209,7 +209,7 @@ importers:
         specifier: ^2.1.4
         version: 2.1.4
       oxc-parser:
-        specifier: '>=0.145.0'
+        specifier: '>=0.56.3'
         version: 0.145.0
       pathe:
         specifier: ^2.0.3
@@ -227,7 +227,7 @@ importers:
         specifier: ^1.3.0
         version: 1.3.0
       serve:
-        specifier: ^14.2.6
+        specifier: ^14.0.0
         version: 14.2.6(supports-color@10.2.2)
       srvx:
         specifier: ^0.12.5
