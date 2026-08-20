@@ -4,7 +4,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { join, relative } from 'pathe'
-import { themeColor } from './ascii'
+import { paintBrand } from './terminal-theme'
 
 const RELATIVE_PATH_RE = /^(?![^.]{1,2}\/)/
 
@@ -78,7 +78,7 @@ export async function stopCpuProfile(outDir: string, command: string): Promise<s
             contentPadding: 2,
             rounded: true,
             withGuide: false,
-            formatBorder: (text: string) => `${themeColor + text}\x1B[0m`,
+            formatBorder: (text: string) => paintBrand(text),
           })
         }
         catch {}
