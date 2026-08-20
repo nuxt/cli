@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import { commands } from '../../src/commands'
 import { cwdArgs } from '../../src/commands/_shared'
-import { findUnknownFlags, suggestFlags } from '../../src/utils/unknown-args'
+import { findUnknownFlags, replaceFlag, suggestFlags } from '../../src/utils/unknown-args'
 
 const argsDef = {
   'cwd': { type: 'string' },
@@ -62,6 +62,26 @@ describe('suggestFlags', () => {
 
   it('should not invent a suggestion for an unrelated flag', async () => {
     await expect(suggestFlags(findUnknownFlags(argsDef, ['--xyzzy']))).resolves.toEqual([{ flag: '--xyzzy', suggestion: undefined }])
+  })
+})
+
+describe('replaceFlag', () => {
+  it('should replace bare and `=value` forms in place', () => {
+    const rawArgs = ['info', '--cdw', '.', '--cdw=app', '--json']
+    replaceFlag(rawArgs, '--cdw', '--cwd')
+    expect(rawArgs).toEqual(['info', '--cwd', '.', '--cwd=app', '--json'])
+  })
+
+  it('should leave everything after `--` alone', () => {
+    const rawArgs = ['dev', '--prot=3000', '--', '--prot=4000']
+    replaceFlag(rawArgs, '--prot', '--port')
+    expect(rawArgs).toEqual(['dev', '--port=3000', '--', '--prot=4000'])
+  })
+
+  it('should not touch flags that merely share a prefix', () => {
+    const rawArgs = ['dev', '--ports=3000']
+    replaceFlag(rawArgs, '--port', '--p')
+    expect(rawArgs).toEqual(['dev', '--ports=3000'])
   })
 })
 

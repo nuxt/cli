@@ -11,13 +11,13 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs, globalCwdArgs } from './commands/_shared'
-import { runCommand, setCurrentCommand } from './run'
+import { LONG_RUNNING_COMMANDS, runCommand, setCurrentCommand } from './run'
 import { setupGlobalConsole } from './utils/console'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { findInPath, withLocalBinPath } from './utils/path-env'
 import { templateNames } from './utils/templates/names'
-import { findUnknownFlags, suggestFlags } from './utils/unknown-args'
+import { findUnknownFlags, replaceFlag, suggestFlags } from './utils/unknown-args'
 import { scheduleUpdateNudge } from './utils/update-lazy'
 
 // Node.js only reads `NODE_USE_ENV_PROXY` during bootstrap, so this cannot make
@@ -78,7 +78,7 @@ const _main = defineCommand({
       // so a missing binary would otherwise look like one that ran and failed.
       const binary = findInPath(`nuxt-${ctx.args.command}`, env)
       if (!binary) {
-        return reportUnknownCommand(ctx.args.command)
+        return reportUnknownCommand(ctx.args.command, ctx.rawArgs)
       }
       const { x } = await import('tinyexec')
       // The resolved path is spawned rather than the bare name: `tinyexec` would
@@ -120,8 +120,33 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
     return
   }
 
-  for (const { flag, suggestion } of await suggestFlags(unknown)) {
-    logger.warn(`Unknown option ${styleText('cyan', flag)}.${suggestion ? ` Did you mean ${styleText('cyan', suggestion)}?` : ''}`)
+  const suggestions = await suggestFlags(unknown)
+  const { isInteractive } = await import('./utils/stdout')
+  if (!isInteractive()) {
+    for (const { flag, suggestion } of suggestions) {
+      logger.warn(`Unknown option ${styleText('cyan', flag)}.${suggestion ? ` Did you mean ${styleText('cyan', suggestion)}?` : ''}`)
+    }
+    return
+  }
+
+  const { confirm, isCancel } = await import('@clack/prompts')
+  const { restoreRawMode } = await import('./utils/console')
+  for (const { flag, suggestion } of suggestions) {
+    if (!suggestion) {
+      logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
+      continue
+    }
+    // A negated unknown flag is matched against its bare name, so the offered
+    // replacement has to restore the negation the user asked for.
+    const replacement = flag.startsWith('--no-') && !suggestion.startsWith('--no-')
+      ? `--no-${suggestion.slice(2)}`
+      : suggestion
+    logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
+    const answer = await confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true })
+    restoreRawMode()
+    if (!isCancel(answer) && answer) {
+      replaceFlag(rawArgs, flag, replacement)
+    }
   }
 }
 
@@ -133,15 +158,41 @@ function resolveLazy<T>(value: T | (() => T | Promise<T>) | undefined): Promise<
  * Report a command that neither the CLI nor a local `nuxt-` binary provides.
  *
  * With a confident suggestion this is the whole error, since a full help dump
- * buries the one line the user needs. Otherwise nothing is printed and citty
- * falls back to showing usage.
+ * buries the one line the user needs; interactively, the suggestion is offered
+ * to run directly. Otherwise nothing is printed and citty falls back to
+ * showing usage.
  */
-async function reportUnknownCommand(command: string): Promise<void> {
+async function reportUnknownCommand(command: string, rawArgs: string[]): Promise<void> {
   const { suggestCommand } = await import('./utils/suggest-command')
   const names = Object.keys(commands).filter(name => !name.startsWith('_'))
   const suggestion = await suggestCommand(command, names)
   if (!suggestion) {
     return
+  }
+
+  const { isInteractive } = await import('./utils/stdout')
+  if (isInteractive()) {
+    logger.warn(`Unknown command ${styleText('cyan', command)}.`)
+    const { confirm, isCancel } = await import('@clack/prompts')
+    const answer = await confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true })
+    const { restoreRawMode } = await import('./utils/console')
+    restoreRawMode()
+
+    if (!isCancel(answer) && answer) {
+      const index = rawArgs.indexOf(command)
+      const argv = index === -1 ? rawArgs : rawArgs.toSpliced(index, 1)
+      setCurrentCommand(suggestion)
+      await runCommand(suggestion, argv).catch((err) => {
+        console.error(err.message)
+        process.exit(1)
+      })
+      if (LONG_RUNNING_COMMANDS.has(suggestion)) {
+        // Keep the process serving; exiting here, or returning to citty (which
+        // would fail to resolve the unknown subcommand), would tear it down.
+        await new Promise(() => {})
+      }
+      process.exit(0)
+    }
   }
 
   logger.error(`Unknown command ${styleText('cyan', command)}. Did you mean ${styleText('cyan', `nuxt ${suggestion}`)}?`)

@@ -59,6 +59,24 @@ export async function suggestFlags({ flags, known }: UnknownFlags): Promise<Arra
 }
 
 /**
+ * Rewrite every use of `--flag` (bare or `=value`) to `replacement`, in place:
+ * citty re-reads the same array when it resolves the subcommand, so an in-place
+ * edit is what makes the correction reach the command that runs.
+ */
+export function replaceFlag(rawArgs: string[], flag: string, replacement: string): void {
+  const separator = rawArgs.indexOf('--')
+  const end = separator === -1 ? rawArgs.length : separator
+  for (let i = 0; i < end; i++) {
+    if (rawArgs[i] === flag) {
+      rawArgs[i] = replacement
+    }
+    else if (rawArgs[i]!.startsWith(`${flag}=`)) {
+      rawArgs[i] = `${replacement}${rawArgs[i]!.slice(flag.length)}`
+    }
+  }
+}
+
+/**
  * Dotted flags are declared either whole (`https.cert`) or as the object that
  * holds them (`https`), and a boolean may be negated with a `no-` prefix.
  */

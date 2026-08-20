@@ -20,7 +20,7 @@ globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
 }
 
 // Commands that keep serving after their `run` resolves, so an alive process is expected.
-const LONG_RUNNING_COMMANDS = new Set(['dev', '_dev', 'analyze', 'test'])
+export const LONG_RUNNING_COMMANDS: Set<string> = new Set(['dev', '_dev', 'analyze', 'test'])
 
 let currentCommand: string | undefined
 
