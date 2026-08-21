@@ -55,6 +55,11 @@ export function buildFrames(chunks: Chunk[], options: FrameOptions): Frame[] {
 
   let minFrameMs = options.minFrameMs ?? 80
   const maxFrames = options.maxFrames ?? 90
+  // `coalesce` can never return fewer than one frame, so anything below that
+  // would spin the merge loop forever.
+  if (!Number.isInteger(maxFrames) || maxFrames < 1) {
+    throw new Error(`maxFrames must be a positive integer, got ${maxFrames}`)
+  }
   let frames = coalesce(raw, minFrameMs)
   while (frames.length > maxFrames) {
     minFrameMs *= 1.5
@@ -83,11 +88,11 @@ export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string
     const styles = frameObject?.styles ?? []
     for (let row = 0; row < lines.length; row++) {
       const scrubbed = scrubLine(lines[row]!, styles[row] ?? [], rules)
-      const line = scrubbed.line.trimEnd()
+      const [line, lineStyles] = trimStyledLine(scrubbed.line, scrubbed.styles)
       // QR modules encode the machine's real address and never carry content.
       if (line !== '' && !(QR_LINE_RE.test(line) && /[█▀▄]/.test(line))) {
         seen.add(line)
-        styleSeen.add(`${line}\u001F${styleRuns(line, scrubbed.styles)}`)
+        styleSeen.add(`${line}\u001F${styleRuns(line, lineStyles)}`)
       }
     }
   }
@@ -106,15 +111,9 @@ function scrubFrame(frame: Frame, rules: ReturnType<typeof resolveRules>, redraw
   const styles: Style[][] = []
   for (let row = 0; row < frame.lines.length; row++) {
     const scrubbed = scrubLine(frame.lines[row]!, frame.styles[row] ?? [], rules)
-    // Trailing padding length depends on the pre-scrub text, so it churns
-    // even though it is invisible. Backgrounds are kept: there a trailing
-    // space is a visible colored cell.
-    let length = scrubbed.line.length
-    while (length > 0 && scrubbed.line[length - 1] === ' ' && !scrubbed.styles[length - 1]?.background) {
-      length--
-    }
-    lines.push(scrubbed.line.slice(0, length))
-    styles.push(scrubbed.styles.slice(0, length))
+    const [line, lineStyles] = trimStyledLine(scrubbed.line, scrubbed.styles)
+    lines.push(line)
+    styles.push(lineStyles)
   }
   const result = { at: frame.at, lines, styles }
   return redrawQr ? replaceQrBlock(result) : result
@@ -159,6 +158,19 @@ function replaceQrBlock(frame: Frame): Frame {
   const lines = [...frame.lines.slice(0, start), ...art, ...frame.lines.slice(end + 1)]
   const styles = [...frame.styles.slice(0, start), ...art.map(() => [] as Style[]), ...frame.styles.slice(end + 1)]
   return { at: frame.at, lines, styles }
+}
+
+/**
+ * Trailing padding length depends on the pre-scrub text, so it churns even
+ * though it is invisible. Backgrounds are kept: there a trailing space is a
+ * visible colored cell, and it must stay visible to the identity checks too.
+ */
+function trimStyledLine(line: string, styles: Style[]): [string, Style[]] {
+  let length = line.length
+  while (length > 0 && line[length - 1] === ' ' && !styles[length - 1]?.background) {
+    length--
+  }
+  return [line.slice(0, length), styles.slice(0, length)]
 }
 
 /** Run-length encode a line's styles, so style-only differences are visible to identity checks. */

@@ -152,10 +152,15 @@ async function runCapture(capture: Capture): Promise<void> {
       await capture.drive({ session, cwd, bin: values.bin! })
     }
     if (!capture.stopAfterDrive) {
+      let timer: NodeJS.Timeout | undefined
+      const timedOut = new Promise<{ timedOut: true, code: null }>((resolve) => {
+        timer = setTimeout(resolve, 240_000, { timedOut: true, code: null })
+      })
       const result = await Promise.race([
         session.exited.then(code => ({ timedOut: false, code })),
-        session.wait(240_000).then(() => ({ timedOut: true, code: null })),
+        timedOut,
       ])
+      clearTimeout(timer)
       if (result.timedOut) {
         throw new Error(`${capture.id} timed out after 240 seconds, saw:\n${session.output().slice(-1500)}`)
       }
