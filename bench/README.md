@@ -20,7 +20,7 @@ Useful flags:
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--baseline` | `latest` | Any npm spec for `@nuxt/cli` to treat as the "before" |
+| `--baseline` | `latest` | Any npm spec for `@nuxt/cli` to treat as the "before", or `ref:<git-ref>` to build the baseline from a commit of this repo (CI uses the PR's base sha) |
 | `--suite` | all | Repeatable. One of `startup`, `modules`, `dev`, `restart`, `build`, `footprint` |
 | `--fixture` | `playground`, `large` | Repeatable. Which fixture to run the project-level suites against |
 | `--workdir` | `~/.cache/nuxt-cli-bench` | Where isolated installs and fixtures live |

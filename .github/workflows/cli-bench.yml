@@ -12,7 +12,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Runs the cheap suites against the published @nuxt/cli: startup timings
+  # Runs the cheap suites against a baseline built from the PR's merge base:
+  # startup timings
   # (interleaved, so the deltas survive runner noise even when the absolute
   # numbers do not), module counts and install footprint. The dev, restart
   # and build suites need real fixtures and minutes of wall time; run those
@@ -25,6 +26,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+
+      - name: Fetch merge base
+        run: git fetch --no-tags --depth=1 origin ${{ github.event.pull_request.base.sha }}
 
       - run: npm i -g --force corepack && corepack enable
 
@@ -39,7 +43,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📊 Run benchmark suites
-        run: node --experimental-strip-types bench/run.ts --suite startup --suite modules --suite footprint --out bench-report/report.md
+        run: node --experimental-strip-types bench/run.ts --baseline ref:${{ github.event.pull_request.base.sha }} --suite startup --suite modules --suite footprint --out bench-report/report.md
 
       - name: ⏫ Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
