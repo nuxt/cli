@@ -1,0 +1,75 @@
+│
+│ │                                                                                            │
+│ │                                                                                          │
+│ │                                                                                        │
+│ │                                                                      │
+│ │                         Drag / Rotate / Switch.                                          │
+│ │                         and providers support.                                           │
+│ │                         cropping, lazy-loading, LQIP, Next-Gen format, compression, CDN.   │
+│ │                         headless CMS.                                                  │
+│ │                         images.                                                        │
+│ │  Compatibility          nuxt: >=x.y.z                                                    │
+│ │  Compatibility          nuxt: >=x.y.z                                                   │
+│ │  Compatibility          nuxt: >=x.y.z                                                  │
+│ │  Compatibility          nuxt: >=x.y.z                                │
+│ │  Compatibility          nuxt: ^x.y.z || >=x.y.z                                            │
+│ │  Description            A plugin for simple Vue 3 Image Lightbox component with Zoom /   │
+│ │  Description            Access text, images, and other media with Nuxt and the Sanity  │
+│ │  Description            Add images with progressive processing, lazy-loading, resizing   │
+│ │  Description            Enlightened runtime images generated with Vue templates.         │
+│ │  Description            Images and videos components - Context aware resizing and          │
+│ │  Description            Lazy loading library for placeholder images  │
+│ │  Description            Twemoji module for Nuxt. Render emojis as SVG elements or PNG  │
+│ │  Homepage               https://github.com/Yizack/nuxt-twemoji                         │
+│ │  Homepage               https://image.nuxt.com                                           │
+│ │  Homepage               https://nuxtseo.com/docs/og-image/getting-started/installation   │
+│ │  Homepage               https://sanity.nuxtjs.org                                      │
+│ │  Homepage               https://unlazy.byjohann.dev/                 │
+│ │  Homepage               https://www.twicpics.com/docs/components/nuxt-3                    │
+│ │  Install                npx nuxt add easy-lightbox                                       │
+│ │  Install                npx nuxt add image                                               │
+│ │  Install                npx nuxt add og-image                                            │
+│ │  Install                npx nuxt add sanity                                            │
+│ │  Install                npx nuxt add twemoji                                           │
+│ │  Install                npx nuxt add twicpics                                              │
+│ │  Install                npx nuxt add unlazy                          │
+│ │  Monthly downloads      1.9m                                                             │
+│ │  Monthly downloads      2.2k                                                           │
+│ │  Monthly downloads      34.3k                                                          │
+│ │  Monthly downloads      44.4k                                                              │
+│ │  Monthly downloads      604.7k                                                           │
+│ │  Monthly downloads      7k                                           │
+│ │  Monthly downloads      9.7k                                                             │
+│ │  Package                @nuxt/image                                                      │
+│ │  Package                @nuxtjs/sanity                                                 │
+│ │  Package                @twicpics/components                                               │
+│ │  Package                @unlazy/nuxt                                 │
+│ │  Package                nuxt-easy-lightbox                                               │
+│ │  Package                nuxt-og-image                                                    │
+│ │  Package                nuxt-twemoji                                                   │
+│ │  Repository             https://github.com/TwicPics/components                             │
+│ │  Repository             https://github.com/johannschopplich/unlazy   │
+│ │  Repository             https://github.com/modbender/nuxt-easy-lightbox                  │
+│ │  Repository             https://github.com/nuxt-modules/og-image                         │
+│ │  Repository             https://github.com/nuxt-modules/sanity                         │
+│ │  Repository             https://github.com/nuxt/image                                    │
+│ │  Repository             https://github.com/yizack/nuxt-twemoji                         │
+│ │  Stars                  1.5k                                                             │
+│ │  Stars                  14                                                             │
+│ │  Stars                  15                                                               │
+│ │  Stars                  264                                                            │
+│ │  Stars                  543                                                              │
+│ │  Stars                  56                                                                 │
+│ │  Stars                  878                                          │
+│ ╭── easy-lightbox ─────────────────────────────────────────────────────────────────────────╮
+│ ╭── image ─────────────────────────────────────────────────────────────────────────────────╮
+│ ╭── og-image ──────────────────────────────────────────────────────────────────────────────╮
+│ ╭── sanity ──────────────────────────────────────────────────────────────────────────────╮
+│ ╭── twemoji ─────────────────────────────────────────────────────────────────────────────╮
+│ ╭── twicpics ────────────────────────────────────────────────────────────────────────────────╮
+│ ╭── unlazy ────────────────────────────────────────────────────────────╮
+│ ╰────────────────────────────────────────────────────────────────────────────────────────────╯
+│ ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+│ ╰────────────────────────────────────────────────────────────────────────────────────────╯
+│ ╰──────────────────────────────────────────────────────────────────────╯
+◆  Found 7 Nuxt modules matching image for Nuxt x.y.z:

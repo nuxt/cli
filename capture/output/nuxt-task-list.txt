@@ -1,0 +1,2 @@
+  cache-clear  Clear the cached pages and data
+  db:seed      Seed the database with demo content

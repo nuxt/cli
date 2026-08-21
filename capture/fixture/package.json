@@ -1,0 +1,9 @@
+{
+  "name": "nuxt-cli-capture-fixture",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "nuxt": "4.5.2",
+    "vue-router": "5.2.0"
+  }
+}

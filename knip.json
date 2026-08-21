@@ -8,13 +8,20 @@
       "ignoreDependencies": [
         "@nuxt/test-utils",
         "changelogen",
+        "uqr",
         "vue",
         "vue-router"
       ],
       "entry": [
         "scripts/*",
         "bench/run.ts",
-        "bench/ab.ts"
+        "bench/ab.ts",
+        "capture/record.ts",
+        "capture/lib/fetch-stub.mjs"
+      ],
+      "ignore": [
+        "capture/fixture/**",
+        "capture/fixture-data/**"
       ]
     },
     "playground": {

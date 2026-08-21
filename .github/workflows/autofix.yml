@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - run: npm i -g --force corepack && corepack enable
 
@@ -31,5 +32,30 @@ jobs:
 
       - name: 🔠 Lint project (+ fix)
         run: pnpm run lint:fix
+
+      - name: 🔍 Check whether captures are affected
+        id: capture-paths
+        run: |
+          base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
+          if git diff --quiet "$base" HEAD -- packages capture; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 💾 Restore capture fixture
+        if: steps.capture-paths.outputs.changed == 'true'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/nuxt-cli-capture
+          key: capture-fixture-${{ runner.os }}-${{ hashFiles('capture/fixture/package.json') }}
+
+      - name: 🛠 Build project
+        if: steps.capture-paths.outputs.changed == 'true'
+        run: pnpm build
+
+      - name: 📼 Re-record terminal captures
+        if: steps.capture-paths.outputs.changed == 'true'
+        run: node --experimental-strip-types capture/record.ts
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # 7a166d7532b277f34e16238930461bf77f9d7ed8

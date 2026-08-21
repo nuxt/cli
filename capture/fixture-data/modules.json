@@ -1,0 +1,291 @@
+{
+  "version": "all",
+  "generatedAt": "2026-01-01T00:00:00.000Z",
+  "stats": {},
+  "modules": [
+    {
+      "name": "cloudinary",
+      "description": "Optimize images and videos in your Nuxt application",
+      "repo": "nuxt-modules/cloudinary",
+      "npm": "@nuxtjs/cloudinary",
+      "github": "https://github.com/nuxt-modules/cloudinary",
+      "website": "https://cloudinary.nuxtjs.org",
+      "category": "Images",
+      "type": "community",
+      "maintainers": [
+        {
+          "name": "Maya Shavin",
+          "github": "mayashavin"
+        }
+      ],
+      "compatibility": {
+        "nuxt": "^2.0.0"
+      },
+      "stats": {
+        "stars": 253,
+        "downloads": 5790
+      },
+      "contributors": []
+    },
+    {
+      "name": "easy-lightbox",
+      "description": "A plugin for simple Vue 3 Image Lightbox component with Zoom / Drag / Rotate / Switch.",
+      "repo": "modbender/nuxt-easy-lightbox",
+      "npm": "nuxt-easy-lightbox",
+      "github": "https://github.com/modbender/nuxt-easy-lightbox",
+      "website": "https://github.com/modbender/nuxt-easy-lightbox",
+      "category": "Libraries",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "modbender",
+          "github": "modbender"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.0.0"
+      },
+      "stats": {
+        "stars": 15,
+        "downloads": 9705
+      },
+      "contributors": []
+    },
+    {
+      "name": "image-loader",
+      "description": "An image loader module for nuxt.js that allows you to configure image style derivatives.",
+      "repo": "PivaleCo/nuxt-image-loader-module",
+      "npm": "@pivale/nuxt-image-loader-module",
+      "github": "https://github.com/PivaleCo/nuxt-image-loader-module",
+      "website": "https://github.com/PivaleCo/nuxt-image-loader-module",
+      "category": "Images",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "Barry Fisher",
+          "github": "Barry-Fisher"
+        }
+      ],
+      "compatibility": {
+        "nuxt": "^2.0.0"
+      },
+      "stats": {
+        "stars": 140,
+        "downloads": 45
+      },
+      "contributors": []
+    },
+    {
+      "name": "image",
+      "description": "Add images with progressive processing, lazy-loading, resizing and providers support.",
+      "repo": "nuxt/image",
+      "npm": "@nuxt/image",
+      "github": "https://github.com/nuxt/image",
+      "website": "https://image.nuxt.com",
+      "category": "Images",
+      "type": "official",
+      "maintainers": [
+        {
+          "name": "Farnabaz",
+          "github": "farnabaz"
+        },
+        {
+          "name": "Daniel Roe",
+          "github": "danielroe"
+        },
+        {
+          "name": "Pooya Parsa",
+          "github": "pi0"
+        },
+        {
+          "name": "Sébastien Chopin",
+          "github": "Atinux"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.1.0"
+      },
+      "stats": {
+        "stars": 1541,
+        "downloads": 1908136
+      },
+      "contributors": []
+    },
+    {
+      "name": "imagemin",
+      "description": "Automatically optimize (compress) all images used in Nuxt",
+      "repo": "nuxt-community/imagemin-module",
+      "npm": "@nuxtjs/imagemin",
+      "github": "https://github.com/nuxt-community/imagemin-module",
+      "website": "https://github.com/nuxt-community/imagemin-module",
+      "category": "Images",
+      "type": "community",
+      "maintainers": [
+        {
+          "name": "Ricardo Gobbo de Souza",
+          "github": "ricardogobbosouza"
+        }
+      ],
+      "compatibility": {
+        "nuxt": "^2.0.0"
+      },
+      "stats": {
+        "stars": 50,
+        "downloads": 373
+      },
+      "contributors": []
+    },
+    {
+      "name": "og-image",
+      "description": "Enlightened runtime images generated with Vue templates.",
+      "repo": "nuxt-modules/og-image",
+      "npm": "nuxt-og-image",
+      "github": "https://github.com/nuxt-modules/og-image",
+      "website": "https://nuxtseo.com/docs/og-image/getting-started/installation",
+      "category": "SEO",
+      "type": "community",
+      "maintainers": [
+        {
+          "name": "Harlan Wilton",
+          "github": "harlan-zw"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.10.3"
+      },
+      "stats": {
+        "stars": 543,
+        "downloads": 604743
+      },
+      "contributors": []
+    },
+    {
+      "name": "optimized-images",
+      "description": "Automatically optimizes images used in Nuxt projects (jpeg, png, svg, webp and gif).",
+      "repo": "juliomrqz/nuxt-optimized-images",
+      "npm": "@aceforth/nuxt-optimized-images",
+      "github": "https://github.com/juliomrqz/nuxt-optimized-images",
+      "website": "https://github.com/juliomrqz/nuxt-optimized-images",
+      "category": "Images",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "Julio Marquez",
+          "github": "juliomrqz"
+        }
+      ],
+      "compatibility": {
+        "nuxt": "^2.0.0"
+      },
+      "stats": {
+        "stars": 827,
+        "downloads": 13167
+      },
+      "contributors": []
+    },
+    {
+      "name": "sanity",
+      "description": "Access text, images, and other media with Nuxt and the Sanity headless CMS.",
+      "repo": "nuxt-modules/sanity#main",
+      "npm": "@nuxtjs/sanity",
+      "github": "https://github.com/nuxt-modules/sanity",
+      "website": "https://sanity.nuxtjs.org",
+      "category": "CMS",
+      "type": "community",
+      "maintainers": [
+        {
+          "name": "Daniel Roe",
+          "github": "danielroe"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.7.0"
+      },
+      "stats": {
+        "stars": 264,
+        "downloads": 34312
+      },
+      "contributors": []
+    },
+    {
+      "name": "twemoji",
+      "description": "Twemoji module for Nuxt. Render emojis as SVG elements or PNG images.",
+      "repo": "yizack/nuxt-twemoji",
+      "npm": "nuxt-twemoji",
+      "github": "https://github.com/yizack/nuxt-twemoji",
+      "website": "https://github.com/Yizack/nuxt-twemoji",
+      "category": "UI",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "Yizack Rangel",
+          "github": "yizack"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.0.0"
+      },
+      "stats": {
+        "stars": 14,
+        "downloads": 2180
+      },
+      "contributors": []
+    },
+    {
+      "name": "twicpics",
+      "description": "Images and videos components - Context aware resizing and cropping, lazy-loading, LQIP, Next-Gen format, compression, CDN.",
+      "repo": "TwicPics/components",
+      "npm": "@twicpics/components",
+      "github": "https://github.com/TwicPics/components",
+      "website": "https://www.twicpics.com/docs/components/nuxt-3",
+      "category": "Images",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "Florent Bourgeois",
+          "github": "florentb"
+        },
+        {
+          "name": "Julian Aubourg",
+          "github": "jaubourg"
+        },
+        {
+          "name": "Miguel Beignon",
+          "github": "mbgspcii"
+        }
+      ],
+      "compatibility": {
+        "nuxt": "^2.0.0 || >=3.0.0"
+      },
+      "stats": {
+        "stars": 56,
+        "downloads": 44356
+      },
+      "contributors": []
+    },
+    {
+      "name": "unlazy",
+      "description": "Lazy loading library for placeholder images",
+      "repo": "johannschopplich/unlazy#main/packages/nuxt",
+      "npm": "@unlazy/nuxt",
+      "github": "https://github.com/johannschopplich/unlazy",
+      "website": "https://unlazy.byjohann.dev/",
+      "category": "Images",
+      "type": "3rd-party",
+      "maintainers": [
+        {
+          "name": "Johann Schopplich",
+          "github": "johannschopplich"
+        }
+      ],
+      "compatibility": {
+        "nuxt": ">=3.5.0"
+      },
+      "stats": {
+        "stars": 878,
+        "downloads": 6952
+      },
+      "contributors": []
+    }
+  ]
+}

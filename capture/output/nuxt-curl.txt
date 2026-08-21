@@ -1,0 +1,9 @@
+  "message": "Hello from the Nuxt CLI capture fixture"
+HTTP/1.1 200 OK
+connection: keep-alive
+content-length: 58
+content-type: application/json
+date: Thu, 01 Jan 2026 12:00:00 GMT
+keep-alive: timeout=5
+{
+}

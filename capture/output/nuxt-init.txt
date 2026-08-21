@@ -1,0 +1,39 @@
+        .d$b.
+       i$$A$$L  .d$b
+     .$$F` `$$L.$$A$$.
+    j$$'    `4$$:` `$$.
+   j$$'     .4$:    `$$.
+  j$$`     .$$:      `4$L
+ :$$:____.d$$:  _____.:$$:
+ `4$$$$$$$$P` .i$$$$$$$$P`
+│
+│    --no-modules --no-install
+│  Next steps:
+│  No
+│  minimal · Minimal starter with a single app.vue.
+│  npm create nuxt@latest my-app --template=minimal --packageManager=npm --no-gitInit \
+│  › cd my-app
+│  › npm install
+│  › npm run dev
+│  ↑/↓ to navigate • Enter: confirm
+│  ○ Yes / ● No
+│  ○ content · Starter for a content-driven website.
+│  ○ module · Starter to create your first Nuxt module.
+│  ○ ui · Starter with Nuxt UI.
+│  ○ v5-nightly · Minimal setup for Nuxt 5 Nightly
+│  ● minimal · Minimal starter with a single app.vue. (recommended)
+┌  Welcome to Nuxt!
+└
+└  ✨ Happy building!
+◆  Which template would you like to use?
+◆  Would you like to browse and install modules?
+◇  Created your project from the minimal template
+◇  Creating project in my-app
+◇  Downloaded minimal template
+◇  Templates loaded
+◇  Which template would you like to use?
+◇  Would you like to browse and install modules?
+●  Skipping install dependencies step.
+●  to scaffold this project again without prompts:
+◐  Downloading minimal template
+◐  Loading available templates
