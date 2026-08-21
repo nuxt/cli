@@ -3,7 +3,7 @@ import { styleText } from 'node:util'
 
 export type TerminalBackground = 'dark' | 'light' | 'unknown'
 
-export type Rgb = readonly [number, number, number]
+type Rgb = readonly [number, number, number]
 
 /**
  * Nuxt green, and the darker green it becomes on a light terminal.
