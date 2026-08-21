@@ -1,7 +1,12 @@
 import type { DevProgressSnapshot } from '../../src/dev/progress'
 import type { StartupReporter } from '../../src/dev/startup-log'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  isCI: false,
+}))
 
 import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
 import { render, screen } from '../utils/terminal'
