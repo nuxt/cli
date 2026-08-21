@@ -6,6 +6,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import process from 'node:process'
 import defu from 'defu'
 import { resolveDotenvFileNames } from '../utils/args'
+import { configureProjectConsola } from '../utils/console'
 import { overrideEnv } from '../utils/env.ts'
 import { isRemotePeerError } from '../utils/errors'
 import { debug } from '../utils/logger'
@@ -130,6 +131,8 @@ interface InitializeReturn {
 
 export async function initialize(devContext: NuxtDevContext, ctx: InitializeOptions = {}): Promise<InitializeReturn> {
   overrideEnv('development')
+
+  await configureProjectConsola(devContext.cwd)
 
   const profileArg = devContext.args.profile
   const profiling = profileArg !== undefined
