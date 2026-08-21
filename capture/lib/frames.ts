@@ -1,8 +1,8 @@
 import type { Style } from 'ansivision'
 import type { Chunk } from './pty.ts'
 import type { Frame } from './svg.ts'
-import { createRequire } from 'node:module'
 import { RenderStream } from 'ansivision'
+import { renderUnicodeCompact } from 'uqr'
 import { resolveRules, scrubLine } from './scrub.ts'
 
 export interface FrameOptions {
@@ -22,13 +22,8 @@ const MIN_QR_LINES = 3
 
 let qrArt: string[] | undefined
 function scrubbedQrArt(): string[] {
-  if (!qrArt) {
-    // `uqr` is what the CLI itself renders the QR with; resolve it from the
-    // CLI package since the capture harness has no dependencies of its own.
-    const require = createRequire(new URL('../../packages/nuxt-cli/package.json', import.meta.url))
-    const { renderUnicodeCompact } = require('uqr') as typeof import('uqr')
-    qrArt = renderUnicodeCompact(SCRUBBED_NETWORK_URL).split('\n')
-  }
+  // `uqr` is what the CLI itself renders the QR with.
+  qrArt ??= renderUnicodeCompact(SCRUBBED_NETWORK_URL).split('\n')
   return qrArt
 }
 
