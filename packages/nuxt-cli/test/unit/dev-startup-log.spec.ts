@@ -3,13 +3,13 @@ import type { StartupReporter } from '../../src/dev/startup-log'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
+import { render, screen } from '../utils/terminal'
+
 vi.mock('std-env', async importOriginal => ({
   ...await importOriginal<typeof import('std-env')>(),
   isCI: false,
 }))
-
-import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
-import { render, screen } from '../utils/terminal'
 
 process.env.FORCE_COLOR = '3'
 
