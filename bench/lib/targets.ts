@@ -22,7 +22,10 @@ export interface Fixture {
   dir: string
 }
 
-/** The published `@nuxt/cli` version to compare `packages/nuxt-cli` against. */
+/**
+ * The baseline to compare `packages/nuxt-cli` against: an npm dist-tag or
+ * version, or `ref:<git-ref>` to build the package from a commit of this repo.
+ */
 export const DEFAULT_BASELINE = 'latest'
 
 /** Short name for table headers, e.g. `baseline v3.37.0`. */
@@ -33,19 +36,22 @@ export function shortLabel(target: Target): string {
 export function prepareTargets(workdir: string, baselineSpec: string = DEFAULT_BASELINE): Target[] {
   mkdirSync(workdir, { recursive: true })
 
-  const tarball = packHead(workdir)
+  const tarball = pack(join(repoRoot, 'packages/nuxt-cli'), join(workdir, 'pack-head'))
+  const baselineInstallSpec = resolveBaselineSpec(workdir, baselineSpec)
 
   const targets: Target[] = [
     { id: 'baseline', label: `baseline (@nuxt/cli@${baselineSpec})`, dir: join(workdir, 'baseline'), bin: '', version: '', spec: baselineSpec },
     { id: 'head', label: 'head (local main)', dir: join(workdir, 'head'), bin: '', version: '', spec: `file:${tarball}` },
   ]
 
+  const installSpecs: Record<string, string> = { baseline: baselineInstallSpec, head: `file:${tarball}` }
+
   for (const target of targets) {
     mkdirSync(target.dir, { recursive: true })
     writeFileSync(join(target.dir, 'package.json'), `${JSON.stringify({
       name: `nuxt-cli-bench-${target.id}`,
       private: true,
-      dependencies: { '@nuxt/cli': target.spec },
+      dependencies: { '@nuxt/cli': installSpecs[target.id] },
     }, null, 2)}\n`)
     npm(['install', '--no-audit', '--no-fund'], target.dir)
     target.bin = join(target.dir, 'node_modules/@nuxt/cli/bin/nuxi.mjs')
@@ -55,12 +61,29 @@ export function prepareTargets(workdir: string, baselineSpec: string = DEFAULT_B
   return targets
 }
 
-function packHead(workdir: string): string {
-  const packageDir = join(repoRoot, 'packages/nuxt-cli')
+function resolveBaselineSpec(workdir: string, spec: string): string {
+  if (!spec.startsWith('ref:')) {
+    return spec
+  }
+  const ref = spec.slice('ref:'.length)
+  const sha = execFileSync('git', ['rev-parse', `${ref}^{commit}`], { cwd: repoRoot, encoding: 'utf8' }).trim()
+  const dir = join(workdir, `baseline-src-${sha.slice(0, 12)}`)
+  if (!existsSync(join(dir, 'package.json'))) {
+    rmSync(dir, { recursive: true, force: true })
+    mkdirSync(dir, { recursive: true })
+    const archive = execFileSync('git', ['archive', sha], { cwd: repoRoot, maxBuffer: 1024 ** 3 })
+    execFileSync('tar', ['-x', '-C', dir], { input: archive })
+    execFileSync('pnpm', ['install'], { cwd: dir, stdio: 'ignore' })
+  }
+  return `file:${pack(join(dir, 'packages/nuxt-cli'), join(workdir, 'pack-baseline'))}`
+}
+
+function pack(packageDir: string, destination: string): string {
+  mkdirSync(destination, { recursive: true })
   execFileSync('pnpm', ['build'], { cwd: packageDir, stdio: 'ignore' })
-  const output = execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', workdir], { cwd: packageDir, encoding: 'utf8' })
+  const output = execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', destination], { cwd: packageDir, encoding: 'utf8' })
   const [entry] = JSON.parse(output) as { filename: string }[]
-  return join(workdir, entry!.filename)
+  return join(destination, entry!.filename)
 }
 
 export function npm(args: string[], cwd: string): string {
