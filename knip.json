@@ -12,7 +12,9 @@
         "vue-router"
       ],
       "entry": [
-        "scripts/*"
+        "scripts/*",
+        "bench/run.ts",
+        "bench/ab.ts"
       ]
     },
     "playground": {

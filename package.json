@@ -11,6 +11,7 @@
     "dev": "pnpm -r build --watch",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
+    "bench:cli": "node --experimental-strip-types bench/run.ts",
     "nuxi": "node ./packages/nuxi/bin/nuxi.mjs",
     "nuxt": "node ./packages/nuxt-cli/bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./packages/nuxt-cli/bin/nuxi.mjs",

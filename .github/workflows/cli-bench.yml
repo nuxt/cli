@@ -1,0 +1,48 @@
+name: cli-bench
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  # Runs the cheap suites against the published @nuxt/cli: startup timings
+  # (interleaved, so the deltas survive runner noise even when the absolute
+  # numbers do not), module counts and install footprint. The dev, restart
+  # and build suites need real fixtures and minutes of wall time; run those
+  # locally with `pnpm bench:cli`.
+  bench:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - run: npm i -g --force corepack && corepack enable
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Run benchmark suites
+        run: node --experimental-strip-types bench/run.ts --suite startup --suite modules --suite footprint --out bench-report/report.md
+
+      - name: ⏫ Upload report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cli-bench-report
+          path: bench-report/
