@@ -88,16 +88,30 @@ export function record(command: string, options: PtyOptions): PtySession {
   })
 
   const exited = new Promise<number | null>((resolve) => {
+    let settled = false
+    // A session that dies leaves its waiters unresolvable; better a clear
+    // rejection than a drained event loop and an unsettled top-level await.
+    const settle = (code: number | null, reason: string): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      for (const waiter of waiters.splice(0)) {
+        waiter.reject(new Error(`session ${reason} while waiting for ${waiter.pattern}, saw:\n${buffer.slice(-1500)}`))
+      }
+      resolve(code)
+    }
+    // Without this, a missing pty host (`script` or `python3` not installed)
+    // crashes the recorder with an unhandled `error` event.
+    child.on('error', (error) => {
+      console.error(`[capture] could not start the pty host: ${error.message}`)
+      settle(null, `failed to start (${error.message})`)
+    })
     child.on('close', (code) => {
       if (code !== 0 && stderr.trim()) {
         console.error(`[capture] pty host exited with ${code}: ${stderr.trim()}`)
       }
-      // A session that dies leaves its waiters unresolvable; better a clear
-      // rejection than a drained event loop and an unsettled top-level await.
-      for (const waiter of waiters.splice(0)) {
-        waiter.reject(new Error(`session exited with ${code} while waiting for ${waiter.pattern}, saw:\n${buffer.slice(-1500)}`))
-      }
-      resolve(code)
+      settle(code, `exited with ${code}`)
     })
   })
 

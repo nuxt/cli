@@ -37,19 +37,28 @@ const scratchDir = join(workdir, 'scratch')
 mkdirSync(values.out!, { recursive: true })
 mkdirSync(scratchDir, { recursive: true })
 
-syncFixture(join(repoRoot, 'capture/fixture'), appDir)
-if (!existsSync(join(appDir, 'node_modules/nuxt'))) {
+/** Caches that live in the work directory but are not fixture-managed. */
+const PRESERVED_DIRS = new Set(['node_modules', '.nuxt', '.output', '.data'])
+
+const changedFixtureFiles = syncFixture(join(repoRoot, 'capture/fixture'), appDir)
+if (!existsSync(join(appDir, 'node_modules/nuxt')) || changedFixtureFiles.includes('package-lock.json')) {
   console.log('installing capture fixture dependencies')
-  execFileSync('npm', ['install', '--no-audit', '--no-fund'], { cwd: appDir, stdio: 'inherit' })
+  execFileSync('npm', ['ci', '--no-audit', '--no-fund'], { cwd: appDir, stdio: 'inherit' })
 }
 
 /**
- * Copy only files whose content actually changed: a blanket copy touches every
- * config file's mtime and invalidates Vite's dependency cache, putting a
- * "Re-optimizing dependencies" line into the next recording.
+ * Mirror the fixture into the work directory, returning the changed paths.
+ * Only files whose content actually changed are rewritten: a blanket copy
+ * touches every config file's mtime and invalidates Vite's dependency cache,
+ * putting a "Re-optimizing dependencies" line into the next recording. Files
+ * deleted from the fixture are removed so stale routes or handlers cannot
+ * leak into a capture.
  */
-function syncFixture(from: string, to: string): void {
-  for (const entry of readdirSync(from, { recursive: true, encoding: 'utf8' })) {
+function syncFixture(from: string, to: string): string[] {
+  const changed: string[] = []
+  const sourceEntries = readdirSync(from, { recursive: true, encoding: 'utf8' })
+  const sourceFiles = new Set(sourceEntries)
+  for (const entry of sourceEntries) {
     const source = join(from, entry)
     if (statSync(source).isDirectory()) {
       continue
@@ -64,8 +73,20 @@ function syncFixture(from: string, to: string): void {
     if (!unchanged) {
       mkdirSync(join(target, '..'), { recursive: true })
       writeFileSync(target, content)
+      changed.push(entry)
     }
   }
+  for (const entry of readdirSync(to, { recursive: true, encoding: 'utf8' })) {
+    if (PRESERVED_DIRS.has(entry.split('/')[0]!)) {
+      continue
+    }
+    const target = join(to, entry)
+    if (!sourceFiles.has(entry) && !statSync(target).isDirectory()) {
+      rmSync(target)
+      changed.push(entry)
+    }
+  }
+  return changed
 }
 
 const selected = values.only!.length ? captures.filter(capture => values.only!.includes(capture.id)) : captures
@@ -131,7 +152,16 @@ async function runCapture(capture: Capture): Promise<void> {
       await capture.drive({ session, cwd, bin: values.bin! })
     }
     if (!capture.stopAfterDrive) {
-      await Promise.race([session.exited, session.wait(240_000)])
+      const result = await Promise.race([
+        session.exited.then(code => ({ timedOut: false, code })),
+        session.wait(240_000).then(() => ({ timedOut: true, code: null })),
+      ])
+      if (result.timedOut) {
+        throw new Error(`${capture.id} timed out after 240 seconds, saw:\n${session.output().slice(-1500)}`)
+      }
+      if (result.code !== 0) {
+        throw new Error(`${capture.id} exited with ${result.code}, saw:\n${session.output().slice(-1500)}`)
+      }
     }
   }
   finally {
