@@ -12,7 +12,7 @@ export type Rgb = readonly [number, number, number]
  * of about 1.8:1), so the light variant trades some of the glow for a ratio
  * above 4:1.
  */
-export const BRAND_GREEN: Record<'dark' | 'light', Rgb> = {
+const BRAND_GREEN: Record<'dark' | 'light', Rgb> = {
   dark: [0, 220, 130],
   light: [0, 145, 92],
 }
@@ -28,7 +28,7 @@ const LIGHT_INDICES = new Set([7, 9, 10, 11, 12, 13, 14, 15])
  * for a reply that may never come. Callers are expected to have a choice that
  * is safe on either background rather than to guess.
  */
-export function resolveBackground(env: NodeJS.ProcessEnv = process.env): TerminalBackground {
+function resolveBackground(env: NodeJS.ProcessEnv = process.env): TerminalBackground {
   const override = env.NUXT_TERM_THEME?.trim().toLowerCase()
   if (override === 'dark' || override === 'light') {
     return override
