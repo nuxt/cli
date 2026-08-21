@@ -3,7 +3,8 @@
  * https://bsky.app/profile/durdraw.org/post/3liadod3gv22a
  */
 
-export const themeColor = '\x1B[38;2;0;220;130m'
+import { paintBrand } from './terminal-theme'
+
 const icon = [
   `        .d$b.`,
   `       i$$A$$L  .d$b`,
@@ -15,4 +16,7 @@ const icon = [
   ` \`4$$$$$$$$P\` .i$$$$$$$$P\``,
 ]
 
-export const nuxtIcon = icon.map(line => line.split('').join(themeColor)).join('\n')
+/** The mark in Nuxt green, ending with the terminal's colour handed back. */
+export function nuxtIcon(): string {
+  return icon.map(line => paintBrand(line)).join('\n')
+}

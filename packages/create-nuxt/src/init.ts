@@ -23,7 +23,7 @@ import { selectModulesAutocomplete } from '../../nuxt-cli/src/commands/module/_a
 import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from '../../nuxt-cli/src/commands/module/_utils'
 import addModuleCommand from '../../nuxt-cli/src/commands/module/add'
 import { runCommandDef as runCommand } from '../../nuxt-cli/src/run-command'
-import { nuxtIcon, themeColor } from '../../nuxt-cli/src/utils/ascii'
+import { nuxtIcon } from '../../nuxt-cli/src/utils/ascii'
 import { fetchJson } from '../../nuxt-cli/src/utils/fetch'
 import { formatHeadlessCommand } from '../../nuxt-cli/src/utils/headless'
 import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../nuxt-cli/src/utils/install'
@@ -31,6 +31,7 @@ import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../../nuxt-cli/src/utils/network'
 import { relativeToProcess } from '../../nuxt-cli/src/utils/paths'
 import { getTemplates, TEMPLATES_API_URL } from '../../nuxt-cli/src/utils/starter-templates'
+import { paintBrand } from '../../nuxt-cli/src/utils/terminal-theme'
 import { getNuxtVersion } from '../../nuxt-cli/src/utils/versions'
 
 const NON_WORD_RE = /[^\w-]/g
@@ -212,10 +213,10 @@ export default defineCommand({
     }
 
     if (hasTTY) {
-      process.stdout.write(`\n${nuxtIcon}\n\n`)
+      process.stdout.write(`\n${nuxtIcon()}\n\n`)
     }
 
-    intro(styleText('bold', `Welcome to Nuxt!`.split('').map(m => `${themeColor}${m}`).join('')))
+    intro(styleText('bold', paintBrand('Welcome to Nuxt!')))
 
     let availableTemplates: Record<string, TemplateData> = {}
 
