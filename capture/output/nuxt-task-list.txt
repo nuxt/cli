@@ -1,2 +1,3 @@
+styles: 7d2fd0fcc0cebdc7
   cache-clear  Clear the cached pages and data
   db:seed      Seed the database with demo content

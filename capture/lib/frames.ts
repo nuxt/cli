@@ -1,6 +1,7 @@
 import type { Style } from 'ansivision'
 import type { Chunk } from './pty.ts'
 import type { Frame } from './svg.ts'
+import { createHash } from 'node:crypto'
 import { RenderStream } from 'ansivision'
 import { renderUnicodeCompact } from 'uqr'
 import { resolveRules, scrubLine } from './scrub.ts'
@@ -73,6 +74,7 @@ export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string
   const rules = resolveRules(options.scrubRules)
   const stream = new RenderStream()
   const seen = new Set<string>()
+  const styleSeen = new Set<string>()
   // The whole buffer, not the visible window: whether a line scrolls past
   // between two chunk boundaries depends on machine speed.
   const collect = (): void => {
@@ -80,10 +82,12 @@ export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string
     const lines = (frameObject?.contents ?? '').split('\n')
     const styles = frameObject?.styles ?? []
     for (let row = 0; row < lines.length; row++) {
-      const line = scrubLine(lines[row]!, styles[row] ?? [], rules).line.trimEnd()
+      const scrubbed = scrubLine(lines[row]!, styles[row] ?? [], rules)
+      const line = scrubbed.line.trimEnd()
       // QR modules encode the machine's real address and never carry content.
       if (line !== '' && !(QR_LINE_RE.test(line) && /[█▀▄]/.test(line))) {
         seen.add(line)
+        styleSeen.add(`${line}\u001F${styleRuns(line, scrubbed.styles)}`)
       }
     }
   }
@@ -91,7 +95,10 @@ export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string
     stream.write(chunk.data)
     collect()
   }
-  return `${[...seen].sort().join('\n')}\n`
+  // The digest covers colors and text attributes, which the readable line
+  // list above cannot: a style-only CLI change must still invalidate.
+  const digest = createHash('sha256').update([...styleSeen].sort().join('\n')).digest('hex').slice(0, 16)
+  return `styles: ${digest}\n${[...seen].sort().join('\n')}\n`
 }
 
 function scrubFrame(frame: Frame, rules: ReturnType<typeof resolveRules>, redrawQr: boolean): Frame {
@@ -154,6 +161,40 @@ function replaceQrBlock(frame: Frame): Frame {
   return { at: frame.at, lines, styles }
 }
 
+/** Run-length encode a line's styles, so style-only differences are visible to identity checks. */
+function styleRuns(line: string, styles: (Style | undefined)[]): string {
+  const runs: string[] = []
+  let current = ''
+  let count = 0
+  for (let col = 0; col < line.length; col++) {
+    const style = styles[col]
+    const key = style ? JSON.stringify([style.foreground, style.background, style.bold, style.dim, style.italic, style.underline, style.inverse, style.strikethrough]) : ''
+    if (key === current) {
+      count++
+      continue
+    }
+    if (count > 0) {
+      runs.push(`${count}:${current}`)
+    }
+    current = key
+    count = 1
+  }
+  if (count > 0) {
+    runs.push(`${count}:${current}`)
+  }
+  return runs.join(';')
+}
+
+const frameSignatures = new WeakMap<Frame, string>()
+function frameSignature(frame: Frame): string {
+  let signature = frameSignatures.get(frame)
+  if (signature === undefined) {
+    signature = frame.lines.map((line, row) => `${line}\u001F${styleRuns(line, frame.styles[row] ?? [])}`).join('\n')
+    frameSignatures.set(frame, signature)
+  }
+  return signature
+}
+
 function coalesce(raw: Frame[], minFrameMs: number): Frame[] {
   const frames: Frame[] = []
   for (const frame of raw) {
@@ -162,7 +203,7 @@ function coalesce(raw: Frame[], minFrameMs: number): Frame[] {
       frames.push({ ...frame, at: 0 })
       continue
     }
-    const sameContent = previous.lines.join('\n') === frame.lines.join('\n')
+    const sameContent = frameSignature(previous) === frameSignature(frame)
     if (sameContent || frame.at - previous.at < minFrameMs) {
       frames[frames.length - 1] = { at: previous.at, lines: frame.lines, styles: frame.styles }
       continue
