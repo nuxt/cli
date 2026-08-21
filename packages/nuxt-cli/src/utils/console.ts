@@ -1,10 +1,13 @@
 import type { ConsolaReporter } from 'consola'
 
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 import { consola } from 'consola'
+import { resolveModulePath } from 'exsolve'
 
 import { isRemotePeerError } from './errors'
+import { tryResolveNuxt } from './kit'
 import { debug } from './logger'
 import { trackOutputSpacing } from './stdout'
 
@@ -26,6 +29,23 @@ function wrapReporter(reporter: ConsolaReporter) {
       return reporter.log(logObj, ctx)
     },
   }) satisfies ConsolaReporter
+}
+
+export async function configureProjectConsola(rootDir: string): Promise<void> {
+  try {
+    const path = resolveModulePath('consola', { from: tryResolveNuxt(rootDir) || rootDir, try: true })
+    if (!path) {
+      return
+    }
+    const mod = await import(pathToFileURL(path).href) as { consola?: typeof consola, default?: typeof consola }
+    const projectConsola = mod.consola ?? mod.default
+    if (projectConsola) {
+      projectConsola.options.formatOptions.date = false
+    }
+  }
+  catch (error) {
+    debug('Could not configure the project consola:', error)
+  }
 }
 
 export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
