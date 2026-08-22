@@ -103,6 +103,16 @@ function printHelp(context: ActionContext): void {
   console.log(`\n${lines.join('\n')}\n`)
 }
 
+/**
+ * Without a TTY there are no shortcuts to offer, so point at the way to talk to
+ * the server instead: non-interactive callers (scripts, agents) otherwise have
+ * no indication that one exists.
+ */
+function printRequestHint(): void {
+  // eslint-disable-next-line no-console
+  console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /api/hello')} ${styleText('dim', 'to send a request to this server')}\n`)
+}
+
 function availableShortcuts(context: ShortcutContext): Shortcut[] {
   return shortcuts.filter(shortcut => shortcut.isAvailable?.(context) !== false)
 }
@@ -115,6 +125,9 @@ function availableShortcuts(context: ShortcutContext): Shortcut[] {
  */
 export function setupShortcuts(context: ShortcutContext): void {
   if (!process.stdin.isTTY || isCI || isTest) {
+    if (!isCI && !isTest) {
+      context.onReady(() => printRequestHint())
+    }
     return
   }
 
