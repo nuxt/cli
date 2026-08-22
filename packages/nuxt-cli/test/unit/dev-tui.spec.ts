@@ -811,6 +811,17 @@ describe('log overlay', () => {
     }
   })
 
+  it('keeps repainting after a close that interrupted a pending render', async () => {
+    const { overlay, events, lastFrame } = create()
+    overlay.open()
+    events.push(event({ message: 'before the close' }))
+    overlay.handleKey({ name: 'q' })
+    overlay.open()
+    events.push(event({ message: 'after the reopen' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain('after the reopen'))
+    overlay.handleKey({ name: 'q' })
+  })
+
   it('stops listening for resizes once it is closed', () => {
     const before = process.stdout.listenerCount('resize')
     const { overlay } = create()
@@ -1589,6 +1600,19 @@ describe('panel surface', () => {
       process.stdout.emit('resize')
       surface.close()
       expect(written().slice(before)).toContain('\n'.repeat(10))
+    })
+  })
+
+  it('writes nothing on resize while a view owns the screen', () => {
+    withStubbedTerminal(24, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.screenMode = 'alternate-screen'
+      const before = written().length
+      Object.defineProperty(process.stdout, 'rows', { value: 40, configurable: true })
+      process.stdout.emit('resize')
+      expect(written().slice(before)).toBe('')
+      surface.close()
     })
   })
 

@@ -105,6 +105,9 @@ export abstract class ScreenOverlay {
     }
     this.#open = false
     clearTimeout(this.#renderTimer)
+    // A cleared timer that stays set would make every later repaint a no-op,
+    // and the views are reopened for the life of the session.
+    this.#renderTimer = undefined
     process.stdout.off('resize', this.#onResize)
     this.#unsubscribe?.()
     this.#write(LEAVE_ALT)

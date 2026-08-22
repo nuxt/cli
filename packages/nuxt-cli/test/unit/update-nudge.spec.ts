@@ -30,19 +30,27 @@ function capture(run: () => void, { hyperlinks }: { hyperlinks: boolean }): stri
   return output
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 describe('update nudge', () => {
-  // A visible URL beside the version would satisfy a bare `toContain`, so the
-  // escape that makes the version itself clickable is what is asserted.
-  const hyperlink = (url: string, label: string) => `\u001B]8;;${url}\u0007${label}\u001B]8;;\u0007`
+  /**
+   * A visible URL beside the version would satisfy a bare `toContain`, so what
+   * is asserted is that the version sits inside the link. Whether the label
+   * carries colour depends on the terminal, so the styling is not matched.
+   */
+  const linkedVersion = (url: string, version: string) =>
+    new RegExp(`\u001B\\]8;;${escapeRegExp(url)}\u0007[^\u0007]*${escapeRegExp(version)}`)
 
   it('links the new version to its release notes', () => {
     const output = capture(() => renderUpdateNudge({ current: '4.5.1', latest: '4.6.0' }), { hyperlinks: true })
-    expect(output).toContain(hyperlink('https://github.com/nuxt/nuxt/releases/tag/v4.6.0', '\u001B[32m4.6.0\u001B[39m'))
+    expect(output).toMatch(linkedVersion('https://github.com/nuxt/nuxt/releases/tag/v4.6.0', '4.6.0'))
   })
 
   it('links the CLI\'s own releases when nudging about itself', () => {
     const output = capture(() => renderSelfUpdateNudge({ current: '3.0.0', latest: '3.1.0' }), { hyperlinks: true })
-    expect(output).toContain(hyperlink('https://github.com/nuxt/cli/releases/tag/v3.1.0', '\u001B[32m3.1.0\u001B[39m'))
+    expect(output).toMatch(linkedVersion('https://github.com/nuxt/cli/releases/tag/v3.1.0', '3.1.0'))
   })
 
   it('prints a plain version where hyperlinks are unsupported', () => {
