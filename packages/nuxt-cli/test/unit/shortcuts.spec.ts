@@ -88,6 +88,18 @@ describe('setupShortcuts', () => {
     expect(setup().stdin.listenerCount('data')).toBe(0)
   })
 
+  it('should suggest `nuxt curl` when there is no TTY', () => {
+    setup({}, { isTTY: false })
+
+    expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('nuxt curl /api/hello')
+  })
+
+  it('should not suggest `nuxt curl` when shortcuts are available', () => {
+    setup()
+
+    expect(vi.mocked(console.log).mock.calls.join('\n')).not.toContain('nuxt curl')
+  })
+
   it('should take stdin out of raw mode', async () => {
     const { stdin, listener, press } = setup({}, { isRaw: true })
 
