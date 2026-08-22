@@ -130,7 +130,7 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
   }
 
   const { confirm, isCancel } = await import('@clack/prompts')
-  const { restoreRawMode } = await import('./utils/console')
+  const { restoreRawMode, withDirectStdout } = await import('./utils/console')
   for (const { flag, suggestion } of suggestions) {
     if (!suggestion) {
       logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
@@ -142,7 +142,7 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
       ? `--no-${suggestion.slice(2)}`
       : suggestion
     logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
-    const answer = await confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true })
+    const answer = await withDirectStdout(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true }))
     restoreRawMode()
     if (!isCancel(answer) && answer) {
       replaceFlag(rawArgs, flag, replacement)
@@ -174,8 +174,8 @@ async function reportUnknownCommand(command: string, rawArgs: string[]): Promise
   if (isInteractive()) {
     logger.warn(`Unknown command ${styleText('cyan', command)}.`)
     const { confirm, isCancel } = await import('@clack/prompts')
-    const answer = await confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true })
-    const { restoreRawMode } = await import('./utils/console')
+    const { restoreRawMode, withDirectStdout } = await import('./utils/console')
+    const answer = await withDirectStdout(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true }))
     restoreRawMode()
 
     if (!isCancel(answer) && answer) {
