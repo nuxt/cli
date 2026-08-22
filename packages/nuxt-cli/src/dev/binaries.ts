@@ -13,6 +13,7 @@ import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { findInPath } from '../utils/path-env'
+import { withStartupClockPaused } from '../utils/startup-clock'
 
 interface ConsentOptions {
   /** Key under `tools` in the user `.nuxtrc` used to persist acceptance. */
@@ -53,10 +54,18 @@ async function locateTool(name: string, options: { url?: string, archive?: boole
   if (existsSync(destination)) {
     return destination
   }
-  if (!options.url || !await confirmToolInstall(options.consent)) {
+  const { url } = options
+  if (!url) {
     return undefined
   }
-  return downloadBinary(options.url, destination, { archive: options.archive, name })
+  // A first-run consent prompt and download can dwarf the server's own
+  // startup, so neither counts towards the reported time to ready.
+  return withStartupClockPaused(async () => {
+    if (!await confirmToolInstall(options.consent)) {
+      return undefined
+    }
+    return downloadBinary(url, destination, { archive: options.archive, name })
+  })
 }
 
 /**

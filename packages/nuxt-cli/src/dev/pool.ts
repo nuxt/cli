@@ -6,6 +6,7 @@ import type { NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './
 import { fork } from 'node:child_process'
 import process from 'node:process'
 import { debug, logger } from '../utils/logger'
+import { writeDirectTo } from '../utils/stdout'
 import { DEV_SHUTDOWN_TIMEOUT_MS, FORCE_KILL_TIMEOUT_MS } from './shutdown'
 
 interface ForkPoolOptions {
@@ -13,6 +14,11 @@ interface ForkPoolOptions {
   poolSize?: number
   listenOverrides: DevListenOverrides
   inspect?: InspectOptions
+  /**
+   * Pipe fork stdio through this process instead of inheriting the terminal,
+   * so the interactive dev UI can keep its footer below all output.
+   */
+  pipeOutput?: boolean
 }
 
 interface PooledFork {
@@ -47,6 +53,7 @@ export class ForkPool {
   private rawArgs: string[]
   private listenOverrides: DevListenOverrides
   private inspect?: InspectOptions
+  private pipeOutput: boolean
   private warming = false
 
   constructor(options: ForkPoolOptions) {
@@ -54,6 +61,21 @@ export class ForkPool {
     this.poolSize = options.poolSize ?? 1
     this.listenOverrides = options.listenOverrides
     this.inspect = options.inspect
+    this.pipeOutput = options.pipeOutput ?? false
+
+    if (this.pipeOutput) {
+      // Piped forks read the terminal width from their environment snapshot,
+      // so resizes have to be forwarded for the fancy reporter's alignment.
+      process.stdout.on('resize', () => {
+        for (const fork of this.pool) {
+          if (fork.state !== 'dead' && fork.process.connected) {
+            // A fork can die between the check and the send, and this runs from
+            // a `resize` event where a throw would end the session.
+            fork.process.send({ type: 'nuxt:internal:dev:resize', columns: process.stdout.columns || 80 } satisfies NuxtParentIPCMessage, () => {})
+          }
+        }
+      })
+    }
 
     // last-resort for forks that outlive this process. nuxt closes forks gracefully
     // on `SIGINT`/`SIGTERM`, so we skip them.
@@ -179,11 +201,24 @@ export class ForkPool {
       // `sendContext`), never via `execArgv`, so idle pooled forks don't race
       // each other for the debug port.
       execArgv: ['--enable-source-maps'],
+      stdio: this.pipeOutput ? ['ignore', 'pipe', 'pipe', 'ipc'] : undefined,
       env: {
         ...process.env,
         __NUXT__FORK: 'true',
+        ...this.pipeOutput
+          ? {
+              __NUXT_DEV_PIPED_TTY__: '1',
+              __NUXT_DEV_COLUMNS__: String(process.stdout.columns || 80),
+              ...forcedColorEnv(),
+            }
+          : {},
       },
     })
+
+    if (this.pipeOutput) {
+      childProc.stdout?.on('data', (chunk: Uint8Array) => writeDirectTo(process.stdout, chunk))
+      childProc.stderr?.on('data', (chunk: Uint8Array) => writeDirectTo(process.stderr, chunk))
+    }
 
     let readyResolve: () => void
     let readyReject: (err: Error) => void
@@ -321,6 +356,23 @@ export class ForkPool {
       active: this.pool.filter(f => f.state === 'active').length,
     }
   }
+}
+
+/**
+ * Color settings for a fork whose stdio is piped back to this terminal.
+ * `isTTY` alone is not enough: `styleText` and most color libraries consult
+ * the color depth or `FORCE_COLOR`, which a pipe does not carry.
+ */
+function forcedColorEnv(): Record<string, string> {
+  if (process.env.NO_COLOR || process.env.FORCE_COLOR) {
+    return {}
+  }
+  const depth = process.stdout.getColorDepth?.() ?? 1
+  if (depth <= 1) {
+    return {}
+  }
+  const level = depth >= 24 ? '3' : depth >= 8 ? '2' : '1'
+  return { FORCE_COLOR: level, __NUXT_DEV_COLOR_DEPTH__: String(depth) }
 }
 
 function waitForExit(child: ChildProcess): Promise<void> {

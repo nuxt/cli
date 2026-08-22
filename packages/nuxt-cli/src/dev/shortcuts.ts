@@ -13,6 +13,8 @@ export interface ShortcutContext {
   listener: Listener
   close: () => Promise<void>
   restart?: () => void | Promise<void>
+  /** Remove the caches that make the next start cold, naming what went. */
+  clearCaches?: () => Promise<string[]>
   onReady: (callback: (address: string) => void) => void
 }
 

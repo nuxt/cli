@@ -3,6 +3,7 @@ import type { HTTPSOptions } from '../dev/cert'
 import type { DevListenOverrides } from '../dev/listen'
 import type { ActiveFork } from '../dev/pool'
 import type { DevRestartReason } from '../dev/reason'
+import type { DevUIController } from '../dev/tui/controller'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
@@ -18,14 +19,15 @@ import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
-import { setupShortcuts } from '../dev/shortcuts'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
+import { beginDevUI, setupDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
+import { startupElapsedMs } from '../utils/startup-clock'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
 const startTime: number | undefined = Date.now()
@@ -51,6 +53,12 @@ const command = defineCommand({
     'inspect-brk': {
       type: 'boolean',
       description: 'Enable the Node.js inspector and wait for a debugger to attach (`--inspect-brk=[host:]port`)',
+    },
+    'tui': {
+      type: 'boolean',
+      description: 'Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts)',
+      negativeDescription: 'Disable the interactive terminal UI and stream logs instead',
+      default: true,
     },
     'clear': {
       type: 'boolean',
@@ -165,7 +173,9 @@ const command = defineCommand({
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    const takeover = await takeOverDevServer(await resolveLockDir(cwd), {
+    const buildDir = await resolveLockDir(cwd)
+
+    const takeover = await takeOverDevServer(buildDir, {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
     })
@@ -196,15 +206,44 @@ const command = defineCommand({
       await openInspector(inspect)
     }
 
-    const { listener, close, reload, onRestart, onReady, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
+    const clearCaches = async () => {
+      const { clearDevCaches } = await import('../utils/nuxt')
+      return clearDevCaches(cwd, buildDir)
+    }
+
+    // Nuxt, Nitro and Vite all print while they load, so the panel takes the
+    // terminal before any of them get the chance.
+    const uiOptions = { flag: ctx.args.tui, inspect: !!inspect, cwd, startTime }
+    const session = await beginDevUI(uiOptions)
+    const ui = !!session
+    if (ui) {
+      // The panel carries the URL block and the banner itself.
+      listenOverrides.showURL = false
+    }
+
+    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
-      showBanner: true,
+      showBanner: !ui,
+      captureUIEvents: ui,
+      onProgress: session && (snapshot => session.reportProgress(snapshot)),
+      onListening: session && (info => session.reportListening(info)),
     })
+
+    /** Feed the dev UI from the server running in this process. */
+    function attachDevUI(devUI: DevUIController): DevUIController {
+      onLoading(message => devUI.setStatus('building', message))
+      onEachReady(() => devUI.setStatus('ready'))
+      onBuilding(building => devUI.setStatus(building ? 'building' : 'ready'))
+      onLog(log => devUI.pushServerLog(log))
+      onRequests(requests => devUI.pushRequests(requests))
+      onRoutes(payload => devUI.setRoutes(payload))
+      return devUI
+    }
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || profiling) {
-      setupShortcuts({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
+      attachDevUI(await setupDevUI({ listener, close, onReady, clearCaches, restart: () => reload({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
       setupSignalHandlers(close)
       return {
         listener,
@@ -217,11 +256,12 @@ const command = defineCommand({
       poolSize: resolveForkPoolSize(),
       listenOverrides,
       inspect,
+      pipeOutput: ui,
     })
 
     onReady((_address) => {
       if (startTime) {
-        debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+        debug(`Dev server ready for connections in ${startupElapsedMs(startTime)}ms`)
       }
     })
 
@@ -231,6 +271,7 @@ const command = defineCommand({
       pool.startWarming()
     })
 
+    const devUI = attachDevUI(await setupDevUI({ listener, close: () => closeAll(), onReady, clearCaches, restart: () => restart({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -259,7 +300,9 @@ const command = defineCommand({
     }
 
     async function replaceWithFork(reason?: DevRestartReason) {
-      logger.info(formatRestartReason(reason, { rootDir: cwd, hard: true }))
+      const explanation = formatRestartReason(reason, { rootDir: cwd, hard: true })
+      logger.info(explanation)
+      devUI.setStatus('restarting', explanation)
 
       // The inspector port cannot be shared, so the handover has to stay
       // serialised whenever the inspector is open.
@@ -286,11 +329,29 @@ const command = defineCommand({
             ? { port: listener.address.port, handover: true }
             : undefined,
           onMessage: (message) => {
-            if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
+            if (message.type === 'nuxt:internal:dev:log') {
+              devUI.pushServerLog(message)
+            }
+            else if (message.type === 'nuxt:internal:dev:requests') {
+              devUI.pushRequests(message.requests)
+            }
+            else if (message.type === 'nuxt:internal:dev:routes') {
+              devUI.setRoutes(message.payload)
+            }
+            else if (message.type === 'nuxt:internal:dev:building') {
+              devUI.setStatus(message.building ? 'building' : 'ready')
+            }
+            else if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
               serving = true
               if (message.type === 'nuxt:internal:dev:ready' && startTime) {
-                debug(`Dev server ready for connections in ${Date.now() - startTime}ms`)
+                debug(`Dev server ready for connections in ${startupElapsedMs(startTime)}ms`)
               }
+              if (message.type === 'nuxt:internal:dev:ready') {
+                devUI.setStatus('ready')
+              }
+            }
+            else if (message.type === 'nuxt:internal:dev:loading' && serving) {
+              devUI.setStatus('building')
             }
             else if (!serving) {
               // Failures before the fork serves anything are handled below, which
@@ -316,11 +377,13 @@ const command = defineCommand({
           process.exit(1)
         }
         logger.error(`Could not restart the dev server, keeping the current one: ${detail}`)
+        devUI.setStatus('ready')
         onRestart(restart)
         return
       }
 
       serving = true
+      devUI.setStatus('ready')
       fork.promote()
       const closePrevious = handover ? closeCurrent : undefined
       closeCurrent = fork.close
@@ -341,7 +404,6 @@ const command = defineCommand({
       await close()
     }
 
-    setupShortcuts({ listener, close: closeAll, onReady, restart: () => restart({ type: 'shortcut' }) })
     setupSignalHandlers(closeAll)
 
     return {
@@ -378,11 +440,6 @@ function setupSignalHandlers(close: () => Promise<void>): void {
       }
       closing = true
 
-      const notice = setTimeout(() => {
-        logger.info('Shutting down... press Ctrl-C again to exit immediately.')
-      }, SHUTDOWN_NOTICE_MS)
-      notice.unref?.()
-
       // Ctrl-C should always give the terminal back, even if a watcher or an
       // open connection stops the graceful shutdown from settling.
       const deadline = setTimeout(() => {
@@ -391,18 +448,35 @@ function setupSignalHandlers(close: () => Promise<void>): void {
         process.exit()
       }, SUPERVISOR_SHUTDOWN_TIMEOUT_MS)
 
-      close()
-        .catch((error) => {
+      // Closing can take a while (nitro plugins draining connections, forks
+      // exiting), so it says so rather than appearing to hang.
+      void shutdownWithSpinner(async (indicator) => {
+        const notice = setTimeout(() => {
+          indicator.update('Cleaning up... press Ctrl-C again to exit immediately')
+        }, SHUTDOWN_NOTICE_MS)
+        notice.unref?.()
+        try {
+          await close()
+        }
+        catch (error) {
           console.error(error)
           process.exitCode = 1
-        })
-        .finally(() => {
+        }
+        finally {
           clearTimeout(notice)
           clearTimeout(deadline)
-          process.exit()
-        })
+        }
+      }).finally(() => {
+        process.exit()
+      })
     })
   }
+}
+
+/** `withSpinner`, loaded on the way out rather than on every `nuxt dev`. */
+async function shutdownWithSpinner(work: (indicator: { update: (message: string) => void }) => Promise<void>): Promise<void> {
+  const { withSpinner } = await import('../utils/spinner')
+  return withSpinner('Cleaning up', work, { done: 'Stopped the dev server' })
 }
 
 function resolveForkPoolSize(): number | undefined {

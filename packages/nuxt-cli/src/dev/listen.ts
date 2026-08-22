@@ -43,7 +43,7 @@ export interface ListenOptions {
   https?: boolean | HTTPSOptions
 }
 
-interface ListenURL {
+export interface ListenURL {
   url: string
   type: 'local' | 'network' | 'tunnel' | 'public'
 }
@@ -149,9 +149,28 @@ export function getNetworkAddresses(): string[] {
     if (!info || info.internal || info.family !== 'IPv4' || info.address.startsWith('169.254.')) {
       continue
     }
+    if (isNetworkBaseAddress(info.address, info.cidr)) {
+      continue
+    }
     addresses.push(info.address)
   }
   return addresses
+}
+
+/**
+ * Whether `address` is its subnet's base (all host bits zero), which no host
+ * answers on. macOS assigns one to bridge interfaces (Personal Hotspot,
+ * container bridges), and it would otherwise be listed as reachable.
+ */
+function isNetworkBaseAddress(address: string, cidr: string | null | undefined): boolean {
+  const prefix = Number(cidr?.split('/')[1])
+  // In /31 and /32 subnets the base address is a legitimate host.
+  if (!Number.isFinite(prefix) || prefix >= 31) {
+    return false
+  }
+  const value = address.split('.').reduce((total, octet) => (total << 8) | Number(octet), 0) >>> 0
+  const hostBits = 32 - prefix
+  return (value & (2 ** hostBits - 1)) === 0
 }
 
 /**

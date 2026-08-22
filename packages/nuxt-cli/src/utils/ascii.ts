@@ -3,7 +3,7 @@
  * https://bsky.app/profile/durdraw.org/post/3liadod3gv22a
  */
 
-import { paintBrand } from './terminal-theme'
+import { paint } from './terminal-theme'
 
 const icon = [
   `        .d$b.`,
@@ -18,5 +18,5 @@ const icon = [
 
 /** The mark in Nuxt green, ending with the terminal's colour handed back. */
 export function nuxtIcon(): string {
-  return icon.map(line => paintBrand(line)).join('\n')
+  return icon.map(line => paint('brand', line)).join('\n')
 }

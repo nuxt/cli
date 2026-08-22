@@ -31,7 +31,7 @@ import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../../nuxt-cli/src/utils/network'
 import { relativeToProcess } from '../../nuxt-cli/src/utils/paths'
 import { getTemplates, TEMPLATES_API_URL } from '../../nuxt-cli/src/utils/starter-templates'
-import { paintBrand } from '../../nuxt-cli/src/utils/terminal-theme'
+import { paint } from '../../nuxt-cli/src/utils/terminal-theme'
 import { getNuxtVersion } from '../../nuxt-cli/src/utils/versions'
 
 const NON_WORD_RE = /[^\w-]/g
@@ -216,7 +216,7 @@ export default defineCommand({
       process.stdout.write(`\n${nuxtIcon()}\n\n`)
     }
 
-    intro(styleText('bold', paintBrand('Welcome to Nuxt!')))
+    intro(styleText('bold', paint('brand', 'Welcome to Nuxt!')))
 
     let availableTemplates: Record<string, TemplateData> = {}
 

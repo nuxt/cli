@@ -10,6 +10,7 @@ import { isCI } from 'std-env'
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { clearStaleLock, clearTakeover, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
+import { withStartupClockPaused } from '../utils/startup-clock'
 import { isInteractiveSession } from '../utils/stdout'
 import { DEV_SHUTDOWN_TIMEOUT_MS } from './shutdown'
 
@@ -126,7 +127,7 @@ async function resolveTakeover(buildDir: string, options: TakeoverOptions): Prom
       const prompt = options.prompt ?? promptForTakeover
       // Nothing ends an interactive session on a bare enter, so the default
       // depends on whether a person is watching the other server.
-      const choice = await prompt(existing, existing.interactive ? 'abort' : 'takeover')
+      const choice = await withStartupClockPaused(() => prompt(existing, existing.interactive ? 'abort' : 'takeover'))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
       }
@@ -137,7 +138,7 @@ async function resolveTakeover(buildDir: string, options: TakeoverOptions): Prom
     }
   }
 
-  return performTakeover(buildDir, existing, options.timeouts)
+  return withStartupClockPaused(() => performTakeover(buildDir, existing, options.timeouts))
 }
 
 async function performTakeover(buildDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {

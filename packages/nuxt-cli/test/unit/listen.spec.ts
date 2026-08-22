@@ -66,6 +66,23 @@ describe('getNetworkAddresses', () => {
 
     expect(getNetworkAddresses()).toEqual(['192.168.1.20'])
   })
+
+  it('should ignore subnet base addresses that no host answers on', () => {
+    mocked.mockReturnValue({
+      bridge100: [{ address: '192.168.215.0', cidr: '192.168.215.0/24', family: 'IPv4', internal: false } as any],
+      en0: [{ address: '192.168.1.20', cidr: '192.168.1.20/24', family: 'IPv4', internal: false } as any],
+    })
+
+    expect(getNetworkAddresses()).toEqual(['192.168.1.20'])
+  })
+
+  it('should keep a base address in a point-to-point subnet', () => {
+    mocked.mockReturnValue({
+      ptp0: [{ address: '10.0.0.0', cidr: '10.0.0.0/31', family: 'IPv4', internal: false } as any],
+    })
+
+    expect(getNetworkAddresses()).toEqual(['10.0.0.0'])
+  })
 })
 
 describe('formatDisplayURL', () => {

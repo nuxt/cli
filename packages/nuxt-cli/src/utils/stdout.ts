@@ -143,6 +143,11 @@ export function trackOutputSpacing(): void {
  * dropping any deliberate leading or trailing blank line.
  */
 export function writeDirect(chunk: string): void {
-  const stdout = process.stdout as typeof process.stdout & { __write?: typeof process.stdout.write }
-  ;(stdout.__write || stdout.write).call(process.stdout, chunk)
+  writeDirectTo(process.stdout, chunk)
+}
+
+/** {@link writeDirect} for an arbitrary standard stream. */
+export function writeDirectTo(stream: NodeJS.WriteStream, chunk: string | Uint8Array): void {
+  const target = stream as NodeJS.WriteStream & { __write?: typeof stream.write }
+  ;(target.__write || target.write).call(stream, chunk)
 }

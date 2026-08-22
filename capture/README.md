@@ -32,7 +32,9 @@ The first time you run this, it will copy `capture/fixture/` into a work directo
 
 ## Scenarios
 
-Defined in `captures.config.ts`, currently: `nuxt-dev`, `nuxt-dev-static`, `nuxt-dev-restart`, `nuxt-init`, `nuxt-curl`, `nuxt-task-list`, `nuxt-module-search`.
+Defined in `captures.config.ts`, currently: `nuxt-dev`, `nuxt-dev-static`, `nuxt-dev-restart` (interactive dev UI, pinned with `NUXT_TUI=1`), `nuxt-dev-plain`, `nuxt-dev-plain-static`, `nuxt-dev-plain-restart` (classic log output, pinned with `NUXT_TUI=plain`), `nuxt-init`, `nuxt-curl`, `nuxt-task-list`, `nuxt-module-search`.
+
+Dev captures pin the UI mode explicitly because the dev UI otherwise decides based on the environment (CI, test, terminal size), which would make recordings machine-dependent.
 
 A scenario is a command plus an optional `drive` function that types into the session, edits a file, or waits for a pattern, so flows with several steps can be captured as one animation.
 

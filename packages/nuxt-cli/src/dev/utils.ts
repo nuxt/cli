@@ -6,7 +6,7 @@ import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResp
 
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
-import type { BoundServer, DevListenOverrides, Listener, ListenOptions } from './listen'
+import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
 import type { DevRestartReason } from './reason'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
@@ -14,6 +14,7 @@ import EventEmitter from 'node:events'
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
+import { fileURLToPath } from 'node:url'
 
 import { styleText } from 'node:util'
 import defu from 'defu'
@@ -38,10 +39,27 @@ import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
+import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
+
+/**
+ * Nitro plugin that attributes the app's logs to the request that caused them,
+ * from inside the module runner's realm. Resolved through this package's own
+ * exports because the caller may be bundled into any chunk.
+ */
+function resolveRequestContextPlugin(): string | undefined {
+  try {
+    return fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
+  }
+  catch (error) {
+    debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
+    return undefined
+  }
+}
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
     | { type: 'nuxt:internal:dev:shutdown' }
+    | { type: 'nuxt:internal:dev:resize', columns: number }
 
 export type NuxtDevIPCMessage
   = | { type: 'nuxt:internal:dev:fork-ready' }
@@ -50,6 +68,10 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:restart', reason?: DevRestartReason }
     | { type: 'nuxt:internal:dev:rejection', message: string }
     | { type: 'nuxt:internal:dev:loading:error', error: Error }
+    | { type: 'nuxt:internal:dev:log', level: number, logType: string, tag?: string, message: string, origin: 'build' | 'runtime', request?: string, requestId?: number }
+    | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
+    | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
+    | { type: 'nuxt:internal:dev:building', building: boolean }
 
 export interface NuxtDevContext {
   cwd: string
@@ -81,6 +103,8 @@ interface NuxtDevServerOptions {
   showBanner?: boolean
   listenOverrides?: DevListenOverrides
   handoverFrom?: number
+  /** Emit `request` and `routes` events for the interactive dev UI. */
+  captureUIEvents?: boolean
 }
 
 /**
@@ -258,12 +282,58 @@ function resolveConfigDiffer(kit: Awaited<ReturnType<typeof loadKit>>) {
   return typeof differ === 'function' ? differ : undefined
 }
 
+/** The app's routes, plus the component that renders its errors. */
+export interface DevRoutes {
+  routes: DevRoute[]
+  /** Component rendering error responses, linked from failed requests. */
+  errorComponent?: string
+}
+
+/** A page or server route the app defines, as listed in the dev UI. */
+export interface DevRoute {
+  kind: 'page' | 'server'
+  route: string
+  method?: string
+  file?: string
+}
+
+/** A request served by the dev server, as shown in the dev UI. */
+export interface DevRequestEvent {
+  /** Identity shared with the logs attributed to this request. */
+  id?: number
+  method: string
+  url: string
+  status: number
+  /** Milliseconds from receiving the request to the response closing. */
+  duration: number
+  /** Served by the bundler (module graph, HMR plumbing) rather than the app. */
+  internal?: boolean
+}
+
+/** Vite/webpack module-graph URLs: `/@id/...`, `/@fs/...`, `virtual:` modules, SFC block queries. */
+const BUNDLER_URL_RE = /^\/(?:@|__|_nuxt\/)|\/node_modules\/|virtual:|[?&](?:vue&type=|import(?:&|=|$)|direct(?:&|=|$)|html-proxy|raw(?:&|=|$)|worker(?:&|=|$))/
+
+/**
+ * Whether a request is the bundler talking to itself rather than the app being
+ * used. There is no dedicated header, but in dev every script and style
+ * subresource is served through the bundler pipeline, so `sec-fetch-dest`
+ * identifies most of it and the URL shape catches the rest.
+ */
+export function isBundlerRequest(url: string, fetchDest?: string): boolean {
+  return fetchDest === 'script' || fetchDest === 'style' || BUNDLER_URL_RE.test(url)
+}
+
 interface DevServerEventMap {
   'loading:error': [error: Error]
   'loading': [loadingMessage: string]
+  /** The socket is bound; `confirmed` once the resolved config agrees. */
+  'listening': [info: { url: string, urls: ListenURL[], confirmed: boolean }]
   'ready': [address: string]
   'restart': [reason?: DevRestartReason]
   'change': []
+  'request': [event: DevRequestEvent]
+  'routes': [payload: DevRoutes]
+  'building': [building: boolean]
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
@@ -277,6 +347,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #cwd: string
   #websocketConnections = new Set<any>()
   #inflightResponses = new Set<ServerResponse>()
+  /** Responses the CLI answered itself, kept out of the dev UI's request feed. */
+  #internalResponses = new Set<ServerResponse>()
   #lockCleanup?: () => void
   #lockedBuildDir?: string
   #pendingReason?: DevRestartReason
@@ -312,34 +384,65 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     this.handler = async (req, res) => {
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
-      // of anything that waits on the first successful load.
+      // of anything that waits on the first successful load, and they stay out
+      // of the request feed.
       if (this.#progress.handleRequest(req, res)) {
         return
       }
-      if (this.#loadingError) {
-        // The recovery script makes the page reload itself once the next load
-        // starts, so a fixed file shows up without the reader touching anything.
-        await renderError(req, res, this.#loadingError, { inject: RECOVERY_SCRIPT })
-        return
+      if (!options.captureUIEvents) {
+        return this.#serve(req, res)
       }
-      if (!this.#handler) {
-        await this.#renderLoadingScreen(req, res).catch((error) => {
-          debug('Could not render the loading screen:', error)
-          if (res.headersSent) {
-            res.end()
+      const start = performance.now()
+      return runWithRequest(`${req.method || 'GET'} ${req.url || '/'}`, (request) => {
+        req.headers[REQUEST_HEADER] = encodeRequest(request)
+        res.once('close', () => {
+          if (this.#internalResponses.delete(res)) {
             return
           }
-          res.statusCode = 503
-          res.end('Dev server is loading...')
+          this.emit('request', {
+            id: request.id,
+            method: req.method || 'GET',
+            url: req.url || '/',
+            status: res.statusCode,
+            duration: Math.round(performance.now() - start),
+            internal: isBundlerRequest(req.url || '/', String(req.headers['sec-fetch-dest'] || '') || undefined) || undefined,
+          })
         })
-        return
-      }
-      this.#inflightResponses.add(res)
-      res.once('close', () => {
-        this.#inflightResponses.delete(res)
+        return this.#serve(req, res)
       })
-      this.#handler(req, res)
     }
+  }
+
+  async #serve(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (this.#loadingError) {
+      if (this.options.captureUIEvents) {
+        this.#internalResponses.add(res)
+      }
+      // The recovery script makes the page reload itself once the next load
+      // starts, so a fixed file shows up without the reader touching anything.
+      await renderError(req, res, this.#loadingError, { inject: RECOVERY_SCRIPT })
+      return
+    }
+    if (!this.#handler) {
+      if (this.options.captureUIEvents) {
+        this.#internalResponses.add(res)
+      }
+      await this.#renderLoadingScreen(req, res).catch((error) => {
+        debug('Could not render the loading screen:', error)
+        if (res.headersSent) {
+          res.end()
+          return
+        }
+        res.statusCode = 503
+        res.end('Dev server is loading...')
+      })
+      return
+    }
+    this.#inflightResponses.add(res)
+    res.once('close', () => {
+      this.#inflightResponses.delete(res)
+    })
+    this.#handler(req, res)
   }
 
   async #renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -469,6 +572,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   #createLoadOptions(urls?: string[]): LoadNuxtOptionsWithConfigDiff {
+    const requestContextPlugin = this.options.captureUIEvents ? resolveRequestContextPlugin() : undefined
     const loadOptions: LoadNuxtOptionsWithConfigDiff = {
       cwd: this.options.cwd,
       dev: true,
@@ -485,6 +589,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           clearScreen: this.options.clear,
           ...this.options.overrides.vite,
         },
+        ...requestContextPlugin
+          ? {
+              hooks: {
+                ...this.options.overrides.hooks,
+                'nitro:config': (nitro) => {
+                  nitro.plugins ||= []
+                  nitro.plugins.push(requestContextPlugin)
+                  return this.options.overrides.hooks?.['nitro:config']?.(nitro)
+                },
+              } satisfies NuxtConfig['hooks'],
+            }
+          : {},
       },
     }
 
@@ -582,6 +698,76 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
+
+    if (this.options.captureUIEvents) {
+      this.#collectRoutes(this.#currentNuxt)
+      this.#watchServerBuilds(this.#currentNuxt)
+    }
+  }
+
+  /**
+   * Report Nitro rebuilds, which happen on every server-side change and are
+   * otherwise invisible: only full Nuxt reloads emit `loading`.
+   *
+   * In dev the rebuild is driven by rollup's watcher, which reports `dev:start`
+   * rather than the `rollup:before` of a one-shot build.
+   */
+  #watchServerBuilds(nuxt: Nuxt): void {
+    nuxt.hook('nitro:init', (nitro) => {
+      for (const started of ['dev:start', 'rollup:before'] as const) {
+        nitro.hooks.hook(started, () => {
+          this.emit('building', true)
+        })
+      }
+      for (const finished of ['compiled', 'dev:reload', 'dev:error'] as const) {
+        nitro.hooks.hook(finished, () => {
+          this.emit('building', false)
+        })
+      }
+    })
+  }
+
+  /**
+   * Gather the app's routes.
+   *
+   * Every hook here is an optional capability: a project without the pages
+   * module, or without a nitro server, simply contributes nothing.
+   */
+  #collectRoutes(nuxt: Nuxt): void {
+    const routes: DevRoute[] = []
+    let errorComponent: string | undefined
+    const emit = () => this.emit('routes', { routes: [...routes], errorComponent })
+
+    // `errorComponent` is minified in Nuxt's published build, so the shipped
+    // property name is checked as well as the source one.
+    nuxt.hook('app:resolve', (app) => {
+      const resolved = app as { errorComponent?: string | null, n?: string | null }
+      errorComponent = resolved.errorComponent ?? resolved.n ?? undefined
+      emit()
+    })
+
+    nuxt.hook('pages:extend', (pages: Array<{ path: string, file?: string, children?: unknown[] }>) => {
+      const flatten = (list: typeof pages, prefix = '') => {
+        for (const page of list) {
+          const path = page.path.startsWith('/') ? page.path : `${prefix}/${page.path}`.replace(/\/+/g, '/')
+          routes.push({ kind: 'page', route: path, file: page.file })
+          flatten((page.children ?? []) as typeof pages, path)
+        }
+      }
+      routes.splice(0, routes.length, ...routes.filter(route => route.kind !== 'page'))
+      flatten(pages)
+      emit()
+    })
+
+    nuxt.hook('nitro:build:before', (nitro: { scannedHandlers?: Array<{ route?: string, method?: string, handler?: string }> }) => {
+      routes.splice(0, routes.length, ...routes.filter(route => route.kind !== 'server'))
+      for (const handler of nitro.scannedHandlers ?? []) {
+        if (handler.route) {
+          routes.push({ kind: 'server', route: handler.route, method: handler.method, file: handler.handler })
+        }
+      }
+      emit()
+    })
   }
 
   /**
@@ -635,6 +821,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.listener = await createListener(this.#bound, listenOptions, { announce: false })
+    this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: false })
 
     const knowsScheme = overrides.httpsEnabled !== undefined || hint?.https === false
     if (overrides.open && knowsScheme && (hasExplicitPort || hint?.port === this.#bound.address.port)) {
@@ -663,6 +850,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ...listenOptions,
       open: listenOptions.open && !this.#openedEagerly,
     })
+    this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: true })
 
     if (listenOptions.public) {
       this.#currentNuxt.options.devServer.cors = { origin: '*' }

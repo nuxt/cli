@@ -11,7 +11,8 @@
   },
   "exports": {
     ".": "./dist/index.mjs",
-    "./cli": "./bin/nuxi.mjs"
+    "./cli": "./bin/nuxi.mjs",
+    "./runtime/dev-request-context": "./runtime/dev-request-context.mjs"
   },
   "types": "./dist/index.d.ts",
   "bin": {
@@ -22,7 +23,8 @@
   },
   "files": [
     "bin",
-    "dist"
+    "dist",
+    "runtime"
   ],
   "engines": {
     "node": "^22.19.0 || ^24.11.0 || >=26.0.0"

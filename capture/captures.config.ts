@@ -40,6 +40,14 @@ const DEFAULT_SCRUB = ['ports', 'hostnames', 'paths']
 /** Dev output also shows a QR code encoding the machine's real address. */
 const DEV_SCRUB = [...DEFAULT_SCRUB, 'qr']
 
+/**
+ * The dev UI decides for itself whether to run based on CI/test heuristics,
+ * so each dev capture pins the mode: `NUXT_TUI=1` for the interactive panel,
+ * `NUXT_TUI=plain` for the classic log stream.
+ */
+const TUI_ENV = { NUXT_TUI: '1' }
+const PLAIN_ENV = { NUXT_TUI: 'plain' }
+
 export const captures: Capture[] = [
   {
     id: 'nuxt-dev',
@@ -50,8 +58,9 @@ export const captures: Capture[] = [
     rows: 26,
     scrub: DEV_SCRUB,
     stopAfterDrive: true,
+    env: TUI_ENV,
     async drive({ session }) {
-      await session.waitFor(/warmed up|Vite client built/, 180_000)
+      await session.waitFor(/ready in \d/, 180_000)
       await session.wait(2500)
     },
   },
@@ -64,8 +73,9 @@ export const captures: Capture[] = [
     rows: 26,
     scrub: DEV_SCRUB,
     stopAfterDrive: true,
+    env: TUI_ENV,
     async drive({ session }) {
-      await session.waitFor(/warmed up|Vite client built/, 180_000)
+      await session.waitFor(/ready in \d/, 180_000)
       await session.wait(2000)
     },
   },
@@ -78,6 +88,65 @@ export const captures: Capture[] = [
     rows: 26,
     scrub: DEV_SCRUB,
     stopAfterDrive: true,
+    env: TUI_ENV,
+    async drive({ session, cwd }) {
+      const { readFileSync, writeFileSync } = await import('node:fs')
+      const { join } = await import('node:path')
+      await session.waitFor(/ready in \d/, 180_000)
+      await session.wait(1500)
+      const config = join(cwd, 'nuxt.config.ts')
+      const original = readFileSync(config, 'utf8')
+      try {
+        writeFileSync(config, original.replace('compatibilityDate', `devtools: { enabled: false },\n  compatibilityDate`))
+        await session.waitFor(/Reloading Nuxt|Restarting Nuxt/, 30_000)
+        await session.wait(4000)
+      }
+      finally {
+        writeFileSync(config, original)
+      }
+      await session.wait(1000)
+    },
+  },
+  {
+    id: 'nuxt-dev-plain',
+    title: 'nuxt dev (plain output)',
+    command: '$NUXT dev --no-clear --takeover',
+    cwd: 'app',
+    animated: true,
+    rows: 26,
+    scrub: DEV_SCRUB,
+    stopAfterDrive: true,
+    env: PLAIN_ENV,
+    async drive({ session }) {
+      await session.waitFor(/warmed up|Vite client built/, 180_000)
+      await session.wait(2500)
+    },
+  },
+  {
+    id: 'nuxt-dev-plain-static',
+    title: 'nuxt dev (plain output, ready)',
+    command: '$NUXT dev --no-clear --takeover',
+    cwd: 'app',
+    animated: false,
+    rows: 26,
+    scrub: DEV_SCRUB,
+    stopAfterDrive: true,
+    env: PLAIN_ENV,
+    async drive({ session }) {
+      await session.waitFor(/warmed up|Vite client built/, 180_000)
+      await session.wait(2000)
+    },
+  },
+  {
+    id: 'nuxt-dev-plain-restart',
+    title: 'nuxt dev (plain output, restart on config change)',
+    command: '$NUXT dev --no-clear --takeover',
+    cwd: 'app',
+    animated: true,
+    rows: 26,
+    scrub: DEV_SCRUB,
+    stopAfterDrive: true,
+    env: PLAIN_ENV,
     async drive({ session, cwd }) {
       const { readFileSync, writeFileSync } = await import('node:fs')
       const { join } = await import('node:path')

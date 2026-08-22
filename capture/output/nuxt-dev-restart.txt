@@ -1,23 +1,28 @@
-styles: 83c4bfd9f45c6425
-  press h + enter to see available shortcuts
-  ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
-  ➜ Local:    http://localhost:3000/
-  ➜ Network:  use --host to expose
-ℹ Re-optimizing dependencies because vite config has changed
-ℹ Re-optimizing dependencies because vite config has changed (x2)
-ℹ Vite client warmed up in 42 ms
-ℹ Vite server warmed up in 42 ms
-ℹ nuxt.config.ts changed. Reloading Nuxt...
-│
-│  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
-◆  Ready in 42 ms
-●  Nuxt x.y.z (with Nitro x.y.z, Vite x.y.z and Vue x.y.z)
-✔ Nuxt Nitro server built in 42 ms                                                      nitro
-✔ Vite client built in 42 ms
-✔ Vite server built in 42 ms
-⠋ Building server 42 ms
-⠋ Bundling app 42 ms
-⠋ Generating types 42 ms
-⠋ Preparing app 42 ms
-⠋ Setting up modules 42 ms
-⠋ Starting Nuxt... 42 ms
+styles: 6af3b1c828666453
+   Local   http://localhost:3000/
+   Local   http://localhost:3000/ ⠋
+   waiting for requests
+   ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 33% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 50% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
+  BUILDING   building server
+  BUILDING   bundling app
+  BUILDING   compiling changes
+  BUILDING   generating types
+  BUILDING   nuxt.config.ts changed. Reloading Nuxt...
+  BUILDING   preparing app
+  BUILDING   setting up modules
+  READY   watching for changes
+  STARTING   building server
+  STARTING   bundling app
+  STARTING   generating types
+  STARTING   preparing app
+  STARTING   preparing your app
+  STARTING   setting up modules
+  STARTING   starting Nuxt...
+ r restart · o open · i info · l logs · n network · p routes · ? help · q quit
+ ⣠⣦⣠⡀  Nuxt x.y.z
+ ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms

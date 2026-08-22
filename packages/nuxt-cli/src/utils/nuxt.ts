@@ -3,7 +3,7 @@ import type { Nuxt } from '@nuxt/schema'
 import { createHash } from 'node:crypto'
 import { promises as fsp } from 'node:fs'
 
-import { dirname, resolve } from 'pathe'
+import { dirname, relative, resolve } from 'pathe'
 
 import { debug, logger } from '../utils/logger'
 
@@ -42,6 +42,30 @@ export async function cleanupNuxtDirs(rootDir: string, buildDir: string, options
     debug(`Removing recursive path: ${path}`)
     return fsp.rm(path, { recursive: true, force: true })
   }))
+}
+
+/**
+ * Remove the caches that make a dev server start cold, returning them as
+ * project-relative paths.
+ *
+ * The dev lock lives in the build directory, so removing it wholesale would let
+ * a second dev server start against the same project unnoticed. Build output
+ * (`.output`, `dist`) is left alone as it has no bearing on `dev`.
+ */
+export async function clearDevCaches(rootDir: string, buildDir: string): Promise<string[]> {
+  const root = resolve(rootDir)
+  const paths = [
+    resolve(root, buildDir, 'cache'),
+    resolve(root, 'node_modules/.vite'),
+    resolve(root, 'node_modules/.cache'),
+  ]
+
+  await Promise.all(paths.map((path) => {
+    debug(`Removing recursive path: ${path}`)
+    return fsp.rm(path, { recursive: true, force: true })
+  }))
+
+  return paths.map(path => relative(root, path))
 }
 
 export function nuxtVersionToGitIdentifier(version: string) {
