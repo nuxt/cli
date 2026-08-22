@@ -206,6 +206,48 @@ describe('dev tui panel', () => {
     expect(text).toContain('x 2 errors')
   })
 
+  it('paints every accent for the background it was given, not the terminal\'s', () => {
+    const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
+    const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => 24, configurable: true })
+    Object.defineProperty(process.stdout, 'hasColors', { value: () => true, configurable: true })
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+    try {
+      // The amber a light terminal can read, rather than plain yellow.
+      const amber = '\u001B[38;2;138;90;0m'
+      const state = {
+        ...READY,
+        background: 'light' as const,
+        warnings: 2,
+        update: '4.6.0',
+        notice: { text: 'no clipboard available', tone: 'warn' as const },
+        lastRequest: { method: 'GET', url: '/missing', status: 404, duration: 12 },
+        urls: [{ label: 'Local', url: 'http://localhost:3000/', pending: true }],
+        readyMs: undefined,
+        progress: undefined,
+      }
+      const frame = renderPanel(state, 100, 30).join('\n')
+      expect(frame).toContain(`${amber}⚠ 2 warnings`)
+      expect(frame).toContain(`${amber}404`)
+      expect(frame).toContain(`${amber}⚠`)
+      expect(frame).toContain(`${amber}  → 4.6.0`)
+      expect(frame).toContain(`${amber}⠋`)
+      expect(frame).not.toContain('\u001B[33m')
+      // And the mark and the wordmark in the green that reads on white.
+      expect(frame).toContain('\u001B[38;2;0;145;92m')
+    }
+    finally {
+      for (const [key, descriptor] of originals) {
+        if (descriptor) {
+          Object.defineProperty(process.stdout, key, descriptor)
+        }
+        else {
+          Reflect.deleteProperty(process.stdout, key)
+        }
+      }
+    }
+  })
+
   it('never wraps a line past the terminal width', () => {
     for (const columns of [20, 40, 60, 80, 120]) {
       for (const line of renderPanel({ ...READY, warnings: 3, errors: 1, requests: 999, medianMs: 1234, update: '4.6.0', lastRequest: { method: 'GET', url: '/api/very/long/path/that/keeps/going', status: 500, duration: 42 } }, columns, 30)) {

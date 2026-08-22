@@ -175,7 +175,7 @@ function renderWordmark(state: PanelState, columns: number): string {
     : renderLogo({ working: state.status !== 'ready' && state.status !== 'error', frame: state.frame, active: state.active, background: state.background })
   const version = state.versionLink ?? state.version
   const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version ? ` ${styleText(MUTED, version)}` : ''}${
-    state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`) : ''}`
+    state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`, state.background) : ''}`
 
   const tail = state.readyMs === undefined
     ? ''
@@ -195,7 +195,7 @@ function renderURLs(state: PanelState, columns: number): string[] {
   const width = Math.max(...urls.map(entry => entry.label.length))
   return urls.map(({ label, url, link, style, pending }) => {
     const spinner = pending
-      ? ` ${paint('warning', state.ascii ? '~' : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!)}`
+      ? ` ${paint('warning', state.ascii ? '~' : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!, state.background)}`
       : ''
     return truncate(
       `   ${styleText(MUTED, label.padEnd(width))}   ${styleText(pending ? MUTED : style ?? 'cyan', link ?? url)}${spinner}`,
@@ -232,7 +232,7 @@ function renderSummary(state: PanelState, columns: number): string[] {
     parts.push(styleText(MUTED, `${state.medianMs}ms median`))
   }
   if (state.warnings) {
-    parts.push(paint('warning', `${marks.warn} ${state.warnings} ${plural(state.warnings, 'warning')}`))
+    parts.push(paint('warning', `${marks.warn} ${state.warnings} ${plural(state.warnings, 'warning')}`, state.background))
   }
   if (state.errors) {
     parts.push(styleText(['red', 'bold'], `${marks.fail} ${state.errors} ${plural(state.errors, 'error')}`))
@@ -258,15 +258,15 @@ function decapitalise(text: string): string {
 
 const NOTICE_TONES = {
   info: { mark: { unicode: '\u2139', ascii: 'i' }, paint: (glyph: string) => styleText('cyan', glyph) },
-  warn: { mark: { unicode: '\u26A0', ascii: '!' }, paint: (glyph: string) => paint('warning', glyph) },
+  warn: { mark: { unicode: '\u26A0', ascii: '!' }, paint: (glyph: string, background?: TerminalBackground) => paint('warning', glyph, background) },
   success: { mark: { unicode: '\u2714', ascii: '+' }, paint: (glyph: string) => styleText('green', glyph) },
-} as const satisfies Record<string, { mark: { unicode: string, ascii: string }, paint: (glyph: string) => string }>
+} as const satisfies Record<string, { mark: { unicode: string, ascii: string }, paint: (glyph: string, background?: TerminalBackground) => string }>
 
 /** Passing feedback, in place of the badge's standing description. */
 function renderNotice(state: PanelState): string {
   const tone = NOTICE_TONES[state.notice!.tone]
   const glyph = state.ascii ? tone.mark.ascii : tone.mark.unicode
-  return `${tone.paint(glyph)} ${styleText(MUTED, decapitalise(state.notice!.text))}`
+  return `${tone.paint(glyph, state.background)} ${styleText(MUTED, decapitalise(state.notice!.text))}`
 }
 
 function renderStatus(state: PanelState, columns: number): string {
@@ -294,7 +294,7 @@ function renderTicker(state: PanelState, room: number): string {
   }
 
   const head = `${SEPARATOR}${styleText('bold', request.method)} `
-  const tail = `${SEPARATOR}${paintStatus(request.status)}${SEPARATOR}${styleText(MUTED, `${request.duration}ms`)}`
+  const tail = `${SEPARATOR}${paintStatus(request.status, undefined, state.background)}${SEPARATOR}${styleText(MUTED, `${request.duration}ms`)}`
   const available = room - visibleWidth(head) - visibleWidth(tail)
   if (available < 8) {
     return ''
@@ -329,9 +329,9 @@ function renderHints(state: PanelState, columns: number): string {
 }
 
 /** A response status in its own colour, shared by the ticker and the traffic view. */
-export function paintStatus(status: number, text = String(status)): string {
+export function paintStatus(status: number, text = String(status), background?: TerminalBackground): string {
   if (status >= 400 && status < 500) {
-    return paint('warning', text)
+    return paint('warning', text, background)
   }
   return styleText(status >= 500 ? 'red' : status >= 300 ? 'cyan' : 'green', text)
 }
