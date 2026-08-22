@@ -86,7 +86,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   Object.assign(state, { version, versionLink: version ? linkVersion(version) : undefined })
 
   const write = (chunk: string) => surface.writeRaw(chunk)
-  const release = () => surface.release()
+  const release = () => {
+    surface.screenMode = 'split-footer'
+  }
   const cwd = options.cwd || process.cwd()
   /** Once the history has been read the counts have served their purpose. */
   function acknowledgeLogs(): void {
@@ -264,7 +266,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       clearConsole(surface)
     } },
     { keys: ['e'], description: 'open the logs at the last error', action: () => {
-      surface.hold()
+      surface.screenMode = 'alternate-screen'
       overlay.openAtLastError()
     } },
     { keys: ['i', 'u'], hint: 'info', priority: 50, description: 'show versions, URLs, QR code and session info', action: () => openView(infoOverlay) },
@@ -285,7 +287,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   function openView(view: { open: () => void }): void {
-    surface.hold()
+    surface.screenMode = 'alternate-screen'
     view.open()
   }
 

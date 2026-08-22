@@ -1605,11 +1605,11 @@ describe('panel surface', () => {
     })
   })
 
-  it('does not paint the footer while held', async () => {
+  it('does not paint the footer while a view owns the screen', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
       surface.render(['--- footer ---'])
-      surface.hold()
+      surface.screenMode = 'alternate-screen'
       surface.render(['--- updated footer ---'])
       await new Promise(resolve => setTimeout(resolve, 5))
       surface.close()
@@ -1618,11 +1618,11 @@ describe('panel surface', () => {
     expect(screen(renderer)).not.toContain('updated footer')
   })
 
-  it('flushes held output rather than dropping it when it closes', async () => {
+  it('flushes queued output rather than dropping it when it closes', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
       surface.render(['--- footer ---'])
-      surface.hold()
+      surface.screenMode = 'alternate-screen'
       process.stdout.write('a warning nobody would see\n')
       await new Promise(resolve => setTimeout(resolve, 20))
       surface.close()
@@ -1631,19 +1631,51 @@ describe('panel surface', () => {
     expect(screen(renderer)).toContain('a warning nobody would see')
   })
 
-  it('holds output while an overlay is open and flushes on release', async () => {
+  it('queues output while a view owns the screen and flushes it after', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
       surface.render(['--- footer ---'])
-      surface.hold()
-      process.stdout.write('written while held\n')
-      surface.release()
+      surface.screenMode = 'alternate-screen'
+      process.stdout.write('written while the view was open\n')
+      surface.screenMode = 'split-footer'
       await new Promise(resolve => setTimeout(resolve, 5))
       surface.close()
     })
 
-    const frame = screen(renderer)
-    expect(frame).toContain('written while held')
+    expect(screen(renderer)).toContain('written while the view was open')
+  })
+
+  it('folds queued output away when it is being captured, as at any other time', async () => {
+    const captured: string[] = []
+    const renderer = await render(async () => {
+      const surface = new PanelSurface()
+      surface.onExternalOutput(chunk => captured.push(chunk))
+      surface.externalOutput = 'capture'
+      surface.render(['--- footer ---'])
+      surface.screenMode = 'alternate-screen'
+      process.stdout.write('build output nobody asked to see\n')
+      surface.screenMode = 'split-footer'
+      await new Promise(resolve => setTimeout(resolve, 5))
+      surface.close()
+    })
+
+    expect(captured.join('')).toContain('build output nobody asked to see')
+    expect(screen(renderer)).not.toContain('build output nobody asked to see')
+  })
+
+  it('holds an error back until a view has given the screen back', () => {
+    withStubbedTerminal(24, (written) => {
+      const surface = new PanelSurface()
+      surface.onExternalOutput(() => {})
+      surface.externalOutput = 'capture'
+      surface.render(['--- footer ---'])
+      surface.screenMode = 'alternate-screen'
+      surface.writeAbove('ERROR the build failed')
+      expect(written()).not.toContain('ERROR the build failed')
+      surface.screenMode = 'split-footer'
+      expect(written()).toContain('ERROR the build failed\n')
+      surface.close()
+    })
   })
 
   it('does not stack footers across repaints', async () => {

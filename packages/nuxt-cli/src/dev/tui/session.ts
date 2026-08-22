@@ -161,7 +161,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
         return
       }
       for (const chunk of pending) {
-        surface.writeAbove(chunk.endsWith('\n') ? chunk : `${chunk}\n`)
+        surface.writeAbove(chunk)
       }
     })
   }
@@ -271,7 +271,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     for (const task of teardownTasks.toReversed()) {
       task()
     }
-    surface.setCapture()
+    surface.externalOutput = 'passthrough'
     surface.writeRaw(SHOW_CURSOR)
     for (const [, event] of unsurfaced) {
       surface.writeRaw(`${renderErrorLine(event)}\n`)
@@ -317,7 +317,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     message: message => consola.log(message ?? ''),
   })
 
-  surface.setCapture((chunk) => {
+  surface.onExternalOutput((chunk) => {
     buffered += chunk
     if (flushTimer) {
       return
@@ -328,6 +328,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     })
     flushTimer.unref?.()
   })
+  surface.externalOutput = 'capture'
 
   const onSignal = () => teardown({ keep: true })
   // Merely listening for SIGHUP suppresses its default exit, and nothing else in
