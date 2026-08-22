@@ -39,11 +39,12 @@ function stubStdin(reply?: string) {
 
 describe('terminal background query', () => {
   let queryBackground: Background['queryBackground']
+  let stopBackgroundQuery: Background['stopBackgroundQuery']
   let resolveBackground: Theme['resolveBackground']
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ queryBackground } = await import('../../src/dev/tui/background'))
+    ;({ queryBackground, stopBackgroundQuery } = await import('../../src/dev/tui/background'))
     ;({ resolveBackground } = await import('../../src/utils/terminal-theme'))
   })
 
@@ -94,6 +95,43 @@ describe('terminal background query', () => {
     await expect(answer).resolves.toBe('unknown')
     expect(terminal.calls.raw).toEqual([true, false])
     expect(resolveBackground({})).toBe('unknown')
+  })
+
+  it('gives stdin back the moment something else needs it', async () => {
+    const terminal = stubStdin()
+    const answer = queryBackground({
+      write: () => {},
+      stdin: terminal.stdin,
+      stdout: { isTTY: true },
+      env: { TERM: 'xterm-256color' },
+      timeout: 10_000,
+      ci: false,
+      test: false,
+    })
+    expect(terminal.calls.raw).toEqual([true])
+
+    stopBackgroundQuery()
+
+    // Synchronously, because the caller claims stdin in this same tick.
+    expect(terminal.calls.raw).toEqual([true, false])
+    await expect(answer).resolves.toBe('unknown')
+  })
+
+  it('leaves raw mode alone when it found stdin already in it', async () => {
+    const terminal = stubStdin()
+    terminal.stdin.isRaw = true
+    const answer = queryBackground({
+      write: () => {},
+      stdin: terminal.stdin,
+      stdout: { isTTY: true },
+      env: { TERM: 'xterm-256color' },
+      timeout: 10,
+      ci: false,
+      test: false,
+    })
+
+    await expect(answer).resolves.toBe('unknown')
+    expect(terminal.calls.raw).toEqual([true])
   })
 
   it('asks once, however many times it is called', async () => {

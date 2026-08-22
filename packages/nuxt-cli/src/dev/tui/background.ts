@@ -49,6 +49,15 @@ export interface QueryBackgroundOptions {
 }
 
 let pending: Promise<TerminalBackground> | undefined
+let release: (() => void) | undefined
+
+/**
+ * Give stdin back to a caller that needs it now, without waiting for a terminal
+ * that may still be thinking. Returns once stdin is as the query found it.
+ */
+export function stopBackgroundQuery(): void {
+  release?.()
+}
 
 /**
  * Ask the terminal what colour its background is, and remember the answer.
@@ -76,26 +85,13 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
   }
 
   const stdin = options.stdin ?? process.stdin
-  const wasRaw = !!stdin.isRaw
-  const wasPaused = stdin.isPaused()
   let buffer = ''
-
   try {
-    stdin.setRawMode?.(true)
-    stdin.resume()
     buffer = await listen(stdin, options.timeout ?? REPLY_TIMEOUT_MS, () => options.write(QUERY))
   }
   catch (error) {
     debug('Could not ask the terminal for its background:', error)
     return 'unknown'
-  }
-  finally {
-    if (!wasRaw) {
-      stdin.setRawMode?.(false)
-    }
-    if (wasPaused) {
-      stdin.pause()
-    }
   }
 
   const reply = REPLY_RE.exec(buffer)
@@ -118,11 +114,21 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
   return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
 }
 
-/** Resolve with everything read, once the reply arrives or the wait is over. */
+/**
+ * Hold stdin in raw mode until the reply arrives or the wait is over, and give
+ * it back exactly as it was found.
+ *
+ * Reading a reply means owning stdin, which whoever reads keys also needs. The
+ * handover is {@link stopBackgroundQuery}, and it has to be synchronous: a
+ * caller that asks for stdin back goes on to claim it in the same tick.
+ */
 function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string> {
   return new Promise<string>((resolve) => {
+    const wasRaw = !!stdin.isRaw
+    const wasPaused = stdin.isPaused()
     let buffer = ''
     let timer: NodeJS.Timeout
+    let listening = true
     const onData = (chunk: Buffer) => {
       // Latin-1 keeps every byte addressable: a reply is ASCII, and anything
       // else here is a keystroke that has to survive being put back.
@@ -132,12 +138,26 @@ function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string>
       }
     }
     function finish(): void {
+      if (!listening) {
+        return
+      }
+      listening = false
+      release = undefined
       clearTimeout(timer)
       stdin.off('data', onData)
+      if (!wasRaw) {
+        stdin.setRawMode?.(false)
+      }
+      if (wasPaused) {
+        stdin.pause()
+      }
       resolve(buffer)
     }
+    release = finish
     timer = setTimeout(finish, timeout)
     timer.unref?.()
+    stdin.setRawMode?.(true)
+    stdin.resume()
     stdin.on('data', onData)
     ask()
   })
