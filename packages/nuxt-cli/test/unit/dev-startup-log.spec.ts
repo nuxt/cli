@@ -35,7 +35,14 @@ describe('startup reporter', () => {
 
   afterEach(() => {
     reporters.splice(0).forEach(reporter => reporter.stop())
+    vi.restoreAllMocks()
   })
+
+  /** The transient line renders elapsed time from the wall clock, which would otherwise tick between the update and the assertion. */
+  function freezeClock(): void {
+    const now = Date.now()
+    vi.spyOn(Date, 'now').mockReturnValue(now)
+  }
 
   function reporter(animated: boolean): StartupReporter {
     const instance = createStartupReporter({ animated })
@@ -44,6 +51,7 @@ describe('startup reporter', () => {
   }
 
   it('should keep the progress line in place while loading', async () => {
+    freezeClock()
     const renderer = await render(() => {
       const startup = reporter(true)
       startup.update(snapshot())
@@ -149,6 +157,7 @@ describe('startup reporter', () => {
   }
 
   it('should keep the progress line in place under the dev console wrapper', async () => {
+    freezeClock()
     const renderer = await render(async () => {
       const restore = wrapStdoutAsConsolaDoes()
       try {
