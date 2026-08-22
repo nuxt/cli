@@ -31,20 +31,24 @@ function capture(run: () => void, { hyperlinks }: { hyperlinks: boolean }): stri
 }
 
 describe('update nudge', () => {
+  // A visible URL beside the version would satisfy a bare `toContain`, so the
+  // escape that makes the version itself clickable is what is asserted.
+  const hyperlink = (url: string, label: string) => `\u001B]8;;${url}\u0007${label}\u001B]8;;\u0007`
+
   it('links the new version to its release notes', () => {
     const output = capture(() => renderUpdateNudge({ current: '4.5.1', latest: '4.6.0' }), { hyperlinks: true })
-    expect(output).toContain('https://github.com/nuxt/nuxt/releases/tag/v4.6.0')
-    expect(output).toContain('4.6.0')
+    expect(output).toContain(hyperlink('https://github.com/nuxt/nuxt/releases/tag/v4.6.0', '\u001B[32m4.6.0\u001B[39m'))
   })
 
   it('links the CLI\'s own releases when nudging about itself', () => {
     const output = capture(() => renderSelfUpdateNudge({ current: '3.0.0', latest: '3.1.0' }), { hyperlinks: true })
-    expect(output).toContain('https://github.com/nuxt/cli/releases/tag/v3.1.0')
+    expect(output).toContain(hyperlink('https://github.com/nuxt/cli/releases/tag/v3.1.0', '\u001B[32m3.1.0\u001B[39m'))
   })
 
   it('prints a plain version where hyperlinks are unsupported', () => {
     const output = capture(() => renderUpdateNudge({ current: '4.5.1', latest: '4.6.0' }), { hyperlinks: false })
     expect(output).not.toContain('https://github.com')
+    expect(output).not.toContain('\u001B]8;;')
     expect(output).toContain('4.6.0')
   })
 })

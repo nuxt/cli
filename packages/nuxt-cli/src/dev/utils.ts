@@ -50,7 +50,8 @@ function resolveRequestContextPlugin(): string | undefined {
   try {
     return fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
   }
-  catch {
+  catch (error) {
+    debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
     return undefined
   }
 }
@@ -591,9 +592,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         ...requestContextPlugin
           ? {
               hooks: {
+                ...this.options.overrides.hooks,
                 'nitro:config': (nitro) => {
                   nitro.plugins ||= []
                   nitro.plugins.push(requestContextPlugin)
+                  return this.options.overrides.hooks?.['nitro:config']?.(nitro)
                 },
               } satisfies NuxtConfig['hooks'],
             }

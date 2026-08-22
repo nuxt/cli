@@ -156,9 +156,15 @@ export class PanelSurface {
       return
     }
     this.#capture = undefined
+    const held = this.#held
     this.#held = undefined
     clearTimeout(this.#repaintTimer)
     this.#erase()
+    // Whatever a view was holding is the session's last word on what happened.
+    for (const chunk of held ?? []) {
+      this.#observe(chunk)
+      this.#raw(chunk)
+    }
     if (options.keep && this.#lines.length) {
       this.#raw(`${this.#lines.join('\n')}\n`)
     }

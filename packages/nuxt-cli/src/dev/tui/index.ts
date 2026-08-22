@@ -243,6 +243,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       }
       await context.restart()
     }
+    catch (error) {
+      // A restart that throws must not take the session with it: both call
+      // sites dispatch it from a keypress, where nothing is awaiting.
+      showNotice(`could not restart: ${error instanceof Error ? error.message : error}`, 'warn')
+    }
     finally {
       update({ status: 'ready' })
     }

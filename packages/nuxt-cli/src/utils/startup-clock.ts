@@ -5,7 +5,8 @@
  * than how long a question sat on screen.
  */
 
-let excludedMs = 0
+/** Closed pauses, as `[start, end]`. Only a handful happen in a session. */
+const pauses: Array<[number, number]> = []
 let pausedAt: number | undefined
 let depth = 0
 
@@ -17,7 +18,7 @@ function pauseStartupClock(): void {
 
 function resumeStartupClock(): void {
   if (depth > 0 && --depth === 0 && pausedAt !== undefined) {
-    excludedMs += Date.now() - pausedAt
+    pauses.push([pausedAt, Date.now()])
     pausedAt = undefined
   }
 }
@@ -33,8 +34,16 @@ export async function withStartupClockPaused<T>(work: () => Promise<T>): Promise
   }
 }
 
-/** Milliseconds since `since`, not counting paused stretches. */
+/**
+ * Milliseconds since `since`, not counting paused stretches.
+ *
+ * Only the part of a pause that falls after `since` is subtracted, so a
+ * baseline taken after a prompt is not charged for the time it took to answer.
+ */
 export function startupElapsedMs(since: number): number {
-  const open = pausedAt === undefined ? 0 : Date.now() - pausedAt
-  return Math.max(0, Date.now() - since - excludedMs - open)
+  const now = Date.now()
+  const open = pausedAt === undefined ? [] : [[pausedAt, now] as [number, number]]
+  const excluded = [...pauses, ...open]
+    .reduce((total, [start, end]) => total + Math.max(0, Math.min(end, now) - Math.max(start, since)), 0)
+  return Math.max(0, now - since - excluded)
 }

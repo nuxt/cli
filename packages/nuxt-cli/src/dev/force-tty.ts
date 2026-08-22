@@ -18,7 +18,7 @@ if (process.env.__NUXT_DEV_PIPED_TTY__) {
       get: () => Number(process.env.__NUXT_DEV_COLUMNS__) || 80,
       configurable: true,
     })
-    const depth = Number(process.env.__NUXT_DEV_COLOR_DEPTH__) || (process.env.FORCE_COLOR ? 8 : 1)
+    const depth = Number(process.env.__NUXT_DEV_COLOR_DEPTH__) || forcedColorDepth()
     Object.defineProperty(stream, 'getColorDepth', { value: () => depth, configurable: true })
     Object.defineProperty(stream, 'hasColors', {
       value: (count?: number) => depth >= 4 && (typeof count !== 'number' || count <= 2 ** depth),
@@ -36,5 +36,24 @@ if (process.env.__NUXT_DEV_PIPED_TTY__) {
         })
       }
     }
+  }
+}
+
+/** The depth `FORCE_COLOR` asks for, read the way Node reads it. */
+function forcedColorDepth(): number {
+  const forced = process.env.FORCE_COLOR?.trim().toLowerCase()
+  switch (forced) {
+    case undefined:
+    case '':
+    case '0':
+    case 'false':
+      return 1
+    case '1':
+    case 'true':
+      return 4
+    case '3':
+      return 24
+    default:
+      return 8
   }
 }

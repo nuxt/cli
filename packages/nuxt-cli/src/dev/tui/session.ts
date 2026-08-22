@@ -27,6 +27,11 @@ const SHOW_CURSOR = '\u001B[?25h'
 /** Long enough for a forwarded log to be paired with its printed output. */
 const ERROR_SURFACE_DELAY_MS = 60
 
+/** An error as it belongs in scrollback: as printed, or as reported. */
+function renderErrorLine(event: DevLogEvent): string {
+  return event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`
+}
+
 export interface DevUISession {
   surface: PanelSurface
   events: DevEventLog
@@ -221,8 +226,9 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     event.surfaced = true
     lastSurfacedError = text
-    const timer = setTimeout(() => {
-      surfaceText(event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`)
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      pendingErrors.delete(timer)
+      surfaceText(renderErrorLine(event))
     }, ERROR_SURFACE_DELAY_MS)
     timer.unref?.()
     pendingErrors.set(timer, event)
@@ -268,7 +274,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     surface.setCapture()
     surface.writeRaw(SHOW_CURSOR)
     for (const [, event] of unsurfaced) {
-      surface.writeRaw(`${event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`}\n`)
+      surface.writeRaw(`${renderErrorLine(event)}\n`)
     }
     surface.close({ keep: teardownOptions.keep })
     consola.removeReporter(reporter)

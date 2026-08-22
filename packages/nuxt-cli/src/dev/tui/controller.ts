@@ -1,17 +1,21 @@
+import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
-import type { DevRoutes } from '../utils'
+import type { DevRequestEvent, DevRoutes } from '../utils'
 import type { DevUIOptions } from './index'
 import type { DevStatus } from './panel'
 import type { DevUISession } from './session'
+
+/** A {@link ServerLogEvent} from a source that may not know where it came from. */
+type ForwardedLog = Omit<ServerLogEvent, 'origin'> & { origin?: ServerLogEvent['origin'] }
 
 export interface DevUIController {
   /** Whether the interactive UI is active (rather than the plain fallback). */
   interactive: boolean
   setStatus: (status: DevStatus, note?: string) => void
   /** Record a structured log event forwarded from the dev server fork. */
-  pushServerLog: (log: { level: number, logType: string, tag?: string, message: string, origin?: 'build' | 'runtime', request?: string, requestId?: number }) => void
+  pushServerLog: (log: ForwardedLog) => void
   /** Record a batch of served requests for the traffic ticker. */
-  pushRequests: (requests: Array<{ id?: number, method: string, url: string, status: number, duration: number, internal?: boolean }>) => void
+  pushRequests: (requests: DevRequestEvent[]) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
 }

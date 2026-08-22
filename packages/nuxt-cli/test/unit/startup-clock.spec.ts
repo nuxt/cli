@@ -51,6 +51,26 @@ describe('startup clock', () => {
     expect(clock.startupElapsedMs(start)).toBe(250)
   })
 
+  it('should not charge a baseline taken after the pause', async () => {
+    await clock.withStartupClockPaused(async () => {
+      vi.advanceTimersByTime(5000)
+    })
+    const start = Date.now()
+    vi.advanceTimersByTime(300)
+    expect(clock.startupElapsedMs(start)).toBe(300)
+  })
+
+  it('should subtract only the part of a pause that follows the baseline', async () => {
+    let start = 0
+    await clock.withStartupClockPaused(async () => {
+      vi.advanceTimersByTime(1000)
+      start = Date.now()
+      vi.advanceTimersByTime(1000)
+    })
+    vi.advanceTimersByTime(200)
+    expect(clock.startupElapsedMs(start)).toBe(200)
+  })
+
   it('should resume after the paused work throws', async () => {
     const start = Date.now()
     await expect(clock.withStartupClockPaused(async () => {

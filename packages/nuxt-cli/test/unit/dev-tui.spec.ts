@@ -20,6 +20,7 @@ import { RequestLog } from '../../src/dev/tui/requests'
 import { RouteOverlay } from '../../src/dev/tui/route-overlay'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
+import { truncate } from '../../src/dev/tui/width'
 import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
 import { terminalLink } from '../../src/utils/terminal-link'
@@ -747,6 +748,13 @@ describe('log overlay', () => {
     expect(selected.join('\n')).not.toContain('afterwards')
   })
 
+  it('closes a hyperlink cut in half, so the rest of the line is not linked', () => {
+    const linked = `\u001B]8;;file:///project/app/pages/index.vue\u0007app/pages/index.vue\u001B]8;;\u0007`
+    const cut = truncate(`  page  /  ${linked}`, 20)
+    expect(strip(cut)).toHaveLength(20)
+    expect(cut.endsWith('\u001B]8;;\u0007')).toBe(true)
+  })
+
   it('truncates by visible width and carries styling across the cut', () => {
     const styled = event({ message: `\u001B[32m➜\u001B[39m DevTools: press Shift + A in your browser to enable the DevTools`, level: 2 })
     const timeWidth = new Date(0).toLocaleTimeString().length
@@ -1420,6 +1428,31 @@ describe('route overlay', () => {
     expect(lastFrame()).toContain('GET')
   })
 
+  // The smallest terminal the UI runs in, less the gutter every row reserves.
+  it('keeps a row inside a narrow terminal instead of wrapping it', () => {
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true })
+    const { overlay, lastFrame } = create()
+    try {
+      overlay.setRoutes({ routes: [
+        { kind: 'server', route: '/api/deeply/nested/resource/with/a/long/path', file: '/project/server/api/deeply/nested/resource/with/a/long/path.ts' },
+      ] })
+      overlay.open()
+      for (const line of strip(lastFrame()).split('\n')) {
+        expect(line.length).toBeLessThanOrEqual(40)
+      }
+    }
+    finally {
+      overlay.handleKey({ name: 'q' })
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
   it('sorts routes by path and filters by kind', () => {
     const { overlay, lastFrame } = create()
     overlay.setRoutes({ routes })
@@ -1585,6 +1618,19 @@ describe('panel surface', () => {
     expect(screen(renderer)).not.toContain('updated footer')
   })
 
+  it('flushes held output rather than dropping it when it closes', async () => {
+    const renderer = await render(async () => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.hold()
+      process.stdout.write('a warning nobody would see\n')
+      await new Promise(resolve => setTimeout(resolve, 20))
+      surface.close()
+    })
+
+    expect(screen(renderer)).toContain('a warning nobody would see')
+  })
+
   it('holds output while an overlay is open and flushes on release', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
@@ -1673,7 +1719,7 @@ describe('dev ui teardown', () => {
 
   const signals = ['exit', 'SIGINT', 'SIGTERM', 'SIGHUP', 'uncaughtException'] as const
 
-  function withTerminal(run: (context: Session) => void): void {
+  async function withTerminal(run: (context: Session) => void | Promise<void>): Promise<void> {
     const chunks: string[] = []
     let raw = false
     const stdoutKeys = ['isTTY', 'columns', 'rows'] as const
@@ -1700,7 +1746,7 @@ describe('dev ui teardown', () => {
 
     const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
     try {
-      run({
+      await run({
         session,
         written: () => chunks.join(''),
         isRaw: () => raw,
@@ -1721,8 +1767,8 @@ describe('dev ui teardown', () => {
     }
   }
 
-  it('surfaces errors still waiting on their delay when it tears down', () => {
-    withTerminal(({ session, written }) => {
+  it('surfaces errors still waiting on their delay when it tears down', async () => {
+    await withTerminal(({ session, written }) => {
       session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
       const before = written().length
       session.teardown()
@@ -1730,15 +1776,25 @@ describe('dev ui teardown', () => {
     })
   })
 
-  it('takes the terminal before anything has been loaded', () => {
-    withTerminal(({ written }) => {
+  it('surfaces an error once, not again on the way out', async () => {
+    await withTerminal(async ({ session, written }) => {
+      session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
+      await vi.waitFor(() => expect(written()).toContain('the server could not start'))
+      const before = written().length
+      session.teardown()
+      expect(written().slice(before)).not.toContain('the server could not start')
+    })
+  })
+
+  it('takes the terminal before anything has been loaded', async () => {
+    await withTerminal(({ written }) => {
       expect(strip(written())).toContain('Nuxt 4.5.2')
       expect(strip(written())).toContain('STARTING')
     })
   })
 
-  it('should leave the panel up when a restart handler will keep the process alive', () => {
-    withTerminal(({ session, written, isRaw }) => {
+  it('should leave the panel up when a restart handler will keep the process alive', async () => {
+    await withTerminal(({ session, written, isRaw }) => {
       const detach = attachKeys(() => {})
       session.onTeardown(detach)
       const restartHandler = Object.assign(() => {}, { [KEEPS_PROCESS_ALIVE]: true })
@@ -1756,8 +1812,8 @@ describe('dev ui teardown', () => {
     })
   })
 
-  it.each(signals)('gives the terminal back on %s', (signal) => {
-    withTerminal(({ session, written, isRaw }) => {
+  it.each(signals)('gives the terminal back on %s', async (signal) => {
+    await withTerminal(({ session, written, isRaw }) => {
       const detach = attachKeys(() => {})
       session.onTeardown(detach)
       expect(isRaw()).toBe(true)
@@ -1774,8 +1830,8 @@ describe('dev ui teardown', () => {
     })
   })
 
-  it('leaves the alternate buffer when an overlay is open as it exits', () => {
-    withTerminal(({ session, written }) => {
+  it('leaves the alternate buffer when an overlay is open as it exits', async () => {
+    await withTerminal(({ session, written }) => {
       const overlay = new LogOverlay(session.events, chunk => session.surface.writeRaw(chunk), () => {})
       session.onTeardown(() => overlay.close())
       overlay.open()
@@ -1789,24 +1845,24 @@ describe('dev ui teardown', () => {
     })
   })
 
-  it('removes its signal handlers so nothing is left listening', () => {
-    withTerminal(({ session, listeners }) => {
+  it('removes its signal handlers so nothing is left listening', async () => {
+    await withTerminal(({ session, listeners }) => {
       const held = listeners()
       session.teardown()
       expect(listeners()).toBe(held - signals.length)
     })
   })
 
-  it('is safe to tear down more than once', () => {
-    withTerminal(({ session }) => {
+  it('is safe to tear down more than once', async () => {
+    await withTerminal(({ session }) => {
       session.teardown()
       expect(() => session.teardown()).not.toThrow()
       expect(() => session.teardown({ keep: true })).not.toThrow()
     })
   })
 
-  it('stops intercepting output once it is gone', () => {
-    withTerminal(({ session, written }) => {
+  it('stops intercepting output once it is gone', async () => {
+    await withTerminal(({ session, written }) => {
       session.teardown()
       const before = written().length
       process.stdout.write('after teardown\n')
@@ -1814,8 +1870,8 @@ describe('dev ui teardown', () => {
     })
   })
 
-  it('re-renders on resize rather than reusing lines laid out for the old width', () => {
-    withTerminal(({ written }) => {
+  it('re-renders on resize rather than reusing lines laid out for the old width', async () => {
+    await withTerminal(({ written }) => {
       const before = written().length
       Object.defineProperty(process.stdout, 'columns', { value: 60, configurable: true })
       process.stdout.emit('resize')

@@ -69,7 +69,9 @@ export class ForkPool {
       process.stdout.on('resize', () => {
         for (const fork of this.pool) {
           if (fork.state !== 'dead' && fork.process.connected) {
-            fork.process.send({ type: 'nuxt:internal:dev:resize', columns: process.stdout.columns || 80 } satisfies NuxtParentIPCMessage)
+            // A fork can die between the check and the send, and this runs from
+            // a `resize` event where a throw would end the session.
+            fork.process.send({ type: 'nuxt:internal:dev:resize', columns: process.stdout.columns || 80 } satisfies NuxtParentIPCMessage, () => {})
           }
         }
       })

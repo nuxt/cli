@@ -9,6 +9,7 @@ import { styleText } from 'node:util'
 import { link } from 'clickable-path'
 
 import { formatHints, ScreenOverlay } from './screen'
+import { truncate } from './width'
 
 type RouteFilter = 'all' | 'page' | 'server'
 
@@ -116,9 +117,11 @@ export class RouteOverlay extends ScreenOverlay {
       : styleText('magenta', (route.method?.toUpperCase() ?? 'all').padEnd(6))
     const path = route.route.padEnd(width)
     const file = route.file ? relative(this.#cwd, route.file) : ''
+    // The tail of a path identifies it; the head is the part every row shares.
     const room = columns - width - 10
-    const label = file.length > room ? `…${file.slice(-room + 1)}` : file
-    return `  ${kind} ${path} ${styleText('dim', route.file ? link(route.file, { cwd: this.#cwd, formatter: () => label }) : label)}`
+    const label = room < 8 ? '' : file.length > room ? `…${file.slice(1 - room)}` : file
+    const target = label && route.file ? link(route.file, { cwd: this.#cwd, formatter: () => label }) : label
+    return truncate(`  ${kind} ${path} ${styleText('dim', target)}`, columns)
   }
 
   #matching(): DevRoute[] {
