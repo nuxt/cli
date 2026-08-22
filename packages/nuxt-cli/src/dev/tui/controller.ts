@@ -1,0 +1,53 @@
+import type { ShortcutContext } from '../shortcuts'
+import type { DevRoutes } from '../utils'
+import type { DevUIOptions } from './index'
+import type { DevStatus } from './panel'
+import type { DevUISession } from './session'
+
+export interface DevUIController {
+  /** Whether the interactive UI is active (rather than the plain fallback). */
+  interactive: boolean
+  setStatus: (status: DevStatus, note?: string) => void
+  /** Record a structured log event forwarded from the dev server fork. */
+  pushServerLog: (log: { level: number, logType: string, tag?: string, message: string, origin?: 'build' | 'runtime', request?: string, requestId?: number }) => void
+  /** Record a batch of served requests for the traffic ticker. */
+  pushRequests: (requests: Array<{ id?: number, method: string, url: string, status: number, duration: number, internal?: boolean }>) => void
+  /** Replace the routes shown in the route view. */
+  setRoutes: (routes: DevRoutes) => void
+}
+
+/** What the plain fallback answers to everything the UI would have shown. */
+export const NOOP_CONTROLLER: DevUIController = {
+  interactive: false,
+  setStatus: () => {},
+  pushServerLog: () => {},
+  pushRequests: () => {},
+  setRoutes: () => {},
+}
+
+/**
+ * Take the terminal, if this one can host the UI.
+ *
+ * Nothing behind this module is loaded until a panel is actually going to be
+ * painted: `nuxt dev --help` never gets that far, and a plain session has no
+ * use for the panel, the views, the update check or the version lookup.
+ */
+export async function beginDevUI(options: DevUIOptions = {}): Promise<DevUISession | undefined> {
+  const { resolveDevUISupport } = await import('./support')
+  if (options.enabled === false || !resolveDevUISupport(options).enabled) {
+    return undefined
+  }
+  const { beginDevUI } = await import('./session')
+  return beginDevUI(options)
+}
+
+/** The interactive controller, or the line-based shortcuts and a no-op. */
+export async function setupDevUI(context: ShortcutContext, options: DevUIOptions = {}): Promise<DevUIController> {
+  if (options.enabled === false) {
+    const { setupShortcuts } = await import('../shortcuts')
+    setupShortcuts(context)
+    return NOOP_CONTROLLER
+  }
+  const { setupDevUI } = await import('./index')
+  return setupDevUI(context, options)
+}

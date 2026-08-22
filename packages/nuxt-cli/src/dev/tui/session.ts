@@ -1,3 +1,5 @@
+import type { ListenURL } from '../listen'
+import type { DevProgressSnapshot } from '../progress'
 import type { DevLogEvent } from './events'
 import type { PanelState } from './panel'
 import type { DevUISupportOptions } from './support'
@@ -9,12 +11,13 @@ import { consola } from 'consola'
 
 import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
+import { getPkgVersion } from '../../utils/pkg'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { DevEventLog, normaliseMessage } from './events'
 import { LOGO_FRAME_MS } from './logo'
-import { DEFAULT_HINTS, renderPanel } from './panel'
+import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
 import { resolveDevUISupport, supportsUnicode } from './support'
 import { PanelSurface } from './surface'
 import { stripAnsi } from './width'
@@ -40,6 +43,13 @@ export interface DevUISession {
   expectRender: (event: DevLogEvent) => void
   /** Stop the session's own startup animation, once the controller drives it. */
   stopStartupTicker: () => void
+  /** Narrate the current startup phase while the server is loading. */
+  reportProgress: (snapshot: DevProgressSnapshot) => void
+  /**
+   * Show the bound address the moment the socket answers, spinning until the
+   * resolved config confirms it. The full URL block replaces it on ready.
+   */
+  reportListening: (info: { urls: ListenURL[], confirmed: boolean }) => void
   /** Give the terminal back. Idempotent; extended by the controller. */
   teardown: (options?: { keep?: boolean }) => void
   /** Additional work to run inside {@link teardown}, in reverse order. */
@@ -55,7 +65,7 @@ let current: DevUISession | undefined
  * place and capturing before the dev server is initialised or the calm default
  * view would begin with a screen of build output.
  */
-export function beginDevUI(options: DevUISupportOptions & { version?: string, startTime?: number } = {}): DevUISession | undefined {
+export function beginDevUI(options: DevUISupportOptions & { version?: string, cwd?: string, startTime?: number } = {}): DevUISession | undefined {
   const support = resolveDevUISupport(options)
   if (current || !support.enabled) {
     if (!current) {
@@ -64,9 +74,10 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, st
     return current
   }
 
+  const cwd = options.cwd || process.cwd()
   const state: PanelState = {
     status: 'starting',
-    version: options.version,
+    version: options.version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || undefined,
     warnings: 0,
     errors: 0,
     ascii: !supportsUnicode(),
@@ -109,6 +120,28 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, st
 
   function render(): void {
     surface.render(renderPanel(state, process.stdout.columns || 80, process.stdout.rows || 24))
+  }
+
+  function reportProgress(snapshot: DevProgressSnapshot): void {
+    if (snapshot.status !== 'loading') {
+      return
+    }
+    Object.assign(state, {
+      status: snapshot.reload ? 'building' : 'starting',
+      note: snapshot.message,
+      loadStartedAt: Date.now() - snapshot.elapsed,
+      elapsedMs: snapshot.elapsed,
+      progress: snapshot.progress,
+    } satisfies Partial<PanelState>)
+    render()
+  }
+
+  function reportListening(info: { urls: ListenURL[], confirmed: boolean }): void {
+    if (state.readyMs !== undefined) {
+      return
+    }
+    state.urls = describeListenURLs(info.urls, { pending: !info.confirmed })
+    render()
   }
 
   function surfaceText(text: string): void {
@@ -253,6 +286,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, st
     surfaceText,
     expectRender,
     stopStartupTicker,
+    reportProgress,
+    reportListening,
     teardown,
     onTeardown: task => void teardownTasks.push(task),
   }

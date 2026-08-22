@@ -1,5 +1,5 @@
 import type { ShortcutContext } from '../shortcuts'
-import type { DevRoutes } from '../utils'
+import type { DevUIController } from './controller'
 import type { InfoSection } from './info-overlay'
 import type { Key } from './keys'
 import type { DevStatus, PanelState, PanelURL } from './panel'
@@ -16,31 +16,20 @@ import { terminalLink } from '../../utils/terminal-link'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
 import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
+import { NOOP_CONTROLLER } from './controller'
 import { HelpOverlay } from './help-overlay'
 import { InfoOverlay } from './info-overlay'
 import { attachKeys } from './keys'
 import { LOGO_FRAME_MS } from './logo'
 import { LogOverlay } from './overlay'
+import { describeListenURLs, URL_LABELS, URL_STYLES } from './panel'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
 import { beginDevUI } from './session'
 
-export interface DevUIController {
-  /** Whether the interactive UI is active (rather than the plain fallback). */
-  interactive: boolean
-  setStatus: (status: DevStatus, note?: string) => void
-  /** Record a structured log event forwarded from the dev server fork. */
-  pushServerLog: (log: { level: number, logType: string, tag?: string, message: string, origin?: 'build' | 'runtime', request?: string, requestId?: number }) => void
-  /** Record a batch of served requests for the traffic ticker. */
-  pushRequests: (requests: Array<{ id?: number, method: string, url: string, status: number, duration: number, internal?: boolean }>) => void
-  /** Replace the routes shown in the route view. */
-  setRoutes: (routes: DevRoutes) => void
-}
-
 export { beginDevUI } from './session'
-
-const NOOP_CONTROLLER: DevUIController = { interactive: false, setStatus: () => {}, pushServerLog: () => {}, pushRequests: () => {}, setRoutes: () => {} }
+export type { DevUIController }
 
 /** How often the traffic ticker may repaint, so bursts cannot strobe the panel. */
 const TICKER_REPAINT_MS = 250
@@ -50,10 +39,6 @@ const ACTIVITY_MS = 700
 
 /** How long passing feedback stays on the panel before it is dropped. */
 const NOTICE_MS = 4000
-
-const URL_STYLES = { local: 'cyan', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
-
-const URL_LABELS = { local: 'Local', network: 'Network', tunnel: 'Tunnel', public: 'Public' } as const
 
 interface UIShortcut {
   keys: string[]
@@ -97,7 +82,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   session.stopStartupTicker()
   const { surface, events, state, surfaceText, render } = session
   const requests = new RequestLog()
-  Object.assign(state, { version: options.version, versionLink: options.version ? linkVersion(options.version) : undefined })
+  const version = options.version ?? state.version
+  Object.assign(state, { version, versionLink: version ? linkVersion(version) : undefined })
 
   const write = (chunk: string) => surface.writeRaw(chunk)
   const release = () => surface.release()
@@ -229,7 +215,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     })
   })
 
-  void resolveUpdate(options.version).then((latest) => {
+  void resolveUpdate(version).then((latest) => {
     if (!latest) {
       return
     }
@@ -433,17 +419,6 @@ async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'i
   catch {
     notify('no clipboard available', 'warn')
   }
-}
-
-/** Listener URLs as panel entries, shared with the pre-ready pending block. */
-export function describeListenURLs(urls: Array<{ type: keyof typeof URL_LABELS, url: string }>, options: { pending?: boolean } = {}): PanelURL[] {
-  return urls.map(({ type, url }) => ({
-    label: URL_LABELS[type] ?? type,
-    url,
-    link: terminalLink(url, url),
-    style: URL_STYLES[type],
-    pending: options.pending,
-  }))
 }
 
 /** The URL block, in the order a user is most likely to want them. */

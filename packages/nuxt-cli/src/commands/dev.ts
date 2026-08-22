@@ -1,11 +1,9 @@
 import type { ParsedArgs } from 'citty'
 import type { HTTPSOptions } from '../dev/cert'
-import type { DevListenOverrides, ListenURL } from '../dev/listen'
+import type { DevListenOverrides } from '../dev/listen'
 import type { ActiveFork } from '../dev/pool'
-import type { DevProgressSnapshot } from '../dev/progress'
 import type { DevRestartReason } from '../dev/reason'
-import type { DevUIController } from '../dev/tui'
-import type { DevUISession } from '../dev/tui/session'
+import type { DevUIController } from '../dev/tui/controller'
 import type { NuxtDevContext } from '../dev/utils'
 
 import process from 'node:process'
@@ -23,15 +21,12 @@ import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
-import { beginDevUI, describeListenURLs, setupDevUI } from '../dev/tui'
+import { beginDevUI, setupDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
-import { clearDevCaches } from '../utils/nuxt'
 import { resolveRootDir } from '../utils/paths'
-import { getPkgVersion } from '../utils/pkg'
-import { withSpinner } from '../utils/spinner'
 import { startupElapsedMs } from '../utils/startup-clock'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
@@ -211,12 +206,15 @@ const command = defineCommand({
       await openInspector(inspect)
     }
 
-    const clearCaches = () => clearDevCaches(cwd, buildDir)
+    const clearCaches = async () => {
+      const { clearDevCaches } = await import('../utils/nuxt')
+      return clearDevCaches(cwd, buildDir)
+    }
 
     // Nuxt, Nitro and Vite all print while they load, so the panel takes the
     // terminal before any of them get the chance.
-    const uiOptions = { flag: ctx.args.tui, inspect: !!inspect, version: getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || undefined, cwd, startTime }
-    const session = beginDevUI(uiOptions)
+    const uiOptions = { flag: ctx.args.tui, inspect: !!inspect, cwd, startTime }
+    const session = await beginDevUI(uiOptions)
     const ui = !!session
     if (ui) {
       // The panel carries the URL block and the banner itself.
@@ -228,8 +226,8 @@ const command = defineCommand({
       listenOverrides,
       showBanner: !ui,
       captureUIEvents: ui,
-      onProgress: session && (snapshot => reportProgress(session, snapshot)),
-      onListening: session && (info => reportListening(session, info)),
+      onProgress: session && (snapshot => session.reportProgress(snapshot)),
+      onListening: session && (info => session.reportListening(info)),
     })
 
     /** Feed the dev UI from the server running in this process. */
@@ -245,7 +243,7 @@ const command = defineCommand({
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || profiling) {
-      attachDevUI(setupDevUI({ listener, close, onReady, clearCaches, restart: () => reload({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
+      attachDevUI(await setupDevUI({ listener, close, onReady, clearCaches, restart: () => reload({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
       setupSignalHandlers(close)
       return {
         listener,
@@ -273,7 +271,7 @@ const command = defineCommand({
       pool.startWarming()
     })
 
-    const devUI = attachDevUI(setupDevUI({ listener, close: () => closeAll(), onReady, clearCaches, restart: () => restart({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
+    const devUI = attachDevUI(await setupDevUI({ listener, close: () => closeAll(), onReady, clearCaches, restart: () => restart({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -452,7 +450,7 @@ function setupSignalHandlers(close: () => Promise<void>): void {
 
       // Closing can take a while (nitro plugins draining connections, forks
       // exiting), so it says so rather than appearing to hang.
-      void withSpinner('Cleaning up', async (indicator) => {
+      void shutdownWithSpinner(async (indicator) => {
         const notice = setTimeout(() => {
           indicator.update('Cleaning up... press Ctrl-C again to exit immediately')
         }, SHUTDOWN_NOTICE_MS)
@@ -468,11 +466,17 @@ function setupSignalHandlers(close: () => Promise<void>): void {
           clearTimeout(notice)
           clearTimeout(deadline)
         }
-      }, { done: 'Stopped the dev server' }).finally(() => {
+      }).finally(() => {
         process.exit()
       })
     })
   }
+}
+
+/** `withSpinner`, loaded on the way out rather than on every `nuxt dev`. */
+async function shutdownWithSpinner(work: (indicator: { update: (message: string) => void }) => Promise<void>): Promise<void> {
+  const { withSpinner } = await import('../utils/spinner')
+  return withSpinner('Cleaning up', work, { done: 'Stopped the dev server' })
 }
 
 function resolveForkPoolSize(): number | undefined {
@@ -497,38 +501,6 @@ export function parsePositiveInteger(value: string | undefined): number | undefi
     return undefined
   }
   return parsed
-}
-
-/**
- * Narrate the live startup phase on the panel while the server is loading.
- *
- * Subscribed before the first load starts, so the panel can narrate startup as
- * it happens rather than sitting on one state until ready.
- */
-function reportProgress(session: DevUISession, snapshot: DevProgressSnapshot): void {
-  if (snapshot.status !== 'loading') {
-    return
-  }
-  Object.assign(session.state, {
-    status: snapshot.reload ? 'building' : 'starting',
-    note: snapshot.message,
-    loadStartedAt: Date.now() - snapshot.elapsed,
-    elapsedMs: snapshot.elapsed,
-    progress: snapshot.progress,
-  })
-  session.render()
-}
-
-/**
- * Show the bound address the moment the socket answers, spinning until the
- * resolved config confirms it. The full URL block replaces it on ready.
- */
-function reportListening(session: DevUISession, info: { urls: ListenURL[], confirmed: boolean }): void {
-  if (session.state.readyMs !== undefined) {
-    return
-  }
-  session.state.urls = describeListenURLs(info.urls, { pending: !info.confirmed })
-  session.render()
 }
 
 export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {

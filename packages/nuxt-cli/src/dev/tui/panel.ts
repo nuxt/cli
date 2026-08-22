@@ -2,6 +2,7 @@ import type { TerminalBackground } from '../../utils/terminal-theme'
 
 import { styleText } from 'node:util'
 
+import { terminalLink } from '../../utils/terminal-link'
 import { renderLogo } from './logo'
 import { stripAnsi, truncate, visibleWidth } from './width'
 
@@ -15,6 +16,21 @@ export interface PanelURL {
   style?: Parameters<typeof styleText>[0]
   /** Bound but not yet confirmed against the resolved config. */
   pending?: boolean
+}
+
+export const URL_STYLES = { local: 'cyan', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
+
+export const URL_LABELS = { local: 'Local', network: 'Network', tunnel: 'Tunnel', public: 'Public' } as const
+
+/** Listener URLs as panel entries, shared with the pre-ready pending block. */
+export function describeListenURLs(urls: Array<{ type: keyof typeof URL_LABELS, url: string }>, options: { pending?: boolean } = {}): PanelURL[] {
+  return urls.map(({ type, url }) => ({
+    label: URL_LABELS[type] ?? type,
+    url,
+    link: terminalLink(url, url),
+    style: URL_STYLES[type],
+    pending: options.pending,
+  }))
 }
 
 export interface PanelHint {

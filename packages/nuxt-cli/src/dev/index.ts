@@ -20,7 +20,6 @@ import { isRemotePeerError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
-import { openDevLogChannel } from './log-channel'
 import { currentRequest, isServingRequest } from './serving-state'
 import { createStartupReporter } from './startup-log'
 import { NuxtDevServer } from './utils'
@@ -297,6 +296,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   let closeLogChannel: (() => void) | undefined
   if (captureUIEvents) {
+    const { openDevLogChannel } = await import('./log-channel')
     closeLogChannel = openDevLogChannel((log) => {
       if (ipc.enabled) {
         ipc.send({ type: 'nuxt:internal:dev:log', ...log })

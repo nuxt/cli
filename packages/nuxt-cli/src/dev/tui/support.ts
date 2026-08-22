@@ -91,8 +91,8 @@ export function resolveDevUISupport(options: DevUISupportOptions = {}): DevUISup
 }
 
 /** Whether this terminal can be trusted with the box-drawing and braille glyphs. */
-export function supportsUnicode(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (process.platform !== 'win32') {
+export function supportsUnicode(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform !== 'win32') {
     const locale = env.LC_ALL || env.LC_CTYPE || env.LANG
     // An unset locale is the norm in containers, where UTF-8 still works; one
     // naming a different charset is taken at its word.

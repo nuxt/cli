@@ -13,7 +13,6 @@ import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-import { performance } from 'node:perf_hooks'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
