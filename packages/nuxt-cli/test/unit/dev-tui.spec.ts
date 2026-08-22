@@ -274,11 +274,17 @@ describe('dev tui support', () => {
   })
 
   it('takes an explicit single-byte locale at its word', () => {
-    expect(supportsUnicode({ LANG: 'C' })).toBe(false)
-    expect(supportsUnicode({ LC_ALL: 'POSIX' })).toBe(false)
-    expect(supportsUnicode({ LANG: 'C.UTF-8' })).toBe(true)
-    expect(supportsUnicode({ LANG: 'en_GB.UTF-8' })).toBe(true)
-    expect(supportsUnicode({})).toBe(true)
+    expect(supportsUnicode({ LANG: 'C' }, 'linux')).toBe(false)
+    expect(supportsUnicode({ LC_ALL: 'POSIX' }, 'linux')).toBe(false)
+    expect(supportsUnicode({ LANG: 'C.UTF-8' }, 'linux')).toBe(true)
+    expect(supportsUnicode({ LANG: 'en_GB.UTF-8' }, 'linux')).toBe(true)
+    expect(supportsUnicode({}, 'linux')).toBe(true)
+  })
+
+  it('trusts only a modern terminal host on windows', () => {
+    expect(supportsUnicode({ LANG: 'en_GB.UTF-8' }, 'win32')).toBe(false)
+    expect(supportsUnicode({ WT_SESSION: '1' }, 'win32')).toBe(true)
+    expect(supportsUnicode({ TERM_PROGRAM: 'vscode' }, 'win32')).toBe(true)
   })
 })
 
@@ -1357,7 +1363,8 @@ describe('route overlay', () => {
     const overlay = new RouteOverlay((chunk) => {
       output += chunk
     }, () => {}, '/project')
-    return { overlay, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '') }
+    // Files render relative to the project with the platform's own separator.
+    return { overlay, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '').replaceAll('\\', '/') }
   }
 
   const routes: DevRoute[] = [
