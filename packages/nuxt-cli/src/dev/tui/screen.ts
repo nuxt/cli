@@ -40,6 +40,7 @@ export abstract class ScreenOverlay {
   #offset = 0
   #renderTimer?: NodeJS.Timeout
   #unsubscribe?: () => void
+  #onResize = () => this.#scheduleRender()
   #query = ''
   #searching = false
   #selected?: number
@@ -94,6 +95,7 @@ export abstract class ScreenOverlay {
     this.#selected = undefined
     this.#write(ENTER_ALT)
     this.#unsubscribe = this.#subscribe(() => this.#scheduleRender())
+    process.stdout.on('resize', this.#onResize)
     this.render()
   }
 
@@ -103,6 +105,7 @@ export abstract class ScreenOverlay {
     }
     this.#open = false
     clearTimeout(this.#renderTimer)
+    process.stdout.off('resize', this.#onResize)
     this.#unsubscribe?.()
     this.#write(LEAVE_ALT)
     this.#onClose()

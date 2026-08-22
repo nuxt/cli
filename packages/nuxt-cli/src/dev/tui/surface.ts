@@ -28,10 +28,17 @@ export class PanelSurface {
   #held?: Array<string | Uint8Array>
   #rowsWritten = 0
   #capture?: (chunk: string) => void
+  #rows = process.stdout.rows || 24
   #onResize = () => {
+    const rows = process.stdout.rows || 24
+    const grew = rows > this.#rows
+    this.#rows = rows
     // The owner re-renders; the cached lines were laid out for the old width.
     this.#erase()
     this.#resized?.()
+    if (grew) {
+      this.padToBottom()
+    }
   }
 
   #resized?: () => void
@@ -67,7 +74,7 @@ export class PanelSurface {
    * not push a whole screen of history out of view.
    */
   padToBottom(): void {
-    if (this.#closed) {
+    if (this.#closed || this.#held) {
       return
     }
     this.#erase()

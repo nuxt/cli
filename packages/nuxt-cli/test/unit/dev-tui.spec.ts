@@ -781,6 +781,37 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
+  it('reflows to the terminal when it is resized while open', async () => {
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
+    const { overlay, lastFrame } = create()
+    try {
+      overlay.open()
+      expect(strip(lastFrame()).split('\n')[1]).toHaveLength(100)
+      Object.defineProperty(process.stdout, 'columns', { value: 60, configurable: true })
+      process.stdout.emit('resize')
+      await vi.waitFor(() => expect(strip(lastFrame()).split('\n')[1]).toHaveLength(60))
+    }
+    finally {
+      overlay.handleKey({ name: 'q' })
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
+  it('stops listening for resizes once it is closed', () => {
+    const before = process.stdout.listenerCount('resize')
+    const { overlay } = create()
+    overlay.open()
+    expect(process.stdout.listenerCount('resize')).toBe(before + 1)
+    overlay.handleKey({ name: 'q' })
+    expect(process.stdout.listenerCount('resize')).toBe(before)
+  })
+
   it('clears the history from the view', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'old news' }))
@@ -1203,7 +1234,7 @@ describe('request overlay', () => {
     expect(lastFrame()).not.toContain('/@id/')
     expect(lastFrame()).toContain('1 bundler hidden')
 
-    overlay.handleKey({ name: 'v' })
+    overlay.handleKey({ name: 'b' })
     expect(lastFrame()).toContain('/@id/')
   })
 
@@ -1513,6 +1544,32 @@ describe('panel surface', () => {
     })
 
     expect(resized).toBe(1)
+  })
+
+  it('re-seats the panel at the bottom when the window grows', () => {
+    withStubbedTerminal(10, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = written().length
+      Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
+      process.stdout.emit('resize')
+      surface.close()
+      expect(written().slice(before)).toContain('\n'.repeat(10))
+    })
+  })
+
+  it('does not pad a shrinking window, which would push history away', () => {
+    withStubbedTerminal(20, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = written().length
+      Object.defineProperty(process.stdout, 'rows', { value: 10, configurable: true })
+      process.stdout.emit('resize')
+      surface.close()
+      expect(written().slice(before)).not.toContain('\n\n')
+    })
   })
 
   it('does not paint the footer while held', async () => {

@@ -93,7 +93,7 @@ export class RequestOverlay extends ScreenOverlay {
         return this.#setFilter('errors')
       case 's':
         return this.#setFilter('slow')
-      case 'v':
+      case 'b':
         this.#showInternal = !this.#showInternal
         this.resetScroll()
         return true
@@ -147,7 +147,7 @@ export class RequestOverlay extends ScreenOverlay {
       ['e', 'errors'],
       ['s', `slow >${SLOW_MS}ms`],
       ['a', 'all'],
-      ['v', 'bundler'],
+      ['b', 'bundler'],
       ['/', 'search'],
       ['y', 'copy'],
       ['q', 'close'],
