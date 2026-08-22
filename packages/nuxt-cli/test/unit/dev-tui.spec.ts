@@ -24,7 +24,7 @@ import { truncate } from '../../src/dev/tui/width'
 import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
 import { terminalLink } from '../../src/utils/terminal-link'
-import { paintBrand, resolveBackground } from '../../src/utils/terminal-theme'
+import { paint, resolveBackground } from '../../src/utils/terminal-theme'
 import { releaseNotesUrl } from '../../src/utils/update-check'
 import { render, screen } from '../utils/terminal'
 
@@ -379,6 +379,24 @@ describe('dev tui logo', () => {
     })
   })
 
+  it('takes the nearest cube colours on a 256-colour terminal', () => {
+    const depth = Object.getOwnPropertyDescriptor(process.stdout, 'getColorDepth')
+    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => 8, configurable: true })
+    try {
+      const mark = renderLogo({ background: 'light' })
+      expect(mark).toContain('\u001B[38;5;29m')
+      expect(mark).not.toContain('38;2')
+    }
+    finally {
+      if (depth) {
+        Object.defineProperty(process.stdout, 'getColorDepth', depth)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'getColorDepth')
+      }
+    }
+  })
+
   it.each(['dark', 'light'] as const)('dims towards the %s background rather than always towards black', (background) => {
     withTruecolor(() => {
       const cells = rgbOf(renderLogo({ working: true, frame: 0, background }))
@@ -423,7 +441,7 @@ describe('terminal background', () => {
   })
 })
 
-describe('brand colour', () => {
+describe('exact colours', () => {
   const withTerminal = (depth: number, run: () => void) => {
     const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
     const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
@@ -445,34 +463,56 @@ describe('brand colour', () => {
     }
   }
 
-  it('uses the exact green only where the background is known', () => {
+  it('uses the exact colour only where the background is known', () => {
     withTerminal(24, () => {
-      expect(paintBrand('Nuxt', 'dark')).toContain('\u001B[38;2;0;220;130m')
-      expect(paintBrand('Nuxt', 'light')).toContain('\u001B[38;2;0;145;92m')
-      expect(paintBrand('Nuxt', 'unknown')).not.toContain('38;2')
+      expect(paint('brand', 'Nuxt', 'dark')).toContain('\u001B[38;2;0;220;130m')
+      expect(paint('brand', 'Nuxt', 'light')).toContain('\u001B[38;2;0;145;92m')
+      expect(paint('brand', 'Nuxt', 'unknown')).not.toContain('38;2')
     })
   })
 
-  it('falls back to the terminal palette without truecolour', () => {
+  it('darkens the warning amber on a light terminal, where yellow cannot be read', () => {
+    withTerminal(24, () => {
+      expect(paint('warning', '1 warning', 'dark')).toContain('\u001B[38;2;255;200;87m')
+      expect(paint('warning', '1 warning', 'light')).toContain('\u001B[38;2;138;90;0m')
+    })
+  })
+
+  it('takes the nearest colour a 256-colour terminal can hold', () => {
+    withTerminal(8, () => {
+      // The cube entries closest to `#00DC82`, `#00915C`, `#FFC857` and `#8A5A00`.
+      expect(paint('brand', 'Nuxt', 'dark')).toContain('\u001B[38;5;42m')
+      expect(paint('brand', 'Nuxt', 'light')).toContain('\u001B[38;5;29m')
+      expect(paint('warning', '!', 'dark')).toContain('\u001B[38;5;221m')
+      expect(paint('warning', '!', 'light')).toContain('\u001B[38;5;94m')
+    })
+  })
+
+  it('leaves the palette to the terminal below 256 colours', () => {
     withTerminal(4, () => {
-      expect(paintBrand('Nuxt', 'dark')).not.toContain('38;2')
-      expect(strip(paintBrand('Nuxt', 'dark'))).toBe('Nuxt')
+      expect(paint('brand', 'Nuxt', 'dark')).not.toContain('38;')
+      expect(strip(paint('brand', 'Nuxt', 'dark'))).toBe('Nuxt')
     })
   })
 
   it('hands the colour back so nothing after it is tinted', () => {
-    withTerminal(24, () => {
-      for (const background of ['dark', 'light', 'unknown'] as const) {
-        // eslint-disable-next-line no-control-regex
-        expect(paintBrand('Nuxt', background)).toMatch(/\u001B\[(?:39|0)m$/)
-      }
-    })
+    for (const depth of [24, 8]) {
+      withTerminal(depth, () => {
+        for (const background of ['dark', 'light', 'unknown'] as const) {
+          for (const tone of ['brand', 'warning'] as const) {
+            // eslint-disable-next-line no-control-regex
+            expect(paint(tone, 'Nuxt', background)).toMatch(/\u001B\[(?:39|0)m$/)
+          }
+        }
+      })
+    }
   })
 
   it('emits no escapes at all when there is no colour', () => {
     withTerminal(1, () => {
-      expect(paintBrand('Nuxt', 'dark')).toBe('Nuxt')
-      expect(paintBrand('Nuxt', 'unknown')).toBe('Nuxt')
+      expect(paint('brand', 'Nuxt', 'dark')).toBe('Nuxt')
+      expect(paint('warning', 'Nuxt', 'light')).toBe('Nuxt')
+      expect(paint('brand', 'Nuxt', 'unknown')).toBe('Nuxt')
     })
   })
 

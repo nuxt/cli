@@ -10,8 +10,10 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
+import { MUTED, paint } from '../../utils/terminal-theme'
+
 import { formatEvent, formatTime } from './overlay'
-import { statusColour } from './panel'
+import { paintStatus } from './panel'
 import { formatHints, ScreenOverlay } from './screen'
 
 type TrafficFilter = 'all' | 'errors' | 'slow'
@@ -105,15 +107,15 @@ export class RequestOverlay extends ScreenOverlay {
   protected renderTitle(): string {
     if (this.#detail) {
       const request = this.#detail
-      const status = styleText(statusColour(request.status), String(request.status))
+      const status = paintStatus(request.status)
       return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${request.duration}ms${this.renderSearch()}`
     }
     const shown = this.#matching().length
     const label = this.#filter === 'all' ? 'all' : this.#filter
     const median = this.#requests.medianDuration()
-    const summary = styleText('dim', `${this.#requests.total} total · median ${median}ms`)
+    const summary = styleText(MUTED, `${this.#requests.total} total · median ${median}ms`)
     const hiddenInternal = this.#showInternal ? 0 : this.#requests.recent(SCAN_LIMIT, request => !!request.internal).length
-    const bundler = hiddenInternal ? ` · ${styleText('dim', `${hiddenInternal} bundler hidden`)}` : ''
+    const bundler = hiddenInternal ? ` · ${styleText(MUTED, `${hiddenInternal} bundler hidden`)}` : ''
     return ` ${styleText('bold', 'traffic')} · ${label} (${shown}) · ${summary}${bundler}${this.renderPosition()}${this.renderSearch()}`
   }
 
@@ -123,7 +125,7 @@ export class RequestOverlay extends ScreenOverlay {
     }
     const matching = this.#matching()
     if (!matching.length) {
-      return [{ lines: [styleText('dim', this.#requests.total ? 'no requests match this filter' : 'waiting for requests…')] }]
+      return [{ lines: [styleText(MUTED, this.#requests.total ? 'no requests match this filter' : 'waiting for requests…')] }]
     }
     const errors = this.#errorCounts()
     return matching.map(request => ({
@@ -162,12 +164,12 @@ export class RequestOverlay extends ScreenOverlay {
         lines: [this.#format(request, columns, 0)],
         copy: `${request.method} ${request.url} ${request.status} ${request.duration}ms`,
       },
-      ...file ? [{ lines: [`${' '.repeat(12)}${styleText('dim', 'served by ')}${link(file, { cwd: this.#cwd })}`], copy: file }] : [],
+      ...file ? [{ lines: [`${' '.repeat(12)}${styleText(MUTED, 'served by ')}${link(file, { cwd: this.#cwd })}`], copy: file }] : [],
       { lines: [''] },
     ]
     const events = this.#traceEvents(request)
     if (!events.length) {
-      return [...summary, { lines: [styleText('dim', request.id === undefined ? 'this request predates log attribution' : 'no logs were captured for this request')] }]
+      return [...summary, { lines: [styleText(MUTED, request.id === undefined ? 'this request predates log attribution' : 'no logs were captured for this request')] }]
     }
     const timeWidth = Math.max(0, ...events.map(event => formatTime(event.time).length))
     return [...summary, ...events.map(event => ({
@@ -232,13 +234,13 @@ function formatDuration(duration: number): string {
   if (duration >= VERY_SLOW_MS) {
     return styleText('red', text)
   }
-  return duration >= SLOW_MS ? styleText('yellow', text) : styleText('dim', text)
+  return duration >= SLOW_MS ? paint('warning', text) : styleText(MUTED, text)
 }
 
 function formatRequest(request: DevRequest, columns: number, target?: { file: string, cwd: string }, errors = 0): string {
-  const time = styleText('dim', formatTime(request.time).padStart(11))
+  const time = styleText(MUTED, formatTime(request.time).padStart(11))
   const method = styleText('bold', request.method.padEnd(6))
-  const status = styleText(statusColour(request.status), String(request.status).padEnd(4))
+  const status = paintStatus(request.status, String(request.status).padEnd(4))
   const duration = formatDuration(request.duration)
   const marker = errors ? ` ${styleText(['red', 'bold'], `✗ ${errors}`)}` : ''
   // The four fixed columns above, plus the spaces between them and the marker.

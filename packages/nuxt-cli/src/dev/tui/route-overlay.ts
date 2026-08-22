@@ -8,6 +8,8 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
+import { MUTED } from '../../utils/terminal-theme'
+
 import { formatHints, ScreenOverlay } from './screen'
 import { truncate } from './width'
 
@@ -82,7 +84,7 @@ export class RouteOverlay extends ScreenOverlay {
   protected renderTitle(): string {
     const pages = this.#routes.filter(route => route.kind === 'page').length
     const server = this.#routes.length - pages
-    const counts = styleText('dim', `${pages} pages · ${server} server`)
+    const counts = styleText(MUTED, `${pages} pages · ${server} server`)
     const label = this.#filter === 'all' ? 'all' : `${this.#filter} only`
     return ` ${styleText('bold', 'routes')} · ${label} · ${counts}${this.renderPosition()}${this.renderSearch()}`
   }
@@ -90,7 +92,7 @@ export class RouteOverlay extends ScreenOverlay {
   protected renderEntries(columns: number): OverlayEntry[] {
     const matching = this.#matching()
     if (!matching.length) {
-      return [{ lines: [styleText('dim', this.#routes.length ? 'no routes match this filter' : 'waiting for routes…')] }]
+      return [{ lines: [styleText(MUTED, this.#routes.length ? 'no routes match this filter' : 'waiting for routes…')] }]
     }
     const width = Math.min(50, Math.max(...matching.map(route => route.route.length)) + 2)
     return matching.map(route => ({
@@ -121,7 +123,7 @@ export class RouteOverlay extends ScreenOverlay {
     const room = columns - width - 10
     const label = room < 8 ? '' : file.length > room ? `…${file.slice(1 - room)}` : file
     const target = label && route.file ? link(route.file, { cwd: this.#cwd, formatter: () => label }) : label
-    return truncate(`  ${kind} ${path} ${styleText('dim', target)}`, columns)
+    return truncate(`  ${kind} ${path} ${styleText(MUTED, target)}`, columns)
   }
 
   #matching(): DevRoute[] {

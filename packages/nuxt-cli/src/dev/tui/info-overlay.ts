@@ -2,6 +2,8 @@ import type { OverlayEntry } from './screen'
 
 import { styleText } from 'node:util'
 
+import { MUTED } from '../../utils/terminal-theme'
+
 import { formatHints, ScreenOverlay } from './screen'
 import { stripAnsi, visibleWidth } from './width'
 
@@ -61,7 +63,7 @@ export class InfoOverlay extends ScreenOverlay {
       `  ${styleText(['bold', 'underline'], heading)}`,
       ...entries
         .filter(([, value]) => !!value)
-        .map(([label, value, style]) => `  ${styleText('dim', label.padEnd(width))}  ${style ? styleText(style, value!) : colorize(value!)}`),
+        .map(([label, value, style]) => `  ${styleText(MUTED, label.padEnd(width))}  ${style ? styleText(style, value!) : colorize(value!)}`),
     ])
 
     return withSidePanel(rows, this.#panel(), columns).map(line => ({

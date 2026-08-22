@@ -15,6 +15,7 @@ import { getPkgVersion } from '../../utils/pkg'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
+import { queryBackground } from './background'
 import { DevEventLog, normaliseMessage } from './events'
 import { LOGO_FRAME_MS } from './logo'
 import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
@@ -96,6 +97,16 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
 
   const events = new DevEventLog()
   const surface = new PanelSurface({ onResize: () => render() })
+
+  // Nothing waits on the answer: the mark is painted in colours that are safe
+  // on either background and repainted in the exact ones if a reply arrives.
+  void queryBackground({ write: chunk => surface.writeRaw(chunk) }).then((background) => {
+    if (background === 'unknown' || background === state.background) {
+      return
+    }
+    state.background = background
+    render()
+  })
 
   let awaiting: DevLogEvent | undefined
   let buffered = ''

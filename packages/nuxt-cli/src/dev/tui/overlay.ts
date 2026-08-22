@@ -5,6 +5,8 @@ import type { OverlayEntry } from './screen'
 
 import { styleText } from 'node:util'
 
+import { MUTED, paint } from '../../utils/terminal-theme'
+
 import { formatHints, ScreenOverlay } from './screen'
 import { truncate } from './width'
 
@@ -72,11 +74,11 @@ export class LogOverlay extends ScreenOverlay {
 
   protected renderTitle(): string {
     const sources = (['cli', 'build', 'runtime'] as const)
-      .map(source => this.#sources[source] ? styleText('bold', source) : styleText(['dim', 'strikethrough'], source))
-      .join(styleText('dim', '+'))
+      .map(source => this.#sources[source] ? styleText('bold', source) : styleText([MUTED, 'strikethrough'], source))
+      .join(styleText(MUTED, '+'))
     const level = this.#level === 'all' ? 'all levels' : `${this.#level}+ only`
     const hidden = this.#events.recent(SCAN_LIMIT).length - this.#matching().length
-    const hiddenNote = hidden > 0 ? ` · ${styleText('dim', `${hidden} hidden`)}` : ''
+    const hiddenNote = hidden > 0 ? ` · ${styleText(MUTED, `${hidden} hidden`)}` : ''
     return ` ${styleText('bold', 'logs')} · ${sources} · ${level}${hiddenNote}${this.renderPosition()}${this.renderSearch()}`
   }
 
@@ -152,11 +154,11 @@ export function formatTime(time: number): string {
  */
 export function formatEvent(event: DevLogEvent, columns: number, timeWidth: number, sameRequest = false): string[] {
   const messageColumn = timeWidth + 1
-  const time = styleText('dim', formatTime(event.time).padStart(timeWidth))
-  const tag = event.tag ? styleText('dim', `[${event.tag}] `) : ''
+  const time = styleText(MUTED, formatTime(event.time).padStart(timeWidth))
+  const tag = event.tag ? styleText(MUTED, `[${event.tag}] `) : ''
   const indent = ' '.repeat(messageColumn)
 
-  const marker = event.repeats && event.repeats > 1 ? styleText('dim', ` ×${event.repeats}`) : ''
+  const marker = event.repeats && event.repeats > 1 ? styleText(MUTED, ` ×${event.repeats}`) : ''
   const markerWidth = event.repeats && event.repeats > 1 ? ` ×${event.repeats}`.length : 0
 
   const lines = event.message
@@ -185,5 +187,5 @@ function colorBySeverity(line: string, event: DevLogEvent): string {
   if (event.level <= 0) {
     return styleText('red', line)
   }
-  return event.level <= 1 ? styleText('yellow', line) : line
+  return event.level <= 1 ? paint('warning', line) : line
 }

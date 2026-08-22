@@ -3,7 +3,7 @@ import type { Rgb, TerminalBackground } from '../../utils/terminal-theme'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
-import { BRAND_GREEN, resolveBackground } from '../../utils/terminal-theme'
+import { BRAND_GREEN, colour, resolveBackground } from '../../utils/terminal-theme'
 
 /** The mark, as four independently coloured cells. */
 const PIXELS = ['⣠', '⣦', '⣠', '⡀'] as const
@@ -56,16 +56,20 @@ function paint(glyph: string, tone: 'brand' | 'traffic', lit: boolean, backgroun
     return glyph
   }
 
-  const named = tone === 'traffic' ? 'magenta' : 'green'
-  // Without a known background there is no safe exact colour to pick, and
-  // without truecolour no way to render one, so the terminal's palette decides.
-  if (background === 'unknown' || (process.stdout.getColorDepth?.() ?? 1) < 24) {
-    return styleText(lit ? named : [named, 'dim'], glyph)
+  const depth = process.stdout.getColorDepth?.() ?? 1
+  // Without a known background there is no safe exact colour to pick, so the
+  // terminal's own palette decides.
+  if (background === 'unknown' || depth < 8) {
+    return styleText(lit ? named(tone) : [named(tone), 'dim'], glyph)
   }
 
-  const colour = tone === 'traffic' ? MAGENTA : BRAND_GREEN[known]
-  const [r, g, b] = lit ? colour : blend(colour, BACKDROP[known], DIM)
-  return `\u001B[38;2;${r};${g};${b}m${glyph}\u001B[39m`
+  const exact = tone === 'traffic' ? MAGENTA : BRAND_GREEN[known]
+  const shade = lit ? exact : blend(exact, BACKDROP[known], DIM)
+  return `${colour(shade, depth)}${glyph}\u001B[39m`
+}
+
+function named(tone: 'brand' | 'traffic'): 'magenta' | 'green' {
+  return tone === 'traffic' ? 'magenta' : 'green'
 }
 
 /** Fade `colour` towards `backdrop`, which is what dimming means on either background. */

@@ -9,10 +9,12 @@ import type { PanelSurface } from './surface'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
+
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { terminalLink } from '../../utils/terminal-link'
+import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
 import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
@@ -240,7 +242,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       if (options.clearCache) {
         const cleared = await context.clearCaches?.()
         if (cleared?.length) {
-          surfaceText(`${styleText('green', 'cleared')} ${styleText('dim', cleared.join(', '))}`)
+          surfaceText(`${styleText('green', 'cleared')} ${styleText(MUTED, cleared.join(', '))}`)
         }
       }
       await context.restart()
@@ -455,7 +457,7 @@ function describeSession(
       heading: 'versions',
       entries: [
         ['Nuxt', update
-          ? `${linkVersion(versions.nuxt)} ${styleText('yellow', updateLink ?? `\u2192 ${update} available`)}`
+          ? `${linkVersion(versions.nuxt)} ${paint('warning', updateLink ?? `\u2192 ${update} available`)}`
           : linkVersion(versions.nuxt)],
         ['Nitro', versions.nitro],
         [versions.builder.name, versions.builder.version],

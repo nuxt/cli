@@ -2,6 +2,8 @@ import type { OverlayEntry } from './screen'
 
 import { styleText } from 'node:util'
 
+import { MUTED } from '../../utils/terminal-theme'
+
 import { formatHints, ScreenOverlay } from './screen'
 
 export interface HelpEntry {
@@ -32,7 +34,7 @@ export class HelpOverlay extends ScreenOverlay {
     const entries = this.#entries()
     const width = Math.max(...entries.map(entry => formatKeys(entry).length))
     return entries.map(entry => ({
-      lines: [`${styleText('bold', formatKeys(entry).padEnd(width))}   ${styleText('dim', entry.description)}`],
+      lines: [`${styleText('bold', formatKeys(entry).padEnd(width))}   ${styleText(MUTED, entry.description)}`],
     }))
   }
 

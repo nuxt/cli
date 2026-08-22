@@ -3,6 +3,8 @@ import type { Key } from './keys'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
+import { MUTED, paint } from '../../utils/terminal-theme'
+
 import { stripAnsi, truncate, visibleWidth } from './width'
 
 const RENDER_DELAY_MS = 50
@@ -178,7 +180,7 @@ export abstract class ScreenOverlay {
 
   /** The scroll position for a title line, or an empty string at the tail. */
   protected renderPosition(): string {
-    return this.#offset > 0 ? ` \u00B7 ${styleText('yellow', `scrolled \u2191${this.#offset}`)}` : ''
+    return this.#offset > 0 ? ` \u00B7 ${paint('warning', `scrolled \u2191${this.#offset}`)}` : ''
   }
 
   /** The active search text, lowercased. Empty when nothing is being searched. */
@@ -192,7 +194,7 @@ export abstract class ScreenOverlay {
       return ''
     }
     const caret = this.#searching ? styleText('inverse', ' ') : ''
-    return ` · ${styleText('dim', 'search')} ${styleText('bold', this.#query)}${caret}`
+    return ` · ${styleText(MUTED, 'search')} ${styleText('bold', this.#query)}${caret}`
   }
 
   #handleSearchKey(key: Key): void {
@@ -265,7 +267,7 @@ export abstract class ScreenOverlay {
 
     const frame = [
       truncate(this.renderTitle(columns), columns),
-      styleText('dim', '─'.repeat(Math.max(0, columns))),
+      styleText(MUTED, '─'.repeat(Math.max(0, columns))),
       ...visible,
       ...Array.from({ length: bodyRows - visible.length }).fill('') as string[],
       this.#hintLine(),
@@ -359,8 +361,8 @@ export abstract class ScreenOverlay {
 export function formatHints(hints: Array<[key: string, description: string]>, columns = Number.POSITIVE_INFINITY): string {
   const remaining = [...hints]
   const render = () => remaining
-    .map(([key, description]) => `${styleText('bold', key)} ${styleText('dim', description)}`)
-    .join(styleText('dim', ' · '))
+    .map(([key, description]) => `${styleText('bold', key)} ${styleText(MUTED, description)}`)
+    .join(styleText(MUTED, ' · '))
 
   while (remaining.length > 2 && visibleWidth(render()) > columns) {
     remaining.splice(remaining.length - 2, 1)

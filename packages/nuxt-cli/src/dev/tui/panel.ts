@@ -3,6 +3,7 @@ import type { TerminalBackground } from '../../utils/terminal-theme'
 import { styleText } from 'node:util'
 
 import { terminalLink } from '../../utils/terminal-link'
+import { MUTED, paint } from '../../utils/terminal-theme'
 import { renderLogo } from './logo'
 import { stripAnsi, truncate, visibleWidth } from './width'
 
@@ -113,7 +114,7 @@ const BADGES: Record<DevStatus, Badge> = {
   ready: { label: 'READY', style: ['bgGreen', 'black', 'bold'], note: 'watching for changes' },
 }
 
-const SEPARATOR = styleText('dim', ' \u00B7 ')
+const SEPARATOR = styleText(MUTED, ' \u00B7 ')
 
 /** Blocks are dropped from the least important until the panel fits. */
 const BLOCK_PRIORITY = ['hints', 'status', 'wordmark', 'urls', 'summary', 'space'] as const
@@ -173,12 +174,12 @@ function renderWordmark(state: PanelState, columns: number): string {
     ? styleText('green', '>')
     : renderLogo({ working: state.status !== 'ready' && state.status !== 'error', frame: state.frame, active: state.active, background: state.background })
   const version = state.versionLink ?? state.version
-  const head = ` ${mark}  ${styleText(['green', 'bold'], 'Nuxt')}${version ? ` ${styleText('dim', version)}` : ''}${
-    state.update ? styleText('yellow', `  ${state.updateLink ?? `\u2192 ${state.update}`}`) : ''}`
+  const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version ? ` ${styleText(MUTED, version)}` : ''}${
+    state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`) : ''}`
 
   const tail = state.readyMs === undefined
     ? ''
-    : styleText('dim', `ready in ${formatDuration(state.readyMs)} `)
+    : styleText(MUTED, `ready in ${formatDuration(state.readyMs)} `)
   const gap = columns - visibleWidth(head) - visibleWidth(tail)
   return gap < 2 ? truncate(head, columns) : head + ' '.repeat(gap) + tail
 }
@@ -194,10 +195,10 @@ function renderURLs(state: PanelState, columns: number): string[] {
   const width = Math.max(...urls.map(entry => entry.label.length))
   return urls.map(({ label, url, link, style, pending }) => {
     const spinner = pending
-      ? ` ${styleText('yellow', state.ascii ? '~' : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!)}`
+      ? ` ${paint('warning', state.ascii ? '~' : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!)}`
       : ''
     return truncate(
-      `   ${styleText('dim', label.padEnd(width))}   ${styleText(pending ? 'dim' : style ?? 'cyan', link ?? url)}${spinner}`,
+      `   ${styleText(MUTED, label.padEnd(width))}   ${styleText(pending ? MUTED : style ?? 'cyan', link ?? url)}${spinner}`,
       columns,
     )
   })
@@ -209,9 +210,9 @@ function renderProgress(state: PanelState, columns: number): string {
   const fraction = Math.min(1, Math.max(0, state.progress ?? 0))
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
   const glyph = state.ascii ? '=' : '\u2501'
-  const bar = styleText('green', glyph.repeat(filled)) + styleText('dim', glyph.repeat(PROGRESS_BAR_WIDTH - filled))
-  const elapsed = state.elapsedMs === undefined ? '' : `${SEPARATOR}${styleText('dim', `${(state.elapsedMs / 1000).toFixed(1)}s`)}`
-  return truncate(`   ${bar} ${styleText('dim', `${Math.round(fraction * 100)}%`)}${elapsed}`, columns)
+  const bar = styleText('green', glyph.repeat(filled)) + styleText(MUTED, glyph.repeat(PROGRESS_BAR_WIDTH - filled))
+  const elapsed = state.elapsedMs === undefined ? '' : `${SEPARATOR}${styleText(MUTED, `${(state.elapsedMs / 1000).toFixed(1)}s`)}`
+  return truncate(`   ${bar} ${styleText(MUTED, `${Math.round(fraction * 100)}%`)}${elapsed}`, columns)
 }
 
 function renderSummary(state: PanelState, columns: number): string[] {
@@ -228,10 +229,10 @@ function renderSummary(state: PanelState, columns: number): string[] {
     parts.push(styleText('green', `${marks.ok} ${state.requests} ${plural(state.requests, 'request')}`))
   }
   if (state.medianMs !== undefined && state.requests) {
-    parts.push(styleText('dim', `${state.medianMs}ms median`))
+    parts.push(styleText(MUTED, `${state.medianMs}ms median`))
   }
   if (state.warnings) {
-    parts.push(styleText('yellow', `${marks.warn} ${state.warnings} ${plural(state.warnings, 'warning')}`))
+    parts.push(paint('warning', `${marks.warn} ${state.warnings} ${plural(state.warnings, 'warning')}`))
   }
   if (state.errors) {
     parts.push(styleText(['red', 'bold'], `${marks.fail} ${state.errors} ${plural(state.errors, 'error')}`))
@@ -241,9 +242,9 @@ function renderSummary(state: PanelState, columns: number): string[] {
   }
   if (!parts.length) {
     // The line stays reserved so the first request cannot reflow the panel.
-    return [truncate(`   ${styleText('dim', 'waiting for requests')}`, columns)]
+    return [truncate(`   ${styleText(MUTED, 'waiting for requests')}`, columns)]
   }
-  return [truncate(`   ${parts.join(styleText('dim', '   '))}`, columns)]
+  return [truncate(`   ${parts.join(styleText(MUTED, '   '))}`, columns)]
 }
 
 /**
@@ -256,28 +257,28 @@ function decapitalise(text: string): string {
 }
 
 const NOTICE_TONES = {
-  info: { mark: { unicode: '\u2139', ascii: 'i' }, style: 'cyan' },
-  warn: { mark: { unicode: '\u26A0', ascii: '!' }, style: 'yellow' },
-  success: { mark: { unicode: '\u2714', ascii: '+' }, style: 'green' },
-} as const satisfies Record<string, { mark: { unicode: string, ascii: string }, style: Parameters<typeof styleText>[0] }>
+  info: { mark: { unicode: '\u2139', ascii: 'i' }, paint: (glyph: string) => styleText('cyan', glyph) },
+  warn: { mark: { unicode: '\u26A0', ascii: '!' }, paint: (glyph: string) => paint('warning', glyph) },
+  success: { mark: { unicode: '\u2714', ascii: '+' }, paint: (glyph: string) => styleText('green', glyph) },
+} as const satisfies Record<string, { mark: { unicode: string, ascii: string }, paint: (glyph: string) => string }>
 
 /** Passing feedback, in place of the badge's standing description. */
 function renderNotice(state: PanelState): string {
-  const { mark, style } = NOTICE_TONES[state.notice!.tone]
-  const glyph = state.ascii ? mark.ascii : mark.unicode
-  return `${styleText(style, glyph)} ${styleText('dim', decapitalise(state.notice!.text))}`
+  const tone = NOTICE_TONES[state.notice!.tone]
+  const glyph = state.ascii ? tone.mark.ascii : tone.mark.unicode
+  return `${tone.paint(glyph)} ${styleText(MUTED, decapitalise(state.notice!.text))}`
 }
 
 function renderStatus(state: PanelState, columns: number): string {
   if (state.confirmQuit) {
     return truncate(
-      ` ${styleText(['bgYellow', 'black', 'bold'], ' QUIT? ')}  ${styleText('dim', 'press')} ${styleText('bold', 'y')} ${styleText('dim', 'to confirm,')} ${styleText('bold', 'esc')} ${styleText('dim', 'to stay')}`,
+      ` ${styleText(['bgYellow', 'black', 'bold'], ' QUIT? ')}  ${styleText(MUTED, 'press')} ${styleText('bold', 'y')} ${styleText(MUTED, 'to confirm,')} ${styleText('bold', 'esc')} ${styleText(MUTED, 'to stay')}`,
       columns,
     )
   }
 
   const badge = BADGES[state.status]
-  const description = state.notice ? renderNotice(state) : styleText('dim', decapitalise(state.note || badge.note))
+  const description = state.notice ? renderNotice(state) : styleText(MUTED, decapitalise(state.note || badge.note))
   const head = ` ${styleText(badge.style, ` ${badge.label} `)}  ${description}`
   return truncate(head + renderTicker(state, columns - visibleWidth(head)), columns)
 }
@@ -293,7 +294,7 @@ function renderTicker(state: PanelState, room: number): string {
   }
 
   const head = `${SEPARATOR}${styleText('bold', request.method)} `
-  const tail = `${SEPARATOR}${styleText(statusColour(request.status), String(request.status))}${SEPARATOR}${styleText('dim', `${request.duration}ms`)}`
+  const tail = `${SEPARATOR}${paintStatus(request.status)}${SEPARATOR}${styleText(MUTED, `${request.duration}ms`)}`
   const available = room - visibleWidth(head) - visibleWidth(tail)
   if (available < 8) {
     return ''
@@ -317,7 +318,7 @@ function renderHints(state: PanelState, columns: number): string {
     ...state.hints ?? [],
   ]
   const render = (items: PanelHint[]) => ` ${items
-    .map(({ key, label }) => `${styleText(state.hintsDimmed ? 'dim' : 'bold', key)} ${styleText('dim', label)}`)
+    .map(({ key, label }) => `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
     .join(SEPARATOR)}`
 
   while (remaining.length > 1 && visibleWidth(render(remaining)) > columns) {
@@ -327,18 +328,12 @@ function renderHints(state: PanelState, columns: number): string {
   return truncate(render(remaining), columns)
 }
 
-/** Response status colour, shared by the ticker and the traffic view. */
-export function statusColour(status: number): Parameters<typeof styleText>[0] {
-  if (status >= 500) {
-    return 'red'
+/** A response status in its own colour, shared by the ticker and the traffic view. */
+export function paintStatus(status: number, text = String(status)): string {
+  if (status >= 400 && status < 500) {
+    return paint('warning', text)
   }
-  if (status >= 400) {
-    return 'yellow'
-  }
-  if (status >= 300) {
-    return 'cyan'
-  }
-  return 'green'
+  return styleText(status >= 500 ? 'red' : status >= 300 ? 'cyan' : 'green', text)
 }
 
 function plural(count: number, word: string): string {
