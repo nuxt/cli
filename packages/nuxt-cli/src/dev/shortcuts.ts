@@ -125,7 +125,7 @@ function availableShortcuts(context: ShortcutContext): Shortcut[] {
  */
 export function setupShortcuts(context: ShortcutContext): void {
   if (!process.stdin.isTTY || isCI || isTest) {
-    if (!isTest) {
+    if (!isCI && !isTest) {
       context.onReady(() => printRequestHint())
     }
     return

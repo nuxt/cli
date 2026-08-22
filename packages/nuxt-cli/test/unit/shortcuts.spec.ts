@@ -46,7 +46,7 @@ describe('setupShortcuts', () => {
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
     restores.push(() => Object.defineProperty(process, 'stdin', { value: original, configurable: true }))
 
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     const listener = {
       url: 'http://localhost:3000/',
@@ -66,6 +66,7 @@ describe('setupShortcuts', () => {
     return {
       context: resolved,
       listener,
+      log,
       stdin,
       press: async (input: string) => {
         stdin.write(`${input}\n`)
@@ -89,15 +90,22 @@ describe('setupShortcuts', () => {
   })
 
   it('should suggest `nuxt curl` when there is no TTY', () => {
-    setup({}, { isTTY: false })
+    const { log } = setup({}, { isTTY: false })
 
-    expect(vi.mocked(console.log).mock.calls.join('\n')).toContain('nuxt curl /api/hello')
+    expect(log.mock.calls.join('\n')).toContain('nuxt curl /api/hello')
+  })
+
+  it('should stay silent in CI', () => {
+    environment.isCI = true
+    const { log } = setup({}, { isTTY: false })
+
+    expect(log.mock.calls.join('\n')).not.toContain('nuxt curl')
   })
 
   it('should not suggest `nuxt curl` when shortcuts are available', () => {
-    setup()
+    const { log } = setup()
 
-    expect(vi.mocked(console.log).mock.calls.join('\n')).not.toContain('nuxt curl')
+    expect(log.mock.calls.join('\n')).not.toContain('nuxt curl')
   })
 
   it('should take stdin out of raw mode', async () => {
