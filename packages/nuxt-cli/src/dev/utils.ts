@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 import { styleText } from 'node:util'
 import defu from 'defu'
+import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
@@ -50,14 +51,28 @@ function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): v
   try {
     const source = fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
     const id = join(nitro.buildDir || join(cwd, '.nuxt'), 'dev-request-context.mjs')
+    // The build dir is not a package, so `consola` is pinned to the copy the app
+    // itself logs through; a bare specifier would not resolve from there.
+    const consola = resolveConsola(cwd)
     nitro.virtual ||= {}
-    nitro.virtual[id] = () => readFileSync(source, 'utf8')
+    nitro.virtual[id] = () => readFileSync(source, 'utf8').replace('\'consola\'', JSON.stringify(consola))
     nitro.plugins ||= []
     nitro.plugins.push(id)
   }
   catch (error) {
     debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
   }
+}
+
+/**
+ * The `consola` the app itself logs through, which is the one
+ * `@nuxt/nitro-server` wraps `console` with: its own, not the CLI's. Reporting
+ * from any other instance sees none of the app's logs.
+ */
+function resolveConsola(cwd: string): string {
+  const nuxt = resolveModulePath('nuxt', { from: cwd, try: true })
+  const from = [nuxt, cwd].filter(Boolean) as string[]
+  return resolveModulePath('consola', { from, try: true }) ?? fileURLToPath(import.meta.resolve('consola'))
 }
 
 type NitroConfigForHook = Parameters<NonNullable<NonNullable<NuxtConfig['hooks']>['nitro:config']>>[0]
