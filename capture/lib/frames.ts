@@ -1,4 +1,4 @@
-import type { Style } from 'ansivision'
+import type { Frame as RenderedFrame, Style } from 'ansivision'
 import type { Chunk } from './pty.ts'
 import type { Frame } from './svg.ts'
 import { createHash } from 'node:crypto'
@@ -28,9 +28,7 @@ function scrubbedQrArt(): string[] {
   return qrArt
 }
 
-function snapshot(stream: RenderStream, at: number, rows: number): Frame {
-  const renderer = stream.renderer
-  const frameObject = renderer.frameObjects.at(-1)
+function snapshot(frameObject: RenderedFrame | undefined, at: number, rows: number): Frame {
   const contents = frameObject?.contents ?? ''
   const lines = contents.split('\n')
   const visible = lines.length > rows ? lines.slice(lines.length - rows) : lines
@@ -44,10 +42,28 @@ export function buildFrames(chunks: Chunk[], options: FrameOptions): Frame[] {
 
   const stream = new RenderStream()
   const raw: Frame[] = []
-  for (const chunk of chunks) {
+  // Each read contributes the states the terminal drew while it was being
+  // written, then the buffer as it stands. Reading only the latter, as this
+  // used to, dropped every spinner phase that arrived in the same read as its
+  // replacement, so how much of a repaint the animation showed came down to
+  // pipe buffering. `ansivision` closes a frame whenever the terminal is about
+  // to destroy what it drew, which is where those states come from.
+  let taken = 0
+  for (const [index, chunk] of chunks.entries()) {
     stream.write(chunk.data)
-    const frame = snapshot(stream, chunk.at, options.rows)
-    raw.push(scrubFrame(frame, rules, redrawQr))
+    const rendered = stream.renderer.frameObjects
+    // The last entry is the live buffer, which later writes can still change.
+    const closed = rendered.slice(0, -1)
+    const fresh = closed.slice(taken)
+    taken = closed.length
+    // The states are known to fall inside the interval this read covers, but
+    // not where, so they are spread across it.
+    const until = chunks[index + 1]?.at ?? chunk.at
+    for (const [position, frameObject] of fresh.entries()) {
+      const at = chunk.at + (until - chunk.at) * (position / (fresh.length + 1))
+      raw.push(scrubFrame(snapshot(frameObject, at, options.rows), rules, redrawQr))
+    }
+    raw.push(scrubFrame(snapshot(rendered.at(-1), chunk.at, options.rows), rules, redrawQr))
   }
   if (raw.length === 0) {
     return [{ at: 0, lines: [], styles: [] }]
@@ -69,44 +85,29 @@ export function buildFrames(chunks: Chunk[], options: FrameOptions): Frame[] {
 }
 
 /**
- * Anything that can put the cursor back over what has been drawn: a carriage
- * return, or a CSI that moves the cursor or erases.
- *
- * Deliberately the whole class rather than the sequences a particular tool
- * happens to use. Every progress display repaints, but they disagree on how:
- * `@clack/prompts` homes the cursor and erases to the end of the screen
- * (`\u001B[1G\u001B[J`), `consola` returns and erases the line
- * (`\r\u001B[2K`), and the dev UI moves up before erasing. Matching one
- * spelling silently loses the states drawn by the others.
- */
-// eslint-disable-next-line no-control-regex
-const OVERDRAW_RE = /\r(?!\n)|\u001B\[[\d;]*[A-HJKf]/g
-
-/**
  * The capture's identity: every distinct line the session displayed, scrubbed,
  * sorted and deduplicated. Sorting makes it immune to log-ordering races. This
  * is what decides whether a committed SVG is stale; the SVG itself keeps the
  * real timings.
  *
- * Read from the joined transcript and sampled wherever the session is about to
- * draw over what it drew before, so the result cannot depend on how the
- * operating system split the output into reads. Sampling per read looked
- * equivalent and was not: a spinner repaints its line, so whether `Downloading
- * template` was ever recorded came down to whether a read boundary happened to
- * fall between the write and the repaint. Captures thrashed in and out of the
- * tree on that basis alone, which is what this guards against.
+ * Every state is read from `ansivision`, which closes a frame whenever the
+ * terminal is about to destroy what it drew, so the states a spinner passes
+ * through are all present and are a function of the bytes alone. Sampling the
+ * current buffer per read from the pty looked equivalent and was not: whether
+ * `Downloading template` was ever recorded came down to whether a read boundary
+ * happened to fall between the write and the repaint, so captures thrashed in
+ * and out of the tree on nothing but pipe buffering.
  */
 export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string {
   const rules = resolveRules(options.scrubRules)
   const stream = new RenderStream()
   const seen = new Set<string>()
   const styleSeen = new Set<string>()
-  // The whole buffer, not the visible window: whether a line scrolls past
-  // between two chunk boundaries depends on machine speed.
-  const collect = (): void => {
-    const frameObject = stream.renderer.frameObjects.at(-1)
-    const lines = (frameObject?.contents ?? '').split('\n')
-    const styles = frameObject?.styles ?? []
+  // The whole buffer, not the visible window: whether a line has scrolled out
+  // of view by the time a frame is closed depends on the terminal size.
+  const collect = (frameObject: RenderedFrame): void => {
+    const lines = frameObject.contents.split('\n')
+    const styles = frameObject.styles
     for (let row = 0; row < lines.length; row++) {
       const scrubbed = scrubLine(lines[row]!, styles[row] ?? [], rules)
       const [line, lineStyles] = trimStyledLine(scrubbed.line, scrubbed.styles)
@@ -117,17 +118,14 @@ export function buildFingerprint(chunks: Chunk[], options: FrameOptions): string
       }
     }
   }
-  // Each segment ends where the session is about to draw over what is on
-  // screen, so collecting between segments sees every state it displayed.
-  const transcript = chunks.map(chunk => chunk.data).join('')
-  let start = 0
-  for (const match of transcript.matchAll(OVERDRAW_RE)) {
-    stream.write(transcript.slice(start, match.index))
-    collect()
-    start = match.index
+  for (const chunk of chunks) {
+    stream.write(chunk.data)
   }
-  stream.write(transcript.slice(start))
-  collect()
+  // Every frame, not just the last: the earlier ones are the states that were
+  // drawn over, which is most of what a session shows.
+  for (const frame of stream.renderer.frameObjects) {
+    collect(frame)
+  }
   // The digest covers colors and text attributes, which the readable line
   // list above cannot: a style-only CLI change must still invalidate.
   const digest = createHash('sha256').update([...styleSeen].sort().join('\n')).digest('hex').slice(0, 16)

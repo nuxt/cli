@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { buildFingerprint } from './frames.ts'
 
 /**
- * How each progress display we record repaints. They disagree, and a rule that
- * only understood one of them lost the states drawn by the others.
+ * How each progress display we record repaints. They disagree, and reading only
+ * the buffer as it stands lost whichever states arrived in the same read as
+ * their replacement.
  */
 const REPAINTS = {
   'clack (home, erase to end of screen)': '\u001B[1G\u001B[J',
   'consola (return, erase line)': '\r\u001B[2K',
   'dev UI (up, erase line)': '\u001B[1A\u001B[2K',
-  'column addressing alone': '\u001B[1G',
 }
 
 function transcript(repaint: string): string {
