@@ -41,6 +41,7 @@ import { resolvePortlessURLs } from './portless'
 import { DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
+import { WarmupGate } from './warmup-gate'
 
 /**
  * Nitro plugin that attributes the app's logs to the request that caused them,
@@ -344,6 +345,20 @@ export function isBundlerRequest(url: string, fetchDest?: string): boolean {
   return fetchDest === 'script' || fetchDest === 'style' || BUNDLER_URL_RE.test(url)
 }
 
+/**
+ * Whether a request is one the app renders a page for, rather than the bundler
+ * fetching a module or a client asking for data.
+ */
+export function isDocumentRequest(req: IncomingMessage): boolean {
+  if ((req.method || 'GET') !== 'GET') {
+    return false
+  }
+  if (!String(req.headers.accept || '').includes('text/html')) {
+    return false
+  }
+  return !isBundlerRequest(req.url || '/', String(req.headers['sec-fetch-dest'] || '') || undefined)
+}
+
 interface DevServerEventMap {
   'loading:error': [error: Error]
   'loading': [loadingMessage: string]
@@ -378,6 +393,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #bound?: BoundServer
   #openedEagerly = false
   #progress = new DevProgress()
+  #warmup = new WarmupGate()
 
   loadDebounced: () => void
   handler: RequestListener
@@ -465,6 +481,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     res.once('close', () => {
       this.#inflightResponses.delete(res)
     })
+    if (!this.#warmup.warmed && isDocumentRequest(req)) {
+      await this.#warmup.admit(res)
+      if (res.destroyed || res.writableEnded) {
+        return
+      }
+    }
     this.#handler(req, res)
   }
 
@@ -1068,6 +1090,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
       this.scheduleReload({ type: 'dist-removed' })
     })
+
+    // A fresh instance compiles from cold again, so the first page render after
+    // a reload is worth serialising just as much as the first one after startup.
+    this.#warmup.rearm()
 
     if ('handler' in this.#currentNuxt.server) {
       this.#handler = this.#currentNuxt.server.handler as RequestListener

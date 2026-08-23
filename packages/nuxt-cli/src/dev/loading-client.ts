@@ -17,8 +17,10 @@ export interface ProgressClientOptions {
   progressProperty: string
   /** How far the load had got when this page was served. */
   elapsed: number
-  /** How often to ask for the app once the server says it is ready. */
+  /** Wait after the first request for the app, from which later waits back off. */
   pollInterval: number
+  /** Ceiling the wait between those requests backs off to. */
+  maxPollInterval: number
 }
 
 export function progressClient(options: ProgressClientOptions): void {
@@ -75,6 +77,7 @@ export function progressClient(options: ProgressClientOptions): void {
   source.addEventListener('nuxt:ready', (event) => {
     source.close()
     phase = 'starting the app'
+    document.title = 'Starting the app'
     document.documentElement.style.setProperty(options.progressProperty, '100%')
     paint()
 
@@ -84,25 +87,36 @@ export function progressClient(options: ProgressClientOptions): void {
       return
     }
 
-    // `nuxt:ready` means the request handler exists, not that it can render
-    // quickly: on a cold start the first response still contends with the
-    // warmup the server is finishing, and asking for it at once measured 2-3x
-    // slower than asking a few hundred milliseconds later. So this page stays,
-    // still reporting progress, and asks until the app answers. Doing that here
-    // rather than leaving it to the template means every page the dev server
-    // serves updates itself, so none of them needs a `Refresh` header whose
-    // hard reload would throw the progress away every few seconds.
-    const poll = setInterval(() => {
-      void fetch(location.href, { headers: { accept: 'text/html' } })
-        .then(response => response.text())
-        .then((body) => {
-          if (!body.includes(options.captionId)) {
-            clearInterval(poll)
-            location.reload()
-          }
-        })
-        .catch(() => {})
-    }, options.pollInterval)
+    // `nuxt:ready` means the request handler exists, not that it can answer
+    // yet: the first document still has to be compiled. So this page stays,
+    // still reporting progress, and asks until the app answers, which keeps
+    // every page the dev server serves updating itself rather than needing a
+    // `Refresh` header whose hard reload would throw the progress away.
+    //
+    // One request at a time, backing off towards a ceiling. The dev server
+    // serialises the first render, so asking more often would only queue.
+    const controller = new AbortController()
+    let wait = options.pollInterval
+
+    const attempt = async (): Promise<void> => {
+      try {
+        const response = await fetch(location.href, { headers: { accept: 'text/html' }, signal: controller.signal })
+        const body = await response.text()
+        if (!body.includes(options.captionId)) {
+          controller.abort()
+          location.reload()
+          return
+        }
+      }
+      catch {}
+      if (controller.signal.aborted) {
+        return
+      }
+      setTimeout(attempt, wait)
+      wait = Math.min(Math.round(wait * 1.5), options.maxPollInterval)
+    }
+
+    void attempt()
   })
 }
 
@@ -113,7 +127,12 @@ export interface RecoveryClientOptions {
 /** Reloads the error page as soon as the next load starts or succeeds. */
 export function recoveryClient(options: RecoveryClientOptions): void {
   const source = new EventSource(options.progressPath)
+  let reloading = false
   const reload = (): void => {
+    if (reloading) {
+      return
+    }
+    reloading = true
     source.close()
     location.reload()
   }

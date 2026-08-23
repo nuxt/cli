@@ -11,6 +11,7 @@ const OPTIONS: ProgressClientOptions = {
   progressProperty: '--nuxt-progress',
   elapsed: 0,
   pollInterval: 200,
+  maxPollInterval: 1000,
 }
 
 function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnapshot {
@@ -41,7 +42,7 @@ interface FakeElement {
  * scope of its own. A reference to anything the bundler renamed would throw
  * here rather than in someone's browser.
  */
-function run(options: Partial<ProgressClientOptions> = {}) {
+function run(options: Partial<ProgressClientOptions> = {}, fetchImpl?: typeof fetch) {
   const listeners = new Map<string, (event: { data: string }) => void>()
   const elements: FakeElement[] = []
   const classes = new Set<string>()
@@ -56,15 +57,21 @@ function run(options: Partial<ProgressClientOptions> = {}) {
     body: { append: (element: FakeElement) => void elements.push(element), classList },
     createElement: (): FakeElement => ({ id: '', title: '', textContent: '', removeAttribute: () => {} }),
   })
+  const sources: { readyState: number }[] = []
   vi.stubGlobal('EventSource', class {
-    constructor(readonly url: string) {}
+    readyState = 0
+    constructor(readonly url: string) {
+      sources.push(this)
+    }
+
     close = close
     addEventListener(type: string, listener: (event: { data: string }) => void) {
       listeners.set(type, listener)
     }
   })
   vi.stubGlobal('location', { href: 'http://localhost:3000/', reload })
-  vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ text: () => Promise.resolve('') })))
+  const request = vi.fn(fetchImpl ?? (() => Promise.resolve({ text: () => Promise.resolve('') } as Response)))
+  vi.stubGlobal('fetch', request)
 
   const script = inlineScript(progressClient, { ...OPTIONS, ...options })
   // eslint-disable-next-line no-new-func
@@ -76,6 +83,7 @@ function run(options: Partial<ProgressClientOptions> = {}) {
     properties,
     reload,
     close,
+    request,
     emit: (type: string, data: unknown) => listeners.get(type)?.({ data: JSON.stringify(data) }),
     listens: (type: string) => listeners.has(type),
   }
@@ -129,6 +137,69 @@ describe('the injected progress client', () => {
     expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
 
     await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
-    expect(fetch).toHaveBeenCalledWith('http://localhost:3000/', { headers: { accept: 'text/html' } })
+    expect(client.request).toHaveBeenCalledWith('http://localhost:3000/', expect.objectContaining({ headers: { accept: 'text/html' } }))
+  })
+
+  it('should say it is starting the app in the tab title as well as the caption', () => {
+    const client = run()
+    client.emit('nuxt:loading', snapshot())
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+
+    expect(document.title).toBe('Starting the app')
+    expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
+  })
+
+  it('should never have more than one request for the app in flight', async () => {
+    vi.useFakeTimers()
+    let pending = 0
+    let peak = 0
+    const client = run({}, () => {
+      peak = Math.max(peak, ++pending)
+      return new Promise(resolve => setTimeout(() => {
+        pending--
+        resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response)
+      }, 5000))
+    })
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(peak).toBe(1)
+    expect(client.request.mock.calls.length).toBeLessThan(12)
+    expect(client.reload).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('should back off towards the ceiling between attempts', async () => {
+    vi.useFakeTimers()
+    const at: number[] = []
+    const started = Date.now()
+    const client = run({}, () => {
+      at.push(Date.now() - started)
+      return Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response)
+    })
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(at.slice(0, 6)).toEqual([0, 200, 500, 950, 1625, 2625])
+    vi.useRealTimers()
+  })
+
+  it('should stop polling and reload once, aborting whatever is in flight', async () => {
+    vi.useFakeTimers()
+    const signals: (AbortSignal | undefined)[] = []
+    const client = run({}, (_input, init) => {
+      signals.push(init?.signal ?? undefined)
+      return Promise.resolve({ text: () => Promise.resolve('<html>the app</html>') } as Response)
+    })
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    await vi.advanceTimersByTimeAsync(30_000)
+
+    expect(client.reload).toHaveBeenCalledTimes(1)
+    expect(client.request).toHaveBeenCalledTimes(1)
+    expect(signals[0]!.aborted).toBe(true)
+    vi.useRealTimers()
   })
 })
