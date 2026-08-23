@@ -126,8 +126,8 @@ The build timings, `perf-report.json` and `perf-trace.json` come from Nuxt's own
 
 | Variable                  | Purpose                                                              |
 |---------------------------|----------------------------------------------------------------------|
-| `NUXT_PORT`, `NITRO_PORT`, `PORT` | Port to listen on                                            |
-| `NUXT_HOST`, `NITRO_HOST`, `HOST` | Host to listen on                                            |
+| `NUXT_PORT`, `NITRO_PORT`, `PORT` | Port to listen on, in that order of precedence               |
+| `NUXT_HOST`, `NITRO_HOST`, `HOST` | Host to listen on, in that order of precedence               |
 | `NUXT_TUI`                | `1` to force the interactive UI on, `plain` to opt out               |
 | `NUXT_TERM_THEME`         | `light` or `dark`, when the terminal's background cannot be detected  |
 | `NUXT_IGNORE_LOCK`        | `1` to ignore a dev server already running for this project           |

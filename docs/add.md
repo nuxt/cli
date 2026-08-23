@@ -39,9 +39,9 @@ The `add` command installs [Nuxt modules](/modules) and [layers](/docs/getting-s
 
 When running the command, it will:
 
-- install the package as a dependency using your package manager
+- install the package as a dependency using your package manager, unless you pass `--skipInstall`
 - add it to your [`package.json`](/docs/directory-structure/package) file
-- register it in your [`nuxt.config`](/docs/directory-structure/nuxt-config) file, in `modules` for a module and in `extends` for a layer
+- register it in your [`nuxt.config`](/docs/directory-structure/nuxt-config) file, in `modules` for a module and in `extends` for a layer, unless you pass `--skipConfig`
 
 **Example:**
 
