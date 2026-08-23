@@ -48,6 +48,11 @@ interface DocEntry {
   cli?: 'nuxt' | 'create-nuxt'
   /** Overrides the `npx nuxt <command>` prefix of the usage line. */
   usage?: string
+  /**
+   * Fence the options off from the prefix with `--`, for a command run through
+   * `npm create`, which otherwise reads them as npm's own config.
+   */
+  separator?: boolean
 }
 
 /**
@@ -70,7 +75,7 @@ const DOCS: DocEntry[] = [
   { id: 'docs', file: 'docs.md', command: ['docs'] },
   { id: 'generate', file: 'generate.md', command: ['generate'] },
   { id: 'info', file: 'info.md', command: ['info'] },
-  { id: 'init', file: 'init.md', command: [], cli: 'create-nuxt', usage: 'npm create nuxt@latest' },
+  { id: 'init', file: 'init.md', command: [], cli: 'create-nuxt', usage: 'npm create nuxt@latest', separator: true },
   { id: 'module-add', file: 'module.md', command: ['module', 'add'] },
   { id: 'module-remove', file: 'module.md', command: ['module', 'remove'] },
   { id: 'module-search', file: 'module.md', command: ['module', 'search'] },
@@ -187,6 +192,7 @@ function render(entry: DocEntry, args: ArgsDef, inherited: ArgsDef): Blocks {
       const signature = positionalSignature(name, arg)
       return arg.required === false || arg.default !== undefined ? `[${signature}]` : `<${signature}>`
     }),
+    ...entry.separator && options.length ? ['--'] : [],
     ...options.map(([name, arg]) => `[${flagSignature(name, arg)}]`),
   ].join(' ')
 

@@ -80,7 +80,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['content'],
+        moduleName: ['content'],
       },
     })
 
@@ -113,7 +113,7 @@ describe('module remove', () => {
     }])
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', skipConfig: true, _: ['example-module'] } })
+    await removeCommand.setup({ args: { cwd: '/fake-dir', skipConfig: true, moduleName: ['example-module'] } })
 
     expect(removeDependency).toHaveBeenCalledWith(['example'], expect.objectContaining({ cwd: '/fake-dir' }))
   })
@@ -123,7 +123,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@nuxt/content'],
+        moduleName: ['@nuxt/content'],
       },
     })
 
@@ -141,7 +141,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: [],
+        moduleName: [],
       },
     })
 
@@ -157,7 +157,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: [],
+        moduleName: [],
       },
     })
 
@@ -171,7 +171,7 @@ describe('module remove', () => {
       args: {
         cwd: '/fake-dir',
         skipInstall: true,
-        _: ['@nuxt/content'],
+        moduleName: ['@nuxt/content'],
       },
     })
 
@@ -185,7 +185,7 @@ describe('module remove', () => {
     await expect(removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@nuxt/content'],
+        moduleName: ['@nuxt/content'],
       },
     })).rejects.toThrow('process.exit unexpectedly called with "1"')
 
@@ -198,7 +198,7 @@ describe('module remove', () => {
       args: {
         cwd: '/fake-dir',
         skipConfig: true,
-        _: ['@nuxt/content'],
+        moduleName: ['@nuxt/content'],
       },
     })
 
@@ -215,7 +215,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@nuxt/content'],
+        moduleName: ['@nuxt/content'],
       },
     })
 
@@ -239,7 +239,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@vee-validate/nuxt'],
+        moduleName: ['@vee-validate/nuxt'],
       },
     })
 
@@ -265,7 +265,7 @@ describe('module remove', () => {
     ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', _: ['@example/nuxt'] } })
+    await removeCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['@example/nuxt'] } })
 
     expect(confirm).not.toHaveBeenCalled()
     expect(removeDependency).toHaveBeenCalledWith(['@example/nuxt'], expect.objectContaining({ cwd: '/fake-dir' }))
@@ -288,7 +288,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@vee-validate/nuxt'],
+        moduleName: ['@vee-validate/nuxt'],
       },
     })
 
@@ -323,7 +323,7 @@ describe('module remove', () => {
     })
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', _: ['@vee-validate/nuxt'] } })
+    await removeCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['@vee-validate/nuxt'] } })
 
     expect(peak).toBeGreaterThan(1)
   })
@@ -351,7 +351,7 @@ describe('module remove', () => {
     await removeCommand.setup({
       args: {
         cwd: '/fake-dir',
-        _: ['@vee-validate/nuxt'],
+        moduleName: ['@vee-validate/nuxt'],
       },
     })
 

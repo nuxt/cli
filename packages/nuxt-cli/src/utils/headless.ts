@@ -164,6 +164,7 @@ export function getHeadlessCommand(options: HeadlessCommandOptions): string[] {
   return [
     prefix,
     quoteArgument(dir, windows),
+    needsArgumentSeparator(prefix) ? '--' : '',
     `--template=${template}`,
     `--packageManager=${packageManager}`,
     gitInit ? '--gitInit' : '--no-gitInit',
@@ -172,6 +173,17 @@ export function getHeadlessCommand(options: HeadlessCommandOptions): string[] {
     force ? '--force' : '',
     nightly ? `--nightly=${nightly}` : '',
   ].filter(Boolean)
+}
+
+/**
+ * Whether the flags that follow have to be fenced off with `--`. `npm create`
+ * consumes anything flag-shaped as npm config (`npm warn Unknown cli config`)
+ * and runs the initializer with the positionals alone, so the separator is the
+ * only way through. Other package managers forward the whole tail verbatim,
+ * including a literal `--`, which citty would then treat as the end of parsing.
+ */
+function needsArgumentSeparator(prefix: string): boolean {
+  return prefix.startsWith('npm create')
 }
 
 export interface WrapOptions {

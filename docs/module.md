@@ -65,16 +65,16 @@ Run it without a module name to pick from the modules compatible with your Nuxt 
 
 <!--module-remove-cmd-->
 ```bash [Terminal]
-npx nuxt module remove [MODULENAME] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig]
+npx nuxt module remove [MODULENAME...] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig]
 ```
 <!--/module-remove-cmd-->
 
 ### Arguments
 
 <!--module-remove-args-->
-| Argument     | Description                                                        |
-|--------------|--------------------------------------------------------------------|
-| `MODULENAME` | Specify one or more modules to remove by name, separated by spaces |
+| Argument        | Description                                                        |
+|-----------------|--------------------------------------------------------------------|
+| `MODULENAME...` | Specify one or more modules to remove by name, separated by spaces |
 <!--/module-remove-args-->
 
 ### Options

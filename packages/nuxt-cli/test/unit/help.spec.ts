@@ -492,11 +492,11 @@ describe('help', () => {
     expect(await usage(await subCommand(commands.module, 'remove'), commands.module)).toMatchInlineSnapshot(`
       "Remove Nuxt modules (module remove)
 
-      USAGE module remove [OPTIONS] [MODULENAME]
+      USAGE module remove [OPTIONS] [MODULENAME...]
 
       ARGUMENTS
 
-        MODULENAME    Specify one or more modules to remove by name, separated by spaces
+        MODULENAME...    Specify one or more modules to remove by name, separated by spaces
 
       OPTIONS
 

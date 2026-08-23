@@ -31,6 +31,14 @@ describe('getHeadlessCommand', () => {
     expect(getHeadlessCommand({ ...base, dir: 'my app', modules: ['@nuxt/ui', '@nuxt/image'], force: true }).join(' ')).toBe('nuxt init \'my app\' --template=minimal --packageManager=pnpm --gitInit --modules=@nuxt/ui,@nuxt/image --force')
   })
 
+  it('should separate the options from an `npm create` prefix', () => {
+    expect(getHeadlessCommand({ ...base, prefix: 'npm create nuxt@latest' }).join(' ')).toBe('npm create nuxt@latest my-app -- --template=minimal --packageManager=pnpm --gitInit --no-modules')
+  })
+
+  it('should pass the options straight to other package managers', () => {
+    expect(getHeadlessCommand({ ...base, prefix: 'pnpm create nuxt@latest' }).join(' ')).toBe('pnpm create nuxt@latest my-app --template=minimal --packageManager=pnpm --gitInit --no-modules')
+  })
+
   it('should carry the nightly channel through', () => {
     expect(getHeadlessCommand({ ...base, nightly: 'latest' }).join(' ')).toContain('--nightly=latest')
   })

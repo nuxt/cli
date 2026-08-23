@@ -40,6 +40,7 @@ export default defineCommand({
       type: 'positional',
       description: 'Specify one or more modules to remove by name, separated by spaces',
       required: false,
+      multiple: true,
     },
     skipInstall: {
       type: 'boolean',
@@ -52,7 +53,7 @@ export default defineCommand({
   },
   async setup(ctx) {
     const cwd = resolve(ctx.args.cwd)
-    const modules = ctx.args._.map(e => e.trim()).filter(Boolean)
+    const modules = ctx.args.moduleName.map(e => e.trim()).filter(Boolean)
     const projectPkg = await readPackageJSON(cwd).catch(() => ({} as PackageJson))
 
     if (!await ensureNuxtDependency(cwd, projectPkg)) {

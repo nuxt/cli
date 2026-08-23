@@ -176,6 +176,7 @@ export default defineCommand({
     gitInit: {
       type: 'boolean',
       description: 'Initialize git repository',
+      negativeDescription: 'Skip git repository initialization',
     },
     shell: {
       type: 'boolean',
