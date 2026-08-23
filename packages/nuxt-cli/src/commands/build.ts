@@ -34,6 +34,7 @@ export default defineCommand({
     preset: {
       type: 'string',
       description: 'Nitro server preset',
+      valueHint: 'nitro-preset',
     },
     ...dotEnvArgs,
     ...envNameArgs,

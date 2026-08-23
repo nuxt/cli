@@ -75,6 +75,7 @@ const command = defineCommand({
     'port': {
       type: 'string',
       description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port`)',
+      valueHint: 'port',
       alias: ['p'],
     },
     'takeover': {
@@ -90,6 +91,7 @@ const command = defineCommand({
     'host': {
       type: 'string',
       description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host`)',
+      valueHint: 'host',
       alias: ['h'],
     },
     'open': {
@@ -101,6 +103,7 @@ const command = defineCommand({
     'open.url': {
       type: 'string',
       description: 'Path or URL to open instead of the dev server root',
+      valueHint: 'url|path',
     },
     'clipboard': {
       type: 'boolean',
@@ -122,6 +125,7 @@ const command = defineCommand({
     'publicURL': {
       type: 'string',
       description: 'Public URL to display (used for QR code and clipboard)',
+      valueHint: 'url',
     },
     'https': {
       type: 'boolean',
@@ -130,26 +134,32 @@ const command = defineCommand({
     'https.cert': {
       type: 'string',
       description: 'Path to TLS certificate',
+      valueHint: 'path',
     },
     'https.key': {
       type: 'string',
       description: 'Path to TLS key',
+      valueHint: 'path',
     },
     'https.pfx': {
       type: 'string',
       description: 'Path to PKCS#12 (.p12/.pfx) keystore',
+      valueHint: 'path',
     },
     'https.passphrase': {
       type: 'string',
       description: 'Passphrase for the TLS key or keystore',
+      valueHint: 'passphrase',
     },
     'https.validityDays': {
       type: 'string',
       description: 'Validity in days for a generated self-signed certificate',
+      valueHint: 'days',
     },
     'https.domains': {
       type: 'string',
       description: 'Domain for a generated certificate. Can be repeated, or given as a comma-separated list.',
+      valueHint: 'domain',
       multiple: true,
     },
     ...profileArgs,

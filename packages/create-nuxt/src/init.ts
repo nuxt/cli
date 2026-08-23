@@ -152,6 +152,7 @@ export default defineCommand({
       type: 'string',
       alias: 't',
       description: 'Template name',
+      valueHint: 'template-name',
     },
     force: {
       type: 'boolean',
@@ -181,18 +182,21 @@ export default defineCommand({
     },
     packageManager: {
       type: 'string',
-      description: `Package manager choice (${packageManagerOptions.join(', ')})`,
+      description: 'Package manager choice',
+      valueHint: packageManagerOptions.join('|'),
     },
     modules: {
       type: 'string',
       required: false,
       description: 'Nuxt modules to install (comma separated without spaces)',
+      valueHint: 'module-names',
       negativeDescription: 'Skip module installation prompt',
       alias: 'M',
     },
     nightly: {
       type: 'string',
-      description: 'Use Nuxt nightly release channel (3x or latest)',
+      description: 'Use Nuxt nightly release channel (a `nuxt-nightly` dist tag, defaulting to `latest`)',
+      valueHint: 'dist-tag',
     },
   },
   async run(ctx) {

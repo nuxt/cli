@@ -73,12 +73,12 @@ describe('help', () => {
 
       OPTIONS
 
-                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)           
-          --logLevel=<silent|info|verbose>    Specify build-time log level                                           
-                             --skipInstall    Skip npm install                                                       
-                              --skipConfig    Skip nuxt.config.ts update                                             
-                                     --dev    Install modules as dev dependencies                                    
-        --packageManager=<package_manager>    Package manager to install with (npm, aube, nub, pnpm, bun, yarn, deno)
+                                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                          --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                             --skipInstall    Skip npm install                                            
+                                              --skipConfig    Skip nuxt.config.ts update                                  
+                                                     --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>    Package manager to install with                             
       "
     `)
   })
@@ -132,7 +132,7 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                     
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                         
                            --name=<name>    Name of the analysis (Default: default)                                                                          
                                  --serve    Serve the analysis results (Default: true)                                                                       
@@ -156,9 +156,9 @@ describe('help', () => {
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                              --prerender    Build Nuxt and prerender static routes                                                                                                              
-                       --preset=<preset>    Nitro server preset                                                                                                                                 
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                 --preset=<nitro-preset>    Nitro server preset                                                                                                                                 
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                      --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
       "
@@ -191,8 +191,8 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                                  --clear    Clear console on restart                                                                                                                            
                               --no-clear    Disable clear console on restart                                                                                                                    
       "
@@ -211,37 +211,37 @@ describe('help', () => {
 
       OPTIONS
 
-                  --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                              --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
-                              --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-                     -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
-                                         --inspect    Enable the Node.js inspector for the process serving your app (\`--inspect=[host:]port\`)                                                             
-                                     --inspect-brk    Enable the Node.js inspector and wait for a debugger to attach (\`--inspect-brk=[host:]port\`)                                                        
-                                             --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
-                                          --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
-                                           --clear    Clear console on restart (Default: false)                                                                                                           
-                                        -f, --fork    Enable forked mode (Default: false)                                                                                                                 
-                                 --no-f, --no-fork    Disable forked mode                                                                                                                                 
-                                 -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)                                                        
-                                        --takeover    Stop a dev server already running on this project and take its place                                                                                
-                                     --no-takeover    Never stop a dev server already running on this project                                                                                             
-                                      --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
-                                 -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host\`)                                                       
-                                        -o, --open    Open the URL in the browser (Default: false)                                                                                                        
-                             --open.url=<open_url>    Path or URL to open instead of the dev server root                                                                                                  
-                                       --clipboard    Copy the URL to the clipboard (Default: false)                                                                                                      
-                                              --qr    Print a QR code for the public URL (enabled by default when one is available)                                                                       
-                                          --tunnel    Expose the server via a Cloudflare quick tunnel                                                                                                     
-                                          --public    Listen on all network interfaces                                                                                                                    
-                          --publicURL=<public_url>    Public URL to display (used for QR code and clipboard)                                                                                              
-                                           --https    Enable HTTPS with a locally-trusted development certificate                                                                                         
-                         --https.cert=<https_cert>    Path to TLS certificate                                                                                                                             
-                           --https.key=<https_key>    Path to TLS key                                                                                                                                     
-                           --https.pfx=<https_pfx>    Path to PKCS#12 (.p12/.pfx) keystore                                                                                                                
-             --https.passphrase=<https_passphrase>    Passphrase for the TLS key or keystore                                                                                                              
-        --https.validityDays=<https_validity_days>    Validity in days for a generated self-signed certificate                                                                                            
-                --https.domains=<https_domains>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.                                                            
-                               --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                               --inspect    Enable the Node.js inspector for the process serving your app (\`--inspect=[host:]port\`)                                                             
+                           --inspect-brk    Enable the Node.js inspector and wait for a debugger to attach (\`--inspect-brk=[host:]port\`)                                                        
+                                   --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
+                                --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
+                                 --clear    Clear console on restart (Default: false)                                                                                                           
+                              -f, --fork    Enable forked mode (Default: false)                                                                                                                 
+                       --no-f, --no-fork    Disable forked mode                                                                                                                                 
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)                                                        
+                              --takeover    Stop a dev server already running on this project and take its place                                                                                
+                           --no-takeover    Never stop a dev server already running on this project                                                                                             
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host\`)                                                       
+                              -o, --open    Open the URL in the browser (Default: false)                                                                                                        
+                   --open.url=<url|path>    Path or URL to open instead of the dev server root                                                                                                  
+                             --clipboard    Copy the URL to the clipboard (Default: false)                                                                                                      
+                                    --qr    Print a QR code for the public URL (enabled by default when one is available)                                                                       
+                                --tunnel    Expose the server via a Cloudflare quick tunnel                                                                                                     
+                                --public    Listen on all network interfaces                                                                                                                    
+                       --publicURL=<url>    Public URL to display (used for QR code and clipboard)                                                                                              
+                                 --https    Enable HTTPS with a locally-trusted development certificate                                                                                         
+                     --https.cert=<path>    Path to TLS certificate                                                                                                                             
+                      --https.key=<path>    Path to TLS key                                                                                                                                     
+                      --https.pfx=<path>    Path to PKCS#12 (.p12/.pfx) keystore                                                                                                                
+         --https.passphrase=<passphrase>    Passphrase for the TLS key or keystore                                                                                                              
+             --https.validityDays=<days>    Validity in days for a generated self-signed certificate                                                                                            
+             --https.domains=<domain>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.                                                            
+                     --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
       "
     `)
   })
@@ -292,9 +292,9 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                       --preset=<preset>    Nitro server preset                                                                                                                                 
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                 --preset=<nitro-preset>    Nitro server preset                                                                                                                                 
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                      --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
       "
@@ -355,9 +355,9 @@ describe('help', () => {
 
       OPTIONS
 
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
       "
     `)
@@ -376,11 +376,11 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                        -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
                        -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)
   })
@@ -398,11 +398,11 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                    --envName=<env_name>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
+                 --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                        -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
                        -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)
   })
@@ -438,9 +438,9 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                     
-                    --dotenv=<dotenv>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                         
-                     --checker=<checker>    Type checker to use (\`vue-tsc\` or \`golar\`)                                                                       
+               --checker=<vue-tsc|golar>    Type checker to use                                                                                              
                              -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)                
       "
     `)
@@ -478,12 +478,12 @@ describe('help', () => {
 
       OPTIONS
 
-                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)           
-          --logLevel=<silent|info|verbose>    Specify build-time log level                                           
-                             --skipInstall    Skip npm install                                                       
-                              --skipConfig    Skip nuxt.config.ts update                                             
-                                     --dev    Install modules as dev dependencies                                    
-        --packageManager=<package_manager>    Package manager to install with (npm, aube, nub, pnpm, bun, yarn, deno)
+                                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                          --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                             --skipInstall    Skip npm install                                            
+                                              --skipConfig    Skip nuxt.config.ts update                                  
+                                                     --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>    Package manager to install with                             
       "
     `)
   })

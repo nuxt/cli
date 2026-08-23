@@ -37,6 +37,7 @@ export const envNameArgs = {
   envName: {
     type: 'string',
     description: 'The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server)',
+    valueHint: 'environment',
   },
 } as const satisfies Record<string, ArgDef>
 
@@ -44,6 +45,7 @@ export const dotEnvArgs = {
   dotenv: {
     type: 'string',
     description: 'Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.',
+    valueHint: 'path',
     multiple: true,
   },
 } as const satisfies Record<string, ArgDef>

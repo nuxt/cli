@@ -116,7 +116,8 @@ export default defineCommand({
     ...extendsArgs,
     checker: {
       type: 'string',
-      description: 'Type checker to use (`vue-tsc` or `golar`)',
+      description: 'Type checker to use',
+      valueHint: CHECKER_PRIORITY.join('|'),
     },
     build: {
       type: 'boolean',
