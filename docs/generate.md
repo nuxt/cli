@@ -35,7 +35,7 @@ The `generate` command pre-renders every route of your application and stores th
 | `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
 | `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `--profile[=verbose]` :badge[v3.16]{color="info" size="xs" class="align-middle"} |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
+| `--profile[=verbose]`                |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
 <!--/generate-opts-->
 
 ::read-more{to="/docs/getting-started/deployment#static-hosting"}

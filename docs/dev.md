@@ -45,7 +45,7 @@ The `dev` command starts a development server with hot module replacement at [ht
 | `--qr`                               |         | Display The QR code of public URL when available                                                                                                     |
 | `--public`                           |         | Listen to all network interfaces                                                                                                                     |
 | `--tunnel`                           |         | Open a tunnel using https://github.com/unjs/untun                                                                                                    |
-| `--profile[=verbose]` :badge[v3.16]{color="info" size="xs" class="align-middle"} |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
+| `--profile[=verbose]`                |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
 | `--sslCert`                          |         | (DEPRECATED) Use `--https.cert` instead.                                                                                                             |
 | `--sslKey`                           |         | (DEPRECATED) Use `--https.key` instead.                                                                                                              |
 <!--/dev-opts-->
