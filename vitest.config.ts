@@ -10,6 +10,7 @@ export default defineConfig({
     exclude: [
       ...defaultExclude,
       'playground/**',
+      'playground-nightly/**',
       'packages/*/test/fixtures/.tmp-*/**',
     ],
   },

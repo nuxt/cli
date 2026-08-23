@@ -19,6 +19,7 @@
   },
   "exclude": [
     "playground/**/*",
+    "playground-nightly/**/*",
     "capture/fixture/**/*",
     "**/dist/**"
   ]
