@@ -11,17 +11,20 @@ packages:
   - packages/*
   - packages/nuxt-cli/test/fixtures/*
   - playground
+  - playground-nightly
 
 verifyDepsBeforeRun: install
 
 overrides:
   '@nuxt/cli': workspace:*
-  '@nuxt/schema': 4.5.2
+  # scoped by range: `playground-nightly` resolves its own Nuxt 5 nightly schema
+  '@nuxt/schema@^4': 4.5.2
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
   eslint-plugin-jsdoc: 64.2.1
   eslint-plugin-unicorn: 73.0.0
-  h3: ^1.15.11
+  # scoped by range: nitro v3 in `playground-nightly` needs h3 v2
+  h3@^1: ^1.15.11
   httpxy: 0.5.5
   nitropack: 2.13.4
   nuxi: workspace:*

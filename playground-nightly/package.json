@@ -1,0 +1,19 @@
+{
+  "name": "nuxt-cli-playground-nightly",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "nuxt dev",
+    "dev:prepare": "nuxt prepare",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "nuxt": "npm:nuxt-nightly@5x",
+    "vue": "latest",
+    "vue-router": "latest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.11"
+  }
+}
