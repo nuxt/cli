@@ -11,7 +11,7 @@ import type { DevRestartReason } from './reason'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
-import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch } from 'node:fs'
+import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -46,15 +46,21 @@ import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
  * from inside the module runner's realm. Resolved through this package's own
  * exports because the caller may be bundled into any chunk.
  */
-function resolveRequestContextPlugin(): string | undefined {
+function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): void {
   try {
-    return fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
+    const source = fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
+    const id = join(nitro.buildDir || join(cwd, '.nuxt'), 'dev-request-context.mjs')
+    nitro.virtual ||= {}
+    nitro.virtual[id] = () => readFileSync(source, 'utf8')
+    nitro.plugins ||= []
+    nitro.plugins.push(id)
   }
   catch (error) {
     debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
-    return undefined
   }
 }
+
+type NitroConfigForHook = Parameters<NonNullable<NonNullable<NuxtConfig['hooks']>['nitro:config']>>[0]
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
@@ -572,7 +578,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   #createLoadOptions(urls?: string[]): LoadNuxtOptionsWithConfigDiff {
-    const requestContextPlugin = this.options.captureUIEvents ? resolveRequestContextPlugin() : undefined
+    const captureUIEvents = this.options.captureUIEvents
     const loadOptions: LoadNuxtOptionsWithConfigDiff = {
       cwd: this.options.cwd,
       dev: true,
@@ -589,13 +595,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           clearScreen: this.options.clear,
           ...this.options.overrides.vite,
         },
-        ...requestContextPlugin
+        ...captureUIEvents
           ? {
               hooks: {
                 ...this.options.overrides.hooks,
                 'nitro:config': (nitro) => {
-                  nitro.plugins ||= []
-                  nitro.plugins.push(requestContextPlugin)
+                  registerRequestContextPlugin(nitro, this.options.cwd)
                   return this.options.overrides.hooks?.['nitro:config']?.(nitro)
                 },
               } satisfies NuxtConfig['hooks'],
