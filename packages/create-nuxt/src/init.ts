@@ -170,7 +170,8 @@ export default defineCommand({
     install: {
       type: 'boolean',
       default: true,
-      description: 'Skip installing dependencies',
+      description: 'Install dependencies once the project has been scaffolded',
+      negativeDescription: 'Skip installing dependencies',
     },
     gitInit: {
       type: 'boolean',

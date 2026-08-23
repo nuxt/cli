@@ -13,7 +13,7 @@ export default defineCommand({
     ...logLevelArgs,
     preset: {
       type: 'string',
-      description: 'Nitro server preset',
+      description: 'Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)',
       valueHint: 'nitro-preset',
     },
     ...dotEnvArgs,

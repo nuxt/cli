@@ -32,6 +32,7 @@ export default defineCommand({
     open: {
       type: 'boolean',
       description: 'Open the best match in a browser',
+      negativeDescription: 'Print the matching pages without opening a browser',
       default: true,
     },
   },
