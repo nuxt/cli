@@ -29,30 +29,53 @@ export default function (nitroApp) {
   catch {}
 }
 
+function parseRequest(header) {
+  if (!header) {
+    return undefined
+  }
+  const separator = header.indexOf(' ')
+  const id = Number(header.slice(0, separator))
+  return Number.isFinite(id) ? { id, label: header.slice(separator + 1) } : undefined
+}
+
 function trackRequests(nitroApp) {
-  const app = nitroApp?.h3App
-  const handler = app?.handler
-  if (typeof handler !== 'function') {
+  const h3App = nitroApp?.h3App
+  if (typeof h3App?.handler === 'function') {
+    const handler = h3App.handler
+    h3App.handler = Object.assign(function (event) {
+      let request
+      try {
+        const headers = event?.node?.req?.headers
+        request = parseRequest(headers?.[HEADER])
+        if (request) {
+          delete headers[HEADER]
+        }
+      }
+      catch {}
+      return request
+        ? storage.run(request, () => handler.call(this, event))
+        : handler.call(this, event)
+    }, handler)
     return
   }
 
-  app.handler = Object.assign(function (event) {
-    let request
-    try {
-      const headers = event?.node?.req?.headers
-      const header = headers?.[HEADER]
-      if (header) {
-        delete headers[HEADER]
-        const separator = header.indexOf(' ')
-        const id = Number(header.slice(0, separator))
-        request = Number.isFinite(id) ? { id, label: header.slice(separator + 1) } : undefined
+  const h3 = nitroApp?.h3
+  if (typeof h3?.fetch === 'function') {
+    const fetch = h3.fetch.bind(h3)
+    h3.fetch = (req, ...args) => {
+      let request
+      try {
+        request = parseRequest(req?.headers?.get?.(HEADER))
+        if (request) {
+          req.headers.delete(HEADER)
+        }
       }
+      catch {}
+      return request
+        ? storage.run(request, () => fetch(req, ...args))
+        : fetch(req, ...args)
     }
-    catch {}
-    return request
-      ? storage.run(request, () => handler.call(this, event))
-      : handler.call(this, event)
-  }, handler)
+  }
 }
 
 function reportLogs() {
