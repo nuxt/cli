@@ -65,6 +65,7 @@ export function progressClient(options: ProgressClientOptions): void {
   setInterval(paint, 100)
 
   const source = new EventSource(options.progressPath)
+  let polling = false
 
   source.addEventListener('nuxt:loading', (event) => {
     const snapshot = read(event)
@@ -81,40 +82,42 @@ export function progressClient(options: ProgressClientOptions): void {
   })
 
   source.addEventListener('nuxt:ready', (event) => {
-    source.close()
+    // Repeats of this event while polling only matter if a rebuild finished,
+    // whose warm caches make it safe to reload at once.
+    if (polling) {
+      if (read(event)?.reload) {
+        source.close()
+        location.reload()
+      }
+      return
+    }
     const snapshot = read(event)
-    // Once the server has something to say about this state it says it in the
-    // snapshot, and the terminal, the caption and the tab should all agree. It
-    // only reports itself serving when nothing was waiting for a first render,
-    // in which case there is nothing to narrate and the generic wording is
-    // right.
+    // Use the server's wording so the terminal, the caption and the tab agree.
     const message = snapshot && !snapshot.serving && snapshot.message ? snapshot.message : 'Starting the app'
     label = message.charAt(0).toLowerCase() + message.slice(1)
     document.title = message
 
     // A reload leaves the caches warm, so there is nothing left to wait for.
     if (snapshot?.reload) {
+      source.close()
       document.documentElement.style.setProperty(options.progressProperty, '100%')
       paint()
       location.reload()
       return
     }
 
-    // The server reports how much of the load is left, so a full bar above a
-    // caption that says it is still starting is avoidable. A snapshot that
-    // cannot be read, or predates that fraction, still fills it.
+    // Hold the bar short of full while the caption still says starting.
     const fraction = typeof snapshot?.progress === 'number' && snapshot.progress > 0 ? Math.min(snapshot.progress, 1) : 1
     document.documentElement.style.setProperty(options.progressProperty, `${Math.round(fraction * 100)}%`)
     paint()
 
     // `nuxt:ready` means the request handler exists, not that it can answer
-    // yet: the first document still has to be compiled. So this page stays,
-    // still reporting progress, and asks until the app answers, which keeps
-    // every page the dev server serves updating itself rather than needing a
-    // `Refresh` header whose hard reload would throw the progress away.
-    //
-    // One request at a time, backing off towards a ceiling. The dev server
-    // serialises the first render, so asking more often would only queue.
+    // yet: the first document still has to be compiled. So this page stays and
+    // asks until the app answers, one request at a time with backoff, since the
+    // dev server serialises the first render anyway. The event stream stays
+    // open meanwhile: the server takes the last stream closing as the sign
+    // that nobody is waiting on a first render any more.
+    polling = true
     const controller = new AbortController()
     let wait = options.pollInterval
 
@@ -124,6 +127,7 @@ export function progressClient(options: ProgressClientOptions): void {
         const body = await response.text()
         if (!body.includes(options.captionId)) {
           controller.abort()
+          source.close()
           location.reload()
           return
         }
