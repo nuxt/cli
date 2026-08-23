@@ -1554,6 +1554,27 @@ describe('route overlay', () => {
     }
   })
 
+  it('groups pages before server routes, each sorted by path', () => {
+    const { overlay, lastFrame } = create()
+    overlay.setRoutes({ routes: [
+      { kind: 'server', route: '/api/zebra', method: 'get', file: '/project/server/api/zebra.ts' },
+      { kind: 'page', route: '/zoo', file: '/project/app/pages/zoo.vue' },
+      { kind: 'server', route: '/api/apple', method: 'get', file: '/project/server/api/apple.ts' },
+      { kind: 'page', route: '/about', file: '/project/app/pages/about.vue' },
+    ] })
+    overlay.open()
+    const frame = lastFrame()
+    const order = ['/about', '/zoo', '/api/apple', '/api/zebra'].map(route => frame.indexOf(route))
+    expect(order).toEqual([...order].sort((a, b) => a - b))
+  })
+
+  it('labels a method-less server route as any rather than all', () => {
+    const { overlay, lastFrame } = create()
+    overlay.setRoutes({ routes: [{ kind: 'server', route: '/api/catch', file: '/project/server/api/catch.ts' }] })
+    overlay.open()
+    expect(lastFrame()).toContain('any')
+  })
+
   it('sorts routes by path and filters by kind', () => {
     const { overlay, lastFrame } = create()
     overlay.setRoutes({ routes })

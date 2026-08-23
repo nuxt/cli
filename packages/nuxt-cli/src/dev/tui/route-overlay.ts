@@ -116,7 +116,7 @@ export class RouteOverlay extends ScreenOverlay {
   #formatRoute(route: DevRoute, width: number, columns: number): string {
     const kind = route.kind === 'page'
       ? styleText('cyan', 'page  ')
-      : styleText('magenta', (route.method?.toUpperCase() ?? 'all').padEnd(6))
+      : styleText('magenta', (route.method?.toUpperCase() ?? 'any').padEnd(6))
     const path = route.route.padEnd(width)
     const file = route.file ? relative(this.#cwd, route.file) : ''
     // The tail of a path identifies it; the head is the part every row shares.
@@ -131,7 +131,7 @@ export class RouteOverlay extends ScreenOverlay {
     return this.#routes
       .filter(route => this.#filter === 'all' || route.kind === this.#filter)
       .filter(route => !query || `${route.route} ${route.file ?? ''}`.toLowerCase().includes(query))
-      .sort((a, b) => a.route.localeCompare(b.route))
+      .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'page' ? -1 : 1) || a.route.localeCompare(b.route))
   }
 
   #setFilter(filter: RouteFilter): boolean {
