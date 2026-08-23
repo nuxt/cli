@@ -38,8 +38,7 @@ function createIt(runtimeName: typeof runtimes[number]) {
       bun: {
         start: true,
         fetching: true,
-        // https://github.com/nitrojs/nitro/issues/2721
-        websockets: false,
+        websockets: true,
       },
       deno: true,
     }
