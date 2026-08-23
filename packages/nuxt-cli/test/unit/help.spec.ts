@@ -104,6 +104,17 @@ describe('help', () => {
                                                                --global    Create global route middleware                              
                                                                   --api    Create a server route in the API directory                  
                                                                 --pages    Include NuxtPage and NuxtLayout in the app template         
+                                                               --client    Shorthand for \`--mode client\`                               
+                                                               --server    Shorthand for \`--mode server\`                               
+                                                              --connect    Shorthand for \`--method connect\`                            
+                                                               --delete    Shorthand for \`--method delete\`                             
+                                                                  --get    Shorthand for \`--method get\`                                
+                                                                 --head    Shorthand for \`--method head\`                               
+                                                              --options    Shorthand for \`--method options\`                            
+                                                                 --post    Shorthand for \`--method post\`                               
+                                                                  --put    Shorthand for \`--method put\`                                
+                                                                --trace    Shorthand for \`--method trace\`                              
+                                                                --patch    Shorthand for \`--method patch\`                              
       "
     `)
   })
