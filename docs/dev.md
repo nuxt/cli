@@ -14,7 +14,7 @@ npx nuxt dev [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [-
 ```
 <!--/dev-cmd-->
 
-The `dev` command starts a development server with hot module replacement at [http://localhost:3000](https://localhost:3000)
+The `dev` command starts a development server with hot module replacement at [http://localhost:3000](http://localhost:3000)
 
 ![nuxt dev](/capture/output/nuxt-dev-static.svg)
 
@@ -65,7 +65,7 @@ The `dev` command starts a development server with hot module replacement at [ht
 | `--profile=<verbose>`                |                   | Profile performance, writing a V8 CPU profile and a JSON report on exit. Use `--profile=verbose` for a full console report.                          |
 <!--/dev-opts-->
 
-The port and host can also be set via `NUXT_PORT`, `PORT`, `NUXT_HOST` or `HOST` environment variables.
+The port and host can also be set via `NUXT_PORT`, `NITRO_PORT`, `PORT`, `NUXT_HOST`, `NITRO_HOST` or `HOST` environment variables.
 
 This command sets `process.env.NODE_ENV` to `development`.
 
@@ -126,8 +126,8 @@ The build timings, `perf-report.json` and `perf-trace.json` come from Nuxt's own
 
 | Variable                  | Purpose                                                              |
 |---------------------------|----------------------------------------------------------------------|
-| `NUXT_PORT`, `PORT`       | Port to listen on                                                    |
-| `NUXT_HOST`, `HOST`       | Host to listen on                                                    |
+| `NUXT_PORT`, `NITRO_PORT`, `PORT` | Port to listen on                                            |
+| `NUXT_HOST`, `NITRO_HOST`, `HOST` | Host to listen on                                            |
 | `NUXT_TUI`                | `1` to force the interactive UI on, `plain` to opt out               |
 | `NUXT_TERM_THEME`         | `light` or `dark`, when the terminal's background cannot be detected  |
 | `NUXT_IGNORE_LOCK`        | `1` to ignore a dev server already running for this project           |

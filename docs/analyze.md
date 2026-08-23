@@ -14,7 +14,7 @@ npx nuxt analyze [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>
 ```
 <!--/analyze-cmd-->
 
-The `analyze` command builds Nuxt and analyzes the production bundle (experimental). The results are served on a local server when the build finishes, unless you pass `--no-serve`.
+The `analyze` command builds Nuxt and analyzes the production bundle (experimental). The results are served on a local server when the build finishes, unless you pass `--no-serve` or `CI` is set in the environment.
 
 Routes are not prerendered while analyzing, since prerendering runs the built app and its output is not what is being measured. Pass `--prerender` if your analysis needs it.
 

@@ -57,8 +57,12 @@ The `create-nuxt` command initializes a fresh Nuxt project using [unjs/giget](ht
 Without a terminal to prompt in, the answers it would have asked for have to be passed as arguments: the directory, `--template`, `--packageManager` and `--gitInit`. Anything missing is reported along with the available templates, and the command exits with `2`.
 
 ```bash [Terminal]
-npm create nuxt@latest my-app --template minimal --packageManager pnpm --no-gitInit
+npm create nuxt@latest my-app -- --template minimal --packageManager pnpm --no-gitInit
 ```
+
+::note
+The `--` is needed with `npm create`, which reads anything flag-shaped after the initializer as npm's own config and warns `Unknown cli config` instead of passing it on. Other package managers forward the whole command line as it is, so pass the flags to them directly: `pnpm create nuxt@latest my-app --template minimal`.
+::
 
 ## Environment Variables
 
