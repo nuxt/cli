@@ -2081,3 +2081,93 @@ describe('dev ui fallback', () => {
     expect(setupDevUI(context as never, { enabled: false }).interactive).toBe(false)
   })
 })
+
+/** Long enough for the panel's trailing repaint to land. */
+const TICKER_SETTLE_MS = 400
+
+describe('request failures on the panel', () => {
+  const context = {
+    listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
+    close: async () => {},
+    onReady: () => {},
+  }
+
+  async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>): Promise<void> {
+    const chunks: string[] = []
+    const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+    const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+    const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+    Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
+    Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+    Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      chunks.push(String(chunk))
+      return true
+    })
+    const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
+    const ui = setupDevUI(context as never, { ci: false, test: false, version: '4.5.2' })
+    try {
+      await run(ui, async () => {
+        // The panel repaints on a trailing timer, so nothing is on screen yet.
+        await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
+        return strip(chunks.join(''))
+      })
+    }
+    finally {
+      session.teardown()
+      write.mockRestore()
+      for (const [key, descriptor] of saved) {
+        if (descriptor) {
+          Object.defineProperty(process.stdout, key, descriptor)
+        }
+      }
+      if (stdin) {
+        Object.defineProperty(process.stdin, 'isTTY', stdin)
+      }
+      if (setRawMode) {
+        Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
+      }
+      else {
+        Reflect.deleteProperty(process.stdin, 'setRawMode')
+      }
+    }
+  }
+
+  it('should not report the bundler\'s own failed probes as failed requests', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building')
+      ui.pushRequests([{ method: 'GET', url: '/__skip_vite', status: 503, duration: 1, internal: true }])
+      const frames = await settle()
+
+      expect(frames).not.toContain('failed request')
+      expect(frames).not.toContain('a request failed')
+    })
+  })
+
+  it('should report a failed app request', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      const frames = await settle()
+
+      expect(frames).toContain('1 failed request')
+      expect(frames).toContain('a request failed')
+    })
+  })
+
+  it('should not let an internal request clear a failure the app reported', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      await settle()
+      ui.pushRequests([{ method: 'GET', url: '/__skip_vite', status: 200, duration: 1, internal: true }])
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).toContain('a request failed')
+    })
+  })
+})

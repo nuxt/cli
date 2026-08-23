@@ -368,17 +368,18 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         return
       }
       requests.push(batch.map(request => ({ time: Date.now(), ...request })))
-      const failed = batch.filter(request => request.status >= 500)
+      // The bundler's own probes 503 while a restart is in flight
+      const app = batch.filter(request => !request.internal)
+      const failed = app.filter(request => request.status >= 500)
       // Nuxt answers a failed render with its error page rather than logging it,
       // so the response status is the only signal that something is wrong.
-      const failing = (batch.at(-1)?.status ?? 0) >= 500
+      const failing = (app.at(-1)?.status ?? 0) >= 500
+      const recovered = app.length > 0 && !failing && state.status === 'error' && !state.errors
       update({
         active: true,
         failures: (state.failures ?? 0) + failed.length,
-        status: failing
-          ? 'error'
-          : state.status === 'error' && !state.errors ? 'ready' : state.status,
-        note: failing ? 'a request failed · press n to trace it' : state.note,
+        status: failing ? 'error' : recovered ? 'ready' : state.status,
+        note: failing ? 'a request failed · press n to trace it' : recovered ? undefined : state.note,
       })
       repaintTicker()
       clearTimeout(activityTimer)
