@@ -415,7 +415,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
       const start = performance.now()
       return runWithRequest(`${req.method || 'GET'} ${req.url || '/'}`, (request) => {
-        req.headers[REQUEST_HEADER] = encodeRequest(request)
+        const encoded = encodeRequest(request)
+        req.headers[REQUEST_HEADER] = encoded
+        req.rawHeaders.push(REQUEST_HEADER, encoded)
         res.once('close', () => {
           if (this.#internalResponses.delete(res)) {
             return
