@@ -25,6 +25,16 @@ const DEV_PHASES: readonly DevPhase[] = [
   { id: 'ready', message: 'Ready' },
 ]
 
+/**
+ * Fraction reserved for the first render. `nuxt:ready` means the server can
+ * accept a request, not answer one, and compiling the first document is the
+ * longest single wait on a large project.
+ */
+const READY_PROGRESS = 0.95
+
+/** Shown between the server accepting requests and it answering one. */
+const WARMUP_MESSAGE = 'Compiling the first request'
+
 const HOOK_PHASES: Record<string, string> = {
   'modules:before': 'modules',
   'builder:generateApp': 'app',
@@ -114,6 +124,12 @@ export interface DevProgressSnapshot {
   progress: number
   elapsed: number
   reload: boolean
+  /**
+   * Whether a request has actually been answered. `status` is `ready` from the
+   * moment the server is listening, so this is what tells a UI whether the app
+   * can be used yet.
+   */
+  serving: boolean
   timings: DevPhaseTiming[]
   error?: { name: string, message: string }
 }
@@ -149,6 +165,7 @@ export class DevProgress {
   #module?: ActiveHook
   #hooks: ActiveHook[] = []
   #narrating = false
+  #serving = false
   #observing = false
   #observed = new WeakSet<HookableLike>()
   #ticker?: NodeJS.Timeout
@@ -161,9 +178,12 @@ export class DevProgress {
       message: this.#message,
       index: this.#index,
       total: DEV_PHASES.length - 1,
-      progress: this.#status === 'ready' ? 1 : this.#index / (DEV_PHASES.length - 1),
+      progress: this.#status === 'ready'
+        ? (this.#serving ? 1 : READY_PROGRESS)
+        : this.#index / (DEV_PHASES.length - 1),
       elapsed: Date.now() - this.#startedAt,
       reload: this.#reload,
+      serving: this.#serving,
       timings: this.#timings,
       error: this.#error && { name: this.#error.name, message: this.#error.message },
     }
@@ -190,6 +210,7 @@ export class DevProgress {
     this.#error = undefined
     this.#timings = []
     this.#reload = reload
+    this.#serving = false
     this.#startedAt = Date.now()
     this.#phaseStartedAt = this.#startedAt
     this.#baseMessage = message || DEV_PHASES[0]!.message
@@ -217,6 +238,23 @@ export class DevProgress {
     this.#advance('ready', undefined, false)
     this.#status = 'ready'
     this.#error = undefined
+    // Nobody is watching a loading page, so there is no first render to wait
+    // for: whoever asks next pays for it, and the panel reports that request
+    // like any other.
+    this.#serving = this.#clients.size === 0
+    if (!this.#serving) {
+      this.#message = WARMUP_MESSAGE
+    }
+    this.#emit()
+  }
+
+  /** The app has answered a request, so the wait is genuinely over. */
+  setServing(): void {
+    if (this.#serving || this.#status !== 'ready') {
+      return
+    }
+    this.#serving = true
+    this.#message = DEV_PHASES.at(-1)!.message
     this.#emit()
   }
 
@@ -436,6 +474,9 @@ export class DevProgress {
       if (this.#clients.size === 0) {
         clearInterval(this.#heartbeat)
         this.#heartbeat = undefined
+        // The page that was waiting for the first render has gone, so there is
+        // nothing left to narrate towards.
+        this.setServing()
       }
     })
 

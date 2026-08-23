@@ -361,6 +361,68 @@ describe('devProgress', () => {
     })
   })
 
+  describe('the wait after the server is ready', () => {
+    it('should hold short of complete until a request has been answered', () => {
+      const progress = new DevProgress()
+      progress.start()
+      const { res } = createResponse()
+      progress.handleRequest(request(PROGRESS_PATH), res)
+
+      progress.setReady()
+      expect(progress.snapshot.serving).toBe(false)
+      expect(progress.snapshot.progress).toBe(0.95)
+      expect(progress.snapshot.message).toBe('Compiling the first request')
+
+      progress.setServing()
+      expect(progress.snapshot.serving).toBe(true)
+      expect(progress.snapshot.progress).toBe(1)
+      expect(progress.snapshot.message).toBe('Ready')
+    })
+
+    it('should not wait for a render nobody is waiting for', () => {
+      const progress = new DevProgress()
+      progress.start()
+      progress.setReady()
+
+      expect(progress.snapshot.serving).toBe(true)
+      expect(progress.snapshot.progress).toBe(1)
+    })
+
+    it('should stop waiting once the page that was waiting has gone', () => {
+      const progress = new DevProgress()
+      progress.start()
+      const { res, close } = createResponse()
+      progress.handleRequest(request(PROGRESS_PATH), res)
+      progress.setReady()
+
+      close()
+      expect(progress.snapshot.serving).toBe(true)
+    })
+
+    it('should ignore a render reported before the server is ready', () => {
+      const progress = new DevProgress()
+      progress.start()
+      progress.setServing()
+
+      expect(progress.snapshot.serving).toBe(false)
+      expect(progress.snapshot.status).toBe('loading')
+    })
+
+    it('should wait again for the first render of a reload', () => {
+      const progress = new DevProgress()
+      progress.start()
+      const { res } = createResponse()
+      progress.handleRequest(request(PROGRESS_PATH), res)
+      progress.setReady()
+      progress.setServing()
+
+      progress.start('nuxt.config.ts changed. Reloading Nuxt...', true)
+      progress.setReady()
+
+      expect(progress.snapshot.serving).toBe(false)
+    })
+  })
+
   it('should stream snapshots to subscribers', () => {
     const progress = new DevProgress()
     progress.start()

@@ -25,6 +25,7 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
     progress: 0,
     elapsed: 0,
     reload: false,
+    serving: false,
     timings: [],
     ...overrides,
   }
@@ -71,6 +72,7 @@ describe('startup reporter', () => {
         message: 'Ready',
         index: 6,
         progress: 1,
+        serving: true,
         elapsed: 2400,
         timings: [
           { phase: 'config', message: 'Loading Nuxt config', duration: 320 },
@@ -126,6 +128,22 @@ describe('startup reporter', () => {
     expect(blankLineBefore()).toBe('\n')
   })
 
+  it('should not claim a startup is over while the first request is compiling', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Compiling the first request', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 8100 }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ◆  Ready in 2.4s · compiling the first request
+      │
+      ◆  Serving in 8.1s"
+    `)
+  })
+
   it('should say nothing more after a build error, which is reported separately', async () => {
     const renderer = await render(() => {
       const startup = reporter(true)
@@ -137,7 +155,7 @@ describe('startup reporter', () => {
   })
 
   it('should describe a reload rather than a first start', () => {
-    expect(formatSummary(snapshot({ status: 'ready', reload: true, elapsed: 900 }))).toBe('Reloaded in 900ms')
+    expect(formatSummary(snapshot({ status: 'ready', reload: true, serving: true, elapsed: 900 }))).toBe('Reloaded in 900ms')
   })
 
   // `nuxt dev` runs under `consola.wrapAll()`, which moves the real `write` to
