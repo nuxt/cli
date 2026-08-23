@@ -1,10 +1,14 @@
+import type { ArgsDef } from 'citty'
+
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { cwdArgs } from '../../../src/commands/_shared'
 import command from '../../../src/commands/add-template'
 import { runCommandDef } from '../../../src/run-command'
+import { findUnknownFlags } from '../../../src/utils/unknown-args'
 
 let cwd: string
 
@@ -45,6 +49,21 @@ describe('add-template command', () => {
     await expect(readFile(join(cwd, 'middleware/auth.global.ts'), 'utf8')).resolves.toContain('defineNuxtRouteMiddleware')
     await expect(readFile(join(cwd, 'server/api/health.ts'), 'utf8')).resolves.toContain('defineEventHandler')
     await expect(readFile(join(cwd, 'app.vue'), 'utf8')).resolves.toContain('<NuxtPage/>')
+  })
+
+  it('applies shorthand modifier flags without reporting them as unknown', async () => {
+    await run('component', 'island', '--client')
+    await run('plugin', 'analytics', '--server')
+    await run('api', 'users', '--get')
+    await run('api', 'orders', '--patch')
+
+    await expect(readFile(join(cwd, 'components/island.client.vue'), 'utf8')).resolves.toContain('Component: island')
+    await expect(readFile(join(cwd, 'plugins/analytics.server.ts'), 'utf8')).resolves.toContain('defineNuxtPlugin')
+    await expect(readFile(join(cwd, 'server/api/users.get.ts'), 'utf8')).resolves.toContain('return \'Hello users\'')
+    await expect(readFile(join(cwd, 'server/api/orders.patch.ts'), 'utf8')).resolves.toContain('return \'Hello orders\'')
+
+    const modifiers = ['--client', '--server', '--connect', '--delete', '--get', '--head', '--options', '--post', '--put', '--trace', '--patch']
+    expect(findUnknownFlags({ ...cwdArgs, ...command.args as ArgsDef }, ['add-template', 'component', 'island', ...modifiers]).flags).toEqual([])
   })
 
   it('rejects unsupported suffix options', async () => {

@@ -49,7 +49,7 @@ const templates = {
 
 function applySuffix(
   args: TemplateOptions['args'],
-  suffixes: string[],
+  suffixes: readonly string[],
   unwrapFrom?: string,
 ): string {
   let suffix = ''

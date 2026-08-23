@@ -12,8 +12,14 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { templates } from '../utils/templates/index'
+import { httpMethods, modes } from '../utils/templates/modifiers'
 import { templateNames } from '../utils/templates/names'
 import { cwdArgs, logLevelArgs } from './_shared'
+
+const modifierArgs = Object.fromEntries([
+  ...modes.map(mode => [mode, `Shorthand for \`--mode ${mode}\``] as const),
+  ...httpMethods.map(method => [method, `Shorthand for \`--method ${method}\``] as const),
+].map(([name, description]) => [name, { type: 'boolean', description }] as const))
 
 export default defineCommand({
   meta: {
@@ -30,12 +36,12 @@ export default defineCommand({
     },
     mode: {
       type: 'string',
-      valueHint: 'client|server',
+      valueHint: modes.join('|'),
       description: 'Add a client or server suffix to a component or plugin',
     },
     method: {
       type: 'string',
-      valueHint: 'connect|delete|get|head|options|patch|post|put|trace',
+      valueHint: [...httpMethods].sort().join('|'),
       description: 'Add an HTTP method suffix to an API route',
     },
     global: {
@@ -61,6 +67,7 @@ export default defineCommand({
       required: true,
       description: 'Specify name of the generated file',
     },
+    ...modifierArgs,
   },
   async run(ctx) {
     const cwd = resolve(ctx.args.cwd)
@@ -77,11 +84,11 @@ export default defineCommand({
       process.exit(1)
     }
 
-    if (ctx.args.mode && ctx.args.mode !== 'client' && ctx.args.mode !== 'server') {
+    if (ctx.args.mode && !(modes as readonly string[]).includes(ctx.args.mode)) {
       logger.error(`Mode must be ${styleText('cyan', 'client')} or ${styleText('cyan', 'server')}.`)
       process.exit(1)
     }
-    if (ctx.args.method && !['connect', 'delete', 'get', 'head', 'options', 'patch', 'post', 'put', 'trace'].includes(ctx.args.method)) {
+    if (ctx.args.method && !(httpMethods as readonly string[]).includes(ctx.args.method)) {
       logger.error(`HTTP method ${styleText('cyan', ctx.args.method)} is not supported.`)
       process.exit(1)
     }

@@ -1,18 +1,7 @@
 import type { Template } from '.'
 import { resolve } from 'pathe'
 import { applySuffix } from '.'
-
-const httpMethods = [
-  'connect',
-  'delete',
-  'get',
-  'head',
-  'options',
-  'post',
-  'put',
-  'trace',
-  'patch',
-]
+import { httpMethods } from './modifiers'
 
 const api: Template = ({ name, args, nuxtOptions }) => {
   return {
