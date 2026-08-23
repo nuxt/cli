@@ -210,6 +210,39 @@ describe('the injected progress client', () => {
     vi.useRealTimers()
   })
 
+  it('should keep the event stream open while it polls for the app', async () => {
+    vi.useFakeTimers()
+    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(client.close).not.toHaveBeenCalled()
+    expect(client.reload).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('should close the stream when the app finally answers', async () => {
+    const client = run({ pollInterval: 1 })
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+
+    await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
+    expect(client.close).toHaveBeenCalled()
+  })
+
+  it('should reload at once when a rebuild finishes mid-warmup', async () => {
+    vi.useFakeTimers()
+    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+    await vi.advanceTimersByTimeAsync(50)
+    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true }))
+
+    expect(client.close).toHaveBeenCalled()
+    expect(client.reload).toHaveBeenCalledTimes(1)
+    vi.useRealTimers()
+  })
+
   it('should stop polling and reload once, aborting whatever is in flight', async () => {
     vi.useFakeTimers()
     const signals: (AbortSignal | undefined)[] = []

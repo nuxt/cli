@@ -478,18 +478,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return
     }
     this.#inflightResponses.add(res)
-    // A document that Nuxt itself answered is the first proof the app can be
-    // used, which is later than the server being ready by however long the
-    // first render takes.
-    const document = !isBundlerRequest(req.url || '/', String(req.headers['sec-fetch-dest'] || '') || undefined)
-      && (req.headers.accept || '').includes('text/html')
+    // A document that Nuxt itself answered is the first proof the app can be used.
+    const document = isDocumentRequest(req)
     res.once('close', () => {
       this.#inflightResponses.delete(res)
       if (document && res.statusCode < 500) {
         this.#progress.setServing()
       }
     })
-    if (!this.#warmup.warmed && isDocumentRequest(req)) {
+    if (!this.#warmup.warmed && document) {
       await this.#warmup.admit(res)
       if (res.destroyed || res.writableEnded) {
         return
