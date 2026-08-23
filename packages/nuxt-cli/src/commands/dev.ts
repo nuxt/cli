@@ -67,7 +67,7 @@ const command = defineCommand({
     },
     'fork': {
       type: 'boolean',
-      description: forkSupported ? 'Disable forked mode' : 'Enable forked mode',
+      description: 'Serve the app from a forked child process (on by default wherever the runtime supports it)',
       negativeDescription: 'Disable forked mode',
       default: forkSupported,
       alias: ['f'],

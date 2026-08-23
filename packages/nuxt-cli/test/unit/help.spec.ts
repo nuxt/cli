@@ -156,11 +156,11 @@ describe('help', () => {
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                              --prerender    Build Nuxt and prerender static routes                                                                                                              
-                 --preset=<nitro-preset>    Nitro server preset                                                                                                                                 
+                 --preset=<nitro-preset>    Nitro server preset (e.g. \`node-server\`, \`vercel\`, \`netlify\`)                                                                                       
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
-                     --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })
@@ -220,7 +220,7 @@ describe('help', () => {
                                    --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
                                 --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
                                  --clear    Clear console on restart (Default: false)                                                                                                           
-                              -f, --fork    Enable forked mode (Default: false)                                                                                                                 
+                              -f, --fork    Serve the app from a forked child process (on by default wherever the runtime supports it) (Default: false)                                         
                        --no-f, --no-fork    Disable forked mode                                                                                                                                 
                        -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)                                                        
                               --takeover    Stop a dev server already running on this project and take its place                                                                                
@@ -241,7 +241,7 @@ describe('help', () => {
          --https.passphrase=<passphrase>    Passphrase for the TLS key or keystore                                                                                                              
              --https.validityDays=<days>    Validity in days for a generated self-signed certificate                                                                                            
              --https.domains=<domain>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.                                                            
-                     --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })
@@ -274,7 +274,7 @@ describe('help', () => {
 
         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
                    --open    Open the best match in a browser (Default: true)            
-                --no-open                                                                
+                --no-open    Print the matching pages without opening a browser          
       "
     `)
   })
@@ -292,11 +292,11 @@ describe('help', () => {
       OPTIONS
 
         --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
-                 --preset=<nitro-preset>    Nitro server preset                                                                                                                                 
+                 --preset=<nitro-preset>    Nitro server preset (e.g. \`node-server\`, \`vercel\`, \`netlify\`)                                                                                       
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
-                     --profile=<verbose>    Profile performance. Use --profile for CPU only, --profile=verbose for full report.                                                                 
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })

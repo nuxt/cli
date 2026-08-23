@@ -4,13 +4,13 @@ description: The prepare command creates a .nuxt directory in your application a
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/prepare.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/prepare.ts
     size: xs
 ---
 
 <!--prepare-cmd-->
 ```bash [Terminal]
-npx nuxt prepare [ROOTDIR] [--dotenv] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--envName] [-e, --extends=<layer-name>]
+npx nuxt prepare [ROOTDIR] [--cwd=<directory>] [--dotenv=<path>...] [--logLevel=<silent|info|verbose>] [--envName=<environment>] [-e, --extends=<layer-name>...]
 ```
 <!--/prepare-cmd-->
 
@@ -19,9 +19,9 @@ The `prepare` command creates a [`.nuxt`](/docs/directory-structure/nuxt) direct
 ## Arguments
 
 <!--prepare-args-->
-| Argument      | Description                                    |
-|---------------|------------------------------------------------|
-| `ROOTDIR="."` | Specifies the working directory (default: `.`) |
+| Argument  | Description                                          |
+|-----------|------------------------------------------------------|
+| `ROOTDIR` | The root directory of your Nuxt project (default: .) |
 <!--/prepare-args-->
 
 ## Options
@@ -29,11 +29,11 @@ The `prepare` command creates a [`.nuxt`](/docs/directory-structure/nuxt) direct
 <!--prepare-opts-->
 | Option                               | Default | Description                                                                                                                                          |
 |--------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
-| `--cwd=<directory>`                  |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`)                                                                     |
+| `--cwd=<directory>`                  |         | Specify the root directory of your Nuxt project                                                                                                      |
+| `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
-| `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
-| `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
+| `--envName=<environment>`            |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
+| `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
 <!--/prepare-opts-->
 
 ::note

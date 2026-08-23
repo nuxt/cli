@@ -63,7 +63,7 @@ export const extendsArgs = {
 export const profileArgs = {
   profile: {
     type: 'string',
-    description: 'Profile performance. Use --profile for CPU only, --profile=verbose for full report.',
+    description: 'Profile performance, writing a V8 CPU profile and a JSON report on exit. Use `--profile=verbose` for a full console report.',
     default: undefined as string | undefined,
     valueHint: 'verbose',
   },

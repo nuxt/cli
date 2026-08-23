@@ -33,6 +33,20 @@ jobs:
       - name: 🔠 Lint project (+ fix)
         run: pnpm run lint:fix
 
+      - name: 🔍 Check whether command docs are affected
+        id: docs-paths
+        run: |
+          base="$(git merge-base "origin/${{ github.base_ref }}" HEAD)"
+          if git diff --quiet "$base" HEAD -- packages docs scripts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 📝 Sync command docs
+        if: steps.docs-paths.outputs.changed == 'true'
+        run: pnpm docs:generate
+
       - name: 🔍 Check whether captures are affected
         id: capture-paths
         run: |

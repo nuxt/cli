@@ -1,112 +1,66 @@
 ---
 title: "nuxt add"
-description: "Scaffold an entity into your Nuxt application."
+description: "Add Nuxt modules and layers to your application."
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/add-template.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/add.ts
     size: xs
 ---
 
 <!--add-cmd-->
 ```bash [Terminal]
-npx nuxt add <TEMPLATE> <NAME> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--force]
+npx nuxt add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>]
 ```
 <!--/add-cmd-->
+
+The `add` command installs [Nuxt modules](/modules) and [layers](/docs/getting-started/layers) into your application. It is the same command as [`nuxt module add`](/docs/api/commands/module#nuxt-module-add), with layers included.
 
 ## Arguments
 
 <!--add-args-->
-| Argument   | Description                                                                                                                                                                                                      |
-|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TEMPLATE` | Specify which template to generate (options: <api\|app\|app-config\|component\|composable\|error\|layer\|layout\|middleware\|module\|page\|plugin\|server-middleware\|server-plugin\|server-route\|server-util>) |
-| `NAME`     | Specify name of the generated file                                                                                                                                                                               |
+| Argument        | Description                                                                   |
+|-----------------|-------------------------------------------------------------------------------|
+| `MODULENAME...` | Specify one or more modules or layers to install by name, separated by spaces |
 <!--/add-args-->
 
 ## Options
 
 <!--add-opts-->
-| Option                               | Default | Description                              |
-|--------------------------------------|---------|------------------------------------------|
-| `--cwd=<directory>`                  | `.`     | Specify the working directory            |
-| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level             |
-| `--force`                            | `false` | Force override file if it already exists |
+| Option                                                     | Default | Description                                     |
+|------------------------------------------------------------|---------|-------------------------------------------------|
+| `--cwd=<directory>`                                        | `.`     | Specify the root directory of your Nuxt project |
+| `--logLevel=<silent\|info\|verbose>`                       |         | Specify build-time log level                    |
+| `--skipInstall`                                            |         | Skip npm install                                |
+| `--skipConfig`                                             |         | Skip nuxt.config.ts update                      |
+| `--dev`                                                    |         | Install modules as dev dependencies             |
+| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub>` |         | Package manager to install with                 |
 <!--/add-opts-->
 
-**Modifiers:**
+When running the command, it will:
 
-Some templates support additional modifier flags to add a suffix (like `.client` or `.get`) to their name.
+- install the package as a dependency using your package manager
+- add it to your [`package.json`](/docs/directory-structure/package) file
+- register it in your [`nuxt.config`](/docs/directory-structure/nuxt-config) file, in `modules` for a module and in `extends` for a layer
 
-```bash [Terminal]
-# Generates `/plugins/sockets.client.ts`
-npx nuxt add plugin sockets --client
-```
-
-## `nuxt add component`
-
-* Modifier flags: `--mode client|server` or `--client` or `--server`
+**Example:**
 
 ```bash [Terminal]
-# Generates `app/components/TheHeader.vue`
-npx nuxt add component TheHeader
+npx nuxt add pinia
 ```
 
-## `nuxt add composable`
+Several packages can be added at once, and the modules will be resolved against the Nuxt version your project uses:
 
 ```bash [Terminal]
-# Generates `app/composables/foo.ts`
-npx nuxt add composable foo
+npx nuxt add @nuxt/image @nuxt/fonts
 ```
 
-## `nuxt add layout`
+Run it without a name to browse the available modules interactively.
 
-```bash [Terminal]
-# Generates `app/layouts/custom.vue`
-npx nuxt add layout custom
-```
+::note
+`nuxt add <template> <name>` is deprecated. Use [`nuxt add-template`](/docs/api/commands/add-template) to scaffold files.
+::
 
-## `nuxt add plugin`
-
-* Modifier flags: `--mode client|server` or `--client`or `--server`
-
-```bash [Terminal]
-# Generates `app/plugins/analytics.ts`
-npx nuxt add plugin analytics
-```
-
-## `nuxt add page`
-
-```bash [Terminal]
-# Generates `app/pages/about.vue`
-npx nuxt add page about
-```
-
-```bash [Terminal]
-# Generates `app/pages/category/[id].vue`
-npx nuxt add page "category/[id]"
-```
-
-## `nuxt add middleware`
-
-* Modifier flags: `--global`
-
-```bash [Terminal]
-# Generates `app/middleware/auth.ts`
-npx nuxt add middleware auth
-```
-
-## `nuxt add api`
-
-* Modifier flags: `--method` (can accept `connect`, `delete`, `get`, `head`, `options`, `patch`, `post`, `put` or `trace`) or alternatively you can directly use `--get`, `--post`, etc.
-
-```bash [Terminal]
-# Generates `server/api/hello.ts`
-npx nuxt add api hello
-```
-
-## `nuxt add layer`
-
-```bash [Terminal]
-# Generates `layers/subscribe/nuxt.config.ts`
-npx nuxt add layer subscribe
-```
+::read-more{to="/docs/api/commands/module"}
+Read more about searching for and removing modules.
+::
