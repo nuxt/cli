@@ -29,16 +29,22 @@ export function progressClient(options: ProgressClientOptions): void {
   document.body.append(caption)
 
   let start = Date.now() - options.elapsed
-  let phase = ''
+  let label = ''
 
   function paint(): void {
     const seconds = `${((Date.now() - start) / 1000).toFixed(1)}s`
-    caption.textContent = phase ? `${phase} \u00B7 ${seconds}` : seconds
+    caption.textContent = label ? `${label} \u00B7 ${seconds}` : seconds
   }
 
   function apply(snapshot: DevProgressSnapshot): void {
     start = Date.now() - snapshot.elapsed
-    phase = `${snapshot.phase} \u00B7 step ${snapshot.index + 1}/${snapshot.total + 1}`
+    // The message, not the phase id: it carries whatever detail the server has,
+    // such as the module currently being set up, and this page is what the user
+    // is looking at for most of a cold start.
+    const message = /^[A-Z][a-z]/.test(snapshot.message)
+      ? snapshot.message[0]!.toLowerCase() + snapshot.message.slice(1)
+      : snapshot.message
+    label = `${message} \u00B7 step ${snapshot.index + 1}/${snapshot.total + 1}`
     const percent = Math.max(4, Math.round(snapshot.progress * 100))
     document.documentElement.style.setProperty(options.progressProperty, `${percent}%`)
     if (snapshot.message && !document.title.startsWith(snapshot.message)) {
@@ -76,7 +82,7 @@ export function progressClient(options: ProgressClientOptions): void {
 
   source.addEventListener('nuxt:ready', (event) => {
     source.close()
-    phase = 'starting the app'
+    label = 'starting the app'
     document.title = 'Starting the app'
     document.documentElement.style.setProperty(options.progressProperty, '100%')
     paint()

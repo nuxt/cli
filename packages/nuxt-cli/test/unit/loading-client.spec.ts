@@ -108,9 +108,17 @@ describe('the injected progress client', () => {
     const client = run()
     client.emit('nuxt:loading', snapshot())
 
-    expect(client.elements[0]!.textContent).toMatch(/^bundle · step 5\/7 · \d+\.\ds$/)
+    expect(client.elements[0]!.textContent).toMatch(/^bundling app · step 5\/7 · \d+\.\ds$/)
     expect(client.properties.get('--nuxt-progress')).toBe('50%')
     expect(document.title).toBe('Bundling app')
+  })
+
+  it('should surface the module being set up, in the caption and the tab title', () => {
+    const client = run()
+    client.emit('nuxt:loading', snapshot({ index: 1, phase: 'modules', message: 'Setting up @nuxtjs/i18n', progress: 1 / 6 }))
+
+    expect(client.elements[0]!.textContent).toMatch(/^setting up @nuxtjs\/i18n · step 2\/7 · \d+\.\ds$/)
+    expect(document.title).toBe('Setting up @nuxtjs/i18n')
   })
 
   it('should hand a build error over to the error page', () => {
