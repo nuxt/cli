@@ -42,6 +42,9 @@ jobs:
       - name: ✂️ Knip project
         run: pnpm test:knip
 
+      - name: 📝 Check command docs are in sync
+        run: pnpm test:docs
+
       # - name: ⚙️ Check package engines
       #   run: pnpm test:engines
 

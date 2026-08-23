@@ -12,11 +12,13 @@
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "bench:cli": "node --experimental-strip-types bench/run.ts",
+    "docs:generate": "node --experimental-strip-types ./scripts/generate-command-docs.ts",
     "nuxi": "node ./packages/nuxi/bin/nuxi.mjs",
     "nuxt": "node ./packages/nuxt-cli/bin/nuxi.mjs",
     "nuxi-bun": "bun --bun ./packages/nuxt-cli/bin/nuxi.mjs",
     "postinstall": "node --experimental-strip-types ./scripts/generate-data.ts && pnpm build",
     "test:types": "tsc --noEmit",
+    "test:docs": "node --experimental-strip-types ./scripts/generate-command-docs.ts --check",
     "test:knip": "knip",
     "test:dist": "pnpm -r test:dist",
     "test:unit": "vitest --coverage --run && pnpm --filter nuxt-cli-playground test --run"
