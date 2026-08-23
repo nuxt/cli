@@ -35,7 +35,8 @@ export function formatSummary(snapshot: DevProgressSnapshot): string {
     .filter(timing => timing.duration >= 10)
     .map(timing => `${timing.phase} ${formatDuration(timing.duration)}`)
     .join(' · ')
-  const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}`
+  const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}${
+    snapshot.serving ? '' : styleText('dim', ' \u00B7 compiling the first request')}`
   return breakdown ? `${headline}\n${styleText('dim', breakdown)}` : headline
 }
 
@@ -49,6 +50,7 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
   const animated = options.animated ?? isAnimationSupported(stream)
 
   let snapshot: DevProgressSnapshot | undefined
+  let served = false
   let lastPhase: string | undefined
   let frame = 0
   let dirty = false
@@ -106,6 +108,11 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
       if (stopped) {
         return
       }
+      // The summary is printed; the only thing left to say is that the first
+      // request has been answered.
+      if (served && next.status !== 'ready') {
+        return
+      }
       snapshot = next
       receivedAt = Date.now()
 
@@ -116,8 +123,16 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
       }
 
       if (next.status === 'ready') {
+        if (served) {
+          if (next.serving) {
+            stopped = true
+            logger.success(`Serving in ${formatDuration(next.elapsed)}`)
+          }
+          return
+        }
         restore()
-        stopped = true
+        served = true
+        stopped = next.serving
         logger.success(formatSummary(next))
         return
       }

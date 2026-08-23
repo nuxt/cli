@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
     progress: 0.5,
     elapsed: 1200,
     reload: false,
+    serving: false,
     timings: [],
     ...overrides,
   }
@@ -131,18 +132,19 @@ describe('the injected progress client', () => {
 
   it('should reload at once after a reload, where nothing is left to warm up', () => {
     const client = run()
-    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true, progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true, progress: 0.95 }))
 
+    expect(client.properties.get('--nuxt-progress')).toBe('100%')
     expect(client.close).toHaveBeenCalled()
     expect(client.reload).toHaveBeenCalled()
   })
 
   it('should wait for the app rather than reloading into a cold start', async () => {
     const client = run({ pollInterval: 1 })
-    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95, message: 'Compiling the first request' }))
 
     expect(client.reload).not.toHaveBeenCalled()
-    expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
+    expect(client.elements[0]!.textContent).toMatch(/^compiling the first request · /)
 
     await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
     expect(client.request).toHaveBeenCalledWith('http://localhost:3000/', expect.objectContaining({ headers: { accept: 'text/html' } }))
@@ -151,10 +153,24 @@ describe('the injected progress client', () => {
   it('should say it is starting the app in the tab title as well as the caption', () => {
     const client = run()
     client.emit('nuxt:loading', snapshot())
-    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95, message: 'Compiling the first request' }))
 
-    expect(document.title).toBe('Starting the app')
-    expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
+    expect(document.title).toBe('Compiling the first request')
+    expect(client.elements[0]!.textContent).toMatch(/^compiling the first request · /)
+  })
+
+  it('should hold the bar short of full while the server is still not serving', () => {
+    const client = run()
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+
+    expect(client.properties.get('--nuxt-progress')).toBe('95%')
+  })
+
+  it('should fill the bar when the snapshot says nothing useful about progress', () => {
+    const client = run()
+    client.emit('nuxt:ready', undefined)
+
+    expect(client.properties.get('--nuxt-progress')).toBe('100%')
   })
 
   it('should never have more than one request for the app in flight', async () => {

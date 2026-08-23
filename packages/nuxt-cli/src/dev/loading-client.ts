@@ -82,16 +82,30 @@ export function progressClient(options: ProgressClientOptions): void {
 
   source.addEventListener('nuxt:ready', (event) => {
     source.close()
-    label = 'starting the app'
-    document.title = 'Starting the app'
-    document.documentElement.style.setProperty(options.progressProperty, '100%')
-    paint()
+    const snapshot = read(event)
+    // Once the server has something to say about this state it says it in the
+    // snapshot, and the terminal, the caption and the tab should all agree. It
+    // only reports itself serving when nothing was waiting for a first render,
+    // in which case there is nothing to narrate and the generic wording is
+    // right.
+    const message = snapshot && !snapshot.serving && snapshot.message ? snapshot.message : 'Starting the app'
+    label = message.charAt(0).toLowerCase() + message.slice(1)
+    document.title = message
 
     // A reload leaves the caches warm, so there is nothing left to wait for.
-    if (read(event)?.reload) {
+    if (snapshot?.reload) {
+      document.documentElement.style.setProperty(options.progressProperty, '100%')
+      paint()
       location.reload()
       return
     }
+
+    // The server reports how much of the load is left, so a full bar above a
+    // caption that says it is still starting is avoidable. A snapshot that
+    // cannot be read, or predates that fraction, still fills it.
+    const fraction = typeof snapshot?.progress === 'number' && snapshot.progress > 0 ? Math.min(snapshot.progress, 1) : 1
+    document.documentElement.style.setProperty(options.progressProperty, `${Math.round(fraction * 100)}%`)
+    paint()
 
     // `nuxt:ready` means the request handler exists, not that it can answer
     // yet: the first document still has to be compiled. So this page stays,

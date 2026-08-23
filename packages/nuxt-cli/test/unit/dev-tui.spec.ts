@@ -65,6 +65,20 @@ describe('dev tui panel', () => {
     `)
   })
 
+  it('should say the first request is still compiling before claiming to be ready', () => {
+    const lines = renderPanel({ ...READY, status: 'warming', progress: 0.95, awaitingFirstRender: true }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('WARMUP   compiling the first request')
+    expect(lines.join('\n')).not.toContain('READY')
+  })
+
+  it('should not keep claiming how fast the last load was while rebuilding', () => {
+    for (const status of ['building', 'restarting', 'error'] as const) {
+      expect(strip(renderPanel({ ...READY, status }, 100, 30)[0]!)).not.toContain('ready in')
+    }
+    expect(strip(renderPanel({ ...READY, status: 'warming' }, 100, 30)[0]!)).toContain('ready in 1.24s')
+  })
+
   it('counts warnings and errors without printing them', () => {
     const line = renderPanel({ ...READY, warnings: 2, errors: 1, requests: 12, medianMs: 8 }, 100, 30)
       .map(strip)
