@@ -369,8 +369,10 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   }
   finally {
     // Nuxt being ready ends startup for this process but not for whoever is
-    // waiting on the first render, so the reporter stays subscribed.
-    if (!reporter || devServer.progress.snapshot?.serving !== false) {
+    // waiting on the first render, so the reporter stays subscribed. Any state
+    // other than ready-but-not-serving has nothing left to wait for.
+    const snapshot = devServer.progress.snapshot
+    if (!reporter || snapshot?.status !== 'ready' || snapshot.serving) {
       stopReporting()
     }
     else {
