@@ -123,6 +123,7 @@ export default defineCommand({
       type: 'boolean',
       alias: 'b',
       description: 'Type-check in build mode, using TypeScript project references (detected automatically by default)',
+      negativeDescription: 'Type-check without TypeScript project references',
     },
   },
   async run(ctx) {
