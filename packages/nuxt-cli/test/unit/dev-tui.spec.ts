@@ -1416,6 +1416,14 @@ describe('help overlay', () => {
     expect(overlay.isOpen).toBe(false)
     expect(closed()).toBe(1)
   })
+
+  it('closes on ? as well, the key that opened it', () => {
+    const { overlay, closed } = create()
+    overlay.open()
+    overlay.handleKey({ sequence: '?' })
+    expect(overlay.isOpen).toBe(false)
+    expect(closed()).toBe(1)
+  })
 })
 
 describe('info overlay', () => {

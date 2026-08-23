@@ -23,7 +23,7 @@ export class HelpOverlay extends ScreenOverlay {
   }
 
   protected get closeKeys(): readonly string[] {
-    return ['h']
+    return ['h', '?']
   }
 
   protected renderTitle(): string {

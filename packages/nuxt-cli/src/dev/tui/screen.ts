@@ -163,7 +163,7 @@ export abstract class ScreenOverlay {
         void this.#copySelected()
         return
       default:
-        if (key.name && this.closeKeys.includes(key.name)) {
+        if ((key.name && this.closeKeys.includes(key.name)) || (key.sequence && this.closeKeys.includes(key.sequence))) {
           return this.close()
         }
         if (!this.handleViewKey(key)) {
