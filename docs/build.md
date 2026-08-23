@@ -4,7 +4,7 @@ description: "Build your Nuxt application."
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/build.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/build.ts
     size: xs
 ---
 
@@ -32,11 +32,11 @@ The `build` command creates a `.output` directory with all your application, ser
 | `--cwd=<directory>`                  |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`)                                                                     |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
 | `--prerender`                        |         | Build Nuxt and prerender static routes                                                                                                               |
-| `--preset=<preset>`                  |         | Specify Nitro server preset. Available presets depend on Nitro (e.g. `node-server`, `vercel`, `netlify`, `static`)                                  |
+| `--preset`                           |         | Nitro server preset                                                                                                                                  |
 | `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
 | `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `--profile` :badge[v4.4]{color="info" size="xs" class="align-middle"} |         | Profile performance. Writes a V8 CPU profile and JSON report on exit. Use `--profile=verbose` for a full console report.                             |
+| `--profile[=verbose]` :badge[v3.16]{color="info" size="xs" class="align-middle"} |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
 <!--/build-opts-->
 
 ::note

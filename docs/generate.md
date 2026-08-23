@@ -4,7 +4,7 @@ description: Pre-renders every route of the application and stores the result in
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/generate.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/generate.ts
     size: xs
 ---
 
@@ -35,7 +35,7 @@ The `generate` command pre-renders every route of your application and stores th
 | `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
 | `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `--profile` :badge[v4.4]{color="info" size="xs" class="align-middle"} |         | Profile performance. Writes a V8 CPU profile and JSON report on exit. Use `--profile=verbose` for a full console report.                             |
+| `--profile[=verbose]` :badge[v3.16]{color="info" size="xs" class="align-middle"} |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
 <!--/generate-opts-->
 
 ::read-more{to="/docs/getting-started/deployment#static-hosting"}

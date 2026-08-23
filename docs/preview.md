@@ -4,7 +4,7 @@ description: The preview command starts a server to preview your application aft
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/preview.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/preview.ts
     size: xs
 ---
 
@@ -33,9 +33,11 @@ The `preview` command starts a server to preview your Nuxt application after run
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
 | `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `-p, --port`                         |         | Port to listen on (use `PORT` environment variable to override)                                                                                      |
+| `-p, --port`                         |         | Port to listen on                                                                                                                                    |
 | `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
 <!--/preview-opts-->
+
+If `--port` is not provided, the `NUXT_PORT`, `NITRO_PORT` and `PORT` environment variables are used, in that order.
 
 This command sets `process.env.NODE_ENV` to `production`. To override, define `NODE_ENV` in a `.env` file or as command-line argument.
 
