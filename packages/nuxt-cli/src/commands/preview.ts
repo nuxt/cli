@@ -29,11 +29,13 @@ const command = defineCommand({
     port: {
       type: 'string',
       description: 'Port to listen on (default: `NUXT_PORT || NITRO_PORT || PORT`)',
+      valueHint: 'port',
       alias: ['p'],
     },
     host: {
       type: 'string',
       description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST`)',
+      valueHint: 'host',
       alias: ['h'],
     },
     ...dotEnvArgs,

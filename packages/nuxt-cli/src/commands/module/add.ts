@@ -29,6 +29,18 @@ import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchMod
 
 const WHITESPACE_RE = /\s/
 
+/** Read order for the `--packageManager` hint. Names nypm adds later are listed after these. */
+const PACKAGE_MANAGER_ORDER = ['npm', 'pnpm', 'yarn', 'bun', 'deno']
+
+const packageManagerNames = packageManagers
+  .map(pm => pm.name)
+  .sort((a, b) => rank(a) - rank(b))
+
+function rank(name: string): number {
+  const index = PACKAGE_MANAGER_ORDER.indexOf(name)
+  return index === -1 ? PACKAGE_MANAGER_ORDER.length : index
+}
+
 interface ResolvedModule {
   nuxtModule?: NuxtModule
   pkg: string
@@ -76,7 +88,8 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
       },
       packageManager: {
         type: 'string',
-        description: `Package manager to install with (${packageManagers.map(pm => pm.name).join(', ')})`,
+        description: 'Package manager to install with',
+        valueHint: packageManagerNames.join('|'),
       },
     },
     async setup(ctx) {
