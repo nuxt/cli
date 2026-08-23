@@ -4,7 +4,7 @@ description: The dev command starts a development server with hot module replace
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/dev.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/dev.ts
     size: xs
 ---
 
@@ -45,7 +45,7 @@ The `dev` command starts a development server with hot module replacement at [ht
 | `--qr`                               |         | Display The QR code of public URL when available                                                                                                     |
 | `--public`                           |         | Listen to all network interfaces                                                                                                                     |
 | `--tunnel`                           |         | Open a tunnel using https://github.com/unjs/untun                                                                                                    |
-| `--profile` :badge[v4.4]{color="info" size="xs" class="align-middle"} |         | Profile performance. Writes a V8 CPU profile and JSON report on exit. Use `--profile=verbose` for a full console report.                             |
+| `--profile[=verbose]`                |         | Profile performance. Use `--profile` for CPU only, `--profile=verbose` for full report.                                                              |
 | `--sslCert`                          |         | (DEPRECATED) Use `--https.cert` instead.                                                                                                             |
 | `--sslKey`                           |         | (DEPRECATED) Use `--https.key` instead.                                                                                                              |
 <!--/dev-opts-->

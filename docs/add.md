@@ -1,112 +1,61 @@
 ---
 title: "nuxt add"
-description: "Scaffold an entity into your Nuxt application."
+description: "Add modules to your Nuxt application with the command line."
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/add-template.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/module/add.ts
     size: xs
 ---
 
 <!--add-cmd-->
 ```bash [Terminal]
-npx nuxt add <TEMPLATE> <NAME> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--force]
+npx nuxt add <MODULENAME> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev]
 ```
 <!--/add-cmd-->
 
 ## Arguments
 
 <!--add-args-->
-| Argument   | Description                                                                                                                                                                                                      |
-|------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `TEMPLATE` | Specify which template to generate (options: <api\|app\|app-config\|component\|composable\|error\|layer\|layout\|middleware\|module\|page\|plugin\|server-middleware\|server-plugin\|server-route\|server-util>) |
-| `NAME`     | Specify name of the generated file                                                                                                                                                                               |
+| Argument     | Description                                                         |
+|--------------|---------------------------------------------------------------------|
+| `MODULENAME` | Specify one or more modules to install by name, separated by spaces |
 <!--/add-args-->
 
 ## Options
 
 <!--add-opts-->
-| Option                               | Default | Description                              |
-|--------------------------------------|---------|------------------------------------------|
-| `--cwd=<directory>`                  | `.`     | Specify the working directory            |
-| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level             |
-| `--force`                            | `false` | Force override file if it already exists |
+| Option                               | Default | Description                         |
+|--------------------------------------|---------|-------------------------------------|
+| `--cwd=<directory>`                  | `.`     | Specify the working directory       |
+| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level        |
+| `--skipInstall`                      |         | Skip npm install                    |
+| `--skipConfig`                       |         | Skip nuxt.config.ts update          |
+| `--dev`                              |         | Install modules as dev dependencies |
 <!--/add-opts-->
 
-**Modifiers:**
+The command lets you install [Nuxt modules](/modules) in your application with no manual work.
 
-Some templates support additional modifier flags to add a suffix (like `.client` or `.get`) to their name.
+When running the command, it will:
 
-```bash [Terminal]
-# Generates `/plugins/sockets.client.ts`
-npx nuxt add plugin sockets --client
-```
+- install the module as a dependency using your package manager (unless `--skipInstall` is set)
+- add it to your [package.json](/docs/directory-structure/package) file (unless `--skipInstall` is set)
+- update your [`nuxt.config`](/docs/directory-structure/nuxt-config) file (unless `--skipConfig` is set)
 
-## `nuxt add component`
+If no module name is passed, you will be prompted to search for and select modules to add.
 
-* Modifier flags: `--mode client|server` or `--client` or `--server`
+**Example:**
 
-```bash [Terminal]
-# Generates `app/components/TheHeader.vue`
-npx nuxt add component TheHeader
-```
-
-## `nuxt add composable`
+Installing the [`Pinia`](/modules/pinia) module
 
 ```bash [Terminal]
-# Generates `app/composables/foo.ts`
-npx nuxt add composable foo
+npx nuxt add pinia
 ```
 
-## `nuxt add layout`
+::note
+`nuxt module add` is an alias for `nuxt add`.
+::
 
-```bash [Terminal]
-# Generates `app/layouts/custom.vue`
-npx nuxt add layout custom
-```
-
-## `nuxt add plugin`
-
-* Modifier flags: `--mode client|server` or `--client`or `--server`
-
-```bash [Terminal]
-# Generates `app/plugins/analytics.ts`
-npx nuxt add plugin analytics
-```
-
-## `nuxt add page`
-
-```bash [Terminal]
-# Generates `app/pages/about.vue`
-npx nuxt add page about
-```
-
-```bash [Terminal]
-# Generates `app/pages/category/[id].vue`
-npx nuxt add page "category/[id]"
-```
-
-## `nuxt add middleware`
-
-* Modifier flags: `--global`
-
-```bash [Terminal]
-# Generates `app/middleware/auth.ts`
-npx nuxt add middleware auth
-```
-
-## `nuxt add api`
-
-* Modifier flags: `--method` (can accept `connect`, `delete`, `get`, `head`, `options`, `patch`, `post`, `put` or `trace`) or alternatively you can directly use `--get`, `--post`, etc.
-
-```bash [Terminal]
-# Generates `server/api/hello.ts`
-npx nuxt add api hello
-```
-
-## `nuxt add layer`
-
-```bash [Terminal]
-# Generates `layers/subscribe/nuxt.config.ts`
-npx nuxt add layer subscribe
-```
+::read-more{to="/docs/api/commands/module"}
+Read more about the other `nuxt module` commands.
+::

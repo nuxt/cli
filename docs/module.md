@@ -1,53 +1,52 @@
 ---
 title: "nuxt module"
-description: "Search and add modules to your Nuxt application with the command line."
+description: "Search and remove modules in your Nuxt application with the command line."
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/tree/main/packages/nuxi/src/commands/module
+    to: https://github.com/nuxt/cli/tree/3.x/packages/nuxi/src/commands/module
     size: xs
 ---
 
 Nuxt provides a few utilities to work with [Nuxt modules](/modules) seamlessly.
 
-## `nuxt module add`
+::read-more{to="/docs/api/commands/add"}
+Read more about `nuxt add`, which installs modules into your application.
+::
 
-<!--module-add-cmd-->
+## `nuxt module remove`
+
+<!--module-remove-cmd-->
 ```bash [Terminal]
-npx nuxt module add <MODULENAME> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev]
+npx nuxt module remove [MODULENAME] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig]
 ```
-<!--/module-add-cmd-->
+<!--/module-remove-cmd-->
 
-<!--module-add-args-->
-| Argument     | Description                                                         |
-|--------------|---------------------------------------------------------------------|
-| `MODULENAME` | Specify one or more modules to install by name, separated by spaces |
-<!--/module-add-args-->
+### Arguments
 
-<!--module-add-opts-->
-| Option                               | Default | Description                         |
-|--------------------------------------|---------|-------------------------------------|
-| `--cwd=<directory>`                  | `.`     | Specify the working directory       |
-| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level        |
-| `--skipInstall`                      |         | Skip npm install                    |
-| `--skipConfig`                       |         | Skip nuxt.config.ts update          |
-| `--dev`                              |         | Install modules as dev dependencies |
-<!--/module-add-opts-->
+<!--module-remove-args-->
+| Argument     | Description                                                        |
+|--------------|--------------------------------------------------------------------|
+| `MODULENAME` | Specify one or more modules to remove by name, separated by spaces |
+<!--/module-remove-args-->
 
-The command lets you install [Nuxt modules](/modules) in your application with no manual work.
+### Options
 
-When running the command, it will:
+<!--module-remove-opts-->
+| Option                               | Default | Description                    |
+|--------------------------------------|---------|--------------------------------|
+| `--cwd=<directory>`                  | `.`     | Specify the working directory  |
+| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level   |
+| `--skipInstall`                      |         | Skip dependency uninstall      |
+| `--skipConfig`                       |         | Skip nuxt.config.ts update     |
+<!--/module-remove-opts-->
 
-- install the module as a dependency using your package manager
-- add it to your [package.json](/docs/directory-structure/package) file
-- update your [`nuxt.config`](/docs/directory-structure/nuxt-config) file
+The command uninstalls the module (unless `--skipInstall` is set) and removes it from your [`nuxt.config`](/docs/directory-structure/nuxt-config) file (unless `--skipConfig` is set). If no module name is passed, you will be prompted to select from the modules registered in your `nuxt.config`. A module name is required when `--skipConfig` is set.
 
 **Example:**
 
-Installing the [`Pinia`](/modules/pinia) module
-
 ```bash [Terminal]
-npx nuxt module add pinia
+npx nuxt module remove pinia
 ```
 
 ## `nuxt module search`

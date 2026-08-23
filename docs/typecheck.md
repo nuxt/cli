@@ -1,20 +1,20 @@
 ---
 title: "nuxt typecheck"
-description: The typecheck command runs vue-tsc to check types throughout your app.
+description: The typecheck command runs vue-tsc or Golar to check types throughout your app.
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/typecheck.ts
+    to: https://github.com/nuxt/cli/blob/3.x/packages/nuxi/src/commands/typecheck.ts
     size: xs
 ---
 
 <!--typecheck-cmd-->
 ```bash [Terminal]
-npx nuxt typecheck [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv] [-e, --extends=<layer-name>]
+npx nuxt typecheck [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv] [-e, --extends=<layer-name>] [--checker]
 ```
 <!--/typecheck-cmd-->
 
-The `typecheck` command runs [`vue-tsc`](https://github.com/vuejs/language-tools/tree/master/packages/tsc) to check types throughout your app.
+The `typecheck` command runs [`vue-tsc`](https://github.com/vuejs/language-tools/tree/master/packages/tsc) or [Golar](https://golar.dev/languages/vue/) to check types throughout your app. If neither is installed, you will be prompted to install one, or shown installation instructions when running in a non-interactive terminal.
 
 ## Arguments
 
@@ -33,6 +33,7 @@ The `typecheck` command runs [`vue-tsc`](https://github.com/vuejs/language-tools
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                     |
 | `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                      |
 | `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                         |
+| `--checker` |         | Type checker to use (`vue-tsc` or `golar`)                                       |
 <!--/typecheck-opts-->
 
 ::note
