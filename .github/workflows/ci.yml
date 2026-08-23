@@ -126,5 +126,5 @@ jobs:
         run: pnpm pkg-pr-new publish --compact --template './playground' ./packages/create-nuxt ./packages/nuxi ./packages/nuxt-cli
 
       - name: 📦 release nightly
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ./scripts/release-nightly.mjs
