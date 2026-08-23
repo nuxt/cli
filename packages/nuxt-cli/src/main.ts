@@ -129,7 +129,7 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
     return
   }
 
-  const { confirm, isCancel } = await import('@clack/prompts')
+  const { cancel, confirm, isCancel } = await import('@clack/prompts')
   const { restoreRawMode, withDirectStdout } = await import('./utils/console')
   for (const { flag, suggestion } of suggestions) {
     if (!suggestion) {
@@ -144,7 +144,13 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
     logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
     const answer = await withDirectStdout(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true }))
     restoreRawMode()
-    if (!isCancel(answer) && answer) {
+    // Ctrl-C at the prompt must abort, not fall through to running the command
+    // with the flag the user was told is unknown.
+    if (isCancel(answer)) {
+      cancel('Aborted.')
+      process.exit(130)
+    }
+    if (answer) {
       replaceFlag(rawArgs, flag, replacement)
     }
   }
@@ -178,7 +184,11 @@ async function reportUnknownCommand(command: string, rawArgs: string[]): Promise
     const answer = await withDirectStdout(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true }))
     restoreRawMode()
 
-    if (!isCancel(answer) && answer) {
+    if (isCancel(answer)) {
+      process.exit(130)
+    }
+
+    if (answer) {
       const index = rawArgs.indexOf(command)
       const argv = index === -1 ? rawArgs : rawArgs.toSpliced(index, 1)
       setCurrentCommand(suggestion)
