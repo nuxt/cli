@@ -17,7 +17,7 @@ export interface ProgressClientOptions {
   progressProperty: string
   /** How far the load had got when this page was served. */
   elapsed: number
-  /** How long to wait before the first request for the app once the server says it is ready. */
+  /** Wait after the first request for the app, from which later waits back off. */
   pollInterval: number
   /** Ceiling the wait between those requests backs off to. */
   maxPollInterval: number

@@ -2122,9 +2122,15 @@ describe('request failures on the panel', () => {
         if (descriptor) {
           Object.defineProperty(process.stdout, key, descriptor)
         }
+        else {
+          Reflect.deleteProperty(process.stdout, key)
+        }
       }
       if (stdin) {
         Object.defineProperty(process.stdin, 'isTTY', stdin)
+      }
+      else {
+        Reflect.deleteProperty(process.stdin, 'isTTY')
       }
       if (setRawMode) {
         Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
