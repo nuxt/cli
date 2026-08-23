@@ -9,9 +9,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "nuxt": "npm:nuxt-nightly@5x",
-    "vue": "latest",
-    "vue-router": "latest"
+    "nuxt": "npm:nuxt-nightly@5.0.0-29789807.4e009983",
+    "vue": "^3.5.41",
+    "vue-router": "^5.2.0"
   },
   "devDependencies": {
     "vitest": "^4.1.11"

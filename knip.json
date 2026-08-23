@@ -44,6 +44,16 @@
       "ignoreDependencies": [
         "jiti"
       ]
+    },
+    "playground-nightly": {
+      "entry": [
+        "test/**",
+        "app/**",
+        "server/**"
+      ],
+      "ignoreDependencies": [
+        "vue-router"
+      ]
     }
   }
 }

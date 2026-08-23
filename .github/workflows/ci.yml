@@ -96,6 +96,10 @@ jobs:
       - name: 🧪 Test (unit)
         run: pnpm test:unit
 
+      - name: 🧪 Test the dev UI against Nuxt nightly
+        if: matrix.os == 'ubuntu-latest'
+        run: pnpm --filter nuxt-cli-playground-nightly test
+
       - if: matrix.os != 'windows-latest'
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
 

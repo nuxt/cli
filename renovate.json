@@ -21,6 +21,14 @@
       "matchPackageNames": ["rolldown", "@rolldown/**"],
       "groupName": "rolldown",
       "groupSlug": "rolldown"
+    },
+    {
+      "matchPackageNames": ["nuxt-nightly"],
+      "groupName": "nuxt nightly",
+      "groupSlug": "nuxt-nightly",
+      "ignoreUnstable": false,
+      "separateMinorPatch": false,
+      "description": "Pinned in playground-nightly so a Nuxt 5 regression shows up as a failing bump PR rather than a random red CI run."
     }
   ]
 }
