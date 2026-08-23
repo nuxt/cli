@@ -41,7 +41,7 @@ npx nuxt module remove [MODULENAME] [--cwd=<directory>] [--logLevel=<silent|info
 | `--skipConfig`                       |         | Skip nuxt.config.ts update     |
 <!--/module-remove-opts-->
 
-The command uninstalls the module (unless `--skipInstall` is set) and removes it from your [`nuxt.config`](/docs/directory-structure/nuxt-config) file (unless `--skipConfig` is set). If no module name is passed, you will be prompted to select from the modules installed in your project.
+The command uninstalls the module (unless `--skipInstall` is set) and removes it from your [`nuxt.config`](/docs/directory-structure/nuxt-config) file (unless `--skipConfig` is set). If no module name is passed, you will be prompted to select from the modules registered in your `nuxt.config`. A module name is required when `--skipConfig` is set.
 
 **Example:**
 
