@@ -4,13 +4,13 @@ description: Pre-renders every route of the application and stores the result in
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/generate.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/generate.ts
     size: xs
 ---
 
 <!--generate-cmd-->
 ```bash [Terminal]
-npx nuxt generate [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--preset] [--dotenv] [--envName] [-e, --extends=<layer-name>] [--profile[=verbose]]
+npx nuxt generate [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--preset=<nitro-preset>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
 ```
 <!--/generate-cmd-->
 
@@ -19,9 +19,9 @@ The `generate` command pre-renders every route of your application and stores th
 ## Arguments
 
 <!--generate-args-->
-| Argument      | Description                                    |
-|---------------|------------------------------------------------|
-| `ROOTDIR="."` | Specifies the working directory (default: `.`) |
+| Argument  | Description                                          |
+|-----------|------------------------------------------------------|
+| `ROOTDIR` | The root directory of your Nuxt project (default: .) |
 <!--/generate-args-->
 
 ## Options
@@ -29,13 +29,13 @@ The `generate` command pre-renders every route of your application and stores th
 <!--generate-opts-->
 | Option                               | Default | Description                                                                                                                                          |
 |--------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--cwd=<directory>`                  |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`)                                                                     |
+| `--cwd=<directory>`                  |         | Specify the root directory of your Nuxt project                                                                                                      |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
-| `--preset`                           |         | Nitro server preset                                                                                                                                  |
-| `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
-| `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
-| `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `--profile` :badge[v4.4]{color="info" size="xs" class="align-middle"} |         | Profile performance. Writes a V8 CPU profile and JSON report on exit. Use `--profile=verbose` for a full console report.                             |
+| `--preset=<nitro-preset>`            |         | Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)                                                                                        |
+| `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
+| `--envName=<environment>`            |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
+| `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
+| `--profile=<verbose>`                |         | Profile performance, writing a V8 CPU profile and a JSON report on exit. Use `--profile=verbose` for a full console report.                          |
 <!--/generate-opts-->
 
 ::read-more{to="/docs/getting-started/deployment#static-hosting"}

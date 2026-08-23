@@ -4,7 +4,7 @@ description: The devtools command allows you to enable or disable Nuxt DevTools 
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/devtools.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/devtools.ts
     size: xs
 ---
 
@@ -19,18 +19,18 @@ Running `nuxt devtools enable` will install the Nuxt DevTools globally, and also
 ## Arguments
 
 <!--devtools-args-->
-| Argument      | Description                                    |
-|---------------|------------------------------------------------|
-| `COMMAND`     | Command to run (options: <enable\|disable>)    |
-| `ROOTDIR="."` | Specifies the working directory (default: `.`) |
+| Argument                    | Description                                          |
+|-----------------------------|------------------------------------------------------|
+| `COMMAND=<enable\|disable>` | Command to run                                       |
+| `ROOTDIR`                   | The root directory of your Nuxt project (default: .) |
 <!--/devtools-args-->
 
 ## Options
 
 <!--devtools-opts-->
-| Option              | Default | Description                                                                      |
-|---------------------|---------|----------------------------------------------------------------------------------|
-| `--cwd=<directory>` |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
+| Option              | Default | Description                                     |
+|---------------------|---------|-------------------------------------------------|
+| `--cwd=<directory>` |         | Specify the root directory of your Nuxt project |
 <!--/devtools-opts-->
 
 ::read-more{icon="i-simple-icons-nuxtdotjs" to="https://devtools.nuxt.com" target="\_blank"}

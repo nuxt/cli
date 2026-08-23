@@ -4,17 +4,23 @@ description: The init command initializes a fresh Nuxt project.
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/init.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/create-nuxt/src/init.ts
     size: xs
 ---
 
 <!--init-cmd-->
 ```bash [Terminal]
-npm create nuxt@latest [DIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [-t, --template] [-f, --force] [--offline] [--preferOffline] [--no-install] [--gitInit] [--shell] [--packageManager] [-M, --modules] [--no-modules] [--nightly]
+npm create nuxt@latest [DIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [-t, --template=<template-name>] [-f, --force] [--offline] [--preferOffline] [--install] [--gitInit] [--shell] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>] [-M, --modules=<module-names>] [--nightly=<dist-tag>]
 ```
 <!--/init-cmd-->
 
-The `create-nuxt` command initializes a fresh Nuxt project using [unjs/giget](https://github.com/unjs/giget).
+The `create-nuxt` command initializes a fresh Nuxt project using [unjs/giget](https://github.com/unjs/giget). It asks which template to start from, whether to install modules, and which package manager to use, then installs dependencies and prints the commands to run next.
+
+![npm create nuxt](/capture/output/nuxt-init.svg)
+
+::note
+`nuxt init` was removed from `@nuxt/cli`. Use `npm create nuxt@latest`, or the equivalent for your package manager.
+::
 
 ## Arguments
 
@@ -27,22 +33,31 @@ The `create-nuxt` command initializes a fresh Nuxt project using [unjs/giget](ht
 ## Options
 
 <!--init-opts-->
-| Option                               | Default | Description                                              |
-|--------------------------------------|---------|----------------------------------------------------------|
-| `--cwd=<directory>`                  | `.`     | Specify the working directory                            |
-| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                             |
-| `-t, --template`                     |         | Template name                                            |
-| `-f, --force`                        |         | Override existing directory                              |
-| `--offline`                          |         | Force offline mode                                       |
-| `--preferOffline`                    |         | Prefer offline mode                                      |
-| `--no-install`                       |         | Skip installing dependencies                             |
-| `--gitInit`                          |         | Initialize git repository                                |
-| `--shell`                            |         | Start shell after installation in project directory      |
-| `--packageManager`                   |         | Package manager choice (npm, pnpm, yarn, bun)            |
-| `-M, --modules`                      |         | Nuxt modules to install (comma separated without spaces) |
-| `--no-modules`                       |         | Skip module installation prompt                          |
-| `--nightly`                          |         | Use Nuxt nightly release channel (3x or latest)          |
+| Option                                                     | Default | Description                                                                          |
+|------------------------------------------------------------|---------|--------------------------------------------------------------------------------------|
+| `--cwd=<directory>`                                        | `.`     | Specify the directory to create the project in                                       |
+| `--logLevel=<silent\|info\|verbose>`                       |         | Specify build-time log level                                                         |
+| `-t, --template=<template-name>`                           |         | Template name                                                                        |
+| `-f, --force`                                              |         | Override existing directory                                                          |
+| `--offline`                                                |         | Force offline mode                                                                   |
+| `--preferOffline`                                          |         | Prefer offline mode                                                                  |
+| `--install`                                                | `true`  | Install dependencies once the project has been scaffolded                            |
+| `--no-install`                                             |         | Skip installing dependencies                                                         |
+| `--gitInit`                                                |         | Initialize git repository                                                            |
+| `--shell`                                                  |         | Start shell after installation in project directory                                  |
+| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub>` |         | Package manager choice                                                               |
+| `-M, --modules=<module-names>`                             |         | Nuxt modules to install (comma separated without spaces)                             |
+| `--no-modules`                                             |         | Skip module installation prompt                                                      |
+| `--nightly=<dist-tag>`                                     |         | Use Nuxt nightly release channel (a `nuxt-nightly` dist tag, defaulting to `latest`) |
 <!--/init-opts-->
+
+## Non-interactive use
+
+Without a terminal to prompt in, the answers it would have asked for have to be passed as arguments: the directory, `--template`, `--packageManager` and `--gitInit`. Anything missing is reported along with the available templates, and the command exits with `2`.
+
+```bash [Terminal]
+npm create nuxt@latest my-app --template minimal --packageManager pnpm --no-gitInit
+```
 
 ## Environment Variables
 

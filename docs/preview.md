@@ -4,24 +4,26 @@ description: The preview command starts a server to preview your application aft
 links:
   - label: Source
     icon: i-simple-icons-github
-    to: https://github.com/nuxt/cli/blob/main/packages/nuxi/src/commands/preview.ts
+    to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/preview.ts
     size: xs
 ---
 
 <!--preview-cmd-->
 ```bash [Terminal]
-npx nuxt preview [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--envName] [-e, --extends=<layer-name>] [-p, --port] [--dotenv]
+npx nuxt preview [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--envName=<environment>] [-e, --extends=<layer-name>...] [-p, --port=<port>] [-h, --host=<host>] [--dotenv=<path>...]
 ```
 <!--/preview-cmd-->
 
-The `preview` command starts a server to preview your Nuxt application after running the `build` command. The `start` command is an alias for `preview`. When running your application in production refer to the [Deployment section](/docs/getting-started/deployment).
+The `preview` command starts a server to preview your Nuxt application after running the `build` command. `nuxt start` is the same command under another name. When running your application in production refer to the [Deployment section](/docs/getting-started/deployment).
+
+Some Nitro presets do not produce a server that can be run locally. For those, the preset's own preview command is run instead, and the command tells you what it is running.
 
 ## Arguments
 
 <!--preview-args-->
-| Argument      | Description                                    |
-|---------------|------------------------------------------------|
-| `ROOTDIR="."` | Specifies the working directory (default: `.`) |
+| Argument  | Description                                          |
+|-----------|------------------------------------------------------|
+| `ROOTDIR` | The root directory of your Nuxt project (default: .) |
 <!--/preview-args-->
 
 ## Options
@@ -29,12 +31,13 @@ The `preview` command starts a server to preview your Nuxt application after run
 <!--preview-opts-->
 | Option                               | Default | Description                                                                                                                                          |
 |--------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--cwd=<directory>`                  |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`)                                                                     |
+| `--cwd=<directory>`                  |         | Specify the root directory of your Nuxt project                                                                                                      |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
-| `--envName`                          |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
-| `-e, --extends=<layer-name>`         |         | Extend from a Nuxt layer                                                                                                                             |
-| `-p, --port`                         |         | Port to listen on (use `PORT` environment variable to override)                                                                                      |
-| `--dotenv`                           |         | Path to `.env` file to load, relative to the root directory                                                                                          |
+| `--envName=<environment>`            |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
+| `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
+| `-p, --port=<port>`                  |         | Port to listen on (default: `NUXT_PORT \|\| NITRO_PORT \|\| PORT`)                                                                                   |
+| `-h, --host=<host>`                  |         | Host to listen on (default: `NUXT_HOST \|\| NITRO_HOST \|\| HOST`)                                                                                   |
+| `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 <!--/preview-opts-->
 
 This command sets `process.env.NODE_ENV` to `production`. To override, define `NODE_ENV` in a `.env` file or as command-line argument.
