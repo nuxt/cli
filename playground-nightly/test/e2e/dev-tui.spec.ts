@@ -41,10 +41,7 @@ describe('dev ui on nuxt nightly', () => {
     expect(output).toContain('watching for changes')
   }, 240_000)
 
-  // TODO: nitro v3 runs the app through vite's module runner, which gives the
-  // reporter a different `consola` instance from the one `@nuxt/nitro-server`
-  // wraps `console` with, so runtime logs arrive unattributed.
-  it.fails('should attribute the app\'s logs to the request that caused them', async () => {
+  it('should attribute the app\'s logs to the request that caused them', async () => {
     const output = await runDevUI(3212)
 
     expect(output).toContain('log from the server route')

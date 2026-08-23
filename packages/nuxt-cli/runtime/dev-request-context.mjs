@@ -78,24 +78,55 @@ function trackRequests(nitroApp) {
   }
 }
 
+/** `console` methods worth reporting, and the consola level each maps to. */
+const CONSOLE_LEVELS = { error: 0, warn: 1, log: 3, info: 3, debug: 4, trace: 5 }
+
 function reportLogs() {
   const channel = new BroadcastChannel(CHANNEL)
   channel.unref()
+
+  const post = (level, logType, tag, args) => {
+    try {
+      const request = storage.getStore()
+      channel.postMessage({
+        level,
+        logType,
+        tag: tag || undefined,
+        message: formatWithOptions({ colors: false }, ...args),
+        origin: request ? 'runtime' : 'build',
+        request: request?.label,
+        requestId: request?.id,
+      })
+    }
+    catch {}
+  }
+
   consola.addReporter({
     log(logObj) {
-      try {
-        const request = storage.getStore()
-        channel.postMessage({
-          level: logObj.level,
-          logType: logObj.type,
-          tag: logObj.tag || undefined,
-          message: formatWithOptions({ colors: false }, ...logObj.args),
-          origin: request ? 'runtime' : 'build',
-          request: request?.label,
-          requestId: request?.id,
-        })
-      }
-      catch {}
+      post(logObj.level, logObj.type, logObj.tag, logObj.args)
     },
   })
+
+  // `consola.wrapConsole()` replaces each console method with `raw` off the
+  // instance that wrapped it, so this says whether the app logs through the
+  // instance above. When it does not, the app's logs never reach the reporter
+  // and `console` is the only way to see them.
+  // eslint-disable-next-line no-console
+  if (console.log !== consola.log?.raw) {
+    wrapConsole(post)
+  }
+}
+
+/* eslint-disable no-console */
+function wrapConsole(post) {
+  for (const [type, level] of Object.entries(CONSOLE_LEVELS)) {
+    const original = console[type]
+    if (typeof original !== 'function') {
+      continue
+    }
+    console[type] = function (...args) {
+      post(level, type, undefined, args)
+      return original.apply(this, args)
+    }
+  }
 }
