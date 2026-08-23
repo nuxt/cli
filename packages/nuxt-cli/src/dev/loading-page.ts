@@ -6,6 +6,7 @@ import { PROGRESS_PATH } from './progress'
 const CAPTION_ID = 'nuxt-dev-phase'
 const PROGRESS_PROPERTY = '--nuxt-progress'
 const POLL_INTERVAL_MS = 200
+const MAX_POLL_INTERVAL_MS = 1000
 
 /**
  * Turns the static bar Nuxt's own loading page draws into a determinate one, and
@@ -22,6 +23,7 @@ function progressTags(snapshot: DevProgressSnapshot): string {
     progressProperty: PROGRESS_PROPERTY,
     elapsed: snapshot.elapsed,
     pollInterval: POLL_INTERVAL_MS,
+    maxPollInterval: MAX_POLL_INTERVAL_MS,
   })}`
 }
 
