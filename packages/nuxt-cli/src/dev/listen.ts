@@ -334,6 +334,10 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
+    if (announce && (anyHost || !LOOPBACK_HOSTS.has(hostname))) {
+      logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
+    }
+
     if (announce) {
       if (options.showURL !== false) {
         if (qrURL) {
