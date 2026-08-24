@@ -51,6 +51,31 @@ export function normaliseMessage(text: string): string {
   return stripAnsi(text).replaceAll('`', '').replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Box drawing and the ASCII fallback's `>` gutter, so a boxed log can be
+ * recognised as the printed form of the message it was built from. The borders
+ * sit between every line of the message, which plain containment cannot see
+ * past.
+ */
+const BOX_DECORATION_RE = /[\u2500-\u257F]|^[ \t]*>[ \t]?/gm
+
+/** Text as it reads with any box the printer drew around it taken off. */
+function undecorate(text: string): string {
+  return normaliseMessage(stripAnsi(text).replaceAll(BOX_DECORATION_RE, ' '))
+}
+
+/**
+ * Whether the event is asking the user for something rather than reporting.
+ *
+ * A tool only draws a box around output it needs read, and what is inside is
+ * usually a URL to open or a token to paste: useless unheeded, and useless
+ * truncated onto a status line. Tools that know the terminal host say so
+ * through `notify` instead; a box is how everything else says it.
+ */
+export function isBoxedNotice(event: DevLogEvent): boolean {
+  return event.type === 'box'
+}
+
 /** Either text may carry a badge the other does not, so neither has to be exact. */
 function sameMessage(a: string, b: string): boolean {
   return a.includes(b) || b.includes(a)
@@ -76,9 +101,13 @@ function errorSignature(message: string): string | undefined {
  * Badges usually arrive wrapped in colour, so matching happens against plain
  * text. Only an uncoloured badge is cut from the message: slicing through an
  * escape sequence would drop the reset and leave the rest of the line styled.
+ *
+ * A boxed notice already knows what it is, and inferring a severity from its
+ * opening words would rewrite it into a warning that no longer reaches the
+ * panel as one.
  */
 function classify(event: DevLogEvent): DevLogEvent {
-  if (event.level < 2) {
+  if (event.level < 2 || isBoxedNotice(event)) {
     return event
   }
   const plain = stripAnsi(event.message)
@@ -158,6 +187,7 @@ export class DevEventLog {
     if (!text) {
       return false
     }
+    const boxed = undecorate(plain)
     const now = Date.now()
     for (let index = this.#events.length - 1; index >= 0 && index > this.#events.length - RECENT_SCAN; index--) {
       const event = this.#events[index]!
@@ -165,8 +195,11 @@ export class DevEventLog {
         return false
       }
       const message = normaliseMessage(event.message)
-      if (!event.rendered && message && text.includes(message)) {
-        event.rendered = chunk
+      // A boxed notice that has already been printed keeps the output it was
+      // paired with: a repeat of it was collapsed into that entry, so its
+      // second printing has no other home.
+      if (message && (text.includes(message) || boxed.includes(message)) && (!event.rendered || isBoxedNotice(event))) {
+        event.rendered ??= chunk
         return true
       }
     }
@@ -196,12 +229,20 @@ export class DevEventLog {
    * (the one with the file and the stack) and counts the rest.
    */
   #dedupe(event: DevLogEvent): DevLogEvent | undefined {
-    if (event.level > 1) {
+    if (event.level > 1 && !isBoxedNotice(event)) {
       return undefined
     }
     const signature = errorSignature(event.message)
     const sameProblem = (candidate: DevLogEvent) => !!signature && signature === errorSignature(candidate.message)
-    return this.#merge(event, candidate => candidate.level <= 1, (candidate) => {
+    // A boxed notice only ever joins another one. Folded into a warning it
+    // would leave the entry a warning, reported as a merge, and the attention
+    // the box was drawn to ask for would never be raised. The other direction
+    // is welcome: a warning saying the same thing joins the box and the box
+    // keeps the notice it already raised.
+    const matches = isBoxedNotice(event)
+      ? isBoxedNotice
+      : (candidate: DevLogEvent) => candidate.level <= 1 || isBoxedNotice(candidate)
+    return this.#merge(event, matches, (candidate) => {
       candidate.repeats = (candidate.repeats ?? 1) + 1
       if (normaliseMessage(candidate.message).length < normaliseMessage(event.message).length) {
         candidate.message = event.message

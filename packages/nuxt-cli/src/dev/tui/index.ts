@@ -23,6 +23,7 @@ import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../uti
 import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { NOOP_CONTROLLER } from './controller'
+import { isBoxedNotice, normaliseMessage } from './events'
 import { HelpOverlay } from './help-overlay'
 import { InfoOverlay } from './info-overlay'
 import { attachKeys } from './keys'
@@ -183,6 +184,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   interface HeldNotice {
     text: string
     tone: 'info' | 'warn'
+    /** Replaces the status badge, for something that is waiting on the user. */
+    label?: string
     resolve: () => void
   }
 
@@ -191,7 +194,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   function clearNotice(): void {
     const held = heldNotices.at(-1)
-    update({ notice: held ? { text: held.text, tone: held.tone } : undefined })
+    update({ notice: held ? { text: held.text, tone: held.tone, label: held.label } : undefined })
   }
 
   function dismissHeld(held: HeldNotice): void {
@@ -202,6 +205,26 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     heldNotices.splice(index, 1)
     held.resolve()
     clearNotice()
+  }
+
+  /**
+   * Hold a message on the status line until the user acknowledges it with a
+   * keypress or the caller lets it go.
+   *
+   * The single path for anything that must not scroll away unnoticed, whether
+   * it was reported through the terminal host or recovered from a box a tool
+   * printed without knowing about the host.
+   */
+  function holdNotice(notice: { text: string, tone: 'info' | 'warn', label?: string }) {
+    let resolve!: () => void
+    const dismissed = new Promise<void>((settle) => {
+      resolve = settle
+    })
+    const held: HeldNotice = { ...notice, text: notice.text.split('\n')[0]!.trim(), resolve }
+    heldNotices.push(held)
+    clearTimeout(noticeTimer)
+    clearNotice()
+    return { dismiss: () => dismissHeld(held), dismissed }
   }
 
   /** Show `text` for a moment. Nothing a notice reports outlives the moment. */
@@ -229,6 +252,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     if (merged) {
       return
     }
+    if (isBoxedNotice(event)) {
+      // The box itself is written above the panel, where its URL can be read and
+      // copied; the badge is what stops it scrolling away unnoticed.
+      holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'ACTION' })
+      return
+    }
     if (event.level <= 0) {
       update({ errors: (state.errors ?? 0) + 1, status: state.status === 'ready' ? 'error' : state.status })
     }
@@ -236,7 +265,15 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // A warning about what the CLI could not do says nothing about the app, so
       // it is shown once rather than counted against the build.
       if (event.source === 'cli') {
-        showNotice(event.message, 'warn')
+        // One raised while starting up describes the session itself, not a
+        // moment in it: how the server is exposed, what could not be set up.
+        // Those are worth holding until someone has looked at the panel.
+        if (state.readyMs === undefined) {
+          holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'WARNING' })
+        }
+        else {
+          showNotice(event.message, 'warn')
+        }
       }
       else {
         update({ warnings: (state.warnings ?? 0) + 1 })
@@ -428,15 +465,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       return result
     },
     notify: (notification) => {
-      const tone = notification.level === 'warn' ? 'warn' as const : 'info' as const
-      let resolve!: () => void
-      const dismissed = new Promise<void>((settle) => {
-        resolve = settle
-      })
-      const held: HeldNotice = { text: (notification.title ?? notification.message).split('\n')[0]!.trim(), tone, resolve }
-      heldNotices.push(held)
       // The full text goes into scrollback where it can be read and copied,
-      // and into the history; the held badge is what stops it scrolling away
+      // and into the history; the held notice is what stops it scrolling away
       // unnoticed.
       surfaceText(renderNotification(notification))
       events.push({
@@ -446,9 +476,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         message: [notification.title, notification.message].filter(Boolean).join('\n'),
         source: 'cli',
       })
-      clearTimeout(noticeTimer)
-      clearNotice()
-      return { dismiss: () => dismissHeld(held), dismissed }
+      return holdNotice({
+        text: notification.title ?? notification.message,
+        tone: notification.level === 'warn' ? 'warn' : 'info',
+      })
     },
     startTask: (label) => {
       const task = { label, startedAt: Date.now() }
@@ -649,7 +680,11 @@ function describeSession(
   ]
 }
 
-/** A version, linked to its release notes where the terminal supports it. */
+/** The gist of a message, for a status line that has one line to say it in. */
+function firstSentence(message: string): string {
+  return normaliseMessage(message).split('. ')[0]!
+}
+
 /** A notification as it belongs in scrollback: legible, copyable, unboxed. */
 function renderNotification({ title, message, level }: TerminalNotification): string {
   const mark = level === 'warn' ? styleText(['yellow', 'bold'], '\u26A0') : styleText('cyan', '\u2139')
@@ -657,6 +692,7 @@ function renderNotification({ title, message, level }: TerminalNotification): st
   return `${head}${message}`
 }
 
+/** A version, linked to its release notes where the terminal supports it. */
 function linkVersion(version: string): string {
   const notes = releaseNotesUrl('nuxt', version)
   return notes ? terminalLink(version, notes) : version
