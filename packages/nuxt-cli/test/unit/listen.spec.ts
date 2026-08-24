@@ -10,6 +10,11 @@ import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, l
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
 
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  isCI: false,
+}))
+
 vi.mock('tinyclip', () => ({ writeText }))
 vi.mock('../../src/dev/environment', () => ({
   detectIsolatedEnvironment: () => isolatedEnvironment.current,
@@ -234,6 +239,26 @@ describe('listen', () => {
     return listener
   }
 
+  it('should not draw a QR code into output nothing can scan it from', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const originalIsTTY = process.stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true })
+
+    try {
+      const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', qr: true })
+      listeners.push(listener)
+      const printed = log.mock.calls.map(([line]) => String(line)).join('\n')
+
+      expect(printed).toContain('Local:')
+      expect(printed).not.toContain('[QR code]')
+      expect(printed).not.toMatch(/[\u2580-\u259F]/)
+    }
+    finally {
+      Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true })
+      log.mockRestore()
+    }
+  })
+
   it('should accept connections on both loopback addresses in an isolated environment', async () => {
     isolatedEnvironment.current = 'the container'
     const listener = await start({ port: 0 })
@@ -356,12 +381,19 @@ describe('listener.close', () => {
         throw new Error('qr unavailable')
       },
     }))
+    const originalIsTTY = process.stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
 
-    await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
+    try {
+      await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
 
-    expect(closeTunnel).toHaveBeenCalledTimes(1)
-    vi.doUnmock('../../src/dev/tunnel')
-    vi.doUnmock('uqr')
+      expect(closeTunnel).toHaveBeenCalledTimes(1)
+    }
+    finally {
+      Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true })
+      vi.doUnmock('../../src/dev/tunnel')
+      vi.doUnmock('uqr')
+    }
   })
 
   it('should release the port when setup fails after binding', async () => {
