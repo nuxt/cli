@@ -1,4 +1,4 @@
-import type { ConsolaReporter } from 'consola'
+import type { ConsolaOptions, ConsolaReporter } from 'consola'
 
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -9,7 +9,9 @@ import { resolveModulePath } from 'exsolve'
 import { isRemotePeerError } from './errors'
 import { tryResolveNuxt } from './kit'
 import { debug } from './logger'
-import { trackOutputSpacing } from './stdout'
+import { withStartupClockPaused } from './startup-clock'
+import { isInteractiveSession, trackOutputSpacing } from './stdout'
+import { useTerminalHost } from './terminal-host'
 
 // TODO: Use better API from consola for intercepting logs
 function wrapReporter(reporter: ConsolaReporter) {
@@ -41,6 +43,7 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
     const projectConsola = mod.consola ?? mod.default
     if (projectConsola) {
       projectConsola.options.formatOptions.date = false
+      interceptPrompts(projectConsola)
     }
   }
   catch (error) {
@@ -55,6 +58,7 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   if (opts.dev) {
     trackOutputSpacing()
     consola.wrapAll()
+    interceptPrompts(consola)
   }
   else {
     consola.wrapConsole()
@@ -125,6 +129,55 @@ export async function withDirectStdout<T>(fn: () => T | Promise<T>): Promise<T> 
   finally {
     consola.wrapStd()
   }
+}
+
+type PromptFn = NonNullable<ConsolaOptions['prompt']>
+
+/** Resolves once the prompt currently on screen, if any, has been answered. */
+let promptQueue: Promise<unknown> = Promise.resolve()
+
+const wrappedPrompts = new WeakSet<PromptFn>()
+
+/**
+ * Ask `instance`'s questions on a terminal they can be read and answered on.
+ *
+ * A question raised from inside the dev server, such as a module asking to
+ * install itself, arrives long after the CLI's own prompts are done with the
+ * terminal: the interactive UI is folding output away into its log view and
+ * holding stdin for its shortcuts, so the question would be filed away as a
+ * log and the keystroke meant for it taken as a shortcut. When a terminal
+ * host is published the question is asked inside its `withTerminal`, and
+ * through {@link withDirectStdout} like the CLI's own prompts either way.
+ *
+ * Prompts are serialised, since two of them redrawing over each other can be
+ * neither read nor answered.
+ */
+export function interceptPrompts(instance: { options: { prompt?: PromptFn } }): void {
+  const prompt = instance.options.prompt
+  if (!prompt || wrappedPrompts.has(prompt)) {
+    return
+  }
+  const wrapped = ((message: string, opts: Parameters<PromptFn>[1] = {}) => {
+    // A dev fork's stdin is `/dev/null`, and clack would wait on it forever.
+    if (!isInteractiveSession()) {
+      debug(`Not asking, with no terminal to answer on: ${message}`)
+      return Promise.resolve(declinedAnswer(opts))
+    }
+    const answer = promptQueue.then(() => withStartupClockPaused(() => {
+      const ask = () => withDirectStdout(() => prompt(message, opts))
+      const host = useTerminalHost()
+      return host ? host.withTerminal(ask) : ask()
+    }))
+    promptQueue = answer.catch(() => {})
+    return answer
+  }) as PromptFn
+  wrappedPrompts.add(wrapped)
+  instance.options.prompt = wrapped
+}
+
+/** What a question that could not be asked answers: whatever changes nothing. */
+function declinedAnswer(opts: Parameters<PromptFn>[1] = {}) {
+  return opts.type === 'confirm' ? false : undefined
 }
 
 function report(label: string, error: unknown) {

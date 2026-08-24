@@ -23,6 +23,7 @@ import { PanelSurface } from '../../src/dev/tui/surface'
 import { truncate } from '../../src/dev/tui/width'
 import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
+import { useTerminalHost } from '../../src/utils/terminal-host'
 import { terminalLink } from '../../src/utils/terminal-link'
 import { paint, resolveBackground } from '../../src/utils/terminal-theme'
 import { releaseNotesUrl } from '../../src/utils/update-check'
@@ -142,6 +143,16 @@ describe('dev tui panel', () => {
     expect(status).not.toContain('watching for changes')
     // Feedback must never reflow the panel.
     expect(lines).toHaveLength(renderPanel({ ...READY }, 100, 30).length)
+  })
+
+  it('reports hosted work on the summary line in place of the counts', () => {
+    const busy = { ...READY, requests: 188, medianMs: 11, task: { label: 'Installing with pnpm', startedAt: Date.now() - 4200 } }
+    const lines = renderPanel(busy, 100, 30).map(strip)
+    const line = lines.find(entry => entry.includes('installing with pnpm'))!
+    expect(line).toContain('4.2s')
+    expect(lines.join('\n')).not.toContain('188 requests')
+    // The work borrows the line, so the panel keeps its shape.
+    expect(lines).toHaveLength(renderPanel({ ...READY, requests: 188, medianMs: 11 }, 100, 30).length)
   })
 
   it('keeps a notice out of the way of a quit confirmation', () => {
@@ -1702,6 +1713,23 @@ describe('panel surface', () => {
     })
   })
 
+  it('lends the terminal to a prompt, painting nothing until it is done', () => {
+    withStubbedTerminal(10, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      const resume = surface.suspend()
+      const before = written().length
+
+      surface.render(['--- footer ---', 'still building'])
+      process.stdout.write('Do you want to install @nuxt/scripts package? ')
+      expect(written().slice(before)).toBe('Do you want to install @nuxt/scripts package? ')
+
+      resume()
+      expect(written().slice(before)).toContain('still building')
+      surface.close()
+    })
+  })
+
   it('asks its owner to re-render on resize rather than reusing stale lines', async () => {
     let resized = 0
     await render(async () => {
@@ -2099,62 +2127,62 @@ describe('dev ui fallback', () => {
 /** Long enough for the panel's trailing repaint to land. */
 const TICKER_SETTLE_MS = 400
 
-describe('request failures on the panel', () => {
-  const context = {
-    listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
-    close: async () => {},
-    onReady: () => {},
-  }
+const context = {
+  listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
+  close: async () => {},
+  onReady: () => {},
+}
 
-  async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>): Promise<void> {
-    const chunks: string[] = []
-    const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-    const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-    Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
-    Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
-    Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
-      chunks.push(String(chunk))
-      return true
+async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>): Promise<void> {
+  const chunks: string[] = []
+  const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+  const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+  const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+  Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
+  Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
+  Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+  Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
+  const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+    chunks.push(String(chunk))
+    return true
+  })
+  const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
+  const ui = setupDevUI(context as never, { ci: false, test: false, version: '4.5.2' })
+  try {
+    await run(ui, async () => {
+      // The panel repaints on a trailing timer, so nothing is on screen yet.
+      await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
+      return strip(chunks.join(''))
     })
-    const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
-    const ui = setupDevUI(context as never, { ci: false, test: false, version: '4.5.2' })
-    try {
-      await run(ui, async () => {
-        // The panel repaints on a trailing timer, so nothing is on screen yet.
-        await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
-        return strip(chunks.join(''))
-      })
+  }
+  finally {
+    session.teardown()
+    write.mockRestore()
+    for (const [key, descriptor] of saved) {
+      if (descriptor) {
+        Object.defineProperty(process.stdout, key, descriptor)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, key)
+      }
     }
-    finally {
-      session.teardown()
-      write.mockRestore()
-      for (const [key, descriptor] of saved) {
-        if (descriptor) {
-          Object.defineProperty(process.stdout, key, descriptor)
-        }
-        else {
-          Reflect.deleteProperty(process.stdout, key)
-        }
-      }
-      if (stdin) {
-        Object.defineProperty(process.stdin, 'isTTY', stdin)
-      }
-      else {
-        Reflect.deleteProperty(process.stdin, 'isTTY')
-      }
-      if (setRawMode) {
-        Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
-      }
-      else {
-        Reflect.deleteProperty(process.stdin, 'setRawMode')
-      }
+    if (stdin) {
+      Object.defineProperty(process.stdin, 'isTTY', stdin)
+    }
+    else {
+      Reflect.deleteProperty(process.stdin, 'isTTY')
+    }
+    if (setRawMode) {
+      Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
+    }
+    else {
+      Reflect.deleteProperty(process.stdin, 'setRawMode')
     }
   }
+}
 
+describe('request failures on the panel', () => {
   it('should not report the bundler\'s own failed probes as failed requests', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building')
@@ -2188,6 +2216,157 @@ describe('request failures on the panel', () => {
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
       expect(last).toContain('ERROR')
       expect(last).toContain('a request failed')
+    })
+  })
+})
+
+describe('the terminal host on the panel', () => {
+  it('publishes a host while the panel is up and withdraws it after', async () => {
+    expect(useTerminalHost()).toBeUndefined()
+    await withPanel(async () => {
+      expect(useTerminalHost()).toBeDefined()
+    })
+    expect(useTerminalHost()).toBeUndefined()
+  })
+
+  it('shows a task while it runs and its outcome once it stops', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const task = useTerminalHost()!.startTask('Installing with pnpm')
+      let frames = await settle()
+      expect(frames).toContain('installing with pnpm')
+
+      task.update('Resolving packages')
+      task.stop('Dependencies installed', 'success')
+      frames = await settle()
+      expect(frames).toContain('dependencies installed')
+    })
+  })
+
+  it('runs a nested borrow directly instead of queueing behind itself', async () => {
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      const result = await host.withTerminal(() => host.withTerminal(async () => 'inner'))
+      expect(result).toBe('inner')
+    })
+  })
+
+  it('does not take stdin back when torn down during a borrow', async () => {
+    let finish!: () => void
+    let borrowed!: Promise<unknown>
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      borrowed = host.withTerminal(() => new Promise<void>((resolve) => {
+        finish = resolve
+      }))
+      await vi.waitFor(() => expect(process.stdin.listenerCount('keypress')).toBe(0))
+    })
+    finish()
+    await borrowed
+    expect(process.stdin.listenerCount('keypress')).toBe(0)
+  })
+
+  it('holds a notification on the status line until it is dismissed', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const notice = useTerminalHost()!.notify!({
+        title: 'Permission Request',
+        message: 'A browser is asking for write access.\nOpen http://localhost:3000/auth to approve.',
+        level: 'warn',
+      })
+      let frames = await settle()
+      expect(frames).toContain('permission Request')
+      expect(frames).toContain('Open http://localhost:3000/auth to approve.')
+
+      const seen = frames.length
+      notice.dismiss()
+      await notice.dismissed
+      // Dismissal restores the status badge, so the repaint carries it.
+      frames = await settle()
+      expect(frames.slice(seen)).toContain('READY')
+      expect(frames.slice(seen)).not.toContain('permission Request')
+    })
+  })
+
+  it('lets a notification outlive passing feedback', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const host = useTerminalHost()!
+      const notice = host.notify!({ message: 'devframe auth code 123456', level: 'info' })
+      const task = host.startTask('Installing with pnpm')
+      task.stop('Dependencies installed', 'success')
+
+      const frames = await settle()
+      expect(frames).toContain('dependencies installed')
+      const last = frames.lastIndexOf('devframe auth code 123456')
+      expect(last).toBeGreaterThan(-1)
+      notice.dismiss()
+      await notice.dismissed
+    })
+  })
+
+  it('takes any keypress as acknowledgement of a notification', async () => {
+    await withPanel(async () => {
+      const notice = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' })
+      let settled = false
+      void notice.dismissed.then(() => {
+        settled = true
+      })
+
+      process.stdin.emit('keypress', '', { name: 'x', sequence: 'x' })
+      await vi.waitFor(() => expect(settled).toBe(true))
+    })
+  })
+
+  it('resolves outstanding notifications when the session ends', async () => {
+    let dismissed: Promise<void> | undefined
+    await withPanel(async () => {
+      dismissed = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' }).dismissed
+    })
+    await expect(dismissed).resolves.toBeUndefined()
+  })
+
+  it('lends the terminal to one borrower at a time', async () => {
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      const order: string[] = []
+      let releaseFirst: () => void
+      const first = host.withTerminal(() => new Promise<void>((resolve) => {
+        order.push('first')
+        releaseFirst = resolve
+      }))
+      const second = host.withTerminal(async () => {
+        order.push('second')
+      })
+      await vi.waitFor(() => expect(order).toContain('first'))
+      expect(order).toEqual(['first'])
+      releaseFirst!()
+      await Promise.all([first, second])
+      expect(order).toEqual(['first', 'second'])
+    })
+  })
+})
+
+describe('captured spinner frames', () => {
+  it('folds a run of self-rewriting frames into one entry that keeps up', async () => {
+    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+    await withPanel(async () => {
+      const session = beginDevUI()!
+      session.surface.externalOutput = 'capture'
+      process.stdout.write('\r\u001B[K\u25D2 Installing with pnpm')
+      await flush()
+      for (let second = 1; second <= 30; second++) {
+        process.stdout.write(`\r\u001B[K\u25D0 Installing with pnpm ${second}s`)
+        await flush()
+      }
+      process.stdout.write('\u2714 Dependencies installed\n')
+      await flush()
+
+      const recent = session.events.recent(50, event => !!event.raw)
+      const frames = recent.filter(event => event.message.includes('Installing with pnpm'))
+      expect(frames).toHaveLength(1)
+      expect(frames[0]!.message).toContain('Installing with pnpm 30s')
+      expect(recent.some(event => event.message.includes('Dependencies installed'))).toBe(true)
     })
   })
 })

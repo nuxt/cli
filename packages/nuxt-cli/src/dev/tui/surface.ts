@@ -52,6 +52,7 @@ export class PanelSurface {
   #raw: WriteFn
   #closed = false
   #screen: ScreenMode = 'split-footer'
+  #suspended = false
   #externalOutput: ExternalOutput = 'passthrough'
   #sink?: (chunk: string) => void
   #pending: PendingOutput[] = []
@@ -122,6 +123,34 @@ export class PanelSurface {
     this.#sink = sink
   }
 
+  /**
+   * Hand the terminal to something that draws its own frames, such as a
+   * prompt, and take it back when the returned function is called.
+   *
+   * The panel is erased and painted no more until then: it redraws itself from
+   * the bottom up, so a repaint between two of the frames a prompt writes would
+   * land in the middle of the question. Output still goes to the terminal, in
+   * the order it was written.
+   */
+  suspend(): () => void {
+    if (this.#closed || this.#suspended) {
+      return () => {}
+    }
+    this.#suspended = true
+    clearTimeout(this.#repaintTimer)
+    this.#repaintTimer = undefined
+    this.#erase()
+    let resumed = false
+    return () => {
+      if (resumed) {
+        return
+      }
+      resumed = true
+      this.#suspended = false
+      this.#paint()
+    }
+  }
+
   /** Replace the panel content and repaint whatever changed. */
   render(lines: string[]): void {
     const unchanged = this.#painted === lines.length && lines.every((line, index) => line === this.#lines[index])
@@ -141,7 +170,7 @@ export class PanelSurface {
    * not push a whole screen of history out of view.
    */
   padToBottom(): void {
-    if (this.#closed || this.#screen === 'alternate-screen') {
+    if (this.#closed || this.#suspended || this.#screen === 'alternate-screen') {
       return
     }
     this.#erase()
@@ -216,6 +245,12 @@ export class PanelSurface {
     const original = stream[target] as WriteFn
     const guarded: WriteFn = (chunk: any, encoding?: any, callback?: any) => {
       if (this.#closed) {
+        return original.call(stream, chunk, encoding, callback)
+      }
+      // Whoever the terminal was handed to owns the screen, including the rows
+      // the panel was on, so its output is neither diverted nor worked around.
+      if (this.#suspended) {
+        this.#track(asText(chunk))
         return original.call(stream, chunk, encoding, callback)
       }
       if (this.#screen === 'alternate-screen' || this.#externalOutput === 'capture') {
@@ -305,7 +340,7 @@ export class PanelSurface {
   }
 
   #paint(): void {
-    if (!this.#lines.length || this.#screen === 'alternate-screen') {
+    if (!this.#lines.length || this.#closed || this.#suspended || this.#screen === 'alternate-screen') {
       return
     }
     const leading = this.#atLineStart ? '' : '\n'

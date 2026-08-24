@@ -1,4 +1,7 @@
 import type { PtySession } from './lib/pty.ts'
+import { lstatSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 interface CaptureContext {
@@ -105,6 +108,84 @@ export const captures: Capture[] = [
         writeFileSync(config, original)
       }
       await session.wait(1000)
+    },
+  },
+  {
+    id: 'nuxt-dev-install-module',
+    title: 'nuxt dev (module auto-install)',
+    command: '$NUXT dev --no-clear --takeover',
+    cwd: 'app',
+    animated: true,
+    rows: 26,
+    scrub: DEV_SCRUB,
+    stopAfterDrive: true,
+    // `useScript()` in a page makes nuxt offer to install `@nuxt/scripts`.
+    // The modules DB and the registry are answered from committed fixtures and
+    // `npm` is a stub that fakes the install, so the recording needs no network
+    // and the fixture app is restored afterwards.
+    env: {
+      ...TUI_ENV,
+      NODE_OPTIONS: `--import=${new URL('lib/fetch-stub.mjs', import.meta.url).href}`,
+      CAPTURE_FETCH_STUBS: JSON.stringify({
+        'https://api.nuxt.com/modules': fileURLToPath(new URL('fixture-data/modules.json', import.meta.url)),
+        'https://registry.npmjs.org/@nuxt/scripts': fileURLToPath(new URL('fixture-data/nuxt-scripts-packument.json', import.meta.url)),
+      }),
+      PATH: `${fileURLToPath(new URL('fixture-data/fake-npm', import.meta.url))}:${process.env.PATH}`,
+    },
+    async drive({ session, cwd, bin }) {
+      const config = join(cwd, 'nuxt.config.ts')
+      const pkg = join(cwd, 'package.json')
+      const page = join(cwd, 'app/pages/scripts.vue')
+      const originals: Array<[string, string]> = [[config, readFileSync(config, 'utf8')], [pkg, readFileSync(pkg, 'utf8')]]
+
+      // `installNuxtModule` runs the *project's* `@nuxt/cli` in-process, which
+      // the fixture installed from the registry; the capture should show the
+      // build under test, so the project copy is pointed at it for the
+      // recording and put back afterwards. A symlink found here is residue of
+      // an interrupted run, with nothing behind it to preserve.
+      const projectCli = join(cwd, 'node_modules/@nuxt/cli')
+      const savedCli = `${projectCli}.original`
+      if (lstatSync(savedCli, { throwIfNoEntry: false })) {
+        rmSync(projectCli, { recursive: true, force: true })
+        renameSync(savedCli, projectCli)
+      }
+      const installed = lstatSync(projectCli, { throwIfNoEntry: false })
+      if (installed?.isSymbolicLink()) {
+        rmSync(projectCli, { force: true })
+      }
+      else if (installed) {
+        renameSync(projectCli, savedCli)
+      }
+      symlinkSync(dirname(dirname(bin)), projectCli, 'dir')
+
+      try {
+        await session.waitFor(/ready in \d/, 180_000)
+        await session.wait(1500)
+        writeFileSync(page, '<script setup lang="ts">\nuseScript(\'https://example.com/analytics.js\')\n</script>\n\n<template>\n  <div>With analytics</div>\n</template>\n')
+        await session.wait(1500)
+
+        // The prompt fires when the page is first rendered.
+        const port = session.output().match(/localhost:(\d+)/)?.[1] ?? '3000'
+        await fetch(`http://localhost:${port}/scripts`).catch(() => {})
+        await session.waitFor(/Do you want to install/, 60_000)
+        await session.wait(1500)
+        session.send('y')
+
+        await session.waitFor(/dependencies installed/i, 60_000)
+        // Long enough for the config change to reload nuxt on camera.
+        await session.wait(6000)
+      }
+      finally {
+        rmSync(page, { force: true })
+        for (const [file, text] of originals) {
+          writeFileSync(file, text)
+        }
+        rmSync(join(cwd, 'node_modules/@nuxt/scripts'), { recursive: true, force: true })
+        rmSync(projectCli, { force: true })
+        if (lstatSync(savedCli, { throwIfNoEntry: false })) {
+          renameSync(savedCli, projectCli)
+        }
+      }
     },
   },
   {

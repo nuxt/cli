@@ -33,6 +33,31 @@ function renderErrorLine(event: DevLogEvent): string {
   return event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`
 }
 
+/** Cursor movement and erasure: output that repaints rather than appends. */
+// eslint-disable-next-line no-control-regex
+const REWRITE_RE = /\r(?!\n)|\u001B\[[0-9;]*[A-GJK]/
+
+/** Sequences a settled line no longer needs: movement, erasure, visibility. */
+// eslint-disable-next-line no-control-regex
+const CURSOR_RE = /\u001B\[[0-9;]*[A-GJK]|\u001B\[\?25[hl]/g
+
+/** Whether `chunk` rewrites earlier output instead of adding to it. */
+function isRewrite(chunk: string): boolean {
+  return REWRITE_RE.test(chunk)
+}
+
+/**
+ * What a run of self-rewriting output leaves on screen: each line keeps only
+ * what follows its last carriage return, and the cursor control goes.
+ */
+function settleRewrites(plain: string): string {
+  return plain
+    .replaceAll(CURSOR_RE, '')
+    .split('\n')
+    .map(line => line.slice(line.lastIndexOf('\r') + 1))
+    .join('\n')
+}
+
 export interface DevUISession {
   surface: PanelSurface
   events: DevEventLog
@@ -109,6 +134,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   })
 
   let awaiting: DevLogEvent | undefined
+  /** The entry the current run of self-rewriting frames is folded into. */
+  let transient: DevLogEvent | undefined
   let buffered = ''
   let flushTimer: NodeJS.Immediate | undefined
   let surfacing: string[] = []
@@ -211,23 +238,42 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     const plain = stripAnsi(chunk)
     if (owner) {
+      transient = undefined
       owner.rendered = chunk
       return
     }
-    if (!plain.trim() || events.attachRendered(chunk, plain)) {
+    const rewriting = isRewrite(chunk)
+    const message = (rewriting ? settleRewrites(plain) : plain).replace(/\n+$/, '')
+    if (!message.trim()) {
       return
     }
-    events.push({
+    // A spinner or progress bar redraws one line hundreds of times; each frame
+    // rewrites the last, so together they are one entry that keeps up, not a
+    // flood. The first plain line that follows ends the run.
+    if (rewriting && transient) {
+      Object.assign(transient, { time: Date.now(), message, rendered: chunk })
+      return
+    }
+    if (!rewriting && events.attachRendered(chunk, plain)) {
+      transient = undefined
+      return
+    }
+    const event: DevLogEvent = {
       time: Date.now(),
       level: 2,
       type: 'log',
-      message: plain.replace(/\n+$/, ''),
+      message,
       rendered: chunk,
       raw: true,
       source: isServingRequest() ? 'runtime' : 'build',
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
-    })
+    }
+    const stored = events.push(event)
+    // Only an entry of this run's own may be rewritten by its later frames:
+    // `push` can merge into an existing structured event, whose message is a
+    // real log that has to survive.
+    transient = rewriting && stored === event ? stored : undefined
   }
 
   /**

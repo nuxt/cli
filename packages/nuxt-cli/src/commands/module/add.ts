@@ -7,7 +7,7 @@ import type { NuxtModule } from './_utils'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
+import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { packageManagers } from 'nypm'
 import { resolve } from 'pathe'
@@ -21,6 +21,7 @@ import { createInstallLog, detectProjectPackageManager, resolvePackageManagerDes
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { detectNpmRegistry } from '../../utils/registry'
+import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
@@ -103,7 +104,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
 
       let modulesDB: NuxtModule[]
       if (modules.length === 0) {
-        const modulesSpinner = spinner()
+        const modulesSpinner = createSpinner()
         modulesSpinner.start('Fetching available modules')
 
         const [allModules, nuxtVersion] = await Promise.all([
@@ -213,7 +214,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const verbose = logLevel === 'verbose' || Boolean(process.env.DEBUG)
       const installController = new AbortController()
       const installLog = createInstallLog({ verbose })
-      const installSpinner = spinner({
+      const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
       })

@@ -1,18 +1,22 @@
+import type { TerminalNotification } from '../../utils/terminal-host'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevUIController } from './controller'
 import type { InfoSection } from './info-overlay'
 import type { Key } from './keys'
 import type { DevStatus, PanelState, PanelURL } from './panel'
-import type { DevUISupportOptions } from './support'
 
+import type { DevUISupportOptions } from './support'
 import type { PanelSurface } from './surface'
+
+import { AsyncLocalStorage } from 'node:async_hooks'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { startupElapsedMs } from '../../utils/startup-clock'
+
+import { registerTerminalHost } from '../../utils/terminal-host'
 import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
@@ -153,9 +157,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     })
   }
 
-  /** Animate the mark only while the server is working and on screen. */
+  /** Animate the mark only while the server or a task is working, on screen. */
   function syncAnimation(): void {
-    const working = state.status !== 'ready' && state.status !== 'error' && !openOverlay()
+    const working = (state.status !== 'ready' && state.status !== 'error' && !openOverlay()) || (!!state.task && !openOverlay())
     // Waiting on the first render is measured in seconds, sometimes tens of
     // them, which is too long to spend a build's frame rate on: the panel only
     // has to look alive.
@@ -175,8 +179,29 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
   }
 
+  /** A message held on the status line until the user has seen it. */
+  interface HeldNotice {
+    text: string
+    tone: 'info' | 'warn'
+    resolve: () => void
+  }
+
+  /** Notices not yet acknowledged, oldest first; the line shows the newest. */
+  const heldNotices: HeldNotice[] = []
+
   function clearNotice(): void {
-    update({ notice: undefined })
+    const held = heldNotices.at(-1)
+    update({ notice: held ? { text: held.text, tone: held.tone } : undefined })
+  }
+
+  function dismissHeld(held: HeldNotice): void {
+    const index = heldNotices.indexOf(held)
+    if (index === -1) {
+      return
+    }
+    heldNotices.splice(index, 1)
+    held.resolve()
+    clearNotice()
   }
 
   /** Show `text` for a moment. Nothing a notice reports outlives the moment. */
@@ -309,6 +334,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const onKey = (key: Key) => {
     const active = openOverlay()
+    // Any keypress is proof the panel is being watched, so a held notice has
+    // done its work. The key still does whatever it would have done.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     if (key.ctrl && key.name === 'c') {
       active?.close()
       return quit()
@@ -339,12 +369,131 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     void shortcut?.action()
   }
 
-  const detach = attachKeys(onKey)
+  let detach = attachKeys(onKey)
+
+  /** Set at teardown, so a borrow that outlives the session cannot restore it. */
+  let torn = false
+
+  /**
+   * Give borrowed work the terminal for as long as it needs it.
+   *
+   * The panel and the shortcuts both have to let go: the panel because it
+   * paints over the rows the work draws on, and the shortcuts because they
+   * hold stdin in raw mode and would answer the keystrokes meant for it.
+   */
+  async function lendTerminal<T>(work: () => Promise<T>): Promise<T> {
+    openOverlay()?.close()
+    detach()
+    const resume = surface.suspend()
+    try {
+      return await work()
+    }
+    finally {
+      resume()
+      // A session torn down mid-borrow (Ctrl-C answered a prompt) has already
+      // detached and given the terminal back; re-attaching would put stdin
+      // into raw mode with nothing listening and keep the process alive.
+      if (!torn) {
+        detach = attachKeys(onKey)
+        render()
+      }
+    }
+  }
+
+  /** Settles when the terminal is free again, so borrowers take turns. */
+  let terminalQueue: Promise<unknown> = Promise.resolve()
+
+  /** Set inside a borrow, so a nested borrow can be told from a rival one. */
+  const borrowScope = new AsyncLocalStorage<boolean>()
+
+  /** Work reported through the host, most recent last; the panel shows the last. */
+  const tasks: Array<{ label: string, startedAt: number }> = []
+
+  function syncTasks(): void {
+    update({ task: tasks.at(-1) })
+  }
+
+  const releaseHost = registerTerminalHost({
+    version: 1,
+    withTerminal: <T>(work: () => Promise<T>): Promise<T> => {
+      // A borrower that asks again mid-borrow already has the terminal: kit
+      // lends it to a prompt whose consola implementation routes back through
+      // here, and queueing that behind itself would deadlock. A rival caller
+      // is not in the scope and still waits its turn.
+      if (borrowScope.getStore()) {
+        return work()
+      }
+      const result = terminalQueue.then(() => lendTerminal(() => borrowScope.run(true, work)))
+      terminalQueue = result.catch(() => {})
+      return result
+    },
+    notify: (notification) => {
+      const tone = notification.level === 'warn' ? 'warn' as const : 'info' as const
+      let resolve!: () => void
+      const dismissed = new Promise<void>((settle) => {
+        resolve = settle
+      })
+      const held: HeldNotice = { text: (notification.title ?? notification.message).split('\n')[0]!.trim(), tone, resolve }
+      heldNotices.push(held)
+      // The full text goes into scrollback where it can be read and copied,
+      // and into the history; the held badge is what stops it scrolling away
+      // unnoticed.
+      surfaceText(renderNotification(notification))
+      events.push({
+        time: Date.now(),
+        level: 3,
+        type: 'info',
+        message: [notification.title, notification.message].filter(Boolean).join('\n'),
+        source: 'cli',
+      })
+      clearTimeout(noticeTimer)
+      clearNotice()
+      return { dismiss: () => dismissHeld(held), dismissed }
+    },
+    startTask: (label) => {
+      const task = { label, startedAt: Date.now() }
+      tasks.push(task)
+      syncTasks()
+      return {
+        update: (text) => {
+          task.label = text
+          syncTasks()
+        },
+        stop: (message, outcome) => {
+          const index = tasks.indexOf(task)
+          if (index !== -1) {
+            tasks.splice(index, 1)
+          }
+          syncTasks()
+          if (!message) {
+            return
+          }
+          // The outcome goes two places: feedback on the panel now, and the
+          // history, which is where the line a spinner leaves behind survives.
+          showNotice(message, outcome === 'failure' ? 'warn' : 'success')
+          events.push({
+            time: Date.now(),
+            level: outcome === 'failure' ? 0 : 3,
+            type: outcome === 'failure' ? 'error' : 'success',
+            message,
+            source: 'cli',
+          })
+        },
+      }
+    },
+  })
   session.onTeardown(() => {
+    torn = true
     clearInterval(animation)
     clearTimeout(activityTimer)
     clearTimeout(noticeTimer)
     animation = undefined
+    releaseHost()
+    // Nothing can be acknowledged on a torn-down panel, and a caller may be
+    // awaiting the dismissal.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     detach()
     openOverlay()?.close()
   })
@@ -501,6 +650,13 @@ function describeSession(
 }
 
 /** A version, linked to its release notes where the terminal supports it. */
+/** A notification as it belongs in scrollback: legible, copyable, unboxed. */
+function renderNotification({ title, message, level }: TerminalNotification): string {
+  const mark = level === 'warn' ? styleText(['yellow', 'bold'], '\u26A0') : styleText('cyan', '\u2139')
+  const head = title ? `${mark} ${styleText('bold', title)}\n` : ''
+  return `${head}${message}`
+}
+
 function linkVersion(version: string): string {
   const notes = releaseNotesUrl('nuxt', version)
   return notes ? terminalLink(version, notes) : version
