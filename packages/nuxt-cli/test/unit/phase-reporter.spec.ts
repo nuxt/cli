@@ -1,5 +1,5 @@
-import type { DevProgressSnapshot } from '../../src/dev/progress'
-import type { StartupReporter } from '../../src/dev/startup-log'
+import type { PhaseReporter } from '../../src/utils/phase-reporter'
+import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -13,9 +13,9 @@ vi.mock('std-env', async importOriginal => ({
 
 process.env.FORCE_COLOR = '3'
 
-const { createStartupReporter, formatSummary, isAnimationSupported } = await import('../../src/dev/startup-log')
+const { createPhaseReporter, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
 
-function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnapshot {
+function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
     status: 'loading',
     phase: 'config',
@@ -31,8 +31,8 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
   }
 }
 
-describe('startup reporter', () => {
-  const reporters: StartupReporter[] = []
+describe('phase reporter', () => {
+  const reporters: PhaseReporter[] = []
 
   afterEach(() => {
     reporters.splice(0).forEach(reporter => reporter.stop())
@@ -45,8 +45,8 @@ describe('startup reporter', () => {
     vi.spyOn(Date, 'now').mockReturnValue(now)
   }
 
-  function reporter(animated: boolean): StartupReporter {
-    const instance = createStartupReporter({ animated })
+  function reporter(animated: boolean): PhaseReporter {
+    const instance = createPhaseReporter({ animated })
     reporters.push(instance)
     return instance
   }
@@ -101,6 +101,31 @@ describe('startup reporter', () => {
       ●  Loading Nuxt config
       │
       ●  Bundling app"
+    `)
+  })
+
+  it('should repeat a long phase when there is no animated line', async () => {
+    const renderer = await render(async ({ waitForOutput }) => {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'server', message: 'Building Nitro server', index: 5, elapsed: 4000 }))
+      await waitForOutput(/Building Nitro server[\s\S]*Building Nitro server/)
+    })
+
+    expect(screen(renderer)).toContain('Building Nitro server')
+  })
+
+  it('should name what a long phase is doing, no more often than its heartbeat', async () => {
+    const renderer = await render(() => {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 60_000 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'server', message: 'Building Nitro server', index: 5 }))
+      startup.update(snapshot({ phase: 'server', message: 'Bundling Nitro server', index: 5 }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Building Nitro server"
     `)
   })
 

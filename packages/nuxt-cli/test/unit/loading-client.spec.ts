@@ -1,5 +1,5 @@
 import type { ProgressClientOptions } from '../../src/dev/loading-client'
-import type { DevProgressSnapshot } from '../../src/dev/progress'
+import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,7 +14,7 @@ const OPTIONS: ProgressClientOptions = {
   maxPollInterval: 1000,
 }
 
-function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnapshot {
+function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
     status: 'loading',
     phase: 'bundle',

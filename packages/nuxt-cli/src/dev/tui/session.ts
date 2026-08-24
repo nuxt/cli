@@ -1,5 +1,5 @@
+import type { ProgressSnapshot } from '../../utils/progress-snapshot'
 import type { ListenURL } from '../listen'
-import type { DevProgressSnapshot } from '../progress'
 import type { DevLogEvent } from './events'
 import type { PanelState } from './panel'
 import type { DevUISupportOptions } from './support'
@@ -85,7 +85,7 @@ export interface DevUISession {
   /** Stop the session's own startup animation, once the controller drives it. */
   stopStartupTicker: () => void
   /** Narrate the current startup phase while the server is loading. */
-  reportProgress: (snapshot: DevProgressSnapshot) => void
+  reportProgress: (snapshot: ProgressSnapshot) => void
   /**
    * Show the bound address the moment the socket answers, spinning until the
    * resolved config confirms it. The full URL block replaces it on ready.
@@ -175,7 +175,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     surface.render(renderPanel(state, process.stdout.columns || 80, process.stdout.rows || 24))
   }
 
-  function reportProgress(snapshot: DevProgressSnapshot): void {
+  function reportProgress(snapshot: ProgressSnapshot): void {
     if (snapshot.status === 'ready') {
       // Between the server accepting requests and answering one there is
       // nothing to watch but a badge, so it says which of the two has happened.

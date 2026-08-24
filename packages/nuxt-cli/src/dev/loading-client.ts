@@ -1,4 +1,4 @@
-import type { DevProgressSnapshot } from './progress'
+import type { ProgressSnapshot } from '../utils/progress-snapshot'
 
 /**
  * The scripts inlined into the dev server's loading and error pages.
@@ -36,7 +36,7 @@ export function progressClient(options: ProgressClientOptions): void {
     caption.textContent = label ? `${label} \u00B7 ${seconds}` : seconds
   }
 
-  function apply(snapshot: DevProgressSnapshot): void {
+  function apply(snapshot: ProgressSnapshot): void {
     start = Date.now() - snapshot.elapsed
     // The message, not the phase id: it carries whatever detail the server has,
     // such as the module currently being set up, and this page is what the user
@@ -53,7 +53,7 @@ export function progressClient(options: ProgressClientOptions): void {
     paint()
   }
 
-  function read(event: Event): DevProgressSnapshot | undefined {
+  function read(event: Event): ProgressSnapshot | undefined {
     try {
       return JSON.parse((event as MessageEvent).data)
     }

@@ -1,13 +1,13 @@
-import type { DevProgressSnapshot } from './progress'
+import type { PhaseTiming, ProgressSnapshot } from './progress-snapshot'
 
 import process from 'node:process'
 import { styleText } from 'node:util'
 
 import { isCI } from 'std-env'
 
-import { formatDuration } from '../utils/formatting'
-import { logger } from '../utils/logger'
-import { tapOutput } from '../utils/stdout'
+import { formatDuration } from './formatting'
+import { logger } from './logger'
+import { tapOutput } from './stdout'
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
@@ -15,48 +15,67 @@ const CLEAR_LINE = '\r\u001B[2K'
 const HIDE_CURSOR = '\u001B[?25l'
 const SHOW_CURSOR = '\u001B[?25h'
 
-export interface StartupReporter {
-  update: (snapshot: DevProgressSnapshot) => void
+export interface PhaseReporter {
+  update: (snapshot: ProgressSnapshot) => void
   stop: () => void
 }
 
-interface StartupReporterOptions {
+interface PhaseReporterOptions {
   stream?: NodeJS.WriteStream
   /** Force the animated line on or off; detected from the environment otherwise. */
   animated?: boolean
+  /**
+   * How often a phase that is still running repeats itself, in milliseconds,
+   * when there is no animated line to show that time is passing. Off by
+   * default; only worth it where a single phase can run for minutes.
+   */
+  heartbeat?: number
 }
 
 export function isAnimationSupported(stream: NodeJS.WriteStream = process.stdout): boolean {
   return !!stream.isTTY && !isCI && !process.env.NO_COLOR
 }
 
-export function formatSummary(snapshot: DevProgressSnapshot): string {
-  const breakdown = snapshot.timings
+/** `config 40ms · modules 1.2s · …`, or nothing if every phase was trivial. */
+export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
+  return timings
     .filter(timing => timing.duration >= 10)
     .map(timing => `${timing.phase} ${formatDuration(timing.duration)}`)
     .join(' · ')
+}
+
+/**
+ * The line a long-running command leaves behind once it is up. A command that
+ * only builds never reaches `ready` and reports its own completion instead.
+ */
+export function formatSummary(snapshot: ProgressSnapshot): string {
+  const breakdown = formatPhaseBreakdown(snapshot.timings)
   const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}${
     snapshot.serving ? '' : styleText('dim', ' \u00B7 compiling the first request')}`
   return breakdown ? `${headline}\n${styleText('dim', breakdown)}` : headline
 }
 
 /**
- * Report startup progress on a single line that updates in place, collapsing to
- * one summary line with a phase breakdown once the server is ready. Falls back
- * to sequential logs when the output is not an interactive terminal.
+ * Report progress through a command's phases on a single line that updates in
+ * place, collapsing to one summary line with a phase breakdown once the command
+ * reports itself ready. Falls back to sequential logs when the output is not an
+ * interactive terminal.
  */
-export function createStartupReporter(options: StartupReporterOptions = {}): StartupReporter {
+export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseReporter {
   const stream = options.stream ?? process.stdout
   const animated = options.animated ?? isAnimationSupported(stream)
 
-  let snapshot: DevProgressSnapshot | undefined
+  let snapshot: ProgressSnapshot | undefined
   let served = false
   let lastPhase: string | undefined
+  let lastMessage: string | undefined
+  let lastLoggedAt = 0
   let frame = 0
   let dirty = false
   let timer: NodeJS.Timeout | undefined
   let stopped = false
   let receivedAt = Date.now()
+  let pulse: NodeJS.Timeout | undefined
 
   // Foreign output would otherwise be written on top of the transient line. The
   // tap sits below `consola.wrapAll()`, which `nuxt dev` installs, for two
@@ -67,6 +86,12 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
   // listener and to the spacing tracker.
   const tap = animated ? tapOutput(stream, () => clear()) : undefined
   const write = tap?.write ?? stream.write.bind(stream)
+
+  function log(line: string, message: string) {
+    lastMessage = message
+    lastLoggedAt = Date.now()
+    logger.info(line)
+  }
 
   function clear() {
     if (dirty) {
@@ -91,7 +116,27 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
     timer.unref?.()
   }
 
+  /**
+   * Repeat the phase in flight, with the time it has taken so far, so a long
+   * silent stretch in a piped log still shows the build is alive.
+   */
+  function schedulePulse() {
+    clearInterval(pulse)
+    pulse = undefined
+    if (!options.heartbeat || animated) {
+      return
+    }
+    pulse = setInterval(() => {
+      if (snapshot && !stopped) {
+        log(`${snapshot.message} ${styleText('dim', `(${formatDuration(snapshot.elapsed + (Date.now() - receivedAt))})`)}`, snapshot.message)
+      }
+    }, options.heartbeat)
+    pulse.unref?.()
+  }
+
   function restore() {
+    clearInterval(pulse)
+    pulse = undefined
     if (timer) {
       clearInterval(timer)
       timer = undefined
@@ -144,7 +189,16 @@ export function createStartupReporter(options: StartupReporterOptions = {}): Sta
 
       if (next.phase !== lastPhase) {
         lastPhase = next.phase
-        logger.info(next.message)
+        log(next.message, next.message)
+        schedulePulse()
+        return
+      }
+
+      // Within a phase the message is narration rather than progress, so it is
+      // only worth a line where the phase is long enough to have a heartbeat,
+      // and never more often than one.
+      if (options.heartbeat && next.message !== lastMessage && Date.now() - lastLoggedAt >= options.heartbeat) {
+        log(next.message, next.message)
       }
     },
     stop() {
