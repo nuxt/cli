@@ -158,6 +158,7 @@ async function downloadIndex(cwd: string, version: string, options: DocsIndexPro
     }
     const archive = join(staging, 'docs.tgz')
     writeFileSync(archive, tarball)
+    assertSafeArchiveMembers(archive)
     // `tar` ships with macOS, Linux and Windows 10 onwards. The archive's
     // `package/` wrapper is stripped so paths match an installed copy.
     execFileSync('tar', ['-xzf', archive, '-C', staging, '--strip-components=1'], { stdio: 'ignore' })
@@ -170,6 +171,24 @@ async function downloadIndex(cwd: string, version: string, options: DocsIndexPro
   }
   finally {
     rmSync(staging, { recursive: true, force: true })
+  }
+}
+
+/**
+ * Refuse an archive whose member paths could escape the extraction directory:
+ * absolute paths, drive letters, or `..` segments. The registry tarball is
+ * still a download, and `tar`'s own handling of such members varies across
+ * the system implementations this relies on.
+ */
+function assertSafeArchiveMembers(archive: string): void {
+  const listing = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 })
+  for (const member of listing.split('\n')) {
+    if (!member) {
+      continue
+    }
+    if (member.startsWith('/') || member.startsWith('\\') || /^[a-z]:/i.test(member) || member.split(/[\\/]/).includes('..')) {
+      throw new Error(`Refusing to extract unsafe archive member \`${member}\``)
+    }
   }
 }
 
@@ -277,13 +296,17 @@ function writeCache(nuxtVersion: string | undefined, index: DocsIndex): void {
   }
 }
 
+/**
+ * Only regular files and directories are considered: a symlink in the archive
+ * would otherwise be read through, reaching outside the extracted tree.
+ */
 function* markdownFiles(dir: string): Generator<string> {
   for (const item of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, item.name)
     if (item.isDirectory()) {
       yield* markdownFiles(path)
     }
-    else if (item.name.endsWith('.md') && item.name !== 'README.md') {
+    else if (item.isFile() && item.name.endsWith('.md') && item.name !== 'README.md') {
       yield path
     }
   }
