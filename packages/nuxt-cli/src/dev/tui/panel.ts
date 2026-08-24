@@ -7,7 +7,7 @@ import { MUTED, paint } from '../../utils/terminal-theme'
 import { renderLogo } from './logo'
 import { stripAnsi, truncate, visibleWidth } from './width'
 
-export type DevStatus = 'starting' | 'building' | 'ready' | 'restarting' | 'error'
+export type DevStatus = 'starting' | 'building' | 'warming' | 'ready' | 'restarting' | 'error'
 
 export interface PanelURL {
   label: string
@@ -67,6 +67,8 @@ export interface PanelState {
   urls?: PanelURL[]
   /** Milliseconds from process start to the first ready, once known. */
   readyMs?: number
+  /** The server is listening but has not answered a request yet. */
+  awaitingFirstRender?: boolean
   /** Milliseconds the current load has been running, while one is running. */
   elapsedMs?: number
   /** How far through startup the current load is, 0..1, while one is running. */
@@ -111,6 +113,7 @@ const BADGES: Record<DevStatus, Badge> = {
   building: { label: 'BUILDING', style: ['bgYellow', 'black', 'bold'], note: 'compiling changes' },
   restarting: { label: 'RESTART', style: ['bgYellow', 'black', 'bold'], note: 'reloading the dev server' },
   error: { label: 'ERROR', style: ['bgRed', 'white', 'bold'], note: 'an error was logged · press e to view it' },
+  warming: { label: 'WARMUP', style: ['bgYellow', 'black', 'bold'], note: 'compiling the first request' },
   ready: { label: 'READY', style: ['bgGreen', 'black', 'bold'], note: 'watching for changes' },
 }
 
@@ -177,7 +180,10 @@ function renderWordmark(state: PanelState, columns: number): string {
   const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version ? ` ${styleText(MUTED, version)}` : ''}${
     state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`, state.background) : ''}`
 
-  const tail = state.readyMs === undefined
+  // How long the last load took says nothing about the one in flight, and a
+  // precise number is the wrong thing to be confident about mid-rebuild.
+  const settled = state.status === 'ready' || state.status === 'warming'
+  const tail = state.readyMs === undefined || !settled
     ? ''
     : styleText(MUTED, `ready in ${formatDuration(state.readyMs)} `)
   const gap = columns - visibleWidth(head) - visibleWidth(tail)

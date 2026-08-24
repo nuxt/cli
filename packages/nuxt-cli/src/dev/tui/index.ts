@@ -36,6 +36,9 @@ export type { DevUIController }
 /** How often the traffic ticker may repaint, so bursts cannot strobe the panel. */
 const TICKER_REPAINT_MS = 250
 
+/** Frames the mark skips per painted one while waiting for the first render. */
+const WARMUP_FRAME_RATIO = 4
+
 /** How long the mark keeps traffic colour after a request. */
 const ACTIVITY_MS = 700
 
@@ -121,6 +124,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   const openOverlay = () => views.find(view => view.isOpen)
 
   let animation: NodeJS.Timeout | undefined
+  let animationInterval = LOGO_FRAME_MS
   let activityTimer: NodeJS.Timeout | undefined
   let noticeTimer: NodeJS.Timeout | undefined
 
@@ -152,8 +156,17 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   /** Animate the mark only while the server is working and on screen. */
   function syncAnimation(): void {
     const working = state.status !== 'ready' && state.status !== 'error' && !openOverlay()
+    // Waiting on the first render is measured in seconds, sometimes tens of
+    // them, which is too long to spend a build's frame rate on: the panel only
+    // has to look alive.
+    const interval = state.status === 'warming' ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO : LOGO_FRAME_MS
+    if (working && animation && interval !== animationInterval) {
+      clearInterval(animation)
+      animation = undefined
+    }
     if (working && !animation) {
-      animation = setInterval(advanceFrame, LOGO_FRAME_MS)
+      animationInterval = interval
+      animation = setInterval(advanceFrame, interval)
       animation.unref?.()
     }
     else if (!working && animation) {
@@ -207,10 +220,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   context.onReady(() => {
+    const warming = state.awaitingFirstRender === true
     update({
-      status: 'ready',
-      note: undefined,
-      progress: undefined,
+      status: warming ? 'warming' : 'ready',
+      note: warming ? state.note : undefined,
+      progress: warming ? state.progress : undefined,
       readyMs: state.readyMs ?? startupElapsedMs(options.startTime ?? sessionStart),
       urls: describeURLs(context),
     })

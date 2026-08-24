@@ -12,6 +12,7 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
     progress: 0.1,
     elapsed: 0,
     reload: false,
+    serving: false,
     timings: [],
     ...overrides,
   }

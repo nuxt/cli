@@ -478,10 +478,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return
     }
     this.#inflightResponses.add(res)
+    // A document that Nuxt itself answered is the first proof the app can be used.
+    const document = isDocumentRequest(req)
     res.once('close', () => {
       this.#inflightResponses.delete(res)
+      if (document && res.statusCode < 500) {
+        this.#progress.setServing()
+      }
     })
-    if (!this.#warmup.warmed && isDocumentRequest(req)) {
+    if (!this.#warmup.warmed && document) {
       await this.#warmup.admit(res)
       if (res.destroyed || res.writableEnded) {
         return

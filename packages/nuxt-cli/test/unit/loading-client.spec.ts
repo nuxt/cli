@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
     progress: 0.5,
     elapsed: 1200,
     reload: false,
+    serving: false,
     timings: [],
     ...overrides,
   }
@@ -108,9 +109,17 @@ describe('the injected progress client', () => {
     const client = run()
     client.emit('nuxt:loading', snapshot())
 
-    expect(client.elements[0]!.textContent).toMatch(/^bundle · step 5\/7 · \d+\.\ds$/)
+    expect(client.elements[0]!.textContent).toMatch(/^bundling app · step 5\/7 · \d+\.\ds$/)
     expect(client.properties.get('--nuxt-progress')).toBe('50%')
     expect(document.title).toBe('Bundling app')
+  })
+
+  it('should surface the module being set up, in the caption and the tab title', () => {
+    const client = run()
+    client.emit('nuxt:loading', snapshot({ index: 1, phase: 'modules', message: 'Setting up @nuxtjs/i18n', progress: 1 / 6 }))
+
+    expect(client.elements[0]!.textContent).toMatch(/^setting up @nuxtjs\/i18n · step 2\/7 · \d+\.\ds$/)
+    expect(document.title).toBe('Setting up @nuxtjs/i18n')
   })
 
   it('should hand a build error over to the error page', () => {
@@ -123,18 +132,19 @@ describe('the injected progress client', () => {
 
   it('should reload at once after a reload, where nothing is left to warm up', () => {
     const client = run()
-    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true, progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true, progress: 0.95 }))
 
+    expect(client.properties.get('--nuxt-progress')).toBe('100%')
     expect(client.close).toHaveBeenCalled()
     expect(client.reload).toHaveBeenCalled()
   })
 
   it('should wait for the app rather than reloading into a cold start', async () => {
     const client = run({ pollInterval: 1 })
-    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95, message: 'Compiling the first request' }))
 
     expect(client.reload).not.toHaveBeenCalled()
-    expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
+    expect(client.elements[0]!.textContent).toMatch(/^compiling the first request · /)
 
     await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
     expect(client.request).toHaveBeenCalledWith('http://localhost:3000/', expect.objectContaining({ headers: { accept: 'text/html' } }))
@@ -143,10 +153,24 @@ describe('the injected progress client', () => {
   it('should say it is starting the app in the tab title as well as the caption', () => {
     const client = run()
     client.emit('nuxt:loading', snapshot())
-    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95, message: 'Compiling the first request' }))
 
-    expect(document.title).toBe('Starting the app')
-    expect(client.elements[0]!.textContent).toMatch(/^starting the app · /)
+    expect(document.title).toBe('Compiling the first request')
+    expect(client.elements[0]!.textContent).toMatch(/^compiling the first request · /)
+  })
+
+  it('should hold the bar short of full while the server is still not serving', () => {
+    const client = run()
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+
+    expect(client.properties.get('--nuxt-progress')).toBe('95%')
+  })
+
+  it('should fill the bar when the snapshot says nothing useful about progress', () => {
+    const client = run()
+    client.emit('nuxt:ready', undefined)
+
+    expect(client.properties.get('--nuxt-progress')).toBe('100%')
   })
 
   it('should never have more than one request for the app in flight', async () => {
@@ -183,6 +207,39 @@ describe('the injected progress client', () => {
     await vi.advanceTimersByTimeAsync(5000)
 
     expect(at.slice(0, 6)).toEqual([0, 200, 500, 950, 1625, 2625])
+    vi.useRealTimers()
+  })
+
+  it('should keep the event stream open while it polls for the app', async () => {
+    vi.useFakeTimers()
+    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(client.close).not.toHaveBeenCalled()
+    expect(client.reload).not.toHaveBeenCalled()
+    vi.useRealTimers()
+  })
+
+  it('should close the stream when the app finally answers', async () => {
+    const client = run({ pollInterval: 1 })
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+
+    await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
+    expect(client.close).toHaveBeenCalled()
+  })
+
+  it('should reload at once when a rebuild finishes mid-warmup', async () => {
+    vi.useFakeTimers()
+    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+
+    client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
+    await vi.advanceTimersByTimeAsync(50)
+    client.emit('nuxt:ready', snapshot({ status: 'ready', reload: true }))
+
+    expect(client.close).toHaveBeenCalled()
+    expect(client.reload).toHaveBeenCalledTimes(1)
     vi.useRealTimers()
   })
 

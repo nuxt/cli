@@ -139,6 +139,18 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   function reportProgress(snapshot: DevProgressSnapshot): void {
+    if (snapshot.status === 'ready') {
+      // Between the server accepting requests and answering one there is
+      // nothing to watch but a badge, so it says which of the two has happened.
+      state.awaitingFirstRender = !snapshot.serving
+      state.note = snapshot.serving ? undefined : snapshot.message
+      state.progress = snapshot.serving ? undefined : snapshot.progress
+      if (state.status === 'ready' || state.status === 'warming') {
+        state.status = snapshot.serving ? 'ready' : 'warming'
+        render()
+      }
+      return
+    }
     if (snapshot.status !== 'loading') {
       return
     }

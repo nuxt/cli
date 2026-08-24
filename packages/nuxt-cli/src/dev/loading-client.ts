@@ -29,16 +29,22 @@ export function progressClient(options: ProgressClientOptions): void {
   document.body.append(caption)
 
   let start = Date.now() - options.elapsed
-  let phase = ''
+  let label = ''
 
   function paint(): void {
     const seconds = `${((Date.now() - start) / 1000).toFixed(1)}s`
-    caption.textContent = phase ? `${phase} \u00B7 ${seconds}` : seconds
+    caption.textContent = label ? `${label} \u00B7 ${seconds}` : seconds
   }
 
   function apply(snapshot: DevProgressSnapshot): void {
     start = Date.now() - snapshot.elapsed
-    phase = `${snapshot.phase} \u00B7 step ${snapshot.index + 1}/${snapshot.total + 1}`
+    // The message, not the phase id: it carries whatever detail the server has,
+    // such as the module currently being set up, and this page is what the user
+    // is looking at for most of a cold start.
+    const message = /^[A-Z][a-z]/.test(snapshot.message)
+      ? snapshot.message[0]!.toLowerCase() + snapshot.message.slice(1)
+      : snapshot.message
+    label = `${message} \u00B7 step ${snapshot.index + 1}/${snapshot.total + 1}`
     const percent = Math.max(4, Math.round(snapshot.progress * 100))
     document.documentElement.style.setProperty(options.progressProperty, `${percent}%`)
     if (snapshot.message && !document.title.startsWith(snapshot.message)) {
@@ -59,6 +65,7 @@ export function progressClient(options: ProgressClientOptions): void {
   setInterval(paint, 100)
 
   const source = new EventSource(options.progressPath)
+  let polling = false
 
   source.addEventListener('nuxt:loading', (event) => {
     const snapshot = read(event)
@@ -75,26 +82,42 @@ export function progressClient(options: ProgressClientOptions): void {
   })
 
   source.addEventListener('nuxt:ready', (event) => {
-    source.close()
-    phase = 'starting the app'
-    document.title = 'Starting the app'
-    document.documentElement.style.setProperty(options.progressProperty, '100%')
-    paint()
+    // Repeats of this event while polling only matter if a rebuild finished,
+    // whose warm caches make it safe to reload at once.
+    if (polling) {
+      if (read(event)?.reload) {
+        source.close()
+        location.reload()
+      }
+      return
+    }
+    const snapshot = read(event)
+    // Use the server's wording so the terminal, the caption and the tab agree.
+    const message = snapshot && !snapshot.serving && snapshot.message ? snapshot.message : 'Starting the app'
+    label = message.charAt(0).toLowerCase() + message.slice(1)
+    document.title = message
 
     // A reload leaves the caches warm, so there is nothing left to wait for.
-    if (read(event)?.reload) {
+    if (snapshot?.reload) {
+      source.close()
+      document.documentElement.style.setProperty(options.progressProperty, '100%')
+      paint()
       location.reload()
       return
     }
 
+    // Hold the bar short of full while the caption still says starting.
+    const fraction = typeof snapshot?.progress === 'number' && snapshot.progress > 0 ? Math.min(snapshot.progress, 1) : 1
+    document.documentElement.style.setProperty(options.progressProperty, `${Math.round(fraction * 100)}%`)
+    paint()
+
     // `nuxt:ready` means the request handler exists, not that it can answer
-    // yet: the first document still has to be compiled. So this page stays,
-    // still reporting progress, and asks until the app answers, which keeps
-    // every page the dev server serves updating itself rather than needing a
-    // `Refresh` header whose hard reload would throw the progress away.
-    //
-    // One request at a time, backing off towards a ceiling. The dev server
-    // serialises the first render, so asking more often would only queue.
+    // yet: the first document still has to be compiled. So this page stays and
+    // asks until the app answers, one request at a time with backoff, since the
+    // dev server serialises the first render anyway. The event stream stays
+    // open meanwhile: the server takes the last stream closing as the sign
+    // that nobody is waiting on a first render any more.
+    polling = true
     const controller = new AbortController()
     let wait = options.pollInterval
 
@@ -104,6 +127,7 @@ export function progressClient(options: ProgressClientOptions): void {
         const body = await response.text()
         if (!body.includes(options.captionId)) {
           controller.abort()
+          source.close()
           location.reload()
           return
         }
