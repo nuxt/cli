@@ -70,11 +70,15 @@ export default defineCommand({
       // reported below it rather than above.
       if (ctx.args.logLevel !== 'silent') {
         const reporter = createPhaseReporter({ heartbeat: HEARTBEAT_INTERVAL })
-        const unsubscribe = progress.onUpdate(reporter.update)
+        let unsubscribe: (() => void) | undefined
+        // Assigned before subscribing, because subscribing reports the phase in
+        // flight straight away: a first write that fails, on a pipe that has
+        // already been closed, must still leave the terminal recoverable.
         stopReporting = () => {
-          unsubscribe()
+          unsubscribe?.()
           reporter.stop()
         }
+        unsubscribe = progress.onUpdate(reporter.update)
       }
 
       const kit = await loadKit(cwd)
