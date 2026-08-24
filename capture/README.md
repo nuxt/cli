@@ -32,7 +32,7 @@ The first time you run this, it will copy `capture/fixture/` into a work directo
 
 ## Scenarios
 
-Defined in `captures.config.ts`, currently: `nuxt-dev`, `nuxt-dev-static`, `nuxt-dev-restart` (interactive dev UI, pinned with `NUXT_TUI=1`), `nuxt-dev-plain`, `nuxt-dev-plain-static`, `nuxt-dev-plain-restart` (classic log output, pinned with `NUXT_TUI=plain`), `nuxt-init`, `nuxt-curl`, `nuxt-task-list`, `nuxt-module-search`.
+Defined in `captures.config.ts`, currently: `nuxt-dev`, `nuxt-dev-static`, `nuxt-dev-restart`, `nuxt-dev-install-module` (interactive dev UI, pinned with `NUXT_TUI=1`), `nuxt-dev-plain`, `nuxt-dev-plain-static`, `nuxt-dev-plain-restart` (classic log output, pinned with `NUXT_TUI=plain`), `nuxt-init`, `nuxt-curl`, `nuxt-task-list`, `nuxt-module-search`.
 
 Dev captures pin the UI mode explicitly because the dev UI otherwise decides based on the environment (CI, test, terminal size), which would make recordings machine-dependent.
 
@@ -45,6 +45,8 @@ Each SVG is scrubbed of ports, LAN addresses, home and temporary directories, an
 ## Stubbed APIs
 
 `nuxt module search` is recorded against `capture/fixture-data/modules.json` instead of the live `api.nuxt.com`. You can refresh the fixture when the docs should show newer modules.
+
+`nuxt-dev-install-module` stubs everything the auto-install flow reaches for: the modules DB and the npm registry are answered from `capture/fixture-data/`, and `capture/fixture-data/fake-npm/` shadows `npm` on `PATH` to fake the install itself, so the recording needs no network and the fixture app is restored afterwards.
 
 ## Before and after comparisons
 

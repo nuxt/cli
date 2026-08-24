@@ -1,0 +1,34 @@
+styles: 47b4eb73fea90d67
+   Local     http://localhost:3000/
+   Local     http://localhost:3000/ ⠋
+   Network   http://192.168.1.10:3000/
+   Network   http://192.168.1.10:3000/ ⠋
+   waiting for requests
+   ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 33% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 50% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
+   ⚠ 1 warning
+   ✔ 1 request   42 ms median
+   ✔ 1 request   42 ms median   ⚠ 1 warning
+   ⠋ installing with npm · 42 ms
+  BUILDING   ✔ dependencies installed · GET /scripts · 200 · 42 ms
+  READY   watching for changes
+  READY   watching for changes · GET /scripts · 200 · 42 ms
+  READY   ✔ dependencies installed · GET /scripts · 200 · 42 ms
+  STARTING   building server
+  STARTING   bundling app
+  STARTING   generating types
+  STARTING   preparing app
+  STARTING   preparing your app
+  STARTING   setting up modules
+  STARTING   starting Nuxt...
+ r restart · o open · i info · l logs · n network · p routes · ? help · q quit
+ ⣠⣦⣠⡀  Nuxt x.y.z
+ ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
+Yes
+● Yes / ○ No
+✔ Do you want to install @nuxt/scripts package?
+❯ Do you want to install @nuxt/scripts package?
