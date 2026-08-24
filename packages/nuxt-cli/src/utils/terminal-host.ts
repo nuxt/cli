@@ -35,7 +35,7 @@ export interface TerminalNotification {
   level?: 'info' | 'warn'
 }
 
-export interface TerminalNotice {
+interface TerminalNotice {
   /** Retract the notice: attention is no longer needed. */
   dismiss: () => void
   /** Settles once the notice is gone: acknowledged by the user or retracted. */
