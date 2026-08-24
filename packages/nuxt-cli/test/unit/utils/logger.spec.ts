@@ -3,11 +3,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { stripAnsi } from '../../../src/dev/tui/width'
 import { logger } from '../../../src/utils/logger'
 
+const environment = vi.hoisted(() => ({ isCI: false }))
+
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  get isCI() {
+    return environment.isCI
+  },
+}))
+
 describe('logger', () => {
   const restores: Array<() => void> = []
 
   afterEach(() => {
     restores.splice(0).forEach(restore => restore())
+    environment.isCI = false
     vi.restoreAllMocks()
   })
 
@@ -23,7 +33,7 @@ describe('logger', () => {
     })
     restores.push(() => write.mockRestore())
 
-    return { written: () => chunks.join('') }
+    return { written: () => stripAnsi(chunks.join('')) }
   }
 
   it('should leave no clack gutter in redirected output', () => {
@@ -32,8 +42,7 @@ describe('logger', () => {
     logger.info('Bundling app')
     logger.warn('Slow')
 
-    const output = stripAnsi(written())
-    expect(output).toBe('● Bundling app\n▲ Slow\n')
+    expect(written()).toBe('● Bundling app\n▲ Slow\n')
   })
 
   it('should keep clack framing in a terminal', () => {
@@ -41,7 +50,16 @@ describe('logger', () => {
 
     logger.info('Bundling app')
 
-    expect(stripAnsi(written())).toContain('│\n')
+    expect(written()).toContain('│\n')
+  })
+
+  it('should leave no clack gutter in CI, where nothing draws against it', () => {
+    environment.isCI = true
+    const { written } = capture(true)
+
+    logger.info('Bundling app')
+
+    expect(written()).toBe('● Bundling app\n')
   })
 
   it('should indent a continuation line under its symbol', () => {
@@ -49,6 +67,6 @@ describe('logger', () => {
 
     logger.info('Ready in 2.4s\nconfig 320ms')
 
-    expect(stripAnsi(written())).toBe('● Ready in 2.4s\n  config 320ms\n')
+    expect(written()).toBe('● Ready in 2.4s\n  config 320ms\n')
   })
 })

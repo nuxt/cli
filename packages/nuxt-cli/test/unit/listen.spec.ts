@@ -10,6 +10,11 @@ import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, l
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
 
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  isCI: false,
+}))
+
 vi.mock('tinyclip', () => ({ writeText }))
 vi.mock('../../src/dev/environment', () => ({
   detectIsolatedEnvironment: () => isolatedEnvironment.current,
@@ -379,12 +384,16 @@ describe('listener.close', () => {
     const originalIsTTY = process.stdout.isTTY
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
 
-    await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
+    try {
+      await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
 
-    expect(closeTunnel).toHaveBeenCalledTimes(1)
-    Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true })
-    vi.doUnmock('../../src/dev/tunnel')
-    vi.doUnmock('uqr')
+      expect(closeTunnel).toHaveBeenCalledTimes(1)
+    }
+    finally {
+      Object.defineProperty(process.stdout, 'isTTY', { value: originalIsTTY, configurable: true })
+      vi.doUnmock('../../src/dev/tunnel')
+      vi.doUnmock('uqr')
+    }
   })
 
   it('should release the port when setup fails after binding', async () => {
