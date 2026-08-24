@@ -2243,6 +2243,14 @@ describe('the terminal host on the panel', () => {
     })
   })
 
+  it('runs a nested borrow directly instead of queueing behind itself', async () => {
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      const result = await host.withTerminal(() => host.withTerminal(async () => 'inner'))
+      expect(result).toBe('inner')
+    })
+  })
+
   it('holds a notification on the status line until it is dismissed', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')

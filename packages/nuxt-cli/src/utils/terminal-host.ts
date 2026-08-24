@@ -52,7 +52,9 @@ export interface TerminalHost {
    * Run `work` with the terminal to itself until the promise settles: the
    * host's UI is suspended and stdin released, so `work` can draw frames and
    * read keys. Questions are asked in here. Calls are serialised by the host,
-   * since two of them drawing at once can be neither read nor answered.
+   * since two of them drawing at once can be neither read nor answered, but
+   * re-entrant: a call made from inside a borrow already has the terminal and
+   * runs directly, so layered consumers cannot deadlock against themselves.
    */
   withTerminal: <T>(work: () => Promise<T>) => Promise<T>
   /**

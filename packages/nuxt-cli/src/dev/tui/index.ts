@@ -8,6 +8,7 @@ import type { DevStatus, PanelState, PanelURL } from './panel'
 import type { DevUISupportOptions } from './support'
 import type { PanelSurface } from './surface'
 
+import { AsyncLocalStorage } from 'node:async_hooks'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
@@ -394,6 +395,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   /** Settles when the terminal is free again, so borrowers take turns. */
   let terminalQueue: Promise<unknown> = Promise.resolve()
 
+  /** Set inside a borrow, so a nested borrow can be told from a rival one. */
+  const borrowScope = new AsyncLocalStorage<boolean>()
+
   /** Work reported through the host, most recent last; the panel shows the last. */
   const tasks: Array<{ label: string, startedAt: number }> = []
 
@@ -404,7 +408,14 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   const releaseHost = registerTerminalHost({
     version: 1,
     withTerminal: <T>(work: () => Promise<T>): Promise<T> => {
-      const result = terminalQueue.then(() => lendTerminal(work))
+      // A borrower that asks again mid-borrow already has the terminal: kit
+      // lends it to a prompt whose consola implementation routes back through
+      // here, and queueing that behind itself would deadlock. A rival caller
+      // is not in the scope and still waits its turn.
+      if (borrowScope.getStore()) {
+        return work()
+      }
+      const result = terminalQueue.then(() => lendTerminal(() => borrowScope.run(true, work)))
       terminalQueue = result.catch(() => {})
       return result
     },
