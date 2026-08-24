@@ -92,6 +92,8 @@ export interface PanelState {
   note?: string
   /** Passing feedback, shown for a moment and then dropped. */
   notice?: { text: string, tone: 'info' | 'warn' | 'success' }
+  /** Long-running work reported through the terminal host, while it runs. */
+  task?: { label: string, startedAt: number }
   confirmQuit?: boolean
   /** Shortcut hints, dropped lowest-priority first when the line is full. */
   hints?: PanelHint[]
@@ -212,6 +214,9 @@ function renderURLs(state: PanelState, columns: number): string[] {
 
 const PROGRESS_BAR_WIDTH = 20
 
+const TASK_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'] as const
+const TASK_FRAMES_ASCII = ['|', '/', '-', '\\'] as const
+
 function renderProgress(state: PanelState, columns: number): string {
   const fraction = Math.min(1, Math.max(0, state.progress ?? 0))
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
@@ -228,6 +233,15 @@ function renderSummary(state: PanelState, columns: number): string[] {
 
   if (state.status !== 'ready' && state.status !== 'error' && state.progress !== undefined) {
     return [renderProgress(state, columns)]
+  }
+
+  // Work reported through the terminal host borrows the summary line: it is
+  // the panel's one transient row, and the counts return when the work is done.
+  if (state.task) {
+    const glyph = state.ascii ? TASK_FRAMES_ASCII : TASK_FRAMES
+    const mark = glyph[(state.frame ?? 0) % glyph.length]!
+    const elapsed = styleText(MUTED, `${((Date.now() - state.task.startedAt) / 1000).toFixed(1)}s`)
+    return [truncate(`   ${styleText('cyan', mark)} ${decapitalise(state.task.label)}${SEPARATOR}${elapsed}`, columns)]
   }
 
   const parts: string[] = []

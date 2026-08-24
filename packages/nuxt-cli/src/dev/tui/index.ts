@@ -13,6 +13,7 @@ import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { startupElapsedMs } from '../../utils/startup-clock'
+import { registerTerminalHost } from '../../utils/terminal-host'
 import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
@@ -153,9 +154,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     })
   }
 
-  /** Animate the mark only while the server is working and on screen. */
+  /** Animate the mark only while the server or a task is working, on screen. */
   function syncAnimation(): void {
-    const working = state.status !== 'ready' && state.status !== 'error' && !openOverlay()
+    const working = (state.status !== 'ready' && state.status !== 'error' && !openOverlay()) || (!!state.task && !openOverlay())
     // Waiting on the first render is measured in seconds, sometimes tens of
     // them, which is too long to spend a build's frame rate on: the panel only
     // has to look alive.
@@ -339,12 +340,84 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     void shortcut?.action()
   }
 
-  const detach = attachKeys(onKey)
+  let detach = attachKeys(onKey)
+
+  /**
+   * Give borrowed work the terminal for as long as it needs it.
+   *
+   * The panel and the shortcuts both have to let go: the panel because it
+   * paints over the rows the work draws on, and the shortcuts because they
+   * hold stdin in raw mode and would answer the keystrokes meant for it.
+   */
+  async function lendTerminal<T>(work: () => Promise<T>): Promise<T> {
+    openOverlay()?.close()
+    detach()
+    const resume = surface.suspend()
+    try {
+      return await work()
+    }
+    finally {
+      resume()
+      detach = attachKeys(onKey)
+      render()
+    }
+  }
+
+  /** Settles when the terminal is free again, so borrowers take turns. */
+  let terminalQueue: Promise<unknown> = Promise.resolve()
+
+  /** Work reported through the host, most recent last; the panel shows the last. */
+  const tasks: Array<{ label: string, startedAt: number }> = []
+
+  function syncTasks(): void {
+    update({ task: tasks.at(-1) })
+  }
+
+  const releaseHost = registerTerminalHost({
+    version: 1,
+    withTerminal: <T>(work: () => Promise<T>): Promise<T> => {
+      const result = terminalQueue.then(() => lendTerminal(work))
+      terminalQueue = result.catch(() => {})
+      return result
+    },
+    startTask: (label) => {
+      const task = { label, startedAt: Date.now() }
+      tasks.push(task)
+      syncTasks()
+      return {
+        update: (text) => {
+          task.label = text
+          syncTasks()
+        },
+        stop: (message, outcome) => {
+          const index = tasks.indexOf(task)
+          if (index !== -1) {
+            tasks.splice(index, 1)
+          }
+          syncTasks()
+          if (!message) {
+            return
+          }
+          // The outcome goes two places: feedback on the panel now, and the
+          // history, which is where the line a spinner leaves behind survives.
+          showNotice(message, outcome === 'failure' ? 'warn' : 'success')
+          events.push({
+            time: Date.now(),
+            level: outcome === 'failure' ? 0 : 3,
+            type: outcome === 'failure' ? 'error' : 'success',
+            message,
+            source: 'cli',
+          })
+        },
+      }
+    },
+  })
   session.onTeardown(() => {
     clearInterval(animation)
     clearTimeout(activityTimer)
     clearTimeout(noticeTimer)
     animation = undefined
+    releaseHost()
     detach()
     openOverlay()?.close()
   })
