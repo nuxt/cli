@@ -74,6 +74,14 @@ describe('dev tui panel', () => {
     expect(lines.join('\n')).not.toContain('READY')
   })
 
+  it('should say which request it is busy with', () => {
+    const warming = renderPanel({ ...READY, status: 'warming', awaitingFirstRender: true, note: 'rendering GET /' }, 80, 30).map(strip)
+    expect(warming.join('\n')).toContain('WARMUP   rendering GET /')
+
+    const ready = renderPanel({ ...READY, note: 'rendering GET /about' }, 80, 30).map(strip)
+    expect(ready.join('\n')).toContain('READY   rendering GET /about')
+  })
+
   it('should not keep claiming how fast the last load was while rebuilding', () => {
     for (const status of ['building', 'restarting', 'error'] as const) {
       expect(strip(renderPanel({ ...READY, status }, 100, 30)[0]!)).not.toContain('ready in')

@@ -6,6 +6,19 @@
 
 export type ProgressStatus = 'loading' | 'ready' | 'error'
 
+/**
+ * The message of the phase a command ends in, so a reporter can tell a phase
+ * label from narration about what the phase is still waiting on.
+ */
+export const READY_MESSAGE: string = 'Ready'
+
+export interface PendingRender {
+  /** How the request reads to a user, e.g. `GET /about`. */
+  label: string
+  /** When it arrived, so a consumer can tick the elapsed time itself. */
+  startedAt: number
+}
+
 export interface PhaseTiming {
   phase: string
   message: string
@@ -33,6 +46,13 @@ export interface ProgressSnapshot {
    * can be used yet. Always true for a command that only builds.
    */
   serving: boolean
+  /**
+   * The request the server is busy with, once it has been busy long enough to
+   * be worth reporting. This is the only thing that happens between `ready` and
+   * the first page appearing, and on a cold start it is the longest wait of the
+   * whole load. Never set by a command that only builds.
+   */
+  pending?: PendingRender
   timings: PhaseTiming[]
   error?: { name: string, message: string }
 }

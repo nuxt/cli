@@ -366,6 +366,11 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     ? undefined
     : createPhaseReporter({ heartbeat: STARTUP_HEARTBEAT_MS })
   const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
+  if (reporter) {
+    // The URL block is printed as soon as the socket is bound, which on a large
+    // project is a screenful of build output above the summary.
+    devServer.on('listening', ({ url }) => reporter.setURL(url))
+  }
   const stopReporting = () => {
     unsubscribeProgress?.()
     reporter?.stop()
@@ -376,8 +381,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   }
   finally {
     // Nuxt being ready ends startup for this process but not for whoever is
-    // waiting on the first render, so the reporter stays subscribed. Any state
-    // other than ready-but-not-serving has nothing left to wait for.
+    // waiting on the first page, so the reporter stays subscribed to narrate
+    // it. Any state other than ready-but-not-serving has nothing left to wait
+    // for.
     const snapshot = devServer.progress.snapshot
     if (!reporter || snapshot?.status !== 'ready' || snapshot.serving) {
       stopReporting()

@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { PhaseTiming, ProgressSnapshot, ProgressStatus } from '../utils/progress-snapshot'
+import type { PendingRender, PhaseTiming, ProgressSnapshot, ProgressStatus } from '../utils/progress-snapshot'
+
+import { READY_MESSAGE } from '../utils/progress-snapshot'
 
 /** Path prefix reserved for the CLI's own dev-time endpoints. */
 export const DEV_INTERNAL_PREFIX: string = '/__nuxt_dev__/'
@@ -23,7 +25,7 @@ const DEV_PHASES: readonly DevPhase[] = [
   { id: 'types', message: 'Generating types' },
   { id: 'bundle', message: 'Bundling app' },
   { id: 'server', message: 'Building server' },
-  { id: 'ready', message: 'Ready' },
+  { id: 'ready', message: READY_MESSAGE },
 ]
 
 /**
@@ -35,6 +37,13 @@ const READY_PROGRESS = 0.95
 
 /** Shown between the server accepting requests and it answering one. */
 const WARMUP_MESSAGE = 'Compiling the first request'
+
+/**
+ * How long a request has to be in flight before it is reported. A page a dev
+ * server has already compiled is answered in milliseconds, and a status line
+ * that appears and disappears within a frame is noise.
+ */
+const REQUEST_DWELL = 400
 
 const HOOK_PHASES: Record<string, string> = {
   'modules:before': 'modules',
@@ -198,6 +207,10 @@ export class DevProgress {
   #hooks: ActiveHook[] = []
   #narrating = false
   #serving = false
+  #inflight = new Map<number, PendingRender>()
+  #pending?: PendingRender
+  #dwell?: NodeJS.Timeout
+  #nextRequest = 0
   #observing = false
   #installedModules?: () => number
   #observed = new WeakSet<HookableLike>()
@@ -218,6 +231,7 @@ export class DevProgress {
       phaseElapsed: Date.now() - this.#phaseStartedAt,
       reload: this.#reload,
       serving: this.#serving,
+      pending: this.#pending,
       timings: this.#timings,
       error: this.#error && { name: this.#error.name, message: this.#error.message },
     }
@@ -245,6 +259,7 @@ export class DevProgress {
     this.#timings = []
     this.#reload = reload
     this.#serving = false
+    this.#clearPending()
     this.#startedAt = Date.now()
     this.#phaseStartedAt = this.#startedAt
     this.#baseMessage = message || DEV_PHASES[0]!.message
@@ -272,14 +287,83 @@ export class DevProgress {
     this.#advance('ready', undefined, false)
     this.#status = 'ready'
     this.#error = undefined
-    // Nobody is watching a loading page, so there is no first render to wait
-    // for: whoever asks next pays for it, and the panel reports that request
-    // like any other.
-    this.#serving = this.#clients.size === 0
-    if (!this.#serving) {
+    // Accepting a request is not answering one, so the wait is only over once a
+    // document has been rendered. Until then the message says which of the two
+    // has happened: something is already waiting for a page, or nothing is.
+    if (this.#clients.size > 0 || this.#pending || this.#inflight.size > 0) {
       this.#message = WARMUP_MESSAGE
     }
     this.#emit()
+  }
+
+  /**
+   * Record a request the app is now rendering, returning the handle to settle
+   * it with. Reported only once it has been in flight for {@link REQUEST_DWELL},
+   * so a page that is already compiled passes without comment.
+   */
+  startRequest(label: string): number {
+    const id = ++this.#nextRequest
+    this.#inflight.set(id, { label, startedAt: Date.now() })
+    this.#scheduleDwell()
+    return id
+  }
+
+  /** Settle the request {@link startRequest} handed back. */
+  finishRequest(id: number): void {
+    const request = this.#inflight.get(id)
+    if (!request) {
+      return
+    }
+    this.#inflight.delete(id)
+    if (this.#pending !== request) {
+      return
+    }
+    // Whatever else is still in flight has been waiting at least as long, so it
+    // takes over the line rather than leaving it blank.
+    this.#pending = this.#oldest(Date.now() - REQUEST_DWELL)
+    this.#scheduleDwell()
+    this.#emit()
+  }
+
+  /** The oldest request in flight since before `since`, if any. */
+  #oldest(since: number): PendingRender | undefined {
+    let oldest: PendingRender | undefined
+    for (const request of this.#inflight.values()) {
+      if (request.startedAt <= since && (!oldest || request.startedAt < oldest.startedAt)) {
+        oldest = request
+      }
+    }
+    return oldest
+  }
+
+  /** Report the oldest request in flight once it has dwelt long enough. */
+  #scheduleDwell(): void {
+    if (this.#dwell || this.#pending) {
+      return
+    }
+    let next: number | undefined
+    for (const { startedAt } of this.#inflight.values()) {
+      next = next === undefined ? startedAt : Math.min(next, startedAt)
+    }
+    if (next === undefined) {
+      return
+    }
+    this.#dwell = setTimeout(() => {
+      this.#dwell = undefined
+      this.#pending = this.#oldest(Date.now() - REQUEST_DWELL)
+      if (this.#pending) {
+        this.#emit()
+      }
+      this.#scheduleDwell()
+    }, Math.max(0, next + REQUEST_DWELL - Date.now()))
+    this.#dwell.unref?.()
+  }
+
+  #clearPending(): void {
+    clearTimeout(this.#dwell)
+    this.#dwell = undefined
+    this.#pending = undefined
+    this.#inflight.clear()
   }
 
   /** The app has answered a request, so the wait is genuinely over. */
@@ -288,7 +372,7 @@ export class DevProgress {
       return
     }
     this.#serving = true
-    this.#message = DEV_PHASES.at(-1)!.message
+    this.#message = READY_MESSAGE
     this.#emit()
   }
 
@@ -548,6 +632,7 @@ export class DevProgress {
 
   close(): void {
     this.#stopNarrating()
+    this.#clearPending()
     clearInterval(this.#heartbeat)
     this.#heartbeat = undefined
     for (const client of this.#clients) {

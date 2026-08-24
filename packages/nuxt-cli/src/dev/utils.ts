@@ -546,8 +546,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#inflightResponses.add(res)
     // A document that Nuxt itself answered is the first proof the app can be used.
     const document = isDocumentRequest(req)
+    // Rendering a page compiles the module graph on demand, which is silent and
+    // can take longer than the whole build did, so the request is reported for
+    // as long as it is in flight.
+    const pending = document ? this.#progress.startRequest(`${req.method || 'GET'} ${req.url || '/'}`) : undefined
     res.once('close', () => {
       this.#inflightResponses.delete(res)
+      if (pending !== undefined) {
+        this.#progress.finishRequest(pending)
+      }
       if (document && res.statusCode < 500) {
         this.#progress.setServing()
       }

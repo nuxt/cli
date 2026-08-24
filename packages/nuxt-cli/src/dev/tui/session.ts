@@ -180,13 +180,16 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     if (snapshot.status === 'ready') {
       // Between the server accepting requests and answering one there is
       // nothing to watch but a badge, so it says which of the two has happened.
-      state.awaitingFirstRender = !snapshot.serving
-      state.note = snapshot.serving ? undefined : snapshot.message
-      state.progress = snapshot.serving ? undefined : snapshot.progress
+      // A render in flight is the only thing worth waiting for at this point,
+      // and until the first one lands nothing else is being reported at all.
+      const rendering = !!snapshot.pending && !snapshot.serving
+      state.awaitingFirstRender = rendering
+      state.note = snapshot.pending ? `rendering ${snapshot.pending.label}` : undefined
+      state.progress = rendering ? snapshot.progress : undefined
       state.phaseStartedAt = undefined
       state.phaseElapsedMs = undefined
       if (state.status === 'ready' || state.status === 'warming') {
-        state.status = snapshot.serving ? 'ready' : 'warming'
+        state.status = rendering ? 'warming' : 'ready'
         render()
       }
       return

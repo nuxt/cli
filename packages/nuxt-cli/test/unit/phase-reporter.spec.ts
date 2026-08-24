@@ -216,6 +216,82 @@ describe('phase reporter', () => {
     `)
   })
 
+  it('should print the URL next to the summary', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.setURL('http://localhost:3000/')
+      startup.update(snapshot())
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ◆  Ready in 2.4s  → http://localhost:3000/"
+    `)
+  })
+
+  it('should report a render the server is busy with after it is ready', async () => {
+    freezeClock()
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot())
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+        pending: { label: 'GET /', startedAt: Date.now() - 4200 },
+      }))
+    })
+
+    expect(screen(renderer)).toMatch(/^. rendering GET \/ 4\.2s$/m)
+  })
+
+  it('should announce a render once where the line cannot be redrawn', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(false)
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      const pending = { label: 'GET /', startedAt: Date.now() - 6400 }
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400, pending }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400, pending }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 16_800 }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ◆  Ready in 2.4s
+      │
+      ●  Rendering GET /
+      │
+      ◆  First render in 6.4s"
+    `)
+  })
+
+  it('should announce being ready once, however many times it is told', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(false)
+      const ready = snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 })
+      startup.update(ready)
+      startup.update(ready)
+      startup.update(snapshot({ status: 'loading', phase: 'config', message: 'Loading Nuxt config' }))
+      startup.update({ ...ready, reload: true })
+    })
+
+    expect(screen(renderer).match(/Ready in/g)).toHaveLength(1)
+  })
+
+  it('should not close off a wait it never reported', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(false)
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 2600 }))
+    })
+
+    expect(screen(renderer)).toBe('│\n◆  Ready in 2.4s')
+  })
+
   it('should say nothing more after a build error, which is reported separately', async () => {
     const renderer = await render(() => {
       const startup = reporter(true)
