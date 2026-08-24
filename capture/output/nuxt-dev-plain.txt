@@ -1,8 +1,9 @@
-styles: 4eeca6108c97ac69
+styles: e92e0d98f3b543db
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
+ℹ Re-optimizing dependencies because vite config has changed
 ℹ Vite client warmed up in 42 ms
 ℹ Vite server warmed up in 42 ms
 │

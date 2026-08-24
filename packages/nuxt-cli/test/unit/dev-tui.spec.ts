@@ -2251,6 +2251,21 @@ describe('the terminal host on the panel', () => {
     })
   })
 
+  it('does not take stdin back when torn down during a borrow', async () => {
+    let finish!: () => void
+    let borrowed!: Promise<unknown>
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      borrowed = host.withTerminal(() => new Promise<void>((resolve) => {
+        finish = resolve
+      }))
+      await vi.waitFor(() => expect(process.stdin.listenerCount('keypress')).toBe(0))
+    })
+    finish()
+    await borrowed
+    expect(process.stdin.listenerCount('keypress')).toBe(0)
+  })
+
   it('holds a notification on the status line until it is dismissed', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
@@ -2263,11 +2278,13 @@ describe('the terminal host on the panel', () => {
       expect(frames).toContain('permission Request')
       expect(frames).toContain('Open http://localhost:3000/auth to approve.')
 
+      const seen = frames.length
       notice.dismiss()
       await notice.dismissed
+      // Dismissal restores the status badge, so the repaint carries it.
       frames = await settle()
-      expect(frames.split('permission Request').length - 1)
-        .toBe((await settle()).split('permission Request').length - 1)
+      expect(frames.slice(seen)).toContain('READY')
+      expect(frames.slice(seen)).not.toContain('permission Request')
     })
   })
 

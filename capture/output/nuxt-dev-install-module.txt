@@ -1,8 +1,6 @@
-styles: 47b4eb73fea90d67
-   Local     http://localhost:3000/
-   Local     http://localhost:3000/ ⠋
-   Network   http://192.168.1.10:3000/
-   Network   http://192.168.1.10:3000/ ⠋
+styles: eba055abc05015cd
+   Local   http://localhost:3000/
+   Local   http://localhost:3000/ ⠋
    waiting for requests
    ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms

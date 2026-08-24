@@ -371,6 +371,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   let detach = attachKeys(onKey)
 
+  /** Set at teardown, so a borrow that outlives the session cannot restore it. */
+  let torn = false
+
   /**
    * Give borrowed work the terminal for as long as it needs it.
    *
@@ -387,8 +390,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
     finally {
       resume()
-      detach = attachKeys(onKey)
-      render()
+      // A session torn down mid-borrow (Ctrl-C answered a prompt) has already
+      // detached and given the terminal back; re-attaching would put stdin
+      // into raw mode with nothing listening and keep the process alive.
+      if (!torn) {
+        detach = attachKeys(onKey)
+        render()
+      }
     }
   }
 
@@ -475,6 +483,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     },
   })
   session.onTeardown(() => {
+    torn = true
     clearInterval(animation)
     clearTimeout(activityTimer)
     clearTimeout(noticeTimer)

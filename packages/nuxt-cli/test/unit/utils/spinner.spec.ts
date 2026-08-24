@@ -64,6 +64,22 @@ describe('spinners with a terminal host', () => {
     }
   })
 
+  it('should report work that throws as a failed task', async () => {
+    const { host, calls } = recordingHost()
+    const release = registerTerminalHost(host)
+
+    try {
+      await expect(withSpinner('Searching', async () => {
+        throw new Error('boom')
+      }, { done: 'Searched' })).rejects.toThrow('boom')
+
+      expect(calls).toEqual(['start Searching', 'stop failure undefined'])
+    }
+    finally {
+      release()
+    }
+  })
+
   it('should route a created spinner through the host task', () => {
     const { host, calls } = recordingHost()
     const release = registerTerminalHost(host)

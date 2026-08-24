@@ -1,5 +1,5 @@
 import type { PtySession } from './lib/pty.ts'
-import { readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { lstatSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -140,9 +140,22 @@ export const captures: Capture[] = [
 
       // `installNuxtModule` runs the *project's* `@nuxt/cli` in-process, which
       // the fixture installed from the registry; the capture should show the
-      // build under test, so the project copy is pointed at it.
+      // build under test, so the project copy is pointed at it for the
+      // recording and put back afterwards. A symlink found here is residue of
+      // an interrupted run, with nothing behind it to preserve.
       const projectCli = join(cwd, 'node_modules/@nuxt/cli')
-      rmSync(projectCli, { recursive: true, force: true })
+      const savedCli = `${projectCli}.original`
+      if (lstatSync(savedCli, { throwIfNoEntry: false })) {
+        rmSync(projectCli, { recursive: true, force: true })
+        renameSync(savedCli, projectCli)
+      }
+      const installed = lstatSync(projectCli, { throwIfNoEntry: false })
+      if (installed?.isSymbolicLink()) {
+        rmSync(projectCli, { force: true })
+      }
+      else if (installed) {
+        renameSync(projectCli, savedCli)
+      }
       symlinkSync(dirname(dirname(bin)), projectCli, 'dir')
 
       try {
@@ -168,6 +181,10 @@ export const captures: Capture[] = [
           writeFileSync(file, text)
         }
         rmSync(join(cwd, 'node_modules/@nuxt/scripts'), { recursive: true, force: true })
+        rmSync(projectCli, { force: true })
+        if (lstatSync(savedCli, { throwIfNoEntry: false })) {
+          renameSync(savedCli, projectCli)
+        }
       }
     },
   },

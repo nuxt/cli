@@ -258,7 +258,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       transient = undefined
       return
     }
-    const stored = events.push({
+    const event: DevLogEvent = {
       time: Date.now(),
       level: 2,
       type: 'log',
@@ -268,8 +268,12 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       source: isServingRequest() ? 'runtime' : 'build',
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
-    })
-    transient = rewriting ? stored : undefined
+    }
+    const stored = events.push(event)
+    // Only an entry of this run's own may be rewritten by its later frames:
+    // `push` can merge into an existing structured event, whose message is a
+    // real log that has to survive.
+    transient = rewriting && stored === event ? stored : undefined
   }
 
   /**

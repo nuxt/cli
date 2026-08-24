@@ -34,10 +34,15 @@ export async function withSpinner<T>(message: string, fn: (spinner: Spinner) => 
   if (host) {
     const task = host.startTask(message)
     try {
-      return await fn({ update: text => task.update(text), done: setDone })
-    }
-    finally {
+      const result = await fn({ update: text => task.update(text), done: setDone })
       task.stop(done, 'success')
+      return result
+    }
+    catch (error) {
+      // The message the work chose describes it succeeding; whoever threw
+      // reports the failure itself.
+      task.stop(undefined, 'failure')
+      throw error
     }
   }
 
