@@ -420,6 +420,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#cwd = options.cwd
 
     this.handler = async (req, res) => {
+      // Only the CLI's own dispatch may set the request-attribution header;
+      // anything arriving on the wire is stripped so an external client cannot
+      // forge or steal another request's identity in the logs.
+      stripRequestHeader(req)
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
@@ -1233,6 +1237,23 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       },
       getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
+  }
+}
+
+/**
+ * Remove any wire-supplied copy of the request-attribution header, from both
+ * the parsed headers and `rawHeaders` (which some frameworks reconstruct
+ * requests from), before the CLI sets its own value.
+ */
+function stripRequestHeader(req: IncomingMessage): void {
+  if (req.headers[REQUEST_HEADER] === undefined) {
+    return
+  }
+  delete req.headers[REQUEST_HEADER]
+  for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
+    if (req.rawHeaders[i]?.toLowerCase() === REQUEST_HEADER) {
+      req.rawHeaders.splice(i, 2)
+    }
   }
 }
 
