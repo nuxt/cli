@@ -37,6 +37,8 @@ vi.mock('../../../src/utils/lockfile', () => ({
 }))
 vi.mock('../../../src/utils/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+  intro: vi.fn(),
+  outro: vi.fn(),
 }))
 vi.mock('../../../src/utils/profile', () => ({
   startCpuProfile: mocks.startCpuProfile,
