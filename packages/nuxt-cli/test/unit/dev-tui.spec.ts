@@ -23,6 +23,7 @@ import { PanelSurface } from '../../src/dev/tui/surface'
 import { truncate } from '../../src/dev/tui/width'
 import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
+import { logger } from '../../src/utils/logger'
 import { useTerminalHost } from '../../src/utils/terminal-host'
 import { terminalLink } from '../../src/utils/terminal-link'
 import { paint, resolveBackground } from '../../src/utils/terminal-theme'
@@ -279,6 +280,20 @@ describe('dev tui panel', () => {
         expect(strip(line).length).toBeLessThanOrEqual(columns)
       }
     }
+  })
+})
+
+describe('dev tui held notices', () => {
+  it('replaces the status badge with a labelled notice', () => {
+    const lines = renderPanelText({ ...READY, notice: { text: 'a browser is requesting permissions', tone: 'warn', label: 'ACTION' } }, 80, 30)
+    expect(lines).toContain(' ACTION   a browser is requesting permissions')
+    expect(lines).not.toContain('READY')
+  })
+
+  it('keeps an unlabelled notice alongside the status badge', () => {
+    const lines = renderPanelText({ ...READY, notice: { text: 'devframe auth code 123456', tone: 'info' } }, 80, 30)
+    expect(lines).toContain('READY')
+    expect(lines).toContain('devframe auth code 123456')
   })
 })
 
@@ -603,6 +618,61 @@ describe('dev event log', () => {
     message: 'hello',
     source: 'cli' as const,
     ...overrides,
+  })
+
+  it('should pair a boxed log with the output printed for it', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
+    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
+    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.recent(10)).toHaveLength(1)
+    expect(log.recent(10)[0]!.rendered).toBe(printed)
+  })
+
+  it('should keep a boxed notice out of badge classification', () => {
+    const log = new DevEventLog()
+    const message = 'Warning: a browser is requesting permissions.\ngXSptCzfAzS2Lfgy'
+    log.push(event({ time: Date.now(), type: 'box', message, source: 'build', raw: true }))
+    const [stored] = log.recent(10)
+    expect(stored!.type).toBe('box')
+    expect(stored!.message).toContain('gXSptCzfAzS2Lfgy')
+  })
+
+  it('should collapse a boxed notice repeated for a second browser', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    const printed = `\u256D\u2500 Permission Request \u2500\u256E\n\u2502 ${message} \u2502\n\u2570\u2500\u256F`
+    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true, rendered: printed }))
+    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    expect(log.recent(10)).toHaveLength(1)
+    expect(log.recent(10)[0]!.repeats).toBe(2)
+    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.recent(10)).toHaveLength(1)
+  })
+
+  it('should not fold a boxed notice into a warning that said the same thing', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    const merges: boolean[] = []
+    log.onEvent((_event, merged) => merges.push(!!merged))
+    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    expect(log.recent(10).map(entry => entry.type)).toEqual(['warn', 'box'])
+    expect(merges).toEqual([false, false])
+  })
+
+  it('should let a warning join the boxed notice that already asked for attention', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
+    expect(log.recent(10).map(entry => entry.type)).toEqual(['box'])
+    expect(log.recent(10)[0]!.repeats).toBe(2)
   })
 
   it('drops the oldest events past capacity', () => {
@@ -1985,6 +2055,16 @@ describe('dev ui teardown', () => {
     })
   })
 
+  it('should surface a boxed notice above the panel once the server is ready', async () => {
+    await withTerminal(async ({ session, written }) => {
+      session.state.readyMs = 1240
+      const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
+      session.events.push({ time: Date.now(), level: 3, type: 'box', message, source: 'build' })
+      await vi.waitFor(() => expect(strip(written())).toContain('gXSptCzfAzS2Lfgy'))
+      expect(session.events.recent(10)).toHaveLength(1)
+    })
+  })
+
   it('surfaces an error once, not again on the way out', async () => {
     await withTerminal(async ({ session, written }) => {
       session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
@@ -2202,6 +2282,43 @@ describe('request failures on the panel', () => {
 
       expect(frames).toContain('1 failed request')
       expect(frames).toContain('a request failed')
+    })
+  })
+
+  it('should hold a startup warning on the panel and print it in full', async () => {
+    await withPanel(async (_ui, settle) => {
+      logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('WARNING')
+      expect(last).toContain('the dev server is reachable from the network without authentication')
+      expect(frames).toContain('read the app, build errors and source code.')
+    })
+  })
+
+  it('should raise an action badge when something is waiting on the user', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions of writing files and running commands.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ACTION')
+      expect(frames).toContain('gXSptCzfAzS2Lfgy')
+    })
+  })
+
+  it('should keep an action badge through a borrowed prompt that consumes keys', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      await useTerminalHost()!.withTerminal(async () => {
+        process.stdin.emit('keypress', '', { name: 'y', sequence: 'y' })
+      })
+      const frames = await settle()
+
+      expect(frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))).toContain('ACTION')
     })
   })
 

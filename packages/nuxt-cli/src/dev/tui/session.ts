@@ -16,7 +16,7 @@ import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { queryBackground } from './background'
-import { DevEventLog, normaliseMessage } from './events'
+import { DevEventLog, isBoxedNotice, normaliseMessage } from './events'
 import { LOGO_FRAME_MS } from './logo'
 import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
 import { resolveDevUISupport, supportsUnicode } from './support'
@@ -31,6 +31,16 @@ const ERROR_SURFACE_DELAY_MS = 60
 /** An error as it belongs in scrollback: as printed, or as reported. */
 function renderErrorLine(event: DevLogEvent): string {
   return event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`
+}
+
+/** A boxed notice as it belongs in scrollback: as printed, or as reported. */
+function renderNoticeBlock(event: DevLogEvent): string {
+  return event.rendered ?? `${event.message}\n`
+}
+
+/** A warning as it belongs in scrollback: as printed, or as reported. */
+function renderWarningLine(event: DevLogEvent): string {
+  return event.rendered ?? `${styleText(['yellow', 'bold'], 'WARN')} ${event.message}`
 }
 
 /** Cursor movement and erasure: output that repaints rather than appends. */
@@ -143,8 +153,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   let torn = false
   let handlers: Array<[NodeJS.Signals | 'exit' | 'uncaughtException', (...args: any[]) => void]> = []
   const teardownTasks: Array<() => void> = []
-  /** Errors whose surface delay has not fired yet, keyed by that timer. */
-  const pendingErrors = new Map<NodeJS.Timeout, DevLogEvent>()
+  /** Text whose surface delay has not fired yet, keyed by that timer. */
+  const pendingSurfaces = new Map<NodeJS.Timeout, () => string>()
 
   // Nothing else repaints while Nuxt is loading, so the session drives the
   // shimmer and the elapsed time itself until the controller takes over.
@@ -277,11 +287,21 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   /**
-   * Write an error into scrollback above the panel.
+   * Write text into scrollback above the panel, once the event it was rendered
+   * from has had time to be paired with its printed form.
    *
    * Delayed by a beat because a log forwarded from a fork arrives before the
    * output that renders it, and the rendered form is what should be shown.
    */
+  function surfaceLater(render: () => string): void {
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      pendingSurfaces.delete(timer)
+      surfaceText(render())
+    }, ERROR_SURFACE_DELAY_MS)
+    timer.unref?.()
+    pendingSurfaces.set(timer, render)
+  }
+
   function surfaceError(event: DevLogEvent): void {
     // Once the server has been ready, errors belong to the panel's badge and the
     // log view. Before that, one may be the last thing the process ever says.
@@ -295,12 +315,35 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     event.surfaced = true
     lastSurfacedError = text
-    const timer: NodeJS.Timeout = setTimeout(() => {
-      pendingErrors.delete(timer)
-      surfaceText(renderErrorLine(event))
-    }, ERROR_SURFACE_DELAY_MS)
-    timer.unref?.()
-    pendingErrors.set(timer, event)
+    surfaceLater(() => renderErrorLine(event))
+  }
+
+  /**
+   * Write a warning the CLI raised during startup into scrollback above the
+   * panel. The panel holds a badge for it, but a badge has one truncated line
+   * and these run to a sentence or two.
+   */
+  function surfaceWarning(event: DevLogEvent): void {
+    if (event.surfaced || state.readyMs !== undefined || !normaliseMessage(event.message)) {
+      return
+    }
+    event.surfaced = true
+    surfaceLater(() => renderWarningLine(event))
+  }
+
+  /**
+   * Write a boxed notice into scrollback above the panel, at any point in the
+   * session: it carries something (a URL, a token) that has to be readable and
+   * selectable, which a status line cannot offer.
+   */
+  function surfaceNotice(event: DevLogEvent): void {
+    // Repeats within the dedupe window are merged into the entry already shown;
+    // a later request is news again, and has to be answered again.
+    if (event.surfaced || !normaliseMessage(event.message)) {
+      return
+    }
+    event.surfaced = true
+    surfaceLater(() => renderNoticeBlock(event))
   }
 
   const reporter = {
@@ -332,7 +375,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     clearImmediate(flushTimer)
     // A fatal startup error tears down and exits before the surface delay can
     // fire, and a dev server that dies without a trace is undebuggable.
-    const unsurfaced = [...pendingErrors.entries()]
+    const unsurfaced = [...pendingSurfaces.entries()]
     for (const [timer] of unsurfaced) {
       clearTimeout(timer)
     }
@@ -342,8 +385,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     surface.externalOutput = 'passthrough'
     surface.writeRaw(SHOW_CURSOR)
-    for (const [, event] of unsurfaced) {
-      surface.writeRaw(`${renderErrorLine(event)}\n`)
+    for (const [, render] of unsurfaced) {
+      surface.writeRaw(`${render()}\n`)
     }
     surface.close({ keep: teardownOptions.keep })
     consola.removeReporter(reporter)
@@ -368,8 +411,14 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   events.onEvent((event) => {
-    if (event.level <= 0) {
+    if (isBoxedNotice(event)) {
+      surfaceNotice(event)
+    }
+    else if (event.level <= 0) {
       surfaceError(event)
+    }
+    else if (event.level === 1 && event.source === 'cli') {
+      surfaceWarning(event)
     }
   })
 

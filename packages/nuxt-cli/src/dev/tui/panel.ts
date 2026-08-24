@@ -90,8 +90,12 @@ export interface PanelState {
   active?: boolean
   /** Replaces the badge's standing description, for a restart reason. */
   note?: string
-  /** Passing feedback, shown for a moment and then dropped. */
-  notice?: { text: string, tone: 'info' | 'warn' | 'success' }
+  /**
+   * Feedback in place of the badge's standing description. Passing unless it
+   * carries a `label`, which marks something waiting on the user: the label
+   * takes the badge's place until the notice is let go.
+   */
+  notice?: { text: string, tone: 'info' | 'warn' | 'success', label?: string }
   /** Long-running work reported through the terminal host, while it runs. */
   task?: { label: string, startedAt: number }
   confirmQuit?: boolean
@@ -293,6 +297,13 @@ function renderStatus(state: PanelState, columns: number): string {
   if (state.confirmQuit) {
     return truncate(
       ` ${styleText(['bgYellow', 'black', 'bold'], ' QUIT? ')}  ${styleText(MUTED, 'press')} ${styleText('bold', 'y')} ${styleText(MUTED, 'to confirm,')} ${styleText('bold', 'esc')} ${styleText(MUTED, 'to stay')}`,
+      columns,
+    )
+  }
+
+  if (state.notice?.label) {
+    return truncate(
+      ` ${styleText(['bgYellow', 'black', 'bold'], ` ${state.notice.label} `)}  ${styleText(MUTED, decapitalise(state.notice.text))}`,
       columns,
     )
   }
