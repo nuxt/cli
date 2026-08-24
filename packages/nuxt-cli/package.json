@@ -100,7 +100,7 @@
     "nitro": "^3.0.1-alpha.2",
     "nitropack": "^2.13.4",
     "nypm": "^0.6.9",
-    "rolldown": "^1.2.4",
+    "rolldown": "^1.2.5",
     "rollup": "^4.62.5",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
