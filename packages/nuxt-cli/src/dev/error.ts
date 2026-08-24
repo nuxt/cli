@@ -56,7 +56,6 @@ export async function renderError(req: IncomingMessage, res: ServerResponse, err
     request: {
       url: req.url,
       method: req.method,
-      headers: req.headers,
     },
   })
   res.end(options.inject ? html + options.inject : html)
