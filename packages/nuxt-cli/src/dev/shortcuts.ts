@@ -106,13 +106,16 @@ function printHelp(context: ActionContext): void {
 }
 
 /**
- * Without a TTY there are no shortcuts to offer, so point at the way to talk to
- * the server instead: non-interactive callers (scripts, agents) otherwise have
- * no indication that one exists.
+ * Without a readable stdin there are no shortcuts to offer, so point at the way
+ * to talk to the server instead: a caller driving the CLI without a keyboard
+ * (an agent, a wrapper script) otherwise has no indication that one exists.
+ *
+ * `/` is suggested rather than an API route because it is the one path every
+ * project serves.
  */
 function printRequestHint(): void {
   // eslint-disable-next-line no-console
-  console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /api/hello')} ${styleText('dim', 'to send a request to this server')}\n`)
+  console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /')} ${styleText('dim', 'to send a request to this server')}\n`)
 }
 
 function availableShortcuts(context: ShortcutContext): Shortcut[] {
@@ -127,7 +130,9 @@ function availableShortcuts(context: ShortcutContext): Shortcut[] {
  */
 export function setupShortcuts(context: ShortcutContext): void {
   if (!process.stdin.isTTY || isCI || isTest) {
-    if (!isCI && !isTest) {
+    // A hint written into a redirected log is read by nobody and answered by
+    // nobody, so it is only offered while stdout is still a terminal.
+    if (process.stdout.isTTY && !isCI && !isTest) {
       context.onReady(() => printRequestHint())
     }
     return

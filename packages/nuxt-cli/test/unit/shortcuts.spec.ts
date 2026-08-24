@@ -38,13 +38,17 @@ describe('setupShortcuts', () => {
     vi.clearAllMocks()
   })
 
-  function setup(context: Partial<ShortcutContext> = {}, { isTTY = true, isRaw = false } = {}) {
+  function setup(context: Partial<ShortcutContext> = {}, { isTTY = true, isRaw = false, stdoutIsTTY = true } = {}) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
     Object.assign(stdin, { isTTY, isRaw, setRawMode: vi.fn((raw: boolean) => Object.assign(stdin, { isRaw: raw })) })
 
     const original = process.stdin
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
     restores.push(() => Object.defineProperty(process, 'stdin', { value: original, configurable: true }))
+
+    const originalStdoutIsTTY = process.stdout.isTTY
+    Object.defineProperty(process.stdout, 'isTTY', { value: stdoutIsTTY, configurable: true })
+    restores.push(() => Object.defineProperty(process.stdout, 'isTTY', { value: originalStdoutIsTTY, configurable: true }))
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
@@ -89,10 +93,16 @@ describe('setupShortcuts', () => {
     expect(setup().stdin.listenerCount('data')).toBe(0)
   })
 
-  it('should suggest `nuxt curl` when there is no TTY', () => {
+  it('should suggest `nuxt curl` when stdin cannot be read', () => {
     const { log } = setup({}, { isTTY: false })
 
-    expect(log.mock.calls.join('\n')).toContain('nuxt curl /api/hello')
+    expect(log.mock.calls.join('\n')).toContain('nuxt curl /')
+  })
+
+  it('should stay silent when the output is redirected', () => {
+    const { log } = setup({}, { isTTY: false, stdoutIsTTY: false })
+
+    expect(log.mock.calls.join('\n')).not.toContain('nuxt curl')
   })
 
   it('should stay silent in CI', () => {
