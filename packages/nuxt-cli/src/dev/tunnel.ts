@@ -161,6 +161,24 @@ const CLOUDFLARED_ASSETS: Record<string, Partial<Record<typeof process.arch, str
   },
 }
 
+/**
+ * SHA-256 checksums of the {@link DEFAULT_CLOUDFLARED_VERSION} release assets,
+ * from the release notes at
+ * https://github.com/cloudflare/cloudflared/releases/tag/2026.7.3.
+ * Must be updated together with the pinned version. Downloads of an overridden
+ * `CLOUDFLARED_VERSION` cannot be verified and are accepted as fetched.
+ */
+const CLOUDFLARED_SHA256: Record<string, string> = {
+  'cloudflared-darwin-arm64.tgz': 'f35c50089cd25f77a4cb5a2152036bc26db15aa31fbe11f7995d2e42a4ed6257',
+  'cloudflared-darwin-amd64.tgz': 'e88fe5874d42a94f49a7ea59cabc3722d2962d0449232b0f3b1a426a712e275c',
+  'cloudflared-linux-arm': '6dadd979b8833760e9f6d840a6239a8c08c8bcf73b4231ec537f483873f37c73',
+  'cloudflared-linux-arm64': '65259e652a7bea08bf5df603233ab22b8bf3116af8df9f9206209af6a1b955c0',
+  'cloudflared-linux-386': '6c982e77e644644f5bce76781dd2b69ddc0bfa5e1dd1f55f0037850ac0946771',
+  'cloudflared-linux-amd64': '9d71c677db00134c1bd4144b7783486b654ad281b1ea62b4972098d19f770f17',
+  'cloudflared-windows-386.exe': 'd026e39d9be21c70ea652528fda2801e164d5e25688b7b0fb3b65080cbd96503',
+  'cloudflared-windows-amd64.exe': '8635da433b6df8194746e88ed9d2589566c20e38bfc2a80e431a348b7c765841',
+}
+
 async function resolveCloudflared(): Promise<string | undefined> {
   const CLOUDFLARED_VERSION = resolveCloudflaredVersion()
   const base = CLOUDFLARED_VERSION === 'latest'
@@ -171,6 +189,7 @@ async function resolveCloudflared(): Promise<string | undefined> {
     url: asset && `${base}/${asset}`,
     archive: asset?.endsWith('.tgz'),
     cacheName: `cloudflared-${CLOUDFLARED_VERSION}`,
+    sha256: asset && CLOUDFLARED_VERSION === DEFAULT_CLOUDFLARED_VERSION ? CLOUDFLARED_SHA256[asset] : undefined,
     consent: {
       key: 'cloudflared',
       notice: [
