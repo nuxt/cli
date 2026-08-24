@@ -333,8 +333,8 @@ export interface DevRequestEvent {
   internal?: boolean
 }
 
-/** Vite/webpack module-graph URLs: `/@id/...`, `/@fs/...`, `virtual:` modules, SFC block queries. */
-const BUNDLER_URL_RE = /^\/(?:@|__|_nuxt\/)|\/node_modules\/|virtual:|[?&](?:vue&type=|import(?:&|=|$)|direct(?:&|=|$)|html-proxy|raw(?:&|=|$)|worker(?:&|=|$))/
+/** Vite/webpack module-graph URLs: `/@id/...`, `/@fs/...`, `virtual:` modules, SFC block queries, plus Nuxt's dev-only virtual file system endpoint. */
+const BUNDLER_URL_RE = /^\/(?:@|__|_nuxt\/|_vfs(?:\.json)?(?:$|[/?]))|\/node_modules\/|virtual:|[?&](?:vue&type=|import(?:&|=|$)|direct(?:&|=|$)|html-proxy|raw(?:&|=|$)|worker(?:&|=|$))/
 
 /**
  * Whether a request is the bundler talking to itself rather than the app being
@@ -442,7 +442,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         return this.#serve(req, res)
       }
       const start = performance.now()
-      return runWithRequest(`${req.method || 'GET'} ${req.url || '/'}`, (request) => {
+      const method = req.method || 'GET'
+      const url = req.url || '/'
+      const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
+      return runWithRequest(`${method} ${url}`, (request) => {
         const encoded = encodeRequest(request)
         req.headers[REQUEST_HEADER] = encoded
         req.rawHeaders.push(REQUEST_HEADER, encoded)
@@ -452,11 +455,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           }
           this.emit('request', {
             id: request.id,
-            method: req.method || 'GET',
-            url: req.url || '/',
+            method,
+            url,
             status: res.statusCode,
             duration: Math.round(performance.now() - start),
-            internal: isBundlerRequest(req.url || '/', String(req.headers['sec-fetch-dest'] || '') || undefined) || undefined,
+            internal: isBundlerRequest(url, fetchDest) || undefined,
           })
         })
         return this.#serve(req, res)

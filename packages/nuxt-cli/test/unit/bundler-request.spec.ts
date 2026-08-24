@@ -11,6 +11,9 @@ describe('isBundlerRequest', () => {
     '/node_modules/.vite/deps/vue.js',
     '/Users/someone/project/node_modules/.pnpm/nuxt@4.5.2/node_modules/nuxt/dist/app/entry.js',
     '/_nuxt/builds/meta/dev.json',
+    '/_vfs.json',
+    '/_vfs.json?path=%2Fapp.vue',
+    '/_vfs/app.vue',
     '/app.vue?import',
   ])('classifies %s as bundler traffic', (url) => {
     expect(isBundlerRequest(url)).toBe(true)
