@@ -34,11 +34,12 @@ import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../uti
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { renderError, renderErrorAnsi } from './error-lazy'
+import { isAllowedHost } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
-import { DevProgress } from './progress'
+import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
@@ -391,6 +392,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #rawConfig?: Record<string, unknown>
   #changedConfigKeys?: string[]
   #bound?: BoundServer
+  #allowedHosts = new Set<string>()
+  #allowAnyHost = false
   #openedEagerly = false
   #progress = new DevProgress()
   #warmup = new WarmupGate()
@@ -427,8 +430,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
-      if (this.#progress.handleRequest(req, res)) {
-        return
+      if ((req.url || '').split('?')[0]?.startsWith(DEV_INTERNAL_PREFIX)) {
+        if (this.#rejectDisallowedHost(req, res)) {
+          return
+        }
+        if (this.#progress.handleRequest(req, res)) {
+          return
+        }
       }
       if (!options.captureUIEvents) {
         return this.#serve(req, res)
@@ -456,8 +464,56 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
   }
 
+  /**
+   * Answer a request whose `Host` header does not name this server, so pages
+   * loaded from a rebinding hostname cannot read the CLI's own endpoints.
+   * Returns `true` when the request was rejected. Requests the app itself
+   * serves are not gated here: Vite applies its own `allowedHosts` check.
+   */
+  #rejectDisallowedHost(req: IncomingMessage, res: ServerResponse): boolean {
+    if (this.#allowAnyHost || isAllowedHost(req.headers.host, this.#allowedHosts)) {
+      return false
+    }
+    if (this.options.captureUIEvents) {
+      this.#internalResponses.add(res)
+    }
+    if (!res.headersSent) {
+      res.statusCode = 403
+      res.setHeader('Content-Type', 'text/plain')
+    }
+    res.end('Forbidden: this host is not allowed. Pass `--host` to allow it.')
+    return true
+  }
+
+  /**
+   * Record the hostnames this server answers on, for the `Host` check on the
+   * CLI's own endpoints. `--public` opts out of the check entirely.
+   */
+  #syncAllowedHosts(options: ListenOptions): void {
+    this.#allowAnyHost = !!options.public
+    this.#allowedHosts.clear()
+    if (this.#allowAnyHost) {
+      return
+    }
+    if (options.hostname) {
+      this.#allowedHosts.add(options.hostname.toLowerCase())
+    }
+    for (const { url } of this.listener?.getURLs() ?? []) {
+      try {
+        const hostname = new URL(url).hostname.toLowerCase()
+        this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
+      }
+      catch {
+        // a malformed display URL is not a hostname to allow
+      }
+    }
+  }
+
   async #serve(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (this.#loadingError) {
+      if (this.#rejectDisallowedHost(req, res)) {
+        return
+      }
       if (this.options.captureUIEvents) {
         this.#internalResponses.add(res)
       }
@@ -467,6 +523,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       return
     }
     if (!this.#handler) {
+      if (this.#rejectDisallowedHost(req, res)) {
+        return
+      }
       if (this.options.captureUIEvents) {
         this.#internalResponses.add(res)
       }
@@ -874,6 +933,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.listener = await createListener(this.#bound, listenOptions, { announce: false })
+    this.#syncAllowedHosts(listenOptions)
     this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: false })
 
     const knowsScheme = overrides.httpsEnabled !== undefined || hint?.https === false
@@ -903,6 +963,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ...listenOptions,
       open: listenOptions.open && !this.#openedEagerly,
     })
+    this.#syncAllowedHosts(listenOptions)
     this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: true })
 
     if (listenOptions.public) {

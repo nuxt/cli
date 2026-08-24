@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 /** Path prefix reserved for the CLI's own dev-time endpoints. */
-const DEV_INTERNAL_PREFIX: string = '/__nuxt_dev__/'
+export const DEV_INTERNAL_PREFIX: string = '/__nuxt_dev__/'
 export const PROGRESS_PATH: string = `${DEV_INTERNAL_PREFIX}progress`
 const HEARTBEAT_INTERVAL = 15_000
 

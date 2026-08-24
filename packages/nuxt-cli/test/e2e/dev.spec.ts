@@ -156,6 +156,34 @@ describe('dev server', () => {
     }
   })
 
+  it('should reject internal endpoints for an unknown Host header', { timeout: 50_000 }, async () => {
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3034 })
+
+    const { result: { close } } = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`]) as any
+
+    try {
+      // `fetch` refuses to forward a forged `Host`, so speak HTTP directly.
+      const { request } = await import('node:http')
+      const status = await new Promise<number | undefined>((resolve, reject) => {
+        const req = request({ host, port, path: '/__nuxt_dev__/progress', headers: { host: 'rebinding-attacker.com' } }, (res) => {
+          res.resume()
+          resolve(res.statusCode)
+        })
+        req.once('error', reject)
+        req.end()
+      })
+      expect(status).toBe(403)
+
+      const allowed = await fetch(`http://${host}:${port}/__nuxt_dev__/progress`)
+      expect(allowed.headers.get('content-type')).toBe('text/event-stream')
+      await allowed.body?.cancel()
+    }
+    finally {
+      await close()
+    }
+  })
+
   it('should handle multiple set-cookie headers correctly', { timeout: 50_000 }, async () => {
     await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
     const host = '127.0.0.1'
