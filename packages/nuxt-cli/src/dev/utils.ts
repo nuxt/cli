@@ -4,6 +4,7 @@ import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher, Stats } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
+import type { PendingRender } from '../utils/progress-snapshot'
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
 import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
@@ -95,6 +96,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }
+    | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender }
 
 export interface NuxtDevContext {
   cwd: string

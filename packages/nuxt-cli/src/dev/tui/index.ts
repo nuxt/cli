@@ -582,6 +582,14 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       activityTimer.unref?.()
     },
     setRoutes: payload => routeOverlay.setRoutes(payload),
+    setRendering: (pending) => {
+      // A build in flight is already the more interesting thing to report, and
+      // the badge it shows must not be replaced by a request that outlives it.
+      if (state.status !== 'ready') {
+        return
+      }
+      update({ note: pending ? `rendering ${pending.label}` : undefined })
+    },
   }
 }
 

@@ -351,6 +351,9 @@ const command = defineCommand({
             else if (message.type === 'nuxt:internal:dev:building') {
               devUI.setStatus(message.building ? 'building' : 'ready')
             }
+            else if (message.type === 'nuxt:internal:dev:rendering') {
+              devUI.setRendering(message.pending)
+            }
             else if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
               serving = true
               if (message.type === 'nuxt:internal:dev:ready' && startTime) {

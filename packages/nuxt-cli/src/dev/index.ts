@@ -328,6 +328,20 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       routes.emit(payload)
     })
 
+    // The panel is painted by the parent, and a render in flight is all this
+    // fork has to report between being ready and having answered.
+    if (ipc.enabled) {
+      let reported: string | undefined
+      devServer.progress.onUpdate(({ status, pending }) => {
+        const rendering = status === 'ready' ? pending : undefined
+        if (rendering?.label === reported) {
+          return
+        }
+        reported = rendering?.label
+        ipc.send({ type: 'nuxt:internal:dev:rendering', pending: rendering })
+      })
+    }
+
     // A dev server serves a request per module on a cold page load, so requests
     // are batched rather than sent one IPC message at a time.
     let batch: DevRequestEvent[] = []

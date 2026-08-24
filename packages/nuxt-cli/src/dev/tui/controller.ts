@@ -1,3 +1,4 @@
+import type { PendingRender } from '../../utils/progress-snapshot'
 import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevRequestEvent, DevRoutes } from '../utils'
@@ -18,6 +19,8 @@ export interface DevUIController {
   pushRequests: (requests: DevRequestEvent[]) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
+  /** Report the render the server is busy with, or that it is busy with none. */
+  setRendering: (pending?: PendingRender) => void
 }
 
 /** What the plain fallback answers to everything the UI would have shown. */
@@ -27,6 +30,7 @@ export const NOOP_CONTROLLER: DevUIController = {
   pushServerLog: () => {},
   pushRequests: () => {},
   setRoutes: () => {},
+  setRendering: () => {},
 }
 
 /**

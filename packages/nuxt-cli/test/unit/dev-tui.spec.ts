@@ -2295,6 +2295,26 @@ describe('request failures on the panel', () => {
     })
   })
 
+  it('should report a render forwarded from the fork that is serving', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+      expect(await settle()).toContain('rendering GET /about')
+
+      ui.setRendering(undefined)
+      expect(await settle()).toContain('watching for changes')
+    })
+  })
+
+  it('should not let a render replace what a build is reporting', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'compiling changes')
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+
+      expect(await settle()).not.toContain('rendering GET /about')
+    })
+  })
+
   it('should report a failed app request', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
