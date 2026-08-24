@@ -28,6 +28,20 @@ export interface TerminalTask {
   stop: (message?: string, outcome?: 'success' | 'failure') => void
 }
 
+/** A message that must reach the user, held until it is let go. */
+export interface TerminalNotification {
+  title?: string
+  message: string
+  level?: 'info' | 'warn'
+}
+
+export interface TerminalNotice {
+  /** Retract the notice: attention is no longer needed. */
+  dismiss: () => void
+  /** Settles once the notice is gone: acknowledged by the user or retracted. */
+  dismissed: Promise<void>
+}
+
 export interface TerminalHost {
   /**
    * The revision of this contract. Bumped only when an existing member
@@ -47,6 +61,17 @@ export interface TerminalHost {
    * capture or repaint around every frame.
    */
   startTask: (label: string) => TerminalTask
+  /**
+   * Show something that must not scroll away unnoticed: an auth code, a
+   * permission request, anything useless unheeded. Held on the host's status
+   * surface until the user acknowledges it or the caller retracts it. A
+   * caller that learns attention is no longer needed (the code was entered,
+   * the permission granted) should dismiss the notice itself rather than
+   * leave it standing.
+   *
+   * Optional so hosts can adopt it separately; feature-test before calling.
+   */
+  notify?: (notification: TerminalNotification) => TerminalNotice
 }
 
 type HostCarrier = typeof globalThis & { [HOST_KEY]?: TerminalHost }

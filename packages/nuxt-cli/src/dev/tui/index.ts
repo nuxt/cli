@@ -1,18 +1,20 @@
+import type { TerminalNotification } from '../../utils/terminal-host'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevUIController } from './controller'
 import type { InfoSection } from './info-overlay'
 import type { Key } from './keys'
 import type { DevStatus, PanelState, PanelURL } from './panel'
-import type { DevUISupportOptions } from './support'
 
+import type { DevUISupportOptions } from './support'
 import type { PanelSurface } from './surface'
+
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { startupElapsedMs } from '../../utils/startup-clock'
+
 import { registerTerminalHost } from '../../utils/terminal-host'
 import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
@@ -176,8 +178,29 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
   }
 
+  /** A message held on the status line until the user has seen it. */
+  interface HeldNotice {
+    text: string
+    tone: 'info' | 'warn'
+    resolve: () => void
+  }
+
+  /** Notices not yet acknowledged, oldest first; the line shows the newest. */
+  const heldNotices: HeldNotice[] = []
+
   function clearNotice(): void {
-    update({ notice: undefined })
+    const held = heldNotices.at(-1)
+    update({ notice: held ? { text: held.text, tone: held.tone } : undefined })
+  }
+
+  function dismissHeld(held: HeldNotice): void {
+    const index = heldNotices.indexOf(held)
+    if (index === -1) {
+      return
+    }
+    heldNotices.splice(index, 1)
+    held.resolve()
+    clearNotice()
   }
 
   /** Show `text` for a moment. Nothing a notice reports outlives the moment. */
@@ -310,6 +333,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const onKey = (key: Key) => {
     const active = openOverlay()
+    // Any keypress is proof the panel is being watched, so a held notice has
+    // done its work. The key still does whatever it would have done.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     if (key.ctrl && key.name === 'c') {
       active?.close()
       return quit()
@@ -380,6 +408,29 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       terminalQueue = result.catch(() => {})
       return result
     },
+    notify: (notification) => {
+      const tone = notification.level === 'warn' ? 'warn' as const : 'info' as const
+      let resolve!: () => void
+      const dismissed = new Promise<void>((settle) => {
+        resolve = settle
+      })
+      const held: HeldNotice = { text: (notification.title ?? notification.message).split('\n')[0]!.trim(), tone, resolve }
+      heldNotices.push(held)
+      // The full text goes into scrollback where it can be read and copied,
+      // and into the history; the held badge is what stops it scrolling away
+      // unnoticed.
+      surfaceText(renderNotification(notification))
+      events.push({
+        time: Date.now(),
+        level: 3,
+        type: 'info',
+        message: [notification.title, notification.message].filter(Boolean).join('\n'),
+        source: 'cli',
+      })
+      clearTimeout(noticeTimer)
+      clearNotice()
+      return { dismiss: () => dismissHeld(held), dismissed }
+    },
     startTask: (label) => {
       const task = { label, startedAt: Date.now() }
       tasks.push(task)
@@ -418,6 +469,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     clearTimeout(noticeTimer)
     animation = undefined
     releaseHost()
+    // Nothing can be acknowledged on a torn-down panel, and a caller may be
+    // awaiting the dismissal.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     detach()
     openOverlay()?.close()
   })
@@ -574,6 +630,13 @@ function describeSession(
 }
 
 /** A version, linked to its release notes where the terminal supports it. */
+/** A notification as it belongs in scrollback: legible, copyable, unboxed. */
+function renderNotification({ title, message, level }: TerminalNotification): string {
+  const mark = level === 'warn' ? styleText(['yellow', 'bold'], '\u26A0') : styleText('cyan', '\u2139')
+  const head = title ? `${mark} ${styleText('bold', title)}\n` : ''
+  return `${head}${message}`
+}
+
 function linkVersion(version: string): string {
   const notes = releaseNotesUrl('nuxt', version)
   return notes ? terminalLink(version, notes) : version

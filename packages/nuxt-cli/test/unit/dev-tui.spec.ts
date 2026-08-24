@@ -2243,6 +2243,64 @@ describe('the terminal host on the panel', () => {
     })
   })
 
+  it('holds a notification on the status line until it is dismissed', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const notice = useTerminalHost()!.notify!({
+        title: 'Permission Request',
+        message: 'A browser is asking for write access.\nOpen http://localhost:3000/auth to approve.',
+        level: 'warn',
+      })
+      let frames = await settle()
+      expect(frames).toContain('permission Request')
+      expect(frames).toContain('Open http://localhost:3000/auth to approve.')
+
+      notice.dismiss()
+      await notice.dismissed
+      frames = await settle()
+      expect(frames.split('permission Request').length - 1)
+        .toBe((await settle()).split('permission Request').length - 1)
+    })
+  })
+
+  it('lets a notification outlive passing feedback', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const host = useTerminalHost()!
+      const notice = host.notify!({ message: 'devframe auth code 123456', level: 'info' })
+      const task = host.startTask('Installing with pnpm')
+      task.stop('Dependencies installed', 'success')
+
+      const frames = await settle()
+      expect(frames).toContain('dependencies installed')
+      const last = frames.lastIndexOf('devframe auth code 123456')
+      expect(last).toBeGreaterThan(-1)
+      notice.dismiss()
+      await notice.dismissed
+    })
+  })
+
+  it('takes any keypress as acknowledgement of a notification', async () => {
+    await withPanel(async () => {
+      const notice = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' })
+      let settled = false
+      void notice.dismissed.then(() => {
+        settled = true
+      })
+
+      process.stdin.emit('keypress', '', { name: 'x', sequence: 'x' })
+      await vi.waitFor(() => expect(settled).toBe(true))
+    })
+  })
+
+  it('resolves outstanding notifications when the session ends', async () => {
+    let dismissed: Promise<void> | undefined
+    await withPanel(async () => {
+      dismissed = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' }).dismissed
+    })
+    await expect(dismissed).resolves.toBeUndefined()
+  })
+
   it('lends the terminal to one borrower at a time', async () => {
     await withPanel(async () => {
       const host = useTerminalHost()!
