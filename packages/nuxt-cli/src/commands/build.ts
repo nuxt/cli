@@ -1,7 +1,6 @@
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { relative } from 'pathe'
@@ -14,7 +13,7 @@ import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
-import { logger } from '../utils/logger'
+import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
