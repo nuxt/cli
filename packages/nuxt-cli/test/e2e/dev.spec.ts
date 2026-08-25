@@ -139,17 +139,29 @@ describe('dev server', () => {
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let stream = ''
-      while (!stream.includes('event: nuxt:ready')) {
-        const { value, done } = await reader.read()
-        if (done) {
-          break
+      async function readUntil(marker: string): Promise<void> {
+        while (!stream.includes(marker)) {
+          const { value, done } = await reader.read()
+          if (done) {
+            return
+          }
+          stream += decoder.decode(value)
         }
-        stream += decoder.decode(value)
       }
+      // Only whole events, so a half-read chunk cannot be parsed as a snapshot.
+      const latest = () => JSON.parse([...stream.matchAll(/data: (.+)\n/g)].pop()![1]!)
+
+      await readUntil('event: nuxt:ready')
+      expect(stream).toContain('event: nuxt:ready')
+      // Whoever is streaming this is waiting for a page, and being ready means
+      // the server can accept that request rather than that it has answered it.
+      expect(latest()).toMatchObject({ status: 'ready', serving: false })
+
+      await fetch(`http://${host}:${port}/`, { headers: { accept: 'text/html' } })
+      await readUntil('"serving":true')
       await reader.cancel()
 
-      expect(stream).toContain('event: nuxt:ready')
-      expect(JSON.parse(stream.split('data: ').pop()!)).toMatchObject({ status: 'ready', progress: 1 })
+      expect(latest()).toMatchObject({ status: 'ready', serving: true, progress: 1 })
     }
     finally {
       await close()
