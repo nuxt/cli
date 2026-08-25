@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
     total: 6,
     progress: 0,
     elapsed: 0,
+    phaseElapsed: 0,
     reload: false,
     serving: false,
     timings: [],
@@ -59,7 +60,40 @@ describe('phase reporter', () => {
       startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
     })
 
-    expect(screen(renderer)).toMatch(/^. Bundling app 0ms$/)
+    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0s$/)
+  })
+
+  it('should show how long the phase has taken alongside the total', async () => {
+    freezeClock()
+    const renderer = await render(() => {
+      const startup = reporter(true)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
+    })
+
+    expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 41\.0s$/)
+  })
+
+  it('should redraw only the spinner while the rest of the line is unchanged', () => {
+    vi.useFakeTimers()
+    freezeClock()
+    const chunks: string[] = []
+    const stream = { isTTY: true, write: (chunk: string) => {
+      chunks.push(chunk)
+      return true
+    } } as unknown as NodeJS.WriteStream
+    const startup = createPhaseReporter({ animated: true, stream })
+    try {
+      startup.update(snapshot({ message: 'Bundling app', elapsed: 5000, phaseElapsed: 5000 }))
+      chunks.length = 0
+      vi.advanceTimersByTime(80)
+
+      expect(chunks.join('')).not.toContain('Bundling app')
+      expect(chunks.join('')).not.toContain('\u001B[2K')
+    }
+    finally {
+      startup.stop()
+      vi.useRealTimers()
+    }
   })
 
   it('should collapse to a summary with a phase breakdown once ready', async () => {
@@ -127,6 +161,19 @@ describe('phase reporter', () => {
       "│
       ●  Building Nitro server"
     `)
+  })
+
+  it('should say how long the phase has taken when it names what it is doing', async () => {
+    const renderer = await render(async ({ waitForOutput }) => {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 8000, phaseElapsed: 8000 }))
+      await waitForOutput('Generating types')
+      startup.update(snapshot({ phase: 'types', message: 'Generating server types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
+      await waitForOutput('Generating server types')
+    })
+
+    expect(screen(renderer)).toContain('Generating server types (33.0s \u00B7 41.0s)')
   })
 
   it('should leave foreign output intact', async () => {
@@ -213,7 +260,7 @@ describe('phase reporter', () => {
       }
     })
 
-    expect(screen(renderer)).toMatch(/^. Bundling app 0ms$/)
+    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0s$/)
   })
 
   it('should clear the line before output that consola writes through `__write`', async () => {

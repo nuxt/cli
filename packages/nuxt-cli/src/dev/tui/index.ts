@@ -155,6 +155,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({
       frame: (state.frame ?? 0) + 1,
       elapsedMs: working ? Date.now() - (state.loadStartedAt ?? sessionStart) : state.elapsedMs,
+      phaseElapsedMs: working && state.phaseStartedAt !== undefined ? Date.now() - state.phaseStartedAt : state.phaseElapsedMs,
     })
   }
 
@@ -537,13 +538,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // The counts only describe what is currently wrong, so a successful load
       // supersedes earlier build errors.
       if (status === 'ready') {
-        update({ status, note: undefined, progress: undefined, errors: 0, warnings: 0, failures: 0 })
+        update({ status, note: undefined, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined, errors: 0, warnings: 0, failures: 0 })
         return
       }
       // Entering a working state restarts the clock, and drops any progress
       // fraction: only a full load reports one, and a stale bar would lie.
       const restarted = state.status === 'ready' || state.status === 'error'
-      update({ status, note, ...restarted ? { loadStartedAt: Date.now(), elapsedMs: 0, progress: undefined } : {} })
+      update({ status, note, ...restarted ? { loadStartedAt: Date.now(), elapsedMs: 0, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined } : {} })
     },
     pushServerLog: (log) => {
       session.expectRender(events.push({

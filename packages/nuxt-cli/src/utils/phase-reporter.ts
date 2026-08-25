@@ -12,8 +12,41 @@ import { tapOutput } from './stdout'
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
 const CLEAR_LINE = '\r\u001B[2K'
+const COLUMN_ONE = '\r'
+
+/**
+ * How far the phase clock has to be behind the total before both are worth
+ * showing. During the first phase they are the same number twice.
+ */
+const PHASE_ELAPSED_THRESHOLD = 100
+
 const HIDE_CURSOR = '\u001B[?25l'
 const SHOW_CURSOR = '\u001B[?25h'
+
+/**
+ * A ticking elapsed time, in tenths of a second. Anything finer changes the
+ * line on every frame, which is the whole cost the frame-only repaint avoids.
+ */
+function formatTicking(ms: number): string {
+  if (ms < 60_000) {
+    return `${(ms / 1000).toFixed(1)}s`
+  }
+  const minutes = Math.floor(ms / 60_000)
+  return `${minutes}m ${Math.floor((ms - minutes * 60_000) / 1000)}s`
+}
+
+/**
+ * How long the phase in flight has taken, and how long the command has been
+ * running, where those have parted company. A phase can hold a command for most
+ * of its run, and its own clock is what says a still label is still working.
+ */
+function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
+  const total = snapshot.elapsed + drift
+  const phase = snapshot.phaseElapsed + drift
+  return total - phase >= PHASE_ELAPSED_THRESHOLD
+    ? `${formatTicking(phase)} \u00B7 ${formatTicking(total)}`
+    : formatTicking(total)
+}
 
 export interface PhaseReporter {
   update: (snapshot: ProgressSnapshot) => void
@@ -72,6 +105,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   let lastLoggedAt = 0
   let frame = 0
   let dirty = false
+  let painted: string | undefined
   let timer: NodeJS.Timeout | undefined
   let stopped = false
   let receivedAt = Date.now()
@@ -97,16 +131,30 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
     if (dirty) {
       write(CLEAR_LINE)
       dirty = false
+      painted = undefined
     }
+  }
+
+  /** The line after the spinner glyph: the phase and how long it has taken. */
+  function describe(): string {
+    return `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
   }
 
   function render() {
     if (!snapshot || stopped) {
       return
     }
+    const glyph = styleText('cyan', FRAMES[frame = (frame + 1) % FRAMES.length]!)
+    const line = describe()
+    // Only the glyph moves between most frames, and rewriting the line for it
+    // costs a clear and a repaint of everything that did not change.
+    if (dirty && line === painted) {
+      write(`${COLUMN_ONE}${glyph}`)
+      return
+    }
     clear()
-    const elapsed = styleText('dim', formatDuration(snapshot.elapsed + (Date.now() - receivedAt)))
-    write(`${styleText('cyan', FRAMES[frame = (frame + 1) % FRAMES.length]!)} ${snapshot.message} ${elapsed}`)
+    write(`${glyph} ${line}`)
+    painted = line
     dirty = true
   }
 
@@ -128,7 +176,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
     }
     pulse = setInterval(() => {
       if (snapshot && !stopped) {
-        log(`${snapshot.message} ${styleText('dim', `(${formatDuration(snapshot.elapsed + (Date.now() - receivedAt))})`)}`, snapshot.message)
+        log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
       }
     }, options.heartbeat)
     pulse.unref?.()
@@ -196,9 +244,10 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
       // Within a phase the message is narration rather than progress, so it is
       // only worth a line where the phase is long enough to have a heartbeat,
-      // and never more often than one.
+      // and never more often than one. The phase clock goes with it: without an
+      // animated line it is the only sign the wait is still moving.
       if (options.heartbeat && next.message !== lastMessage && Date.now() - lastLoggedAt >= options.heartbeat) {
-        log(next.message, next.message)
+        log(`${next.message} ${styleText('dim', `(${formatElapsed(next, 0)})`)}`, next.message)
       }
     },
     stop() {

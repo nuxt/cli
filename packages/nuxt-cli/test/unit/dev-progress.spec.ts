@@ -266,6 +266,84 @@ describe('devProgress', () => {
       vi.useRealTimers()
     })
 
+    it('should not narrate a hook that was already running when the phase began', () => {
+      vi.useFakeTimers()
+      const { progress, enter, callHook } = attach()
+
+      enter('modules:done')
+      vi.advanceTimersByTime(1500)
+      callHook('builder:generateApp')
+      vi.advanceTimersByTime(1500)
+
+      expect(progress.snapshot.phase).toBe('app')
+      expect(progress.snapshot.message).toBe('Preparing app')
+      vi.useRealTimers()
+    })
+
+    it('should count installed modules when nothing names itself', () => {
+      vi.useFakeTimers()
+      const progress = new DevProgress()
+      let installed = 0
+      progress.start()
+      progress.attachNuxt({ beforeEach: fn => fn({ name: 'modules:before' }), afterEach: () => {} }, { installedModules: () => installed })
+
+      vi.advanceTimersByTime(4000)
+      expect(progress.snapshot.message).toBe('Setting up modules')
+
+      installed = 7
+      vi.advanceTimersByTime(250)
+      expect(progress.snapshot.message).toBe('Setting up modules · 7 installed')
+      vi.useRealTimers()
+    })
+
+    it('should give an internal hook a label rather than its own name', () => {
+      vi.useFakeTimers()
+      const { progress, enter } = attach()
+
+      enter('app:templatesGenerated')
+      vi.advanceTimersByTime(1500)
+
+      expect(progress.snapshot.message).toBe('Writing app templates')
+      vi.useRealTimers()
+    })
+
+    it('should stay on the phase label for an unlabelled internal hook', () => {
+      vi.useFakeTimers()
+      const { progress, enter } = attach()
+
+      enter('build:manifest')
+      vi.advanceTimersByTime(3000)
+
+      expect(progress.snapshot.message).toBe('Setting up modules')
+      vi.useRealTimers()
+    })
+
+    it('should name whatever is running once a phase stops explaining itself', () => {
+      vi.useFakeTimers()
+      const { progress, enter } = attach()
+
+      vi.advanceTimersByTime(4000)
+      enter('markdown:blog-entries')
+      vi.advanceTimersByTime(250)
+
+      expect(progress.snapshot.message).toBe('Running markdown:blog-entries')
+      vi.useRealTimers()
+    })
+
+    it('should report how long the current phase has been running', () => {
+      vi.useFakeTimers()
+      const { progress, callHook } = attach()
+
+      vi.advanceTimersByTime(2000)
+      callHook('prepare:types')
+      vi.advanceTimersByTime(33_000)
+
+      expect(progress.snapshot.phase).toBe('types')
+      expect(progress.snapshot.phaseElapsed).toBe(33_000)
+      expect(progress.snapshot.elapsed).toBe(35_000)
+      vi.useRealTimers()
+    })
+
     it('should leave a hook that owns a phase described by that phase', () => {
       vi.useFakeTimers()
       const { progress, enter } = attach()
@@ -304,7 +382,7 @@ describe('devProgress', () => {
       enter('nitro:build:before')
       nitroBefore({ name: 'rollup:before' })
       vi.advanceTimersByTime(1500)
-      expect(progress.snapshot.message).toBe('Running nitro:rollup:before')
+      expect(progress.snapshot.message).toBe('Bundling the server')
       expect(progress.snapshot.phase).toBe('server')
 
       nitroAfter({ name: 'rollup:before' })
@@ -325,11 +403,11 @@ describe('devProgress', () => {
       }
 
       callHook('nitro:init', nitro)
-      enter('close')
-      nitroBefore({ name: 'close' })
+      enter('rollup:before')
+      nitroBefore({ name: 'rollup:before' })
       vi.advanceTimersByTime(1500)
 
-      expect(progress.snapshot.message).toBe('Running nitro:close')
+      expect(progress.snapshot.message).toBe('Bundling the server')
       vi.useRealTimers()
     })
 

@@ -46,6 +46,9 @@ const HOOK_PHASES: Record<string, string> = {
   'nitro:build:before': 'server',
 }
 
+/** Index of the phase a module count belongs to. */
+const MODULES_INDEX = DEV_PHASES.findIndex(phase => phase.id === 'modules')
+
 /**
  * Both carry a `name` that is always renderable. A Nuxt without them shows
  * the phase label, as before.
@@ -75,12 +78,67 @@ const MODULE_DWELL = 150
  */
 const HOOK_DWELL = 1000
 
+/**
+ * How long a single phase has to run before the dwells above are dropped to
+ * {@link IMPATIENT_MODULE_DWELL} and {@link IMPATIENT_HOOK_DWELL}. A phase this
+ * far in has stopped being described by its own label, so anything concrete is
+ * better than a still one, flicker included.
+ */
+const PHASE_PATIENCE = 3000
+
+const IMPATIENT_MODULE_DWELL = 50
+const IMPATIENT_HOOK_DWELL = 150
+
 /** How often the narration looks at what is currently running. */
 const NARRATION_INTERVAL = 250
 
 /** Friendlier wording for hooks whose raw name would not explain the wait. */
 const HOOK_LABELS: Record<string, string> = {
   'devtools:before': 'Setting up Nuxt DevTools',
+  'modules:done': 'Finishing module setup',
+  'app:resolve': 'Resolving the app',
+  'app:templates': 'Collecting app templates',
+  'app:templatesGenerated': 'Writing app templates',
+  'pages:extend': 'Scanning pages',
+  'pages:resolved': 'Resolving pages',
+  'components:dirs': 'Scanning component directories',
+  'components:extend': 'Resolving components',
+  'imports:extend': 'Resolving auto-imports',
+  'imports:sources': 'Collecting auto-imports',
+  'schema:extend': 'Extending the config schema',
+  'schema:resolved': 'Resolving the config schema',
+  'nitro:prepare:types': 'Generating server types',
+  'nitro:config': 'Configuring the server',
+  'nitro:init': 'Starting the server build',
+  'nitro:rollup:before': 'Bundling the server',
+  'nitro:compiled': 'Finishing the server build',
+  'nitro:dev:reload': 'Reloading the server',
+  'nitro:types:extend': 'Generating server types',
+  'vite:extendConfig': 'Configuring Vite',
+  'vite:configResolved': 'Configuring Vite',
+  'vite:serverCreated': 'Starting Vite',
+  'webpack:config': 'Configuring webpack',
+}
+
+/**
+ * Hook namespaces owned by Nuxt, Nitro or a bundler. A name in one of these is
+ * an implementation detail: it is narrated only through {@link HOOK_LABELS},
+ * because the raw name describes the build's internals rather than the wait.
+ * Anything else was named by the project or one of its modules, and reads as
+ * something its author would recognise.
+ */
+const INTERNAL_HOOK_NAMESPACES = new Set(['app', 'build', 'builder', 'components', 'devtools', 'imports', 'kit', 'modules', 'module', 'nitro', 'pages', 'prepare', 'schema', 'vite', 'webpack', 'rspack'])
+
+/**
+ * The label for a hook that has been running long enough to be the reason for
+ * the wait, or nothing where its name would say less than the phase it is in.
+ */
+function hookLabel(name: string): string | undefined {
+  const label = HOOK_LABELS[name]
+  if (label) {
+    return label
+  }
+  return INTERNAL_HOOK_NAMESPACES.has(name.split(':')[0]!) ? undefined : `Running ${name}`
 }
 
 /**
@@ -141,6 +199,7 @@ export class DevProgress {
   #narrating = false
   #serving = false
   #observing = false
+  #installedModules?: () => number
   #observed = new WeakSet<HookableLike>()
   #ticker?: NodeJS.Timeout
 
@@ -156,6 +215,7 @@ export class DevProgress {
         ? (this.#serving ? 1 : READY_PROGRESS)
         : this.#index / (DEV_PHASES.length - 1),
       elapsed: Date.now() - this.#startedAt,
+      phaseElapsed: Date.now() - this.#phaseStartedAt,
       reload: this.#reload,
       serving: this.#serving,
       timings: this.#timings,
@@ -276,11 +336,14 @@ export class DevProgress {
     }
 
     const now = Date.now()
+    // A phase this long in has stopped being explained by its own label, so
+    // whatever is running is named as soon as it is seen.
+    const impatient = now - this.#phaseStartedAt >= PHASE_PATIENCE
     let text: string | undefined
 
     // A module name reads better than the hook it was installed from, so an
     // install in flight wins over whatever hook is nested inside it.
-    if (this.#module && now - this.#module.at >= MODULE_DWELL) {
+    if (this.#module && now - this.#module.at >= (impatient ? IMPATIENT_MODULE_DWELL : MODULE_DWELL)) {
       text = `Setting up ${shortenModuleName(this.#module.name)}`
     }
     else {
@@ -288,15 +351,31 @@ export class DevProgress {
       // everything above it up.
       for (let index = this.#hooks.length - 1; index >= 0; index--) {
         const hook = this.#hooks[index]!
-        if (now - hook.at < HOOK_DWELL) {
+        // A hook that was already running when the phase began is an ancestor of
+        // the current work: the phase label describes it better, and naming it
+        // would replace each new phase label with the hook awaiting it.
+        if (hook.at < this.#phaseStartedAt) {
+          break
+        }
+        if (now - hook.at < (impatient ? IMPATIENT_HOOK_DWELL : HOOK_DWELL)) {
           continue
         }
         // A hook that owns a phase is already described by that phase's label,
         // which reads better than its name.
         if (!HOOK_PHASES[hook.name]) {
-          text = HOOK_LABELS[hook.name] ?? `Running ${hook.name}`
+          text = hookLabel(hook.name)
         }
         break
+      }
+    }
+
+    // No current nuxt says which module it is installing, so a phase that has
+    // named nothing counts the ones that have finished instead: the number
+    // moving is the only sign that the ones left are being worked through.
+    if (!text && impatient && this.#index === MODULES_INDEX) {
+      const installed = this.#installedModules?.() ?? 0
+      if (installed) {
+        text = `${this.#baseMessage} \u00B7 ${installed} installed`
       }
     }
 
@@ -369,7 +448,8 @@ export class DevProgress {
    * wait. Both the modules a project installs and the hooks its own code
    * registers are only visible from here.
    */
-  attachNuxt(hooks: HookableLike): void {
+  attachNuxt(hooks: HookableLike, options: { installedModules?: () => number } = {}): void {
+    this.#installedModules ||= options.installedModules
     if (this.#observed.has(hooks)) {
       return
     }

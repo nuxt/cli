@@ -164,6 +164,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     state.frame = (state.frame ?? 0) + 1
     state.elapsedMs = startupElapsedMs(state.loadStartedAt ?? Date.now())
+    state.phaseElapsedMs = state.phaseStartedAt === undefined ? undefined : Date.now() - state.phaseStartedAt
     render()
   }, LOGO_FRAME_MS)
   startupTicker.unref?.()
@@ -182,6 +183,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       state.awaitingFirstRender = !snapshot.serving
       state.note = snapshot.serving ? undefined : snapshot.message
       state.progress = snapshot.serving ? undefined : snapshot.progress
+      state.phaseStartedAt = undefined
+      state.phaseElapsedMs = undefined
       if (state.status === 'ready' || state.status === 'warming') {
         state.status = snapshot.serving ? 'ready' : 'warming'
         render()
@@ -196,6 +199,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       note: snapshot.message,
       loadStartedAt: Date.now() - snapshot.elapsed,
       elapsedMs: snapshot.elapsed,
+      phaseStartedAt: Date.now() - snapshot.phaseElapsed,
+      phaseElapsedMs: snapshot.phaseElapsed,
       progress: snapshot.progress,
     } satisfies Partial<PanelState>)
     render()

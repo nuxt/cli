@@ -179,6 +179,19 @@ describe('dev tui panel', () => {
     expect(lines).toHaveLength(renderPanel({ ...READY }, 100, 30).length)
   })
 
+  it('should say how long a phase has been running once it holds the load up', () => {
+    const status = (phaseElapsedMs: number) => strip(renderPanel({
+      ...READY,
+      status: 'starting',
+      readyMs: undefined,
+      note: 'Generating types',
+      phaseElapsedMs,
+    }, 100, 30).find(line => line.includes('STARTING'))!)
+    expect(status(900)).toContain('generating types')
+    expect(status(900)).not.toMatch(/\ds/)
+    expect(status(33_400)).toContain('generating types · 33.4s')
+  })
+
   it('lowercases sentence-shaped status notes without touching acronyms', () => {
     const status = (note: string) => strip(renderPanel({ ...READY, status: 'restarting', readyMs: undefined, note }, 100, 30).find(line => line.includes('RESTART'))!)
     expect(status('Restarting Nuxt...')).toContain('restarting Nuxt...')

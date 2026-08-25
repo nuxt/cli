@@ -1,4 +1,4 @@
-styles: e92e0d98f3b543db
+styles: 42fd7849ab5818cc
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
@@ -13,9 +13,9 @@ styles: e92e0d98f3b543db
 ✔ Nuxt Nitro server built in 42 ms                                                      nitro
 ✔ Vite client built in 42 ms
 ✔ Vite server built in 42 ms
-⠋ Building server 42 ms
-⠋ Bundling app 42 ms
-⠋ Generating types 42 ms
-⠋ Preparing app 42 ms
-⠋ Setting up modules 42 ms
+⠋ Building server 42 ms · 42 ms
+⠋ Bundling app 42 ms · 42 ms
+⠋ Generating types 42 ms · 42 ms
+⠋ Preparing app 42 ms · 42 ms
+⠋ Setting up modules 42 ms · 42 ms
 ⠋ Starting Nuxt... 42 ms

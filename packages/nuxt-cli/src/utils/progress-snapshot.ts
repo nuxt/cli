@@ -20,6 +20,12 @@ export interface ProgressSnapshot {
   total: number
   progress: number
   elapsed: number
+  /**
+   * How long the current phase has been running. A phase can hold a command for
+   * most of its run, so this is what tells a UI that a still label is still
+   * making progress rather than stuck.
+   */
+  phaseElapsed: number
   reload: boolean
   /**
    * Whether a request has actually been answered. `status` is `ready` from the

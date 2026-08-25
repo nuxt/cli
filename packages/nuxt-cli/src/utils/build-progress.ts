@@ -82,6 +82,7 @@ export class BuildProgress {
       total: BUILD_PHASES.length - 1,
       progress: this.#index / (BUILD_PHASES.length - 1),
       elapsed: Date.now() - this.#startedAt,
+      phaseElapsed: Date.now() - this.#phaseStartedAt,
       reload: false,
       serving: true,
       timings: this.#timings,
