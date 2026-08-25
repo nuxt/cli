@@ -46,6 +46,8 @@ Each SVG is scrubbed of ports, LAN addresses, home and temporary directories, an
 
 `nuxt module search` is recorded against `capture/fixture-data/modules.json` instead of the live `api.nuxt.com`. You can refresh the fixture when the docs should show newer modules.
 
+`capture/lib/fetch-stub.mjs` also applies a latency floor (`CAPTURE_FETCH_LATENCY`) where a scenario asks for one, so a request cannot outrun the spinner covering it and leave the recording without one.
+
 `nuxt-dev-install-module` stubs everything the auto-install flow reaches for: the modules DB and the npm registry are answered from `capture/fixture-data/`, and `capture/fixture-data/fake-npm/` shadows `npm` on `PATH` to fake the install itself, so the recording needs no network and the fixture app is restored afterwards.
 
 ## Before and after comparisons

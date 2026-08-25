@@ -123,6 +123,19 @@ async function ensureDevServer(): Promise<void> {
   await devServer.wait(1500)
 }
 
+/**
+ * A capture's `NODE_OPTIONS` adds to the ambient value rather than replacing
+ * it: scenarios use it to preload a loader, while the environment may already
+ * carry options the recorded CLI needs to reach the network at all (proxy
+ * support, TLS roots) or to run at all (heap limits).
+ */
+function captureEnv(capture: Capture): Record<string, string> | undefined {
+  if (!capture.env?.NODE_OPTIONS || !process.env.NODE_OPTIONS) {
+    return capture.env
+  }
+  return { ...capture.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS} ${capture.env.NODE_OPTIONS}` }
+}
+
 async function runCapture(capture: Capture): Promise<void> {
   const columns = capture.columns ?? Number(values.columns)
   const rows = capture.rows ?? 24
@@ -142,7 +155,7 @@ async function runCapture(capture: Capture): Promise<void> {
     cwd,
     columns,
     rows,
-    env: capture.env,
+    env: captureEnv(capture),
   })
 
   // Whatever happens, the session must not outlive its capture: a leaked dev

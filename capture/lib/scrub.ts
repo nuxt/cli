@@ -81,6 +81,10 @@ const RULES: Record<string, ScrubRule> = {
     steps: [
       { pattern: /[⠙⠹⠸⠼⠴⠦⠧⠇⠏]/g, replacement: () => '⠋' },
       { pattern: /[◒◓◑]/g, replacement: () => '◐' },
+      // A prompt spinner also animates a trailing run of up to three dots, so
+      // how many of them a recording caught is a function of how long the work
+      // took. The message itself is what identifies the line.
+      { pattern: /^(\s*◐\s.*?)\.{1,3}(\s*)$/g, replacement: match => match[1]! + match[2]! },
     ],
   },
   qr: {
