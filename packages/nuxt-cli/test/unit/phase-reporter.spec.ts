@@ -282,6 +282,19 @@ describe('phase reporter', () => {
     expect(screen(renderer).match(/Ready in/g)).toHaveLength(1)
   })
 
+  it('should repeat a render that has not landed, where the line cannot be redrawn', async () => {
+    const renderer = await render(async ({ waitForOutput }) => {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      const ready = { status: 'ready' as const, phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }
+      startup.update(snapshot(ready))
+      startup.update(snapshot({ ...ready, pending: { label: 'GET /', startedAt: Date.now() - 12_500 } }))
+      await waitForOutput(/Rendering GET \/[\s\S]*Rendering GET \/[\s\S]*\(12\.\ds\)/)
+    })
+
+    expect(screen(renderer)).toContain('Rendering GET /')
+  })
+
   it('should not close off a wait it never reported', async () => {
     const renderer = await render(() => {
       const startup = reporter(false)

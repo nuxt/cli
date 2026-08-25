@@ -208,8 +208,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   animate()
 
   /**
-   * Repeat the phase in flight, with the time it has taken so far, so a long
-   * silent stretch in a piped log still shows the build is alive.
+   * Repeat whatever is in flight, with the time it has taken so far, so a long
+   * silent stretch in a piped log still shows something is alive. A render is
+   * repeated the same way: nothing else is printed while it compiles.
    */
   function schedulePulse() {
     clearInterval(pulse)
@@ -218,11 +219,22 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       return
     }
     pulse = setInterval(() => {
-      if (snapshot && !stopped) {
-        log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
+      if (!snapshot || stopped) {
+        return
       }
+      const pending = summarised ? snapshot.pending : undefined
+      if (pending) {
+        log(announce(pending.label, Date.now() - pending.startedAt), `rendering ${pending.label}`)
+        return
+      }
+      log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
     }, options.heartbeat)
     pulse.unref?.()
+  }
+
+  /** A render, as its own line, for output that cannot redraw one in place. */
+  function announce(label: string, elapsed?: number): string {
+    return `Rendering ${label}${elapsed === undefined ? '' : ` ${styleText('dim', `(${formatTicking(elapsed)})`)}`}`
   }
 
   /** Take the line down, leaving the terminal as it was found. */
@@ -326,10 +338,12 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
         render()
         return
       }
-      // A pipe cannot redraw, so each request is announced once as it starts.
+      // A pipe cannot redraw, so the request is announced as it starts and then
+      // repeated on the heartbeat, which is all that says the wait is moving.
       if (narrating !== next.pending.label) {
         narrating = next.pending.label
-        logger.info(`Rendering ${next.pending.label}`)
+        log(announce(next.pending.label), `rendering ${next.pending.label}`)
+        schedulePulse()
       }
     },
     stop() {

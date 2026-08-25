@@ -1,4 +1,4 @@
-styles: c1e3a506568cd274
+styles: 2956cfe899bf5ad9
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
@@ -7,7 +7,7 @@ styles: c1e3a506568cd274
 ℹ Vite server warmed up in 42 ms
 │
 │  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
-◆  Ready in 42 ms
+◆  Ready in 42 ms  → http://localhost:3000/
 ●  Nuxt x.y.z (with Nitro x.y.z, Vite x.y.z and Vue x.y.z)
 ✔ Nuxt Nitro server built in 42 ms                                                      nitro
 ✔ Vite client built in 42 ms
