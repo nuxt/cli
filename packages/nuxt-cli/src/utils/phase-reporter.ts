@@ -7,7 +7,9 @@ import { isCI } from 'std-env'
 
 import { formatDuration } from './formatting'
 import { logger } from './logger'
+import { READY_MESSAGE } from './progress-snapshot'
 import { tapOutput } from './stdout'
+import { terminalLink } from './terminal-link'
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
@@ -50,6 +52,8 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
 
 export interface PhaseReporter {
   update: (snapshot: ProgressSnapshot) => void
+  /** The URL to print alongside the summary, once one is known. */
+  setURL: (url: string) => void
   stop: () => void
 }
 
@@ -78,38 +82,64 @@ export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
 }
 
 /**
+ * The URL the summary points at, so the address is on screen at the moment the
+ * user is being told they can click it rather than a screenful further up.
+ */
+function formatURL(url: string): string {
+  return `  ${styleText('dim', '\u2192')} ${styleText('cyan', terminalLink(url, url))}`
+}
+
+function decapitalise(text: string): string {
+  return /^[A-Z][a-z]/.test(text) ? text[0]!.toLowerCase() + text.slice(1) : text
+}
+
+/**
  * The line a long-running command leaves behind once it is up. A command that
  * only builds never reaches `ready` and reports its own completion instead.
  */
-export function formatSummary(snapshot: ProgressSnapshot): string {
+export function formatSummary(snapshot: ProgressSnapshot, url?: string): string {
   const breakdown = formatPhaseBreakdown(snapshot.timings)
-  const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}${
-    snapshot.serving ? '' : styleText('dim', ' \u00B7 compiling the first request')}`
+  // Whatever the ready phase is still waiting on, if it is waiting on anything.
+  const detail = snapshot.serving || !snapshot.message || snapshot.message === READY_MESSAGE
+    ? ''
+    : styleText('dim', ` \u00B7 ${decapitalise(snapshot.message)}`)
+  const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}${detail}${
+    url ? formatURL(url) : ''}`
   return breakdown ? `${headline}\n${styleText('dim', breakdown)}` : headline
 }
 
 /**
  * Report progress through a command's phases on a single line that updates in
  * place, collapsing to one summary line with a phase breakdown once the command
- * reports itself ready. Falls back to sequential logs when the output is not an
- * interactive terminal.
+ * reports itself ready, and then narrating the first page render, which is where
+ * the rest of the wait is spent. Falls back to sequential logs when the output
+ * is not an interactive terminal.
  */
 export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseReporter {
   const stream = options.stream ?? process.stdout
   const animated = options.animated ?? isAnimationSupported(stream)
 
   let snapshot: ProgressSnapshot | undefined
-  let served = false
+  let summarised = false
   let lastPhase: string | undefined
   let lastMessage: string | undefined
   let lastLoggedAt = 0
   let frame = 0
   let dirty = false
   let painted: string | undefined
+  /** Whether the cursor is currently hidden for the transient line. */
+  let hidden = false
   let timer: NodeJS.Timeout | undefined
   let stopped = false
   let receivedAt = Date.now()
   let pulse: NodeJS.Timeout | undefined
+  let url: string | undefined
+  /** The request the line is currently reporting, so it is announced once. */
+  let narrating: string | undefined
+  /** Whether the wait was ever narrated, and so is worth closing off. */
+  let narrated = false
+  /** When the render being waited on arrived, so the wait can be measured. */
+  let renderStartedAt: number | undefined
 
   // Foreign output would otherwise be written on top of the transient line. The
   // tap sits below `consola.wrapAll()`, which `nuxt dev` installs, for two
@@ -135,9 +165,16 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
     }
   }
 
-  /** The line after the spinner glyph: the phase and how long it has taken. */
+  /**
+   * The line after the spinner glyph: what the command is doing and how long it
+   * has been doing it. Once the summary is printed that is no longer a phase but
+   * the request being rendered, which has its own clock.
+   */
   function describe(): string {
-    return `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    const pending = summarised ? snapshot!.pending : undefined
+    return pending
+      ? `rendering ${pending.label} ${styleText('dim', formatTicking(Date.now() - pending.startedAt))}`
+      : `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
   }
 
   function render() {
@@ -158,15 +195,22 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
     dirty = true
   }
 
-  if (animated) {
+  function animate() {
+    if (!animated || timer) {
+      return
+    }
+    hidden = true
     write(HIDE_CURSOR)
     timer = setInterval(render, FRAME_INTERVAL)
     timer.unref?.()
   }
 
+  animate()
+
   /**
-   * Repeat the phase in flight, with the time it has taken so far, so a long
-   * silent stretch in a piped log still shows the build is alive.
+   * Repeat whatever is in flight, with the time it has taken so far, so a long
+   * silent stretch in a piped log still shows something is alive. A render is
+   * repeated the same way: nothing else is printed while it compiles.
    */
   function schedulePulse() {
     clearInterval(pulse)
@@ -175,13 +219,25 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       return
     }
     pulse = setInterval(() => {
-      if (snapshot && !stopped) {
-        log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
+      if (!snapshot || stopped) {
+        return
       }
+      const pending = summarised ? snapshot.pending : undefined
+      if (pending) {
+        log(announce(pending.label, Date.now() - pending.startedAt), `rendering ${pending.label}`)
+        return
+      }
+      log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
     }, options.heartbeat)
     pulse.unref?.()
   }
 
+  /** A render, as its own line, for output that cannot redraw one in place. */
+  function announce(label: string, elapsed?: number): string {
+    return `Rendering ${label}${elapsed === undefined ? '' : ` ${styleText('dim', `(${formatTicking(elapsed)})`)}`}`
+  }
+
+  /** Take the line down, leaving the terminal as it was found. */
   function restore() {
     clearInterval(pulse)
     pulse = undefined
@@ -189,70 +245,109 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       clearInterval(timer)
       timer = undefined
     }
-    if (animated) {
+    if (animated && hidden) {
+      hidden = false
       clear()
       write(SHOW_CURSOR)
-      tap?.dispose()
     }
   }
 
+  function finish() {
+    stopped = true
+    restore()
+    tap?.dispose()
+  }
+
   return {
+    setURL(next) {
+      url = next
+    },
     update(next) {
       if (stopped) {
         return
       }
-      // The summary is printed; the only thing left to say is that the first
-      // request has been answered.
-      if (served && next.status !== 'ready') {
+      // The summary is printed; the only thing left to report is the first
+      // render, and a reload is narrated by whoever asked for it.
+      if (summarised && next.status !== 'ready') {
         return
       }
       snapshot = next
       receivedAt = Date.now()
 
       if (next.status === 'error') {
-        restore()
-        stopped = true
+        finish()
         return
       }
 
-      if (next.status === 'ready') {
-        if (served) {
-          if (next.serving) {
-            stopped = true
-            logger.success(`Serving in ${formatDuration(next.elapsed)}`)
-          }
+      if (next.status !== 'ready') {
+        if (animated) {
+          render()
           return
         }
-        restore()
-        served = true
-        stopped = next.serving
-        logger.success(formatSummary(next))
+
+        if (next.phase !== lastPhase) {
+          lastPhase = next.phase
+          log(next.message, next.message)
+          schedulePulse()
+          return
+        }
+
+        // Within a phase the message is narration rather than progress, so it is
+        // only worth a line where the phase is long enough to have a heartbeat,
+        // and never more often than one. The phase clock goes with it: without an
+        // animated line it is the only sign the wait is still moving.
+        if (options.heartbeat && next.message !== lastMessage && Date.now() - lastLoggedAt >= options.heartbeat) {
+          log(`${next.message} ${styleText('dim', `(${formatElapsed(next, 0)})`)}`, next.message)
+        }
         return
       }
 
+      if (!summarised) {
+        restore()
+        summarised = true
+        narrated = !next.serving && next.message !== READY_MESSAGE
+        logger.success(formatSummary(next, url))
+      }
+
+      // Accepting requests is not answering one: until a page has been
+      // rendered, whatever the server is busy with is the wait the user is
+      // actually in, so it is reported rather than left silent.
+      if (next.serving) {
+        restore()
+        if (narrated) {
+          // Measured from the request rather than from startup: the server may
+          // have been sitting idle and ready for minutes before anyone asked.
+          logger.success(renderStartedAt === undefined
+            ? `Serving in ${formatDuration(next.elapsed)}`
+            : `First render in ${formatDuration(Date.now() - renderStartedAt)}`)
+        }
+        finish()
+        return
+      }
+
+      if (!next.pending) {
+        narrating = undefined
+        restore()
+        return
+      }
+
+      narrated = true
+      renderStartedAt ??= next.pending.startedAt
       if (animated) {
+        animate()
         render()
         return
       }
-
-      if (next.phase !== lastPhase) {
-        lastPhase = next.phase
-        log(next.message, next.message)
+      // A pipe cannot redraw, so the request is announced as it starts and then
+      // repeated on the heartbeat, which is all that says the wait is moving.
+      if (narrating !== next.pending.label) {
+        narrating = next.pending.label
+        log(announce(next.pending.label), `rendering ${next.pending.label}`)
         schedulePulse()
-        return
-      }
-
-      // Within a phase the message is narration rather than progress, so it is
-      // only worth a line where the phase is long enough to have a heartbeat,
-      // and never more often than one. The phase clock goes with it: without an
-      // animated line it is the only sign the wait is still moving.
-      if (options.heartbeat && next.message !== lastMessage && Date.now() - lastLoggedAt >= options.heartbeat) {
-        log(`${next.message} ${styleText('dim', `(${formatElapsed(next, 0)})`)}`, next.message)
       }
     },
     stop() {
-      stopped = true
-      restore()
+      finish()
     },
   }
 }

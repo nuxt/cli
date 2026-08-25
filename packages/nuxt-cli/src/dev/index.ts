@@ -328,6 +328,22 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       routes.emit(payload)
     })
 
+    // The panel is painted by the parent, and a render in flight is all this
+    // fork has to report between being ready and having answered.
+    if (ipc.enabled) {
+      let reported: string | undefined
+      devServer.progress.onUpdate(({ status, pending, serving }) => {
+        const rendering = status === 'ready' ? pending : undefined
+        if (rendering?.label === reported) {
+          return
+        }
+        reported = rendering?.label
+        // Whether this is the render everything is waiting for is the fork's to
+        // know: the parent only sees that a request is in flight.
+        ipc.send({ type: 'nuxt:internal:dev:rendering', pending: rendering, awaiting: !serving })
+      })
+    }
+
     // A dev server serves a request per module on a cold page load, so requests
     // are batched rather than sent one IPC message at a time.
     let batch: DevRequestEvent[] = []
@@ -366,6 +382,11 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     ? undefined
     : createPhaseReporter({ heartbeat: STARTUP_HEARTBEAT_MS })
   const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
+  if (reporter) {
+    // The URL block is printed as soon as the socket is bound, which on a large
+    // project is a screenful of build output above the summary.
+    devServer.on('listening', ({ url }) => reporter.setURL(url))
+  }
   const stopReporting = () => {
     unsubscribeProgress?.()
     reporter?.stop()
@@ -376,8 +397,9 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   }
   finally {
     // Nuxt being ready ends startup for this process but not for whoever is
-    // waiting on the first render, so the reporter stays subscribed. Any state
-    // other than ready-but-not-serving has nothing left to wait for.
+    // waiting on the first page, so the reporter stays subscribed to narrate
+    // it. Any state other than ready-but-not-serving has nothing left to wait
+    // for.
     const snapshot = devServer.progress.snapshot
     if (!reporter || snapshot?.status !== 'ready' || snapshot.serving) {
       stopReporting()

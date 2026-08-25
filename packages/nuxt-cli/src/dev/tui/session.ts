@@ -12,6 +12,7 @@ import { consola } from 'consola'
 import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
 import { getPkgVersion } from '../../utils/pkg'
+import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
@@ -86,6 +87,12 @@ export interface DevUISession {
   stopStartupTicker: () => void
   /** Narrate the current startup phase while the server is loading. */
   reportProgress: (snapshot: ProgressSnapshot) => void
+  /**
+   * Repaint through the controller instead of {@link render} whenever progress
+   * changes what is on the panel, so the controller can re-arm the animation it
+   * owns: a render in flight is work, and a still panel reads as a hung one.
+   */
+  onProgressChange: (listener: () => void) => void
   /**
    * Show the bound address the moment the socket answers, spinning until the
    * resolved config confirms it. The full URL block replaces it on ready.
@@ -176,19 +183,36 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     surface.render(renderPanel(state, process.stdout.columns || 80, process.stdout.rows || 24))
   }
 
+  let progressListener: (() => void) | undefined
+
+  /** Repaint through the controller where one is attached, so it sees the change. */
+  function repaint(): void {
+    if (progressListener) {
+      progressListener()
+      return
+    }
+    render()
+  }
+
   function reportProgress(snapshot: ProgressSnapshot): void {
     if (snapshot.status === 'ready') {
       // Between the server accepting requests and answering one there is
       // nothing to watch but a badge, so it says which of the two has happened.
+      // Something already waiting for a page is a state of the load; the request
+      // being rendered is not, and is held separately so that a load reporting
+      // itself ready again cannot take it off the panel.
+      const waiting = !snapshot.serving && snapshot.message !== READY_MESSAGE
       state.awaitingFirstRender = !snapshot.serving
-      state.note = snapshot.serving ? undefined : snapshot.message
-      state.progress = snapshot.serving ? undefined : snapshot.progress
+      state.note = waiting ? snapshot.message : undefined
+      state.progress = waiting ? snapshot.progress : undefined
+      state.rendering = snapshot.pending && { label: snapshot.pending.label, startedAt: snapshot.pending.startedAt }
+      state.renderingMs = snapshot.pending && Date.now() - snapshot.pending.startedAt
       state.phaseStartedAt = undefined
       state.phaseElapsedMs = undefined
       if (state.status === 'ready' || state.status === 'warming') {
-        state.status = snapshot.serving ? 'ready' : 'warming'
-        render()
+        state.status = waiting ? 'warming' : 'ready'
       }
+      repaint()
       return
     }
     if (snapshot.status !== 'loading') {
@@ -197,6 +221,9 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     Object.assign(state, {
       status: snapshot.reload ? 'building' : 'starting',
       note: snapshot.message,
+      // A load starting voids whatever was being rendered against the last one.
+      rendering: undefined,
+      renderingMs: undefined,
       loadStartedAt: Date.now() - snapshot.elapsed,
       elapsedMs: snapshot.elapsed,
       phaseStartedAt: Date.now() - snapshot.phaseElapsed,
@@ -410,6 +437,9 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     expectRender,
     stopStartupTicker,
     reportProgress,
+    onProgressChange: (listener) => {
+      progressListener = listener
+    },
     reportListening,
     teardown,
     onTeardown: task => void teardownTasks.push(task),

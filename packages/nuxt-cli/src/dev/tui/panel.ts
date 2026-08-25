@@ -95,6 +95,15 @@ export interface PanelState {
   /** Replaces the badge's standing description, for a restart reason. */
   note?: string
   /**
+   * The request being rendered right now, and when it arrived. Held apart from
+   * `note` and `status`, which belong to the load: a request in flight is not a
+   * state of the load, and a load reporting itself ready again mid-render must
+   * not take it off the panel.
+   */
+  rendering?: { label: string, startedAt: number }
+  /** How long that render has been going, for its ticking clock. */
+  renderingMs?: number
+  /**
    * Feedback in place of the badge's standing description. Passing unless it
    * carries a `label`, which marks something waiting on the user: the label
    * takes the badge's place until the notice is let go.
@@ -228,6 +237,13 @@ const TASK_FRAMES_ASCII = ['|', '/', '-', '\\'] as const
 /** How long a phase runs before its own elapsed time is worth a mention. */
 const PHASE_ELAPSED_THRESHOLD = 2500
 
+/**
+ * How long a render runs before its own clock is worth showing. Lower than a
+ * phase's, because a render is only reported once it has already been in flight
+ * long enough to notice, and the clock is the only thing that moves.
+ */
+const RENDER_ELAPSED_THRESHOLD = 1000
+
 function renderProgress(state: PanelState, columns: number): string {
   const fraction = Math.min(1, Math.max(0, state.progress ?? 0))
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
@@ -315,10 +331,31 @@ function renderStatus(state: PanelState, columns: number): string {
     )
   }
 
-  const badge = BADGES[state.status]
-  const description = state.notice ? renderNotice(state) : styleText(MUTED, decapitalise(state.note || badge.note) + renderPhaseElapsed(state))
+  // A render is only worth reporting over a server with nothing else to say;
+  // a load in flight is the more important thing and keeps the line.
+  const rendering = state.status === 'ready' || state.status === 'warming' ? state.rendering : undefined
+  const badge = rendering && state.awaitingFirstRender ? BADGES.warming : BADGES[state.status]
+  const description = state.notice
+    ? renderNotice(state)
+    : rendering
+      ? styleText(MUTED, `rendering ${rendering.label}${renderRenderElapsed(state)}`)
+      : styleText(MUTED, decapitalise(state.note || badge.note) + renderPhaseElapsed(state))
   const head = ` ${styleText(badge.style, ` ${badge.label} `)}  ${description}`
-  return truncate(head + renderTicker(state, columns - visibleWidth(head)), columns)
+  // The request in flight is the more interesting one, and it is usually the
+  // same URL as the last: printing both reads as a stutter.
+  return truncate(head + (rendering ? '' : renderTicker(state, columns - visibleWidth(head))), columns)
+}
+
+/**
+ * How long the render in flight has taken. The only thing that moves on a panel
+ * whose server is up and waiting on a page, so it is what says the wait is
+ * progressing rather than stuck.
+ */
+function renderRenderElapsed(state: PanelState): string {
+  if (state.renderingMs === undefined || state.renderingMs < RENDER_ELAPSED_THRESHOLD) {
+    return ''
+  }
+  return ` \u00B7 ${(state.renderingMs / 1000).toFixed(1)}s`
 }
 
 /**

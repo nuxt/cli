@@ -69,7 +69,6 @@ describe('devProgress', () => {
     progress.setReady()
 
     expect(progress.snapshot.status).toBe('ready')
-    expect(progress.snapshot.progress).toBe(1)
     expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules'])
   })
 
@@ -457,13 +456,62 @@ describe('devProgress', () => {
       expect(progress.snapshot.message).toBe('Ready')
     })
 
-    it('should not wait for a render nobody is waiting for', () => {
+    it('should not say a render is being waited for when nothing is waiting', () => {
       const progress = new DevProgress()
       progress.start()
       progress.setReady()
 
-      expect(progress.snapshot.serving).toBe(true)
-      expect(progress.snapshot.progress).toBe(1)
+      expect(progress.snapshot.serving).toBe(false)
+      expect(progress.snapshot.progress).toBe(0.95)
+      expect(progress.snapshot.message).toBe('Ready')
+    })
+
+    it('should report a request that has been in flight long enough to notice', () => {
+      vi.useFakeTimers()
+      const progress = new DevProgress()
+      progress.start()
+      progress.setReady()
+
+      const id = progress.startRequest('GET /')
+      expect(progress.snapshot.pending).toBeUndefined()
+
+      vi.advanceTimersByTime(500)
+      expect(progress.snapshot.pending?.label).toBe('GET /')
+
+      progress.finishRequest(id)
+      expect(progress.snapshot.pending).toBeUndefined()
+      vi.useRealTimers()
+    })
+
+    it('should say nothing about a request answered before it could be noticed', () => {
+      vi.useFakeTimers()
+      const progress = new DevProgress()
+      progress.start()
+      progress.setReady()
+
+      const id = progress.startRequest('GET /')
+      vi.advanceTimersByTime(100)
+      progress.finishRequest(id)
+      vi.advanceTimersByTime(1000)
+
+      expect(progress.snapshot.pending).toBeUndefined()
+      vi.useRealTimers()
+    })
+
+    it('should hand the line to whatever is still in flight', () => {
+      vi.useFakeTimers()
+      const progress = new DevProgress()
+      progress.start()
+      progress.setReady()
+
+      const first = progress.startRequest('GET /')
+      progress.startRequest('GET /about')
+      vi.advanceTimersByTime(500)
+      expect(progress.snapshot.pending?.label).toBe('GET /')
+
+      progress.finishRequest(first)
+      expect(progress.snapshot.pending?.label).toBe('GET /about')
+      vi.useRealTimers()
     })
 
     it('should stop waiting once the page that was waiting has gone', () => {

@@ -4,6 +4,7 @@ import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher, Stats } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 
+import type { PendingRender } from '../utils/progress-snapshot'
 import type { ResolvedCertificate } from './cert'
 import type { InspectOptions } from './inspect'
 import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
@@ -95,6 +96,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }
+    | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender, awaiting?: boolean }
 
 export interface NuxtDevContext {
   cwd: string
@@ -546,8 +548,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#inflightResponses.add(res)
     // A document that Nuxt itself answered is the first proof the app can be used.
     const document = isDocumentRequest(req)
+    // Rendering a page compiles the module graph on demand, which is silent and
+    // can take longer than the whole build did, so the request is reported for
+    // as long as it is in flight.
+    const pending = document ? this.#progress.startRequest(`${req.method || 'GET'} ${req.url || '/'}`) : undefined
     res.once('close', () => {
       this.#inflightResponses.delete(res)
+      if (pending !== undefined) {
+        this.#progress.finishRequest(pending)
+      }
       if (document && res.statusCode < 500) {
         this.#progress.setServing()
       }
