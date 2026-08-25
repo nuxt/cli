@@ -23,6 +23,7 @@ function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
     total: 6,
     progress: 0.5,
     elapsed: 1200,
+    phaseElapsed: 200,
     reload: false,
     serving: false,
     timings: [],

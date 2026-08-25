@@ -1048,7 +1048,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
-    this.#progress.attachNuxt(this.#currentNuxt.hooks)
+    this.#progress.attachNuxt(this.#currentNuxt.hooks, {
+      installedModules: () => this.#currentNuxt?.options._installedModules?.length ?? 0,
+    })
     this.#progress.setPhase('modules')
 
     this.#currentNuxt.hooks.hook('builder:watch', () => {

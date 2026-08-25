@@ -32,6 +32,13 @@ const PENDING_REQUEST_BATCHES = 20
 const PENDING_LOG_LIMIT = 500
 
 /**
+ * How often a piped startup repeats the phase it is on, and the shortest gap
+ * between two narration lines within one phase. A single phase can hold a
+ * startup for tens of seconds, which is a long silence in a log file.
+ */
+const STARTUP_HEARTBEAT_MS = 2500
+
+/**
  * A fan-out that replays to the first subscriber, keeping at most `limit`
  * values.
  *
@@ -357,7 +364,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   // itself, so the transient reporter line would only fight it for the screen.
   const reporter = devContext.args.logLevel === 'silent' || ipc.enabled || ctx.captureUIEvents
     ? undefined
-    : createPhaseReporter()
+    : createPhaseReporter({ heartbeat: STARTUP_HEARTBEAT_MS })
   const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
   const stopReporting = () => {
     unsubscribeProgress?.()

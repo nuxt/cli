@@ -75,6 +75,10 @@ export interface PanelState {
   progress?: number
   /** When the current load began, for the ticking elapsed time. */
   loadStartedAt?: number
+  /** When the current startup phase began, for its own ticking elapsed time. */
+  phaseStartedAt?: number
+  /** Milliseconds the current startup phase has been running. */
+  phaseElapsedMs?: number
   requests?: number
   medianMs?: number
   /** Warnings since the last successful load. */
@@ -221,6 +225,9 @@ const PROGRESS_BAR_WIDTH = 20
 const TASK_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'] as const
 const TASK_FRAMES_ASCII = ['|', '/', '-', '\\'] as const
 
+/** How long a phase runs before its own elapsed time is worth a mention. */
+const PHASE_ELAPSED_THRESHOLD = 2500
+
 function renderProgress(state: PanelState, columns: number): string {
   const fraction = Math.min(1, Math.max(0, state.progress ?? 0))
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
@@ -309,9 +316,21 @@ function renderStatus(state: PanelState, columns: number): string {
   }
 
   const badge = BADGES[state.status]
-  const description = state.notice ? renderNotice(state) : styleText(MUTED, decapitalise(state.note || badge.note))
+  const description = state.notice ? renderNotice(state) : styleText(MUTED, decapitalise(state.note || badge.note) + renderPhaseElapsed(state))
   const head = ` ${styleText(badge.style, ` ${badge.label} `)}  ${description}`
   return truncate(head + renderTicker(state, columns - visibleWidth(head)), columns)
+}
+
+/**
+ * How long the current phase has been running, appended to its own note. A
+ * phase can hold a startup for most of its length, and the number is what says
+ * the label is still making progress rather than stuck.
+ */
+function renderPhaseElapsed(state: PanelState): string {
+  if (!state.note || state.phaseElapsedMs === undefined || state.phaseElapsedMs < PHASE_ELAPSED_THRESHOLD) {
+    return ''
+  }
+  return ` \u00B7 ${(state.phaseElapsedMs / 1000).toFixed(1)}s`
 }
 
 /**
