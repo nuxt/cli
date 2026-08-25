@@ -2093,6 +2093,29 @@ describe('dev ui teardown', () => {
     }
   }
 
+  it('drops a render in flight when a new load starts', async () => {
+    await withTerminal(({ session }) => {
+      const ready = {
+        status: 'ready' as const,
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        total: 6,
+        progress: 0.95,
+        elapsed: 2400,
+        phaseElapsed: 0,
+        reload: false,
+        serving: false,
+        timings: [],
+      }
+      session.reportProgress({ ...ready, pending: { label: 'GET /', startedAt: Date.now() } })
+      expect(session.state.rendering?.label).toBe('GET /')
+
+      session.reportProgress({ ...ready, status: 'loading', phase: 'config', message: 'Reloading Nuxt...', reload: true })
+      expect(session.state.rendering).toBeUndefined()
+    })
+  })
+
   it('surfaces errors still waiting on their delay when it tears down', async () => {
     await withTerminal(({ session, written }) => {
       session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
@@ -2338,6 +2361,17 @@ describe('request failures on the panel', () => {
       ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
 
       expect(await settle()).not.toContain('rendering GET /about')
+    })
+  })
+
+  it('should show a fork\'s first render as a warmup', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /', startedAt: Date.now() }, true)
+      expect(await settle()).toContain('WARMUP')
+
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() }, false)
+      expect(await settle()).toContain('READY')
     })
   })
 

@@ -595,10 +595,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       activityTimer.unref?.()
     },
     setRoutes: payload => routeOverlay.setRoutes(payload),
-    setRendering: (pending) => {
+    setRendering: (pending, awaiting) => {
       update({
         rendering: pending && { label: pending.label, startedAt: pending.startedAt },
         renderingMs: pending && Date.now() - pending.startedAt,
+        ...awaiting === undefined ? {} : { awaitingFirstRender: awaiting },
       })
     },
   }

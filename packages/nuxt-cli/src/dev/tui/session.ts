@@ -221,6 +221,9 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     Object.assign(state, {
       status: snapshot.reload ? 'building' : 'starting',
       note: snapshot.message,
+      // A load starting voids whatever was being rendered against the last one.
+      rendering: undefined,
+      renderingMs: undefined,
       loadStartedAt: Date.now() - snapshot.elapsed,
       elapsedMs: snapshot.elapsed,
       phaseStartedAt: Date.now() - snapshot.phaseElapsed,

@@ -96,7 +96,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }
-    | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender }
+    | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender, awaiting?: boolean }
 
 export interface NuxtDevContext {
   cwd: string

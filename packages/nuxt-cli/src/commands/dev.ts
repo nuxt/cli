@@ -313,6 +313,9 @@ const command = defineCommand({
       const explanation = formatRestartReason(reason, { rootDir: cwd, hard: true })
       logger.info(explanation)
       devUI.setStatus('restarting', explanation)
+      // The process that was rendering is about to be replaced, and it may not
+      // live long enough to say that its request has gone.
+      devUI.setRendering(undefined)
 
       // The inspector port cannot be shared, so the handover has to stay
       // serialised whenever the inspector is open.
@@ -352,7 +355,7 @@ const command = defineCommand({
               devUI.setStatus(message.building ? 'building' : 'ready')
             }
             else if (message.type === 'nuxt:internal:dev:rendering') {
-              devUI.setRendering(message.pending)
+              devUI.setRendering(message.pending, message.awaiting)
             }
             else if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
               serving = true

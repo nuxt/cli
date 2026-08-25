@@ -19,8 +19,12 @@ export interface DevUIController {
   pushRequests: (requests: DevRequestEvent[]) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
-  /** Report the render the server is busy with, or that it is busy with none. */
-  setRendering: (pending?: PendingRender) => void
+  /**
+   * Report the render the server is busy with, or that it is busy with none.
+   * `awaiting` says no page has been rendered yet, which is what makes it a
+   * warmup rather than one request among many.
+   */
+  setRendering: (pending?: PendingRender, awaiting?: boolean) => void
 }
 
 /** What the plain fallback answers to everything the UI would have shown. */

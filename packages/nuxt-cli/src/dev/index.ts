@@ -332,13 +332,15 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     // fork has to report between being ready and having answered.
     if (ipc.enabled) {
       let reported: string | undefined
-      devServer.progress.onUpdate(({ status, pending }) => {
+      devServer.progress.onUpdate(({ status, pending, serving }) => {
         const rendering = status === 'ready' ? pending : undefined
         if (rendering?.label === reported) {
           return
         }
         reported = rendering?.label
-        ipc.send({ type: 'nuxt:internal:dev:rendering', pending: rendering })
+        // Whether this is the render everything is waiting for is the fork's to
+        // know: the parent only sees that a request is in flight.
+        ipc.send({ type: 'nuxt:internal:dev:rendering', pending: rendering, awaiting: !serving })
       })
     }
 
