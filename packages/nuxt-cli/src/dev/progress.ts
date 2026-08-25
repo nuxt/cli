@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import type { PhaseTiming, ProgressSnapshot, ProgressStatus } from '../utils/progress-snapshot'
 
 /** Path prefix reserved for the CLI's own dev-time endpoints. */
 export const DEV_INTERNAL_PREFIX: string = '/__nuxt_dev__/'
@@ -107,33 +108,6 @@ function moduleName(module: unknown): string | undefined {
   return typeof name === 'string' && name ? name : undefined
 }
 
-export type DevProgressStatus = 'loading' | 'ready' | 'error'
-
-interface DevPhaseTiming {
-  phase: string
-  message: string
-  duration: number
-}
-
-export interface DevProgressSnapshot {
-  status: DevProgressStatus
-  phase: string
-  message: string
-  index: number
-  total: number
-  progress: number
-  elapsed: number
-  reload: boolean
-  /**
-   * Whether a request has actually been answered. `status` is `ready` from the
-   * moment the server is listening, so this is what tells a UI whether the app
-   * can be used yet.
-   */
-  serving: boolean
-  timings: DevPhaseTiming[]
-  error?: { name: string, message: string }
-}
-
 interface HookableLike {
   beforeEach?: (fn: (event: { name: string, args?: unknown[] }) => void) => void
   afterEach?: (fn: (event: { name: string }) => void) => void
@@ -150,16 +124,16 @@ interface ActiveHook {
  */
 export class DevProgress {
   #clients = new Set<ServerResponse>()
-  #listeners = new Set<(snapshot: DevProgressSnapshot) => void>()
+  #listeners = new Set<(snapshot: ProgressSnapshot) => void>()
   #heartbeat?: NodeJS.Timeout
 
   #index = 0
   #message = DEV_PHASES[0]!.message
-  #status: DevProgressStatus = 'loading'
+  #status: ProgressStatus = 'loading'
   #error?: Error
   #startedAt = Date.now()
   #phaseStartedAt = Date.now()
-  #timings: DevPhaseTiming[] = []
+  #timings: PhaseTiming[] = []
   #reload = false
   #baseMessage = DEV_PHASES[0]!.message
   #module?: ActiveHook
@@ -170,7 +144,7 @@ export class DevProgress {
   #observed = new WeakSet<HookableLike>()
   #ticker?: NodeJS.Timeout
 
-  get snapshot(): DevProgressSnapshot {
+  get snapshot(): ProgressSnapshot {
     const phase = DEV_PHASES[this.#index]!
     return {
       status: this.#status,
@@ -189,11 +163,11 @@ export class DevProgress {
     }
   }
 
-  get timings(): DevPhaseTiming[] {
+  get timings(): PhaseTiming[] {
     return this.#timings
   }
 
-  onUpdate(listener: (snapshot: DevProgressSnapshot) => void): () => void {
+  onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
     this.#listeners.add(listener)
     return () => this.#listeners.delete(listener)
   }
@@ -512,7 +486,7 @@ export class DevProgress {
     }
   }
 
-  #send(res: ServerResponse, snapshot: DevProgressSnapshot): void {
+  #send(res: ServerResponse, snapshot: ProgressSnapshot): void {
     if (res.writableEnded) {
       return
     }

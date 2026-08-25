@@ -6,8 +6,9 @@ import { defineCommand } from 'citty'
 import { relative } from 'pathe'
 import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
-
+import { BuildProgress } from '../utils/build-progress'
 import { overrideEnv } from '../utils/env'
+
 import { ActionableError } from '../utils/errors'
 import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
@@ -15,8 +16,12 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
+import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
+
+/** How often a phase repeats itself where there is no animated line. */
+const HEARTBEAT_INTERVAL = 5000
 
 export default defineCommand({
   meta: {
@@ -55,8 +60,26 @@ export default defineCommand({
     }
 
     const releaseLocks: Array<() => void> = []
+    const progress = new BuildProgress()
+    let stopReporting = () => {}
     try {
       intro(styleText('cyan', 'Building Nuxt for production...'))
+
+      // The phase line owns a row of the terminal, which a silent build has no
+      // business drawing on. Subscribed after the intro so the first phase is
+      // reported below it rather than above.
+      if (ctx.args.logLevel !== 'silent') {
+        const reporter = createPhaseReporter({ heartbeat: HEARTBEAT_INTERVAL })
+        let unsubscribe: (() => void) | undefined
+        // Assigned before subscribing, because subscribing reports the phase in
+        // flight straight away: a first write that fails, on a pipe that has
+        // already been closed, must still leave the terminal recoverable.
+        stopReporting = () => {
+          unsubscribe?.()
+          reporter.stop()
+        }
+        unsubscribe = progress.onUpdate(reporter.update)
+      }
 
       const kit = await loadKit(cwd)
       const nuxt = await kit.loadNuxt({
@@ -84,6 +107,8 @@ export default defineCommand({
           }),
         },
       })
+
+      progress.attachNuxt(nuxt)
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -115,6 +140,14 @@ export default defineCommand({
 
       await kit.buildNuxt(nuxt)
 
+      stopReporting()
+      progress.finish()
+
+      const breakdown = formatPhaseBreakdown(progress.timings)
+      if (breakdown) {
+        logger.message(styleText('dim', breakdown))
+      }
+
       if (ctx.args.prerender) {
         if (!nuxt.options.ssr) {
           logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
@@ -129,6 +162,7 @@ export default defineCommand({
       }
     }
     finally {
+      stopReporting()
       for (const release of releaseLocks.reverse()) {
         release()
       }

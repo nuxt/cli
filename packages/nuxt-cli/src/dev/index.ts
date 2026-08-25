@@ -1,7 +1,7 @@
 /* eslint-disable perfectionist/sort-imports -- `./force-tty` must be evaluated before anything that loads `std-env` or `consola` */
 import type { NuxtConfig } from '@nuxt/schema'
 import type { DevListenOverrides, Listener, ListenURL } from './listen'
-import type { DevProgressSnapshot } from './progress'
+import type { ProgressSnapshot } from '../utils/progress-snapshot'
 import type { DevRestartReason } from './reason'
 import type { ServerLogEvent } from './log-channel'
 import type { DevRequestEvent, DevRoutes, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
@@ -21,7 +21,7 @@ import { debug } from '../utils/logger'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
 import { currentRequest, isServingRequest } from './serving-state'
-import { createStartupReporter } from './startup-log'
+import { createPhaseReporter } from '../utils/phase-reporter'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -93,7 +93,7 @@ interface InitializeOptions {
    * Called with every startup progress snapshot, from before the first load
    * begins, so a UI can narrate startup as it happens rather than after.
    */
-  onProgress?: (snapshot: DevProgressSnapshot) => void
+  onProgress?: (snapshot: ProgressSnapshot) => void
   /**
    * Called as soon as a socket is bound, milliseconds into startup, and again
    * with `confirmed` once the resolved config has agreed with the address.
@@ -357,7 +357,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   // itself, so the transient reporter line would only fight it for the screen.
   const reporter = devContext.args.logLevel === 'silent' || ipc.enabled || ctx.captureUIEvents
     ? undefined
-    : createStartupReporter()
+    : createPhaseReporter()
   const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
   const stopReporting = () => {
     unsubscribeProgress?.()
