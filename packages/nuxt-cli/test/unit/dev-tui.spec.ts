@@ -74,12 +74,38 @@ describe('dev tui panel', () => {
     expect(lines.join('\n')).not.toContain('READY')
   })
 
-  it('should say which request it is busy with', () => {
-    const warming = renderPanel({ ...READY, status: 'warming', awaitingFirstRender: true, note: 'rendering GET /' }, 80, 30).map(strip)
-    expect(warming.join('\n')).toContain('WARMUP   rendering GET /')
+  it('should say which request it is busy with, and for how long', () => {
+    const first = renderPanel({ ...READY, awaitingFirstRender: true, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+    expect(first.join('\n')).toContain('WARMUP   rendering GET / · 6.4s')
 
-    const ready = renderPanel({ ...READY, note: 'rendering GET /about' }, 80, 30).map(strip)
-    expect(ready.join('\n')).toContain('READY   rendering GET /about')
+    const later = renderPanel({ ...READY, rendering: { label: 'GET /about', startedAt: 0 }, renderingMs: 1200 }, 80, 30).map(strip)
+    expect(later.join('\n')).toContain('READY   rendering GET /about · 1.2s')
+  })
+
+  it('should keep the last request off the line while one is in flight', () => {
+    const lines = renderPanel({
+      ...READY,
+      rendering: { label: 'GET /', startedAt: 0 },
+      renderingMs: 6700,
+      lastRequest: { method: 'GET', url: '/', status: 200, duration: 8442 },
+    }, 100, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('READY   rendering GET / · 6.7s')
+    expect(lines.join('\n')).not.toContain('8442ms')
+  })
+
+  it('should not put a clock on a render that has only just arrived', () => {
+    const lines = renderPanel({ ...READY, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 40 }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('READY   rendering GET /')
+    expect(lines.join('\n')).not.toContain('0.0s')
+  })
+
+  it('should let a load in flight keep the status line from a render', () => {
+    const lines = renderPanel({ ...READY, status: 'building', note: 'nuxt.config.ts changed', rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('BUILDING   nuxt.config.ts changed')
+    expect(lines.join('\n')).not.toContain('rendering GET /')
   })
 
   it('should not keep claiming how fast the last load was while rebuilding', () => {
@@ -2312,6 +2338,19 @@ describe('request failures on the panel', () => {
       ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
 
       expect(await settle()).not.toContain('rendering GET /about')
+    })
+  })
+
+  it('should keep reporting a render when the server reports itself ready again', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /', startedAt: Date.now() })
+      // The bundler reloads while it serves the first document, which is a
+      // `building` event either side of the render it is serving.
+      ui.setStatus('building')
+      ui.setStatus('ready')
+
+      expect(await settle()).toContain('rendering GET /')
     })
   })
 

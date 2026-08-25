@@ -146,6 +146,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({})
   }
 
+  // Progress writes the panel state itself; going through `update` is what arms
+  // the animation for whatever it has just put there.
+  session.onProgressChange(refresh)
+
   function clearActivity(): void {
     update({ active: false })
   }
@@ -156,16 +160,22 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       frame: (state.frame ?? 0) + 1,
       elapsedMs: working ? Date.now() - (state.loadStartedAt ?? sessionStart) : state.elapsedMs,
       phaseElapsedMs: working && state.phaseStartedAt !== undefined ? Date.now() - state.phaseStartedAt : state.phaseElapsedMs,
+      renderingMs: state.rendering && Date.now() - state.rendering.startedAt,
     })
   }
 
-  /** Animate the mark only while the server or a task is working, on screen. */
+  /**
+   * Animate the mark only while something is in flight, on screen. A request
+   * being rendered counts: the server is not loading, but it is the only thing
+   * happening, and a still panel in front of a slow page reads as a hung one.
+   */
   function syncAnimation(): void {
-    const working = (state.status !== 'ready' && state.status !== 'error' && !openOverlay()) || (!!state.task && !openOverlay())
-    // Waiting on the first render is measured in seconds, sometimes tens of
-    // them, which is too long to spend a build's frame rate on: the panel only
-    // has to look alive.
-    const interval = state.status === 'warming' ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO : LOGO_FRAME_MS
+    const busy = (state.status !== 'ready' && state.status !== 'error') || !!state.task || !!state.rendering
+    const working = busy && !openOverlay()
+    // Waiting on a render is measured in seconds, sometimes tens of them, which
+    // is too long to spend a build's frame rate on: the panel only has to look
+    // alive.
+    const interval = state.status === 'warming' || state.rendering ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO : LOGO_FRAME_MS
     if (working && animation && interval !== animationInterval) {
       clearInterval(animation)
       animation = undefined
@@ -283,7 +293,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   context.onReady(() => {
-    const warming = state.awaitingFirstRender === true
+    // Whether anything is still being waited for is progress's to say: a ready
+    // listener only knows the socket is up, and a server nobody has asked for a
+    // page yet is not warming up, it is idle.
+    const warming = state.status === 'warming'
     update({
       status: warming ? 'warming' : 'ready',
       note: warming ? state.note : undefined,
@@ -583,12 +596,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     },
     setRoutes: payload => routeOverlay.setRoutes(payload),
     setRendering: (pending) => {
-      // A build in flight is already the more interesting thing to report, and
-      // the badge it shows must not be replaced by a request that outlives it.
-      if (state.status !== 'ready') {
-        return
-      }
-      update({ note: pending ? `rendering ${pending.label}` : undefined })
+      update({
+        rendering: pending && { label: pending.label, startedAt: pending.startedAt },
+        renderingMs: pending && Date.now() - pending.startedAt,
+      })
     },
   }
 }
