@@ -250,6 +250,7 @@ describe('phase reporter', () => {
   })
 
   it('should announce a render once where the line cannot be redrawn', async () => {
+    freezeClock()
     const renderer = await render(() => {
       const startup = reporter(false)
       startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
