@@ -1,4 +1,4 @@
-styles: 9bd2f07916a1acbf
+styles: 5e2e229d1874e510
         .d$b.
        i$$A$$L  .d$b
      .$$F` `$$L.$$A$$.
@@ -36,4 +36,5 @@ styles: 9bd2f07916a1acbf
 ◇  Would you like to browse and install modules?
 ●  Skipping install dependencies step.
 ●  to scaffold this project again without prompts:
+◐  Downloading minimal template
 ◐  Loading available templates
