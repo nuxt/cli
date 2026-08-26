@@ -254,6 +254,10 @@ export const captures: Capture[] = [
     animated: true,
     rows: 24,
     scrub: DEFAULT_SCRUB,
+    env: {
+      NODE_OPTIONS: `--import=${new URL('lib/fetch-stub.mjs', import.meta.url).href}`,
+      CAPTURE_FETCH_LATENCY: '250',
+    },
     async drive({ session }) {
       await session.waitFor(/Which template/, 60_000)
       await session.wait(1200)
