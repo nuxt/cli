@@ -53,39 +53,40 @@ export async function stopCpuProfile(outDir: string, command: string): Promise<s
   const outPath = join(outDir, `nuxt-${command}${count ? `-${count}` : ''}.cpuprofile`)
   const relativeOutPath = relative(process.cwd(), outPath).replace(RELATIVE_PATH_RE, './')
   try {
-    await new Promise<any>((resolve, reject) => {
-      s.post('Profiler.stop', (err, params) => {
-        if (err) {
-          return reject(err)
-        }
-
-        if (!params?.profile) {
-          return resolve(params)
-        }
-
-        try {
-          mkdirSync(outDir, { recursive: true })
-          writeFileSync(outPath, JSON.stringify(params.profile))
-          const nextSteps = [
-            `CPU profile written to ${styleText('cyan', relativeOutPath)}.`,
-            `Open it in a CPU profile viewer like your IDE, or ${styleText('cyan', 'https://discoveryjs.github.io/cpupro')}.`,
-          ]
-          box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, '', {
-            contentAlign: 'left',
-            titleAlign: 'left',
-            width: 'auto',
-            titlePadding: 2,
-            contentPadding: 2,
-            rounded: true,
-            withGuide: false,
-            formatBorder: (text: string) => paint('brand', text),
-          })
-        }
-        catch {}
-
-        resolve(params)
-      })
+    const profile = await new Promise<any>((resolve, reject) => {
+      s.post('Profiler.stop', (err, params) => err ? reject(err) : resolve(params?.profile))
     })
+    if (!profile) {
+      return
+    }
+
+    try {
+      mkdirSync(outDir, { recursive: true })
+      writeFileSync(outPath, JSON.stringify(profile))
+    }
+    catch {
+      return
+    }
+
+    try {
+      const nextSteps = [
+        `CPU profile written to ${styleText('cyan', relativeOutPath)}.`,
+        `Open it in a CPU profile viewer like your IDE, or ${styleText('cyan', 'https://discoveryjs.github.io/cpupro')}.`,
+      ]
+      box(`\n${nextSteps.map(step => ` › ${step}`).join('\n')}\n`, '', {
+        contentAlign: 'left',
+        titleAlign: 'left',
+        width: 'auto',
+        titlePadding: 2,
+        contentPadding: 2,
+        rounded: true,
+        withGuide: false,
+        formatBorder: (text: string) => paint('brand', text),
+      })
+    }
+    catch {}
+
+    return outPath
   }
   finally {
     s.disconnect()
