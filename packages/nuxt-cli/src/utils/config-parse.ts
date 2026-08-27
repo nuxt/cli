@@ -452,11 +452,11 @@ function scanElements(source: string, arrayStart: number, arrayEnd: number): Arr
     if (end === undefined) {
       break
     }
-    const text = source.slice(start, end).trimEnd()
-    if (!text) {
+    const valueEnd = trimTrivia(source, start, end)
+    if (valueEnd === start) {
       break
     }
-    elements.push({ start, end: start + text.length, name: readScannedName(text) })
+    elements.push({ start, end: valueEnd, name: readScannedName(source.slice(start, valueEnd)) })
 
     at = skipTrivia(source, end)
     if (source[at] === ',') {
@@ -476,6 +476,47 @@ function readScannedName(text: string): string | null {
   const inner = text.startsWith('[') ? text.slice(1).trimStart() : text
   const match = LEADING_STRING_RE.exec(inner)
   return match ? match[2]!.replace(/\\(.)/g, '$1') : null
+}
+
+/**
+ * End of the last token between `from` and `to`, excluding trailing whitespace
+ * and comments.
+ *
+ * An entry's bounds must stop at its value: a trailing comment counted as part of
+ * the entry would take a separator inserted after it, commenting out the comma.
+ */
+function trimTrivia(source: string, from: number, to: number): number {
+  let cursor = from
+  let end = from
+
+  while (cursor < to) {
+    const skipped = skipTrivia(source, cursor)
+    if (skipped !== cursor) {
+      cursor = Math.min(skipped, to)
+      continue
+    }
+    const char = source[cursor]!
+    if (char === '\'' || char === '"' || char === '`') {
+      const stringEnd = findStringEnd(source, cursor)
+      if (stringEnd === undefined || stringEnd >= to) {
+        break
+      }
+      cursor = stringEnd + 1
+    }
+    else if (char === '[' || char === '{' || char === '(') {
+      const bracketEnd = matchBracket(source, cursor)
+      if (bracketEnd === undefined || bracketEnd >= to) {
+        break
+      }
+      cursor = bracketEnd + 1
+    }
+    else {
+      cursor++
+    }
+    end = cursor
+  }
+
+  return end
 }
 
 const CLOSING = { '[': ']', '{': '}', '(': ')' } as const
