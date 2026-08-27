@@ -58,9 +58,8 @@ describe('suggestCommand', () => {
   it('should only ever suggest a command that exists', async () => {
     await fc.assert(fc.asyncProperty(word, async (input) => {
       const suggestion = await suggestCommand(input, names)
-      fc.pre(suggestion !== undefined)
 
-      expect(names, input).toContain(suggestion)
+      expect(suggestion === undefined || names.includes(suggestion), `${input} suggested ${suggestion}`).toBe(true)
     }), { numRuns: RUNS })
   })
 

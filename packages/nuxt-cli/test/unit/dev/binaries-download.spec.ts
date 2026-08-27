@@ -82,11 +82,14 @@ beforeEach(() => {
   requests = []
   home = mkdtempSync(join(tmpdir(), 'nuxt-home-'))
   cacheHome = mkdtempSync(join(tmpdir(), 'nuxt-cache-'))
-  // `resolveTool` records consent in the user-level `.nuxtrc`, so the home
-  // directory is pointed at a scratch one rather than the machine's own. `PATH`
-  // keeps its real entries because extracting an archive shells out to `tar`.
+  // `resolveTool` records consent in the user-level `.nuxtrc`, so the directory
+  // `rc9` reads it from is pointed at a scratch one rather than the machine's
+  // own: it prefers `XDG_CONFIG_HOME`, which is set on some CI images, and falls
+  // back to the home directory. `PATH` keeps its real entries because extracting
+  // an archive shells out to `tar`.
   vi.stubEnv('HOME', home)
   vi.stubEnv('USERPROFILE', home)
+  vi.stubEnv('XDG_CONFIG_HOME', home)
   vi.stubEnv('XDG_CACHE_HOME', cacheHome)
   writeFileSync(join(home, '.nuxtrc'), 'tools.nuxt-test-tool.termsAccepted=true\n')
 })
@@ -119,7 +122,8 @@ describe('resolveTool', () => {
     chmodSync(existing, 0o755)
     vi.stubEnv('PATH', `${dir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}`)
 
-    await expect(download('/binary')).resolves.toBe(existing)
+    // Windows spells the extension the way `PATHEXT` does, which is upper case.
+    await expect(download('/binary').then(path => path?.toLowerCase())).resolves.toBe(existing.toLowerCase())
     expect(requests).toEqual([])
   })
 

@@ -20,9 +20,15 @@ import { createDevFixture } from '../utils'
 const fixtureDir = await createDevFixture('dev-client-commands')
 const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
-const ENDPOINT = `import { defineEventHandler } from 'h3'
+const ENDPOINT = `import { defineEventHandler, getRequestHeader, readRawBody } from 'h3'
 
-export default defineEventHandler(() => ({ hello: 'world', nested: { list: [1, 2, 3] } }))
+export default defineEventHandler(async event => ({
+  hello: 'world',
+  nested: { list: [1, 2, 3] },
+  method: event.method,
+  test: getRequestHeader(event, 'x-test') ?? null,
+  body: event.method === 'GET' || event.method === 'HEAD' ? null : (await readRawBody(event)) ?? null,
+}))
 `
 
 const FAILING_ENDPOINT = `import { createError, defineEventHandler } from 'h3'
@@ -66,7 +72,7 @@ describe('commands that talk to a running dev server', () => {
     const result = await run(['curl', '/api/greeting'])
 
     expect(result.exitCode).toBe(0)
-    expect(JSON.parse(output(result))).toEqual({ hello: 'world', nested: { list: [1, 2, 3] } })
+    expect(JSON.parse(output(result))).toMatchObject({ hello: 'world', nested: { list: [1, 2, 3] }, method: 'GET', test: null, body: null })
   })
 
   it('should report the status and headers when asked to', async () => {
@@ -80,7 +86,7 @@ describe('commands that talk to a running dev server', () => {
     const result = await run(['curl', '-X', 'POST', '-H', 'x-test: 1', '-d', '{"a":1}', '/api/greeting'])
 
     expect(result.exitCode).toBe(0)
-    expect(JSON.parse(output(result))).toMatchObject({ hello: 'world' })
+    expect(JSON.parse(output(result))).toMatchObject({ method: 'POST', test: '1', body: '{"a":1}' })
   })
 
   it('should exit non-zero for an error response, as `curl --fail` does', async () => {

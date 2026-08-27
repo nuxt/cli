@@ -32,10 +32,21 @@ beforeAll(async () => {
 
   // `locateConfig` caches the parser it resolved per directory, so each engine is
   // pinned once here rather than by toggling the environment mid-property.
-  process.env.NUXT_CLI_PARSER = 'scanner'
-  await locateConfig('export default {}\n', 'nuxt.config.ts', engines[0]!.cwd)
-  delete process.env.NUXT_CLI_PARSER
-  await locateConfig('export default defineNuxtConfig({ modules: [\'a\'] })\n', 'nuxt.config.ts', engines[1]!.cwd)
+  const override = process.env.NUXT_CLI_PARSER
+  try {
+    process.env.NUXT_CLI_PARSER = 'scanner'
+    await locateConfig('export default {}\n', 'nuxt.config.ts', engines[0]!.cwd)
+    delete process.env.NUXT_CLI_PARSER
+    await locateConfig('export default defineNuxtConfig({ modules: [\'a\'] })\n', 'nuxt.config.ts', engines[1]!.cwd)
+  }
+  finally {
+    if (override === undefined) {
+      delete process.env.NUXT_CLI_PARSER
+    }
+    else {
+      process.env.NUXT_CLI_PARSER = override
+    }
+  }
 })
 
 /** Raised locally to fish for new counterexamples: `NUXT_CLI_FUZZ_RUNS=5000 vitest`. */
