@@ -136,6 +136,16 @@ function inferBuilderName(nuxt: Nuxt): string | undefined {
 }
 
 /**
+ * A directory path that compares equal to another naming the same directory.
+ *
+ * `nitro.options.output.*` carries a trailing slash, and these paths are used as
+ * lock keys and printed relative to the cwd.
+ */
+function normalizeDir(dir: string): string {
+  return resolve(dir)
+}
+
+/**
  * Describe a loaded Nuxt instance's build in builder-agnostic terms.
  *
  * `nuxt.serverBuild` answers all of this where it exists; otherwise it is
@@ -157,20 +167,21 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
       return declared ? declared.target?.() : nitro?.options.preset
     },
     get dir() {
-      return declared?.output.dir()
+      return normalizeDir(declared?.output.dir()
         ?? nitro?.options.output?.dir
-        ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.dir || DEFAULT_OUTPUT_DIR)
+        ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.dir || DEFAULT_OUTPUT_DIR))
     },
     get publicDir() {
-      return declared?.output.publicDir()
+      return normalizeDir(declared?.output.publicDir()
         ?? nitro?.options.output?.publicDir
-        ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.publicDir || DEFAULT_PUBLIC_DIR)
+        ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.publicDir || DEFAULT_PUBLIC_DIR))
     },
     get previewCommand() {
       return declared ? declared.preview?.command?.() : nitro?.options.commands?.preview
     },
     get previewStaticDir() {
-      return declared ? declared.preview?.staticDir?.() : undefined
+      const dir = declared?.preview?.staticDir?.()
+      return dir ? normalizeDir(dir) : undefined
     },
   }
 }

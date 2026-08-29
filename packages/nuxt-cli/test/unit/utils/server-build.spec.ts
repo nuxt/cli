@@ -132,6 +132,14 @@ describe('resolveServerBuild', () => {
     expect(build.publicDir).toBe('/project/.output/public')
   })
 
+  it('should strip the trailing slash Nitro puts on its output paths', () => {
+    const kit = { useNitro: () => ({ options: { output: { dir: '/project/.output/', publicDir: '/project/.output/public/' } } }) }
+    const build = resolveServerBuild(kit, makeNuxt())
+
+    expect(build.dir).toBe('/project/.output')
+    expect(build.publicDir).toBe('/project/.output/public')
+  })
+
   it('should honour a configured Nitro output directory without an instance', () => {
     const build = resolveServerBuild(serverlessKit, makeNuxt({ nitro: { output: { dir: 'dist' } } }))
 
