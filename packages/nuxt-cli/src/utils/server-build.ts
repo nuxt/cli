@@ -21,15 +21,15 @@ const DEFAULT_TARGET_LABEL = 'preset'
  */
 export interface ServerBuild {
   /** The configured server builder, e.g. `nitro` or `vite`. */
-  name: string
+  readonly name: string
   /** The builder's display name, e.g. `Nitro` or `Vite SPA`. */
-  label: string
+  readonly label: string
   /** What the builder calls its deploy target axis, e.g. `preset`. */
   targetLabel: string
   /** Whether Nuxt described this build itself, rather than the CLI inferring it. */
   declared: boolean
   /** Whether this build produces a server runtime. */
-  hasServer: boolean
+  readonly hasServer: boolean
   /** Whether this builder can serve `nuxt dev`. */
   hasDevServer: boolean
   /** The deploy target within the builder, e.g. a Nitro preset. */
@@ -154,30 +154,38 @@ function normalizeDir(dir: string): string {
  */
 export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild {
   const declared = (nuxt as MaybeModernNuxt).serverBuild
-  const nitro = declared?.capabilities.server === false ? undefined : tryUseNitro(kit)
+  // Resolved on each read rather than once: a Nitro instance may not exist yet
+  // when the build is first described, and everything it answers can move.
+  const getNitro = () => declared?.capabilities.server === false ? undefined : tryUseNitro(kit)
 
   return {
-    name: declared?.name ?? inferBuilderName(nuxt) ?? (nitro ? 'nitro' : 'unknown'),
-    label: getServerBuilderName(nuxt, !!nitro),
     targetLabel: declared?.targetLabel ?? DEFAULT_TARGET_LABEL,
     declared: !!declared,
-    hasServer: declared?.capabilities.server ?? !!nitro,
     hasDevServer: declared?.capabilities.dev ?? true,
+    get name() {
+      return declared?.name ?? inferBuilderName(nuxt) ?? (getNitro() ? 'nitro' : 'unknown')
+    },
+    get label() {
+      return getServerBuilderName(nuxt, !!getNitro())
+    },
+    get hasServer() {
+      return declared?.capabilities.server ?? !!getNitro()
+    },
     get target() {
-      return declared ? declared.target?.() : nitro?.options.preset
+      return declared ? declared.target?.() : getNitro()?.options.preset
     },
     get dir() {
       return normalizeDir(declared?.output.dir()
-        ?? nitro?.options.output?.dir
+        ?? getNitro()?.options.output?.dir
         ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.dir || DEFAULT_OUTPUT_DIR))
     },
     get publicDir() {
       return normalizeDir(declared?.output.publicDir()
-        ?? nitro?.options.output?.publicDir
+        ?? getNitro()?.options.output?.publicDir
         ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.publicDir || DEFAULT_PUBLIC_DIR))
     },
     get previewCommand() {
-      return declared ? declared.preview?.command?.() : nitro?.options.commands?.preview
+      return declared ? declared.preview?.command?.() : getNitro()?.options.commands?.preview
     },
     get previewStaticDir() {
       const dir = declared?.preview?.staticDir?.()

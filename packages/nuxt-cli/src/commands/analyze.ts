@@ -135,7 +135,10 @@ export default defineCommand({
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
-    const outDir = resolveServerBuild(kit, nuxt).dir
+    const serverBuild = resolveServerBuild(kit, nuxt)
+    // The lock has to be taken before the build, so it claims the output
+    // directory as resolved now; `meta.json` records where the build landed.
+    const outDir = serverBuild.dir
 
     nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
       filename: join(analyzeDir, 'client.html'),
@@ -177,7 +180,7 @@ export default defineCommand({
         endTime: Date.now(),
         analyzeDir,
         buildDir,
-        outDir,
+        outDir: serverBuild.dir,
       }
 
       await nuxt.callHook('build:analyze:done', meta)

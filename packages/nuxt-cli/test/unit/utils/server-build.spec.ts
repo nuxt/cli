@@ -132,6 +132,29 @@ describe('resolveServerBuild', () => {
     expect(build.publicDir).toBe('/project/.output/public')
   })
 
+  it('should pick up a Nitro instance created after the build was described', () => {
+    let nitro: any
+    const kit = {
+      useNitro: () => {
+        if (!nitro) {
+          throw new Error('Nitro is not initialized!')
+        }
+        return nitro
+      },
+    }
+    const build = resolveServerBuild(kit, makeNuxt())
+
+    expect(build).toMatchObject({ name: 'unknown', label: 'unknown', hasServer: false })
+    expect(build.dir).toBe('/project/.output')
+
+    nitro = { options: { preset: 'vercel', output: { dir: '/project/.vercel/output' }, commands: { preview: 'vercel dev' } } }
+
+    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', hasServer: true })
+    expect(build.target).toBe('vercel')
+    expect(build.dir).toBe('/project/.vercel/output')
+    expect(build.previewCommand).toBe('vercel dev')
+  })
+
   it('should strip the trailing slash Nitro puts on its output paths', () => {
     const kit = { useNitro: () => ({ options: { output: { dir: '/project/.output/', publicDir: '/project/.output/public/' } } }) }
     const build = resolveServerBuild(kit, makeNuxt())
