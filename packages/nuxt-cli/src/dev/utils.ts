@@ -34,7 +34,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { getServerBuilderName } from '../utils/server-build'
+import { resolveServerBuild } from '../utils/server-build'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { isAllowedHost } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
@@ -150,6 +150,15 @@ function devForkParentPid(): number | undefined {
 // https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 const TRAILING_SLASH_RE = /\/$/
+
+/**
+ * `built` distinguishes a builder that declared it has no dev server from one
+ * that built without leaving a server behind.
+ */
+function noDevServerMessage(builder: string, built: boolean): string {
+  return `The ${styleText('cyan', builder)} server builder ${built ? 'did not provide' : 'does not provide'} a dev server.\n`
+    + `       A ${styleText('cyan', 'server.builder')} must expose a \`handler\`, \`fetch\` or \`app\` on \`nuxt.server\` to be served by ${styleText('cyan', 'nuxt dev')}.`
+}
 
 /**
  * Files above this size are tracked by mtime alone.
@@ -1148,6 +1157,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     const kit = await loadKit(this.options.cwd)
+
+    // Refusing a build-only builder before building beats reporting it after.
+    const serverBuild = resolveServerBuild(kit, this.#currentNuxt)
+    if (!serverBuild.hasDevServer) {
+      throw new ActionableError(noDevServerMessage(serverBuild.label, false))
+    }
+
     this.#progress.setPhase('types')
     // ensure tsconfigs exist before starting the dev server (vite relies on in the initialisation stage)
     const typesPromise = existsSync(join(this.#currentNuxt.options.buildDir, 'tsconfig.json'))
@@ -1157,10 +1173,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
 
     if (!this.#currentNuxt.server) {
-      throw new ActionableError(
-        `The ${styleText('cyan', getServerBuilderName(this.#currentNuxt))} server builder did not provide a dev server.\n`
-        + `       A ${styleText('cyan', 'server.builder')} must expose a \`handler\`, \`fetch\` or \`app\` on \`nuxt.server\` to be served by ${styleText('cyan', 'nuxt dev')}.`,
-      )
+      throw new ActionableError(noDevServerMessage(serverBuild.label, true))
     }
 
     const distDir = join(this.#currentNuxt.options.buildDir, 'dist')

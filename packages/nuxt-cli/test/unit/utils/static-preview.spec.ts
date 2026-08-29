@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 
-import { findStaticEntry, previewStaticOutput } from '../../../src/utils/static-preview'
+import { findStaticEntry, formatServerURL, previewStaticOutput } from '../../../src/utils/static-preview'
 
 function makeOutput(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'nuxt-static-preview-'))
@@ -38,5 +38,16 @@ describe('previewStaticOutput', () => {
     finally {
       await server.close(true)
     }
+  })
+})
+
+describe('formatServerURL', () => {
+  it.each([
+    ['http://[::]:3000/', 'http://localhost:3000'],
+    ['http://0.0.0.0:3000/', 'http://localhost:3000'],
+    ['http://127.0.0.1:3000/', 'http://127.0.0.1:3000'],
+    [undefined, ''],
+  ])('should format %s as %s', (url, expected) => {
+    expect(formatServerURL(url)).toBe(expected)
   })
 })

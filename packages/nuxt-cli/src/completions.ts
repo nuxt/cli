@@ -28,11 +28,13 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
 
   const buildCommand = completion.commands.get('build')
   if (buildCommand) {
-    const presetOption = buildCommand.options.get('preset')
-    if (presetOption) {
-      presetOption.handler = (complete) => {
-        for (const preset of nitroPresets) {
-          complete(preset, '')
+    for (const name of ['target', 'preset']) {
+      const option = buildCommand.options.get(name)
+      if (option) {
+        option.handler = (complete) => {
+          for (const preset of nitroPresets) {
+            complete(preset, '')
+          }
         }
       }
     }

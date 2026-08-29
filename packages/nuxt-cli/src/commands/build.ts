@@ -19,7 +19,7 @@ import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
-import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
 const HEARTBEAT_INTERVAL = 5000
@@ -36,11 +36,7 @@ export default defineCommand({
       type: 'boolean',
       description: 'Build Nuxt and prerender static routes',
     },
-    preset: {
-      type: 'string',
-      description: 'Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)',
-      valueHint: 'nitro-preset',
-    },
+    ...targetArgs,
     ...dotEnvArgs,
     ...envNameArgs,
     ...extendsArgs,
@@ -96,7 +92,7 @@ export default defineCommand({
           _generate: ctx.args.prerender,
           nitro: {
             static: ctx.args.prerender,
-            preset: ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
+            preset: ctx.args.target || ctx.args.preset || process.env.NITRO_PRESET || process.env.SERVER_PRESET,
           },
           ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
           ...ctx.data?.overrides,
@@ -124,8 +120,9 @@ export default defineCommand({
       releaseLocks.push(lock.release)
 
       const serverBuild = resolveServerBuild(kit, nuxt)
-      if (serverBuild.target) {
-        logger.info(`${serverBuild.name === 'nitro' ? 'Nitro' : serverBuild.name} preset: ${styleText('cyan', serverBuild.target)}`)
+      const target = serverBuild.target
+      if (target) {
+        logger.info(`${serverBuild.label} ${serverBuild.targetLabel}: ${styleText('cyan', target)}`)
       }
 
       const outputDir = serverBuild.dir

@@ -147,6 +147,38 @@ describe('build', () => {
     expect(mocks.releaseBuildDir).toHaveBeenCalledOnce()
   })
 
+  it.each(['--target=vercel', '--preset=vercel'])('maps %s onto the Nitro preset', async (arg) => {
+    mocks.buildNuxt.mockResolvedValue(undefined)
+
+    await run([arg])
+
+    expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
+      overrides: expect.objectContaining({ nitro: { static: undefined, preset: 'vercel' } }),
+    }))
+  })
+
+  it('names the deploy target as the builder does', async () => {
+    mocks.buildNuxt.mockResolvedValue(undefined)
+    mocks.loadNuxt.mockResolvedValue({
+      hook: vi.fn(),
+      ready: vi.fn(),
+      options: { buildDir, rootDir: cwd, ssr: true },
+      serverBuild: {
+        name: 'nitro',
+        label: 'Nitro',
+        targetLabel: 'preset',
+        target: () => 'vercel',
+        capabilities: { server: true, dev: true },
+        output: { dir: () => outputDir, publicDir: () => `${outputDir}/public` },
+      },
+    })
+
+    await run()
+
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Nitro preset:'))
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('vercel'))
+  })
+
   it('builds without a server, locking the default output directory', async () => {
     mocks.buildNuxt.mockResolvedValue(undefined)
     mocks.useNitro.mockImplementation(() => {
