@@ -60,6 +60,28 @@ export const extendsArgs = {
   },
 } as const satisfies Record<string, ArgDef>
 
+/**
+ * The deploy target within the configured server builder.
+ *
+ * `--preset` names the same thing for Nitro, the only builder with a target axis
+ * today, and keeps working for the many deployment guides that use it. It is a
+ * hidden option rather than an alias because citty renders a multi-character
+ * alias as `-preset` in help output.
+ */
+export const targetArgs = {
+  target: {
+    type: 'string',
+    description: 'Deploy target for the configured server builder (e.g. `node-server`, `vercel`, `netlify`)',
+    valueHint: 'target',
+  },
+  preset: {
+    type: 'string',
+    description: 'Alias for `--target`',
+    valueHint: 'target',
+    hidden: true,
+  },
+} as const satisfies Record<string, ArgDef>
+
 export const profileArgs = {
   profile: {
     type: 'string',

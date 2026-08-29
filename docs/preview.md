@@ -16,6 +16,8 @@ npx nuxt preview [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>
 
 The `preview` command starts a server to preview your Nuxt application after running the `build` command. `nuxt start` is the same command under another name. When running your application in production refer to the [Deployment section](/docs/getting-started/deployment).
 
+When the configured `server.builder` produces no server at all (a client-only build, for example), there is nothing to run: the static output is served directly instead, with unmatched paths falling back to the client entry so client-side routing works.
+
 Some Nitro presets do not produce a server that can be run locally. For those, the preset's own preview command is run instead, and the command tells you what it is running.
 
 ## Arguments

@@ -2,6 +2,7 @@ import { runCommand } from 'citty'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import build from '../../../src/commands/build'
+import { logger } from '../../../src/utils/logger'
 
 const mocks = vi.hoisted(() => ({
   acquireLock: vi.fn(),
@@ -36,7 +37,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
   formatLockError: mocks.formatLockError,
 }))
 vi.mock('../../../src/utils/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn() },
   intro: vi.fn(),
   outro: vi.fn(),
 }))
@@ -144,5 +145,55 @@ describe('build', () => {
     expect(mocks.clearBuildDir).not.toHaveBeenCalled()
     expect(mocks.buildNuxt).not.toHaveBeenCalled()
     expect(mocks.releaseBuildDir).toHaveBeenCalledOnce()
+  })
+
+  it.each(['--target=vercel', '--preset=vercel'])('maps %s onto the Nitro preset', async (arg) => {
+    mocks.buildNuxt.mockResolvedValue(undefined)
+
+    await run([arg])
+
+    expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
+      overrides: expect.objectContaining({ nitro: { static: undefined, preset: 'vercel' } }),
+    }))
+  })
+
+  it('names the deploy target as the builder does', async () => {
+    mocks.buildNuxt.mockResolvedValue(undefined)
+    mocks.loadNuxt.mockResolvedValue({
+      hook: vi.fn(),
+      ready: vi.fn(),
+      options: { buildDir, rootDir: cwd, ssr: true },
+      serverBuild: {
+        name: 'nitro',
+        label: 'Nitro',
+        targetLabel: 'preset',
+        target: () => 'vercel',
+        capabilities: { server: true, dev: true },
+        output: { dir: () => outputDir, publicDir: () => `${outputDir}/public` },
+      },
+    })
+
+    await run()
+
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Nitro preset:'))
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('vercel'))
+  })
+
+  it('builds without a server, locking the default output directory', async () => {
+    mocks.buildNuxt.mockResolvedValue(undefined)
+    mocks.useNitro.mockImplementation(() => {
+      throw new Error('Nitro is not initialized!')
+    })
+    mocks.loadNuxt.mockResolvedValue({
+      hook: vi.fn(),
+      ready: vi.fn(),
+      options: { buildDir, rootDir: cwd, ssr: false, server: { builder: 'vite' } },
+    })
+
+    await run()
+
+    expect(mocks.acquireOutputLock).toHaveBeenCalledWith(cwd, outputDir, { command: 'build', cwd })
+    expect(mocks.buildNuxt).toHaveBeenCalled()
+    expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('preset'))
   })
 })

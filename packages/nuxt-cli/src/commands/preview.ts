@@ -14,6 +14,8 @@ import { loadKit } from '../utils/kit'
 import { logger, outro } from '../utils/logger'
 import { withPrependedPath } from '../utils/path-env'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { resolveServerBuild } from '../utils/server-build'
+import { findStaticEntry, formatServerURL, previewStaticOutput } from '../utils/static-preview'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const command = defineCommand({
@@ -46,11 +48,21 @@ const command = defineCommand({
     const cwd = resolveRootDir(ctx.args)
 
     let envLoaded = false
-    let resolvedOutputDir: string | undefined
+    /** `nitro.json` location, for Nuxt versions with no build descriptor. */
+    let legacyNitroJSON: string | undefined
+    /** What Nuxt says about the build it would produce, when it says anything. */
+    let declared: {
+      label: string
+      target: string | undefined
+      targetLabel: string
+      dir: string
+      previewCommand: string | undefined
+      staticDir: string | undefined
+    } | undefined
 
     try {
-      const { loadNuxt } = await loadKit(cwd)
-      const nuxt = await loadNuxt({
+      const kit = await loadKit(cwd)
+      const nuxt = await kit.loadNuxt({
         cwd,
         dotenv: {
           cwd,
@@ -64,40 +76,107 @@ const command = defineCommand({
             function (_, nuxt) {
               envLoaded = true
               nuxt.hook('nitro:init', (nitro) => {
-                resolvedOutputDir = resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json')
+                legacyNitroJSON = resolve(nuxt.options.srcDir || cwd, nitro.options.output.dir || '.output', 'nitro.json')
               })
             },
           ],
         },
       })
+      const build = resolveServerBuild(kit, nuxt)
+      if (build.declared) {
+        declared = {
+          label: build.label,
+          target: build.target,
+          targetLabel: build.targetLabel,
+          dir: build.dir,
+          previewCommand: build.previewCommand,
+          staticDir: build.previewStaticDir,
+        }
+      }
       await nuxt.close()
     }
     catch {}
 
-    const nitroJSONPaths = [...new Set([
-      resolvedOutputDir,
-      resolve(cwd, '.output', 'nitro.json'),
-    ].filter((path): path is string => !!path))]
-    const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
-    if (!nitroJSONPath) {
-      logger.error(
-        `Cannot find ${styleText('cyan', 'nitro.json')}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
-      )
-      process.exit(1)
-    }
-    const outputPath = dirname(nitroJSONPath)
-    const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
+    const port = ctx.args.port
+      || process.env.NUXT_PORT
+      || process.env.NITRO_PORT
+      || process.env.PORT
+    const host = ctx.args.host
+      || process.env.NUXT_HOST
+      || process.env.NITRO_HOST
+      || process.env.HOST
 
-    const previewCommand = nitroJSON.commands?.preview
+    let previewCommand: string | undefined
+    let outputPath: string | undefined
+    let target: readonly [label: string, value: string] | undefined
+    const searchPaths: string[] = []
+    const staticDirs: string[] = []
+
+    if (declared) {
+      searchPaths.push(declared.dir)
+      if (existsSync(declared.dir)) {
+        previewCommand = declared.previewCommand
+        outputPath = declared.dir
+        if (declared.target) {
+          target = [`${declared.label} ${declared.targetLabel}:`, declared.target]
+        }
+      }
+      if (declared.staticDir) {
+        staticDirs.push(declared.staticDir)
+      }
+    }
+    else {
+      // Without a descriptor, `nitro.json` is both the build marker and the
+      // source of the command to run.
+      const nitroJSONPaths = [...new Set([
+        legacyNitroJSON,
+        resolve(cwd, '.output', 'nitro.json'),
+      ].filter((path): path is string => !!path))]
+      searchPaths.push(...nitroJSONPaths)
+
+      const nitroJSONPath = nitroJSONPaths.find(path => existsSync(path))
+      if (nitroJSONPath) {
+        const nitroJSON = JSON.parse(await fsp.readFile(nitroJSONPath, 'utf-8'))
+        previewCommand = nitroJSON.commands?.preview
+        outputPath = dirname(nitroJSONPath)
+        if (nitroJSON.preset) {
+          target = ['Nitro preset:', nitroJSON.preset]
+        }
+      }
+      staticDirs.push(resolve(cwd, '.output', 'public'))
+    }
+
     if (typeof previewCommand !== 'string' || !previewCommand.trim()) {
-      logger.error('Preview is not supported for this build.')
+      // A build with no server runtime leaves only static files, which the CLI
+      // can serve itself rather than reporting a missing server entry.
+      for (const dir of staticDirs) {
+        const entry = findStaticEntry(dir)
+        if (entry) {
+          logger.info(`This build has no server, so ${styleText('cyan', relativeToProcess(dir))} is being served statically.`)
+          const server = await previewStaticOutput({ dir, entry, port, hostname: host })
+          outro(`Previewing ${styleText('cyan', relativeToProcess(dir))} at ${styleText('cyan', formatServerURL(server.url))}`)
+          return
+        }
+      }
+
+      if (outputPath) {
+        logger.error('Preview is not supported for this build.')
+      }
+      else {
+        logger.error(
+          `Cannot find a build to preview${declared ? ` for the ${styleText('cyan', declared.label)} server builder` : ''}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${[...new Set([...searchPaths, ...staticDirs])].join('\n')}`,
+        )
+      }
       process.exit(1)
     }
+
+    // `outputPath` is set whenever a preview command was found.
+    const previewDir = outputPath!
 
     const info = [
       ['Node.js:', `v${process.versions.node}`],
-      ['Nitro preset:', nitroJSON.preset],
-      ['Working directory:', relativeToProcess(outputPath)],
+      ...(target ? [target] : []),
+      ['Working directory:', relativeToProcess(previewDir)],
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
@@ -145,26 +224,17 @@ const command = defineCommand({
       logger.error(`Cannot find ${missing.map(fileName => styleText('cyan', fileName)).join(', ')}.`)
     }
 
-    const port = ctx.args.port
-      || process.env.NUXT_PORT
-      || process.env.NITRO_PORT
-      || process.env.PORT
-    const host = ctx.args.host
-      || process.env.NUXT_HOST
-      || process.env.NITRO_HOST
-      || process.env.HOST
-
-    outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
+    outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(previewDir))}`)
 
     const [command, ...commandArgs] = tokenizeArgs(previewCommand) as [string, ...string[]]
     await x(command, commandArgs, {
       throwOnError: true,
       nodeOptions: {
         stdio: 'inherit',
-        cwd: outputPath,
+        cwd: previewDir,
         env: {
           ...withPrependedPath(process.env, [
-            resolve(outputPath, 'node_modules/.bin'),
+            resolve(previewDir, 'node_modules/.bin'),
             resolve(cwd, 'node_modules/.bin'),
           ]),
           NUXT_PORT: port,

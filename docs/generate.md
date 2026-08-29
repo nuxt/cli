@@ -10,7 +10,7 @@ links:
 
 <!--generate-cmd-->
 ```bash [Terminal]
-npx nuxt generate [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--preset=<nitro-preset>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
+npx nuxt generate [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--target=<target>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
 ```
 <!--/generate-cmd-->
 
@@ -31,7 +31,7 @@ The `generate` command pre-renders every route of your application and stores th
 |--------------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--cwd=<directory>`                  |         | Specify the root directory of your Nuxt project                                                                                                      |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
-| `--preset=<nitro-preset>`            |         | Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)                                                                                        |
+| `--target=<target>`                  |         | Deploy target for the configured server builder (e.g. `node-server`, `vercel`, `netlify`)                                                            |
 | `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 | `--envName=<environment>`            |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
