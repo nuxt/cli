@@ -34,6 +34,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
+import { getServerBuilderName } from '../utils/server-build'
 import { renderError, renderErrorAnsi } from './error-lazy'
 import { isAllowedHost } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
@@ -1156,7 +1157,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
 
     if (!this.#currentNuxt.server) {
-      throw new Error('Nitro server has not been initialized.')
+      throw new ActionableError(
+        `The ${styleText('cyan', getServerBuilderName(this.#currentNuxt))} server builder did not provide a dev server.\n`
+        + `       A ${styleText('cyan', 'server.builder')} must expose a \`handler\`, \`fetch\` or \`app\` on \`nuxt.server\` to be served by ${styleText('cyan', 'nuxt dev')}.`,
+      )
     }
 
     const distDir = join(this.#currentNuxt.options.buildDir, 'dist')

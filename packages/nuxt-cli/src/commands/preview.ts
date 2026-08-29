@@ -14,7 +14,11 @@ import { loadKit } from '../utils/kit'
 import { logger, outro } from '../utils/logger'
 import { withPrependedPath } from '../utils/path-env'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { getServerBuilderName } from '../utils/server-build'
+import { findStaticEntry, previewStaticOutput } from '../utils/static-preview'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+
+const TRAILING_SLASH_RE = /\/$/
 
 const command = defineCommand({
   meta: {
@@ -47,6 +51,8 @@ const command = defineCommand({
 
     let envLoaded = false
     let resolvedOutputDir: string | undefined
+    let resolvedPublicDir: string | undefined
+    let builderName: string | undefined
 
     try {
       const { loadNuxt } = await loadKit(cwd)
@@ -70,6 +76,14 @@ const command = defineCommand({
           ],
         },
       })
+      builderName = getServerBuilderName(nuxt)
+      // `nuxt.serverOutput` is only present in newer Nuxt; the `nitro:init` hook
+      // above covers older versions, which only ever built with Nitro.
+      const serverOutput = (nuxt as { serverOutput?: { dir: () => string, publicDir: () => string } }).serverOutput
+      if (serverOutput) {
+        resolvedOutputDir = resolve(serverOutput.dir(), 'nitro.json')
+        resolvedPublicDir = serverOutput.publicDir()
+      }
       await nuxt.close()
     }
     catch {}
@@ -79,9 +93,35 @@ const command = defineCommand({
       resolve(cwd, '.output', 'nitro.json'),
     ].filter((path): path is string => !!path))]
     const nitroJSONPath = nitroJSONPaths.find(p => existsSync(p))
+
+    const port = ctx.args.port
+      || process.env.NUXT_PORT
+      || process.env.NITRO_PORT
+      || process.env.PORT
+    const host = ctx.args.host
+      || process.env.NUXT_HOST
+      || process.env.NITRO_HOST
+      || process.env.HOST
+
     if (!nitroJSONPath) {
+      // A build with no server runtime leaves only static files, which the CLI
+      // can serve itself rather than reporting a missing server entry.
+      const publicDirs = [...new Set([
+        resolvedPublicDir,
+        resolve(cwd, '.output', 'public'),
+      ].filter((path): path is string => !!path))]
+      for (const dir of publicDirs) {
+        const entry = findStaticEntry(dir)
+        if (entry) {
+          logger.info(`This build has no server, so ${styleText('cyan', relativeToProcess(dir))} is being served statically.`)
+          const server = await previewStaticOutput({ dir, entry, port, hostname: host })
+          outro(`Previewing ${styleText('cyan', relativeToProcess(dir))} at ${styleText('cyan', server.url?.replace(TRAILING_SLASH_RE, '') || '')}`)
+          return
+        }
+      }
+
       logger.error(
-        `Cannot find ${styleText('cyan', 'nitro.json')}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${nitroJSONPaths.join('\n')}`,
+        `Cannot find a build to preview${builderName ? ` for the ${styleText('cyan', builderName)} server builder` : ''}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${[...nitroJSONPaths, ...publicDirs].join('\n')}`,
       )
       process.exit(1)
     }
@@ -144,15 +184,6 @@ const command = defineCommand({
     if (ctx.args.dotenv.length > 0 && missing.length > 0) {
       logger.error(`Cannot find ${missing.map(fileName => styleText('cyan', fileName)).join(', ')}.`)
     }
-
-    const port = ctx.args.port
-      || process.env.NUXT_PORT
-      || process.env.NITRO_PORT
-      || process.env.PORT
-    const host = ctx.args.host
-      || process.env.NUXT_HOST
-      || process.env.NITRO_HOST
-      || process.env.HOST
 
     outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(outputPath))}`)
 

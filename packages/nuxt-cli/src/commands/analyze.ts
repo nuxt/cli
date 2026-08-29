@@ -7,7 +7,7 @@ import { styleText } from 'node:util'
 import { note, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
-import { join, relative, resolve } from 'pathe'
+import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
 import { resolveDotenvFileNames } from '../utils/args'
@@ -18,6 +18,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const NON_WORD_RE = /[^\w-]/g
@@ -80,7 +81,8 @@ export default defineCommand({
 
     const startTime = Date.now()
 
-    const { loadNuxt, buildNuxt } = await loadKit(cwd)
+    const kit = await loadKit(cwd)
+    const { loadNuxt, buildNuxt } = kit
 
     const nuxt = await loadNuxt({
       cwd,
@@ -133,7 +135,7 @@ export default defineCommand({
 
     const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
-    const outDir = resolve(nuxt.options.rootDir, nuxt.options.nitro.output?.dir || '.output')
+    const outDir = resolveServerBuild(kit, nuxt).dir
 
     nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
       filename: join(analyzeDir, 'client.html'),

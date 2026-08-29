@@ -18,6 +18,7 @@ import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
+import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -122,15 +123,18 @@ export default defineCommand({
       }
       releaseLocks.push(lock.release)
 
-      const nitro = kit.useNitro()
-      logger.info(`Nitro preset: ${styleText('cyan', nitro.options.preset)}`)
+      const serverBuild = resolveServerBuild(kit, nuxt)
+      if (serverBuild.target) {
+        logger.info(`${serverBuild.name === 'nitro' ? 'Nitro' : serverBuild.name} preset: ${styleText('cyan', serverBuild.target)}`)
+      }
 
-      const outputLock = acquireOutputLock(nuxt.options.rootDir, nitro.options.output.dir, {
+      const outputDir = serverBuild.dir
+      const outputLock = acquireOutputLock(nuxt.options.rootDir, outputDir, {
         command: 'build',
         cwd,
       })
       if (outputLock.existing) {
-        throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), nitro.options.output.dir) }))
+        throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), outputDir) }))
       }
       releaseLocks.push(outputLock.release)
 
@@ -153,7 +157,7 @@ export default defineCommand({
           logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
           logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
         }
-        const dir = nitro.options.output.publicDir
+        const dir = serverBuild.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
         outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
       }
