@@ -55,6 +55,11 @@ describe('getServerBuilderName', () => {
     expect(getServerBuilderName(makeNuxt(), false)).toBe('unknown')
   })
 
+  it('should read an unresolved descriptor name as a builder name', () => {
+    const nuxt = makeNuxt({}, { serverBuild: descriptor({ name: '@nuxt/nitro-server' }) })
+    expect(getServerBuilderName(nuxt)).toBe('Nitro')
+  })
+
   it('should use the label Nuxt declares', () => {
     const nuxt = makeNuxt({ server: { builder: 'vite' } }, { serverBuild: descriptor({ name: 'vite', label: 'Vite SPA' }) })
     expect(getServerBuilderName(nuxt)).toBe('Vite SPA')
@@ -116,6 +121,26 @@ describe('resolveServerBuild', () => {
     expect(build.previewCommand).toBeUndefined()
     expect(build.previewStaticDir).toBe('/project/.output/public')
     expect(useNitro).not.toHaveBeenCalled()
+  })
+
+  it('should fall back to Nitro for a descriptor that declares no target or preview command', () => {
+    const nuxt = makeNuxt({}, { serverBuild: descriptor({ name: '@nuxt/nitro-server' }) })
+    const build = resolveServerBuild(nitroKit, nuxt)
+
+    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', declared: true, hasServer: true })
+    expect(build.target).toBe('node-server')
+    expect(build.previewCommand).toBe('node ./server/index.mjs')
+    expect(build.previewStaticDir).toBeUndefined()
+  })
+
+  it('should fall back to Nitro for a descriptor whose getters resolve to nothing', () => {
+    const nuxt = makeNuxt({}, {
+      serverBuild: descriptor({ target: () => undefined, preview: { command: () => undefined } }),
+    })
+    const build = resolveServerBuild(nitroKit, nuxt)
+
+    expect(build.target).toBe('node-server')
+    expect(build.previewCommand).toBe('node ./server/index.mjs')
   })
 
   it('should report a builder that declares no dev server', () => {

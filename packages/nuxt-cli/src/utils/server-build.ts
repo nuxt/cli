@@ -108,11 +108,9 @@ export function tryUseNitro(kit: MaybeModernKit): NitroLike | undefined {
  */
 export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
   const declared = (nuxt as MaybeModernNuxt).serverBuild
-  if (declared) {
-    return declared.label || declared.name
-  }
-
-  const name = inferBuilderName(nuxt)
+  // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
+  // as its name, so it is read the same way as the `server.builder` option.
+  const name = declared ? declared.label || normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
   if (name === 'nitro') {
     return 'Nitro'
   }
@@ -130,9 +128,14 @@ export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
 function inferBuilderName(nuxt: Nuxt): string | undefined {
   const builder = (nuxt as MaybeModernNuxt).options.server?.builder
   if (typeof builder === 'string' && builder) {
-    return builder.replace(/^@nuxt\//, '').replace(/-server$/, '')
+    return normalizeBuilderName(builder)
   }
   return builder ? 'custom' : undefined
+}
+
+/** A module specifier such as `@nuxt/vite-server` read as a builder name. */
+function normalizeBuilderName(specifier: string): string {
+  return specifier.replace(/^@nuxt\//, '').replace(/-server$/, '')
 }
 
 /**
@@ -163,7 +166,7 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
     declared: !!declared,
     hasDevServer: declared?.capabilities.dev ?? true,
     get name() {
-      return declared?.name ?? inferBuilderName(nuxt) ?? (getNitro() ? 'nitro' : 'unknown')
+      return (declared ? normalizeBuilderName(declared.name) : undefined) ?? inferBuilderName(nuxt) ?? (getNitro() ? 'nitro' : 'unknown')
     },
     get label() {
       return getServerBuilderName(nuxt, !!getNitro())
@@ -172,7 +175,7 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
       return declared?.capabilities.server ?? !!getNitro()
     },
     get target() {
-      return declared ? declared.target?.() : getNitro()?.options.preset
+      return declared?.target?.() ?? getNitro()?.options.preset
     },
     get dir() {
       return normalizeDir(declared?.output.dir()
@@ -185,7 +188,7 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
         ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.publicDir || DEFAULT_PUBLIC_DIR))
     },
     get previewCommand() {
-      return declared ? declared.preview?.command?.() : getNitro()?.options.commands?.preview
+      return declared?.preview?.command?.() ?? getNitro()?.options.commands?.preview
     },
     get previewStaticDir() {
       const dir = declared?.preview?.staticDir?.()
