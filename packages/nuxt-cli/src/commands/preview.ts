@@ -143,8 +143,9 @@ const command = defineCommand({
           target = ['Nitro preset:', nitroJSON.preset]
         }
       }
-      staticDirs.push(resolve(cwd, '.output', 'public'))
     }
+
+    staticDirs.push(resolve(cwd, '.output', 'public'))
 
     if (typeof previewCommand !== 'string' || !previewCommand.trim()) {
       // A build with no server runtime leaves only static files, which the CLI
