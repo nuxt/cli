@@ -4,6 +4,6 @@
   "private": true,
   "dependencies": {
     "nuxt": "4.5.2",
-    "vue-router": "5.2.0"
+    "vue-router": "5.3.0"
   }
 }

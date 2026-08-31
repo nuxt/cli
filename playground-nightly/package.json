@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "nuxt": "npm:nuxt-nightly@5.0.0-29800730.fb02c57e",
-    "vue": "^3.5.41",
-    "vue-router": "^5.2.0"
+    "vue": "^3.5.42",
+    "vue-router": "^5.3.0"
   },
   "devDependencies": {
     "vitest": "^4.1.11"
