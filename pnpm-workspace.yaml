@@ -6,6 +6,8 @@ minimumReleaseAgeExclude:
   - vue
   - '@vue/*'
   - fuzzysort@4.0.1
+  - errx@0.2.0
+  - my-bad@0.0.1
 
 packages:
   - packages/*

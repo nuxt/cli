@@ -960,6 +960,13 @@ describe('log overlay', () => {
     ...overrides,
   })
 
+  it('should leave a message that carries its own colours alone', () => {
+    const coloured = `${'\u001B[31m'}✖${'\u001B[39m'} ParseError`
+    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80, 8)
+
+    expect(lines.join('\n')).toContain(coloured)
+  })
+
   it('opens focused on the newest error', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'all fine' }))
@@ -2385,6 +2392,40 @@ describe('request failures on the panel', () => {
       ui.setStatus('ready')
 
       expect(await settle()).toContain('rendering GET /')
+    })
+  })
+
+  it('should name a forwarded report on the status line and count it once', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function\n  at app.vue:3:1', requestId: 1 })
+      const frames = await settle()
+
+      expect(frames).toContain('x is not a function · press l to read it')
+      expect(frames).toContain('1 error')
+      expect(frames).not.toContain('2 errors')
+    })
+  })
+
+  it('should drop a report from the status line once the app recovers', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      await settle()
+
+      ui.clearReport('abc')
+      expect(await settle()).toContain('an error was logged')
+    })
+  })
+
+  it('should ignore a clear for a report it is not showing', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      await settle()
+
+      ui.clearReport('older')
+      expect(await settle()).not.toContain('an error was logged')
     })
   })
 
