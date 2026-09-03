@@ -13,6 +13,12 @@ export interface DevUIController {
   /** Whether the interactive UI is active (rather than the plain fallback). */
   interactive: boolean
   setStatus: (status: DevStatus, note?: string) => void
+  /**
+   * Report that a restart is over without a new server to show for it, so the
+   * panel returns to describing the one still running. A failed load keeps its
+   * error, since that is what the surviving server is.
+   */
+  settleRestart: () => void
   /** Record a structured log event forwarded from the dev server fork. */
   pushServerLog: (log: ForwardedLog) => void
   /** Record a batch of served requests for the traffic ticker. */
@@ -31,6 +37,7 @@ export interface DevUIController {
 export const NOOP_CONTROLLER: DevUIController = {
   interactive: false,
   setStatus: () => {},
+  settleRestart: () => {},
   pushServerLog: () => {},
   pushRequests: () => {},
   setRoutes: () => {},

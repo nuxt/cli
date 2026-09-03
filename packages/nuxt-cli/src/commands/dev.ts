@@ -400,7 +400,7 @@ const command = defineCommand({
           process.exit(1)
         }
         logger.error(`Could not restart the dev server, keeping the current one: ${detail}`)
-        devUI.setStatus('ready')
+        devUI.settleRestart()
         onRestart(restart)
         return
       }

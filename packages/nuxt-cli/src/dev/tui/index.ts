@@ -50,6 +50,9 @@ const ACTIVITY_MS = 700
 /** How long passing feedback stays on the panel before it is dropped. */
 const NOTICE_MS = 4000
 
+/** Statuses that mean a load is in flight, so the server is not up yet. */
+const LOADING_STATUSES = new Set<DevStatus>(['starting', 'building', 'restarting'])
+
 interface UIShortcut {
   keys: string[]
   /** Short label for the hint line. Omitted shortcuts live only in the help view. */
@@ -132,6 +135,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   let animationInterval = LOGO_FRAME_MS
   let activityTimer: NodeJS.Timeout | undefined
   let noticeTimer: NodeJS.Timeout | undefined
+  /**
+   * The load in flight raised an error, so the server never came up. Held apart
+   * from the counts, which are cumulative and so cannot say whether anything is
+   * wrong *now*.
+   */
+  let loadFailed = false
 
   function update(patch: Partial<PanelState>): void {
     Object.assign(state, patch)
@@ -252,6 +261,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   function clearHistory(): void {
     events.clear()
     requests.clear()
+    loadFailed = false
     // With the history gone, the error badge would point at nothing.
     update({ failures: 0, ...state.status === 'error' ? { status: 'ready' as DevStatus, note: undefined } : {} })
   }
@@ -270,7 +280,17 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       return
     }
     if (event.level <= 0) {
-      update({ errors: (state.errors ?? 0) + 1, status: state.status === 'ready' ? 'error' : state.status })
+      // An error raised while a load is in flight is that load failing, and
+      // nothing else reports that it has. One raised by a server already up
+      // belongs to the page it was serving.
+      loadFailed ||= LOADING_STATUSES.has(state.status)
+      update({
+        errors: (state.errors ?? 0) + 1,
+        status: 'error',
+        // The phase note describes work that is no longer happening, so the
+        // badge's own description takes the line back.
+        ...state.status === 'error' ? {} : { note: undefined },
+      })
     }
     else if (event.level === 1) {
       // A warning about what the CLI could not do says nothing about the app, so
@@ -323,6 +343,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     process.emit('SIGINT' as any)
   }
 
+  const settleRestart = () => update({ status: loadFailed ? 'error' : 'ready', note: undefined })
+
   const restart = async (options: { clearCache?: boolean } = {}) => {
     if (!context.restart) {
       return
@@ -343,7 +365,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       showNotice(`could not restart: ${error instanceof Error ? error.message : error}`, 'warn')
     }
     finally {
-      update({ status: 'ready' })
+      // A restart that got through, or whose load failed, has already reported
+      // itself through `setStatus`; only one nothing spoke for is left to settle.
+      if (state.status === 'restarting') {
+        settleRestart()
+      }
     }
   }
 
@@ -547,10 +573,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   return {
     interactive: true,
+    settleRestart,
     setStatus: (status, note) => {
       // The counts only describe what is currently wrong, so a successful load
       // supersedes earlier build errors.
       if (status === 'ready') {
+        loadFailed = false
         update({ status, note: undefined, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined, errors: 0, warnings: 0, failures: 0 })
         return
       }
@@ -582,12 +610,17 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // Nuxt answers a failed render with its error page rather than logging it,
       // so the response status is the only signal that something is wrong.
       const failing = (app.at(-1)?.status ?? 0) >= 500
-      const recovered = app.length > 0 && !failing && state.status === 'error' && !state.errors
+      // A page that failed is answered by the next one that does not, but only
+      // a load that gets through clears a failed load.
+      const recovered = app.length > 0 && !failing && state.status === 'error' && !loadFailed
+      // A request that failed because the load did is a symptom of it, and the
+      // load error is reported in the logs rather than against the request.
+      const failureNote = failing && !loadFailed ? 'a request failed · press n to trace it' : undefined
       update({
         active: true,
         failures: (state.failures ?? 0) + failed.length,
         status: failing ? 'error' : recovered ? 'ready' : state.status,
-        note: failing ? 'a request failed · press n to trace it' : recovered ? undefined : state.note,
+        note: failureNote ?? (recovered ? undefined : state.note),
       })
       repaintTicker()
       clearTimeout(activityTimer)

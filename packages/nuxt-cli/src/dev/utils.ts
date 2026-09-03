@@ -529,9 +529,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       if (this.#rejectDisallowedHost(req, res)) {
         return
       }
-      if (this.options.captureUIEvents) {
-        this.#internalResponses.add(res)
-      }
+      // The error page answers a request the client made, so it stays in the
+      // request feed rather than counting as one the CLI answered itself.
       // The recovery script makes the page reload itself once the next load
       // starts, so a fixed file shows up without the reader touching anything.
       await renderError(req, res, this.#loadingError, { inject: RECOVERY_SCRIPT })
