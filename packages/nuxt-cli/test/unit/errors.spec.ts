@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { applySourceMap, stripCwd } from '../../src/dev/error'
-import { ActionableError, isRemotePeerError } from '../../src/utils/errors'
+import { ActionableError, asActionableError, isRemotePeerError } from '../../src/utils/errors'
 
 describe('actionableError', () => {
   it('should print its advice instead of a stack trace', () => {
@@ -14,6 +14,41 @@ describe('actionableError', () => {
 
     expect(error.stack).toBe('Run `pnpm install` first.')
     expect(error.message).toBe('Run `pnpm install` first.')
+  })
+})
+
+describe('asActionableError', () => {
+  it('should lead with the remedy a nuxt error carries instead of its frames', () => {
+    const error = Object.assign(new Error('The module `@nuxt/image` could not be loaded. It may not be installed.'), {
+      code: 'NUXT_B8017',
+      fix: 'Run `npm install @nuxt/image` to install it.',
+    })
+
+    const actionable = asActionableError(error) as Error
+
+    expect(actionable).toBeInstanceOf(ActionableError)
+    expect(actionable.stack).toBe(actionable.message)
+    expect(actionable.message).toBe('The module `@nuxt/image` could not be loaded. It may not be installed.\nRun `npm install @nuxt/image` to install it.')
+    expect(actionable.stack).not.toContain('    at ')
+  })
+
+  it('should point at the docs a nuxt error references', () => {
+    const error = Object.assign(new Error('Something is misconfigured.'), {
+      fix: 'Set `compatibilityDate`.',
+      docs: 'https://nuxt.com/docs',
+    })
+
+    expect((asActionableError(error) as Error).message).toBe('Something is misconfigured.\nSet `compatibilityDate`.\nSee https://nuxt.com/docs')
+  })
+
+  it('should leave an untagged error alone, since its stack is all there is', () => {
+    const error = new Error('boom')
+
+    const blank = Object.assign(new Error('boom'), { fix: '  ' })
+
+    expect(asActionableError(error)).toBe(error)
+    expect(asActionableError(blank)).toBe(blank)
+    expect(asActionableError('not an error')).toBe('not an error')
   })
 })
 

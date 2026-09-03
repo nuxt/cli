@@ -1,5 +1,6 @@
 import type { AddressInfo } from 'node:net'
 
+import { EventEmitter } from 'node:events'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -96,6 +97,25 @@ async function get(server: InstanceType<typeof NuxtDevServer>, path = '/'): Prom
   return { status: response.status, body: await response.text() }
 }
 
+/** Drive `handler` without a socket, for a server that has not listened yet. */
+async function serveLocally(server: InstanceType<typeof NuxtDevServer>, path: string): Promise<{ status: number }> {
+  const res = new EventEmitter() as any
+  res.statusCode = 200
+  res.headersSent = false
+  res.writableEnded = false
+  res.setHeader = () => {}
+  res.end = () => {
+    res.writableEnded = true
+    res.headersSent = true
+    res.emit('close')
+  }
+  const closed = new Promise<void>(resolve => res.once('close', resolve))
+  const req = { url: path, method: 'GET', headers: { accept: 'text/html', host: '127.0.0.1' }, rawHeaders: [] } as any
+  await server.handler(req, res)
+  await closed
+  return { status: res.statusCode }
+}
+
 async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'nuxt-dev-lifecycle-'))
   tempDirs.push(dir)
@@ -186,20 +206,27 @@ describe('dev server startup', () => {
 })
 
 describe('dev server request feed', () => {
-  it('should keep its own loading and error responses out of the feed', async () => {
+  it('should keep its own loading responses out of the feed', async () => {
+    const server = createServer({ captureUIEvents: true, loadingTemplate: () => 'loading' })
+    const seen: Array<{ url: string, status: number }> = []
+    server.on('request', event => seen.push({ url: event.url, status: event.status }))
+
+    await expect(serveLocally(server, '/loading')).resolves.toMatchObject({ status: 503 })
+
+    expect(seen).toEqual([])
+  })
+
+  it('should record a request answered by the error page', async () => {
     const server = createServer({ captureUIEvents: true })
     await server.init()
     const seen: Array<{ url: string, status: number }> = []
     server.on('request', event => seen.push({ url: event.url, status: event.status }))
 
-    await expect(get(server, '/app')).resolves.toMatchObject({ status: 200 })
-
     loadNuxt.mockImplementation(() => Promise.reject(new Error('config exploded')))
     await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
     await expect(get(server, '/broken')).resolves.toMatchObject({ status: 500 })
 
-    await vi.waitFor(() => expect(seen).toContainEqual({ url: '/app', status: 200 }))
-    expect(seen).not.toContainEqual(expect.objectContaining({ url: '/broken' }))
+    await vi.waitFor(() => expect(seen).toContainEqual({ url: '/broken', status: 500 }))
   })
 })
 

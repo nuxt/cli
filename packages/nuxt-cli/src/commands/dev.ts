@@ -231,14 +231,21 @@ const command = defineCommand({
       listenOverrides.showURL = false
     }
 
-    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
+    const started = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
       showBanner: !ui,
       captureUIEvents: ui,
       onProgress: session && (snapshot => session.reportProgress(snapshot)),
       onListening: session && (info => session.reportListening(info)),
+    }).catch((error: unknown) => {
+      // The panel is mid-startup and holding the terminal, so it has to give it
+      // back before the error is printed under it.
+      session?.teardown()
+      throw error
     })
+
+    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onFileChange } = started
 
     /** Feed the dev UI from the server running in this process. */
     function attachDevUI(devUI: DevUIController): DevUIController {
@@ -393,7 +400,7 @@ const command = defineCommand({
           process.exit(1)
         }
         logger.error(`Could not restart the dev server, keeping the current one: ${detail}`)
-        devUI.setStatus('ready')
+        devUI.settleRestart()
         onRestart(restart)
         return
       }

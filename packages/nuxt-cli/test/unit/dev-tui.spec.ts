@@ -2283,7 +2283,7 @@ const context = {
   onReady: () => {},
 }
 
-async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>): Promise<void> {
+async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>, overrides: Record<string, unknown> = {}): Promise<void> {
   const chunks: string[] = []
   const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
   const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
@@ -2298,7 +2298,7 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
     return true
   })
   const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
-  const ui = setupDevUI(context as never, { ci: false, test: false, version: '4.5.2' })
+  const ui = setupDevUI({ ...context, ...overrides } as never, { ci: false, test: false, version: '4.5.2' })
   try {
     await run(ui, async () => {
       // The panel repaints on a trailing timer, so nothing is on screen yet.
@@ -2447,6 +2447,141 @@ describe('request failures on the panel', () => {
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
       expect(last).toContain('ERROR')
       expect(last).toContain('a request failed')
+    })
+  })
+
+  it('should return to ready once a request succeeds after a failing one', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      // A failed render is reported as a log as well as a status.
+      ui.pushServerLog({ level: 0, logType: 'error', message: '/app.vue \u2014 Interpolation end sign was not found.', origin: 'runtime' })
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      expect(await settle()).toContain('a request failed')
+      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('a request failed')
+    })
+  })
+
+  it('should report a load that errors rather than leaving its phase on the panel', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).toContain('an error was logged')
+      expect(last).not.toContain('BUILDING')
+    })
+  })
+
+  it('should count a request the error page answered while a load has failed', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('1 failed request')
+      expect(last).toContain('ERROR')
+      expect(last).toContain('an error was logged')
+      expect(last).not.toContain('a request failed')
+    })
+  })
+
+  it('should keep a failed load on the panel across a restart that does not fix it', async () => {
+    let restarts = 0
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      await vi.waitFor(() => expect(restarts).toBe(1))
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).not.toContain('READY')
+    }, {
+      // `devServer.load` reports a failed reload through the log and resolves.
+      restart: async () => {
+        restarts++
+      },
+    })
+  })
+
+  it('should keep the error when a restart is abandoned and the broken server is kept', async () => {
+    // `replaceWithFork` keeps the outgoing server when the incoming fork dies.
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      ui.setStatus('restarting', 'restarting')
+      ui.settleRestart()
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).not.toContain('READY')
+    })
+  })
+
+  it('should return a healthy server to ready when a restart is abandoned', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setStatus('restarting', 'restarting')
+      ui.settleRestart()
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('RESTART')
+    })
+  })
+
+  it('should settle a restart that nothing else spoke for', async () => {
+    let restarts = 0
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      await settle()
+
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      await vi.waitFor(() => expect(restarts).toBe(1))
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('RESTART')
+    }, {
+      restart: async () => {
+        restarts++
+      },
+    })
+  })
+
+  it('should keep a failed load on the panel until a load gets through', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      // A page answered off the previous build says nothing about the load.
+      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      const served = await settle()
+      expect(served.slice(served.lastIndexOf('Nuxt 4.5.2'))).toContain('ERROR')
+
+      ui.setStatus('ready')
+      const reloaded = await settle()
+      expect(reloaded.slice(reloaded.lastIndexOf('Nuxt 4.5.2'))).toContain('READY')
     })
   })
 })

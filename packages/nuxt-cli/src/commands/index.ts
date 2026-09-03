@@ -1,6 +1,59 @@
-import type { CommandDef } from 'citty'
+import type { CommandDef, SubCommandsDef } from 'citty'
 
-const _rDefault = (r: any) => (r.default || r) as Promise<CommandDef>
+import { asActionableError } from '../utils/errors'
+
+type Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>)
+
+function resolve<T>(value: Resolvable<T>): T | Promise<T> {
+  return typeof value === 'function' ? (value as () => T | Promise<T>)() : value
+}
+
+/**
+ * Carry the boundary into a command's subcommands, keeping each one lazy so
+ * wrapping a parent never loads them.
+ *
+ * The map is itself resolvable, and enumerating a function or a promise yields
+ * no entries, so it is resolved before being walked and stays a resolver where
+ * it began as one.
+ */
+function withRemedies(subCommands: Resolvable<SubCommandsDef>): Resolvable<SubCommandsDef> {
+  const wrapEntries = (resolved: SubCommandsDef): SubCommandsDef => Object.fromEntries(
+    Object.entries(resolved).map(([name, subCommand]) => [
+      name,
+      async () => withRemedy(await resolve(subCommand)),
+    ]),
+  )
+  return typeof subCommands === 'function' || subCommands instanceof Promise
+    ? async () => wrapEntries(await resolve(subCommands))
+    : wrapEntries(subCommands)
+}
+
+/**
+ * One error boundary for every command.
+ *
+ * A tagged error can be raised from any of the kit entry points a command
+ * touches, so the remedy is applied where the command ends rather than at each
+ * of them.
+ */
+export function withRemedy(command: CommandDef): CommandDef {
+  const { run, subCommands } = command
+  return {
+    ...command,
+    ...run && {
+      async run(context: Parameters<typeof run>[0]) {
+        try {
+          return await run(context)
+        }
+        catch (error) {
+          throw asActionableError(error)
+        }
+      },
+    },
+    ...subCommands && { subCommands: withRemedies(subCommands) },
+  }
+}
+
+const _rDefault = (r: any) => withRemedy((r.default || r) as CommandDef) as unknown as Promise<CommandDef>
 
 const commandLoaders = {
   'add': () => import('./add').then(_rDefault),
