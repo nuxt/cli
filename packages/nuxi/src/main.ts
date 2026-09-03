@@ -1,7 +1,5 @@
 import type { CommandDef } from 'citty'
 
-import nodeCrypto from 'node:crypto'
-import { builtinModules, createRequire } from 'node:module'
 import { resolve } from 'node:path'
 import process from 'node:process'
 
@@ -16,22 +14,6 @@ import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { findInPath, withLocalBinPath } from '../../nuxt-cli/src/utils/path-env'
 import { description, name, version } from '../package.json'
-
-// globalThis.crypto support for Node.js 18
-if (!globalThis.crypto) {
-  globalThis.crypto = nodeCrypto.webcrypto as unknown as Crypto
-}
-
-// Node.js below v22.3.0, v20.16.0
-if (!process.getBuiltinModule) {
-  const _require = createRequire(import.meta.url)
-  // @ts-expect-error we are overriding with inferior types
-  process.getBuiltinModule = (name: string) => {
-    if (name.startsWith('node:') || builtinModules.includes(name)) {
-      return _require.resolve(name)
-    }
-  }
-}
 
 const commands = {
   init: () => import('../../create-nuxt/src/init').then(m => m.default || m),

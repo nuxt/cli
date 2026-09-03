@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import inspector from 'node:inspector'
 import nodeModule from 'node:module'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -42,7 +41,7 @@ if (
   process.argv.includes('--profile')
   || process.argv.some(a => a.startsWith('--profile='))
 ) {
-  const session = new inspector.Session()
+  const session = new (process.getBuiltinModule('node:inspector').Session)()
   session.connect()
 
   try {
