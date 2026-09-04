@@ -84,7 +84,7 @@ async function resolveLatestVersion(name: string): Promise<string | undefined> {
 
   let latest: string | undefined
   try {
-    const { registry, authorization } = await detectNpmRegistry(null)
+    const { registry, authorization } = await detectNpmRegistry(null, null)
     latest = (await fetchJson<{ latest?: string }>(`${registry}/-/package/${name}/dist-tags`, {
       headers: authorization ? { Authorization: authorization } : undefined,
       timeout: FETCH_TIMEOUT,
