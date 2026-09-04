@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { BroadcastChannel } from 'node:worker_threads'
 
+import { normalize } from 'pathe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { closeErrorChannel, createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_BROADCAST_CHANNEL, formatReportForTerminal, isDevErrorMessage, isErrorChannelRequest, openErrorBridge, renderErrorPage, summariseReport, toBuildProgress, toCompileInput, useErrorChannel } from '../../src/dev/error-channel'
@@ -145,11 +146,12 @@ describe('toCompileInput', () => {
 
     const input = toCompileInput(error)
 
+    // Handed on with forward slashes, which is the only form a report reads.
     expect(input).toMatchObject({
       name: 'ParseError',
       message: 'Unexpected token, expected ","',
-      id: file,
-      loc: { file, line: 3, column: 2 },
+      id: normalize(file),
+      loc: { file: normalize(file), line: 3, column: 2 },
     })
   })
 
