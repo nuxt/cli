@@ -120,7 +120,7 @@ const command = defineCommand({
     },
     'public': {
       type: 'boolean',
-      description: 'Listen on all network interfaces',
+      description: 'Listen on all network interfaces and allow any host to connect',
     },
     'publicURL': {
       type: 'string',

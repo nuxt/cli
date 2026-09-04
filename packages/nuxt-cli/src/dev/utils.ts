@@ -496,7 +496,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       res.statusCode = 403
       res.setHeader('Content-Type', 'text/plain')
     }
-    res.end('Forbidden: this host is not allowed. Pass `--host` to allow it.')
+    res.end('Forbidden: this host is not allowed. Pass it to `--host`, or `--public` to allow any host.')
     return true
   }
 
@@ -1039,7 +1039,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
-    const isPublic = provider === 'codesandbox' || (overrides.public ?? (isPublicHostname(hostname) ? true : undefined))
+    // Only `--public` (or a sandbox that fronts the server) drops the `Host` and
+    // CORS checks. A non-loopback `--host` widens who can reach the bind, not
+    // which origins may read from it.
+    const isPublic = provider === 'codesandbox' || overrides.public
 
     // `--https` (or its absence) wins over the config; `https.*` arguments and
     // `devServer.https` options only apply once https is enabled.
@@ -1528,8 +1531,4 @@ function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
     cancel()
     configDirWatcher.close()
   }
-}
-
-function isPublicHostname(hostname: string | undefined): boolean {
-  return !!hostname && !['localhost', '127.0.0.1', '::1'].includes(hostname)
 }
