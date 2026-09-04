@@ -37,7 +37,7 @@ import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../uti
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { resolveServerBuild } from '../utils/server-build'
-import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, renderErrorPage, summariseReport, toBuildProgress, useErrorChannel, withErrorChannel } from './error-channel'
+import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, renderErrorPage, resolveChannelPath, summariseReport, toBuildProgress, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
 import { isAllowedHost } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
@@ -664,9 +664,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       delete process.env[ERROR_CHANNEL_ENV]
       return
     }
-    if (typeof devServer.errorChannel === 'string' && devServer.errorChannel.startsWith('/')) {
-      this.#errorChannel = devServer.errorChannel
-      process.env[ERROR_CHANNEL_ENV] = this.#errorChannel
+    const configured = resolveChannelPath(devServer.errorChannel)
+    if (configured) {
+      this.#errorChannel = configured
+      process.env[ERROR_CHANNEL_ENV] = configured
     }
   }
 

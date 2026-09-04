@@ -58,10 +58,19 @@ export interface ErrorChannelOptions {
  * started.
  */
 export function useErrorChannel(options: ErrorChannelOptions = {}): Promise<Channel> {
-  channel ??= import('my-bad/channel').then(async ({ createChannel }) => createChannel({
-    open: true,
-    sink: await resolveSink(options),
-  }))
+  if (!channel) {
+    const pending = channel = import('my-bad/channel').then(async ({ createChannel }) => createChannel({
+      open: true,
+      sink: await resolveSink(options),
+    }))
+    // A channel that failed to open is not cached, or every later error would
+    // be answered with the same rejection.
+    pending.catch(() => {
+      if (channel === pending) {
+        channel = undefined
+      }
+    })
+  }
   return channel
 }
 
@@ -76,6 +85,18 @@ async function resolveSink(options: ErrorChannelOptions) {
     : requested
   const { fileSink } = await import('my-bad/sinks')
   return fileSink(path)
+}
+
+/**
+ * The channel path a config asks for, or nothing when it cannot be served
+ * there: a bare or trailing slash would intercept the app's own routes.
+ */
+export function resolveChannelPath(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const path = value.replace(/\/+$/, '')
+  return path.startsWith('/') && path.length > 1 ? path : undefined
 }
 
 /** Whether `path` is served by the channel mounted at `base`. */

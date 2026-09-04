@@ -11,7 +11,7 @@ import { BroadcastChannel } from 'node:worker_threads'
 import { normalize } from 'pathe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { closeErrorChannel, createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_BROADCAST_CHANNEL, formatReportForTerminal, isDevErrorMessage, isErrorChannelRequest, openErrorBridge, renderErrorPage, summariseReport, toBuildProgress, toCompileInput, useErrorChannel } from '../../src/dev/error-channel'
+import { closeErrorChannel, createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_BROADCAST_CHANNEL, formatReportForTerminal, isDevErrorMessage, isErrorChannelRequest, openErrorBridge, renderErrorPage, resolveChannelPath, summariseReport, toBuildProgress, toCompileInput, useErrorChannel } from '../../src/dev/error-channel'
 import { NuxtDevServer } from '../../src/dev/utils'
 
 function createResponse() {
@@ -70,6 +70,16 @@ afterEach(async () => {
   vi.unstubAllEnvs()
   delete process.env.NUXT_DEV_ERROR_CHANNEL
   await closeErrorChannel()
+})
+
+describe('resolveChannelPath', () => {
+  it('should refuse a path that would swallow the app\'s own routes', () => {
+    expect(resolveChannelPath('/__nuxt_dev__/error')).toBe('/__nuxt_dev__/error')
+    expect(resolveChannelPath('/__nuxt_dev__/error/')).toBe('/__nuxt_dev__/error')
+    expect(resolveChannelPath('/')).toBeUndefined()
+    expect(resolveChannelPath('__nuxt_dev__/error')).toBeUndefined()
+    expect(resolveChannelPath(42)).toBeUndefined()
+  })
 })
 
 describe('isErrorChannelRequest', () => {
