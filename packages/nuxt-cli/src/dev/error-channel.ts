@@ -295,7 +295,7 @@ export async function summariseReport(report: ErrorReport, context: ReportContex
     location: frame?.file && formatLocation(frame.file, frame.line, frame.column, cwd),
     requestId: context.requestId,
     request: context.request,
-    ansi: await renderReportAnsi(report),
+    ansi: await renderReportAnsi(report, cwd),
   }
 }
 

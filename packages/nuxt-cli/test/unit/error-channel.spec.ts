@@ -298,6 +298,13 @@ describe('the CLI-owned error channel', () => {
     expect((await useErrorChannel()).current?.id).toBe(reports[1]!.report.id)
   })
 
+  it('should write paths relative to the project it was given', async () => {
+    const summary = await summariseReport(compileReport('/app/app.vue', 16, 6), {}, '/app')
+
+    expect(summary.ansi).toContain('app.vue:16:6')
+    expect(summary.ansi).not.toContain('/app/app.vue:16:6')
+  })
+
   it('should not echo a cause that only repeats its parent', async () => {
     const wrapped = compileReport('/app/app.vue', 3, 1)
     wrapped.causes = [{ ...wrapped.causes[0]!, message: wrapped.message, name: 'HTTPError' }]
