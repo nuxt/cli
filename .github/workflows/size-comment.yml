@@ -25,19 +25,37 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
-      - name: ⏬ Download artifacts from workflow run
+      - name: ⏬ Download head stats
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
-          path: .
+          name: head-stats
+          path: artifacts/head-stats
+
+      - name: ⏬ Download base stats
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: base-stats
+          path: artifacts/base-stats
+
+      - name: ⏬ Download PR number
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        if: false
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: pr-number
+          path: artifacts/pr-number
 
       - name: 🔍 Get PR number from artifact
         id: pr
         if: false
         run: |
-          if [ -f pr-number/pr-number.txt ]; then
-            PR_NUMBER=$(cat pr-number/pr-number.txt)
+          if [ -f artifacts/pr-number/pr-number.txt ]; then
+            PR_NUMBER=$(cat artifacts/pr-number/pr-number.txt)
             echo "result=$PR_NUMBER" >> $GITHUB_OUTPUT
             echo "Found PR number: $PR_NUMBER"
           else
@@ -47,6 +65,8 @@ jobs:
 
       - name: 📊 Generate size comparison
         id: sizes
+        env:
+          STATS_DIR: ${{ github.workspace }}/artifacts
         run: |
           COMMENT=$(node scripts/parse-sizes.ts nuxi nuxt-cli create-nuxt)
           echo "comment<<EOF" >> $GITHUB_OUTPUT
