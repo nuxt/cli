@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -99,6 +99,30 @@ describe('findDevServer', () => {
     await writeLock('custom')
 
     await expect(findDevServer(cwd, 'custom')).resolves.toMatchObject({ pid: 424242 })
+  })
+
+  it('ignores a lock whose URL names another machine', async () => {
+    await writeLock('.nuxt', { url: 'https://attacker.example' })
+    await expect(findDevServer(cwd)).resolves.toBeUndefined()
+
+    await writeLock('.nuxt', { url: 'http://203.0.113.7:3000' })
+    await expect(findDevServer(cwd)).resolves.toBeUndefined()
+  })
+
+  it('accepts a lock bound to one of this machine\'s own addresses', async () => {
+    const address = Object.values(networkInterfaces()).flat().find(info => info && !info.internal && info.family === 'IPv4')?.address
+    if (!address) {
+      return
+    }
+    await writeLock('.nuxt', { url: `http://${address}:3000` })
+
+    await expect(findDevServer(cwd)).resolves.toMatchObject({ url: `http://${address}:3000` })
+  })
+
+  it('accepts a lock bound to IPv6 loopback', async () => {
+    await writeLock('.nuxt', { url: 'http://[::1]:3000' })
+
+    await expect(findDevServer(cwd)).resolves.toMatchObject({ url: 'http://[::1]:3000' })
   })
 })
 
