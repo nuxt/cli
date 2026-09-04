@@ -10,6 +10,7 @@ import { defu } from 'defu'
 import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
+import { isAllowedHost } from '../dev/host-check'
 import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
@@ -203,9 +204,15 @@ export default defineCommand({
 
       logger.step('Starting stats server...')
 
+      const hostname = process.env.HOST || 'localhost'
+      const allowedHosts = new Set([hostname.toLowerCase()])
+
       await serve({
-        hostname: process.env.HOST || 'localhost',
+        hostname,
         fetch(request) {
+          if (!isAllowedHost(request.headers.get('host') ?? undefined, allowedHosts)) {
+            return new Response('Forbidden: this host is not allowed.', { status: 403, headers: { 'content-type': 'text/plain' } })
+          }
           const pathname = new URL(request.url).pathname.replace(/\/$/, '')
           if (reports.has(pathname)) {
             const report = reports.get(pathname)
