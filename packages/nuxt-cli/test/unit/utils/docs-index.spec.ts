@@ -145,17 +145,20 @@ describe('resolveDocsIndex', () => {
     expect(index?.entries.map(entry => entry.title)).toEqual(['Guide'])
   })
 
-  it('should reuse a cached index until the Nuxt version changes', async () => {
+  it('should read the installed docs afresh rather than from the cache', async () => {
     const project = createProject('4.5.2', { 'guide.md': page('Guide') })
     expect((await resolveDocsIndex(project))?.entries.map(entry => entry.title)).toEqual(['Guide'])
 
     writeFileSync(join(project, 'node_modules/@nuxt/docs/guide.md'), page('Renamed'))
-    expect((await resolveDocsIndex(project))?.entries.map(entry => entry.title)).toEqual(['Guide'])
-
-    for (const pkg of ['nuxt', '@nuxt/docs']) {
-      writeFileSync(join(project, 'node_modules', pkg, 'package.json'), JSON.stringify({ name: pkg, version: '4.5.3', exports: { './*': './*' } }))
-    }
     expect((await resolveDocsIndex(project))?.entries.map(entry => entry.title)).toEqual(['Renamed'])
+  })
+
+  it('should strip control characters from indexed titles and descriptions', async () => {
+    const index = await resolveDocsIndex(createProject('4.5.2', {
+      'guide.md': '---\ntitle: "Guide\\e[31m"\ndescription: "Read\\a me"\n---\n',
+    }))
+
+    expect(index?.entries[0]).toMatchObject({ title: 'Guide[31m', description: 'Read me' })
   })
 
   it('should fetch the docs published for the project\'s Nuxt version when none are installed', async () => {
@@ -174,6 +177,17 @@ describe('resolveDocsIndex', () => {
     expect(index?.entries.map(entry => entry.title)).toEqual(['Fetched'])
 
     // The fetched index is cached, so a second search does not hit the registry.
+    fetchSpy.mockClear()
+    expect((await resolveDocsIndex(cwd))?.entries.map(entry => entry.title)).toEqual(['Fetched'])
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    // A project configuring another registry gets its own cache entry.
+    writeFileSync(join(cwd, '.npmrc'), 'registry=https://proxy.example.com/npm/\n')
+    fetchSpy.mockResolvedValue(new Response(createTarball({ 'guide.md': page('Proxied') })))
+    expect((await resolveDocsIndex(cwd))?.entries.map(entry => entry.title)).toEqual(['Proxied'])
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    rmSync(join(cwd, '.npmrc'))
     fetchSpy.mockClear()
     expect((await resolveDocsIndex(cwd))?.entries.map(entry => entry.title)).toEqual(['Fetched'])
     expect(fetchSpy).not.toHaveBeenCalled()

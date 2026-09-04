@@ -1,5 +1,8 @@
+import type { RegistryMeta } from './registry'
+
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 
 import { parseYAML } from 'confbox/yaml'
@@ -41,6 +44,8 @@ const MARKDOWN_EXTENSION_RE = /\.md$/
 const MAJOR_VERSION_RE = /^\d+$/
 const EXACT_VERSION_RE = /^\d+\.\d+\.\d+(?:-[\w.]+)?$/
 const MARKDOWN_SYNTAX_RE = /[`*_[\]]|\{[^}]*\}/g
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F-\u009F]/g
 
 export const DOCS_BASE_URL = 'https://nuxt.com'
 export const DOCS_PATH = '/docs'
@@ -67,20 +72,24 @@ const UNSAFE_KEY_RE = /[^\w.+-]/g
  */
 export async function resolveDocsIndex(cwd: string, options: DocsIndexProgress = {}): Promise<DocsIndex | undefined> {
   const nuxtVersion = await getNuxtVersion(cwd).catch(() => undefined)
-  const cached = readCache(nuxtVersion)
+
+  const local = localDocs(cwd)
+  if (local && (!nuxtVersion || sameMajor(local.version, nuxtVersion))) {
+    return indexLocal(local, options)
+  }
+
+  const source = await detectNpmRegistry('@nuxt', cwd)
+  const cached = readCache(nuxtVersion, source.registry)
   if (cached) {
     return cached
   }
 
-  const local = localDocs(cwd)
-  const index = local && (!nuxtVersion || sameMajor(local.version, nuxtVersion))
-    ? indexLocal(local, options)
-    : await fetchIndex(cwd, nuxtVersion, options) ?? (local && indexLocal(local, options))
-
+  const index = await fetchIndex(source, nuxtVersion, options)
   if (index) {
-    writeCache(nuxtVersion, index)
+    writeCache(nuxtVersion, source.registry, index)
+    return index
   }
-  return index || undefined
+  return local ? indexLocal(local, options) : undefined
 }
 
 export interface DocsIndexProgress {
@@ -119,14 +128,14 @@ function localDocs(cwd: string): { root: string, version: string } | undefined {
  * predate the package or be a nightly, so the highest release sharing its major
  * (then whatever is latest) is accepted as a stand-in.
  */
-async function fetchIndex(cwd: string, nuxtVersion: string | undefined, options: DocsIndexProgress): Promise<DocsIndex | undefined> {
+async function fetchIndex(source: RegistryMeta, nuxtVersion: string | undefined, options: DocsIndexProgress): Promise<DocsIndex | undefined> {
   const attempted = new Set<string>()
   for await (const version of candidateVersions(nuxtVersion)) {
     if (attempted.has(version)) {
       continue
     }
     attempted.add(version)
-    const index = await downloadIndex(cwd, version, options)
+    const index = await downloadIndex(source, version, options)
     if (index) {
       return index
     }
@@ -148,11 +157,11 @@ async function* candidateVersions(nuxtVersion: string | undefined): AsyncGenerat
   }
 }
 
-async function downloadIndex(cwd: string, version: string, options: DocsIndexProgress): Promise<DocsIndex | undefined> {
+async function downloadIndex(source: RegistryMeta, version: string, options: DocsIndexProgress): Promise<DocsIndex | undefined> {
   options.onDownload?.(version)
   const staging = mkdtempSync(join(getCacheDir(CACHE_DIR), '.staging-'))
   try {
-    const tarball = await downloadTarball(cwd, version)
+    const tarball = await downloadTarball(source, version)
     if (!tarball) {
       return undefined
     }
@@ -197,8 +206,7 @@ function assertSafeArchiveMembers(archive: string): void {
  * itself: the docs are a public package, so a proxy that rejects this process is
  * no reason to give up on them.
  */
-async function downloadTarball(cwd: string, version: string): Promise<Buffer | undefined> {
-  const { registry, authorization } = await detectNpmRegistry('@nuxt', cwd)
+async function downloadTarball({ registry, authorization }: RegistryMeta, version: string): Promise<Buffer | undefined> {
   const sources: [registry: string, authorization: string | null][] = [[registry, authorization]]
   if (registry !== PUBLIC_REGISTRY) {
     sources.push([PUBLIC_REGISTRY, null])
@@ -268,18 +276,21 @@ function buildIndex(root: string, version: string): DocsIndex | undefined {
 /**
  * Keyed by the Nuxt version asked about rather than the docs version resolved for
  * it, so a project on a Nuxt release with no docs of its own does not repeat the
- * registry lookup that found the stand-in.
+ * registry lookup that found the stand-in. The registry is part of the key too:
+ * a project can name its own in `.npmrc`, and what that serves should not be
+ * offered as the docs in projects that use a different one.
  */
-function cacheFile(nuxtVersion: string | undefined): string {
+function cacheFile(nuxtVersion: string | undefined, registry: string): string {
   // A version can be anything a `package.json` or a dependency specifier holds, so
   // it is reduced to a file name rather than trusted as one.
   const key = (nuxtVersion || 'latest').replace(UNSAFE_KEY_RE, '_')
-  return join(getCacheDir(CACHE_DIR), `index-${key}.json`)
+  const suffix = registry === PUBLIC_REGISTRY ? '' : `-${createHash('sha256').update(registry).digest('hex').slice(0, 12)}`
+  return join(getCacheDir(CACHE_DIR), `index-${key}${suffix}.json`)
 }
 
-function readCache(nuxtVersion: string | undefined): DocsIndex | undefined {
+function readCache(nuxtVersion: string | undefined, registry: string): DocsIndex | undefined {
   try {
-    const cached = JSON.parse(readFileSync(cacheFile(nuxtVersion), 'utf8')) as DocsIndex
+    const cached = JSON.parse(readFileSync(cacheFile(nuxtVersion, registry), 'utf8')) as DocsIndex
     return cached.entries?.length > 0 ? cached : undefined
   }
   catch {
@@ -287,9 +298,9 @@ function readCache(nuxtVersion: string | undefined): DocsIndex | undefined {
   }
 }
 
-function writeCache(nuxtVersion: string | undefined, index: DocsIndex): void {
+function writeCache(nuxtVersion: string | undefined, registry: string, index: DocsIndex): void {
   try {
-    writeFileSync(cacheFile(nuxtVersion), JSON.stringify(index), 'utf8')
+    writeFileSync(cacheFile(nuxtVersion, registry), JSON.stringify(index), 'utf8')
   }
   catch (error) {
     debug('Could not cache the documentation index:', error)
@@ -323,11 +334,12 @@ function readEntry(root: string, file: string): DocsEntry | undefined {
     return undefined
   }
 
-  const path = toSitePath(relative(root, file))
-  const title = data.title?.trim() || path.split('/').pop() || path
+  // Everything indexed ends up on the terminal, so escape sequences are dropped.
+  const path = toSitePath(relative(root, file)).replace(CONTROL_CHARS_RE, '')
+  const title = data.title?.replace(CONTROL_CHARS_RE, '').trim() || path.split('/').pop() || path
   return {
     title,
-    description: data.description?.trim(),
+    description: data.description?.replace(CONTROL_CHARS_RE, '').trim(),
     path,
     headings: [...source.matchAll(HEADING_RE)].map(match => clean(match[1]!)),
   }
