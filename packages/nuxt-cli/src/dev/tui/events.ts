@@ -12,6 +12,8 @@ export interface DevLogEvent {
   message: string
   /** The formatted output as it would have been printed, colour and all. */
   rendered?: string
+  /** The message carries its own colours, so severity styling must not be applied. */
+  styled?: boolean
   /** Recovered from printed output rather than reported by a logger. */
   raw?: boolean
   /** Already paired with the other route the same log arrived by. */

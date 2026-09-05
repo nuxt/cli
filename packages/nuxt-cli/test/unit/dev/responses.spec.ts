@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import { describe, expect, it } from 'vitest'
 
-import { renderError } from '../../../src/dev/error'
+import { sendErrorResponse } from '../../../src/dev/error-response'
 import { NuxtDevServer } from '../../../src/dev/utils'
 
 interface FakeResponse {
@@ -51,10 +51,10 @@ function createResponse(): FakeResponse {
   }) as unknown as FakeResponse
 }
 
-describe('renderError', () => {
+describe('sendErrorResponse', () => {
   it('should escape an error message in the html error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html'), res.response, new Error('<script>alert(1)</script>'))
+    await sendErrorResponse(createRequest('text/html'), res.response, new Error('<script>alert(1)</script>'))
 
     expect(res.statusCode).toBe(500)
     expect(res.headers['content-type']).toBe('text/html')
@@ -64,14 +64,14 @@ describe('renderError', () => {
 
   it('should escape a reflected request url in the html error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html', '/</script><script>alert(1)</script>'), res.response, new Error('boom'))
+    await sendErrorResponse(createRequest('text/html', '/</script><script>alert(1)</script>'), res.response, new Error('boom'))
 
     expect(res.body).not.toContain('<script>alert(1)</script>')
   })
 
   it('should answer a non-html client with json', async () => {
     const res = createResponse()
-    await renderError(createRequest('application/json'), res.response, new Error('boom'))
+    await sendErrorResponse(createRequest('application/json'), res.response, new Error('boom'))
 
     expect(res.headers['content-type']).toBe('application/json')
     expect(JSON.parse(res.body)).toMatchObject({ error: true, status: 500, message: 'boom' })
@@ -79,7 +79,7 @@ describe('renderError', () => {
 
   it('should send hardening headers with the error page', async () => {
     const res = createResponse()
-    await renderError(createRequest('text/html'), res.response, new Error('boom'))
+    await sendErrorResponse(createRequest('text/html'), res.response, new Error('boom'))
 
     expect(res.headers).toMatchObject({
       'cache-control': 'no-store',
@@ -92,14 +92,14 @@ describe('renderError', () => {
   it('should not write a body once headers have been sent', async () => {
     const res = createResponse()
     res.headersSent = true
-    await renderError(createRequest('text/html'), res.response, new Error('boom'))
+    await sendErrorResponse(createRequest('text/html'), res.response, new Error('boom'))
 
     expect(res.body).toBe('')
   })
 
   it('should render a non-error rejection value', async () => {
     const res = createResponse()
-    await renderError(createRequest('application/json'), res.response, 'just a string')
+    await sendErrorResponse(createRequest('application/json'), res.response, 'just a string')
 
     expect(JSON.parse(res.body)).toMatchObject({ status: 500, message: 'Unknown error' })
   })

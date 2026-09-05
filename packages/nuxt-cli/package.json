@@ -33,7 +33,7 @@
     "build": "tsdown",
     "dev:prepare": "tsdown --watch",
     "prepack": "tsdown",
-    "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-youch.ts && node --experimental-strip-types ../../scripts/check-loading-page.ts"
+    "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-loading-page.ts"
   },
   "peerDependencies": {
     "@nuxt/docs": "^4.0.0",
@@ -73,6 +73,7 @@
     "exsolve": "^1.1.1",
     "fuzzysort": "^4.0.2",
     "get-port-please": "^3.2.0",
+    "my-bad": "0.0.1",
     "obug": "^2.1.4",
     "pathe": "^2.0.3",
     "perfect-debounce": "^2.1.0",
@@ -105,8 +106,6 @@
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "undici": "^8.10.0",
-    "vitest": "^4.1.11",
-    "youch": "^4.1.1",
-    "youch-core": "^0.3.3"
+    "vitest": "^4.1.11"
   }
 }
