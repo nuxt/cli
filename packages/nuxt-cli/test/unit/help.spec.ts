@@ -232,7 +232,7 @@ describe('help', () => {
                              --clipboard    Copy the URL to the clipboard (Default: false)                                                                                                      
                                     --qr    Print a QR code for the public URL (enabled by default when one is available)                                                                       
                                 --tunnel    Expose the server via a Cloudflare quick tunnel                                                                                                     
-                                --public    Listen on all network interfaces                                                                                                                    
+                                --public    Listen on all network interfaces and allow any host to connect                                                                                      
                        --publicURL=<url>    Public URL to display (used for QR code and clipboard)                                                                                              
                                  --https    Enable HTTPS with a locally-trusted development certificate                                                                                         
                      --https.cert=<path>    Path to TLS certificate                                                                                                                             
