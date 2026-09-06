@@ -664,11 +664,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       delete process.env[ERROR_CHANNEL_ENV]
       return
     }
-    const configured = resolveChannelPath(devServer.errorChannel)
-    if (configured) {
-      this.#errorChannel = configured
-      process.env[ERROR_CHANNEL_ENV] = configured
-    }
+    this.#errorChannel = resolveChannelPath(devServer.errorChannel) ?? DEFAULT_ERROR_CHANNEL
+    process.env[ERROR_CHANNEL_ENV] = this.#errorChannel
   }
 
   /**
