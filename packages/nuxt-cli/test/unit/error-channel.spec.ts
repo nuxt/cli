@@ -102,6 +102,14 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:report', report: {}, request: 7 })).toBe(false)
     expect(isDevErrorMessage(undefined)).toBe(false)
   })
+
+  it('should only accept a log entry the drawer can show', () => {
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:log', entry: { level: 'info', text: 'ready', timestamp: 1 } })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:log', entry: { level: 'shout', text: 'ready' } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:log', entry: { level: 'info', text: 42 } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:log', entry: null })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:log' })).toBe(false)
+  })
 })
 
 describe('toBuildProgress', () => {
@@ -267,6 +275,26 @@ describe('the CLI-owned error channel', () => {
     const { res, chunks } = createResponse()
     await server.handler(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}`), res)
     expect(chunks.join('')).toContain('forwarded from the app')
+  })
+
+  it('should publish a log entry the app forwards, without telling the supervisor', async () => {
+    createServer()
+    const instance = await useErrorChannel()
+    const log = vi.spyOn(instance, 'log')
+    const reports: ErrorReport[] = []
+    const cleared: Array<string | undefined> = []
+    const close = openErrorBridge({ onReport: report => reports.push(report), onClear: id => cleared.push(id) })
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:log', entry: { level: 'warn', text: 'slow route', timestamp: 5 } })
+    app.postMessage({ type: 'nuxt:dev:error:log', entry: { level: 'nope', text: 'dropped' } })
+    app.close()
+
+    await vi.waitUntil(() => log.mock.calls.length === 1)
+    close()
+    expect(log).toHaveBeenCalledWith({ level: 'warn', text: 'slow route', timestamp: 5 })
+    expect(reports).toHaveLength(0)
+    expect(cleared).toHaveLength(0)
   })
 
   it('should ask whoever is already reporting to post it again', async () => {

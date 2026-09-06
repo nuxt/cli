@@ -1,5 +1,5 @@
 import type { CompileErrorInput, ErrorReport } from 'my-bad'
-import type { BuildProgress, Channel } from 'my-bad/channel'
+import type { BuildProgress, Channel, LogEntry, LogLevel } from 'my-bad/channel'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { ProgressSnapshot } from '../utils/progress-snapshot'
@@ -29,6 +29,7 @@ export type DevErrorMessage
   = | { type: 'nuxt:dev:error:report', report: ErrorReport, requestId?: number, request?: string }
     | { type: 'nuxt:dev:error:clear', id?: string }
     | { type: 'nuxt:dev:error:warning', report: ErrorReport }
+    | { type: 'nuxt:dev:error:log', entry: LogEntry }
 
 /** Asks whoever holds a current report to post it again. */
 const SYNC_MESSAGE = { type: 'nuxt:dev:error:sync' } as const
@@ -236,7 +237,21 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
     return false
   }
   const type = candidate?.type
+  if (type === 'nuxt:dev:error:log') {
+    return isLogEntry((message as { entry?: unknown }).entry)
+  }
   return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning'
+}
+
+const LOG_LEVELS = new Set<string>(['trace', 'debug', 'info', 'log', 'warn', 'error', 'fatal'] satisfies LogLevel[])
+
+/** Whether `entry` is a log the channel's drawer can show. */
+function isLogEntry(entry: unknown): entry is LogEntry {
+  if (typeof entry !== 'object' || entry === null) {
+    return false
+  }
+  const candidate = entry as { level?: unknown, text?: unknown }
+  return typeof candidate.text === 'string' && typeof candidate.level === 'string' && LOG_LEVELS.has(candidate.level)
 }
 
 /**
@@ -341,6 +356,10 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         case 'nuxt:dev:error:report': {
           instance.setError(message.report)
           handlers.onReport?.(message.report, { requestId: message.requestId, request: message.request })
+          break
+        }
+        case 'nuxt:dev:error:log': {
+          instance.log(message.entry)
           break
         }
         case 'nuxt:dev:error:warning': {
