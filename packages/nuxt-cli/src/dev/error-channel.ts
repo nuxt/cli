@@ -63,6 +63,15 @@ export function useErrorChannel(options: ErrorChannelOptions = {}): Promise<Chan
   if (!channel) {
     const pending = channel = import('my-bad/channel').then(async ({ createChannel }) => createChannel({
       open: true,
+      // Opening a file spawns the developer's editor, so the project is the
+      // whole of what a page may ask the CLI to open. `process.cwd()`, which
+      // the channel would confine to otherwise, is not where the project is
+      // when `nuxt dev` was pointed at another directory.
+      root: options.cwd || process.cwd(),
+      // Which hosts may address the channel is decided before a request reaches
+      // it, by the dev server's own `Host` check, which knows the hostnames the
+      // server is listening on and what `--host` allowed.
+      allowedHosts: true,
       sink: await resolveSink(options),
     }))
     // A channel that failed to open is not cached, or every later error would

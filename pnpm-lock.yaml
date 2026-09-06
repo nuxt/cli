@@ -212,8 +212,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
       my-bad:
-        specifier: 0.0.1
-        version: 0.0.1(vite@8.2.2)
+        specifier: https://pkg.pr.new/my-bad@d9f855a
+        version: https://pkg.pr.new/my-bad@d9f855a(vite@8.2.2)
       obug:
         specifier: ^2.1.4
         version: 2.1.4
@@ -3130,6 +3130,10 @@ packages:
     resolution: {integrity: sha512-JRBIpDbw7S1vaEGvCXfm728cfchkUDtv4I2DjWMMm7IoEygxuFWhO6UQOrg+u61TPI13c/HsGG/RLwl3NBt+4w==}
     engines: {node: '>=22.1.0'}
 
+  clickable-path@0.1.1:
+    resolution: {integrity: sha512-ROn/mdV2pR8WFdpJjFDCSouLRg9myf95xacO1iy8G/AVO/x5y124pjF3EaoWrTBRWC3vh0DPqa/MhKyx3mMeKg==}
+    engines: {node: '>=22.1.0'}
+
   clipboardy@3.0.0:
     resolution: {integrity: sha512-Su+uU5sr1jkUy1sGRpLKjKrvEOVXgSgiSInwa/qeID6aJ07yh+5NWc3h2QfjHjBnfX4LhtFcuAWKUsJ3r+fjbg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -4775,8 +4779,9 @@ packages:
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
 
-  my-bad@0.0.1:
-    resolution: {integrity: sha512-h3jeKr5e4JzjMtYZxreRybs3mAsI+0TMS7cZh/qVXcn9NbCwBE9F+5RtDUL9/MgQD/H1V65XfNsWH6fUv7iI1w==}
+  my-bad@https://pkg.pr.new/my-bad@d9f855a:
+    resolution: {integrity: sha512-J98HJ/Yc+wsFfxMlBTrEVe/cIfEPOYeFXNXhqJ3JwJ5fNf2WMZnnLLM7+uk1Pc4g0lORJjEBNxMkoper+KR1Gg==, tarball: https://pkg.pr.new/my-bad@d9f855a}
+    version: 0.0.1
     engines: {node: '>=22.12.0'}
     peerDependencies:
       vite: '>=6'
@@ -10190,6 +10195,8 @@ snapshots:
 
   clickable-path@0.1.0: {}
 
+  clickable-path@0.1.1: {}
+
   clipboardy@3.0.0:
     dependencies:
       arch: 2.2.0
@@ -12075,9 +12082,9 @@ snapshots:
 
   muggle-string@0.4.1: {}
 
-  my-bad@0.0.1(vite@8.2.2):
+  my-bad@https://pkg.pr.new/my-bad@d9f855a(vite@8.2.2):
     dependencies:
-      clickable-path: 0.1.0
+      clickable-path: 0.1.1
       errx: 0.2.0
       fnv1a-64: 0.1.2
     optionalDependencies:

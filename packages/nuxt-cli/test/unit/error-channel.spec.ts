@@ -2,10 +2,12 @@ import type { ErrorReport } from 'my-bad'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { ReportContext } from '../../src/dev/error-channel'
 
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { chmod, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { Readable } from 'node:stream'
 import { BroadcastChannel } from 'node:worker_threads'
 
 import { normalize } from 'pathe'
@@ -60,6 +62,28 @@ function request(url: string) {
     rawHeaders: [],
     on: () => {},
   } as unknown as IncomingMessage
+}
+
+function openRequest(headers: Record<string, string>, file = '/etc/passwd') {
+  return Object.assign(Readable.from([JSON.stringify({ file })]), {
+    url: `${DEFAULT_ERROR_CHANNEL}/open`,
+    method: 'POST',
+    headers: { 'host': 'localhost:3000', 'content-type': 'application/json', ...headers },
+    rawHeaders: [],
+  }) as unknown as IncomingMessage
+}
+
+/** A project of one file, with an editor that records what it was asked to open. */
+async function createProject() {
+  const dir = await mkdtemp(join(tmpdir(), 'nuxi-open-'))
+  const file = join(dir, 'app.vue')
+  const opened = join(dir, 'opened.txt')
+  const editor = join(dir, 'editor.sh')
+  await writeFile(file, '<template><div /></template>')
+  await writeFile(editor, `#!/bin/sh\necho "$@" >> ${JSON.stringify(opened)}\n`)
+  await chmod(editor, 0o755)
+  vi.stubEnv('LAUNCH_EDITOR', editor)
+  return { dir, file, opened }
 }
 
 function createServer() {
@@ -361,6 +385,47 @@ describe('the CLI-owned error channel', () => {
     expect(progress).not.toHaveBeenCalled()
 
     toBuildProgress({ ...idleSnapshot, status: 'ready' })
+  })
+
+  it('should refuse a channel request another site made', async () => {
+    const server = createServer()
+    const { res, statusOf } = createResponse()
+
+    await server.handler(openRequest({ 'origin': 'https://evil.example', 'sec-fetch-site': 'cross-site' }), res)
+
+    expect(statusOf()).toBe(403)
+  })
+
+  it('should refuse a channel request that did not come from the error page', async () => {
+    const server = createServer()
+    const { res, statusOf } = createResponse()
+
+    await server.handler(openRequest({ 'origin': 'https://evil.example', 'content-type': 'text/plain' }), res)
+
+    expect(statusOf()).toBe(403)
+  })
+
+  it.skipIf(process.platform === 'win32')('should only open files of the project it was pointed at', async () => {
+    const { dir, file, opened } = await createProject()
+
+    const instance = await useErrorChannel({ cwd: dir })
+    await instance.handler(openRequest({}, '/etc/passwd'), createResponse().res)
+    await instance.handler(openRequest({}, file), createResponse().res)
+
+    await vi.waitUntil(() => existsSync(opened))
+    const spawned = await readFile(opened, 'utf8')
+    expect(spawned).toContain(file)
+    expect(spawned).not.toContain('passwd')
+  })
+
+  it.skipIf(process.platform === 'win32')('should answer its own page served on a host the CLI allowed', async () => {
+    const { dir, file } = await createProject()
+    const { res, statusOf } = createResponse()
+
+    const instance = await useErrorChannel({ cwd: dir })
+    await instance.handler(openRequest({ 'host': '192.168.1.20:3000', 'origin': 'http://192.168.1.20:3000', 'sec-fetch-site': 'same-origin' }, file), res)
+
+    expect(statusOf()).toBe(204)
   })
 
   it('should ask whoever is already reporting to post it again', async () => {
