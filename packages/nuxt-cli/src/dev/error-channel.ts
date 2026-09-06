@@ -30,6 +30,7 @@ export type DevErrorMessage
     | { type: 'nuxt:dev:error:clear', id?: string }
     | { type: 'nuxt:dev:error:warning', report: ErrorReport }
     | { type: 'nuxt:dev:error:log', entry: LogEntry }
+    | { type: 'nuxt:dev:error:progress', progress: BuildProgress }
 
 /** Asks whoever holds a current report to post it again. */
 const SYNC_MESSAGE = { type: 'nuxt:dev:error:sync' } as const
@@ -208,8 +209,18 @@ async function renderReportAnsi(report: ErrorReport, cwd?: string): Promise<stri
   return renderAnsi(withoutEchoingCauses(report), { cwd })
 }
 
+/**
+ * Whether the CLI's own startup or reload sequence is still running. The CLI
+ * publishes a coarse, monotonic sequence of phases; the app forwards updates
+ * for work the CLI cannot see, which would drag the bar backwards if the two
+ * interleaved, so forwarded progress is dropped until the CLI's own sequence
+ * settles.
+ */
+let cliProgressInFlight = false
+
 /** Progress for the bar an open error page draws; `100` retires it. */
 export function toBuildProgress(snapshot: ProgressSnapshot): BuildProgress {
+  cliProgressInFlight = snapshot.status === 'loading'
   return {
     phase: snapshot.phase,
     percent: snapshot.status === 'error' ? undefined : Math.round(snapshot.progress * 100),
@@ -240,6 +251,9 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
   if (type === 'nuxt:dev:error:log') {
     return isLogEntry((message as { entry?: unknown }).entry)
   }
+  if (type === 'nuxt:dev:error:progress') {
+    return isBuildProgress((message as { progress?: unknown }).progress)
+  }
   return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning'
 }
 
@@ -252,6 +266,21 @@ function isLogEntry(entry: unknown): entry is LogEntry {
   }
   const candidate = entry as { level?: unknown, text?: unknown }
   return typeof candidate.text === 'string' && typeof candidate.level === 'string' && LOG_LEVELS.has(candidate.level)
+}
+
+/** Whether `progress` is an update the error page's bar can draw. */
+function isBuildProgress(progress: unknown): progress is BuildProgress {
+  if (typeof progress !== 'object' || progress === null) {
+    return false
+  }
+  const candidate = progress as { phase?: unknown, percent?: unknown, message?: unknown }
+  if (typeof candidate.phase !== 'string') {
+    return false
+  }
+  if (candidate.percent !== undefined && (typeof candidate.percent !== 'number' || !Number.isFinite(candidate.percent))) {
+    return false
+  }
+  return candidate.message === undefined || typeof candidate.message === 'string'
 }
 
 /**
@@ -360,6 +389,12 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         }
         case 'nuxt:dev:error:log': {
           instance.log(message.entry)
+          break
+        }
+        case 'nuxt:dev:error:progress': {
+          if (!cliProgressInFlight) {
+            instance.progress(message.progress)
+          }
           break
         }
         case 'nuxt:dev:error:warning': {

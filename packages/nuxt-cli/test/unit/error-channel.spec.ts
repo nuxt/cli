@@ -110,7 +110,32 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:log', entry: null })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:log' })).toBe(false)
   })
+
+  it('should only accept a progress update the bar can draw', () => {
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform' } })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', percent: 100, message: 'Rebuilding' } })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 7 } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', percent: Number.NaN } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', percent: '50' } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', message: 3 } })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: null })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress' })).toBe(false)
+  })
 })
+
+const idleSnapshot = {
+  status: 'ready' as const,
+  phase: 'ready',
+  message: 'Ready',
+  index: 6,
+  total: 6,
+  progress: 1,
+  elapsed: 0,
+  phaseElapsed: 0,
+  reload: false,
+  serving: true,
+  timings: [],
+}
 
 describe('toBuildProgress', () => {
   const snapshot = {
@@ -295,6 +320,47 @@ describe('the CLI-owned error channel', () => {
     expect(log).toHaveBeenCalledWith({ level: 'warn', text: 'slow route', timestamp: 5 })
     expect(reports).toHaveLength(0)
     expect(cleared).toHaveLength(0)
+  })
+
+  it('should publish a progress update the app forwards, without telling the supervisor', async () => {
+    createServer()
+    toBuildProgress({ ...idleSnapshot, status: 'ready' })
+    const instance = await useErrorChannel()
+    const progress = vi.spyOn(instance, 'progress')
+    const reports: ErrorReport[] = []
+    const cleared: Array<string | undefined> = []
+    const close = openErrorBridge({ onReport: report => reports.push(report), onClear: id => cleared.push(id) })
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', message: 'Rebuilding' } })
+    app.postMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', percent: 'done' } })
+    app.close()
+
+    await vi.waitUntil(() => progress.mock.calls.length === 1)
+    close()
+    expect(progress).toHaveBeenCalledWith({ phase: 'transform', message: 'Rebuilding' })
+    expect(reports).toHaveLength(0)
+    expect(cleared).toHaveLength(0)
+  })
+
+  it('should ignore forwarded progress while the CLI has a load of its own in flight', async () => {
+    createServer()
+    toBuildProgress({ ...idleSnapshot, status: 'loading' })
+    const instance = await useErrorChannel()
+    const progress = vi.spyOn(instance, 'progress')
+    const log = vi.spyOn(instance, 'log')
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:progress', progress: { phase: 'transform', message: 'Rebuilding' } })
+    app.postMessage({ type: 'nuxt:dev:error:log', entry: { level: 'info', text: 'after' } })
+    app.close()
+
+    await vi.waitUntil(() => log.mock.calls.length === 1)
+    close()
+    expect(progress).not.toHaveBeenCalled()
+
+    toBuildProgress({ ...idleSnapshot, status: 'ready' })
   })
 
   it('should ask whoever is already reporting to post it again', async () => {
