@@ -1,4 +1,5 @@
 import type { PendingRender } from '../../utils/progress-snapshot'
+import type { DevReportSummary } from '../error-channel'
 import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevRequestEvent, DevRoutes } from '../utils'
@@ -23,6 +24,10 @@ export interface DevUIController {
   pushServerLog: (log: ForwardedLog) => void
   /** Record a batch of served requests for the traffic ticker. */
   pushRequests: (requests: DevRequestEvent[]) => void
+  /** Record a report the app raised, for the log view and the status line. */
+  pushReport: (report: DevReportSummary) => void
+  /** Drop a report the status line is still naming. */
+  clearReport: (id?: string) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
   /**
@@ -40,6 +45,8 @@ export const NOOP_CONTROLLER: DevUIController = {
   settleRestart: () => {},
   pushServerLog: () => {},
   pushRequests: () => {},
+  pushReport: () => {},
+  clearReport: () => {},
   setRoutes: () => {},
   setRendering: () => {},
 }

@@ -3,6 +3,7 @@ import type { NuxtConfig } from '@nuxt/schema'
 import type { DevListenOverrides, Listener, ListenURL } from './listen'
 import type { ProgressSnapshot } from '../utils/progress-snapshot'
 import type { DevRestartReason } from './reason'
+import type { DevReportSummary } from './error-channel'
 import type { ServerLogEvent } from './log-channel'
 import type { DevRequestEvent, DevRoutes, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
@@ -18,8 +19,10 @@ import { configureProjectConsola } from '../utils/console'
 import { overrideEnv } from '../utils/env.ts'
 import { isRemotePeerError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
 import { debug } from '../utils/logger'
+import { blankLineBefore, writeDirect } from '../utils/stdout'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
+import { closeErrorChannel, formatReportForTerminal } from './error-channel'
 import { currentRequest, isServingRequest } from './serving-state'
 import { createPhaseReporter } from '../utils/phase-reporter'
 import { NuxtDevServer } from './utils'
@@ -30,6 +33,7 @@ const REQUEST_FLUSH_MS = 100
 const REQUEST_BATCH_LIMIT = 200
 const PENDING_REQUEST_BATCHES = 20
 const PENDING_LOG_LIMIT = 500
+const PENDING_REPORTS = 20
 
 /**
  * How often a piped startup repeats the phase it is on, and the shortest gap
@@ -221,6 +225,10 @@ interface InitializeReturn {
   onLog: (callback: (log: ServerLogEvent) => void) => void
   /** Called with batches of served requests. */
   onRequests: (callback: (requests: DevRequestEvent[]) => void) => void
+  /** Called with reports the app forwarded, rendered for a terminal. */
+  onReport: (callback: (report: DevReportSummary) => void) => void
+  /** Called when the app reports that its error has gone. */
+  onReportClear: (callback: (id?: string) => void) => void
   /** Called when a server-side rebuild starts and finishes. */
   onBuilding: (callback: (building: boolean) => void) => void
   /** Called whenever the app's routes are (re)discovered. */
@@ -300,6 +308,31 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   const requests = createFeed<DevRequestEvent[]>(PENDING_REQUEST_BATCHES)
   const routes = createFeed<DevRoutes>(1)
   const building = createFeed<boolean>(0)
+  const reports = createFeed<DevReportSummary>(PENDING_REPORTS)
+  const reportsCleared = createFeed<string | undefined>(0)
+
+  // The app stops printing once the CLI owns the channel, so exactly one of
+  // these shows the report.
+  devServer.on('report', (report) => {
+    if (ipc.enabled) {
+      ipc.send({ type: 'nuxt:internal:dev:report', report })
+    }
+    else if (captureUIEvents) {
+      reports.emit(report)
+    }
+    // Verbatim: the rendering carries its own marker and colours.
+    if (!captureUIEvents) {
+      writeDirect(`${blankLineBefore()}${formatReportForTerminal(report)}\n`)
+    }
+  })
+  devServer.on('report:clear', (id) => {
+    if (ipc.enabled) {
+      ipc.send({ type: 'nuxt:internal:dev:report:clear', id })
+    }
+    else if (captureUIEvents) {
+      reportsCleared.emit(id)
+    }
+  })
 
   let closeLogChannel: (() => void) | undefined
   if (captureUIEvents) {
@@ -446,6 +479,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       finally {
         devServer.progress.close()
+        await closeErrorChannel()
         devServer.releaseLock()
       }
     })()
@@ -475,6 +509,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     onLog: logs.subscribe,
     onRequests: requests.subscribe,
     onBuilding: building.subscribe,
+    onReport: reports.subscribe,
+    onReportClear: reportsCleared.subscribe,
     onRoutes: routes.subscribe,
     onFileChange: (callback: () => void) => {
       devServer.once('change', callback)

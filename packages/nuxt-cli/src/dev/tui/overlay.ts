@@ -181,7 +181,7 @@ export function formatEvent(event: DevLogEvent, columns: number, timeWidth: numb
 
 /** Colour a message by its level, unless it already carries its own colour. */
 function colorBySeverity(line: string, event: DevLogEvent): string {
-  if (line.includes('\u001B[')) {
+  if (event.styled || line.includes('\u001B[')) {
     return line
   }
   if (event.level <= 0) {

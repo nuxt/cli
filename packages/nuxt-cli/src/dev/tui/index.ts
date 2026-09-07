@@ -134,6 +134,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   let animation: NodeJS.Timeout | undefined
   let animationInterval = LOGO_FRAME_MS
   let activityTimer: NodeJS.Timeout | undefined
+  /** Report currently named on the status line. */
+  let reported: string | undefined
   let noticeTimer: NodeJS.Timeout | undefined
   /**
    * The load in flight raised an error, so the server never came up. Held apart
@@ -626,6 +628,31 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       clearTimeout(activityTimer)
       activityTimer = setTimeout(clearActivity, ACTIVITY_MS)
       activityTimer.unref?.()
+    },
+    pushReport: (report) => {
+      // Set before the event, which would otherwise paint the badge's standing
+      // description in between.
+      reported = report.id
+      update({ status: 'error', note: `${report.message} · press l to read it` })
+      // The rendering is the message, so the log view shows it in full.
+      events.push({
+        time: Date.now(),
+        level: 0,
+        type: 'error',
+        message: report.ansi,
+        rendered: report.ansi,
+        styled: true,
+        source: 'runtime',
+        request: report.request,
+        requestId: report.requestId,
+      })
+    },
+    clearReport: (id) => {
+      if (id !== undefined && id !== reported) {
+        return
+      }
+      reported = undefined
+      update({ note: undefined })
     },
     setRoutes: payload => routeOverlay.setRoutes(payload),
     setRendering: (pending, awaiting) => {
