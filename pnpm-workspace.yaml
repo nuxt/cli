@@ -29,7 +29,7 @@ overrides:
   nitropack: 2.13.4
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
-  rolldown: 1.2.6
+  rolldown: 1.2.7
 
 allowBuilds:
   '@parcel/watcher': false
