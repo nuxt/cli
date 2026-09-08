@@ -192,7 +192,7 @@ importers:
         version: 0.3.0
       clickable-path:
         specifier: ^0.1.0
-        version: 0.1.0
+        version: 0.1.1
       confbox:
         specifier: ^0.2.4
         version: 0.2.4
@@ -212,8 +212,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
       my-bad:
-        specifier: https://pkg.pr.new/my-bad@d9f855a
-        version: https://pkg.pr.new/my-bad@d9f855a(vite@8.2.2)
+        specifier: ^0.1.0
+        version: 0.1.0(vite@8.2.2)
       obug:
         specifier: ^2.1.4
         version: 2.1.4
@@ -3126,10 +3126,6 @@ packages:
     resolution: {integrity: sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g==}
     engines: {node: '>=10'}
 
-  clickable-path@0.1.0:
-    resolution: {integrity: sha512-JRBIpDbw7S1vaEGvCXfm728cfchkUDtv4I2DjWMMm7IoEygxuFWhO6UQOrg+u61TPI13c/HsGG/RLwl3NBt+4w==}
-    engines: {node: '>=22.1.0'}
-
   clickable-path@0.1.1:
     resolution: {integrity: sha512-ROn/mdV2pR8WFdpJjFDCSouLRg9myf95xacO1iy8G/AVO/x5y124pjF3EaoWrTBRWC3vh0DPqa/MhKyx3mMeKg==}
     engines: {node: '>=22.1.0'}
@@ -4779,9 +4775,8 @@ packages:
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
 
-  my-bad@https://pkg.pr.new/my-bad@d9f855a:
-    resolution: {integrity: sha512-J98HJ/Yc+wsFfxMlBTrEVe/cIfEPOYeFXNXhqJ3JwJ5fNf2WMZnnLLM7+uk1Pc4g0lORJjEBNxMkoper+KR1Gg==, tarball: https://pkg.pr.new/my-bad@d9f855a}
-    version: 0.0.1
+  my-bad@0.1.0:
+    resolution: {integrity: sha512-LgjuKzMTVWzXHYgM48ztiBsegdoCo53lUADXOYSUZo3amrRvp2OMvpwFfHhLDYsavK2aFPNfbc2YKaWSNa9bkQ==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       vite: '>=6'
@@ -8323,7 +8318,7 @@ snapshots:
     dependencies:
       '@nuxt/kit': '@nuxt/kit-nightly@5.0.0-29806258.d070492f(@nuxt/schema-nightly@5.0.0-29806258.d070492f)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.2.3)(mlly@1.8.2)(oxc-parser@0.147.0)(rolldown@1.2.6)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.6)(rollup@4.63.1)(vite@8.2.2))'
       '@vitejs/plugin-vue': 6.0.8(vite@8.2.2)(vue@3.5.42(typescript@6.0.3))
-      clickable-path: 0.1.0
+      clickable-path: 0.1.1
       consola: 3.4.2
       defu: 6.1.7
       escape-string-regexp: 5.0.0
@@ -8524,7 +8519,7 @@ snapshots:
   '@nuxt/vite-server-nightly@5.0.0-29806258.d070492f(@nuxt/schema-nightly@5.0.0-29806258.d070492f)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.2.3)(mlly@1.8.2)(nuxt-nightly@5.0.0-29806258.d070492f)(oxc-parser@0.147.0)(rolldown@1.2.6)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.6)(rollup@4.63.1)(vite@8.2.2))(vite@8.2.2)':
     dependencies:
       '@nuxt/kit': '@nuxt/kit-nightly@5.0.0-29806258.d070492f(@nuxt/schema-nightly@5.0.0-29806258.d070492f)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.2.3)(mlly@1.8.2)(oxc-parser@0.147.0)(rolldown@1.2.6)(unplugin@3.3.0(esbuild@0.28.2)(rolldown@1.2.6)(rollup@4.63.1)(vite@8.2.2))'
-      clickable-path: 0.1.0
+      clickable-path: 0.1.1
       defu: 6.1.7
       exsolve: 1.1.1
       mocked-exports: 0.1.1
@@ -10192,8 +10187,6 @@ snapshots:
   citty@0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac): {}
 
   cli-boxes@3.0.0: {}
-
-  clickable-path@0.1.0: {}
 
   clickable-path@0.1.1: {}
 
@@ -12082,7 +12075,7 @@ snapshots:
 
   muggle-string@0.4.1: {}
 
-  my-bad@https://pkg.pr.new/my-bad@d9f855a(vite@8.2.2):
+  my-bad@0.1.0(vite@8.2.2):
     dependencies:
       clickable-path: 0.1.1
       errx: 0.2.0
@@ -12579,7 +12572,7 @@ snapshots:
       '@unhead/vue': 3.4.0(@oxc-project/types@0.147.0)(esbuild@0.28.2)(lightningcss@1.33.0)(oxc-parser@0.147.0)(rolldown@1.2.6)(rollup@4.63.1)(vite@8.2.2)(vue@3.5.42(typescript@6.0.3))
       '@vue/shared': 3.5.42
       chokidar: 5.0.0
-      clickable-path: 0.1.0
+      clickable-path: 0.1.1
       compatx: 0.2.0
       consola: 3.4.2
       cookie-es: 3.1.1
