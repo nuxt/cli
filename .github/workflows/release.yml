@@ -87,8 +87,9 @@ jobs:
         with:
           cache: true
           install: false
+
       - name: 📦 Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts --no-runtime
 
       - name: 🔨 Generate data and build
         run: pnpm run postinstall

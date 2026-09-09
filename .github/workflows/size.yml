@@ -27,11 +27,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
-        with:
-          install: false
-
-      - name: 📦 Install dependencies
-        run: pnpm install
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -67,11 +62,6 @@ jobs:
           ref: ${{ github.base_ref }}
 
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
-        with:
-          install: false
-
-      - name: 📦 Install dependencies
-        run: pnpm install
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
