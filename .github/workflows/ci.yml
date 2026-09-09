@@ -24,15 +24,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: npm i -g --force corepack && corepack enable
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version: lts/*
-          cache: pnpm
-
-      - name: 📦 Install dependencies
-        run: pnpm install
+          cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -59,12 +53,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: npm i -g --force corepack && corepack enable
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version: lts/-1
-          cache: pnpm
+          runtime: node@22
+          cache: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - parallel:
           - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -75,11 +69,6 @@ jobs:
             with:
               # 2.7.5+ regress dev server / ws tests; 2.7.13 rewrites node:http (denoland/deno#33208)
               deno-version: 2.7.4
-
-      - name: 📦 Install dependencies
-        run: pnpm install
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🛠 Build project
         run: pnpm build
@@ -114,15 +103,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - run: npm i -g --force corepack && corepack enable
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version: latest
-          cache: pnpm
-
-      - name: 📦 Install dependencies
-        run: pnpm install
+          runtime: node@latest
+          cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
