@@ -1129,15 +1129,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
         const assetsDir = nuxt.options.app.buildAssetsDir
         const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${assetsDir.replace(/^\//, '')}`
-        if (req.url?.startsWith(viteHmrPath)) {
-          return // Skip for Vite HMR
-        }
-        nuxt.server.upgrade(req, socket as any, head)
-
+        // fix #1531: track all opened connections
+        // quit command hangs/timeouts on Windows 10 with Vite HMR
         this.#websocketConnections.add(socket)
         socket.on('close', () => {
           this.#websocketConnections.delete(socket)
         })
+        if (req.url?.startsWith(viteHmrPath)) {
+          return // Skip for Vite HMR
+        }
+        nuxt.server.upgrade(req, socket as any, head)
       })
     }
 
