@@ -73,7 +73,7 @@
     "exsolve": "^1.1.1",
     "fuzzysort": "^4.0.2",
     "get-port-please": "^3.2.0",
-    "obug": "^2.1.4",
+    "obug": "^3.0.0",
     "pathe": "^2.0.3",
     "perfect-debounce": "^2.1.0",
     "pkg-types": "^2.3.1",
