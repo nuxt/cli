@@ -1,4 +1,4 @@
-styles: 243359a4e417d924
+styles: 93d5d235a9fa24c0
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
@@ -19,5 +19,5 @@ styles: 243359a4e417d924
 ⠋ Bundling app 42 ms · 42 ms
 ⠋ Generating types 42 ms · 42 ms
 ⠋ Preparing app 42 ms · 42 ms
-⠋ Setting up modules 42 ms · 42 ms
+⠋ Setting up modules 42 ms
 ⠋ Starting Nuxt... 42 ms
