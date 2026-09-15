@@ -105,7 +105,7 @@
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
     "undici": "^8.10.0",
-    "vitest": "^4.1.11",
+    "vitest": "^5.0.0",
     "youch": "^4.1.1",
     "youch-core": "^0.3.3"
   }
