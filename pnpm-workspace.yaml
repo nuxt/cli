@@ -9,13 +9,13 @@ minimumReleaseAgeExclude:
   - errx@0.2.1 || 0.2.2
   - my-bad@0.2.2
 
+verifyDepsBeforeRun: install
+
 packages:
   - packages/*
   - packages/nuxt-cli/test/fixtures/*
   - playground
   - playground-nightly
-
-verifyDepsBeforeRun: install
 
 overrides:
   '@nuxt/cli': workspace:*
@@ -23,7 +23,7 @@ overrides:
   '@nuxt/schema@^4': 4.5.2
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 64.3.2
+  eslint-plugin-jsdoc: 64.5.1
   eslint-plugin-unicorn: 74.0.0
   # scoped by range: nitro v3 in `playground-nightly` needs h3 v2
   h3@^1: ^1.15.11
@@ -33,10 +33,10 @@ overrides:
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.2.8
 
+patchedDependencies:
+  citty@0.2.2: patches/citty@0.2.2.patch
+
 allowBuilds:
   '@parcel/watcher': false
   esbuild: false
   unrs-resolver: false
-
-patchedDependencies:
-  citty@0.2.2: patches/citty@0.2.2.patch
