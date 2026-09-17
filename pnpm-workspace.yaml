@@ -33,6 +33,16 @@ overrides:
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.2.8
 
+packageExtensions:
+  # nitro@3.0.260903-beta dropped its optional `vite` peer, so its dev worker
+  # resolves a hoisted vite 7 instead of the vite 8 the builder runs
+  nitro:
+    peerDependencies:
+      vite: ^7 || ^8
+    peerDependenciesMeta:
+      vite:
+        optional: true
+
 patchedDependencies:
   citty@0.2.2: patches/citty@0.2.2.patch
 

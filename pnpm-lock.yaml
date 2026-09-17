@@ -216,6 +216,8 @@ overrides:
   nuxi: workspace:*
   rolldown: 1.2.8
 
+packageExtensionsChecksum: sha256-sm4nGNicbfBcBFqyPee94YVGSlqHSFIRmZUlIsHW8Vw=
+
 patchedDependencies:
   citty@0.2.2: 24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac
 
@@ -5064,6 +5066,11 @@ packages:
     resolution: {integrity: sha512-54gANPi62O8rfMvepiJUVuIzEIinYfpeHbebywlLxvVTgIYXDwSvpaU9Id+0sJOBjBx0wC1/CVYXJkH7SY+l0g==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
+    peerDependencies:
+      vite: ^7 || ^8
+    peerDependenciesMeta:
+      vite:
+        optional: true
 
   nitropack@2.13.4:
     resolution: {integrity: sha512-tX7bT6zxNeMwkc6hxHiZeUoTOjVrcjoh1Z3cmxOlodIqjl4HISgqfGOmkWSayky3Nv9Z5+KQH52F8nmXJY5AAA==}
@@ -8206,7 +8213,7 @@ snapshots:
       klona: 2.0.6
       magic-string: 1.4.1
       mocked-exports: 0.1.1
-      nitro: 3.0.260903-beta
+      nitro: 3.0.260903-beta(vite@8.3.0)
       nostics: 1.2.0
       nuxt: nuxt-nightly@5.0.0-29825840.b6182049(a868799a5f94ddc8474cb60b4d29bc60)
       ofetch: 2.0.0-alpha.3
@@ -12240,7 +12247,7 @@ snapshots:
       - ocache
       - sqlite3
 
-  nitro@3.0.260903-beta:
+  nitro@3.0.260903-beta(vite@8.3.0):
     dependencies:
       consola: 3.4.2
       crossws: 0.4.12(srvx@1.0.5)
@@ -12255,6 +12262,8 @@ snapshots:
       srvx: 1.0.5
       unenv: 2.0.0-rc.24
       unstorage: 2.0.0-alpha.10
+    optionalDependencies:
+      vite: 8.3.0(@types/node@24.13.5)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.0)
 
   nitropack@2.13.4(oxc-parser@0.148.0)(rolldown@1.2.8)(srvx@1.0.5)(supports-color@10.2.2)(vite@7.3.6(@types/node@24.13.5)(jiti@2.7.0)(lightningcss@1.33.0)(terser@5.50.0)(yaml@2.9.0)):
     dependencies:
