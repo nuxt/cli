@@ -9,13 +9,13 @@ minimumReleaseAgeExclude:
   - errx@0.2.1 || 0.2.2
   - my-bad@0.2.2
 
+verifyDepsBeforeRun: install
+
 packages:
   - packages/*
   - packages/nuxt-cli/test/fixtures/*
   - playground
   - playground-nightly
-
-verifyDepsBeforeRun: install
 
 overrides:
   '@nuxt/cli': workspace:*
@@ -33,10 +33,10 @@ overrides:
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.2.8
 
+patchedDependencies:
+  citty@0.2.2: patches/citty@0.2.2.patch
+
 allowBuilds:
   '@parcel/watcher': false
   esbuild: false
   unrs-resolver: false
-
-patchedDependencies:
-  citty@0.2.2: patches/citty@0.2.2.patch
