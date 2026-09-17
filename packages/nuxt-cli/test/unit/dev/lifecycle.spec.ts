@@ -479,6 +479,26 @@ describe('dev server shutdown', () => {
 
     await expect(pending).resolves.toMatchObject({ status: 503 })
   })
+
+  it('should hand a request to the app once when the render fails', async () => {
+    let calls = 0
+    const nuxt = createNuxt()
+    nuxt.server.handler = (_req, res) => {
+      calls++
+      res.statusCode = 500
+      res.end('boom')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    await expect(get(server)).resolves.toMatchObject({ status: 500, body: 'boom' })
+    expect(calls).toBe(1)
+
+    await expect(get(server)).resolves.toMatchObject({ status: 500, body: 'boom' })
+    expect(calls).toBe(2)
+  })
+
 })
 
 describe('dev server handover', () => {
