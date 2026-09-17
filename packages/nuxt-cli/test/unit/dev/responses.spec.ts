@@ -15,7 +15,7 @@ interface FakeResponse {
 }
 
 function createRequest(accept?: string, url = '/'): IncomingMessage {
-  return { url, method: 'GET', headers: accept ? { accept } : {} } as unknown as IncomingMessage
+  return { url, method: 'GET', headers: accept ? { accept } : {}, rawHeaders: [] } as unknown as IncomingMessage
 }
 
 function createResponse(): FakeResponse {

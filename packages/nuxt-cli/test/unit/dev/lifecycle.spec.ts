@@ -499,6 +499,25 @@ describe('dev server shutdown', () => {
     expect(calls).toBe(2)
   })
 
+  it('should identify every request it forwards to the app', async () => {
+    const ids: Array<string | undefined> = []
+    const nuxt = createNuxt()
+    nuxt.server.handler = (req: any, res) => {
+      ids.push(req.headers['x-nuxt-dev-request-id'])
+      res.end('app')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    await get(server)
+    await get(server, '/about')
+
+    expect(ids).toHaveLength(2)
+    expect(ids[0]).toMatch(/^\d+ GET \/$/)
+    expect(ids[1]).toMatch(/^\d+ GET \/about$/)
+    expect(ids[0]).not.toBe(ids[1])
+  })
 })
 
 describe('dev server handover', () => {

@@ -46,7 +46,7 @@ import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
-import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
+import { createRequest, encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
 
 /**
@@ -486,17 +486,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         })
         return
       }
+      const method = req.method || 'GET'
+      const url = req.url || '/'
+      const request = createRequest(`${method} ${url}`)
+      const encoded = encodeRequest(request)
+      req.headers[REQUEST_HEADER] = encoded
+      req.rawHeaders.push(REQUEST_HEADER, encoded)
       if (!options.captureUIEvents) {
         return this.#serve(req, res)
       }
       const start = performance.now()
-      const method = req.method || 'GET'
-      const url = req.url || '/'
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
-      return runWithRequest(`${method} ${url}`, (request) => {
-        const encoded = encodeRequest(request)
-        req.headers[REQUEST_HEADER] = encoded
-        req.rawHeaders.push(REQUEST_HEADER, encoded)
+      return runWithRequest(request, () => {
         res.once('close', () => {
           if (this.#internalResponses.delete(res)) {
             return

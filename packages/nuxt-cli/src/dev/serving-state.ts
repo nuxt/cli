@@ -12,6 +12,11 @@ export const REQUEST_HEADER = 'x-nuxt-dev-request-id'
 
 let nextId = 0
 
+/** Identify a request, so logs and reports can be attributed to it. */
+export function createRequest(label: string): InflightRequest {
+  return { id: ++nextId, label }
+}
+
 /**
  * Serve `run` inside a context that identifies the request, so any log it causes
  * can be attributed to it.
@@ -25,9 +30,9 @@ let nextId = 0
  * async one. The app's own logs are attributed by
  * `runtime/dev-request-context.mjs` instead.
  */
-export function runWithRequest<T>(label: string, run: (request: InflightRequest) => T): T {
-  const request: InflightRequest = { id: ++nextId, label }
-  return storage.run(request, () => run(request))
+export function runWithRequest<T>(request: InflightRequest | string, run: (request: InflightRequest) => T): T {
+  const inflight = typeof request === 'string' ? createRequest(request) : request
+  return storage.run(inflight, () => run(inflight))
 }
 
 /** The value of {@link REQUEST_HEADER} for `request`. */
