@@ -118,4 +118,7 @@ jobs:
 
       - name: 📦 release nightly
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node ./scripts/release-nightly.mjs
+        # the runner image ships npm 10, which predates OIDC trusted publishing
+        run: |
+          npm install -g npm@latest
+          node ./scripts/release-nightly.mjs

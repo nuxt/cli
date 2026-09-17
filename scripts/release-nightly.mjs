@@ -11,6 +11,7 @@ for (const dir of dirs) {
 
   await addNightlyBins(pkgPath, original)
 
+  let published
   try {
     await x('changelogen', ['--canary', 'nightly', '--publish'], {
       nodeOptions: { stdio: 'inherit', cwd },
@@ -18,8 +19,26 @@ for (const dir of dirs) {
     })
   }
   finally {
+    published = JSON.parse(await readFile(pkgPath, 'utf8'))
     await writeFile(pkgPath, original)
   }
+
+  await assertPublished(published.name, published.version)
+}
+
+/**
+ * `changelogen --publish` logs publish failures without exiting non-zero, so
+ * confirm the version is actually on the registry.
+ */
+async function assertPublished(name, version) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`https://registry.npmjs.org/${name}/${version}`)
+    if (res.ok) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 5000))
+  }
+  throw new Error(`\`${name}@${version}\` was not published to the registry`)
 }
 
 /**
