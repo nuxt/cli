@@ -106,6 +106,8 @@ beforeEach(() => {
     onRequests: vi.fn(),
     onRoutes: vi.fn(),
     onBuilding: vi.fn(),
+    onReport: vi.fn(),
+    onReportClear: vi.fn(),
   }))
   exit = vi.spyOn(process, 'exit').mockImplementation((() => {
     throw new Error('process.exit')
