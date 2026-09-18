@@ -1254,7 +1254,7 @@ describe('log overlay', () => {
     expect(selected).toContain('line 0')
   })
 
-  it('wraps the selection around both ends', () => {
+  it('stops the selection at both ends instead of looping', () => {
     const events = new DevEventLog()
     for (let i = 0; i < 3; i++) {
       events.push(event({ message: `line ${i}` }))
@@ -1267,10 +1267,29 @@ describe('log overlay', () => {
     expect(selected()).toContain('line 0')
 
     overlay.handleKey({ name: 'up' })
+    expect(selected()).toContain('line 0')
+
+    overlay.handleKey({ name: 'pagedown' })
     expect(selected()).toContain('line 2')
 
     overlay.handleKey({ name: 'down' })
-    expect(selected()).toContain('line 0')
+    expect(selected()).toContain('line 2')
+  })
+
+  it('enters a long list at the top of the screen rather than the top of the history', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 100; i++) {
+      events.push(event({ message: `line ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const first = strip(lastFrame()).split('\n')[2]!
+
+    overlay.handleKey({ name: 'down' })
+    const selected = strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))!
+    expect(selected).toContain(first.trim())
+    expect(selected).not.toContain('line 0')
+    expect(strip(lastFrame())).not.toContain('scrolled')
   })
 
   it('trims the hint line to the terminal, keeping movement and the way out', () => {
