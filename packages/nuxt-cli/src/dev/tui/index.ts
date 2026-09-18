@@ -140,6 +140,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     write,
     release,
     () => qrCode,
+    // Loaded on demand: gathering it evaluates the project's config.
+    async () => {
+      const { collectProjectInfo, formatMarkdownTable } = await import('../../commands/info')
+      return formatMarkdownTable((await collectProjectInfo(cwd)).info)
+    },
   )
   const views = [overlay, trafficOverlay, routeOverlay, helpOverlay, infoOverlay]
   const openOverlay = () => views.find(view => view.isOpen)

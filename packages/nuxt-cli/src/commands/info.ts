@@ -60,75 +60,14 @@ export default defineCommand({
   },
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
-    const [nuxtConfig, projectPkg, detectedPackageManager] = await Promise.all([
-      getNuxtConfig(cwd),
-      readPackageJSON(cwd).catch(() => ({} as PackageJson)),
-      detectPackageManager(cwd),
-    ])
-    const { dependencies = {}, devDependencies = {} } = projectPkg
-    const nuxtPath = tryResolveNuxt(cwd)
-    const versions = new Map<string, Promise<string | undefined>>()
-    const getDepVersion = (name: string) => {
-      let version = versions.get(name)
-      if (!version) {
-        version = resolveDependencyVersion(name, [cwd, nuxtPath], cwd, projectPkg, dependencies, devDependencies)
-        versions.set(name, version)
-      }
-      return version
-    }
-
-    const modulesPromise = Promise.all((nuxtConfig.modules || []).map(async (module) => {
-      const name = normalizeConfigModule(module, cwd)
-      if (!name) {
-        return null
-      }
-      const specifier = Array.isArray(module) ? module[0] : module
-      const packageName = typeof specifier === 'string' && getPackageName(specifier)
-      const version = packageName && await getDepVersion(packageName)
-      return version ? `${name}@${version}` : name
-    }))
-    const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
-      modulesPromise,
-      getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
-      resolveNitroVersion(cwd, getDepVersion),
-    ])
-    const configKeys = Object.keys(nuxtConfig).sort()
-    const moduleNames = modules.filter(module => module !== null)
-    const builder = nuxtConfig.builder || 'vite'
-    const packageManager = detectedPackageManager
-      ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.command)}`
-      : 'unknown'
-    const osType = os.type()
-    const cpus = os.cpus()
-    const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
-      ? getBuilder(cwd, builder)
-      : { name: 'custom', version: '0.0.0' }
-
-    const infoObj = {
-      'Operating system': osType === 'Darwin' ? `macOS ${os.release()}` : osType === 'Windows_NT' ? `Windows ${os.release()}` : `${osType} ${os.release()}`,
-      'CPU': `${cpus[0]?.model || 'unknown'} (${cpus.length} cores)`,
-      ...isBun
-        // @ts-expect-error Bun global
-        ? { 'Bun version': Bun?.version as string }
-        : isDeno
-          // @ts-expect-error Deno global
-          ? { 'Deno version': Deno?.version.deno as string }
-          : { 'Node.js version': process.version as string },
-      'nuxt/cli version': nuxiVersion,
-      'Package manager': packageManager,
-      'Nuxt version': nuxtVersion,
-      'Nitro version': nitroVersion,
-      'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
-      'Config': configKeys.map(key => `\`${key}\``).join(', '),
-      'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
-    }
+    const { info: infoObj, configKeys, moduleNames, rootDir } = await collectProjectInfo(cwd)
 
     if (ctx.args.json) {
       // Arrays come from the source values rather than the rendered string, so a
       // key or module path containing `, ` stays a single entry.
       const lists: Record<string, string[]> = { config: configKeys, modules: moduleNames }
       const payload = JSON.stringify({
-        rootDir: nuxtConfig.rootDir || cwd,
+        rootDir,
         ...Object.fromEntries(Object.entries(infoObj).map(([label, value]) => {
           const key = JSON_KEYS[label] ?? camelCase(label)
           return [key, lists[key] ?? (value?.replaceAll('`', '') || null)]
@@ -138,7 +77,7 @@ export default defineCommand({
       return
     }
 
-    logger.info(`Nuxt root directory: ${styleText('cyan', nuxtConfig.rootDir || cwd)}\n`)
+    logger.info(`Nuxt root directory: ${styleText('cyan', rootDir)}\n`)
 
     const boxStr = formatInfoBox(infoObj)
 
@@ -172,6 +111,82 @@ export default defineCommand({
     })
   },
 })
+
+export interface ProjectInfo {
+  /** Display label to value, in the order it is shown and pasted. */
+  info: Record<string, string | undefined>
+  configKeys: string[]
+  moduleNames: string[]
+  rootDir: string
+}
+
+/** Everything a bug report asks for about the project in `cwd`. */
+export async function collectProjectInfo(cwd: string): Promise<ProjectInfo> {
+  const [nuxtConfig, projectPkg, detectedPackageManager] = await Promise.all([
+    getNuxtConfig(cwd),
+    readPackageJSON(cwd).catch(() => ({} as PackageJson)),
+    detectPackageManager(cwd),
+  ])
+  const { dependencies = {}, devDependencies = {} } = projectPkg
+  const nuxtPath = tryResolveNuxt(cwd)
+  const versions = new Map<string, Promise<string | undefined>>()
+  const getDepVersion = (name: string) => {
+    let version = versions.get(name)
+    if (!version) {
+      version = resolveDependencyVersion(name, [cwd, nuxtPath], cwd, projectPkg, dependencies, devDependencies)
+      versions.set(name, version)
+    }
+    return version
+  }
+
+  const modulesPromise = Promise.all((nuxtConfig.modules || []).map(async (module) => {
+    const name = normalizeConfigModule(module, cwd)
+    if (!name) {
+      return null
+    }
+    const specifier = Array.isArray(module) ? module[0] : module
+    const packageName = typeof specifier === 'string' && getPackageName(specifier)
+    const version = packageName && await getDepVersion(packageName)
+    return version ? `${name}@${version}` : name
+  }))
+  const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
+    modulesPromise,
+    getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
+    resolveNitroVersion(cwd, getDepVersion),
+  ])
+  const configKeys = Object.keys(nuxtConfig).sort()
+  const moduleNames = modules.filter(module => module !== null)
+  const builder = nuxtConfig.builder || 'vite'
+  const packageManager = detectedPackageManager
+    ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.command)}`
+    : 'unknown'
+  const osType = os.type()
+  const cpus = os.cpus()
+  const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
+    ? getBuilder(cwd, builder)
+    : { name: 'custom', version: '0.0.0' }
+
+  const infoObj = {
+    'Operating system': osType === 'Darwin' ? `macOS ${os.release()}` : osType === 'Windows_NT' ? `Windows ${os.release()}` : `${osType} ${os.release()}`,
+    'CPU': `${cpus[0]?.model || 'unknown'} (${cpus.length} cores)`,
+    ...isBun
+      // @ts-expect-error Bun global
+      ? { 'Bun version': Bun?.version as string }
+      : isDeno
+        // @ts-expect-error Deno global
+        ? { 'Deno version': Deno?.version.deno as string }
+        : { 'Node.js version': process.version as string },
+    'nuxt/cli version': nuxiVersion,
+    'Package manager': packageManager,
+    'Nuxt version': nuxtVersion,
+    'Nitro version': nitroVersion,
+    'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
+    'Config': configKeys.map(key => `\`${key}\``).join(', '),
+    'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
+  }
+
+  return { info: infoObj, configKeys, moduleNames, rootDir: nuxtConfig.rootDir || cwd }
+}
 
 async function resolveDependencyVersion(
   name: string,

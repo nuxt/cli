@@ -1480,6 +1480,49 @@ describe('log overlay', () => {
     expect(copied[0]).not.toContain('\u001B')
   })
 
+  it('copies every entry the filters leave', async () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'all good', source: 'cli' }))
+    events.push(event({ message: 'boom\n    at handler (server/api/x.ts:3:9)', level: 0, type: 'error', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'careful', level: 1, type: 'warn', tag: 'vite', source: 'build' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'w' })
+    overlay.handleKey({ name: 'y', sequence: 'Y' })
+
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    const lines = copied[0]!.split('\n')
+    expect(lines[0]).toMatch(/GET \/x boom$/)
+    expect(lines[1]).toContain('at handler (server/api/x.ts:3:9)')
+    expect(lines[2]).toMatch(/careful$/)
+    expect(copied[0]).not.toContain('all good')
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain('copied 2 entries to clipboard'))
+  })
+
+  it('keeps the newest entries when there are too many to paste', async () => {
+    const events = new DevEventLog()
+    for (let index = 0; index < 1500; index++) {
+      events.push(event({ message: `entry ${index} ${'x'.repeat(80)}`, source: 'runtime' }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'y', sequence: 'Y' })
+
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    expect(copied[0]!.length).toBeLessThanOrEqual(60_000)
+    expect(copied[0]).toContain('entry 1499 ')
+    expect(copied[0]).not.toContain('entry 0 ')
+    await vi.waitFor(() => expect(strip(lastFrame())).toMatch(/copied the last \d+ of 1500 entries/))
+  })
+
+  it('says so when there is nothing to copy at all', async () => {
+    const { overlay, lastFrame } = create(new DevEventLog())
+    overlay.open()
+    overlay.handleKey({ name: 'y', sequence: 'Y' })
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain('nothing to copy'))
+    expect(copied).toHaveLength(0)
+  })
+
   it('says so when there is nothing selected to copy', async () => {
     const events = new DevEventLog()
     events.push(event({ message: 'anything' }))
@@ -1754,6 +1797,41 @@ describe('info overlay', () => {
     expect(frame).toContain('urls')
     expect(frame).toContain('http://localhost:3000/')
     expect(frame.indexOf('versions')).toBeLessThan(frame.indexOf('urls'))
+  })
+
+  it('copies the issue report rather than the rows it is showing', async () => {
+    copied.length = 0
+    const overlay = new InfoOverlay(
+      () => [{ heading: 'urls', entries: [['local', 'http://localhost:3000/']] }],
+      () => {},
+      () => {},
+      () => 'QR-A\nQR-B',
+      async () => '| **Nuxt version** | `4.5.1` |',
+    )
+    overlay.open()
+    overlay.handleKey({ name: 'y', sequence: 'Y' })
+
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    expect(copied[0]).toBe('| **Nuxt version** | `4.5.1` |')
+  })
+
+  it('says so rather than copying its rows when the report cannot be gathered', async () => {
+    copied.length = 0
+    let output = ''
+    const overlay = new InfoOverlay(
+      () => [{ heading: 'urls', entries: [['local', 'http://localhost:3000/']] }],
+      (chunk) => {
+        output += chunk
+      },
+      () => {},
+      () => 'QR-A\nQR-B',
+      () => Promise.reject(new Error('broken config')),
+    )
+    overlay.open()
+    overlay.handleKey({ name: 'y', sequence: 'Y' })
+
+    await vi.waitFor(() => expect(strip(output)).toContain('could not gather what to copy'))
+    expect(copied).toHaveLength(0)
   })
 
   it('puts a side panel to the right when there is room', () => {
