@@ -108,7 +108,8 @@ export class RouteOverlay extends ScreenOverlay {
       ['s', 'server'],
       ['a', 'all'],
       ['/', 'search'],
-      ['enter', 'copy'],
+      ['y', 'copy'],
+      ['Y', 'copy all'],
       ['q', 'close'],
     ], columns)
   }
