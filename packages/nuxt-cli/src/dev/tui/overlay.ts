@@ -107,7 +107,8 @@ export class LogOverlay extends ScreenOverlay {
       ['c/b/r', 'cli/build/runtime'],
       ['/', 'search'],
       ['x', 'clear'],
-      ['enter', 'copy'],
+      ['y', 'copy'],
+      ['Y', 'copy all'],
       ['q', 'close'],
     ], columns)
   }

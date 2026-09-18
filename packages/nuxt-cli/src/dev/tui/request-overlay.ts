@@ -138,7 +138,8 @@ export class RequestOverlay extends ScreenOverlay {
     if (this.#detail) {
       return formatHints([
         ['↑/↓', 'select'],
-        ['enter', 'copy'],
+        ['y', 'copy'],
+        ['Y', 'copy all'],
         ['esc', 'back'],
       ], columns)
     }
@@ -152,6 +153,7 @@ export class RequestOverlay extends ScreenOverlay {
       ['b', 'bundler'],
       ['/', 'search'],
       ['y', 'copy'],
+      ['Y', 'copy all'],
       ['q', 'close'],
     ], columns)
   }
