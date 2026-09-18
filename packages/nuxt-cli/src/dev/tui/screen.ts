@@ -361,7 +361,8 @@ export abstract class ScreenOverlay {
       return
     }
     if (custom) {
-      return this.#copy(custom, 'copied')
+      // A view's own text reads from the top, so the head is what is kept.
+      return this.#copy(custom.slice(0, COPY_ALL_MAX_CHARS), 'copied')
     }
     const texts = this.#entries().map(entry => entry.copy).filter(text => !!text) as string[]
     if (!texts.length) {
