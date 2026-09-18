@@ -282,6 +282,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     if (owner) {
       transient = undefined
       owner.rendered = chunk
+      owner.routes?.add('output')
       return
     }
     const rewriting = isRewrite(chunk)
@@ -311,7 +312,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
     }
-    const stored = events.push(event)
+    const stored = events.push(event, { route: 'output' })
     // Only an entry of this run's own may be rewritten by its later frames:
     // `push` can merge into an existing structured event, whose message is a
     // real log that has to survive.

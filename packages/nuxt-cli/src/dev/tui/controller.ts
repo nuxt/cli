@@ -8,7 +8,11 @@ import type { DevStatus } from './panel'
 import type { DevUISession } from './session'
 
 /** A {@link ServerLogEvent} from a source that may not know where it came from. */
-type ForwardedLog = Omit<ServerLogEvent, 'origin'> & { origin?: ServerLogEvent['origin'] }
+type ForwardedLog = Omit<ServerLogEvent, 'origin'> & {
+  origin?: ServerLogEvent['origin']
+  /** Recovered from the fork's own output, which the app may also report. */
+  raw?: boolean
+}
 
 export interface DevUIController {
   /** Whether the interactive UI is active (rather than the plain fallback). */
