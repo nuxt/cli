@@ -2,6 +2,13 @@ import { stripAnsi } from './width'
 
 export type DevLogSource = 'cli' | 'build' | 'runtime'
 
+/**
+ * How a log written by the app or the build can reach the UI: reported by the
+ * app over its log channel, caught by a consola reporter, or recovered from the
+ * output it was printed as. One `console.log` in the app takes all three.
+ */
+export type DevLogRoute = 'report' | 'reporter' | 'output'
+
 export interface DevLogEvent {
   time: number
   /** consola log level (`0` fatal/error, `1` warn, `2` log, `3+` info and below). */
@@ -16,8 +23,12 @@ export interface DevLogEvent {
   styled?: boolean
   /** Recovered from printed output rather than reported by a logger. */
   raw?: boolean
-  /** Already paired with the other route the same log arrived by. */
-  paired?: boolean
+  /**
+   * The routes this log has arrived by so far. An entry takes one arrival from
+   * each, so the same log heard twice is one entry and two logs that say the
+   * same thing stay two. Absent on a log that only ever arrives once.
+   */
+  routes?: Set<DevLogRoute>
   /** Already written into scrollback, so it is not shown a second time. */
   surfaced?: boolean
   source: DevLogSource
@@ -154,15 +165,20 @@ export class DevEventLog {
   /**
    * Record `event`, returning it as stored so callers can amend it later.
    *
-   * With `absorb`, an entry already recovered from printed output that says the
-   * same thing is upgraded in place instead of a second one being added.
+   * `route` says how a log that arrives more than once got here this time, and
+   * a `raw` event was caught by a reporter unless it says otherwise. It joins
+   * the entry the same log already made by another route instead of adding one.
    */
-  push(event: DevLogEvent, options: { absorb?: boolean } = {}): DevLogEvent {
-    const merged = options.absorb ? this.#absorb(event) : event.raw ? this.#attribute(event) : undefined
+  push(event: DevLogEvent, options: { route?: DevLogRoute } = {}): DevLogEvent {
+    const route = options.route ?? (event.raw ? 'reporter' : undefined)
+    const merged = route && this.#join(event, route)
     if (merged) {
       return merged
     }
     const stored = classify(event)
+    if (route) {
+      stored.routes = new Set([route])
+    }
     const deduped = this.#dedupe(stored)
     if (deduped) {
       return deduped
@@ -202,24 +218,32 @@ export class DevEventLog {
       // second printing has no other home.
       if (message && (text.includes(message) || boxed.includes(message)) && (!event.rendered || isBoxedNotice(event))) {
         event.rendered ??= chunk
+        event.routes?.add('output')
         return true
       }
     }
     return false
   }
 
-  /** Hand printed output to the attributed report of the same log. */
-  #attribute(event: DevLogEvent): DevLogEvent | undefined {
-    return this.#merge(event, candidate => !candidate.raw && !candidate.paired && candidate.requestId !== undefined, (candidate) => {
-      candidate.rendered ??= event.rendered
-      candidate.paired = true
-    })
-  }
-
-  #absorb(event: DevLogEvent): DevLogEvent | undefined {
-    return this.#merge(event, candidate => !!candidate.raw && !candidate.paired, (candidate) => {
-      Object.assign(candidate, { ...event, rendered: candidate.rendered, raw: false })
-      candidate.paired = true
+  /**
+   * Fold `event` into the entry the same log already made by another route.
+   *
+   * The report is the fullest account of a log, carrying the request it was
+   * written for, then the reporter's. Whatever was printed is kept throughout,
+   * being what the log view shows.
+   */
+  #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
+    return this.#merge(event, candidate => !!candidate.routes && !candidate.routes.has(route), (candidate) => {
+      const routes = candidate.routes!
+      const rendered = candidate.rendered ?? event.rendered
+      if (route === 'report') {
+        Object.assign(candidate, event, { raw: false })
+      }
+      else if (route === 'reporter' && !routes.has('report')) {
+        Object.assign(candidate, event)
+      }
+      candidate.rendered = rendered
+      candidate.routes = routes.add(route)
     })
   }
 
