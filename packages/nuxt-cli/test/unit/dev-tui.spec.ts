@@ -894,6 +894,24 @@ describe('dev event log', () => {
     expect(events.recent(10)[0]!.raw).toBeFalsy()
   })
 
+  it.each([
+    ['reports first', ['report 1', 'report 2', 'reporter 1', 'reporter 2']],
+    ['reporters first', ['reporter 1', 'reporter 2', 'report 1', 'report 2']],
+    ['a reporter with no report of its own', ['report 2', 'reporter 1']],
+  ])('does not join the same line from two requests (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    for (const step of order) {
+      const [route, id] = step.split(' ') as ['report' | 'reporter', string]
+      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: route === 'reporter', source: 'runtime', request: 'GET /', requestId: Number(id) }, { route })
+    }
+    const entries = events.recent(10)
+    expect(entries).toHaveLength(2)
+    expect(new Set(entries.map(entry => entry.requestId)).size).toBe(2)
+    for (const entry of entries) {
+      expect(entry.routes!.size).toBe(order.length / 2)
+    }
+  })
+
   it('does not pair printed output with a log nothing reported', () => {
     const events = new DevEventLog()
     events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })

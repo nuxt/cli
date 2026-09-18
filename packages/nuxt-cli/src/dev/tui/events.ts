@@ -231,9 +231,23 @@ export class DevEventLog {
    * The report is the fullest account of a log, carrying the request it was
    * written for, then the reporter's. Whatever was printed is kept throughout,
    * being what the log view shows.
+   *
+   * Two requests can log the same line at once, so an arrival that knows its
+   * request only joins an entry that could be for the same one. Printed output
+   * is left out of that: it is attributed when the capture is flushed, which
+   * can be on another request's call stack.
    */
   #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
-    return this.#merge(event, candidate => !!candidate.routes && !candidate.routes.has(route), (candidate) => {
+    const sameRequest = (candidate: DevLogEvent) => {
+      if (route === 'output' || (candidate.routes!.size === 1 && candidate.routes!.has('output'))) {
+        return true
+      }
+      if (candidate.requestId !== undefined && event.requestId !== undefined) {
+        return candidate.requestId === event.requestId
+      }
+      return candidate.request === undefined || event.request === undefined || candidate.request === event.request
+    }
+    return this.#merge(event, candidate => !!candidate.routes && !candidate.routes.has(route) && sameRequest(candidate), (candidate) => {
       const routes = candidate.routes!
       const rendered = candidate.rendered ?? event.rendered
       if (route === 'report') {
