@@ -287,10 +287,12 @@ export abstract class ScreenOverlay {
   }
 
   /**
-   * Move the selection, wrapping at both ends.
+   * Move the selection, stopping at both ends. A list that loops has no start
+   * or end to get your bearings from, least of all a log that is still growing.
    *
-   * With nothing selected, moving down starts at the top and moving up starts
-   * at the bottom, so either arrow is a way in.
+   * With nothing selected, moving up starts at the bottom and moving down
+   * starts at the top of what is on screen, so either arrow is a way in and
+   * neither one jumps somewhere else.
    */
   /** Views lay out inside the gutter, so their own truncation stays exact. */
   #entries(): OverlayEntry[] {
@@ -298,16 +300,29 @@ export abstract class ScreenOverlay {
   }
 
   #move(delta: number): void {
-    const total = this.#entries().length
-    if (!total) {
+    const entries = this.#entries()
+    if (!entries.length) {
       return
     }
     if (this.#selected === undefined) {
-      this.#selected = delta > 0 ? 0 : total - 1
+      this.#selected = delta > 0 ? this.#firstVisible(entries) : entries.length - 1
       return
     }
-    const next = this.#selected + delta
-    this.#selected = ((next % total) + total) % total
+    this.#selected = Math.min(Math.max(this.#selected + delta, 0), entries.length - 1)
+  }
+
+  /** The first entry that starts inside the rows currently on screen. */
+  #firstVisible(entries: OverlayEntry[]): number {
+    const rows = entries.reduce((total, entry) => total + entry.lines.length, 0)
+    const top = Math.max(0, rows - this.#offset - this.bodyRows())
+    let row = 0
+    for (const [index, entry] of entries.entries()) {
+      if (row >= top) {
+        return index
+      }
+      row += entry.lines.length
+    }
+    return entries.length - 1
   }
 
   async #copySelected(): Promise<void> {
