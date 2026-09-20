@@ -4,6 +4,7 @@ import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
 import process from 'node:process'
+import { consola } from 'consola'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -2576,6 +2577,44 @@ describe('request failures on the panel', () => {
       ui.pushServerLog(channel)
       expect(session.events.recent(10)).toHaveLength(2)
       expect(session.events.recent(10)[1]).toMatchObject({ request: attribution.request })
+    })
+  })
+
+  // In-process, the same log reaches the UI over the channel, through the
+  // console wrapper and as the bytes it printed.
+  async function logInProcess(ui: ReturnType<typeof setupDevUI>, message: string, reprint = false): Promise<void> {
+    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+    const level = consola.level
+    consola.level = 3
+    try {
+      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 1 })
+      consola.log(message)
+      await flush()
+      if (reprint) {
+        process.stdout.write(`${message}\n`)
+        await flush()
+      }
+    }
+    finally {
+      consola.level = level
+    }
+  }
+
+  it('should record an app log the CLI serves itself once', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'hello from the app')
+
+      const seen = session.events.recent(50).filter(event => event.message.includes('hello from the app'))
+      expect(seen).toHaveLength(1)
+      expect(seen[0]).toMatchObject({ request: 'GET /', requestId: 1 })
+    })
+  })
+
+  it('should keep a line printed again after it was paired', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'twice over', true)
+
+      expect(session.events.recent(50).filter(event => event.message.includes('twice over'))).toHaveLength(2)
     })
   })
 
