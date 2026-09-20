@@ -72,6 +72,7 @@ export function record(command: string, options: PtyOptions): PtySession {
   delete env.VITEST
   delete env.VITEST_WORKER_ID
   delete env.VITEST_POOL_ID
+  env.NUXT_TELEMETRY_DISABLED ??= '1'
   const child: ChildProcess = spawn(host.command, host.args, {
     cwd: options.cwd,
     env,
