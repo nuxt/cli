@@ -10,6 +10,8 @@ export interface ServerLogEvent {
   /** The request this was emitted for. */
   request?: string
   requestId?: number
+  /** Caught on its way to the terminal rather than reported by the app. */
+  raw?: boolean
 }
 
 /**

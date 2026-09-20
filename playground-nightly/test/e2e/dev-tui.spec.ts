@@ -13,7 +13,34 @@ function plain(output: string): string {
   return output.replace(ANSI, '')
 }
 
-async function runDevUI(port: number): Promise<string> {
+/** The process answering on `port`, which is the one serving the app. */
+async function servingPid(port: number): Promise<number | undefined> {
+  return await fetch(`http://localhost:${port}/api/pid`)
+    .then(response => response.json() as Promise<{ pid: number }>)
+    .then(body => body.pid)
+    .catch(() => undefined)
+}
+
+/**
+ * Wait until the app is served by a process other than `previous`.
+ *
+ * The restart is announced before the fork is serving and the outgoing server
+ * holds the port until the handover is through, so only which process answers
+ * says the fork has taken over.
+ */
+async function waitForHandover(port: number, previous: number, timeout = 120_000): Promise<void> {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    const pid = await servingPid(port)
+    if (pid !== undefined && pid !== previous) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+  throw new Error(`no fork took over port ${port} within ${timeout}ms`)
+}
+
+async function runDevUI(port: number, options: { restart?: boolean } = {}): Promise<string> {
   const session = record(`NUXT_IGNORE_LOCK=1 NUXT_TUI=1 node ${bin} dev --port ${port} --no-takeover`, {
     cwd,
     rows: 40,
@@ -22,6 +49,13 @@ async function runDevUI(port: number): Promise<string> {
   })
   try {
     await session.waitFor(/watching for changes/, 180_000)
+    // The first server runs in the CLI's own process; a fork serves after a restart.
+    if (options.restart) {
+      const before = await servingPid(port)
+      session.send('r')
+      await session.waitFor(/Restarting Nuxt in a new process/, 60_000)
+      await waitForHandover(port, before!)
+    }
     await fetch(`http://localhost:${port}/api/log`).then(response => response.text())
     await session.wait(3000)
     session.send('l')
@@ -46,5 +80,11 @@ describe('dev ui on nuxt nightly', () => {
 
     expect(output).toContain('log from the server route')
     expect(output).toMatch(/GET \/api\/log[\s\S]*log from the server route/)
+  }, 240_000)
+
+  it('should show an app log once when a fork is serving it', async () => {
+    const output = await runDevUI(3213, { restart: true })
+
+    expect(output.split('log from the server route')).toHaveLength(2)
   }, 240_000)
 })

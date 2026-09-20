@@ -599,7 +599,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         request: log.request,
         requestId: log.requestId,
         source: log.origin ?? 'build',
-      }, { absorb: true }))
+      }, { route: log.raw ? 'reporter' : 'report' }))
     },
     pushRequests: (batch) => {
       if (!batch.length) {

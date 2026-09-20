@@ -17,7 +17,7 @@ import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { queryBackground } from './background'
-import { DevEventLog, isBoxedNotice, normaliseMessage } from './events'
+import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
 import { LOGO_FRAME_MS } from './logo'
 import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
 import { resolveDevUISupport, supportsUnicode } from './support'
@@ -282,6 +282,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     if (owner) {
       transient = undefined
       owner.rendered = chunk
+      noteRoute(owner, 'output')
       return
     }
     const rewriting = isRewrite(chunk)
@@ -306,12 +307,11 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       type: 'log',
       message,
       rendered: chunk,
-      raw: true,
       source: isServingRequest() ? 'runtime' : 'build',
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
     }
-    const stored = events.push(event)
+    const stored = events.push(event, { route: 'output' })
     // Only an entry of this run's own may be rewritten by its later frames:
     // `push` can merge into an existing structured event, whose message is a
     // real log that has to survive.
@@ -380,6 +380,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
 
   const reporter = {
     log(logObj: { level: number, type: string, tag?: string, args: unknown[] }) {
+      const cli = isEmittingCliLog()
       expectRender(events.push({
         time: Date.now(),
         level: logObj.level,
@@ -389,10 +390,12 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
         // The app, the build and the CLI share this consola instance on one
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
-        source: isEmittingCliLog() ? 'cli' : isServingRequest() ? 'runtime' : 'build',
-        raw: !isEmittingCliLog(),
-        request: isEmittingCliLog() ? undefined : currentRequest()?.label,
-        requestId: isEmittingCliLog() ? undefined : currentRequest()?.id,
+        source: cli ? 'cli' : isServingRequest() ? 'runtime' : 'build',
+        request: cli ? undefined : currentRequest()?.label,
+        requestId: cli ? undefined : currentRequest()?.id,
+      }, {
+        // A log the CLI wrote itself reaches the UI no other way.
+        route: cli ? undefined : 'reporter',
       }))
     },
   }

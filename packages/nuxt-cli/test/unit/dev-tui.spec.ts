@@ -1,13 +1,15 @@
+import type { DevLogRoute } from '../../src/dev/tui/events'
 import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
 import process from 'node:process'
+import { consola } from 'consola'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
-import { DevEventLog } from '../../src/dev/tui/events'
+import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
 import { beginDevUI, setupDevUI } from '../../src/dev/tui/index'
 import { InfoOverlay } from '../../src/dev/tui/info-overlay'
@@ -671,7 +673,7 @@ describe('dev event log', () => {
     const log = new DevEventLog()
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
     const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
     expect(log.attachRendered(printed, printed)).toBe(true)
     expect(log.recent(10)).toHaveLength(1)
@@ -681,7 +683,7 @@ describe('dev event log', () => {
   it('should keep a boxed notice out of badge classification', () => {
     const log = new DevEventLog()
     const message = 'Warning: a browser is requesting permissions.\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: Date.now(), type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: Date.now(), type: 'box', message, source: 'build' }))
     const [stored] = log.recent(10)
     expect(stored!.type).toBe('box')
     expect(stored!.message).toContain('gXSptCzfAzS2Lfgy')
@@ -692,8 +694,8 @@ describe('dev event log', () => {
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.'
     const printed = `\u256D\u2500 Permission Request \u2500\u256E\n\u2502 ${message} \u2502\n\u2570\u2500\u256F`
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true, rendered: printed }))
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: now, type: 'box', message, source: 'build', rendered: printed }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.repeats).toBe(2)
     expect(log.attachRendered(printed, printed)).toBe(true)
@@ -833,10 +835,10 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       if (step === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { absorb: true })
+        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: true, source: 'runtime' })
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime' }, { route: 'output' })
       }
     }
     return events.recent(10)
@@ -851,14 +853,119 @@ describe('dev event log', () => {
     expect(replay(order)).toHaveLength(2)
   })
 
+  it.each([
+    ['report then print', ['report', 'print']],
+    ['print then report', ['print', 'report']],
+  ])('pairs a log reported outside a request with its printed form (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    for (const step of order) {
+      if (step === 'report') {
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'booted', source: 'build' }, { route: 'report' })
+      }
+      else {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', source: 'build' }, { route: 'output' })
+      }
+    }
+    expect(events.recent(10)).toHaveLength(1)
+  })
+
+  // A fork forwards what its consola caught over IPC while the output arrives
+  // down a pipe and the app's report on a channel, in no particular order.
+  it.each([
+    [['report', 'reporter', 'output']],
+    [['report', 'output', 'reporter']],
+    [['reporter', 'report', 'output']],
+    [['reporter', 'output', 'report']],
+    [['output', 'report', 'reporter']],
+    [['output', 'reporter', 'report']],
+  ])('keeps one entry for a log that arrives by every route (%j)', (order) => {
+    const events = new DevEventLog()
+    for (const route of order) {
+      if (route === 'report') {
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
+      }
+      else if (route === 'reporter') {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', source: 'runtime' }, { route: 'reporter' })
+      }
+      else {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', source: 'build' }, { route: 'output' })
+      }
+    }
+    expect(events.recent(10)).toHaveLength(1)
+    expect(events.recent(10)[0]).toMatchObject({ request: 'GET /', requestId: 4, rendered: 'hello\n' })
+  })
+
+  it.each([
+    ['reports first', ['report 1', 'report 2', 'reporter 1', 'reporter 2']],
+    ['reporters first', ['reporter 1', 'reporter 2', 'report 1', 'report 2']],
+    ['a reporter with no report of its own', ['report 2', 'reporter 1']],
+  ])('does not join the same line from two requests (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    for (const step of order) {
+      const [route, id] = step.split(' ') as ['report' | 'reporter', string]
+      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: Number(id) }, { route })
+    }
+    const entries = events.recent(10)
+    expect(entries).toHaveLength(2)
+    expect(new Set(entries.map(entry => entry.requestId)).size).toBe(2)
+    for (const entry of entries) {
+      expect(entry.routes!.size).toBe(order.length / 2)
+    }
+  })
+
+  it('keeps a log with the request it names when another printed the same line', () => {
+    const events = new DevEventLog()
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'report' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'report' })
+
+    expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
+  })
+
+  // Each route runs at its own pace, so the arrivals of two occurrences can be
+  // heard in any order at all.
+  it.each([
+    ['occurrence by occurrence', ['report 1', 'reporter 1', 'output 1', 'report 2', 'reporter 2', 'output 2']],
+    ['output trailing a whole occurrence behind', ['report 1', 'reporter 1', 'report 2', 'output 1', 'reporter 2', 'output 2']],
+    ['reports ahead of everything', ['report 1', 'report 2', 'reporter 1', 'output 1', 'reporter 2', 'output 2']],
+  ])('counts an error repeated in a fork once per occurrence (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    const message = 'Cannot read properties of undefined'
+    for (const step of order) {
+      const route = step.split(' ')[0] as DevLogRoute
+      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 1 }, { route })
+    }
+
+    expect(events.recent(10)).toHaveLength(1)
+    expect(events.recent(10)[0]!.repeats).toBe(2)
+  })
+
+  it('does not let output heard twice make room for another report', () => {
+    const events = new DevEventLog()
+    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 1 }, { route: 'report' })
+    const entry = report()
+    noteRoute(entry, 'output')
+    noteRoute(entry, 'output')
+
+    expect(report()).not.toBe(entry)
+  })
+
+  it('does not pair printed output with a log nothing reported', () => {
+    const events = new DevEventLog()
+    events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'build' }, { route: 'output' })
+    expect(events.recent(10)).toHaveLength(2)
+  })
+
   it('does not swallow a printed line that never got its own report', () => {
     expect(replay(['report', 'print', 'print'])).toHaveLength(2)
   })
 
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', raw: true, source: 'runtime' })
-    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { absorb: true })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', source: 'runtime' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
 
     const [only] = events.recent(10)
     expect(events.recent(10)).toHaveLength(1)
@@ -2309,7 +2416,7 @@ const context = {
   onReady: () => {},
 }
 
-async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>, overrides: Record<string, unknown> = {}): Promise<void> {
+async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>, session: NonNullable<ReturnType<typeof beginDevUI>>) => Promise<void>, overrides: Record<string, unknown> = {}): Promise<void> {
   const chunks: string[] = []
   const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
   const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
@@ -2330,7 +2437,7 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
       // The panel repaints on a trailing timer, so nothing is on screen yet.
       await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
       return strip(chunks.join(''))
-    })
+    }, session)
   }
   finally {
     session.teardown()
@@ -2468,6 +2575,72 @@ describe('request failures on the panel', () => {
       expect(last).toContain('WARNING')
       expect(last).toContain('the dev server is reachable from the network without authentication')
       expect(frames).toContain('read the app, build errors and source code.')
+    })
+  })
+
+  // A fork hears an app log twice: over the log channel, and again when the
+  // app's stdout comes through its own consola.
+  it.each([
+    ['inside a request', { origin: 'runtime' as const, request: 'GET /api/log', requestId: 1 }],
+    ['outside a request', { origin: 'build' as const, request: undefined }],
+  ])('should record an app log a fork forwards twice once (%s)', async (_name, attribution) => {
+    await withPanel(async (ui, _settle, session) => {
+      const channel = { level: 3, logType: 'log', message: 'hello', ...attribution }
+      const stdout = { level: 2, logType: 'log', message: 'hello', origin: attribution.origin, raw: true }
+
+      ui.pushServerLog(channel)
+      ui.pushServerLog(stdout)
+      expect(session.events.recent(10)).toHaveLength(1)
+
+      ui.pushServerLog(stdout)
+      ui.pushServerLog(channel)
+      expect(session.events.recent(10)).toHaveLength(2)
+      expect(session.events.recent(10)[1]).toMatchObject({ request: attribution.request })
+    })
+  })
+
+  // In-process, the same log reaches the UI over the channel, through the
+  // console wrapper and as the bytes it printed.
+  async function logInProcess(ui: ReturnType<typeof setupDevUI>, message: string, reprint = false): Promise<void> {
+    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+    const level = consola.level
+    consola.level = 3
+    try {
+      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 1 })
+      consola.log(message)
+      await flush()
+      if (reprint) {
+        process.stdout.write(`${message}\n`)
+        await flush()
+      }
+    }
+    finally {
+      consola.level = level
+    }
+  }
+
+  it('should record an app log the CLI serves itself once', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'hello from the app')
+
+      const seen = session.events.recent(50).filter(event => event.message.includes('hello from the app'))
+      expect(seen).toHaveLength(1)
+      expect(seen[0]).toMatchObject({ request: 'GET /', requestId: 1 })
+    })
+  })
+
+  it('should keep a line printed again after it was paired', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'twice over', true)
+
+      expect(session.events.recent(50).filter(event => event.message.includes('twice over'))).toHaveLength(2)
+    })
+  })
+
+  it('should record what only reaches a fork\'s stdout', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      ui.pushServerLog({ level: 2, logType: 'log', message: 'written straight to stdout', origin: 'build', raw: true })
+      expect(session.events.recent(10).map(event => event.message)).toEqual(['written straight to stdout'])
     })
   })
 
@@ -2788,7 +2961,7 @@ describe('captured spinner frames', () => {
       process.stdout.write('\u2714 Dependencies installed\n')
       await flush()
 
-      const recent = session.events.recent(50, event => !!event.raw)
+      const recent = session.events.recent(50, event => !!event.routes?.has('output'))
       const frames = recent.filter(event => event.message.includes('Installing with pnpm'))
       expect(frames).toHaveLength(1)
       expect(frames[0]!.message).toContain('Installing with pnpm 30s')
