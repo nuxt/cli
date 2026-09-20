@@ -95,7 +95,8 @@ export function isBoxedNotice(event: DevLogEvent): boolean {
  * than once. One that cannot is left alone.
  */
 export function noteRoute(event: DevLogEvent, route: DevLogRoute): void {
-  event.routes?.set(route, (event.routes.get(route) ?? 0) + 1)
+  const routes = event.routes
+  routes?.set(route, Math.min((routes.get(route) ?? 0) + 1, Math.max(occurrences(event), 1)))
 }
 
 /**

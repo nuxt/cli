@@ -8,7 +8,7 @@ import process from 'node:process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
-import { DevEventLog } from '../../src/dev/tui/events'
+import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
 import { beginDevUI, setupDevUI } from '../../src/dev/tui/index'
 import { InfoOverlay } from '../../src/dev/tui/info-overlay'
@@ -939,6 +939,16 @@ describe('dev event log', () => {
 
     expect(events.recent(10)).toHaveLength(1)
     expect(events.recent(10)[0]!.repeats).toBe(2)
+  })
+
+  it('does not let output heard twice make room for another report', () => {
+    const events = new DevEventLog()
+    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 1 }, { route: 'report' })
+    const entry = report()
+    noteRoute(entry, 'output')
+    noteRoute(entry, 'output')
+
+    expect(report()).not.toBe(entry)
   })
 
   it('does not pair printed output with a log nothing reported', () => {
