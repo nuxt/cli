@@ -13,8 +13,33 @@ function plain(output: string): string {
   return output.replace(ANSI, '')
 }
 
-/** Long enough for the fork asked for by `r` to have taken the port over. */
-const HANDOVER_MS = 10_000
+/** The process answering on `port`, which is the one serving the app. */
+async function servingPid(port: number): Promise<number | undefined> {
+  return await fetch(`http://localhost:${port}/api/pid`)
+    .then(response => response.json() as Promise<{ pid: number }>)
+    .then(body => body.pid)
+    .catch(() => undefined)
+}
+
+/**
+ * Wait until the app is served by a process other than `previous`.
+ *
+ * The restart is announced before the fork it starts is serving, and the
+ * outgoing server holds the port until the handover is through, so neither the
+ * notice nor a successful request says the fork has taken over. Which process
+ * answers does.
+ */
+async function waitForHandover(port: number, previous: number, timeout = 120_000): Promise<void> {
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    const pid = await servingPid(port)
+    if (pid !== undefined && pid !== previous) {
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 250))
+  }
+  throw new Error(`no fork took over port ${port} within ${timeout}ms`)
+}
 
 async function runDevUI(port: number, options: { restart?: boolean } = {}): Promise<string> {
   const session = record(`NUXT_IGNORE_LOCK=1 NUXT_TUI=1 node ${bin} dev --port ${port} --no-takeover`, {
@@ -28,9 +53,10 @@ async function runDevUI(port: number, options: { restart?: boolean } = {}): Prom
     // The first server runs in the CLI's own process; a fork only serves once
     // something has asked for a restart.
     if (options.restart) {
+      const before = await servingPid(port)
       session.send('r')
       await session.waitFor(/Restarting Nuxt in a new process/, 60_000)
-      await session.wait(HANDOVER_MS)
+      await waitForHandover(port, before!)
     }
     await fetch(`http://localhost:${port}/api/log`).then(response => response.text())
     await session.wait(3000)
