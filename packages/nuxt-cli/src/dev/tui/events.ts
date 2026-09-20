@@ -21,7 +21,7 @@ export interface DevLogEvent {
   rendered?: string
   /** The message carries its own colours, so severity styling must not be applied. */
   styled?: boolean
-  /** Recovered from printed output rather than reported by a logger. */
+  /** Caught on its way to the terminal rather than reported by the app. */
   raw?: boolean
   /**
    * The routes this log has arrived by so far. An entry takes one arrival from
@@ -165,12 +165,12 @@ export class DevEventLog {
   /**
    * Record `event`, returning it as stored so callers can amend it later.
    *
-   * `route` says how a log that arrives more than once got here this time, and
-   * a `raw` event was caught by a reporter unless it says otherwise. It joins
-   * the entry the same log already made by another route instead of adding one.
+   * `route` says how a log that can arrive more than once got here this time.
+   * It joins the entry the same log already made by another route instead of
+   * adding one; a log given no route always stands alone.
    */
   push(event: DevLogEvent, options: { route?: DevLogRoute } = {}): DevLogEvent {
-    const route = options.route ?? (event.raw ? 'reporter' : undefined)
+    const { route } = options
     const merged = route && this.#join(event, route)
     if (merged) {
       return merged
@@ -232,14 +232,18 @@ export class DevEventLog {
    * written for, then the reporter's. Whatever was printed is kept throughout,
    * being what the log view shows.
    *
-   * Two requests can log the same line at once, so an arrival that knows its
-   * request only joins an entry that could be for the same one. Printed output
-   * is left out of that: it is attributed when the capture is flushed, which
-   * can be on another request's call stack.
+   * Two requests can log the same line at once, so the entry written for the
+   * same request is taken ahead of the nearest one saying the same thing, and
+   * an arrival that knows its request never joins one held by another. Printed
+   * output is left out of that: it is attributed when the capture is flushed,
+   * which can be on another request's call stack.
    */
   #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
-    const sameRequest = (candidate: DevLogEvent) => {
-      if (route === 'output' || (candidate.routes!.size === 1 && candidate.routes!.has('output'))) {
+    type Routed = DevLogEvent & { routes: Set<DevLogRoute> }
+    const open = (candidate: DevLogEvent): candidate is Routed => !!candidate.routes && !candidate.routes.has(route)
+    const attributed = (candidate: Routed) => route !== 'output' && !(candidate.routes.size === 1 && candidate.routes.has('output'))
+    const sameRequest = (candidate: Routed) => {
+      if (!attributed(candidate)) {
         return true
       }
       if (candidate.requestId !== undefined && event.requestId !== undefined) {
@@ -247,8 +251,8 @@ export class DevEventLog {
       }
       return candidate.request === undefined || event.request === undefined || candidate.request === event.request
     }
-    return this.#merge(event, candidate => !!candidate.routes && !candidate.routes.has(route) && sameRequest(candidate), (candidate) => {
-      const routes = candidate.routes!
+    const apply = (candidate: DevLogEvent) => {
+      const routes = candidate.routes ?? new Set<DevLogRoute>()
       const rendered = candidate.rendered ?? event.rendered
       if (route === 'report') {
         Object.assign(candidate, event, { raw: false })
@@ -258,7 +262,14 @@ export class DevEventLog {
       }
       candidate.rendered = rendered
       candidate.routes = routes.add(route)
-    })
+    }
+    if (event.requestId !== undefined) {
+      const exact = this.#merge(event, candidate => open(candidate) && candidate.requestId === event.requestId, apply)
+      if (exact) {
+        return exact
+      }
+    }
+    return this.#merge(event, candidate => open(candidate) && sameRequest(candidate), apply)
   }
 
   /**
@@ -290,6 +301,11 @@ export class DevEventLog {
       }
       candidate.requestId ??= event.requestId
       candidate.request ??= event.request
+      // The routes of the occurrence just folded in, so the rest of its
+      // arrivals join the entry rather than being counted as more of them.
+      if (event.routes) {
+        candidate.routes = event.routes
+      }
     }, DEDUPE_WINDOW_MS, sameProblem)
   }
 

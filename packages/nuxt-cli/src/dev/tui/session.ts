@@ -381,6 +381,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
 
   const reporter = {
     log(logObj: { level: number, type: string, tag?: string, args: unknown[] }) {
+      const cli = isEmittingCliLog()
       expectRender(events.push({
         time: Date.now(),
         level: logObj.level,
@@ -390,10 +391,13 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
         // The app, the build and the CLI share this consola instance on one
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
-        source: isEmittingCliLog() ? 'cli' : isServingRequest() ? 'runtime' : 'build',
-        raw: !isEmittingCliLog(),
-        request: isEmittingCliLog() ? undefined : currentRequest()?.label,
-        requestId: isEmittingCliLog() ? undefined : currentRequest()?.id,
+        source: cli ? 'cli' : isServingRequest() ? 'runtime' : 'build',
+        raw: !cli,
+        request: cli ? undefined : currentRequest()?.label,
+        requestId: cli ? undefined : currentRequest()?.id,
+      }, {
+        // A log the CLI wrote itself reaches the UI no other way.
+        route: cli ? undefined : 'reporter',
       }))
     },
   }

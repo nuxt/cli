@@ -10,6 +10,7 @@ import type { ResolvedCertificate } from './cert'
 import type { DevReportSummary } from './error-channel'
 import type { InspectOptions } from './inspect'
 import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
+import type { ServerLogEvent } from './log-channel'
 import type { DevRestartReason } from './reason'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
@@ -96,7 +97,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:restart', reason?: DevRestartReason }
     | { type: 'nuxt:internal:dev:rejection', message: string }
     | { type: 'nuxt:internal:dev:loading:error', error: Error }
-    | { type: 'nuxt:internal:dev:log', level: number, logType: string, tag?: string, message: string, origin: 'build' | 'runtime', request?: string, requestId?: number, raw?: boolean }
+    | ({ type: 'nuxt:internal:dev:log' } & ServerLogEvent)
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }

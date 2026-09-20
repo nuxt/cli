@@ -836,7 +836,7 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: true, source: 'runtime' })
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: true, source: 'runtime' }, { route: 'output' })
       }
     }
     return events.recent(10)
@@ -861,7 +861,7 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'log', message: 'booted', source: 'build' }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', raw: true, source: 'build' })
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', raw: true, source: 'build' }, { route: 'output' })
       }
     }
     expect(events.recent(10)).toHaveLength(1)
@@ -883,7 +883,7 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
       }
       else if (route === 'reporter') {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', raw: true, source: 'runtime' })
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', raw: true, source: 'runtime' }, { route: 'reporter' })
       }
       else {
         events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', raw: true, source: 'build' }, { route: 'output' })
@@ -912,10 +912,33 @@ describe('dev event log', () => {
     }
   })
 
+  it('keeps a log with the request it names when another printed the same line', () => {
+    const events = new DevEventLog()
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'report' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'report' })
+
+    expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
+  })
+
+  it('counts an error repeated in a fork once per occurrence', () => {
+    const events = new DevEventLog()
+    for (let occurrence = 0; occurrence < 2; occurrence++) {
+      const message = 'Cannot read properties of undefined'
+      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: 1 }, { route: 'report' })
+      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: true, source: 'runtime', requestId: 1 }, { route: 'reporter' })
+      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: true, source: 'runtime' }, { route: 'output' })
+    }
+
+    expect(events.recent(10)).toHaveLength(1)
+    expect(events.recent(10)[0]!.repeats).toBe(2)
+  })
+
   it('does not pair printed output with a log nothing reported', () => {
     const events = new DevEventLog()
     events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'build' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'build' }, { route: 'output' })
     expect(events.recent(10)).toHaveLength(2)
   })
 
@@ -925,7 +948,7 @@ describe('dev event log', () => {
 
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', raw: true, source: 'runtime' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', raw: true, source: 'runtime' }, { route: 'output' })
     events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
 
     const [only] = events.recent(10)

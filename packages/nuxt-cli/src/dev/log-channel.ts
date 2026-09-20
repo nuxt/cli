@@ -10,6 +10,11 @@ export interface ServerLogEvent {
   /** The request this was emitted for. */
   request?: string
   requestId?: number
+  /**
+   * Caught on its way to the terminal rather than reported by the app: a fork
+   * marks what its own consola caught, which the app may also report.
+   */
+  raw?: boolean
 }
 
 /**
