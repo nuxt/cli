@@ -65,6 +65,13 @@ export function record(command: string, options: PtyOptions): PtySession {
   delete env.NO_COLOR
   delete env.CI
   delete env.GITHUB_ACTIONS
+  if (env.NODE_ENV === 'test') {
+    delete env.NODE_ENV
+  }
+  delete env.TEST
+  delete env.VITEST
+  delete env.VITEST_WORKER_ID
+  delete env.VITEST_POOL_ID
   const child: ChildProcess = spawn(host.command, host.args, {
     cwd: options.cwd,
     env,
