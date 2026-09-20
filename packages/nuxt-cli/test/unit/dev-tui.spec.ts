@@ -672,7 +672,7 @@ describe('dev event log', () => {
     const log = new DevEventLog()
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
     const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
     expect(log.attachRendered(printed, printed)).toBe(true)
     expect(log.recent(10)).toHaveLength(1)
@@ -682,7 +682,7 @@ describe('dev event log', () => {
   it('should keep a boxed notice out of badge classification', () => {
     const log = new DevEventLog()
     const message = 'Warning: a browser is requesting permissions.\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: Date.now(), type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: Date.now(), type: 'box', message, source: 'build' }))
     const [stored] = log.recent(10)
     expect(stored!.type).toBe('box')
     expect(stored!.message).toContain('gXSptCzfAzS2Lfgy')
@@ -693,8 +693,8 @@ describe('dev event log', () => {
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.'
     const printed = `\u256D\u2500 Permission Request \u2500\u256E\n\u2502 ${message} \u2502\n\u2570\u2500\u256F`
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true, rendered: printed }))
-    log.push(event({ time: now, type: 'box', message, source: 'build', raw: true }))
+    log.push(event({ time: now, type: 'box', message, source: 'build', rendered: printed }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.repeats).toBe(2)
     expect(log.attachRendered(printed, printed)).toBe(true)
@@ -837,7 +837,7 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: true, source: 'runtime' }, { route: 'output' })
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime' }, { route: 'output' })
       }
     }
     return events.recent(10)
@@ -862,7 +862,7 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'log', message: 'booted', source: 'build' }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', raw: true, source: 'build' }, { route: 'output' })
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', source: 'build' }, { route: 'output' })
       }
     }
     expect(events.recent(10)).toHaveLength(1)
@@ -884,15 +884,14 @@ describe('dev event log', () => {
         events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
       }
       else if (route === 'reporter') {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', raw: true, source: 'runtime' }, { route: 'reporter' })
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', source: 'runtime' }, { route: 'reporter' })
       }
       else {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', raw: true, source: 'build' }, { route: 'output' })
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', source: 'build' }, { route: 'output' })
       }
     }
     expect(events.recent(10)).toHaveLength(1)
     expect(events.recent(10)[0]).toMatchObject({ request: 'GET /', requestId: 4, rendered: 'hello\n' })
-    expect(events.recent(10)[0]!.raw).toBeFalsy()
   })
 
   it.each([
@@ -903,7 +902,7 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       const [route, id] = step.split(' ') as ['report' | 'reporter', string]
-      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: route === 'reporter', source: 'runtime', request: 'GET /', requestId: Number(id) }, { route })
+      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: Number(id) }, { route })
     }
     const entries = events.recent(10)
     expect(entries).toHaveLength(2)
@@ -915,8 +914,8 @@ describe('dev event log', () => {
 
   it('keeps a log with the request it names when another printed the same line', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'output' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'output' })
     events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'report' })
     events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'report' })
 
@@ -934,7 +933,7 @@ describe('dev event log', () => {
     const message = 'Cannot read properties of undefined'
     for (const step of order) {
       const route = step.split(' ')[0] as DevLogRoute
-      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: route !== 'report', source: 'runtime', requestId: route === 'output' ? undefined : 1 }, { route })
+      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 1 }, { route })
     }
 
     expect(events.recent(10)).toHaveLength(1)
@@ -954,7 +953,7 @@ describe('dev event log', () => {
   it('does not pair printed output with a log nothing reported', () => {
     const events = new DevEventLog()
     events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', raw: true, source: 'build' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'build' }, { route: 'output' })
     expect(events.recent(10)).toHaveLength(2)
   })
 
@@ -964,7 +963,7 @@ describe('dev event log', () => {
 
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', raw: true, source: 'runtime' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', source: 'runtime' }, { route: 'output' })
     events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
 
     const [only] = events.recent(10)
@@ -2576,7 +2575,7 @@ describe('request failures on the panel', () => {
       ui.pushServerLog(stdout)
       ui.pushServerLog(channel)
       expect(session.events.recent(10)).toHaveLength(2)
-      expect(session.events.recent(10)[1]).toMatchObject({ raw: false, request: attribution.request })
+      expect(session.events.recent(10)[1]).toMatchObject({ request: attribution.request })
     })
   })
 
@@ -2904,7 +2903,7 @@ describe('captured spinner frames', () => {
       process.stdout.write('\u2714 Dependencies installed\n')
       await flush()
 
-      const recent = session.events.recent(50, event => !!event.raw)
+      const recent = session.events.recent(50, event => !!event.routes?.has('output'))
       const frames = recent.filter(event => event.message.includes('Installing with pnpm'))
       expect(frames).toHaveLength(1)
       expect(frames[0]!.message).toContain('Installing with pnpm 30s')

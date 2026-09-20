@@ -21,8 +21,6 @@ export interface DevLogEvent {
   rendered?: string
   /** The message carries its own colours, so severity styling must not be applied. */
   styled?: boolean
-  /** Caught on its way to the terminal rather than reported by the app. */
-  raw?: boolean
   /**
    * How many times this log has arrived by each route. An occurrence is one
    * arrival from each, so the same log heard three ways is one entry and two
@@ -279,7 +277,7 @@ export class DevEventLog {
       const routes = candidate.routes
       const rendered = candidate.rendered ?? event.rendered
       if (route === 'report') {
-        Object.assign(candidate, event, { raw: false })
+        Object.assign(candidate, event)
       }
       else if (route === 'reporter' && !routes?.has('report')) {
         Object.assign(candidate, event)

@@ -307,7 +307,6 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
       type: 'log',
       message,
       rendered: chunk,
-      raw: true,
       source: isServingRequest() ? 'runtime' : 'build',
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
@@ -392,7 +391,6 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
         source: cli ? 'cli' : isServingRequest() ? 'runtime' : 'build',
-        raw: !cli,
         request: cli ? undefined : currentRequest()?.label,
         requestId: cli ? undefined : currentRequest()?.id,
       }, {
