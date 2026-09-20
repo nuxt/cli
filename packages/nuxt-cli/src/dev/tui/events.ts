@@ -3,8 +3,7 @@ import { stripAnsi } from './width'
 export type DevLogSource = 'cli' | 'build' | 'runtime'
 
 /**
- * How a log written by the app or the build can reach the UI: reported by the
- * app over its log channel, caught by a consola reporter, or recovered from the
+ * How a log reaches the UI: the app's own report, a consola reporter, or the
  * output it was printed as. One `console.log` in the app takes all three.
  */
 export type DevLogRoute = 'report' | 'reporter' | 'output'
@@ -22,10 +21,9 @@ export interface DevLogEvent {
   /** The message carries its own colours, so severity styling must not be applied. */
   styled?: boolean
   /**
-   * How many times this log has arrived by each route. An occurrence is one
-   * arrival from each, so the same log heard three ways is one entry and two
-   * logs that say the same thing stay two. Absent on a log that only ever
-   * arrives once.
+   * Arrivals by each route. One occurrence is one arrival from each, so a log
+   * heard three ways is one entry and two logs that say the same thing stay
+   * two. Absent on a log that only ever arrives once.
    */
   routes?: Map<DevLogRoute, number>
   /** Already written into scrollback, so it is not shown a second time. */
@@ -88,20 +86,13 @@ export function isBoxedNotice(event: DevLogEvent): boolean {
   return event.type === 'box'
 }
 
-/**
- * Record that `event` has arrived by `route`, for a log that can arrive more
- * than once. One that cannot is left alone.
- */
+/** Record an arrival of `event` by `route`, up to the occurrences on record. */
 export function noteRoute(event: DevLogEvent, route: DevLogRoute): void {
   const routes = event.routes
   routes?.set(route, Math.min((routes.get(route) ?? 0) + 1, Math.max(occurrences(event), 1)))
 }
 
-/**
- * How many times this log has been heard, counted by the route that has heard
- * it most. An arrival by a route that is behind belongs to an occurrence
- * already on record; one by a route that is level begins another.
- */
+/** How many times heard, by the route that has heard it most. */
 function occurrences(event: DevLogEvent): number {
   let heard = 0
   for (const count of event.routes?.values() ?? []) {
@@ -186,9 +177,8 @@ export class DevEventLog {
   /**
    * Record `event`, returning it as stored so callers can amend it later.
    *
-   * `route` says how a log that can arrive more than once got here this time.
-   * It joins the entry the same log already made by another route instead of
-   * adding one; a log given no route always stands alone.
+   * An event with a `route` joins the entry the same log already made by
+   * another one; one without always stands alone.
    */
   push(event: DevLogEvent, options: { route?: DevLogRoute } = {}): DevLogEvent {
     const { route } = options
@@ -249,19 +239,16 @@ export class DevEventLog {
   /**
    * Fold `event` into the entry the same log already made by another route.
    *
-   * The report is the fullest account of a log, carrying the request it was
-   * written for, then the reporter's. Whatever was printed is kept throughout,
-   * being what the log view shows.
-   *
+   * The report is the fullest account of a log, then the reporter's, and
+   * whatever was printed is kept throughout: it is what the log view shows.
    * Two requests can log the same line at once, so the entry written for the
-   * same request is taken ahead of the nearest one saying the same thing, and
-   * an arrival that knows its request never joins one held by another. Printed
-   * output is left out of that: it is attributed when the capture is flushed,
+   * same request is preferred and one held by another request is refused.
+   * Printed output is exempt, being attributed when the capture is flushed,
    * which can be on another request's call stack.
    */
   #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
     type Routed = DevLogEvent & { routes: Map<DevLogRoute, number> }
-    // An occurrence of this log is still waiting to be heard by `route`.
+    /** An occurrence is still waiting to be heard by `route`. */
     const open = (candidate: DevLogEvent): candidate is Routed => !!candidate.routes && (candidate.routes.get(route) ?? 0) < occurrences(candidate)
     const attributed = (candidate: Routed) => route !== 'output' && !(candidate.routes.size === 1 && candidate.routes.has('output'))
     const sameRequest = (candidate: Routed) => {
@@ -324,8 +311,7 @@ export class DevEventLog {
       }
       candidate.requestId ??= event.requestId
       candidate.request ??= event.request
-      // The arrivals of the occurrence just folded in, so the rest of them
-      // join the entry rather than being counted as more occurrences.
+      // Carry the folded occurrence's arrivals, so the rest of them join it.
       for (const [route, count] of event.routes ?? []) {
         candidate.routes ??= new Map()
         candidate.routes.set(route, (candidate.routes.get(route) ?? 0) + count)

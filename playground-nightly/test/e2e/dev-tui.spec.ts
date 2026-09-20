@@ -24,10 +24,9 @@ async function servingPid(port: number): Promise<number | undefined> {
 /**
  * Wait until the app is served by a process other than `previous`.
  *
- * The restart is announced before the fork it starts is serving, and the
- * outgoing server holds the port until the handover is through, so neither the
- * notice nor a successful request says the fork has taken over. Which process
- * answers does.
+ * The restart is announced before the fork is serving and the outgoing server
+ * holds the port until the handover is through, so only which process answers
+ * says the fork has taken over.
  */
 async function waitForHandover(port: number, previous: number, timeout = 120_000): Promise<void> {
   const deadline = Date.now() + timeout
@@ -50,8 +49,7 @@ async function runDevUI(port: number, options: { restart?: boolean } = {}): Prom
   })
   try {
     await session.waitFor(/watching for changes/, 180_000)
-    // The first server runs in the CLI's own process; a fork only serves once
-    // something has asked for a restart.
+    // The first server runs in the CLI's own process; a fork serves after a restart.
     if (options.restart) {
       const before = await servingPid(port)
       session.send('r')

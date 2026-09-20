@@ -191,11 +191,9 @@ const ipc = new IPC()
 // The parent's UI needs structured log events for the error badge and the log
 // history, not just the formatted text it gets from the piped stdio. Forks
 // never run `setupGlobalConsole`, so the date column and `console.*` wrapping
-// are set up here to match what the parent does while it serves.
-//
-// The app's stdout is piped into this process, so a line it logs comes through
-// here as well as over the log channel. These are marked `raw`, as the parent
-// marks its own, for the UI to pair the two instead of showing both.
+// are set up here to match what the parent does while it serves. The app's
+// stdout is piped in here too, so a line it logs arrives this way as well as
+// over the log channel; `raw` is what lets the UI pair the two.
 if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
   consola.options.formatOptions.date = false
   consola.wrapAll()
