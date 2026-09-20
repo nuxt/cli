@@ -343,7 +343,7 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
     void useErrorChannel(options).then((instance) => {
       switch (message.type) {
         case 'nuxt:dev:error:report': {
-          instance.setError(message.report)
+          instance.setError(message.report, message.requestId === undefined ? undefined : `${message.requestId}`, message.request)
           handlers.onReport?.(message.report, { requestId: message.requestId, request: message.request })
           break
         }

@@ -310,6 +310,26 @@ describe('the CLI-owned error channel', () => {
     expect(chunks.join('')).toContain('forwarded from the app')
   })
 
+  it('should publish a forwarded report against the request it was raised for', async () => {
+    createServer()
+    const instance = await useErrorChannel()
+    const setError = vi.spyOn(instance, 'setError')
+    const reports: ErrorReport[] = []
+    const close = openErrorBridge({ onReport: report => reports.push(report) })
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    const requestReport = compileReport('/app/app.vue', 3, 1)
+    const buildReport = compileReport('/app/pages/index.vue', 5, 2)
+    app.postMessage({ type: 'nuxt:dev:error:report', report: requestReport, requestId: 4, request: 'GET /broken?x=1' })
+    app.postMessage({ type: 'nuxt:dev:error:report', report: buildReport })
+    app.close()
+
+    await vi.waitUntil(() => reports.length === 2)
+    close()
+    expect(setError).toHaveBeenNthCalledWith(1, requestReport, '4', 'GET /broken?x=1')
+    expect(setError).toHaveBeenNthCalledWith(2, buildReport, undefined, undefined)
+  })
+
   it('should publish a log entry the app forwards, without telling the supervisor', async () => {
     createServer()
     const instance = await useErrorChannel()
