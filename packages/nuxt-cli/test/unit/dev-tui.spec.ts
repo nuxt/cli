@@ -1,3 +1,4 @@
+import type { DevLogRoute } from '../../src/dev/tui/events'
 import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
@@ -922,13 +923,18 @@ describe('dev event log', () => {
     expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
   })
 
-  it('counts an error repeated in a fork once per occurrence', () => {
+  // Each route runs at its own pace, so the arrivals of two occurrences can be
+  // heard in any order at all.
+  it.each([
+    ['occurrence by occurrence', ['report 1', 'reporter 1', 'output 1', 'report 2', 'reporter 2', 'output 2']],
+    ['output trailing a whole occurrence behind', ['report 1', 'reporter 1', 'report 2', 'output 1', 'reporter 2', 'output 2']],
+    ['reports ahead of everything', ['report 1', 'report 2', 'reporter 1', 'output 1', 'reporter 2', 'output 2']],
+  ])('counts an error repeated in a fork once per occurrence (%s)', (_name, order) => {
     const events = new DevEventLog()
-    for (let occurrence = 0; occurrence < 2; occurrence++) {
-      const message = 'Cannot read properties of undefined'
-      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: 1 }, { route: 'report' })
-      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: true, source: 'runtime', requestId: 1 }, { route: 'reporter' })
-      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: true, source: 'runtime' }, { route: 'output' })
+    const message = 'Cannot read properties of undefined'
+    for (const step of order) {
+      const route = step.split(' ')[0] as DevLogRoute
+      events.push({ time: Date.now(), level: 0, type: 'error', message, raw: route !== 'report', source: 'runtime', requestId: route === 'output' ? undefined : 1 }, { route })
     }
 
     expect(events.recent(10)).toHaveLength(1)

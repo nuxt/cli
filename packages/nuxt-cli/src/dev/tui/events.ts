@@ -24,11 +24,12 @@ export interface DevLogEvent {
   /** Caught on its way to the terminal rather than reported by the app. */
   raw?: boolean
   /**
-   * The routes this log has arrived by so far. An entry takes one arrival from
-   * each, so the same log heard twice is one entry and two logs that say the
-   * same thing stay two. Absent on a log that only ever arrives once.
+   * How many times this log has arrived by each route. An occurrence is one
+   * arrival from each, so the same log heard three ways is one entry and two
+   * logs that say the same thing stay two. Absent on a log that only ever
+   * arrives once.
    */
-  routes?: Set<DevLogRoute>
+  routes?: Map<DevLogRoute, number>
   /** Already written into scrollback, so it is not shown a second time. */
   surfaced?: boolean
   source: DevLogSource
@@ -87,6 +88,27 @@ function undecorate(text: string): string {
  */
 export function isBoxedNotice(event: DevLogEvent): boolean {
   return event.type === 'box'
+}
+
+/**
+ * Record that `event` has arrived by `route`, for a log that can arrive more
+ * than once. One that cannot is left alone.
+ */
+export function noteRoute(event: DevLogEvent, route: DevLogRoute): void {
+  event.routes?.set(route, (event.routes.get(route) ?? 0) + 1)
+}
+
+/**
+ * How many times this log has been heard, counted by the route that has heard
+ * it most. An arrival by a route that is behind belongs to an occurrence
+ * already on record; one by a route that is level begins another.
+ */
+function occurrences(event: DevLogEvent): number {
+  let heard = 0
+  for (const count of event.routes?.values() ?? []) {
+    heard = Math.max(heard, count)
+  }
+  return heard
 }
 
 /** Either text may carry a badge the other does not, so neither has to be exact. */
@@ -177,7 +199,7 @@ export class DevEventLog {
     }
     const stored = classify(event)
     if (route) {
-      stored.routes = new Set([route])
+      stored.routes = new Map([[route, 1]])
     }
     const deduped = this.#dedupe(stored)
     if (deduped) {
@@ -218,7 +240,7 @@ export class DevEventLog {
       // second printing has no other home.
       if (message && (text.includes(message) || boxed.includes(message)) && (!event.rendered || isBoxedNotice(event))) {
         event.rendered ??= chunk
-        event.routes?.add('output')
+        noteRoute(event, 'output')
         return true
       }
     }
@@ -239,8 +261,9 @@ export class DevEventLog {
    * which can be on another request's call stack.
    */
   #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
-    type Routed = DevLogEvent & { routes: Set<DevLogRoute> }
-    const open = (candidate: DevLogEvent): candidate is Routed => !!candidate.routes && !candidate.routes.has(route)
+    type Routed = DevLogEvent & { routes: Map<DevLogRoute, number> }
+    // An occurrence of this log is still waiting to be heard by `route`.
+    const open = (candidate: DevLogEvent): candidate is Routed => !!candidate.routes && (candidate.routes.get(route) ?? 0) < occurrences(candidate)
     const attributed = (candidate: Routed) => route !== 'output' && !(candidate.routes.size === 1 && candidate.routes.has('output'))
     const sameRequest = (candidate: Routed) => {
       if (!attributed(candidate)) {
@@ -252,16 +275,17 @@ export class DevEventLog {
       return candidate.request === undefined || event.request === undefined || candidate.request === event.request
     }
     const apply = (candidate: DevLogEvent) => {
-      const routes = candidate.routes ?? new Set<DevLogRoute>()
+      const routes = candidate.routes
       const rendered = candidate.rendered ?? event.rendered
       if (route === 'report') {
         Object.assign(candidate, event, { raw: false })
       }
-      else if (route === 'reporter' && !routes.has('report')) {
+      else if (route === 'reporter' && !routes?.has('report')) {
         Object.assign(candidate, event)
       }
       candidate.rendered = rendered
-      candidate.routes = routes.add(route)
+      candidate.routes = routes
+      noteRoute(candidate, route)
     }
     if (event.requestId !== undefined) {
       const exact = this.#merge(event, candidate => open(candidate) && candidate.requestId === event.requestId, apply)
@@ -301,10 +325,11 @@ export class DevEventLog {
       }
       candidate.requestId ??= event.requestId
       candidate.request ??= event.request
-      // The routes of the occurrence just folded in, so the rest of its
-      // arrivals join the entry rather than being counted as more of them.
-      if (event.routes) {
-        candidate.routes = event.routes
+      // The arrivals of the occurrence just folded in, so the rest of them
+      // join the entry rather than being counted as more occurrences.
+      for (const [route, count] of event.routes ?? []) {
+        candidate.routes ??= new Map()
+        candidate.routes.set(route, (candidate.routes.get(route) ?? 0) + count)
       }
     }, DEDUPE_WINDOW_MS, sameProblem)
   }

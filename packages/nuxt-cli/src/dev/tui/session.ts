@@ -17,7 +17,7 @@ import { startupElapsedMs } from '../../utils/startup-clock'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { queryBackground } from './background'
-import { DevEventLog, isBoxedNotice, normaliseMessage } from './events'
+import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
 import { LOGO_FRAME_MS } from './logo'
 import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
 import { resolveDevUISupport, supportsUnicode } from './support'
@@ -282,7 +282,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     if (owner) {
       transient = undefined
       owner.rendered = chunk
-      owner.routes?.add('output')
+      noteRoute(owner, 'output')
       return
     }
     const rewriting = isRewrite(chunk)
