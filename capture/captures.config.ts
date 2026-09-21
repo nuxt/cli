@@ -254,9 +254,18 @@ export const captures: Capture[] = [
     animated: true,
     rows: 24,
     scrub: DEFAULT_SCRUB,
+    // The template listing is rate-limited and unauthenticated; answer it and
+    // the per-template documents from committed fixtures.
     env: {
       NODE_OPTIONS: `--import=${new URL('lib/fetch-stub.mjs', import.meta.url).href}`,
       CAPTURE_FETCH_LATENCY: '250',
+      CAPTURE_FETCH_STUBS: JSON.stringify({
+        'https://api.github.com/repos/nuxt/starter/contents/templates': fileURLToPath(new URL('fixture-data/starter-templates/listing.json', import.meta.url)),
+        ...Object.fromEntries(['content', 'minimal', 'module', 'ui', 'v5-nightly'].map(name => [
+          `https://raw.githubusercontent.com/nuxt/starter/templates/templates/${name}.json`,
+          fileURLToPath(new URL(`fixture-data/starter-templates/${name}.json`, import.meta.url)),
+        ])),
+      }),
     },
     async drive({ session }) {
       await session.waitFor(/Which template/, 60_000)
