@@ -60,6 +60,7 @@ function request(url: string) {
     method: 'GET',
     headers: { accept: 'text/html' },
     rawHeaders: [],
+    socket: { remoteAddress: '127.0.0.1' },
     on: () => {},
   } as unknown as IncomingMessage
 }
@@ -70,6 +71,7 @@ function openRequest(headers: Record<string, string>, file = '/etc/passwd') {
     method: 'POST',
     headers: { 'host': 'localhost:3000', 'content-type': 'application/json', ...headers },
     rawHeaders: [],
+    socket: { remoteAddress: '127.0.0.1' },
   }) as unknown as IncomingMessage
 }
 
@@ -384,6 +386,46 @@ describe('the CLI-owned error channel', () => {
     await vi.waitUntil(() => progress.mock.calls.length === 2)
     close()
     expect(progress.mock.calls.map(([update]) => update.source)).toEqual(['cli', 'vite'])
+  })
+
+  it.each([
+    `${DEFAULT_ERROR_CHANNEL}/events?path=/`,
+    `${DEFAULT_ERROR_CHANNEL}/history/abc`,
+    `${DEFAULT_ERROR_CHANNEL}/open`,
+  ])('should refuse %s to a peer on another machine', async (url) => {
+    const server = createServer()
+    const { res, statusOf, chunks } = createResponse()
+    const remote = Object.assign(request(url), { socket: { remoteAddress: '192.168.0.31' } })
+
+    await server.handler(remote, res)
+
+    expect(statusOf()).toBe(403)
+    expect(chunks.join('')).not.toContain('event: hello')
+  })
+
+  it('should keep a report away from a peer on another machine', async () => {
+    const server = createServer()
+    const report = await createCliReport(new Error('boom from a page'), { cwd: process.cwd() })
+    const instance = await useErrorChannel()
+    instance.setError(report)
+
+    const { res, statusOf, chunks } = createResponse()
+    const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}`), { socket: { remoteAddress: '192.168.0.31' } })
+    await server.handler(remote, res)
+
+    expect(statusOf()).toBe(403)
+    expect(chunks.join('')).not.toContain('boom from a page')
+  })
+
+  it('should refuse a channel request with no peer address', async () => {
+    const server = createServer()
+    const { res, statusOf } = createResponse()
+    const anonymous = request(`${DEFAULT_ERROR_CHANNEL}/history/abc`)
+    delete (anonymous as { socket?: unknown }).socket
+
+    await server.handler(anonymous, res)
+
+    expect(statusOf()).toBe(403)
   })
 
   it('should refuse a channel request another site made', async () => {

@@ -40,7 +40,7 @@ import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../uti
 import { resolveServerBuild } from '../utils/server-build'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
-import { isAllowedHost } from './host-check'
+import { isAllowedHost, isLoopbackAddress } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -473,7 +473,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       // The default path answers alongside a configured one, for pages served
       // before the config was known.
       if (this.#ownsChannel && (isErrorChannelRequest(path, this.#errorChannel) || isErrorChannelRequest(path, DEFAULT_ERROR_CHANNEL))) {
-        if (this.#rejectDisallowedHost(req, res)) {
+        if (this.#rejectRemotePeer(req, res) || this.#rejectDisallowedHost(req, res)) {
           return
         }
         if (options.captureUIEvents) {
@@ -515,6 +515,28 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         return this.#serve(req, res)
       })
     }
+  }
+
+  /**
+   * Answer a request for the error channel from another machine, keeping error
+   * reports, source snippets and open-in-editor on the loopback interface even
+   * when the server is bound wider. Judged on the peer address, since every
+   * header is forgeable over a direct connection. Returns `true` when the
+   * request was rejected.
+   */
+  #rejectRemotePeer(req: IncomingMessage, res: ServerResponse): boolean {
+    if (isLoopbackAddress(req.socket?.remoteAddress)) {
+      return false
+    }
+    if (this.options.captureUIEvents) {
+      this.#internalResponses.add(res)
+    }
+    if (!res.headersSent) {
+      res.statusCode = 403
+      res.setHeader('Content-Type', 'text/plain')
+    }
+    res.end('Forbidden: the dev error channel is only available on this machine.')
+    return true
   }
 
   /**
