@@ -116,6 +116,29 @@ async function serveLocally(server: InstanceType<typeof NuxtDevServer>, path: st
   return { status: res.statusCode }
 }
 
+/** Drive `handler` as a peer at `remoteAddress`, collecting the body it writes. */
+async function serveAsPeer(server: InstanceType<typeof NuxtDevServer>, remoteAddress: string, path = '/'): Promise<{ status: number, body: string }> {
+  const res = new EventEmitter() as any
+  res.statusCode = 200
+  res.headersSent = false
+  res.writableEnded = false
+  res.body = ''
+  res.setHeader = () => {}
+  res.end = (chunk?: string) => {
+    if (chunk) {
+      res.body += chunk
+    }
+    res.writableEnded = true
+    res.headersSent = true
+    res.emit('close')
+  }
+  const closed = new Promise<void>(resolve => res.once('close', resolve))
+  const req = { url: path, method: 'GET', headers: { accept: 'text/html', host: '127.0.0.1' }, rawHeaders: [], socket: { remoteAddress } } as any
+  await server.handler(req, res)
+  await closed
+  return { status: res.statusCode, body: res.body }
+}
+
 async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'nuxt-dev-lifecycle-'))
   tempDirs.push(dir)
@@ -260,6 +283,23 @@ describe('dev server failures', () => {
     const { status, body } = await get(server)
     expect(status).toBe(500)
     expect(body).toContain('broken on reload')
+  })
+
+  it('should keep the error history out of the failure page served to another machine', async () => {
+    const server = createServer()
+    await server.init()
+
+    loadNuxt.mockImplementation(() => Promise.reject(new Error('broken on reload')))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+
+    const local = await serveAsPeer(server, '127.0.0.1')
+    const remote = await serveAsPeer(server, '192.168.0.31')
+
+    expect(local.status).toBe(500)
+    expect(local.body).toMatch(/"history":\[\s*\{/)
+    expect(remote.status).toBe(500)
+    expect(remote.body).toContain('broken on reload')
+    expect(remote.body).not.toMatch(/"history":\[\s*\{/)
   })
 
   it('should recover once the config loads again', async () => {
