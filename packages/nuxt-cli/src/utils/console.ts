@@ -92,6 +92,23 @@ export function restoreRawMode(): void {
 }
 
 /**
+ * Guard a newly attached stdin reader against input it did not see typed: a
+ * terminal buffers keystrokes while nothing is reading and hands the whole run
+ * over in the first read once a reader resumes stdin. Anything arriving in a
+ * later read was typed while the reader was listening.
+ *
+ * Returns whether the input being handled is part of that replay.
+ */
+export function guardReplayedInput(): () => boolean {
+  let replaying = true
+  const settled = setImmediate(() => {
+    replaying = false
+  })
+  settled.unref?.()
+  return () => replaying
+}
+
+/**
  * Give up `process.stdin` after a prompt in a command that is about to finish.
  *
  * A resumed stdin is an active handle, so a one-shot command would otherwise sit

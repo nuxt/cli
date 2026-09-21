@@ -11,12 +11,13 @@ describe('panel keys', () => {
   const restores: Array<() => void> = []
 
   afterEach(() => {
-    for (const restore of restores.splice(0)) {
+    // Reverse: the second `attach` saved the descriptor the first installed.
+    for (const restore of restores.splice(0).reverse()) {
       restore()
     }
   })
 
-  function attach() {
+  function attach(options?: { ignoreBufferedInput?: boolean }) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
     Object.assign(stdin, { isTTY: true, isRaw: false, setRawMode: (raw: boolean) => Object.assign(stdin, { isRaw: raw }) })
     const original = Object.getOwnPropertyDescriptor(process, 'stdin')!
@@ -24,7 +25,7 @@ describe('panel keys', () => {
     restores.push(() => Object.defineProperty(process, 'stdin', original))
 
     const keys: Array<string | undefined> = []
-    const detach = attachKeys(key => keys.push(key.name))
+    const detach = attachKeys(key => keys.push(key.name), options)
     restores.push(detach)
 
     return {
@@ -109,6 +110,16 @@ describe('panel keys', () => {
     await type('q')
 
     expect(keys).toEqual(['up', 'f1', 'q'])
+  })
+
+  it('should drop input buffered before it took stdin, when asked to', async () => {
+    const buffered = attach({ ignoreBufferedInput: true })
+    await buffered.type('ooo')
+    expect(buffered.keys).toEqual([])
+
+    const live = attach()
+    await live.type('ooo')
+    expect(live.keys).toEqual(['o', 'o', 'o'])
   })
 })
 

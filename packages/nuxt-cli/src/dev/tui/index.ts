@@ -500,7 +500,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // detached and given the terminal back; re-attaching would put stdin
       // into raw mode with nothing listening and keep the process alive.
       if (!torn) {
-        detach = attachKeys(onKey)
+        detach = attachKeys(onKey, { ignoreBufferedInput: true })
         render()
       }
     }

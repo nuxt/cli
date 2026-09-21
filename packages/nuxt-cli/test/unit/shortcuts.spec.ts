@@ -67,12 +67,17 @@ describe('setupShortcuts', () => {
 
     setupShortcuts(resolved)
 
+    /** Input is ignored until the replay of what the terminal buffered is over. */
+    const waitUntilLive = () => new Promise(resolve => setImmediate(resolve))
+
     return {
       context: resolved,
       listener,
       log,
       stdin,
+      write: (input: string) => stdin.write(`${input}\n`),
       press: async (input: string) => {
+        await waitUntilLive()
         stdin.write(`${input}\n`)
         await new Promise(resolve => setImmediate(resolve))
       },
@@ -219,6 +224,18 @@ describe('setupShortcuts', () => {
     await press('urls')
 
     await vi.waitFor(() => expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'boom' })))
+  })
+
+  it('should ignore input buffered before the shortcuts were listening', async () => {
+    const { write, listener } = setup()
+
+    for (let i = 0; i < 5; i++) {
+      write('o')
+    }
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(openBrowser).not.toHaveBeenCalled()
+    expect(listener.showURLs).not.toHaveBeenCalled()
   })
 
   it('should ignore unknown input', async () => {

@@ -3110,6 +3110,7 @@ describe('the terminal host on the panel', () => {
         settled = true
       })
 
+      await new Promise(resolve => setImmediate(resolve))
       process.stdin.emit('keypress', '', { name: 'x', sequence: 'x' })
       await vi.waitFor(() => expect(settled).toBe(true))
     })

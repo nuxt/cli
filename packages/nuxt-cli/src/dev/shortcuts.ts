@@ -7,7 +7,7 @@ import { createInterface } from 'node:readline'
 import { styleText } from 'node:util'
 import { isCI, isTest } from 'std-env'
 
-import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { guardReplayedInput, restoreRawMode, withDirectStdout } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
 
 export type { ShortcutContext } from './shortcut-context'
@@ -144,7 +144,11 @@ export function setupShortcuts(context: ShortcutContext): void {
   restoreRawMode()
 
   const rl = createInterface({ input: process.stdin })
+  const isReplayedInput = guardReplayedInput()
   rl.on('line', async (line) => {
+    if (isReplayedInput()) {
+      return
+    }
     const input = line.trim().toLowerCase()
     const shortcut = availableShortcuts(context).find(({ keys }) => keys.includes(input))
     if (!shortcut) {

@@ -1,6 +1,7 @@
 import process from 'node:process'
 import { emitKeypressEvents } from 'node:readline'
 
+import { guardReplayedInput } from '../../utils/console'
 import { whenStdinReleased } from './background'
 import { filterTerminalReplies } from './terminal-replies'
 
@@ -14,12 +15,15 @@ export interface Key {
  * Put stdin into raw mode and deliver single keypresses.
  *
  * Raw mode means the terminal no longer turns Ctrl-C into `SIGINT`, so the
- * handler receives it as a key and is responsible for shutdown.
+ * handler receives it as a key and is responsible for shutdown. Replies from
+ * the terminal are dropped, and keys wait until the background query has
+ * finished with stdin.
  *
- * Replies from the terminal are dropped rather than read as typing, and keys
- * wait until the background query has finished with stdin.
+ * Pass `ignoreBufferedInput` when taking stdin back after something else held
+ * it, such as a prompt: what the terminal buffered meanwhile was typed at that,
+ * not at the panel.
  */
-export function attachKeys(onKey: (key: Key) => void): () => void {
+export function attachKeys(onKey: (key: Key) => void, { ignoreBufferedInput = false }: { ignoreBufferedInput?: boolean } = {}): () => void {
   let release: (() => void) | undefined
   let detached = false
 
@@ -32,12 +36,13 @@ export function attachKeys(onKey: (key: Key) => void): () => void {
     stdin.setRawMode(true)
 
     const replies = filterTerminalReplies(stdin)
+    const isReplayedInput = ignoreBufferedInput ? guardReplayedInput() : () => false
 
     emitKeypressEvents(stdin)
     stdin.resume()
 
     const handler = (_input: string, key: Key | undefined) => {
-      if (replies.isReplying()) {
+      if (replies.isReplying() || isReplayedInput()) {
         return
       }
       if (key) {
@@ -56,8 +61,7 @@ export function attachKeys(onKey: (key: Key) => void): () => void {
     }
   }
 
-  // Attached synchronously when nothing holds stdin, so a caller can deliver a
-  // key in the same tick.
+  // Synchronous when nothing holds stdin, so a caller can deliver a key at once.
   const held = whenStdinReleased()
   if (held) {
     void held.then(attach)
