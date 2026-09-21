@@ -41,6 +41,11 @@ export async function runMain(): Promise<void> {
   // `@nuxt/cli` only redirects `init` to `create-nuxt`, so scaffolding is served
   // from the copy bundled here rather than handed off to the project.
   const cli = command === 'init' ? null : loadProjectCli(rawArgs)
+  if (command === 'dev' && cli?.bootEntry && cli.devEntry) {
+    await import(pathToFileURL(cli.bootEntry).href)
+      .then((mod: { bootDevUI?: () => Promise<void> }) => mod.bootDevUI?.())
+      .catch(() => {})
+  }
   const delegate = cli && await loadDelegate(cli, command)
   if (delegate) {
     return delegate()
@@ -55,6 +60,8 @@ interface ProjectCli {
   version: string | undefined
   entry: string
   devEntry: string | undefined
+  /** The project CLI's panel entry, where it has one. */
+  bootEntry: string | undefined
 }
 
 export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
@@ -71,11 +78,13 @@ export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
       continue
     }
     const devEntry = pkg && join(pkg.root, 'dist/dev/index.mjs')
+    const bootEntry = pkg && join(pkg.root, 'dist/boot.mjs')
     return {
       name: '@nuxt/cli',
       version: pkg?.version,
       entry,
       devEntry: devEntry && existsSync(devEntry) ? devEntry : undefined,
+      bootEntry: bootEntry && existsSync(bootEntry) ? bootEntry : undefined,
     }
   }
   return null
