@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createRequest, currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
 import { deferShortcutContext } from '../../src/dev/shortcut-context'
+import { adoptShutdown } from '../../src/dev/shutdown'
 import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
 import { beginDevUI, setupDevUI } from '../../src/dev/tui/index'
@@ -2569,6 +2570,40 @@ describe('dev ui teardown', () => {
 
       expect(isRaw()).toBe(false)
       expect(written().slice(before)).toContain(SHOW_CURSOR)
+    })
+  })
+
+  it('should end the process when an interrupt arrives before the command is listening', async () => {
+    await withTerminal(({ session }) => {
+      const detach = attachKeys(() => {})
+      session.onTeardown(detach)
+
+      // `mockRestore` clears the call history, so the assertion comes first.
+      const exit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+      try {
+        process.emit('SIGINT')
+        expect(exit).toHaveBeenCalledWith(130)
+      }
+      finally {
+        exit.mockRestore()
+      }
+    })
+  })
+
+  it('should leave the exit to the command once it has taken shutdown over', async () => {
+    await withTerminal(({ session }) => {
+      const detach = attachKeys(() => {})
+      session.onTeardown(detach)
+      adoptShutdown()
+
+      const exit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+      try {
+        process.emit('SIGINT')
+        expect(exit).not.toHaveBeenCalled()
+      }
+      finally {
+        exit.mockRestore()
+      }
     })
   })
 
