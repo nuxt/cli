@@ -116,6 +116,19 @@ describe('terminal background query', () => {
     expect(whenStdinReleased()).toBeUndefined()
   })
 
+  it('hands stdin back as soon as someone types, and still reads a reply that follows', async () => {
+    const { answer, terminal } = ask(undefined, { timeout: 5000 })
+    const held = whenStdinReleased()
+
+    terminal.emit('r')
+    await held
+    expect(whenStdinReleased()).toBeUndefined()
+    expect(terminal.calls.unshifted.join('')).toBe('r')
+
+    terminal.emit('\u001B]11;rgb:1e1e/1e1e/1e1e\u0007')
+    await expect(answer).resolves.toBe('dark')
+  })
+
   it('does not take stdin from a question that is still waiting', async () => {
     const { attachKeys } = await import('../../src/dev/tui/keys')
     const stdin = new PassThrough() as unknown as typeof process.stdin
