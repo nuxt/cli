@@ -86,8 +86,24 @@ describe('panel keys', () => {
     const { keys, type } = attach()
 
     await type('\u001B]11;rgb:1e1e/1e1e/1e1e\u001B')
-    await type('\\\\')
+    await type('\\')
     await type('o')
+
+    expect(keys).toEqual(['o'])
+  })
+
+  it('should read a key that arrives in the same chunk as a csi report', async () => {
+    const { keys, type } = attach()
+
+    await type('\u001B[12;34Ro')
+
+    expect(keys).toEqual(['o'])
+  })
+
+  it('should read a key that arrives in the same chunk as a string reply', async () => {
+    const { keys, type } = attach()
+
+    await type('\u001B]11;rgb:1e1e/1e1e/1e1e\u0007o')
 
     expect(keys).toEqual(['o'])
   })
