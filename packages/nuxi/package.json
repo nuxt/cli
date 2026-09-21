@@ -45,7 +45,7 @@
     }
   },
   "devDependencies": {
-    "@types/node": "^24.13.5",
+    "@types/node": "^24.13.6",
     "citty": "^0.2.2",
     "jiti": "^2.7.0",
     "std-env": "^4.2.0",
