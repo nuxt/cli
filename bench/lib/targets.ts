@@ -53,6 +53,11 @@ export function prepareTargets(workdir: string, baselineSpec: string = DEFAULT_B
       private: true,
       dependencies: { '@nuxt/cli': installSpecs[target.id] },
     }, null, 2)}\n`)
+    // Every run packs to the same filename and the version never changes, so
+    // npm treats the tree as already satisfied and keeps the build from the
+    // previous run: without this, a second run silently measures stale code.
+    rmSync(join(target.dir, 'node_modules'), { recursive: true, force: true })
+    rmSync(join(target.dir, 'package-lock.json'), { force: true })
     npm(['install', '--no-audit', '--no-fund'], target.dir)
     target.bin = join(target.dir, 'node_modules/@nuxt/cli/bin/nuxi.mjs')
     target.version = JSON.parse(readFileSync(join(target.dir, 'node_modules/@nuxt/cli/package.json'), 'utf8')).version
