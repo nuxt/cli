@@ -49,14 +49,15 @@ export interface QueryBackgroundOptions {
 }
 
 let pending: Promise<TerminalBackground> | undefined
-let release: (() => void) | undefined
+let held: Promise<void> | undefined
 
 /**
- * Give stdin back to a caller that needs it now, without waiting for a terminal
- * that may still be thinking. Returns once stdin is as the query found it.
+ * Settles when the query has given stdin back, or is undefined if nothing is
+ * holding it. A key reader must wait for this, or it parses the terminal's
+ * escape-sequence answer as a run of keystrokes.
  */
-export function stopBackgroundQuery(): void {
-  release?.()
+export function whenStdinReleased(): Promise<void> | undefined {
+  return held
 }
 
 /**
@@ -85,42 +86,47 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
   }
 
   const stdin = options.stdin ?? process.stdin
-  let buffer = ''
+  let releaseStdin!: () => void
+  held = new Promise<void>((settle) => {
+    releaseStdin = () => {
+      held = undefined
+      settle()
+    }
+  })
+
   try {
-    buffer = await listen(stdin, options.timeout ?? REPLY_TIMEOUT_MS, () => options.write(QUERY))
+    const buffer = await listen(stdin, options.timeout ?? REPLY_TIMEOUT_MS, () => options.write(QUERY))
+    const reply = REPLY_RE.exec(buffer)
+    // Anything typed while the terminal was thinking is put back for whoever
+    // reads keys next, rather than being swallowed by the question.
+    const typed = reply ? buffer.replace(reply[0], '') : buffer
+    if (typed) {
+      stdin.unshift(Buffer.from(typed, 'latin1'))
+    }
+    // Raw mode suppresses the terminal's own handling of Ctrl-C, so it has to be
+    // passed on rather than left in the buffer for a handler that may never read.
+    if (typed.includes('\u0003')) {
+      process.emit('SIGINT' as 'disconnect')
+    }
+    if (!reply) {
+      debug('The terminal did not report a background colour')
+      return 'unknown'
+    }
+
+    return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
   }
   catch (error) {
     debug('Could not ask the terminal for its background:', error)
     return 'unknown'
   }
-
-  const reply = REPLY_RE.exec(buffer)
-  // Anything typed while the terminal was thinking is put back for whoever
-  // reads keys next, rather than being swallowed by the question.
-  const typed = reply ? buffer.replace(reply[0], '') : buffer
-  if (typed) {
-    stdin.unshift(Buffer.from(typed, 'latin1'))
+  finally {
+    releaseStdin()
   }
-  // Raw mode suppresses the terminal's own handling of Ctrl-C, so it has to be
-  // passed on rather than left in the buffer for a handler that may never read.
-  if (typed.includes('\u0003')) {
-    process.emit('SIGINT' as 'disconnect')
-  }
-  if (!reply) {
-    debug('The terminal did not report a background colour')
-    return 'unknown'
-  }
-
-  return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
 }
 
 /**
  * Hold stdin in raw mode until the reply arrives or the wait is over, and give
  * it back exactly as it was found.
- *
- * Reading a reply means owning stdin, which whoever reads keys also needs. The
- * handover is {@link stopBackgroundQuery}, and it has to be synchronous: a
- * caller that asks for stdin back goes on to claim it in the same tick.
  */
 function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string> {
   return new Promise<string>((resolve) => {
@@ -142,7 +148,6 @@ function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string>
         return
       }
       listening = false
-      release = undefined
       clearTimeout(timer)
       stdin.off('data', onData)
       if (!wasRaw) {
@@ -153,7 +158,6 @@ function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string>
       }
       resolve(buffer)
     }
-    release = finish
     timer = setTimeout(finish, timeout)
     timer.unref?.()
     stdin.setRawMode?.(true)
