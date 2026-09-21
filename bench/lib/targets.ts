@@ -55,9 +55,8 @@ export function prepareTargets(workdir: string, baselineSpec: string = DEFAULT_B
       private: true,
       dependencies: { '@nuxt/cli': installSpecs[target.id] },
     }, null, 2)}\n`)
-    // Every run packs to the same filename and the version never changes, so
-    // npm treats the tree as already satisfied and keeps the build from the
-    // previous run: without this, a second run silently measures stale code.
+    // Both targets pack to the same filename at the same version, so npm would
+    // otherwise keep the previous run's build.
     rmSync(join(target.dir, 'node_modules'), { recursive: true, force: true })
     rmSync(join(target.dir, 'package-lock.json'), { force: true })
     npm(['install', '--no-audit', '--no-fund'], target.dir)
@@ -106,9 +105,8 @@ export function prepareFixtures(workdir: string): Fixture[] {
     { id: 'large', label: 'generated app (60 pages, 40 components, 10 server routes)', dir: join(workdir, 'fixture-large') },
   ]
 
-  // Mirrored rather than copied once: editing `playground/` or the generator has
-  // to reach the next run, and rewriting only what changed keeps a warm fixture
-  // warm. Both fixtures are staged first so the same sync handles either.
+  // Mirrored rather than copied once, so an edit reaches the next run and an
+  // untouched fixture stays warm.
   syncFixture(join(repoRoot, 'playground'), fixtures[0]!.dir, PRESERVED_FIXTURE_ENTRIES)
   syncFixture(stageLargeFixture(workdir), fixtures[1]!.dir, PRESERVED_FIXTURE_ENTRIES)
 

@@ -38,12 +38,11 @@ function isVisible(text: string): boolean {
 }
 
 /**
- * Time the two moments a `nuxt dev` session is judged by before it serves
- * anything: when the panel appears, and when it first answers the keyboard.
+ * Time the two moments before a `nuxt dev` serves anything: when the panel
+ * appears, and when it first answers the keyboard.
  *
- * Both need a real terminal, so this runs in the same pty the captures use.
- * `?` is offered until the help view answers, since the panel takes stdin
- * partway through startup and a key pressed before that may be dropped.
+ * `?` is offered until the help view answers, since a key pressed before the
+ * panel takes stdin may be dropped.
  */
 async function measurePanel(target: Target, fixture: Fixture): Promise<PanelMeasurement> {
   const port = allocatePort()
