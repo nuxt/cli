@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { isIP } from 'node:net'
 import process from 'node:process'
+import { styleText } from 'node:util'
 
 import { join } from 'pathe'
 
@@ -41,16 +42,33 @@ export interface ResolvedCertificate {
 
 export async function resolveCertificate(options: HTTPSOptions): Promise<ResolvedCertificate> {
   if (options.pfx) {
-    return { pfx: await readFile(options.pfx), pfxPath: options.pfx, passphrase: options.passphrase }
+    return { pfx: await readCertificateFile(options.pfx, '--https.pfx'), pfxPath: options.pfx, passphrase: options.passphrase }
   }
   if (options.cert && options.key) {
     const [cert, key] = await Promise.all([
-      readFile(options.cert, 'utf8'),
-      readFile(options.key, 'utf8'),
+      readCertificateFile(options.cert, '--https.cert'),
+      readCertificateFile(options.key, '--https.key'),
     ])
-    return { cert, key, passphrase: options.passphrase }
+    return { cert: cert.toString('utf8'), key: key.toString('utf8'), passphrase: options.passphrase }
   }
   return generateCertificate(options)
+}
+
+/** Read a file the user pointed `--https.*` at, naming the flag when it cannot be read. */
+async function readCertificateFile(path: string, flag: string): Promise<Buffer> {
+  try {
+    return await readFile(path)
+  }
+  catch (error) {
+    const reason = (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ? `There is no file at ${styleText('cyan', path)}`
+      : `Cannot read ${styleText('cyan', path)} (${(error as NodeJS.ErrnoException).code})`
+    throw new ActionableError([
+      `${styleText('red', reason)}${styleText('red', ', given as')} ${styleText('cyan', flag)}${styleText('red', '.')}`,
+      '',
+      `Point ${styleText('cyan', flag)} at a readable file, or drop it and let Nuxt generate a certificate.`,
+    ].join('\n'))
+  }
 }
 
 /** Regenerate rather than serve a certificate that expires within the day. */
