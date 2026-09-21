@@ -72,6 +72,7 @@ export class PanelSurface {
     this.#columns = columns
     if (this.#screen === 'alternate-screen') {
       this.#resizedWhileHidden = true
+      this.#rewrappedWhileHidden ||= rewrapped
       this.#resized?.()
       return
     }
@@ -90,6 +91,7 @@ export class PanelSurface {
   }
 
   #resizedWhileHidden = false
+  #rewrappedWhileHidden = false
   #recoverTimer?: NodeJS.Timeout
   /** Paint against the last row rather than wherever the cursor is. */
   #reseat = false
@@ -122,12 +124,19 @@ export class PanelSurface {
       return
     }
     this.#flush()
-    if (this.#resizedWhileHidden) {
-      this.#resizedWhileHidden = false
-      this.padToBottom()
-      return
+    const resized = this.#resizedWhileHidden
+    const rewrapped = this.#rewrappedWhileHidden
+    this.#resizedWhileHidden = false
+    this.#rewrappedWhileHidden = false
+    if (rewrapped) {
+      this.#recover()
     }
-    this.#paint()
+    else if (resized) {
+      this.padToBottom()
+    }
+    else {
+      this.#paint()
+    }
   }
 
   /**

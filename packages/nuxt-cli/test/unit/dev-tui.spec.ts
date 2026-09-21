@@ -2119,6 +2119,23 @@ describe('panel surface', () => {
     })
   })
 
+  it('starts a clean screen when the width changed while a view owned the screen', () => {
+    withStubbedColumns(40, () => {
+      withStubbedTerminal(24, (written) => {
+        const surface = new PanelSurface()
+        surface.render(['--- footer ---'])
+        surface.padToBottom()
+        surface.screenMode = 'alternate-screen'
+        withStubbedColumns(30, () => process.stdout.emit('resize'))
+        const before = written().length
+        surface.screenMode = 'split-footer'
+        expect(written().slice(before)).toContain('\n'.repeat(24))
+        expect(written().slice(before)).toContain('\u001B[24;1H\u001B[J--- footer ---')
+        surface.close()
+      })
+    })
+  })
+
   it('writes nothing on resize while a view owns the screen', () => {
     withStubbedTerminal(24, (written) => {
       const surface = new PanelSurface()
