@@ -68,6 +68,8 @@ interface UIShortcut {
    */
   sequence?: string
   description: string
+  /** Whether the shortcut is waiting on the server before it can act. */
+  isArmed?: () => boolean
   action: () => void
 }
 
@@ -121,6 +123,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
   let shortcuts: UIShortcut[] = []
   let qrCode: string | undefined
+  let armedOpen = false
   const helpOverlay = new HelpOverlay(() => shortcuts, write, release)
   const infoOverlay = new InfoOverlay(
     () => describeSession(context, cwd, requests, sessionStart, state.update, state.updateLink),
@@ -315,6 +318,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   context.onReady(() => {
+    if (armedOpen && context.listener) {
+      armedOpen = false
+      openBrowser(context.listener.url)
+      syncHints()
+    }
     // Whether anything is still being waited for is progress's to say: a ready
     // listener only knows the socket is up, and a server nobody has asked for a
     // page yet is not warming up, it is idle.
@@ -379,7 +387,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   shortcuts = [
     { keys: ['r'], ctrl: 'r', hint: 'restart', priority: 80, description: 'restart the dev server', action: () => void restart() },
     { keys: ['R'], sequence: 'R', description: 'restart with a cleared cache', action: () => void restart({ clearCache: true }) },
-    { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', action: () => void openBrowser(context.listener.url) },
+    { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', isArmed: () => armedOpen, action: () => open() },
     { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice) },
     { keys: ['c'], ctrl: 'l', description: 'clear logs, requests and the console', action: () => {
       clearHistory()
@@ -399,12 +407,31 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     { keys: ['q'], ctrl: 'd', hint: 'quit', priority: 90, description: 'quit', action: () => state.status === 'ready' ? quit() : update({ confirmQuit: true }) },
   ]
 
-  update({
-    hints: shortcuts
-      .filter((shortcut): shortcut is UIShortcut & { hint: string, priority: number } => !!shortcut.hint)
-      .map(({ keys, hint, priority }) => ({ key: keys[0]!, label: hint, priority })),
-    hintsDimmed: false,
-  })
+  /** Open the app, or arm the shortcut so a starting server opens once it is up. */
+  function open(): void {
+    if (context.listener) {
+      openBrowser(context.listener.url)
+      return
+    }
+    armedOpen = !armedOpen
+    syncHints()
+  }
+
+  function syncHints(): void {
+    update({
+      hints: shortcuts
+        .filter((shortcut): shortcut is UIShortcut & { hint: string, priority: number } => !!shortcut.hint)
+        .map(({ keys, hint, priority, isArmed }) => ({
+          key: keys[0]!,
+          label: hint,
+          priority,
+          armed: isArmed?.(),
+        })),
+      hintsDimmed: false,
+    })
+  }
+
+  syncHints()
 
   function openView(view: { open: () => void }): void {
     surface.screenMode = 'alternate-screen'
@@ -473,7 +500,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // detached and given the terminal back; re-attaching would put stdin
       // into raw mode with nothing listening and keep the process alive.
       if (!torn) {
-        detach = attachKeys(onKey)
+        detach = attachKeys(onKey, { ignoreBufferedInput: true })
         render()
       }
     }
@@ -694,7 +721,11 @@ function clearConsole(surface: PanelSurface): void {
 }
 
 async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'info' | 'warn' | 'success') => void): Promise<void> {
-  const url = context.listener.publicURL || context.listener.url
+  const url = context.listener?.publicURL || context.listener?.url
+  if (!url) {
+    notify('no server to copy the url of yet', 'warn')
+    return
+  }
   try {
     const { writeText } = await import('tinyclip')
     await writeText(url)
@@ -708,6 +739,9 @@ async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'i
 /** The URL block, in the order a user is most likely to want them. */
 function describeURLs(context: ShortcutContext): PanelURL[] {
   const { listener } = context
+  if (!listener) {
+    return []
+  }
   const urls: PanelURL[] = describeListenURLs(listener.getURLs())
   if (listener.publicURL && !urls.some(entry => entry.url === listener.publicURL)) {
     urls.push({ label: URL_LABELS.public, url: listener.publicURL, link: terminalLink(listener.publicURL, listener.publicURL), style: URL_STYLES.public })
@@ -744,8 +778,8 @@ function describeSession(
     {
       heading: 'urls',
       entries: [
-        ...listener.getURLs().map(({ type, url }) => [type, url, URL_STYLES[type]] as InfoSection['entries'][number]),
-        ['public', listener.publicURL, URL_STYLES.public],
+        ...listener?.getURLs().map(({ type, url }) => [type, url, URL_STYLES[type]] as InfoSection['entries'][number]) ?? [],
+        ['public', listener?.publicURL, URL_STYLES.public],
       ],
     },
     {
@@ -780,8 +814,8 @@ function linkVersion(version: string): string {
 
 /** A QR code for whichever URL another device could reach, if any. */
 async function resolveQRCode(context: ShortcutContext): Promise<string | undefined> {
-  const url = context.listener.qrURL
-    || context.listener.getURLs().find(({ type }) => type !== 'local')?.url
+  const url = context.listener?.qrURL
+    || context.listener?.getURLs().find(({ type }) => type !== 'local')?.url
   if (!url) {
     return undefined
   }

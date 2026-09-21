@@ -43,7 +43,10 @@ vi.mock('../../../src/dev/listen', async importOriginal => ({
   isReusePortSupported,
 }))
 vi.mock('../../../src/dev/preflight', () => ({ preflight }))
-vi.mock('../../../src/dev/shortcuts', () => ({ setupShortcuts }))
+vi.mock('../../../src/dev/shortcuts', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/dev/shortcuts')>(),
+  setupShortcuts,
+}))
 vi.mock('../../../src/utils/dev-server', () => ({ resolveLockDir: (cwd: string) => Promise.resolve(`${cwd}/.nuxt`) }))
 vi.mock('../../../src/dev/takeover', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/dev/takeover')>(),
@@ -228,6 +231,12 @@ describe('dev command fork pool', () => {
     await runDev(['--fork', '--port=4002'])
 
     expect(createFork.mock.calls[0]![0]).toMatchObject({ listenOverrides: expect.objectContaining({ port: '4002' }) })
+  })
+
+  it('should not let a fork open the browser again', async () => {
+    await runDev(['--fork', '--open', '--open.url=/about'])
+
+    expect(createFork.mock.calls[0]![0]).toMatchObject({ listenOverrides: expect.objectContaining({ open: false, openURL: undefined }) })
   })
 
   it('should replace the current server with a fork on a hard restart', async () => {

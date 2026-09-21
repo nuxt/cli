@@ -19,6 +19,7 @@ import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
+import { deferShortcutContext } from '../dev/shortcut-context'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
 import { beginDevUI, setupDevUI } from '../dev/tui/controller'
@@ -231,6 +232,10 @@ const command = defineCommand({
       listenOverrides.showURL = false
     }
 
+    const { context: shortcutContext, attach: attachServer } = deferShortcutContext({ clearCaches })
+    const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
+    setupSignalHandlers(() => shortcutContext.close())
+
     const started = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
@@ -262,8 +267,8 @@ const command = defineCommand({
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || profiling) {
-      attachDevUI(await setupDevUI({ listener, close, onReady, clearCaches, restart: () => reload({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
-      setupSignalHandlers(close)
+      attachServer({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
+      attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
       return {
         listener,
         close,
@@ -273,7 +278,8 @@ const command = defineCommand({
     const pool = new ForkPool({
       rawArgs: ctx.rawArgs,
       poolSize: resolveForkPoolSize(),
-      listenOverrides,
+      // This process has already opened the browser; a fork taking over must not.
+      listenOverrides: { ...listenOverrides, open: false, openURL: undefined },
       inspect,
       pipeOutput: ui,
     })
@@ -290,7 +296,8 @@ const command = defineCommand({
       pool.startWarming()
     })
 
-    const devUI = attachDevUI(await setupDevUI({ listener, close: () => closeAll(), onReady, clearCaches, restart: () => restart({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
+    attachServer({ listener, close: () => closeAll(), onReady, restart: () => restart({ type: 'shortcut' }) })
+    const devUI = attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -434,8 +441,6 @@ const command = defineCommand({
       }
       await close()
     }
-
-    setupSignalHandlers(closeAll)
 
     return {
       close: closeAll,

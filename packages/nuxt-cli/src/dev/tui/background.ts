@@ -11,6 +11,9 @@ import { rememberBackground, resolveBackground } from '../../utils/terminal-them
 /** OSC 11: report the background colour. */
 const QUERY = '\u001B]11;?\u0007'
 
+/** How far a reply is recognisable before its payload begins. */
+const REPLY_PREFIX = '\u001B]11;'
+
 /** `ESC ] 11 ; rgb:RRRR/GGGG/BBBB` followed by BEL or ST. */
 // eslint-disable-next-line no-control-regex
 const REPLY_RE = /\u001B\]11;rgb:([0-9a-f]{1,4})\/([0-9a-f]{1,4})\/([0-9a-f]{1,4})(?:\u0007|\u001B\\)?/i
@@ -49,14 +52,15 @@ export interface QueryBackgroundOptions {
 }
 
 let pending: Promise<TerminalBackground> | undefined
-let release: (() => void) | undefined
+let held: Promise<void> | undefined
 
 /**
- * Give stdin back to a caller that needs it now, without waiting for a terminal
- * that may still be thinking. Returns once stdin is as the query found it.
+ * Settles when the query has given stdin back, or is undefined if nothing is
+ * holding it. A key reader must wait for this, or it parses the terminal's
+ * escape-sequence answer as a run of keystrokes.
  */
-export function stopBackgroundQuery(): void {
-  release?.()
+export function whenStdinReleased(): Promise<void> | undefined {
+  return held
 }
 
 /**
@@ -85,82 +89,144 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
   }
 
   const stdin = options.stdin ?? process.stdin
-  let buffer = ''
+  let releaseStdin!: () => void
+  held = new Promise<void>((settle) => {
+    releaseStdin = () => {
+      held = undefined
+      settle()
+    }
+  })
+
   try {
-    buffer = await listen(stdin, options.timeout ?? REPLY_TIMEOUT_MS, () => options.write(QUERY))
+    const session = listen(stdin, options.timeout ?? REPLY_TIMEOUT_MS, () => options.write(QUERY), releaseStdin)
+    const buffer = await session.typed
+    const answered = REPLY_RE.exec(buffer)
+    // Anything typed while the terminal was thinking is put back for whoever
+    // reads keys next, rather than being swallowed by the question.
+    const typed = answered ? buffer.replace(answered[0], '') : buffer
+    if (typed) {
+      stdin.unshift(Buffer.from(typed, 'latin1'))
+    }
+    // Raw mode suppresses the terminal's own handling of Ctrl-C, so it has to be
+    // passed on rather than left in the buffer for a handler that may never read.
+    if (typed.includes('\u0003')) {
+      process.emit('SIGINT' as 'disconnect')
+    }
+    const reply = answered ?? REPLY_RE.exec(await session.reply)
+    if (!reply) {
+      debug('The terminal did not report a background colour')
+      return 'unknown'
+    }
+
+    return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
   }
   catch (error) {
     debug('Could not ask the terminal for its background:', error)
     return 'unknown'
   }
+  finally {
+    releaseStdin()
+  }
+}
 
-  const reply = REPLY_RE.exec(buffer)
-  // Anything typed while the terminal was thinking is put back for whoever
-  // reads keys next, rather than being swallowed by the question.
-  const typed = reply ? buffer.replace(reply[0], '') : buffer
-  if (typed) {
-    stdin.unshift(Buffer.from(typed, 'latin1'))
-  }
-  // Raw mode suppresses the terminal's own handling of Ctrl-C, so it has to be
-  // passed on rather than left in the buffer for a handler that may never read.
-  if (typed.includes('\u0003')) {
-    process.emit('SIGINT' as 'disconnect')
-  }
-  if (!reply) {
-    debug('The terminal did not report a background colour')
-    return 'unknown'
-  }
-
-  return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
+interface QuerySession {
+  /** Everything read while stdin was held, settled as soon as it is given back. */
+  typed: Promise<string>
+  /** A reply that arrives after the handover, watched for without holding stdin. */
+  reply: Promise<string>
 }
 
 /**
- * Hold stdin in raw mode until the reply arrives or the wait is over, and give
- * it back exactly as it was found.
+ * Ask the terminal, and hold stdin only for as long as nothing else needs it.
  *
- * Reading a reply means owning stdin, which whoever reads keys also needs. The
- * handover is {@link stopBackgroundQuery}, and it has to be synchronous: a
- * caller that asks for stdin back goes on to claim it in the same tick.
+ * Owning stdin is what makes a reply readable, but it is also what makes the
+ * keyboard dead, so the moment the first keystroke shows that someone is typing
+ * the stream is handed back and the rest of the wait is spent observing it: a
+ * `data` listener alongside the key reader sees the same bytes without taking
+ * them, and {@link filterTerminalReplies} keeps the reply out of the keys.
  */
-function listen(stdin: Stdin, timeout: number, ask: () => void): Promise<string> {
-  return new Promise<string>((resolve) => {
-    const wasRaw = !!stdin.isRaw
-    const wasPaused = stdin.isPaused()
-    let buffer = ''
-    let timer: NodeJS.Timeout
-    let listening = true
-    const onData = (chunk: Buffer) => {
-      // Latin-1 keeps every byte addressable: a reply is ASCII, and anything
-      // else here is a keystroke that has to survive being put back.
-      buffer += chunk.toString('latin1')
-      if (REPLY_RE.test(buffer) || buffer.includes('\u0003')) {
-        finish()
-      }
-    }
-    function finish(): void {
-      if (!listening) {
-        return
-      }
-      listening = false
-      release = undefined
-      clearTimeout(timer)
-      stdin.off('data', onData)
-      if (!wasRaw) {
-        stdin.setRawMode?.(false)
-      }
-      if (wasPaused) {
-        stdin.pause()
-      }
-      resolve(buffer)
-    }
-    release = finish
-    timer = setTimeout(finish, timeout)
-    timer.unref?.()
-    stdin.setRawMode?.(true)
-    stdin.resume()
-    stdin.on('data', onData)
-    ask()
+function listen(stdin: Stdin, timeout: number, ask: () => void, handOver: () => void): QuerySession {
+  const deadline = Date.now() + timeout
+  const wasRaw = !!stdin.isRaw
+  const wasPaused = stdin.isPaused()
+  let buffer = ''
+  let timer: NodeJS.Timeout
+  let listening = true
+  let settleTyped!: (value: string) => void
+  let settleReply!: (value: string) => void
+  const typed = new Promise<string>((resolve) => {
+    settleTyped = resolve
   })
+  const reply = new Promise<string>((resolve) => {
+    settleReply = resolve
+  })
+
+  const onData = (chunk: Buffer) => {
+    // Latin-1 keeps every byte addressable: a reply is ASCII, and anything
+    // else here is a keystroke that has to survive being put back.
+    buffer += chunk.toString('latin1')
+    if (REPLY_RE.test(buffer) || buffer.includes('\u0003') || !isReplyPrefix(buffer)) {
+      finish()
+    }
+  }
+
+  function observe(): void {
+    let observed = ''
+    let expiry: NodeJS.Timeout
+    function stop(): void {
+      clearTimeout(expiry)
+      stdin.off('data', onObserved)
+      settleReply(observed)
+    }
+    function onObserved(chunk: Buffer): void {
+      observed += chunk.toString('latin1')
+      if (REPLY_RE.test(observed)) {
+        stop()
+      }
+    }
+    expiry = setTimeout(stop, Math.max(0, deadline - Date.now()))
+    expiry.unref?.()
+    stdin.on('data', onObserved)
+  }
+
+  function finish(): void {
+    if (!listening) {
+      return
+    }
+    listening = false
+    clearTimeout(timer)
+    stdin.off('data', onData)
+    if (!wasRaw) {
+      stdin.setRawMode?.(false)
+    }
+    if (wasPaused) {
+      stdin.pause()
+    }
+    handOver()
+    if (REPLY_RE.test(buffer)) {
+      settleReply('')
+    }
+    else {
+      observe()
+    }
+    settleTyped(buffer)
+  }
+
+  timer = setTimeout(finish, timeout)
+  timer.unref?.()
+  stdin.setRawMode?.(true)
+  stdin.resume()
+  stdin.on('data', onData)
+  ask()
+
+  return { typed, reply }
+}
+
+/** Whether everything read so far could still be the terminal beginning to answer. */
+function isReplyPrefix(buffer: string): boolean {
+  return buffer.length < REPLY_PREFIX.length
+    ? REPLY_PREFIX.startsWith(buffer)
+    : buffer.startsWith(REPLY_PREFIX)
 }
 
 /**
