@@ -88,6 +88,19 @@ async function createProject() {
   return { dir, file, opened }
 }
 
+/**
+ * What the stub editor recorded. The shell creates the file when it opens the
+ * append, so waiting for it to exist can hand back an empty read.
+ */
+async function waitForOpened(opened: string): Promise<string> {
+  let recorded = ''
+  await vi.waitUntil(async () => {
+    recorded = existsSync(opened) ? await readFile(opened, 'utf8') : ''
+    return recorded.length > 0
+  })
+  return recorded
+}
+
 function createServer() {
   return new NuxtDevServer({ cwd: process.cwd(), dotenv: {}, overrides: {} })
 }
@@ -453,8 +466,7 @@ describe('the CLI-owned error channel', () => {
     await instance.handler(openRequest({}, '/etc/passwd'), createResponse().res)
     await instance.handler(openRequest({}, file), createResponse().res)
 
-    await vi.waitUntil(() => existsSync(opened))
-    const spawned = await readFile(opened, 'utf8')
+    const spawned = await waitForOpened(opened)
     expect(spawned).toContain(file)
     expect(spawned).not.toContain('passwd')
   })
@@ -470,7 +482,7 @@ describe('the CLI-owned error channel', () => {
     expect(existsSync(opened)).toBe(false)
 
     await instance.handler(openRequest({}, file), createResponse().res)
-    await vi.waitUntil(() => existsSync(opened))
+    await waitForOpened(opened)
   })
 
   it.skipIf(process.platform === 'win32')('should refuse a directory, and a symlink leaving the project', async () => {

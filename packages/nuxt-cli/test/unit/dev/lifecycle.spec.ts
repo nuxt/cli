@@ -164,7 +164,9 @@ afterEach(async () => {
     await server.listener?.close().catch(() => {})
     await server.close().catch(() => {})
   }
-  await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+  // A server that has just closed can still be flushing into `.nuxt`, which
+  // makes the removal race it and fail with ENOTEMPTY.
+  await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true, maxRetries: 3 })))
 })
 
 describe('dev server startup', () => {
