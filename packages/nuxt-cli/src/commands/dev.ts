@@ -12,17 +12,16 @@ import { defineCommand } from 'citty'
 
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
-import { initialize } from '../dev'
 
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
-import { deferShortcutContext } from '../dev/shortcut-context'
+import { devShortcutContext } from '../dev/shortcut-context'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
-import { beginDevUI, setupDevUI } from '../dev/tui/controller'
+import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
@@ -177,20 +176,21 @@ const command = defineCommand({
   },
   async run(ctx) {
     const requestedCwd = resolveRootDir(ctx.args)
-    const cwd = await preflight({ cwd: requestedCwd })
+    const cwd = await beforeServing(() => preflight({ cwd: requestedCwd }))
     if (cwd !== requestedCwd) {
       replaceCwdArg(ctx.rawArgs, cwd, requestedCwd)
     }
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    const buildDir = await resolveLockDir(cwd)
+    const buildDir = await beforeServing(() => resolveLockDir(cwd))
 
-    const takeover = await takeOverDevServer(buildDir, {
+    const takeover = await beforeServing(() => takeOverDevServer(buildDir, {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
-    })
+    }))
     if (takeover.action === 'refused') {
+      await teardownDevUI()
       logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
       process.exit(1)
     }
@@ -232,9 +232,15 @@ const command = defineCommand({
       listenOverrides.showURL = false
     }
 
-    const { context: shortcutContext, attach: attachServer } = deferShortcutContext({ clearCaches })
+    const { context: shortcutContext, attach: attachServer, provide } = devShortcutContext()
+    provide({ clearCaches })
     const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
     setupSignalHandlers(() => shortcutContext.close())
+
+    // Evaluating the dev server's graph blocks the loop; let the panel answer
+    // anything already typed first.
+    await new Promise(resolve => setImmediate(resolve))
+    const { initialize } = await import('../dev')
 
     const started = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
@@ -456,6 +462,17 @@ type ArgsT = Exclude<
   Awaited<typeof command.args>,
   undefined | ((...args: unknown[]) => unknown)
 >
+
+/** Run work that must succeed before there is a server, freeing the terminal if it does not. */
+async function beforeServing<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work()
+  }
+  catch (error) {
+    await teardownDevUI()
+    throw error
+  }
+}
 
 /**
  * Shut the dev server down on `SIGINT`/`SIGTERM`.

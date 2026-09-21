@@ -1,6 +1,7 @@
 import type { TerminalNotification } from '../../utils/terminal-host'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevUIController } from './controller'
+import type { PanelStart } from './first-frame'
 import type { InfoSection } from './info-overlay'
 import type { Key } from './keys'
 import type { DevStatus, PanelState, PanelURL } from './panel'
@@ -37,6 +38,9 @@ import { beginDevUI } from './session'
 
 export { beginDevUI } from './session'
 export type { DevUIController }
+
+/** The controller driving each session, so a second caller joins it. */
+const attached = new WeakMap<object, DevUIController>()
 
 /** How often the traffic ticker may repaint, so bursts cannot strobe the panel. */
 const TICKER_REPAINT_MS = 250
@@ -79,6 +83,8 @@ export interface DevUIOptions extends DevUISupportOptions {
   cwd?: string
   /** When the command started, so the panel can report a time to ready. */
   startTime?: number
+  /** A frame already on screen, for the session to adopt. */
+  start?: PanelStart
 }
 
 /**
@@ -92,9 +98,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     setupShortcuts(context)
     return NOOP_CONTROLLER
   }
+  if (attached.has(session)) {
+    return attached.get(session)!
+  }
 
   const sessionStart = Date.now()
   session.stopStartupTicker()
+  session.onTeardown(() => attached.delete(session))
   const { surface, events, state, surfaceText, render } = session
   const requests = new RequestLog()
   const version = options.version ?? state.version
@@ -600,7 +610,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   refresh()
 
-  return {
+  const controller: DevUIController = {
     interactive: true,
     settleRestart,
     setStatus: (status, note) => {
@@ -689,6 +699,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       })
     },
   }
+
+  attached.set(session, controller)
+  return controller
 }
 
 /**

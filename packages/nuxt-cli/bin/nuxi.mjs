@@ -67,6 +67,12 @@ if (
   }
 }
 
+// Only `dev` has anything to show before the command graph loads.
+if (process.argv[2] === 'dev') {
+  // eslint-disable-next-line antfu/no-top-level-await
+  await import('../dist/boot.mjs').then(({ bootDevUI }) => bootDevUI())
+}
+
 // eslint-disable-next-line antfu/no-top-level-await
 const { runMain } = await import('../dist/index.mjs')
 
