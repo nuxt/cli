@@ -697,6 +697,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   /**
    * Serve `report` as a live error page, or `false` when it could not be
    * rendered. The page dismisses itself once the channel clears the error.
+   * The report is build state broken for everyone, so any peer sees it; the
+   * history spans other requests, so only a peer on this machine sees that.
    */
   async #renderReport(req: IncomingMessage, res: ServerResponse, report: ErrorReport): Promise<boolean> {
     if (!String(req.headers.accept || '').includes('text/html')) {
@@ -708,7 +710,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const html = await renderErrorPage(report, {
         cwd: this.#rootDir(),
         channel: channel && this.#errorChannel,
-        history: channel?.history,
+        history: isLoopbackAddress(req.socket?.remoteAddress) ? channel?.history : undefined,
       })
       res.statusCode = 500
       res.setHeader('Content-Type', 'text/html')
