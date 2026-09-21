@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 import { debug } from '../utils/logger'
-import { withNodePath } from '../utils/paths'
+import { withNodePath } from '../utils/resolve-nuxt'
 
 export type LoadingTemplate = (data: { loading?: string }) => string
 

@@ -6,8 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 
 import { isNuxiCommand } from '../../nuxt-cli/src/commands/_utils'
-import { tryResolveNuxt } from '../../nuxt-cli/src/utils/kit'
-import { withNodePath } from '../../nuxt-cli/src/utils/paths'
+import { tryResolveNuxt, withNodePath } from '../../nuxt-cli/src/utils/resolve-nuxt'
 
 const FLAG_RE = /^-/
 

@@ -16,7 +16,8 @@ vi.mock('@clack/prompts', async (importOriginal) => {
 
 const resolvedNuxt = vi.hoisted(() => ({ path: null as string | null, error: null as Error | null }))
 
-vi.mock('../../src/utils/kit', () => ({
+vi.mock('../../src/utils/resolve-nuxt', async importOriginal => ({
+  ...await importOriginal<typeof import('../../src/utils/resolve-nuxt')>(),
   tryResolveNuxt: () => {
     if (resolvedNuxt.error) {
       throw resolvedNuxt.error

@@ -8,10 +8,10 @@ import { dirname, join } from 'pathe'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
-import { tryResolveNuxt } from '../utils/kit'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
 import { relativeTo } from '../utils/paths'
+import { tryResolveNuxt } from '../utils/resolve-nuxt'
 import { withStartupClockPaused } from '../utils/startup-clock'
 import { isInteractive } from '../utils/stdout'
 
