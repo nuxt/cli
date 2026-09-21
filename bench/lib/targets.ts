@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { syncFixture } from '../../capture/lib/fixture.ts'
 
 export const repoRoot = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -95,21 +97,20 @@ export function npm(args: string[], cwd: string): string {
   return execFileSync('npm', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
+/** What the fixtures do not own: installed dependencies and build caches. */
+const PRESERVED_FIXTURE_ENTRIES = new Set(['node_modules', 'package-lock.json', '.nuxt', '.data', '.output', '.nitro'])
+
 export function prepareFixtures(workdir: string): Fixture[] {
   const fixtures: Fixture[] = [
     { id: 'playground', label: 'repo `playground/` (2 pages, 1 layer, websocket nitro)', dir: join(workdir, 'fixture-playground') },
     { id: 'large', label: 'generated app (60 pages, 40 components, 10 server routes)', dir: join(workdir, 'fixture-large') },
   ]
 
-  if (!existsSync(fixtures[0]!.dir)) {
-    cpSync(join(repoRoot, 'playground'), fixtures[0]!.dir, {
-      recursive: true,
-      filter: src => !/node_modules|\.nuxt|\.data|\.output/.test(src),
-    })
-  }
-  if (!existsSync(fixtures[1]!.dir)) {
-    generateLargeFixture(fixtures[1]!.dir)
-  }
+  // Mirrored rather than copied once: editing `playground/` or the generator has
+  // to reach the next run, and rewriting only what changed keeps a warm fixture
+  // warm. Both fixtures are staged first so the same sync handles either.
+  syncFixture(join(repoRoot, 'playground'), fixtures[0]!.dir, PRESERVED_FIXTURE_ENTRIES)
+  syncFixture(stageLargeFixture(workdir), fixtures[1]!.dir, PRESERVED_FIXTURE_ENTRIES)
 
   for (const fixture of fixtures) {
     mkdirSync(join(fixture.dir, 'server/routes'), { recursive: true })
@@ -128,6 +129,14 @@ export function prepareFixtures(workdir: string): Fixture[] {
   }
 
   return fixtures
+}
+
+/** Write the generated app somewhere the sync can compare it against. */
+function stageLargeFixture(workdir: string): string {
+  const staging = join(workdir, 'fixture-large-staging')
+  rmSync(staging, { recursive: true, force: true })
+  generateLargeFixture(staging)
+  return staging
 }
 
 function installedNuxtSpec(fixtureDir: string): string | undefined {
