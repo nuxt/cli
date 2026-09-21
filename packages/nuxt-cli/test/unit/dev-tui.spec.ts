@@ -1913,20 +1913,12 @@ describe('panel surface', () => {
     expect(frame.indexOf('a log line')).toBeLessThan(frame.indexOf('--- footer ---'))
   })
 
-  function withStubbedTerminal(rows: number, run: (written: () => string) => void): void {
-    const chunks: string[] = []
-    const descriptors = (['rows', 'isTTY'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'rows', { value: rows, configurable: true })
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
-      chunks.push(String(chunk))
-      return true
-    })
-    try {
-      run(() => chunks.join(''))
+  function stub(values: Array<[key: 'rows' | 'columns' | 'isTTY', value: number | boolean]>): () => void {
+    const descriptors = values.map(([key]) => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+    for (const [key, value] of values) {
+      Object.defineProperty(process.stdout, key, { value, configurable: true })
     }
-    finally {
-      write.mockRestore()
+    return () => {
       for (const [key, descriptor] of descriptors) {
         if (descriptor) {
           Object.defineProperty(process.stdout, key, descriptor)
@@ -1935,6 +1927,62 @@ describe('panel surface', () => {
           Reflect.deleteProperty(process.stdout, key)
         }
       }
+    }
+  }
+
+  function stubTerminal(rows: number): { written: () => string, restore: () => void } {
+    const chunks: string[] = []
+    const restore = stub([['rows', rows], ['isTTY', true]])
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      chunks.push(String(chunk))
+      return true
+    })
+    return {
+      written: () => chunks.join(''),
+      restore: () => {
+        write.mockRestore()
+        restore()
+      },
+    }
+  }
+
+  function withStubbedTerminal(rows: number, run: (written: () => string) => void): void {
+    const { written, restore } = stubTerminal(rows)
+    try {
+      run(written)
+    }
+    finally {
+      restore()
+    }
+  }
+
+  async function withStubbedTerminalAsync(rows: number, run: (written: () => string) => Promise<void>): Promise<void> {
+    const { written, restore } = stubTerminal(rows)
+    try {
+      await run(written)
+    }
+    finally {
+      restore()
+    }
+  }
+
+  function withStubbedColumns(columns: number, run: () => void): void {
+    const restore = stub([['columns', columns]])
+    try {
+      run()
+    }
+    finally {
+      restore()
+    }
+  }
+
+  async function withStubbedColumnsAsync(columns: number, run: () => Promise<void>): Promise<void> {
+    const restore = stub([['columns', columns]])
+    try {
+      await run()
+    }
+    finally {
+      restore()
     }
   }
 
@@ -2003,6 +2051,71 @@ describe('panel surface', () => {
       process.stdout.emit('resize')
       surface.close()
       expect(written().slice(before)).toContain('\n'.repeat(10))
+    })
+  })
+
+  it('starts a clean screen once a change of width has settled', async () => {
+    let written = ''
+    await withStubbedColumnsAsync(40, () => withStubbedTerminalAsync(24, async (read) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = read().length
+      await withStubbedColumnsAsync(30, async () => {
+        process.stdout.emit('resize')
+        await new Promise(resolve => setTimeout(resolve, 200))
+      })
+      written = read().slice(before)
+      surface.close()
+    }))
+
+    expect(written).toContain('\n'.repeat(24))
+    expect(written).toContain('\u001B[24;1H\u001B[J--- footer ---')
+  })
+
+  it('does not scroll the screen away when only the height changes', async () => {
+    let written = ''
+    await withStubbedColumnsAsync(40, () => withStubbedTerminalAsync(24, async (read) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = read().length
+      Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
+      process.stdout.emit('resize')
+      await new Promise(resolve => setTimeout(resolve, 200))
+      written = read().slice(before)
+      surface.close()
+    }))
+
+    expect(written).not.toContain('\n'.repeat(20))
+    expect(written).not.toContain('\u001B[J--- footer ---')
+  })
+
+  it('erases no more rows than it painted when the width changes', () => {
+    withStubbedColumns(40, () => {
+      withStubbedTerminal(24, (written) => {
+        const surface = new PanelSurface()
+        surface.render(['x'.repeat(30)])
+        const before = written().length
+        withStubbedColumns(10, () => process.stdout.emit('resize'))
+        expect(written().slice(before)).toContain('\r\u001B[J')
+        expect(written().slice(before)).not.toContain('A\u001B[J')
+        surface.close()
+      })
+    })
+  })
+
+  it('re-seats the panel at the bottom after a resize while a view owned the screen', () => {
+    withStubbedTerminal(10, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.screenMode = 'alternate-screen'
+      Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
+      process.stdout.emit('resize')
+      const before = written().length
+      surface.screenMode = 'split-footer'
+      surface.close()
+      expect(written().slice(before)).toContain('\n'.repeat(18))
     })
   })
 
