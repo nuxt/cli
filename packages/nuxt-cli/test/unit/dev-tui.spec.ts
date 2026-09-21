@@ -9,6 +9,7 @@ import { consola } from 'consola'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
+import { deferShortcutContext } from '../../src/dev/shortcut-context'
 import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
 import { beginDevUI, setupDevUI } from '../../src/dev/tui/index'
@@ -31,6 +32,12 @@ import { terminalLink } from '../../src/utils/terminal-link'
 import { paint, resolveBackground } from '../../src/utils/terminal-theme'
 import { releaseNotesUrl } from '../../src/utils/update-check'
 import { render, screen } from '../utils/terminal'
+
+const opened: string[] = []
+vi.mock('../../src/dev/listen', async importOriginal => ({
+  ...await importOriginal<typeof import('../../src/dev/listen')>(),
+  openBrowser: (url: string) => void opened.push(url),
+}))
 
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
@@ -254,6 +261,19 @@ describe('dev tui panel', () => {
       const live = renderPanel({ ...READY, hints: DEFAULT_HINTS }, 100, 30).at(-1)!
       expect(dimmed).not.toContain('\u001B[1mq\u001B[22m')
       expect(live).toContain('\u001B[1mq\u001B[22m')
+    }
+    finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('paints an armed hint in the brand colour', () => {
+    vi.stubEnv('FORCE_COLOR', '3')
+    try {
+      const hints = [{ key: 'o', label: 'open', priority: 40, armed: true }]
+      const armed = renderPanel({ ...READY, hints, background: 'dark' }, 100, 30).at(-1)!
+      expect(armed).toContain(paint('brand', 'open', 'dark'))
+      expect(renderPanel({ ...READY, background: 'dark' }, 100, 30).at(-1)!).not.toContain(paint('brand', 'open', 'dark'))
     }
     finally {
       vi.unstubAllEnvs()
@@ -2561,7 +2581,8 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
     return true
   })
   const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
-  const ui = setupDevUI({ ...context, ...overrides } as never, { ci: false, test: false, version: '4.5.2' })
+  // Passed whole: spreading a deferred context would read its listener getter.
+  const ui = setupDevUI((overrides.context ?? { ...context, ...overrides }) as never, { ci: false, test: false, version: '4.5.2' })
   try {
     await run(ui, async () => {
       // The panel repaints on a trailing timer, so nothing is on screen yet.
@@ -2856,6 +2877,53 @@ describe('request failures on the panel', () => {
       expect(last).toContain('ERROR')
       expect(last).toContain('an error was logged')
       expect(last).not.toContain('a request failed')
+    })
+  })
+
+  describe('opening before the server is up', () => {
+    const listener = { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} }
+
+    async function withStartingPanel(run: (ready: () => void, settle: () => Promise<string>) => Promise<void>) {
+      opened.length = 0
+      const { context: deferred, attach } = deferShortcutContext()
+      const ready = () => attach({
+        listener: listener as never,
+        close: async () => {},
+        onReady: callback => callback(listener.url),
+      })
+      await withPanel(async (_ui, settle) => {
+        await settle()
+        await run(ready, settle)
+      }, { context: deferred })
+    }
+
+    it('should open once the server is up when `o` was pressed while starting', async () => {
+      await withStartingPanel(async (ready, settle) => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual([])
+        expect(strip(await settle())).toContain('o open')
+
+        ready()
+        expect(opened).toEqual(['http://localhost:3000/'])
+      })
+    })
+
+    it('should disarm the open shortcut when it is pressed again', async () => {
+      await withStartingPanel(async (ready) => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+
+        ready()
+        expect(opened).toEqual([])
+      })
+    })
+
+    it('should open at once when the server is already up', async () => {
+      await withStartingPanel(async (ready) => {
+        ready()
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual(['http://localhost:3000/'])
+      })
     })
   })
 

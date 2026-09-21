@@ -1,4 +1,5 @@
 import type { Listener } from './listen'
+import type { ShortcutContext } from './shortcut-context'
 
 import process from 'node:process'
 import { createInterface } from 'node:readline'
@@ -9,14 +10,7 @@ import { isCI, isTest } from 'std-env'
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
 
-export interface ShortcutContext {
-  listener: Listener
-  close: () => Promise<void>
-  restart?: () => void | Promise<void>
-  /** Remove the caches that make the next start cold, naming what went. */
-  clearCaches?: () => Promise<string[]>
-  onReady: (callback: (address: string) => void) => void
-}
+export type { ShortcutContext } from './shortcut-context'
 
 interface ActionContext extends ShortcutContext {
   /** Stop reading shortcuts, so a quitting server does not keep stdin open. */
@@ -40,29 +34,33 @@ const shortcuts: Shortcut[] = [
   {
     keys: ['o', 'open'],
     description: 'open in browser',
-    action: context => openBrowser(context.listener.url),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && openBrowser(context.listener.url),
   },
   {
     keys: ['u', 'urls'],
     description: 'show server URLs',
-    action: context => context.listener.showURLs(),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener?.showURLs(),
   },
   {
     keys: ['qr'],
     description: 'show a QR code for the server URL',
-    action: context => printQRCode(resolveShareableURL(context.listener), { showURL: true }),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && printQRCode(resolveShareableURL(context.listener), { showURL: true }),
   },
   {
     keys: ['copy'],
     description: 'copy the server URL to the clipboard',
-    action: context => copyURL(resolveShareableURL(context.listener)),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && copyURL(resolveShareableURL(context.listener)),
   },
   {
     keys: ['c', 'clear'],
     description: 'clear the console',
     action: async (context) => {
       await withDirectStdout(() => process.stdout.write('\u001B[2J\u001B[3J\u001B[H'))
-      context.listener.showURLs()
+      context.listener?.showURLs()
     },
   },
   {
