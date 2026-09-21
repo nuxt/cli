@@ -14,11 +14,13 @@ export interface DevSample {
   fixture: string
   mode: 'cold' | 'warm'
   target: string
+  bound: number
   ready: number
   firstResponse: number
 }
 
 interface DevMeasurement {
+  bound: number
   ready: number
   firstResponse: number
 }
@@ -34,9 +36,11 @@ async function measureDevStart(target: Target, fixture: Fixture, cold: boolean, 
   })
   const spawnedAt = performance.now()
   try {
-    const ready = await server.waitFor(new RegExp(`localhost:${port}`))
+    // The URL is printed when the socket binds, long before the app can answer.
+    const bound = await server.waitFor(new RegExp(`localhost:${port}`))
+    const ready = await server.waitFor(/ready in/i)
     const firstResponse = await waitForHttp(`http://localhost:${port}/`, spawnedAt)
-    return { ready, firstResponse }
+    return { bound, ready, firstResponse }
   }
   finally {
     await server.stop()
@@ -65,32 +69,27 @@ export async function devSuite(targets: Target[], fixtures: Fixture[], reps: num
         const entries = samples.get(target.id)!
         results.push(...entries)
         return {
+          bound: summarise(entries.map(e => e.bound)),
           ready: summarise(entries.map(e => e.ready)),
           firstResponse: summarise(entries.map(e => e.firstResponse)),
         }
       })
       const [baseline, head] = summaries
-      rows.push([
-        `${fixture.id} / ${mode} / ready`,
-        formatMs(baseline!.ready.median),
-        formatMs(head!.ready.median),
-        formatDelta(baseline!.ready.median, head!.ready.median),
-        `${formatMs(baseline!.ready.min)} / ${formatMs(baseline!.ready.max)}`,
-        `${formatMs(head!.ready.min)} / ${formatMs(head!.ready.max)}`,
-      ])
-      rows.push([
-        `${fixture.id} / ${mode} / first 200 response`,
-        formatMs(baseline!.firstResponse.median),
-        formatMs(head!.firstResponse.median),
-        formatDelta(baseline!.firstResponse.median, head!.firstResponse.median),
-        `${formatMs(baseline!.firstResponse.min)} / ${formatMs(baseline!.firstResponse.max)}`,
-        `${formatMs(head!.firstResponse.min)} / ${formatMs(head!.firstResponse.max)}`,
-      ])
+      for (const [label, key] of [['socket bound', 'bound'], ['ready', 'ready'], ['first 200 response', 'firstResponse']] as const) {
+        rows.push([
+          `${fixture.id} / ${mode} / ${label}`,
+          formatMs(baseline![key].median),
+          formatMs(head![key].median),
+          formatDelta(baseline![key].median, head![key].median),
+          `${formatMs(baseline![key].min)} / ${formatMs(baseline![key].max)}`,
+          `${formatMs(head![key].min)} / ${formatMs(head![key].max)}`,
+        ])
+      }
     }
   }
 
   const markdown = [
-    `Median of ${reps} interleaved runs. "ready" is the first URL printed by the CLI, "first 200 response" is measured from process spawn to a successful \`GET /\`. Cold runs delete \`.nuxt\`, \`.data\`, \`.output\` and \`node_modules/.cache\` first.`,
+    `Median of ${reps} interleaved runs, from process spawn. "Socket bound" is the first URL printed, which happens as soon as the server can accept a connection; "ready" is the line the CLI prints once the app is built; "first 200 response" is a successful \`GET /\`. Cold runs delete \`.nuxt\`, \`.data\`, \`.output\` and \`node_modules/.cache\` first.`,
     '',
     markdownTable(
       ['Fixture / mode / metric', `${shortLabel(targets[0]!)} median`, `${shortLabel(targets[1]!)} median`, 'Delta', `${shortLabel(targets[0]!)} min / max`, `${shortLabel(targets[1]!)} min / max`],
