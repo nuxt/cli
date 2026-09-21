@@ -1,4 +1,4 @@
-import type { Buffer } from 'node:buffer'
+import { Buffer } from 'node:buffer'
 
 /** Introduces an OSC, DCS, APC or PM string, which runs until its terminator. */
 // eslint-disable-next-line no-control-regex
@@ -55,12 +55,26 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream): ReplyFilter
     timer = undefined
   }
 
-  /** This chunk's keys have not been emitted yet; the next chunk is typing. */
-  function endAfterThisChunk(): void {
+  /**
+   * Finish a reply that ends `length` characters into what has been buffered.
+   *
+   * The whole chunk is suppressed, since `readline` has not turned it into keys
+   * yet and there is no way to drop only part of it. Anything the reply did not
+   * account for was typed, so it is put back to be read as keys of its own.
+   */
+  function endReply(buffered: string, length: number): void {
+    const typed = buffered.slice(length)
     clearTimeout(timer)
     timer = undefined
     pending = ''
-    setImmediate(stopReplying)
+    // After this chunk, so the reply is still suppressed while `readline` reads
+    // it, and what was typed is read back with the filter already clear.
+    setImmediate(() => {
+      stopReplying()
+      if (typed) {
+        stdin.unshift(Buffer.from(typed, 'latin1'))
+      }
+    })
   }
 
   /** Wait for the rest of a reply, without waiting on it forever. */
@@ -79,13 +93,17 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream): ReplyFilter
     // matched together with what follows it.
     const buffered = pending + chunk.toString('latin1')
 
-    if (CSI_REPLY_RE.test(buffered)) {
+    const csi = CSI_REPLY_RE.exec(buffered)
+    if (csi) {
       replying = true
-      return endAfterThisChunk()
+      return endReply(buffered, csi[0].length)
     }
     if (STRING_REPLY_RE.test(buffered)) {
       replying = true
-      return STRING_TERMINATOR_RE.test(buffered) ? endAfterThisChunk() : awaitRest(buffered)
+      const terminator = STRING_TERMINATOR_RE.exec(buffered)
+      return terminator
+        ? endReply(buffered, terminator.index + terminator[0].length)
+        : awaitRest(buffered)
     }
     if (PARTIAL_CSI_RE.test(buffered)) {
       replying = true
