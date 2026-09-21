@@ -278,7 +278,8 @@ const command = defineCommand({
     const pool = new ForkPool({
       rawArgs: ctx.rawArgs,
       poolSize: resolveForkPoolSize(),
-      listenOverrides,
+      // This process has already opened the browser; a fork taking over must not.
+      listenOverrides: { ...listenOverrides, open: false, openURL: undefined },
       inspect,
       pipeOutput: ui,
     })
