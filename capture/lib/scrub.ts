@@ -121,7 +121,41 @@ export function scrubLine(line: string, styles: Style[], rules: ScrubRule[]): { 
       currentStyles = next.styles
     }
   }
-  return { line: currentLine, styles: currentStyles as Style[] }
+  const realigned = realign(currentLine, currentStyles, line.length)
+  return { line: realigned.line, styles: realigned.styles as Style[] }
+}
+
+/**
+ * Spaces holding a right-aligned tag against the end of the line. Anchoring to
+ * the end is what tells tag padding apart from indentation and from ordinary
+ * gaps inside a message, neither of which may be resized.
+ */
+const TAG_PADDING_RE = / {2,}(?=\S+$)/
+
+/**
+ * Restore a line to the width it was rendered at, by resizing the padding that
+ * holds a trailing tag against the right edge. Consola sizes that padding for
+ * the unscrubbed message, so without this the tag moves whenever a substitution
+ * changes the length of what precedes it.
+ */
+function realign(line: string, styles: (Style | undefined)[], width: number): { line: string, styles: (Style | undefined)[] } {
+  const delta = width - line.length
+  if (delta === 0) {
+    return { line, styles }
+  }
+  const padding = TAG_PADDING_RE.exec(line)
+  if (!padding || padding[0].length + delta < 2) {
+    return { line, styles }
+  }
+  const at = padding.index
+  return {
+    line: line.slice(0, at) + ' '.repeat(padding[0].length + delta) + line.slice(at + padding[0].length),
+    styles: [
+      ...styles.slice(0, at),
+      ...Array.from<Style | undefined>({ length: padding[0].length + delta }).fill(styles[at]),
+      ...styles.slice(at + padding[0].length),
+    ],
+  }
 }
 
 function applyStep(line: string, styles: (Style | undefined)[], step: ScrubStep): { line: string, styles: (Style | undefined)[] } {
