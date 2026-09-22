@@ -32,7 +32,7 @@
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.22",
     "@clack/prompts": "^1.8.1",
-    "@types/node": "^24.13.5",
+    "@types/node": "^24.13.6",
     "citty": "^0.2.2",
     "giget": "^3.3.1",
     "nypm": "^0.6.10",
