@@ -8,7 +8,7 @@ import { consola } from 'consola'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
+import { createRequest, currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
 import { deferShortcutContext } from '../../src/dev/shortcut-context'
 import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
@@ -766,9 +766,9 @@ describe('dev event log', () => {
     const merges: boolean[] = []
     log.onEvent((_, merged) => merges.push(!!merged))
     const now = Date.now()
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 }))
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' }))
     log.push(event({ time: now, level: 0, type: 'error', message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue', source: 'build' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 8 }))
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r8' }))
 
     const errors = log.recent(10, e => e.level <= 0)
     expect(errors).toHaveLength(1)
@@ -776,7 +776,7 @@ describe('dev event log', () => {
     // The wording with the file and the plugin is the one worth keeping.
     expect(errors[0]!.message).toContain('vite:vue')
     // The first attribution wins; the entry stays tied to its request.
-    expect(errors[0]!.requestId).toBe(7)
+    expect(errors[0]!.requestId).toBe('r7')
     expect(merges).toEqual([false, true, true])
   })
 
@@ -855,7 +855,7 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       if (step === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { route: 'report' })
+        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 'r1' }, { route: 'report' })
       }
       else {
         events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime' }, { route: 'output' })
@@ -902,7 +902,7 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const route of order) {
       if (route === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
       }
       else if (route === 'reporter') {
         events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', source: 'runtime' }, { route: 'reporter' })
@@ -912,7 +912,7 @@ describe('dev event log', () => {
       }
     }
     expect(events.recent(10)).toHaveLength(1)
-    expect(events.recent(10)[0]).toMatchObject({ request: 'GET /', requestId: 4, rendered: 'hello\n' })
+    expect(events.recent(10)[0]).toMatchObject({ request: 'GET /', requestId: 'r4', rendered: 'hello\n' })
   })
 
   it.each([
@@ -923,7 +923,7 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       const [route, id] = step.split(' ') as ['report' | 'reporter', string]
-      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: Number(id) }, { route })
+      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: `r${id}` }, { route })
     }
     const entries = events.recent(10)
     expect(entries).toHaveLength(2)
@@ -935,10 +935,10 @@ describe('dev event log', () => {
 
   it('keeps a log with the request it names when another printed the same line', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'output' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'output' })
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 1 }, { route: 'report' })
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 2 }, { route: 'report' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'report' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'report' })
 
     expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
   })
@@ -954,7 +954,7 @@ describe('dev event log', () => {
     const message = 'Cannot read properties of undefined'
     for (const step of order) {
       const route = step.split(' ')[0] as DevLogRoute
-      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 1 }, { route })
+      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 'r1' }, { route })
     }
 
     expect(events.recent(10)).toHaveLength(1)
@@ -963,7 +963,7 @@ describe('dev event log', () => {
 
   it('does not let output heard twice make room for another report', () => {
     const events = new DevEventLog()
-    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 1 }, { route: 'report' })
+    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 'r1' }, { route: 'report' })
     const entry = report()
     noteRoute(entry, 'output')
     noteRoute(entry, 'output')
@@ -985,11 +985,11 @@ describe('dev event log', () => {
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
     events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', source: 'runtime' }, { route: 'output' })
-    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { route: 'report' })
+    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
 
     const [only] = events.recent(10)
     expect(events.recent(10)).toHaveLength(1)
-    expect(only).toMatchObject({ request: 'GET /', requestId: 4, rendered: '\u001B[36mhello\u001B[39m' })
+    expect(only).toMatchObject({ request: 'GET /', requestId: 'r4', rendered: '\u001B[36mhello\u001B[39m' })
   })
 
   it('filters recent events', () => {
@@ -1050,10 +1050,18 @@ describe('request attribution', () => {
     expect(attributed).toBe('GET /nested')
   })
 
-  it('gives every request its own identity', () => {
-    const first = runWithRequest('GET /', request => request.id)
-    const second = runWithRequest('GET /', request => request.id)
-    expect(second).not.toBe(first)
+  it('gives a request an identity that cannot be guessed from its route or its neighbours', () => {
+    const ids = Array.from({ length: 50 }, () => createRequest('GET /boom-page').id)
+    const value = (id: string) => BigInt(`0x${id.replaceAll('-', '')}`)
+
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const id of ids) {
+      expect(id.replaceAll('-', '')).toMatch(/^[0-9a-f]{32}$/)
+      expect(id).not.toContain('boom-page')
+      expect(id).not.toContain('GET')
+    }
+    const distances = ids.slice(1).map((id, index) => value(id) - value(ids[index]!))
+    expect(new Set(distances.map(String)).size).toBe(distances.length)
   })
 
   it('does not attribute work that has left the request context', async () => {
@@ -1239,8 +1247,8 @@ describe('log overlay', () => {
 
   it('heads a request\'s logs once, with the request beside the time', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'first', request: 'GET /about', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'second', request: 'GET /about', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'first', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'second', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -1254,8 +1262,8 @@ describe('log overlay', () => {
 
   it('heads each request separately when the same path is hit twice', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'one', request: 'GET /about', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'two', request: 'GET /about', requestId: 2, source: 'runtime' }))
+    events.push(event({ message: 'one', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'two', request: 'GET /about', requestId: 'r2', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /about'))).toHaveLength(2)
@@ -1264,7 +1272,7 @@ describe('log overlay', () => {
   it('puts the message at the same column whether or not it has a heading', () => {
     const events = new DevEventLog()
     events.push(event({ time: new Date('2024-01-01T10:20:30').getTime(), message: 'plain' }))
-    events.push(event({ time: new Date('2024-01-01T10:20:31').getTime(), message: 'grouped', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ time: new Date('2024-01-01T10:20:31').getTime(), message: 'grouped', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -1278,9 +1286,9 @@ describe('log overlay', () => {
 
   it('starts a new heading when another request interleaves', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'a1', request: 'GET /a', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'b1', request: 'GET /b', requestId: 2, source: 'runtime' }))
-    events.push(event({ message: 'a2', request: 'GET /a', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'a1', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'b1', request: 'GET /b', requestId: 'r2', source: 'runtime' }))
+    events.push(event({ message: 'a2', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /a'))).toHaveLength(2)
@@ -1444,7 +1452,7 @@ describe('log overlay', () => {
 
   it('copies the selected entry, request and all', async () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'boom', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'boom', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'up' })
@@ -1638,8 +1646,8 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 })
-    log.push([{ id: 7, time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
     overlay.open()
     expect(lastFrame()).toContain('✗ 1')
   })
@@ -1648,10 +1656,10 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 7 })
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 })
-    events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 8 })
-    log.push([{ id: 7, time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 'r8' })
+    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
     overlay.open()
 
     overlay.handleKey({ name: 'down' })
@@ -1669,7 +1677,7 @@ describe('request overlay', () => {
   it('says so when a request has no attributed logs', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
-    log.push([{ id: 9, time: Date.now(), method: 'GET', url: '/quiet', status: 200, duration: 2 }])
+    log.push([{ id: 'r9', time: Date.now(), method: 'GET', url: '/quiet', status: 200, duration: 2 }])
     overlay.open()
     overlay.handleKey({ name: 'down' })
     overlay.handleKey({ name: 'return' })
@@ -2767,7 +2775,7 @@ describe('request failures on the panel', () => {
   it('should name a forwarded report on the status line and count it once', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function\n  at app.vue:3:1', requestId: 1 })
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function\n  at app.vue:3:1', requestId: 'r1' })
       const frames = await settle()
 
       expect(frames).toContain('x is not a function · press l to read it')
@@ -2824,7 +2832,7 @@ describe('request failures on the panel', () => {
   // A fork hears an app log twice: over the log channel, and again when the
   // app's stdout comes through its own consola.
   it.each([
-    ['inside a request', { origin: 'runtime' as const, request: 'GET /api/log', requestId: 1 }],
+    ['inside a request', { origin: 'runtime' as const, request: 'GET /api/log', requestId: 'r1' }],
     ['outside a request', { origin: 'build' as const, request: undefined }],
   ])('should record an app log a fork forwards twice once (%s)', async (_name, attribution) => {
     await withPanel(async (ui, _settle, session) => {
@@ -2849,7 +2857,7 @@ describe('request failures on the panel', () => {
     const level = consola.level
     consola.level = 3
     try {
-      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 1 })
+      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 'r1' })
       consola.log(message)
       await flush()
       if (reprint) {
@@ -2868,7 +2876,7 @@ describe('request failures on the panel', () => {
 
       const seen = session.events.recent(50).filter(event => event.message.includes('hello from the app'))
       expect(seen).toHaveLength(1)
-      expect(seen[0]).toMatchObject({ request: 'GET /', requestId: 1 })
+      expect(seen[0]).toMatchObject({ request: 'GET /', requestId: 'r1' })
     })
   })
 
