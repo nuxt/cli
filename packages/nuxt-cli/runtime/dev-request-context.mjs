@@ -18,6 +18,7 @@ import { consola } from 'consola'
  */
 const CHANNEL = 'nuxt:dev:log'
 const HEADER = 'x-nuxt-dev-request-id'
+const LABEL_HEADER = 'x-nuxt-dev-request-label'
 
 const storage = new AsyncLocalStorage()
 
@@ -29,13 +30,16 @@ export default function (nitroApp) {
   catch {}
 }
 
-function parseRequest(header) {
-  if (!header) {
+function parseRequest(id, label) {
+  if (!id) {
     return undefined
   }
-  const separator = header.indexOf(' ')
-  const id = Number(header.slice(0, separator))
-  return Number.isFinite(id) ? { id, label: header.slice(separator + 1) } : undefined
+  let decoded = label || ''
+  try {
+    decoded = decodeURIComponent(decoded)
+  }
+  catch {}
+  return { id, label: decoded }
 }
 
 function trackRequests(nitroApp) {
@@ -46,9 +50,10 @@ function trackRequests(nitroApp) {
       let request
       try {
         const headers = event?.node?.req?.headers
-        request = parseRequest(headers?.[HEADER])
+        request = parseRequest(headers?.[HEADER], headers?.[LABEL_HEADER])
         if (request) {
           delete headers[HEADER]
+          delete headers[LABEL_HEADER]
         }
       }
       catch {}
@@ -65,9 +70,10 @@ function trackRequests(nitroApp) {
     h3.fetch = (req, ...args) => {
       let request
       try {
-        request = parseRequest(req?.headers?.get?.(HEADER))
+        request = parseRequest(req?.headers?.get?.(HEADER), req?.headers?.get?.(LABEL_HEADER))
         if (request) {
           req.headers.delete(HEADER)
+          req.headers.delete(LABEL_HEADER)
         }
       }
       catch {}

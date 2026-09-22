@@ -47,7 +47,7 @@ import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
-import { createRequest, encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
+import { createRequest, encodeRequestLabel, REQUEST_HEADER, REQUEST_LABEL_HEADER, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
 
 /**
@@ -341,7 +341,7 @@ export interface DevRoute {
 /** A request served by the dev server, as shown in the dev UI. */
 export interface DevRequestEvent {
   /** Identity shared with the logs attributed to this request. */
-  id?: number
+  id?: string
   method: string
   url: string
   status: number
@@ -497,9 +497,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const method = req.method || 'GET'
       const url = req.url || '/'
       const request = createRequest(`${method} ${url}`)
-      const encoded = encodeRequest(request)
-      req.headers[REQUEST_HEADER] = encoded
-      req.rawHeaders.push(REQUEST_HEADER, encoded)
+      const label = encodeRequestLabel(request)
+      req.headers[REQUEST_HEADER] = request.id
+      req.headers[REQUEST_LABEL_HEADER] = label
+      req.rawHeaders.push(REQUEST_HEADER, request.id, REQUEST_LABEL_HEADER, label)
       if (!options.captureUIEvents) {
         return this.#serve(req, res)
       }
@@ -1528,17 +1529,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 }
 
 /**
- * Remove any wire-supplied copy of the request-attribution header, from both
+ * Remove any wire-supplied copy of the request-attribution headers, from both
  * the parsed headers and `rawHeaders` (which some frameworks reconstruct
- * requests from), before the CLI sets its own value.
+ * requests from), before the CLI sets its own values.
  */
 function stripRequestHeader(req: IncomingMessage): void {
-  if (req.headers[REQUEST_HEADER] === undefined) {
+  if (req.headers[REQUEST_HEADER] === undefined && req.headers[REQUEST_LABEL_HEADER] === undefined) {
     return
   }
   delete req.headers[REQUEST_HEADER]
+  delete req.headers[REQUEST_LABEL_HEADER]
   for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
-    if (req.rawHeaders[i]?.toLowerCase() === REQUEST_HEADER) {
+    const name = req.rawHeaders[i]?.toLowerCase()
+    if (name === REQUEST_HEADER || name === REQUEST_LABEL_HEADER) {
       req.rawHeaders.splice(i, 2)
     }
   }

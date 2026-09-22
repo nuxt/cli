@@ -9,7 +9,7 @@ export interface ServerLogEvent {
   origin: 'build' | 'runtime'
   /** The request this was emitted for. */
   request?: string
-  requestId?: number
+  requestId?: string
   /** Caught on its way to the terminal rather than reported by the app. */
   raw?: boolean
 }

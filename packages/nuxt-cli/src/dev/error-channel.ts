@@ -24,7 +24,7 @@ export const ERROR_BROADCAST_CHANNEL = 'nuxt:dev:error'
 
 /** Reports the app forwards; anything else on the wire is ignored. */
 export type DevErrorMessage
-  = | { type: 'nuxt:dev:error:report', report: ErrorReport, requestId?: number, request?: string }
+  = | { type: 'nuxt:dev:error:report', report: ErrorReport, requestId?: string, request?: string }
     | { type: 'nuxt:dev:error:clear', id?: string }
     | { type: 'nuxt:dev:error:warning', report: ErrorReport }
     | { type: 'nuxt:dev:error:log', entry: LogEntry }
@@ -267,7 +267,7 @@ export interface DevReportSummary {
   /** That position as `file:line:column`, relative to the project. */
   location?: string
   /** The request the report was raised for, shared with the logs attributed to it. */
-  requestId?: number
+  requestId?: string
   /** That request as `METHOD /path`, when the app raised this while serving one. */
   request?: string
   /** The report rendered for a terminal. */
@@ -289,7 +289,7 @@ function findCompileReport(report: ErrorReport): ErrorReport | undefined {
 
 /** What the fork knows about a report beyond the report itself. */
 export interface ReportContext {
-  requestId?: number
+  requestId?: string
   request?: string
 }
 
@@ -352,7 +352,7 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
     void useErrorChannel(options).then((instance) => {
       switch (message.type) {
         case 'nuxt:dev:error:report': {
-          instance.setError(message.report, message.requestId === undefined ? undefined : `${message.requestId}`, message.request)
+          instance.setError(message.report, message.requestId, message.request)
           handlers.onReport?.(message.report, { requestId: message.requestId, request: message.request })
           break
         }

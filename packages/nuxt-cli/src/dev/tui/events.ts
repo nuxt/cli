@@ -35,7 +35,7 @@ export interface DevLogEvent {
    * Identifies the individual request, so two sequential requests to the same
    * path are not mistaken for one.
    */
-  requestId?: number
+  requestId?: string
   /** How many times this has been reported, when deduplicated. */
   repeats?: number
 }

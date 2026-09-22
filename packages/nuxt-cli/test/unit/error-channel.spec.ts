@@ -14,6 +14,7 @@ import { normalize } from 'pathe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { closeErrorChannel, createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_BROADCAST_CHANNEL, formatReportForTerminal, isDevErrorMessage, isErrorChannelRequest, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, toBuildProgress, useErrorChannel } from '../../src/dev/error-channel'
+import { createRequest } from '../../src/dev/serving-state'
 import { NuxtDevServer } from '../../src/dev/utils'
 
 function createResponse() {
@@ -265,9 +266,9 @@ describe('summariseReport', () => {
   it('should carry the rendering and the topmost frame of the project', async () => {
     const error = new Error('summarise me')
     const report = await createCliReport(error, { cwd: process.cwd() })
-    const summary = await summariseReport(report, { requestId: 7 })
+    const summary = await summariseReport(report, { requestId: 'r7' })
 
-    expect(summary).toMatchObject({ id: report.id, name: 'Error', message: 'summarise me', requestId: 7 })
+    expect(summary).toMatchObject({ id: report.id, name: 'Error', message: 'summarise me', requestId: 'r7' })
     expect(summary.file).toContain('error-channel.spec.ts')
     expect(summary.location).toMatch(/^\.\/packages\/nuxt-cli\/test\/unit\/error-channel\.spec\.ts:\d+:\d+$/)
     expect(summary.ansi).toContain('summarise me')
@@ -335,13 +336,13 @@ describe('the CLI-owned error channel', () => {
     const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
     const requestReport = compileReport('/app/app.vue', 3, 1)
     const buildReport = compileReport('/app/pages/index.vue', 5, 2)
-    app.postMessage({ type: 'nuxt:dev:error:report', report: requestReport, requestId: 4, request: 'GET /broken?x=1' })
+    app.postMessage({ type: 'nuxt:dev:error:report', report: requestReport, requestId: 'r4', request: 'GET /broken?x=1' })
     app.postMessage({ type: 'nuxt:dev:error:report', report: buildReport })
     app.close()
 
     await vi.waitUntil(() => reports.length === 2)
     close()
-    expect(setError).toHaveBeenNthCalledWith(1, requestReport, '4', 'GET /broken?x=1')
+    expect(setError).toHaveBeenNthCalledWith(1, requestReport, 'r4', 'GET /broken?x=1')
     expect(setError).toHaveBeenNthCalledWith(2, buildReport, undefined, undefined)
   })
 
@@ -439,6 +440,32 @@ describe('the CLI-owned error channel', () => {
     expect(chunks.join('')).not.toContain('boom from a page')
     expect(statusOf()).toBe(404)
     expect(body.join('')).not.toContain('boom from a page')
+  })
+
+  it('should not let a peer on another machine enumerate its way to a report', async () => {
+    const server = createServer()
+    const report = await createCliReport(new Error('boom from a page'), { cwd: process.cwd() })
+    const instance = await useErrorChannel()
+    const raised = createRequest('GET /boom-page')
+    instance.setError(report, raised.id, raised.label)
+
+    for (let guess = 1; guess <= 25; guess++) {
+      for (const scope of [`requestId=${guess}`, `requestId=${encodeURIComponent(`${guess} GET /boom-page`)}`, 'path=/boom-page']) {
+        const { res, statusOf, chunks } = createResponse()
+        const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}?${scope}`), { socket: { remoteAddress: '192.168.0.31' } })
+        await server.handler(remote, res)
+
+        expect(statusOf()).toBe(404)
+        expect(chunks.join('')).not.toContain('boom from a page')
+      }
+    }
+
+    const { res, statusOf, chunks } = createResponse()
+    const owner = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}?requestId=${raised.id}`), { socket: { remoteAddress: '192.168.0.31' } })
+    await server.handler(owner, res)
+
+    expect(statusOf()).toBe(200)
+    expect(chunks.join('')).toContain('boom from a page')
   })
 
   it('should serve a report to the peer whose request raised it', async () => {

@@ -543,9 +543,11 @@ describe('dev server shutdown', () => {
 
   it('should identify every request it forwards to the app', async () => {
     const ids: Array<string | undefined> = []
+    const labels: Array<string | undefined> = []
     const nuxt = createNuxt()
     nuxt.server.handler = (req: any, res) => {
       ids.push(req.headers['x-nuxt-dev-request-id'])
+      labels.push(req.headers['x-nuxt-dev-request-label'])
       res.end('app')
     }
     loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
@@ -556,9 +558,36 @@ describe('dev server shutdown', () => {
     await get(server, '/about')
 
     expect(ids).toHaveLength(2)
-    expect(ids[0]).toMatch(/^\d+ GET \/$/)
-    expect(ids[1]).toMatch(/^\d+ GET \/about$/)
+    expect(ids[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(ids[1]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
     expect(ids[0]).not.toBe(ids[1])
+    expect(labels).toEqual(['GET%20%2F', 'GET%20%2Fabout'])
+  })
+
+  it('should replace attribution headers a client sent itself', async () => {
+    let seen: Record<string, string> = {}
+    let raw: string[] = []
+    const nuxt = createNuxt()
+    nuxt.server.handler = (req: any, res) => {
+      seen = req.headers
+      raw = req.rawHeaders
+      res.end('app')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { port } = server.listener.address as AddressInfo
+    await fetch(`http://127.0.0.1:${port}/`, {
+      headers: {
+        'x-nuxt-dev-request-id': 'forged',
+        'x-nuxt-dev-request-label': 'GET%20%2Fsomewhere-else',
+      },
+    }).then(response => response.text())
+
+    expect(seen['x-nuxt-dev-request-id']).not.toBe('forged')
+    expect(seen['x-nuxt-dev-request-label']).toBe('GET%20%2F')
+    expect(raw.filter(value => value === 'forged' || value === 'GET%20%2Fsomewhere-else')).toEqual([])
   })
 })
 
