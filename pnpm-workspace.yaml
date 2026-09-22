@@ -31,7 +31,7 @@ overrides:
   nitropack: 2.13.4
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
-  rolldown: 1.2.8
+  rolldown: 1.2.9
 
 packageExtensions:
   # nitro@3.0.260903-beta dropped its optional `vite` peer, so its dev worker
