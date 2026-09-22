@@ -69,8 +69,9 @@ if (
 
 // Only `dev` has anything to show before the command graph loads.
 if (process.argv[2] === 'dev') {
+  // Without the panel the command still runs, so a failure here is not fatal.
   // eslint-disable-next-line antfu/no-top-level-await
-  await import('../dist/boot.mjs').then(({ bootDevUI }) => bootDevUI())
+  await import('../dist/boot.mjs').then(({ bootDevUI }) => bootDevUI()).catch(() => {})
 }
 
 // eslint-disable-next-line antfu/no-top-level-await

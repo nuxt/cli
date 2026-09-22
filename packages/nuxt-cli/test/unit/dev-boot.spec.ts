@@ -2,7 +2,8 @@ import process from 'node:process'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const paintFirstFrame = vi.fn(() => ({ surface: {}, state: {} }))
+const close = vi.fn()
+const paintFirstFrame = vi.fn(() => ({ surface: { close }, state: {} }))
 const setupDevUI = vi.fn(() => Promise.resolve({}))
 
 vi.mock('../../src/dev/tui/first-frame', () => ({ paintFirstFrame }))
@@ -33,6 +34,8 @@ describe('dev panel from the cli entry', () => {
   afterEach(() => {
     paintFirstFrame.mockClear()
     setupDevUI.mockClear()
+    close.mockClear()
+    setupDevUI.mockImplementation(() => Promise.resolve({}))
   })
 
   it('should take the terminal for `nuxt dev`', async () => {
@@ -40,6 +43,13 @@ describe('dev panel from the cli entry', () => {
 
     expect(paintFirstFrame).toHaveBeenCalledWith({ cwd: undefined, startTime: undefined })
     expect(setupDevUI).toHaveBeenCalled()
+  })
+
+  it('should give the terminal back when the panel cannot be finished', async () => {
+    setupDevUI.mockImplementationOnce(() => Promise.reject(new Error('no panel')))
+
+    await expect(boot(['dev'])).rejects.toThrow('no panel')
+    expect(close).toHaveBeenCalled()
   })
 
   it('should read the project directory from `--cwd` or the positional', async () => {

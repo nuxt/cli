@@ -24,9 +24,17 @@ export async function bootDevUI(): Promise<void> {
   if (!start) {
     return
   }
-  const { devShortcutContext } = await import('./dev/shortcut-context')
-  const { setupDevUI } = await import('./dev/tui/controller')
-  await setupDevUI(devShortcutContext().context, { ...options, start })
+  try {
+    const { devShortcutContext } = await import('./dev/shortcut-context')
+    const { setupDevUI } = await import('./dev/tui/controller')
+    await setupDevUI(devShortcutContext().context, { ...options, start })
+  }
+  catch (error) {
+    // The frame is on screen with nothing behind it, so give the terminal back
+    // before the failure travels on.
+    start.surface.close()
+    throw error
+  }
 
   // Loading the command graph blocks the loop, so the key reader goes first.
   await new Promise(resolve => setImmediate(resolve))

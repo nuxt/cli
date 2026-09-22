@@ -1935,15 +1935,17 @@ describe('panel surface', () => {
    */
   it('makes the room the panel needs and paints it in one write', () => {
     const { writes, restore } = recordWrites()
+    const surface = new PanelSurface()
     try {
-      new PanelSurface().renderAtBottom(['--- footer ---'])
+      surface.renderAtBottom(['--- footer ---'])
+
+      expect(writes).toHaveLength(1)
+      expect(writes[0]).toContain('--- footer ---')
     }
     finally {
+      surface.close()
       restore()
     }
-
-    expect(writes).toHaveLength(1)
-    expect(writes[0]).toContain('--- footer ---')
   })
 
   it('erases and repaints in one write', () => {
