@@ -67,6 +67,12 @@ export async function beginDevUI(options: DevUIOptions = {}): Promise<DevUISessi
   return beginDevUI(options)
 }
 
+/** Give the terminal back, so something else can report on a clean screen. */
+export async function teardownDevUI(): Promise<void> {
+  const { teardownDevUI } = await import('./session')
+  teardownDevUI()
+}
+
 /** The interactive controller, or the line-based shortcuts and a no-op. */
 export async function setupDevUI(context: ShortcutContext, options: DevUIOptions = {}): Promise<DevUIController> {
   if (options.enabled === false) {

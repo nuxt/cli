@@ -1906,6 +1906,98 @@ describe('route overlay', () => {
 })
 
 describe('panel surface', () => {
+  /** Every write the surface makes, with the panel's own writes marked. */
+  function recordWrites(): { writes: string[], restore: () => void } {
+    const writes: string[] = []
+    const isTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writes.push(String(chunk))
+      return true
+    })
+    return {
+      writes,
+      restore: () => {
+        write.mockRestore()
+        if (isTTY) {
+          Object.defineProperty(process.stdout, 'isTTY', isTTY)
+        }
+        else {
+          Reflect.deleteProperty(process.stdout, 'isTTY')
+        }
+      },
+    }
+  }
+
+  /**
+   * Each of these pins one write to one frame. Splitting any of them in two
+   * puts a screen with no panel on it in front of the user.
+   */
+  it('makes the room the panel needs and paints it in one write', () => {
+    const { writes, restore } = recordWrites()
+    const surface = new PanelSurface()
+    try {
+      surface.renderAtBottom(['--- footer ---'])
+
+      expect(writes).toHaveLength(1)
+      expect(writes[0]).toContain('--- footer ---')
+    }
+    finally {
+      surface.close()
+      restore()
+    }
+  })
+
+  it('erases and repaints in one write', () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      surface.render(['--- footer ---', 'second row'])
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+
+    // eslint-disable-next-line no-control-regex
+    expect(writes[0]).toMatch(/\u001B\[J[\s\S]*second row/)
+  })
+
+  it('sends a line going above the panel together with the panel', () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      surface.writeAbove('a line above')
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+
+    expect(writes[0]).toContain('a line above')
+    expect(writes[0]).toContain('--- footer ---')
+  })
+
+  it('brings the panel back in the same tick as output it cannot merge with', async () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      process.stdout.write('output the panel cannot fold in\n')
+      // No waiting: a repaint on a timer would be a frame with no panel in it.
+      expect(writes.join('')).toContain('--- footer ---')
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+  })
+
   it('keeps the panel pinned below log output', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()

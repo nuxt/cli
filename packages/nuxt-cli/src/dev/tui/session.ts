@@ -1,8 +1,8 @@
 import type { ProgressSnapshot } from '../../utils/progress-snapshot'
 import type { ListenURL } from '../listen'
 import type { DevLogEvent } from './events'
+import type { PanelStart, PanelStartOptions } from './first-frame'
 import type { PanelState } from './panel'
-import type { DevUISupportOptions } from './support'
 
 import process from 'node:process'
 import { formatWithOptions, styleText } from 'node:util'
@@ -14,13 +14,14 @@ import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
 import { getPkgVersion } from '../../utils/pkg'
 import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
-import { resolveBackground } from '../../utils/terminal-theme'
+import { registerTerminalHost } from '../../utils/terminal-host'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { queryBackground } from './background'
 import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
+import { createPanelState, renderPanelState } from './first-frame'
 import { LOGO_FRAME_MS } from './logo'
-import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
-import { resolveDevUISupport, supportsUnicode } from './support'
+import { describeListenURLs } from './panel'
+import { resolveDevUISupport } from './support'
 import { PanelSurface } from './surface'
 import { stripAnsi } from './width'
 
@@ -106,6 +107,14 @@ export interface DevUISession {
 
 let current: DevUISession | undefined
 
+/** Point the running session at the project the resolved arguments name. */
+let retargetCurrent: ((options: { cwd?: string, version?: string }) => void) | undefined
+
+/** Give the terminal back, if this process has taken it. */
+export function teardownDevUI(): void {
+  current?.teardown()
+}
+
 /**
  * Take over the terminal before anything is loaded.
  *
@@ -113,32 +122,30 @@ let current: DevUISession | undefined
  * place and capturing before the dev server is initialised or the calm default
  * view would begin with a screen of build output.
  */
-export function beginDevUI(options: DevUISupportOptions & { version?: string, cwd?: string, startTime?: number } = {}): DevUISession | undefined {
+export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } = {}): DevUISession | undefined {
   const support = resolveDevUISupport(options)
-  if (current || !support.enabled) {
-    if (!current) {
+  if (current) {
+    // Only the arguments can refuse a panel that is already up; the terminal
+    // it was started in has not changed.
+    if (support.reason === 'flag' || support.reason === 'inspector') {
       debug(`Interactive dev UI disabled: ${support.reason}`)
+      current.teardown()
+      return undefined
     }
+    retargetCurrent?.(options)
     return current
+  }
+  if (!support.enabled) {
+    debug(`Interactive dev UI disabled: ${support.reason}`)
+    return undefined
   }
 
   const cwd = options.cwd || process.cwd()
-  const state: PanelState = {
-    status: 'starting',
-    version: options.version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || undefined,
-    warnings: 0,
-    errors: 0,
-    ascii: !supportsUnicode(),
-    background: resolveBackground(),
-    loadStartedAt: options.startTime ?? Date.now(),
-    elapsedMs: 0,
-    progress: 0,
-    hints: DEFAULT_HINTS,
-    hintsDimmed: true,
-  }
+  const state = options.start?.state ?? createPanelState(options)
 
   const events = new DevEventLog()
-  const surface = new PanelSurface({ onResize: () => render() })
+  const surface = options.start?.surface ?? new PanelSurface()
+  surface.onResize(() => render())
 
   // Nothing waits on the answer: the mark is painted in colours that are safe
   // on either background and repainted in the exact ones if a reply arrives.
@@ -180,8 +187,48 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   function render(): void {
-    surface.render(renderPanel(state, process.stdout.columns || 80, process.stdout.rows || 24))
+    renderPanelState(surface, state)
   }
+
+  // Startup questions are asked before the controller exists, so the terminal
+  // is lent from here too.
+  const tasks: Array<{ label: string, startedAt: number }> = []
+  const releaseHost = registerTerminalHost({
+    version: 1,
+    withTerminal: async (work) => {
+      const resume = surface.suspend()
+      try {
+        return await work()
+      }
+      finally {
+        if (!torn) {
+          resume()
+        }
+      }
+    },
+    startTask: (label) => {
+      const task = { label, startedAt: Date.now() }
+      tasks.push(task)
+      state.task = tasks.at(-1)
+      repaint()
+      const forget = () => {
+        const index = tasks.indexOf(task)
+        if (index !== -1) {
+          tasks.splice(index, 1)
+        }
+        state.task = tasks.at(-1)
+        repaint()
+      }
+      return {
+        update: (next) => {
+          task.label = next
+          repaint()
+        },
+        stop: forget,
+      }
+    },
+  })
+  teardownTasks.push(releaseHost)
 
   let progressListener: (() => void) | undefined
 
@@ -406,6 +453,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     torn = true
     current = undefined
+    retargetCurrent = undefined
     stopStartupTicker()
     clearImmediate(flushTimer)
     // A fatal startup error tears down and exits before the surface delay can
@@ -518,7 +566,18 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   current = session
-  render()
-  surface.padToBottom()
+  retargetCurrent = (next) => {
+    const nextCwd = next.cwd || cwd
+    const version = next.version || getPkgVersion(nextCwd, 'nuxt') || getPkgVersion(nextCwd, 'nuxt-nightly') || undefined
+    if (version === state.version) {
+      return
+    }
+    state.version = version
+    render()
+  }
+  if (!options.start) {
+    render()
+    surface.padToBottom()
+  }
   return session
 }

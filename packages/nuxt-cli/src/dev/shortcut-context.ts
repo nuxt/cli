@@ -21,6 +21,8 @@ interface ShortcutServer {
 export interface DeferredShortcutContext {
   context: ShortcutContext
   attach: (server: ShortcutServer) => void
+  /** What the dev server cannot supply, such as the caches a restart clears. */
+  provide: (options: Pick<ShortcutContext, 'clearCaches'>) => void
 }
 
 /**
@@ -32,11 +34,14 @@ export interface DeferredShortcutContext {
 export function deferShortcutContext(options: Pick<ShortcutContext, 'clearCaches'> = {}): DeferredShortcutContext {
   let server: ShortcutServer | undefined
   let closing: Promise<void> | undefined
+  let clearCaches = options.clearCaches
   const pendingReady: Array<(address: string) => void> = []
 
   return {
     context: {
-      clearCaches: options.clearCaches,
+      get clearCaches() {
+        return clearCaches
+      },
       get listener() {
         return server?.listener
       },
@@ -64,5 +69,15 @@ export function deferShortcutContext(options: Pick<ShortcutContext, 'clearCaches
         started.onReady(callback)
       }
     },
+    provide: (next) => {
+      clearCaches = next.clearCaches ?? clearCaches
+    },
   }
+}
+
+let shared: DeferredShortcutContext | undefined
+
+/** The context this process's dev shortcuts act through, shared by the entry and the command. */
+export function devShortcutContext(): DeferredShortcutContext {
+  return (shared ??= deferShortcutContext())
 }

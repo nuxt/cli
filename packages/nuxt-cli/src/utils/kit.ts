@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url'
 import { resolveModulePath } from 'exsolve'
 import { ActionableError } from './errors'
-import { withNodePath } from './paths'
+import { tryResolveNuxt } from './resolve-nuxt'
 
 // `exsolve` and Node.js word their resolution failures differently
 const KIT_NOT_FOUND_RE = /Cannot (?:find|resolve) module ['"]@nuxt\/kit['"]/
@@ -20,14 +20,4 @@ export async function loadKit(rootDir: string): Promise<typeof import('@nuxt/kit
     }
     throw e
   }
-}
-
-export function tryResolveNuxt(rootDir: string) {
-  for (const pkg of ['nuxt-nightly', 'nuxt']) {
-    const path = resolveModulePath(pkg, { from: withNodePath(rootDir), try: true })
-    if (path) {
-      return path
-    }
-  }
-  return null
 }

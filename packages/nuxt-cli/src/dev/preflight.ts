@@ -8,11 +8,11 @@ import { dirname, join } from 'pathe'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
-import { tryResolveNuxt } from '../utils/kit'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
 import { relativeTo } from '../utils/paths'
-import { withStartupClockPaused } from '../utils/startup-clock'
+import { tryResolveNuxt } from '../utils/resolve-nuxt'
+import { withUserAttention } from '../utils/startup-clock'
 import { isInteractive } from '../utils/stdout'
 
 const NUXT_PACKAGES = ['nuxt', 'nuxt-nightly']
@@ -143,7 +143,7 @@ async function resolveProjectDirectory(cwd: string, interactive: boolean): Promi
 
     if (interactive) {
       logger.warn(`${styleText('cyan', cwd)} is not a Nuxt project, but ${styleText('cyan', location.ancestor)} is.`)
-      const answer = await withStartupClockPaused(() => confirm({ message: `Run there instead?`, initialValue: true }))
+      const answer = await withUserAttention(() => confirm({ message: `Run there instead?`, initialValue: true }))
       restoreRawMode()
 
       if (!isCancel(answer) && answer) {
@@ -218,7 +218,7 @@ async function checkDependencies(cwd: string, interactive: boolean): Promise<voi
     ].join('\n'))
   }
 
-  await withStartupClockPaused(() => offerInstall(cwd, interactive))
+  await withUserAttention(() => offerInstall(cwd, interactive))
 }
 
 /**
