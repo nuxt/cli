@@ -109,10 +109,19 @@ export function isErrorChannelRequest(path: string, base: string): boolean {
   return path === base || path.startsWith(`${base}/`)
 }
 
+export interface HandleErrorChannelOptions {
+  /**
+   * Whether the caller may see reports raised for other requests and use
+   * privileged actions. Untrusted callers are served the channel scoped to
+   * their own request. Default `true`.
+   */
+  trusted?: boolean
+}
+
 /** Answer a request under the mounted channel path. */
-export async function handleErrorChannelRequest(req: IncomingMessage, res: ServerResponse, options: ErrorChannelOptions = {}): Promise<void> {
+export async function handleErrorChannelRequest(req: IncomingMessage, res: ServerResponse, options: ErrorChannelOptions = {}, caller: HandleErrorChannelOptions = {}): Promise<void> {
   const instance = await useErrorChannel(options)
-  if (await instance.handler(req, res)) {
+  if (await instance.handler(req, res, caller)) {
     return
   }
   res.statusCode = 404

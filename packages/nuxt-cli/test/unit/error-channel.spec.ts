@@ -401,44 +401,71 @@ describe('the CLI-owned error channel', () => {
     expect(progress.mock.calls.map(([update]) => update.source)).toEqual(['cli', 'vite'])
   })
 
-  it.each([
-    `${DEFAULT_ERROR_CHANNEL}/events?path=/`,
-    `${DEFAULT_ERROR_CHANNEL}/history/abc`,
-    `${DEFAULT_ERROR_CHANNEL}/open`,
-  ])('should refuse %s to a peer on another machine', async (url) => {
+  it('should stream the channel to a peer on another machine', async () => {
     const server = createServer()
     const { res, statusOf, chunks } = createResponse()
-    const remote = Object.assign(request(url), { socket: { remoteAddress: '192.168.0.31' } })
+    const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/events?path=/`), { socket: { remoteAddress: '192.168.0.31' } })
 
     await server.handler(remote, res)
 
-    expect(statusOf()).toBe(403)
-    expect(chunks.join('')).not.toContain('event: hello')
+    expect(statusOf()).toBe(200)
+    expect(chunks.join('')).toContain('event: hello')
   })
 
-  it('should keep a report away from a peer on another machine', async () => {
+  it('should refuse open-in-editor to a peer on another machine', async () => {
+    const server = createServer()
+    const { res, statusOf } = createResponse()
+    const remote = Object.assign(openRequest({}), { socket: { remoteAddress: '192.168.0.31' } })
+
+    await server.handler(remote as unknown as IncomingMessage, res)
+
+    expect(statusOf()).toBe(403)
+  })
+
+  it('should keep another request\'s report away from a peer on another machine', async () => {
     const server = createServer()
     const report = await createCliReport(new Error('boom from a page'), { cwd: process.cwd() })
     const instance = await useErrorChannel()
-    instance.setError(report)
+    instance.setError(report, '7', 'GET /admin')
 
-    const { res, statusOf, chunks } = createResponse()
-    const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}`), { socket: { remoteAddress: '192.168.0.31' } })
+    const { res: streamRes, chunks } = createResponse()
+    const stream = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/events?path=/`), { socket: { remoteAddress: '192.168.0.31' } })
+    await server.handler(stream, streamRes)
+
+    const { res, statusOf, chunks: body } = createResponse()
+    const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}?path=/`), { socket: { remoteAddress: '192.168.0.31' } })
     await server.handler(remote, res)
 
-    expect(statusOf()).toBe(403)
     expect(chunks.join('')).not.toContain('boom from a page')
+    expect(statusOf()).toBe(404)
+    expect(body.join('')).not.toContain('boom from a page')
   })
 
-  it('should refuse a channel request with no peer address', async () => {
+  it('should serve a report to the peer whose request raised it', async () => {
     const server = createServer()
-    const { res, statusOf } = createResponse()
-    const anonymous = request(`${DEFAULT_ERROR_CHANNEL}/history/abc`)
-    delete (anonymous as { socket?: unknown }).socket
+    const report = await createCliReport(new Error('boom from a page'), { cwd: process.cwd() })
+    const instance = await useErrorChannel()
+    instance.setError(report, '7', 'GET /admin')
 
-    await server.handler(anonymous, res)
+    const { res, statusOf, chunks } = createResponse()
+    const remote = Object.assign(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}?requestId=7`), { socket: { remoteAddress: '192.168.0.31' } })
+    await server.handler(remote, res)
 
-    expect(statusOf()).toBe(403)
+    expect(statusOf()).toBe(200)
+    expect(chunks.join('')).toContain('boom from a page')
+  })
+
+  it('should serve a loopback peer the whole channel', async () => {
+    const server = createServer()
+    const report = await createCliReport(new Error('boom from a page'), { cwd: process.cwd() })
+    const instance = await useErrorChannel()
+    instance.setError(report, '7', 'GET /admin')
+
+    const { res, statusOf, chunks } = createResponse()
+    await server.handler(request(`${DEFAULT_ERROR_CHANNEL}/history/${report.id}`), res)
+
+    expect(statusOf()).toBe(200)
+    expect(chunks.join('')).toContain('boom from a page')
   })
 
   it('should refuse a channel request another site made', async () => {

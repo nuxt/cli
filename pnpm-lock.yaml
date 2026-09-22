@@ -416,8 +416,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
       my-bad:
-        specifier: ^0.2.5
-        version: 0.2.5(vite@8.3.0)
+        specifier: ^0.2.6
+        version: 0.2.6(vite@8.3.0)
       obug:
         specifier: ^3.0.0
         version: 3.0.0
@@ -4991,8 +4991,8 @@ packages:
   muggle-string@0.4.1:
     resolution: {integrity: sha512-VNTrAak/KhO2i8dqqnqnAHOa3cYBwXEZe9h+D5h/1ZqFSTEFHdM65lR7RoIqq3tBBYavsOXV84NoHXZ0AkPyqQ==}
 
-  my-bad@0.2.5:
-    resolution: {integrity: sha512-jS1CLPZSsHrzyTDZq+5s+uxG8OIjq5+RIxQHRQPedzX5NjjtYzyCVee22tw/zfN4t403S22fF3+t3wVqk7/c4Q==}
+  my-bad@0.2.6:
+    resolution: {integrity: sha512-afKIOyZQa3KlFBOqPeDBuBNNVdqX8Dr+lSUoduKgmVfzvpQ/bB4D2NZEGetqcprZYmmVnl0RYEygh3eWD9S26Q==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       vite: '>=6'
@@ -12162,7 +12162,7 @@ snapshots:
 
   muggle-string@0.4.1: {}
 
-  my-bad@0.2.5(vite@8.3.0):
+  my-bad@0.2.6(vite@8.3.0):
     dependencies:
       clickable-path: 0.1.1
       errx: 0.2.2
