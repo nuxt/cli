@@ -33,7 +33,7 @@
     "build": "tsdown",
     "dev:prepare": "tsdown --watch",
     "prepack": "tsdown",
-    "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts && node --experimental-strip-types ../../scripts/check-loading-page.ts"
+    "test:dist": "node ../../scripts/check-dist.ts && node ../../scripts/check-loading-page.ts"
   },
   "peerDependencies": {
     "@nuxt/docs": "^4.0.0",

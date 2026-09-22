@@ -54,8 +54,11 @@ const { render, screen } = await import('../../utils/terminal')
 const upgrade = await import('../../../src/commands/upgrade').then(r => r.default)
 
 class ExitError extends Error {
-  constructor(readonly code: number | undefined) {
+  readonly code: number | undefined
+
+  constructor(code: number | undefined) {
     super(`process.exit(${code})`)
+    this.code = code
   }
 }
 
