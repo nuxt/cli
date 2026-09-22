@@ -430,8 +430,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   progress: DevProgress = this.#progress
   listener!: Listener
 
-  constructor(private options: NuxtDevServerOptions) {
+  private options: NuxtDevServerOptions
+
+  constructor(options: NuxtDevServerOptions) {
     super()
+
+    this.options = options
 
     this.loadDebounced = debounce(async () => {
       const reason = this.#pendingReason

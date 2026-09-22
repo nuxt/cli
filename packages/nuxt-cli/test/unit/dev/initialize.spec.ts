@@ -27,8 +27,11 @@ vi.mock('../../../src/dev/utils', () => ({
     load = vi.fn(() => Promise.resolve())
     progress = { onUpdate: vi.fn(() => () => {}), close: vi.fn() }
 
-    constructor(readonly options: Record<string, any>) {
+    options: Record<string, any>
+
+    constructor(options: Record<string, any>) {
       super()
+      this.options = options
       devServers.push(this)
     }
 

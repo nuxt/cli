@@ -64,6 +64,6 @@ jobs:
 
       - name: 📼 Re-record terminal captures
         if: steps.capture-paths.outputs.changed == 'true'
-        run: node --experimental-strip-types capture/record.ts
+        run: node capture/record.ts
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # 7a166d7532b277f34e16238930461bf77f9d7ed8

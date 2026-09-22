@@ -15,6 +15,7 @@
     "noUnusedLocals": true,
     "noEmit": true,
     "allowSyntheticDefaultImports": true,
+    "erasableSyntaxOnly": true,
     "skipLibCheck": true
   },
   "exclude": [

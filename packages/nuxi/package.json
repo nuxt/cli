@@ -30,7 +30,7 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "pnpm build",
-    "test:dist": "node ./bin/nuxi.mjs info ../../playground && node --experimental-strip-types ../../scripts/check-dist.ts"
+    "test:dist": "node ./bin/nuxi.mjs info ../../playground && node ../../scripts/check-dist.ts"
   },
   "peerDependencies": {
     "@nuxt/cli": ">=3.26.0",

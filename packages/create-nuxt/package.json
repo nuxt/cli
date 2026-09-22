@@ -27,7 +27,7 @@
   "scripts": {
     "build": "tsdown",
     "prepack": "tsdown",
-    "test:dist": "node --experimental-strip-types ../../scripts/check-dist.ts"
+    "test:dist": "node ../../scripts/check-dist.ts"
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.22",

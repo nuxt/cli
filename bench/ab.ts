@@ -9,7 +9,7 @@ import { formatDelta, formatMs, markdownTable, summarise } from './lib/stats.ts'
  * Interleaved startup comparison between arbitrary local builds, for answering
  * "did this patch cost anything" without going through the full suite.
  *
- * Usage: `node --experimental-strip-types bench/ab.ts --bin with=/path/bin/nuxi.mjs --bin without=/other/bin/nuxi.mjs --case --version`
+ * Usage: `node bench/ab.ts --bin with=/path/bin/nuxi.mjs --bin without=/other/bin/nuxi.mjs --case --version`
  */
 const { values } = parseArgs({
   options: {

@@ -62,7 +62,10 @@ function run(options: Partial<ProgressClientOptions> = {}, fetchImpl?: typeof fe
   const sources: { readyState: number }[] = []
   vi.stubGlobal('EventSource', class {
     readyState = 0
-    constructor(readonly url: string) {
+    url: string
+
+    constructor(url: string) {
+      this.url = url
       sources.push(this)
     }
 
