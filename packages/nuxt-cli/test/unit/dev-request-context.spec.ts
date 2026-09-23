@@ -25,6 +25,10 @@ function eventFor(headers: Record<string, string> = {}) {
   return { node: { req: { headers, url: '/api/hello' } } }
 }
 
+function requestFor(headers: Record<string, string> = {}) {
+  return new Request('http://localhost/api/hello', { headers })
+}
+
 describe('dev request context plugin', () => {
   it('leaves an app it cannot understand exactly as it found it', () => {
     for (const broken of [undefined, null, {}, { h3App: {} }, { h3App: { handler: 'not a function' } }]) {
@@ -46,13 +50,38 @@ describe('dev request context plugin', () => {
     expect(app.handler(eventFor({ [HEADER]: 'nonsense' }))).toBe('served')
   })
 
-  it('does not leave its own header on the request', () => {
+  it('leaves the request id on the request and takes its own label off', () => {
     const { app, nitroApp: instance } = nitroApp(() => 'served')
     plugin(instance)
     const event = eventFor({ [HEADER]: 'req-7', [LABEL_HEADER]: 'GET%20%2Fapi%2Fhello' })
     app.handler(event)
-    expect(event.node.req.headers[HEADER]).toBeUndefined()
+    expect(event.node.req.headers[HEADER]).toBe('req-7')
     expect(event.node.req.headers[LABEL_HEADER]).toBeUndefined()
+  })
+
+  it('attributes a request the app serves through `fetch`, id header intact', async () => {
+    reporters.length = 0
+    let seen: Array<string | null> = []
+    const instance = {
+      fetch: (req: Request) => {
+        seen = [req.headers.get(HEADER), req.headers.get(LABEL_HEADER)]
+        reporters[0]!.log({ level: 3, type: 'info', args: ['from the app'] })
+        return 'served'
+      },
+    }
+    plugin(instance)
+
+    const received: unknown[] = []
+    const close = openDevLogChannel(log => received.push(log))
+    try {
+      expect(instance.fetch(requestFor({ [HEADER]: 'req-42', [LABEL_HEADER]: 'GET%20%2Fapi%2Fhello' }))).toBe('served')
+      expect(seen).toEqual(['req-42', null])
+      await vi.waitFor(() => expect(received).toHaveLength(1))
+      expect(received[0]).toMatchObject({ origin: 'runtime', request: 'GET /api/hello', requestId: 'req-42' })
+    }
+    finally {
+      close()
+    }
   })
 
   it('still serves when reporting throws', async () => {
