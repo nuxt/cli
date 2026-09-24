@@ -1,5 +1,5 @@
 ---
-title: "nuxt add"
+title: "demo days"
 description: "Add Nuxt modules and layers to your application."
 links:
   - label: Source
@@ -7,8 +7,6 @@ links:
     to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/add.ts
     size: xs
 ---
-
-demo days
 
 <!--add-cmd-->
 ```bash [Terminal]
