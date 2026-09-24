@@ -1,6 +1,6 @@
 ---
-title: "demo days"
-description: "Add Nuxt modules and layers to your application."
+title: nuxt add
+description: Add Nuxt modules and layers to your application.
 links:
   - label: Source
     icon: i-simple-icons-github
