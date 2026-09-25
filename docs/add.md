@@ -8,8 +8,8 @@ links:
     size: xs
 ---
 
-::success
-demo days
+::info
+demo days!!!
 ::
 
 <!--add-cmd-->
