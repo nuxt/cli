@@ -8,7 +8,7 @@ links:
     size: xs
 ---
 
-::info
+::tip
 demo days!!!
 ::
 
