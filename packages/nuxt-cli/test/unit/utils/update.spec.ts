@@ -8,6 +8,7 @@ const rcStore = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 const project = vi.hoisted(() => ({ nuxtVersion: undefined as string | undefined }))
 const fetchMock = vi.hoisted(() => vi.fn())
 const registry = vi.hoisted(() => ({ current: { registry: 'https://registry.npmjs.org', authToken: null as string | null, authorization: null as string | null } }))
+const detectNpmRegistry = vi.hoisted(() => vi.fn(async () => registry.current))
 
 vi.mock('std-env', async (importOriginal) => {
   const original = await importOriginal<typeof import('std-env')>()
@@ -37,9 +38,7 @@ vi.mock('rc9', async () => {
 
 vi.mock('../../../src/utils/fetch', () => ({ fetchJson: fetchMock }))
 
-vi.mock('../../../src/utils/registry', () => ({
-  detectNpmRegistry: async () => registry.current,
-}))
+vi.mock('../../../src/utils/registry', () => ({ detectNpmRegistry }))
 
 vi.mock('../../../src/utils/package-json', () => ({
   readDependencyPackageJson: async (name?: string) => {
@@ -163,6 +162,12 @@ describe('update check', () => {
         'https://npm.example.com/-/package/nuxt/dist-tags',
         expect.objectContaining({ headers: { Authorization: 'Bearer secret' } }),
       )
+    })
+
+    it('ignores the project `.npmrc` when choosing where to check', async () => {
+      fetchMock.mockResolvedValue({ latest: '4.1.0' })
+      await checkForNuxtUpdate('/project')
+      expect(detectNpmRegistry).toHaveBeenCalledWith(null, null)
     })
 
     it('is silent when the network is unavailable', async () => {

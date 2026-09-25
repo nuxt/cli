@@ -1,24 +1,30 @@
+import type { TerminalNotification } from '../../utils/terminal-host'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevUIController } from './controller'
+import type { PanelStart } from './first-frame'
 import type { InfoSection } from './info-overlay'
 import type { Key } from './keys'
 import type { DevStatus, PanelState, PanelURL } from './panel'
-import type { DevUISupportOptions } from './support'
 
+import type { DevUISupportOptions } from './support'
 import type { PanelSurface } from './surface'
+
+import { AsyncLocalStorage } from 'node:async_hooks'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { startupElapsedMs } from '../../utils/startup-clock'
+
+import { registerTerminalHost } from '../../utils/terminal-host'
 import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
 import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { NOOP_CONTROLLER } from './controller'
+import { isBoxedNotice, normaliseMessage } from './events'
 import { HelpOverlay } from './help-overlay'
 import { InfoOverlay } from './info-overlay'
 import { attachKeys } from './keys'
@@ -33,14 +39,23 @@ import { beginDevUI } from './session'
 export { beginDevUI } from './session'
 export type { DevUIController }
 
+/** The controller driving each session, so a second caller joins it. */
+const attached = new WeakMap<object, DevUIController>()
+
 /** How often the traffic ticker may repaint, so bursts cannot strobe the panel. */
 const TICKER_REPAINT_MS = 250
+
+/** Frames the mark skips per painted one while waiting for the first render. */
+const WARMUP_FRAME_RATIO = 4
 
 /** How long the mark keeps traffic colour after a request. */
 const ACTIVITY_MS = 700
 
 /** How long passing feedback stays on the panel before it is dropped. */
 const NOTICE_MS = 4000
+
+/** Statuses that mean a load is in flight, so the server is not up yet. */
+const LOADING_STATUSES = new Set<DevStatus>(['starting', 'building', 'restarting'])
 
 interface UIShortcut {
   keys: string[]
@@ -57,6 +72,8 @@ interface UIShortcut {
    */
   sequence?: string
   description: string
+  /** Whether the shortcut is waiting on the server before it can act. */
+  isArmed?: () => boolean
   action: () => void
 }
 
@@ -66,6 +83,8 @@ export interface DevUIOptions extends DevUISupportOptions {
   cwd?: string
   /** When the command started, so the panel can report a time to ready. */
   startTime?: number
+  /** A frame already on screen, for the session to adopt. */
+  start?: PanelStart
 }
 
 /**
@@ -79,9 +98,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     setupShortcuts(context)
     return NOOP_CONTROLLER
   }
+  if (attached.has(session)) {
+    return attached.get(session)!
+  }
 
   const sessionStart = Date.now()
   session.stopStartupTicker()
+  session.onTeardown(() => attached.delete(session))
   const { surface, events, state, surfaceText, render } = session
   const requests = new RequestLog()
   const version = options.version ?? state.version
@@ -110,6 +133,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
   let shortcuts: UIShortcut[] = []
   let qrCode: string | undefined
+  let armedOpen = false
   const helpOverlay = new HelpOverlay(() => shortcuts, write, release)
   const infoOverlay = new InfoOverlay(
     () => describeSession(context, cwd, requests, sessionStart, state.update, state.updateLink),
@@ -121,8 +145,17 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   const openOverlay = () => views.find(view => view.isOpen)
 
   let animation: NodeJS.Timeout | undefined
+  let animationInterval = LOGO_FRAME_MS
   let activityTimer: NodeJS.Timeout | undefined
+  /** Report currently named on the status line. */
+  let reported: string | undefined
   let noticeTimer: NodeJS.Timeout | undefined
+  /**
+   * The load in flight raised an error, so the server never came up. Held apart
+   * from the counts, which are cumulative and so cannot say whether anything is
+   * wrong *now*.
+   */
+  let loadFailed = false
 
   function update(patch: Partial<PanelState>): void {
     Object.assign(state, patch)
@@ -137,6 +170,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({})
   }
 
+  // Progress writes the panel state itself; going through `update` is what arms
+  // the animation for whatever it has just put there.
+  session.onProgressChange(refresh)
+
   function clearActivity(): void {
     update({ active: false })
   }
@@ -146,14 +183,30 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({
       frame: (state.frame ?? 0) + 1,
       elapsedMs: working ? Date.now() - (state.loadStartedAt ?? sessionStart) : state.elapsedMs,
+      phaseElapsedMs: working && state.phaseStartedAt !== undefined ? Date.now() - state.phaseStartedAt : state.phaseElapsedMs,
+      renderingMs: state.rendering && Date.now() - state.rendering.startedAt,
     })
   }
 
-  /** Animate the mark only while the server is working and on screen. */
+  /**
+   * Animate the mark only while something is in flight, on screen. A request
+   * being rendered counts: the server is not loading, but it is the only thing
+   * happening, and a still panel in front of a slow page reads as a hung one.
+   */
   function syncAnimation(): void {
-    const working = state.status !== 'ready' && state.status !== 'error' && !openOverlay()
+    const busy = (state.status !== 'ready' && state.status !== 'error') || !!state.task || !!state.rendering
+    const working = busy && !openOverlay()
+    // Waiting on a render is measured in seconds, sometimes tens of them, which
+    // is too long to spend a build's frame rate on: the panel only has to look
+    // alive.
+    const interval = state.status === 'warming' || state.rendering ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO : LOGO_FRAME_MS
+    if (working && animation && interval !== animationInterval) {
+      clearInterval(animation)
+      animation = undefined
+    }
     if (working && !animation) {
-      animation = setInterval(advanceFrame, LOGO_FRAME_MS)
+      animationInterval = interval
+      animation = setInterval(advanceFrame, interval)
       animation.unref?.()
     }
     else if (!working && animation) {
@@ -162,8 +215,51 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
   }
 
+  /** A message held on the status line until the user has seen it. */
+  interface HeldNotice {
+    text: string
+    tone: 'info' | 'warn'
+    /** Replaces the status badge, for something that is waiting on the user. */
+    label?: string
+    resolve: () => void
+  }
+
+  /** Notices not yet acknowledged, oldest first; the line shows the newest. */
+  const heldNotices: HeldNotice[] = []
+
   function clearNotice(): void {
-    update({ notice: undefined })
+    const held = heldNotices.at(-1)
+    update({ notice: held ? { text: held.text, tone: held.tone, label: held.label } : undefined })
+  }
+
+  function dismissHeld(held: HeldNotice): void {
+    const index = heldNotices.indexOf(held)
+    if (index === -1) {
+      return
+    }
+    heldNotices.splice(index, 1)
+    held.resolve()
+    clearNotice()
+  }
+
+  /**
+   * Hold a message on the status line until the user acknowledges it with a
+   * keypress or the caller lets it go.
+   *
+   * The single path for anything that must not scroll away unnoticed, whether
+   * it was reported through the terminal host or recovered from a box a tool
+   * printed without knowing about the host.
+   */
+  function holdNotice(notice: { text: string, tone: 'info' | 'warn', label?: string }) {
+    let resolve!: () => void
+    const dismissed = new Promise<void>((settle) => {
+      resolve = settle
+    })
+    const held: HeldNotice = { ...notice, text: notice.text.split('\n')[0]!.trim(), resolve }
+    heldNotices.push(held)
+    clearTimeout(noticeTimer)
+    clearNotice()
+    return { dismiss: () => dismissHeld(held), dismissed }
   }
 
   /** Show `text` for a moment. Nothing a notice reports outlives the moment. */
@@ -180,6 +276,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   function clearHistory(): void {
     events.clear()
     requests.clear()
+    loadFailed = false
     // With the history gone, the error badge would point at nothing.
     update({ failures: 0, ...state.status === 'error' ? { status: 'ready' as DevStatus, note: undefined } : {} })
   }
@@ -191,14 +288,38 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     if (merged) {
       return
     }
+    if (isBoxedNotice(event)) {
+      // The box itself is written above the panel, where its URL can be read and
+      // copied; the badge is what stops it scrolling away unnoticed.
+      holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'ACTION' })
+      return
+    }
     if (event.level <= 0) {
-      update({ errors: (state.errors ?? 0) + 1, status: state.status === 'ready' ? 'error' : state.status })
+      // An error raised while a load is in flight is that load failing, and
+      // nothing else reports that it has. One raised by a server already up
+      // belongs to the page it was serving.
+      loadFailed ||= LOADING_STATUSES.has(state.status)
+      update({
+        errors: (state.errors ?? 0) + 1,
+        status: 'error',
+        // The phase note describes work that is no longer happening, so the
+        // badge's own description takes the line back.
+        ...state.status === 'error' ? {} : { note: undefined },
+      })
     }
     else if (event.level === 1) {
       // A warning about what the CLI could not do says nothing about the app, so
       // it is shown once rather than counted against the build.
       if (event.source === 'cli') {
-        showNotice(event.message, 'warn')
+        // One raised while starting up describes the session itself, not a
+        // moment in it: how the server is exposed, what could not be set up.
+        // Those are worth holding until someone has looked at the panel.
+        if (state.readyMs === undefined) {
+          holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'WARNING' })
+        }
+        else {
+          showNotice(event.message, 'warn')
+        }
       }
       else {
         update({ warnings: (state.warnings ?? 0) + 1 })
@@ -207,10 +328,19 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   context.onReady(() => {
+    if (armedOpen && context.listener) {
+      armedOpen = false
+      openBrowser(context.listener.url)
+      syncHints()
+    }
+    // Whether anything is still being waited for is progress's to say: a ready
+    // listener only knows the socket is up, and a server nobody has asked for a
+    // page yet is not warming up, it is idle.
+    const warming = state.status === 'warming'
     update({
-      status: 'ready',
-      note: undefined,
-      progress: undefined,
+      status: warming ? 'warming' : 'ready',
+      note: warming ? state.note : undefined,
+      progress: warming ? state.progress : undefined,
       readyMs: state.readyMs ?? startupElapsedMs(options.startTime ?? sessionStart),
       urls: describeURLs(context),
     })
@@ -233,6 +363,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     process.emit('SIGINT' as any)
   }
 
+  const settleRestart = () => update({ status: loadFailed ? 'error' : 'ready', note: undefined })
+
   const restart = async (options: { clearCache?: boolean } = {}) => {
     if (!context.restart) {
       return
@@ -253,7 +385,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       showNotice(`could not restart: ${error instanceof Error ? error.message : error}`, 'warn')
     }
     finally {
-      update({ status: 'ready' })
+      // A restart that got through, or whose load failed, has already reported
+      // itself through `setStatus`; only one nothing spoke for is left to settle.
+      if (state.status === 'restarting') {
+        settleRestart()
+      }
     }
   }
 
@@ -261,7 +397,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   shortcuts = [
     { keys: ['r'], ctrl: 'r', hint: 'restart', priority: 80, description: 'restart the dev server', action: () => void restart() },
     { keys: ['R'], sequence: 'R', description: 'restart with a cleared cache', action: () => void restart({ clearCache: true }) },
-    { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', action: () => void openBrowser(context.listener.url) },
+    { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', isArmed: () => armedOpen, action: () => open() },
     { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice) },
     { keys: ['c'], ctrl: 'l', description: 'clear logs, requests and the console', action: () => {
       clearHistory()
@@ -281,12 +417,31 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     { keys: ['q'], ctrl: 'd', hint: 'quit', priority: 90, description: 'quit', action: () => state.status === 'ready' ? quit() : update({ confirmQuit: true }) },
   ]
 
-  update({
-    hints: shortcuts
-      .filter((shortcut): shortcut is UIShortcut & { hint: string, priority: number } => !!shortcut.hint)
-      .map(({ keys, hint, priority }) => ({ key: keys[0]!, label: hint, priority })),
-    hintsDimmed: false,
-  })
+  /** Open the app, or arm the shortcut so a starting server opens once it is up. */
+  function open(): void {
+    if (context.listener) {
+      openBrowser(context.listener.url)
+      return
+    }
+    armedOpen = !armedOpen
+    syncHints()
+  }
+
+  function syncHints(): void {
+    update({
+      hints: shortcuts
+        .filter((shortcut): shortcut is UIShortcut & { hint: string, priority: number } => !!shortcut.hint)
+        .map(({ keys, hint, priority, isArmed }) => ({
+          key: keys[0]!,
+          label: hint,
+          priority,
+          armed: isArmed?.(),
+        })),
+      hintsDimmed: false,
+    })
+  }
+
+  syncHints()
 
   function openView(view: { open: () => void }): void {
     surface.screenMode = 'alternate-screen'
@@ -295,6 +450,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const onKey = (key: Key) => {
     const active = openOverlay()
+    // Any keypress is proof the panel is being watched, so a held notice has
+    // done its work. The key still does whatever it would have done.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     if (key.ctrl && key.name === 'c') {
       active?.close()
       return quit()
@@ -325,31 +485,146 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     void shortcut?.action()
   }
 
-  const detach = attachKeys(onKey)
+  let detach = attachKeys(onKey)
+
+  /** Set at teardown, so a borrow that outlives the session cannot restore it. */
+  let torn = false
+
+  /**
+   * Give borrowed work the terminal for as long as it needs it.
+   *
+   * The panel and the shortcuts both have to let go: the panel because it
+   * paints over the rows the work draws on, and the shortcuts because they
+   * hold stdin in raw mode and would answer the keystrokes meant for it.
+   */
+  async function lendTerminal<T>(work: () => Promise<T>): Promise<T> {
+    openOverlay()?.close()
+    detach()
+    const resume = surface.suspend()
+    try {
+      return await work()
+    }
+    finally {
+      resume()
+      // A session torn down mid-borrow (Ctrl-C answered a prompt) has already
+      // detached and given the terminal back; re-attaching would put stdin
+      // into raw mode with nothing listening and keep the process alive.
+      if (!torn) {
+        detach = attachKeys(onKey, { ignoreBufferedInput: true })
+        render()
+      }
+    }
+  }
+
+  /** Settles when the terminal is free again, so borrowers take turns. */
+  let terminalQueue: Promise<unknown> = Promise.resolve()
+
+  /** Set inside a borrow, so a nested borrow can be told from a rival one. */
+  const borrowScope = new AsyncLocalStorage<boolean>()
+
+  /** Work reported through the host, most recent last; the panel shows the last. */
+  const tasks: Array<{ label: string, startedAt: number }> = []
+
+  function syncTasks(): void {
+    update({ task: tasks.at(-1) })
+  }
+
+  const releaseHost = registerTerminalHost({
+    version: 1,
+    withTerminal: <T>(work: () => Promise<T>): Promise<T> => {
+      // A borrower that asks again mid-borrow already has the terminal: kit
+      // lends it to a prompt whose consola implementation routes back through
+      // here, and queueing that behind itself would deadlock. A rival caller
+      // is not in the scope and still waits its turn.
+      if (borrowScope.getStore()) {
+        return work()
+      }
+      const result = terminalQueue.then(() => lendTerminal(() => borrowScope.run(true, work)))
+      terminalQueue = result.catch(() => {})
+      return result
+    },
+    notify: (notification) => {
+      // The full text goes into scrollback where it can be read and copied,
+      // and into the history; the held notice is what stops it scrolling away
+      // unnoticed.
+      surfaceText(renderNotification(notification))
+      events.push({
+        time: Date.now(),
+        level: 3,
+        type: 'info',
+        message: [notification.title, notification.message].filter(Boolean).join('\n'),
+        source: 'cli',
+      })
+      return holdNotice({
+        text: notification.title ?? notification.message,
+        tone: notification.level === 'warn' ? 'warn' : 'info',
+      })
+    },
+    startTask: (label) => {
+      const task = { label, startedAt: Date.now() }
+      tasks.push(task)
+      syncTasks()
+      return {
+        update: (text) => {
+          task.label = text
+          syncTasks()
+        },
+        stop: (message, outcome) => {
+          const index = tasks.indexOf(task)
+          if (index !== -1) {
+            tasks.splice(index, 1)
+          }
+          syncTasks()
+          if (!message) {
+            return
+          }
+          // The outcome goes two places: feedback on the panel now, and the
+          // history, which is where the line a spinner leaves behind survives.
+          showNotice(message, outcome === 'failure' ? 'warn' : 'success')
+          events.push({
+            time: Date.now(),
+            level: outcome === 'failure' ? 0 : 3,
+            type: outcome === 'failure' ? 'error' : 'success',
+            message,
+            source: 'cli',
+          })
+        },
+      }
+    },
+  })
   session.onTeardown(() => {
+    torn = true
     clearInterval(animation)
     clearTimeout(activityTimer)
     clearTimeout(noticeTimer)
     animation = undefined
+    releaseHost()
+    // Nothing can be acknowledged on a torn-down panel, and a caller may be
+    // awaiting the dismissal.
+    for (const held of [...heldNotices]) {
+      dismissHeld(held)
+    }
     detach()
     openOverlay()?.close()
   })
 
   refresh()
 
-  return {
+  const controller: DevUIController = {
     interactive: true,
+    settleRestart,
     setStatus: (status, note) => {
       // The counts only describe what is currently wrong, so a successful load
       // supersedes earlier build errors.
       if (status === 'ready') {
-        update({ status, note: undefined, progress: undefined, errors: 0, warnings: 0, failures: 0 })
+        loadFailed = false
+        update({ status, note: undefined, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined, errors: 0, warnings: 0, failures: 0 })
         return
       }
       // Entering a working state restarts the clock, and drops any progress
       // fraction: only a full load reports one, and a stale bar would lie.
       const restarted = state.status === 'ready' || state.status === 'error'
-      update({ status, note, ...restarted ? { loadStartedAt: Date.now(), elapsedMs: 0, progress: undefined } : {} })
+      update({ status, note, ...restarted ? { loadStartedAt: Date.now(), elapsedMs: 0, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined } : {} })
     },
     pushServerLog: (log) => {
       session.expectRender(events.push({
@@ -361,7 +636,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         request: log.request,
         requestId: log.requestId,
         source: log.origin ?? 'build',
-      }, { absorb: true }))
+      }, { route: log.raw ? 'reporter' : 'report' }))
     },
     pushRequests: (batch) => {
       if (!batch.length) {
@@ -374,20 +649,59 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       // Nuxt answers a failed render with its error page rather than logging it,
       // so the response status is the only signal that something is wrong.
       const failing = (app.at(-1)?.status ?? 0) >= 500
-      const recovered = app.length > 0 && !failing && state.status === 'error' && !state.errors
+      // A page that failed is answered by the next one that does not, but only
+      // a load that gets through clears a failed load.
+      const recovered = app.length > 0 && !failing && state.status === 'error' && !loadFailed
+      // A request that failed because the load did is a symptom of it, and the
+      // load error is reported in the logs rather than against the request.
+      const failureNote = failing && !loadFailed ? 'a request failed · press n to trace it' : undefined
       update({
         active: true,
         failures: (state.failures ?? 0) + failed.length,
         status: failing ? 'error' : recovered ? 'ready' : state.status,
-        note: failing ? 'a request failed · press n to trace it' : recovered ? undefined : state.note,
+        note: failureNote ?? (recovered ? undefined : state.note),
       })
       repaintTicker()
       clearTimeout(activityTimer)
       activityTimer = setTimeout(clearActivity, ACTIVITY_MS)
       activityTimer.unref?.()
     },
+    pushReport: (report) => {
+      // Set before the event, which would otherwise paint the badge's standing
+      // description in between.
+      reported = report.id
+      update({ status: 'error', note: `${report.message} · press l to read it` })
+      events.push({
+        time: Date.now(),
+        level: 0,
+        type: 'error',
+        message: report.ansi,
+        rendered: report.ansi,
+        styled: true,
+        source: 'runtime',
+        request: report.request,
+        requestId: report.requestId,
+      })
+    },
+    clearReport: (id) => {
+      if (id !== undefined && id !== reported) {
+        return
+      }
+      reported = undefined
+      update({ note: undefined })
+    },
     setRoutes: payload => routeOverlay.setRoutes(payload),
+    setRendering: (pending, awaiting) => {
+      update({
+        rendering: pending && { label: pending.label, startedAt: pending.startedAt },
+        renderingMs: pending && Date.now() - pending.startedAt,
+        ...awaiting === undefined ? {} : { awaitingFirstRender: awaiting },
+      })
+    },
   }
+
+  attached.set(session, controller)
+  return controller
 }
 
 /**
@@ -420,7 +734,11 @@ function clearConsole(surface: PanelSurface): void {
 }
 
 async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'info' | 'warn' | 'success') => void): Promise<void> {
-  const url = context.listener.publicURL || context.listener.url
+  const url = context.listener?.publicURL || context.listener?.url
+  if (!url) {
+    notify('no server to copy the url of yet', 'warn')
+    return
+  }
   try {
     const { writeText } = await import('tinyclip')
     await writeText(url)
@@ -434,6 +752,9 @@ async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'i
 /** The URL block, in the order a user is most likely to want them. */
 function describeURLs(context: ShortcutContext): PanelURL[] {
   const { listener } = context
+  if (!listener) {
+    return []
+  }
   const urls: PanelURL[] = describeListenURLs(listener.getURLs())
   if (listener.publicURL && !urls.some(entry => entry.url === listener.publicURL)) {
     urls.push({ label: URL_LABELS.public, url: listener.publicURL, link: terminalLink(listener.publicURL, listener.publicURL), style: URL_STYLES.public })
@@ -470,8 +791,8 @@ function describeSession(
     {
       heading: 'urls',
       entries: [
-        ...listener.getURLs().map(({ type, url }) => [type, url, URL_STYLES[type]] as InfoSection['entries'][number]),
-        ['public', listener.publicURL, URL_STYLES.public],
+        ...listener?.getURLs().map(({ type, url }) => [type, url, URL_STYLES[type]] as InfoSection['entries'][number]) ?? [],
+        ['public', listener?.publicURL, URL_STYLES.public],
       ],
     },
     {
@@ -486,6 +807,18 @@ function describeSession(
   ]
 }
 
+/** The gist of a message, for a status line that has one line to say it in. */
+function firstSentence(message: string): string {
+  return normaliseMessage(message).split('. ')[0]!
+}
+
+/** A notification as it belongs in scrollback: legible, copyable, unboxed. */
+function renderNotification({ title, message, level }: TerminalNotification): string {
+  const mark = level === 'warn' ? styleText(['yellow', 'bold'], '\u26A0') : styleText('cyan', '\u2139')
+  const head = title ? `${mark} ${styleText('bold', title)}\n` : ''
+  return `${head}${message}`
+}
+
 /** A version, linked to its release notes where the terminal supports it. */
 function linkVersion(version: string): string {
   const notes = releaseNotesUrl('nuxt', version)
@@ -494,8 +827,8 @@ function linkVersion(version: string): string {
 
 /** A QR code for whichever URL another device could reach, if any. */
 async function resolveQRCode(context: ShortcutContext): Promise<string | undefined> {
-  const url = context.listener.qrURL
-    || context.listener.getURLs().find(({ type }) => type !== 'local')?.url
+  const url = context.listener?.qrURL
+    || context.listener?.getURLs().find(({ type }) => type !== 'local')?.url
   if (!url) {
     return undefined
   }

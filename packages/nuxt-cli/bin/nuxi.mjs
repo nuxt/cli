@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import inspector from 'node:inspector'
 import nodeModule from 'node:module'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -42,7 +41,7 @@ if (
   process.argv.includes('--profile')
   || process.argv.some(a => a.startsWith('--profile='))
 ) {
-  const session = new inspector.Session()
+  const session = new (process.getBuiltinModule('node:inspector').Session)()
   session.connect()
 
   try {
@@ -66,6 +65,13 @@ if (
     session.disconnect()
     throw err
   }
+}
+
+// Only `dev` has anything to show before the command graph loads.
+if (process.argv[2] === 'dev') {
+  // Without the panel the command still runs, so a failure here is not fatal.
+  // eslint-disable-next-line antfu/no-top-level-await
+  await import('../dist/boot.mjs').then(({ bootDevUI }) => bootDevUI()).catch(() => {})
 }
 
 // eslint-disable-next-line antfu/no-top-level-await

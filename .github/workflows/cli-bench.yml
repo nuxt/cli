@@ -30,20 +30,14 @@ jobs:
       - name: Fetch merge base
         run: git fetch --no-tags --depth=1 origin ${{ github.event.pull_request.base.sha }}
 
-      - run: npm i -g --force corepack && corepack enable
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version: lts/*
-          cache: pnpm
-
-      - name: 📦 Install dependencies
-        run: pnpm install
+          cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 📊 Run benchmark suites
-        run: node --experimental-strip-types bench/run.ts --baseline ref:${{ github.event.pull_request.base.sha }} --suite startup --suite modules --suite footprint --out bench-report/report.md
+        run: node bench/run.ts --baseline ref:${{ github.event.pull_request.base.sha }} --suite startup --suite modules --suite footprint --out bench-report/report.md
 
       - name: ⏫ Upload report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

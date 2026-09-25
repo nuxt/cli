@@ -35,7 +35,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: danielroe/uppt/pr@f14ff83b5a34984ecad7ce0ca911e83b6b80e3b0 # v0.6.5
+      - uses: danielroe/uppt/pr@09882a5a0a1a20a0e802613a77ad59fcb1c1611c # v0.6.9
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: ${{ inputs.prerelease }}
@@ -60,7 +60,7 @@ jobs:
       contents: write
       actions: write
     steps:
-      - uses: danielroe/uppt/release@f14ff83b5a34984ecad7ce0ca911e83b6b80e3b0 # v0.6.5
+      - uses: danielroe/uppt/release@09882a5a0a1a20a0e802613a77ad59fcb1c1611c # v0.6.9
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           packages: |
@@ -83,20 +83,13 @@ jobs:
         with:
           persist-credentials: false
 
-      - run: npm i -g --force corepack && corepack enable
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          node-version: 24.19.0
-          cache: pnpm
+          cache: true
+          install: false
 
-      # The repo's `postinstall` runs `scripts/generate-data.ts` to write
-      # `packages/nuxt-cli/src/data/*.ts` that the build then bundles. uppt's
-      # default install path never runs it, which would produce a stale or
-      # broken nuxi tarball, so we install and build ourselves and pass
-      # `install: false` to uppt/pack.
       - name: 📦 Install dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts --no-runtime
 
       - name: 🔨 Generate data and build
         run: pnpm run postinstall
@@ -104,7 +97,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - id: pack
-        uses: danielroe/uppt/pack@f14ff83b5a34984ecad7ce0ca911e83b6b80e3b0 # v0.6.5
+        uses: danielroe/uppt/pack@09882a5a0a1a20a0e802613a77ad59fcb1c1611c # v0.6.9
         with:
           checkout: false
           install: false
@@ -127,6 +120,6 @@ jobs:
       id-token: write
     environment: npm
     steps:
-      - uses: danielroe/uppt/publish@f14ff83b5a34984ecad7ce0ca911e83b6b80e3b0 # v0.6.5
+      - uses: danielroe/uppt/publish@09882a5a0a1a20a0e802613a77ad59fcb1c1611c # v0.6.9
         with:
           files: ${{ needs.pack.outputs.files }}

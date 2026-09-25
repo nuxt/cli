@@ -1,13 +1,14 @@
-styles: 4eeca6108c97ac69
+styles: a2e3f38c20e4471a
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
+ℹ Re-optimizing dependencies because vite config has changed
 ℹ Vite client warmed up in 42 ms
 ℹ Vite server warmed up in 42 ms
 │
 │  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
-◆  Ready in 42 ms
+◆  Ready in 42 ms  → http://localhost:3000/
 ●  Nuxt x.y.z (with Nitro x.y.z, Vite x.y.z and Vue x.y.z)
 ✔ Nuxt Nitro server built in 42 ms                                                      nitro
 ✔ Vite client built in 42 ms

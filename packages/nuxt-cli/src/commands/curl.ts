@@ -100,7 +100,7 @@ export default defineCommand({
     const cwd = resolveRootDir(ctx.args)
     const input = ctx.args.url
     if (!input) {
-      logger.error(`Missing URL. Try ${styleText('cyan', 'nuxt curl /api/hello')}.`)
+      logger.error(`Missing URL. Try ${styleText('cyan', 'nuxt curl /')}.`)
       process.exit(1)
     }
 

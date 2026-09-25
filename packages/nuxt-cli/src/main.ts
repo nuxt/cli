@@ -95,9 +95,13 @@ const _main = defineCommand({
 })
 
 /**
- * Report long flags the resolved command does not declare. Unknown flags are
- * otherwise parsed and silently ignored, so a misspelling looks like the flag
- * simply had no effect.
+ * Report long flags the resolved command does not declare *and* that look like
+ * a misspelling of one it does, so a typo does not look like a flag that simply
+ * had no effect.
+ *
+ * A flag with no close match is passed through in silence: projects read their
+ * own flags out of `process.argv` in `nuxt.config`, and there is no way to tell
+ * one of those from a typo nothing resembles.
  */
 async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<void> {
   let def: CommandDef<any>
@@ -120,29 +124,36 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
     return
   }
 
-  const suggestions = await suggestFlags(unknown)
+  const suggestions = (await suggestFlags(unknown)).filter((entry): entry is { flag: string, suggestion: string } => {
+    if (entry.suggestion) {
+      return true
+    }
+    debug(`Passing through unknown option ${entry.flag}.`)
+    return false
+  })
+  if (suggestions.length === 0) {
+    return
+  }
+
   const { isInteractive } = await import('./utils/stdout')
   if (!isInteractive()) {
     for (const { flag, suggestion } of suggestions) {
-      logger.warn(`Unknown option ${styleText('cyan', flag)}.${suggestion ? ` Did you mean ${styleText('cyan', suggestion)}?` : ''}`)
+      logger.warn(`Unknown option ${styleText('cyan', flag)}. Did you mean ${styleText('cyan', suggestion)}?`)
     }
     return
   }
 
   const { cancel, confirm, isCancel } = await import('@clack/prompts')
   const { restoreRawMode, withDirectStdout } = await import('./utils/console')
+  const { withUserAttention } = await import('./utils/startup-clock')
   for (const { flag, suggestion } of suggestions) {
-    if (!suggestion) {
-      logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
-      continue
-    }
     // A negated unknown flag is matched against its bare name, so the offered
     // replacement has to restore the negation the user asked for.
     const replacement = flag.startsWith('--no-') && !suggestion.startsWith('--no-')
       ? `--no-${suggestion.slice(2)}`
       : suggestion
     logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
-    const answer = await withDirectStdout(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true }))
+    const answer = await withUserAttention(() => withDirectStdout(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true })))
     restoreRawMode()
     // Ctrl-C at the prompt must abort, not fall through to running the command
     // with the flag the user was told is unknown.
@@ -181,7 +192,8 @@ async function reportUnknownCommand(command: string, rawArgs: string[]): Promise
     logger.warn(`Unknown command ${styleText('cyan', command)}.`)
     const { confirm, isCancel } = await import('@clack/prompts')
     const { restoreRawMode, withDirectStdout } = await import('./utils/console')
-    const answer = await withDirectStdout(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true }))
+    const { withUserAttention } = await import('./utils/startup-clock')
+    const answer = await withUserAttention(() => withDirectStdout(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true })))
     restoreRawMode()
 
     if (isCancel(answer)) {

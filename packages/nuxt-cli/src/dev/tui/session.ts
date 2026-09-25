@@ -1,8 +1,8 @@
+import type { ProgressSnapshot } from '../../utils/progress-snapshot'
 import type { ListenURL } from '../listen'
-import type { DevProgressSnapshot } from '../progress'
 import type { DevLogEvent } from './events'
+import type { PanelStart, PanelStartOptions } from './first-frame'
 import type { PanelState } from './panel'
-import type { DevUISupportOptions } from './support'
 
 import process from 'node:process'
 import { formatWithOptions, styleText } from 'node:util'
@@ -12,14 +12,16 @@ import { consola } from 'consola'
 import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
 import { getPkgVersion } from '../../utils/pkg'
+import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
-import { resolveBackground } from '../../utils/terminal-theme'
+import { registerTerminalHost } from '../../utils/terminal-host'
 import { currentRequest, isServingRequest } from '../serving-state'
 import { queryBackground } from './background'
-import { DevEventLog, normaliseMessage } from './events'
+import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
+import { createPanelState, renderPanelState } from './first-frame'
 import { LOGO_FRAME_MS } from './logo'
-import { DEFAULT_HINTS, describeListenURLs, renderPanel } from './panel'
-import { resolveDevUISupport, supportsUnicode } from './support'
+import { describeListenURLs } from './panel'
+import { resolveDevUISupport } from './support'
 import { PanelSurface } from './surface'
 import { stripAnsi } from './width'
 
@@ -31,6 +33,41 @@ const ERROR_SURFACE_DELAY_MS = 60
 /** An error as it belongs in scrollback: as printed, or as reported. */
 function renderErrorLine(event: DevLogEvent): string {
   return event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`
+}
+
+/** A boxed notice as it belongs in scrollback: as printed, or as reported. */
+function renderNoticeBlock(event: DevLogEvent): string {
+  return event.rendered ?? `${event.message}\n`
+}
+
+/** A warning as it belongs in scrollback: as printed, or as reported. */
+function renderWarningLine(event: DevLogEvent): string {
+  return event.rendered ?? `${styleText(['yellow', 'bold'], 'WARN')} ${event.message}`
+}
+
+/** Cursor movement and erasure: output that repaints rather than appends. */
+// eslint-disable-next-line no-control-regex
+const REWRITE_RE = /\r(?!\n)|\u001B\[[0-9;]*[A-GJK]/
+
+/** Sequences a settled line no longer needs: movement, erasure, visibility. */
+// eslint-disable-next-line no-control-regex
+const CURSOR_RE = /\u001B\[[0-9;]*[A-GJK]|\u001B\[\?25[hl]/g
+
+/** Whether `chunk` rewrites earlier output instead of adding to it. */
+function isRewrite(chunk: string): boolean {
+  return REWRITE_RE.test(chunk)
+}
+
+/**
+ * What a run of self-rewriting output leaves on screen: each line keeps only
+ * what follows its last carriage return, and the cursor control goes.
+ */
+function settleRewrites(plain: string): string {
+  return plain
+    .replaceAll(CURSOR_RE, '')
+    .split('\n')
+    .map(line => line.slice(line.lastIndexOf('\r') + 1))
+    .join('\n')
 }
 
 export interface DevUISession {
@@ -50,7 +87,13 @@ export interface DevUISession {
   /** Stop the session's own startup animation, once the controller drives it. */
   stopStartupTicker: () => void
   /** Narrate the current startup phase while the server is loading. */
-  reportProgress: (snapshot: DevProgressSnapshot) => void
+  reportProgress: (snapshot: ProgressSnapshot) => void
+  /**
+   * Repaint through the controller instead of {@link render} whenever progress
+   * changes what is on the panel, so the controller can re-arm the animation it
+   * owns: a render in flight is work, and a still panel reads as a hung one.
+   */
+  onProgressChange: (listener: () => void) => void
   /**
    * Show the bound address the moment the socket answers, spinning until the
    * resolved config confirms it. The full URL block replaces it on ready.
@@ -64,6 +107,14 @@ export interface DevUISession {
 
 let current: DevUISession | undefined
 
+/** Point the running session at the project the resolved arguments name. */
+let retargetCurrent: ((options: { cwd?: string, version?: string }) => void) | undefined
+
+/** Give the terminal back, if this process has taken it. */
+export function teardownDevUI(): void {
+  current?.teardown()
+}
+
 /**
  * Take over the terminal before anything is loaded.
  *
@@ -71,32 +122,30 @@ let current: DevUISession | undefined
  * place and capturing before the dev server is initialised or the calm default
  * view would begin with a screen of build output.
  */
-export function beginDevUI(options: DevUISupportOptions & { version?: string, cwd?: string, startTime?: number } = {}): DevUISession | undefined {
+export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } = {}): DevUISession | undefined {
   const support = resolveDevUISupport(options)
-  if (current || !support.enabled) {
-    if (!current) {
+  if (current) {
+    // Only the arguments can refuse a panel that is already up; the terminal
+    // it was started in has not changed.
+    if (support.reason === 'flag' || support.reason === 'inspector') {
       debug(`Interactive dev UI disabled: ${support.reason}`)
+      current.teardown()
+      return undefined
     }
+    retargetCurrent?.(options)
     return current
+  }
+  if (!support.enabled) {
+    debug(`Interactive dev UI disabled: ${support.reason}`)
+    return undefined
   }
 
   const cwd = options.cwd || process.cwd()
-  const state: PanelState = {
-    status: 'starting',
-    version: options.version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || undefined,
-    warnings: 0,
-    errors: 0,
-    ascii: !supportsUnicode(),
-    background: resolveBackground(),
-    loadStartedAt: options.startTime ?? Date.now(),
-    elapsedMs: 0,
-    progress: 0,
-    hints: DEFAULT_HINTS,
-    hintsDimmed: true,
-  }
+  const state = options.start?.state ?? createPanelState(options)
 
   const events = new DevEventLog()
-  const surface = new PanelSurface({ onResize: () => render() })
+  const surface = options.start?.surface ?? new PanelSurface()
+  surface.onResize(() => render())
 
   // Nothing waits on the answer: the mark is painted in colours that are safe
   // on either background and repainted in the exact ones if a reply arrives.
@@ -109,6 +158,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   })
 
   let awaiting: DevLogEvent | undefined
+  /** The entry the current run of self-rewriting frames is folded into. */
+  let transient: DevLogEvent | undefined
   let buffered = ''
   let flushTimer: NodeJS.Immediate | undefined
   let surfacing: string[] = []
@@ -116,8 +167,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   let torn = false
   let handlers: Array<[NodeJS.Signals | 'exit' | 'uncaughtException', (...args: any[]) => void]> = []
   const teardownTasks: Array<() => void> = []
-  /** Errors whose surface delay has not fired yet, keyed by that timer. */
-  const pendingErrors = new Map<NodeJS.Timeout, DevLogEvent>()
+  /** Text whose surface delay has not fired yet, keyed by that timer. */
+  const pendingSurfaces = new Map<NodeJS.Timeout, () => string>()
 
   // Nothing else repaints while Nuxt is loading, so the session drives the
   // shimmer and the elapsed time itself until the controller takes over.
@@ -127,6 +178,7 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     state.frame = (state.frame ?? 0) + 1
     state.elapsedMs = startupElapsedMs(state.loadStartedAt ?? Date.now())
+    state.phaseElapsedMs = state.phaseStartedAt === undefined ? undefined : Date.now() - state.phaseStartedAt
     render()
   }, LOGO_FRAME_MS)
   startupTicker.unref?.()
@@ -135,18 +187,94 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   function render(): void {
-    surface.render(renderPanel(state, process.stdout.columns || 80, process.stdout.rows || 24))
+    renderPanelState(surface, state)
   }
 
-  function reportProgress(snapshot: DevProgressSnapshot): void {
+  // Startup questions are asked before the controller exists, so the terminal
+  // is lent from here too.
+  const tasks: Array<{ label: string, startedAt: number }> = []
+  const releaseHost = registerTerminalHost({
+    version: 1,
+    withTerminal: async (work) => {
+      const resume = surface.suspend()
+      try {
+        return await work()
+      }
+      finally {
+        if (!torn) {
+          resume()
+        }
+      }
+    },
+    startTask: (label) => {
+      const task = { label, startedAt: Date.now() }
+      tasks.push(task)
+      state.task = tasks.at(-1)
+      repaint()
+      const forget = () => {
+        const index = tasks.indexOf(task)
+        if (index !== -1) {
+          tasks.splice(index, 1)
+        }
+        state.task = tasks.at(-1)
+        repaint()
+      }
+      return {
+        update: (next) => {
+          task.label = next
+          repaint()
+        },
+        stop: forget,
+      }
+    },
+  })
+  teardownTasks.push(releaseHost)
+
+  let progressListener: (() => void) | undefined
+
+  /** Repaint through the controller where one is attached, so it sees the change. */
+  function repaint(): void {
+    if (progressListener) {
+      progressListener()
+      return
+    }
+    render()
+  }
+
+  function reportProgress(snapshot: ProgressSnapshot): void {
+    if (snapshot.status === 'ready') {
+      // Between the server accepting requests and answering one there is
+      // nothing to watch but a badge, so it says which of the two has happened.
+      // Something already waiting for a page is a state of the load; the request
+      // being rendered is not, and is held separately so that a load reporting
+      // itself ready again cannot take it off the panel.
+      const waiting = !snapshot.serving && snapshot.message !== READY_MESSAGE
+      state.awaitingFirstRender = !snapshot.serving
+      state.note = waiting ? snapshot.message : undefined
+      state.progress = waiting ? snapshot.progress : undefined
+      state.rendering = snapshot.pending && { label: snapshot.pending.label, startedAt: snapshot.pending.startedAt }
+      state.renderingMs = snapshot.pending && Date.now() - snapshot.pending.startedAt
+      state.phaseStartedAt = undefined
+      state.phaseElapsedMs = undefined
+      if (state.status === 'ready' || state.status === 'warming') {
+        state.status = waiting ? 'warming' : 'ready'
+      }
+      repaint()
+      return
+    }
     if (snapshot.status !== 'loading') {
       return
     }
     Object.assign(state, {
       status: snapshot.reload ? 'building' : 'starting',
       note: snapshot.message,
+      // A load starting voids whatever was being rendered against the last one.
+      rendering: undefined,
+      renderingMs: undefined,
       loadStartedAt: Date.now() - snapshot.elapsed,
       elapsedMs: snapshot.elapsed,
+      phaseStartedAt: Date.now() - snapshot.phaseElapsed,
+      phaseElapsedMs: snapshot.phaseElapsed,
       progress: snapshot.progress,
     } satisfies Partial<PanelState>)
     render()
@@ -199,31 +327,60 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     const plain = stripAnsi(chunk)
     if (owner) {
+      transient = undefined
       owner.rendered = chunk
+      noteRoute(owner, 'output')
       return
     }
-    if (!plain.trim() || events.attachRendered(chunk, plain)) {
+    const rewriting = isRewrite(chunk)
+    const message = (rewriting ? settleRewrites(plain) : plain).replace(/\n+$/, '')
+    if (!message.trim()) {
       return
     }
-    events.push({
+    // A spinner or progress bar redraws one line hundreds of times; each frame
+    // rewrites the last, so together they are one entry that keeps up, not a
+    // flood. The first plain line that follows ends the run.
+    if (rewriting && transient) {
+      Object.assign(transient, { time: Date.now(), message, rendered: chunk })
+      return
+    }
+    if (!rewriting && events.attachRendered(chunk, plain)) {
+      transient = undefined
+      return
+    }
+    const event: DevLogEvent = {
       time: Date.now(),
       level: 2,
       type: 'log',
-      message: plain.replace(/\n+$/, ''),
+      message,
       rendered: chunk,
-      raw: true,
       source: isServingRequest() ? 'runtime' : 'build',
       request: currentRequest()?.label,
       requestId: currentRequest()?.id,
-    })
+    }
+    const stored = events.push(event, { route: 'output' })
+    // Only an entry of this run's own may be rewritten by its later frames:
+    // `push` can merge into an existing structured event, whose message is a
+    // real log that has to survive.
+    transient = rewriting && stored === event ? stored : undefined
   }
 
   /**
-   * Write an error into scrollback above the panel.
+   * Write text into scrollback above the panel, once the event it was rendered
+   * from has had time to be paired with its printed form.
    *
    * Delayed by a beat because a log forwarded from a fork arrives before the
    * output that renders it, and the rendered form is what should be shown.
    */
+  function surfaceLater(render: () => string): void {
+    const timer: NodeJS.Timeout = setTimeout(() => {
+      pendingSurfaces.delete(timer)
+      surfaceText(render())
+    }, ERROR_SURFACE_DELAY_MS)
+    timer.unref?.()
+    pendingSurfaces.set(timer, render)
+  }
+
   function surfaceError(event: DevLogEvent): void {
     // Once the server has been ready, errors belong to the panel's badge and the
     // log view. Before that, one may be the last thing the process ever says.
@@ -237,16 +394,40 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     event.surfaced = true
     lastSurfacedError = text
-    const timer: NodeJS.Timeout = setTimeout(() => {
-      pendingErrors.delete(timer)
-      surfaceText(renderErrorLine(event))
-    }, ERROR_SURFACE_DELAY_MS)
-    timer.unref?.()
-    pendingErrors.set(timer, event)
+    surfaceLater(() => renderErrorLine(event))
+  }
+
+  /**
+   * Write a warning the CLI raised during startup into scrollback above the
+   * panel. The panel holds a badge for it, but a badge has one truncated line
+   * and these run to a sentence or two.
+   */
+  function surfaceWarning(event: DevLogEvent): void {
+    if (event.surfaced || state.readyMs !== undefined || !normaliseMessage(event.message)) {
+      return
+    }
+    event.surfaced = true
+    surfaceLater(() => renderWarningLine(event))
+  }
+
+  /**
+   * Write a boxed notice into scrollback above the panel, at any point in the
+   * session: it carries something (a URL, a token) that has to be readable and
+   * selectable, which a status line cannot offer.
+   */
+  function surfaceNotice(event: DevLogEvent): void {
+    // Repeats within the dedupe window are merged into the entry already shown;
+    // a later request is news again, and has to be answered again.
+    if (event.surfaced || !normaliseMessage(event.message)) {
+      return
+    }
+    event.surfaced = true
+    surfaceLater(() => renderNoticeBlock(event))
   }
 
   const reporter = {
     log(logObj: { level: number, type: string, tag?: string, args: unknown[] }) {
+      const cli = isEmittingCliLog()
       expectRender(events.push({
         time: Date.now(),
         level: logObj.level,
@@ -256,10 +437,12 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
         // The app, the build and the CLI share this consola instance on one
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
-        source: isEmittingCliLog() ? 'cli' : isServingRequest() ? 'runtime' : 'build',
-        raw: !isEmittingCliLog(),
-        request: isEmittingCliLog() ? undefined : currentRequest()?.label,
-        requestId: isEmittingCliLog() ? undefined : currentRequest()?.id,
+        source: cli ? 'cli' : isServingRequest() ? 'runtime' : 'build',
+        request: cli ? undefined : currentRequest()?.label,
+        requestId: cli ? undefined : currentRequest()?.id,
+      }, {
+        // A log the CLI wrote itself reaches the UI no other way.
+        route: cli ? undefined : 'reporter',
       }))
     },
   }
@@ -270,11 +453,12 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     torn = true
     current = undefined
+    retargetCurrent = undefined
     stopStartupTicker()
     clearImmediate(flushTimer)
     // A fatal startup error tears down and exits before the surface delay can
     // fire, and a dev server that dies without a trace is undebuggable.
-    const unsurfaced = [...pendingErrors.entries()]
+    const unsurfaced = [...pendingSurfaces.entries()]
     for (const [timer] of unsurfaced) {
       clearTimeout(timer)
     }
@@ -284,8 +468,8 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     }
     surface.externalOutput = 'passthrough'
     surface.writeRaw(SHOW_CURSOR)
-    for (const [, event] of unsurfaced) {
-      surface.writeRaw(`${renderErrorLine(event)}\n`)
+    for (const [, render] of unsurfaced) {
+      surface.writeRaw(`${render()}\n`)
     }
     surface.close({ keep: teardownOptions.keep })
     consola.removeReporter(reporter)
@@ -304,14 +488,23 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
     expectRender,
     stopStartupTicker,
     reportProgress,
+    onProgressChange: (listener) => {
+      progressListener = listener
+    },
     reportListening,
     teardown,
     onTeardown: task => void teardownTasks.push(task),
   }
 
   events.onEvent((event) => {
-    if (event.level <= 0) {
+    if (isBoxedNotice(event)) {
+      surfaceNotice(event)
+    }
+    else if (event.level <= 0) {
       surfaceError(event)
+    }
+    else if (event.level === 1 && event.source === 'cli') {
+      surfaceWarning(event)
     }
   })
 
@@ -373,7 +566,18 @@ export function beginDevUI(options: DevUISupportOptions & { version?: string, cw
   }
 
   current = session
-  render()
-  surface.padToBottom()
+  retargetCurrent = (next) => {
+    const nextCwd = next.cwd || cwd
+    const version = next.version || getPkgVersion(nextCwd, 'nuxt') || getPkgVersion(nextCwd, 'nuxt-nightly') || undefined
+    if (version === state.version) {
+      return
+    }
+    state.version = version
+    render()
+  }
+  if (!options.start) {
+    render()
+    surface.padToBottom()
+  }
   return session
 }

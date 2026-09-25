@@ -12,16 +12,16 @@ import { defineCommand } from 'citty'
 
 import { isBun, isTest } from 'std-env'
 import { satisfies } from 'verkit'
-import { initialize } from '../dev'
 
 import { closeInspector, openInspector, resolveInspectOptions } from '../dev/inspect'
 import { isReusePortSupported, parsePort } from '../dev/listen'
 import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
+import { devShortcutContext } from '../dev/shortcut-context'
 import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
-import { beginDevUI, setupDevUI } from '../dev/tui/controller'
+import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
 import { summariseActiveResources } from '../utils/hang'
@@ -120,7 +120,7 @@ const command = defineCommand({
     },
     'public': {
       type: 'boolean',
-      description: 'Listen on all network interfaces',
+      description: 'Listen on all network interfaces and allow any host to connect',
     },
     'publicURL': {
       type: 'string',
@@ -176,20 +176,21 @@ const command = defineCommand({
   },
   async run(ctx) {
     const requestedCwd = resolveRootDir(ctx.args)
-    const cwd = await preflight({ cwd: requestedCwd })
+    const cwd = await beforeServing(() => preflight({ cwd: requestedCwd }))
     if (cwd !== requestedCwd) {
       replaceCwdArg(ctx.rawArgs, cwd, requestedCwd)
     }
 
     const listenOverrides = resolveListenOverrides(ctx.args)
 
-    const buildDir = await resolveLockDir(cwd)
+    const buildDir = await beforeServing(() => resolveLockDir(cwd))
 
-    const takeover = await takeOverDevServer(buildDir, {
+    const takeover = await beforeServing(() => takeOverDevServer(buildDir, {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
-    })
+    }))
     if (takeover.action === 'refused') {
+      await teardownDevUI()
       logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
       process.exit(1)
     }
@@ -231,14 +232,31 @@ const command = defineCommand({
       listenOverrides.showURL = false
     }
 
-    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onFileChange } = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
+    const { context: shortcutContext, attach: attachServer, provide } = devShortcutContext()
+    provide({ clearCaches })
+    const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
+    setupSignalHandlers(() => shortcutContext.close())
+
+    // Evaluating the dev server's graph blocks the loop; let the panel answer
+    // anything already typed first.
+    await new Promise(resolve => setImmediate(resolve))
+    const { initialize } = await import('../dev')
+
+    const started = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
       data: ctx.data,
       listenOverrides,
       showBanner: !ui,
       captureUIEvents: ui,
       onProgress: session && (snapshot => session.reportProgress(snapshot)),
       onListening: session && (info => session.reportListening(info)),
+    }).catch((error: unknown) => {
+      // The panel is mid-startup and holding the terminal, so it has to give it
+      // back before the error is printed under it.
+      session?.teardown()
+      throw error
     })
+
+    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onReport, onReportClear, onFileChange } = started
 
     /** Feed the dev UI from the server running in this process. */
     function attachDevUI(devUI: DevUIController): DevUIController {
@@ -247,14 +265,16 @@ const command = defineCommand({
       onBuilding(building => devUI.setStatus(building ? 'building' : 'ready'))
       onLog(log => devUI.pushServerLog(log))
       onRequests(requests => devUI.pushRequests(requests))
+      onReport(report => devUI.pushReport(report))
+      onReportClear(id => devUI.clearReport(id))
       onRoutes(payload => devUI.setRoutes(payload))
       return devUI
     }
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || profiling) {
-      attachDevUI(await setupDevUI({ listener, close, onReady, clearCaches, restart: () => reload({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
-      setupSignalHandlers(close)
+      attachServer({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
+      attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
       return {
         listener,
         close,
@@ -264,7 +284,8 @@ const command = defineCommand({
     const pool = new ForkPool({
       rawArgs: ctx.rawArgs,
       poolSize: resolveForkPoolSize(),
-      listenOverrides,
+      // This process has already opened the browser; a fork taking over must not.
+      listenOverrides: { ...listenOverrides, open: false, openURL: undefined },
       inspect,
       pipeOutput: ui,
     })
@@ -281,7 +302,8 @@ const command = defineCommand({
       pool.startWarming()
     })
 
-    const devUI = attachDevUI(await setupDevUI({ listener, close: () => closeAll(), onReady, clearCaches, restart: () => restart({ type: 'shortcut' }) }, { ...uiOptions, enabled: ui }))
+    attachServer({ listener, close: () => closeAll(), onReady, restart: () => restart({ type: 'shortcut' }) })
+    const devUI = attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
     let currentPid = process.pid
@@ -313,6 +335,9 @@ const command = defineCommand({
       const explanation = formatRestartReason(reason, { rootDir: cwd, hard: true })
       logger.info(explanation)
       devUI.setStatus('restarting', explanation)
+      // The process that was rendering is about to be replaced, and it may not
+      // live long enough to say that its request has gone.
+      devUI.setRendering(undefined)
 
       // The inspector port cannot be shared, so the handover has to stay
       // serialised whenever the inspector is open.
@@ -345,11 +370,20 @@ const command = defineCommand({
             else if (message.type === 'nuxt:internal:dev:requests') {
               devUI.pushRequests(message.requests)
             }
+            else if (message.type === 'nuxt:internal:dev:report') {
+              devUI.pushReport(message.report)
+            }
+            else if (message.type === 'nuxt:internal:dev:report:clear') {
+              devUI.clearReport(message.id)
+            }
             else if (message.type === 'nuxt:internal:dev:routes') {
               devUI.setRoutes(message.payload)
             }
             else if (message.type === 'nuxt:internal:dev:building') {
               devUI.setStatus(message.building ? 'building' : 'ready')
+            }
+            else if (message.type === 'nuxt:internal:dev:rendering') {
+              devUI.setRendering(message.pending, message.awaiting)
             }
             else if (message.type === 'nuxt:internal:dev:ready' || message.type === 'nuxt:internal:dev:loading:error') {
               serving = true
@@ -387,7 +421,7 @@ const command = defineCommand({
           process.exit(1)
         }
         logger.error(`Could not restart the dev server, keeping the current one: ${detail}`)
-        devUI.setStatus('ready')
+        devUI.settleRestart()
         onRestart(restart)
         return
       }
@@ -414,8 +448,6 @@ const command = defineCommand({
       await close()
     }
 
-    setupSignalHandlers(closeAll)
-
     return {
       close: closeAll,
     }
@@ -430,6 +462,17 @@ type ArgsT = Exclude<
   Awaited<typeof command.args>,
   undefined | ((...args: unknown[]) => unknown)
 >
+
+/** Run work that must succeed before there is a server, freeing the terminal if it does not. */
+async function beforeServing<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await work()
+  }
+  catch (error) {
+    await teardownDevUI()
+    throw error
+  }
+}
 
 /**
  * Shut the dev server down on `SIGINT`/`SIGTERM`.

@@ -86,7 +86,7 @@ export class LogOverlay extends ScreenOverlay {
     const events = this.#matching()
     // Sized to the locale's own time format rather than the widest possible one.
     const timeWidth = Math.max(0, ...events.map(event => formatTime(event.time).length))
-    let heading: number | undefined
+    let heading: string | undefined
     return events.map((event) => {
       const repeated = event.requestId !== undefined && event.requestId === heading
       heading = event.requestId
@@ -181,7 +181,7 @@ export function formatEvent(event: DevLogEvent, columns: number, timeWidth: numb
 
 /** Colour a message by its level, unless it already carries its own colour. */
 function colorBySeverity(line: string, event: DevLogEvent): string {
-  if (line.includes('\u001B[')) {
+  if (event.styled || line.includes('\u001B[')) {
     return line
   }
   if (event.level <= 0) {

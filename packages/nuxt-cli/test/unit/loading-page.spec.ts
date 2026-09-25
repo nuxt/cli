@@ -1,8 +1,8 @@
-import type { DevProgressSnapshot } from '../../src/dev/progress'
+import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 import { describe, expect, it } from 'vitest'
 import { withProgress } from '../../src/dev/loading-page'
 
-function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnapshot {
+function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
     status: 'loading',
     phase: 'config',
@@ -11,7 +11,9 @@ function snapshot(overrides: Partial<DevProgressSnapshot> = {}): DevProgressSnap
     total: 6,
     progress: 0.1,
     elapsed: 0,
+    phaseElapsed: 0,
     reload: false,
+    serving: false,
     timings: [],
     ...overrides,
   }

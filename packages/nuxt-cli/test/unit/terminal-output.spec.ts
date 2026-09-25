@@ -82,6 +82,9 @@ describe('dev server terminal output', () => {
       ...context,
     })
 
+    // Input is ignored until the replay of what the terminal buffered is over.
+    await new Promise(resolve => setImmediate(resolve))
+
     return {
       listener,
       press: async (input: string) => {

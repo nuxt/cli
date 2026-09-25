@@ -1,6 +1,6 @@
 import { defineCommand } from 'citty'
 
-import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
+import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 import buildCommand from './build'
 
 export default defineCommand({
@@ -11,11 +11,7 @@ export default defineCommand({
   args: {
     ...rootDirArgs,
     ...logLevelArgs,
-    preset: {
-      type: 'string',
-      description: 'Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)',
-      valueHint: 'nitro-preset',
-    },
+    ...targetArgs,
     ...dotEnvArgs,
     ...envNameArgs,
     ...extendsArgs,

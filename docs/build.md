@@ -10,7 +10,7 @@ links:
 
 <!--build-cmd-->
 ```bash [Terminal]
-npx nuxt build [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--prerender] [--preset=<nitro-preset>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
+npx nuxt build [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--prerender] [--target=<target>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
 ```
 <!--/build-cmd-->
 
@@ -32,7 +32,7 @@ The `build` command creates a `.output` directory with all your application, ser
 | `--cwd=<directory>`                  |         | Specify the root directory of your Nuxt project                                                                                                      |
 | `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                                                                                         |
 | `--prerender`                        |         | Build Nuxt and prerender static routes                                                                                                               |
-| `--preset=<nitro-preset>`            |         | Nitro server preset (e.g. `node-server`, `vercel`, `netlify`)                                                                                        |
+| `--target=<target>`                  |         | Deploy target for the configured server builder (e.g. `node-server`, `vercel`, `netlify`)                                                            |
 | `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 | `--envName=<environment>`            |         | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
@@ -44,9 +44,9 @@ This command sets `process.env.NODE_ENV` to `production`.
 ::
 
 ::note
-`--prerender` will always set the `preset` to `static`
+`--prerender` will always set the target to `static`
 ::
 
-When `--preset` is not passed, the `NITRO_PRESET` and `SERVER_PRESET` environment variables are used, in that order.
+`--preset` is still accepted as another name for `--target`. When neither is passed, the `NITRO_PRESET` and `SERVER_PRESET` environment variables are used, in that order.
 
 `--profile` writes a V8 CPU profile to `nuxt-build.cpuprofile` in your project. The build timings it reports, along with `perf-report.json` and `perf-trace.json` in your build directory, come from Nuxt's own build profiling and need Nuxt v4.4 or later.

@@ -26,6 +26,13 @@ describe('dev server allowed hosts', () => {
     expect(allowedHosts).toEqual(['127.0.0.1'])
   })
 
+  it('should keep the host allowlist for a non-loopback `--host`', { timeout: 120_000 }, async () => {
+    const allowedHosts = await resolveAllowedHosts(['--host=0.0.0.0'])
+
+    expect(allowedHosts).not.toBe(true)
+    expect(allowedHosts).toContain('localhost')
+  })
+
   it('should allow any host when the server is public', { timeout: 120_000 }, async () => {
     const allowedHosts = await resolveAllowedHosts(['--public'])
 

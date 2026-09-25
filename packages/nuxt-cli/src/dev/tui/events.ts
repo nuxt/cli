@@ -2,6 +2,12 @@ import { stripAnsi } from './width'
 
 export type DevLogSource = 'cli' | 'build' | 'runtime'
 
+/**
+ * How a log reaches the UI: the app's own report, a consola reporter, or the
+ * output it was printed as. One `console.log` in the app takes all three.
+ */
+export type DevLogRoute = 'report' | 'reporter' | 'output'
+
 export interface DevLogEvent {
   time: number
   /** consola log level (`0` fatal/error, `1` warn, `2` log, `3+` info and below). */
@@ -12,10 +18,14 @@ export interface DevLogEvent {
   message: string
   /** The formatted output as it would have been printed, colour and all. */
   rendered?: string
-  /** Recovered from printed output rather than reported by a logger. */
-  raw?: boolean
-  /** Already paired with the other route the same log arrived by. */
-  paired?: boolean
+  /** The message carries its own colours, so severity styling must not be applied. */
+  styled?: boolean
+  /**
+   * Arrivals by each route. One occurrence is one arrival from each, so a log
+   * heard three ways is one entry and two logs that say the same thing stay
+   * two. Absent on a log that only ever arrives once.
+   */
+  routes?: Map<DevLogRoute, number>
   /** Already written into scrollback, so it is not shown a second time. */
   surfaced?: boolean
   source: DevLogSource
@@ -25,7 +35,7 @@ export interface DevLogEvent {
    * Identifies the individual request, so two sequential requests to the same
    * path are not mistaken for one.
    */
-  requestId?: number
+  requestId?: string
   /** How many times this has been reported, when deduplicated. */
   repeats?: number
 }
@@ -49,6 +59,46 @@ const BADGES: Array<{ pattern: RegExp, level: number, type: string }> = [
  */
 export function normaliseMessage(text: string): string {
   return stripAnsi(text).replaceAll('`', '').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Box drawing and the ASCII fallback's `>` gutter, so a boxed log can be
+ * recognised as the printed form of the message it was built from. The borders
+ * sit between every line of the message, which plain containment cannot see
+ * past.
+ */
+const BOX_DECORATION_RE = /[\u2500-\u257F]|^[ \t]*>[ \t]?/gm
+
+/** Text as it reads with any box the printer drew around it taken off. */
+function undecorate(text: string): string {
+  return normaliseMessage(stripAnsi(text).replaceAll(BOX_DECORATION_RE, ' '))
+}
+
+/**
+ * Whether the event is asking the user for something rather than reporting.
+ *
+ * A tool only draws a box around output it needs read, and what is inside is
+ * usually a URL to open or a token to paste: useless unheeded, and useless
+ * truncated onto a status line. Tools that know the terminal host say so
+ * through `notify` instead; a box is how everything else says it.
+ */
+export function isBoxedNotice(event: DevLogEvent): boolean {
+  return event.type === 'box'
+}
+
+/** Record an arrival of `event` by `route`, up to the occurrences on record. */
+export function noteRoute(event: DevLogEvent, route: DevLogRoute): void {
+  const routes = event.routes
+  routes?.set(route, Math.min((routes.get(route) ?? 0) + 1, Math.max(occurrences(event), 1)))
+}
+
+/** How many times heard, by the route that has heard it most. */
+function occurrences(event: DevLogEvent): number {
+  let heard = 0
+  for (const count of event.routes?.values() ?? []) {
+    heard = Math.max(heard, count)
+  }
+  return heard
 }
 
 /** Either text may carry a badge the other does not, so neither has to be exact. */
@@ -76,9 +126,13 @@ function errorSignature(message: string): string | undefined {
  * Badges usually arrive wrapped in colour, so matching happens against plain
  * text. Only an uncoloured badge is cut from the message: slicing through an
  * escape sequence would drop the reset and leave the rest of the line styled.
+ *
+ * A boxed notice already knows what it is, and inferring a severity from its
+ * opening words would rewrite it into a warning that no longer reaches the
+ * panel as one.
  */
 function classify(event: DevLogEvent): DevLogEvent {
-  if (event.level < 2) {
+  if (event.level < 2 || isBoxedNotice(event)) {
     return event
   }
   const plain = stripAnsi(event.message)
@@ -123,15 +177,19 @@ export class DevEventLog {
   /**
    * Record `event`, returning it as stored so callers can amend it later.
    *
-   * With `absorb`, an entry already recovered from printed output that says the
-   * same thing is upgraded in place instead of a second one being added.
+   * An event with a `route` joins the entry the same log already made by
+   * another one; one without always stands alone.
    */
-  push(event: DevLogEvent, options: { absorb?: boolean } = {}): DevLogEvent {
-    const merged = options.absorb ? this.#absorb(event) : event.raw ? this.#attribute(event) : undefined
+  push(event: DevLogEvent, options: { route?: DevLogRoute } = {}): DevLogEvent {
+    const { route } = options
+    const merged = route && this.#join(event, route)
     if (merged) {
       return merged
     }
     const stored = classify(event)
+    if (route) {
+      stored.routes = new Map([[route, 1]])
+    }
     const deduped = this.#dedupe(stored)
     if (deduped) {
       return deduped
@@ -158,6 +216,7 @@ export class DevEventLog {
     if (!text) {
       return false
     }
+    const boxed = undecorate(plain)
     const now = Date.now()
     for (let index = this.#events.length - 1; index >= 0 && index > this.#events.length - RECENT_SCAN; index--) {
       const event = this.#events[index]!
@@ -165,27 +224,62 @@ export class DevEventLog {
         return false
       }
       const message = normaliseMessage(event.message)
-      if (!event.rendered && message && text.includes(message)) {
-        event.rendered = chunk
+      // A boxed notice that has already been printed keeps the output it was
+      // paired with: a repeat of it was collapsed into that entry, so its
+      // second printing has no other home.
+      if (message && (text.includes(message) || boxed.includes(message)) && (!event.rendered || isBoxedNotice(event))) {
+        event.rendered ??= chunk
+        noteRoute(event, 'output')
         return true
       }
     }
     return false
   }
 
-  /** Hand printed output to the attributed report of the same log. */
-  #attribute(event: DevLogEvent): DevLogEvent | undefined {
-    return this.#merge(event, candidate => !candidate.raw && !candidate.paired && candidate.requestId !== undefined, (candidate) => {
-      candidate.rendered ??= event.rendered
-      candidate.paired = true
-    })
-  }
-
-  #absorb(event: DevLogEvent): DevLogEvent | undefined {
-    return this.#merge(event, candidate => !!candidate.raw && !candidate.paired, (candidate) => {
-      Object.assign(candidate, { ...event, rendered: candidate.rendered, raw: false })
-      candidate.paired = true
-    })
+  /**
+   * Fold `event` into the entry the same log already made by another route.
+   *
+   * The report is the fullest account of a log, then the reporter's, and
+   * whatever was printed is kept throughout: it is what the log view shows.
+   * Two requests can log the same line at once, so the entry written for the
+   * same request is preferred and one held by another request is refused.
+   * Printed output is exempt, being attributed when the capture is flushed,
+   * which can be on another request's call stack.
+   */
+  #join(event: DevLogEvent, route: DevLogRoute): DevLogEvent | undefined {
+    type Routed = DevLogEvent & { routes: Map<DevLogRoute, number> }
+    /** An occurrence is still waiting to be heard by `route`. */
+    const open = (candidate: DevLogEvent): candidate is Routed => !!candidate.routes && (candidate.routes.get(route) ?? 0) < occurrences(candidate)
+    const attributed = (candidate: Routed) => route !== 'output' && !(candidate.routes.size === 1 && candidate.routes.has('output'))
+    const sameRequest = (candidate: Routed) => {
+      if (!attributed(candidate)) {
+        return true
+      }
+      if (candidate.requestId !== undefined && event.requestId !== undefined) {
+        return candidate.requestId === event.requestId
+      }
+      return candidate.request === undefined || event.request === undefined || candidate.request === event.request
+    }
+    const apply = (candidate: DevLogEvent) => {
+      const routes = candidate.routes
+      const rendered = candidate.rendered ?? event.rendered
+      if (route === 'report') {
+        Object.assign(candidate, event)
+      }
+      else if (route === 'reporter' && !routes?.has('report')) {
+        Object.assign(candidate, event)
+      }
+      candidate.rendered = rendered
+      candidate.routes = routes
+      noteRoute(candidate, route)
+    }
+    if (event.requestId !== undefined) {
+      const exact = this.#merge(event, candidate => open(candidate) && candidate.requestId === event.requestId, apply)
+      if (exact) {
+        return exact
+      }
+    }
+    return this.#merge(event, candidate => open(candidate) && sameRequest(candidate), apply)
   }
 
   /**
@@ -196,12 +290,20 @@ export class DevEventLog {
    * (the one with the file and the stack) and counts the rest.
    */
   #dedupe(event: DevLogEvent): DevLogEvent | undefined {
-    if (event.level > 1) {
+    if (event.level > 1 && !isBoxedNotice(event)) {
       return undefined
     }
     const signature = errorSignature(event.message)
     const sameProblem = (candidate: DevLogEvent) => !!signature && signature === errorSignature(candidate.message)
-    return this.#merge(event, candidate => candidate.level <= 1, (candidate) => {
+    // A boxed notice only ever joins another one. Folded into a warning it
+    // would leave the entry a warning, reported as a merge, and the attention
+    // the box was drawn to ask for would never be raised. The other direction
+    // is welcome: a warning saying the same thing joins the box and the box
+    // keeps the notice it already raised.
+    const matches = isBoxedNotice(event)
+      ? isBoxedNotice
+      : (candidate: DevLogEvent) => candidate.level <= 1 || isBoxedNotice(candidate)
+    return this.#merge(event, matches, (candidate) => {
       candidate.repeats = (candidate.repeats ?? 1) + 1
       if (normaliseMessage(candidate.message).length < normaliseMessage(event.message).length) {
         candidate.message = event.message
@@ -209,6 +311,11 @@ export class DevEventLog {
       }
       candidate.requestId ??= event.requestId
       candidate.request ??= event.request
+      // Carry the folded occurrence's arrivals, so the rest of them join it.
+      for (const [route, count] of event.routes ?? []) {
+        candidate.routes ??= new Map()
+        candidate.routes.set(route, (candidate.routes.get(route) ?? 0) + count)
+      }
     }, DEDUPE_WINDOW_MS, sameProblem)
   }
 

@@ -1,6 +1,6 @@
 export interface DevRequest {
   /** Identity shared with attributed log events, when the server reported one. */
-  id?: number
+  id?: string
   time: number
   method: string
   url: string

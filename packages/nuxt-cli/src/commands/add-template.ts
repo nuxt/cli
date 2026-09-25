@@ -4,12 +4,11 @@ import { promises as fsp } from 'node:fs'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
-import { intro, outro } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { dirname, isAbsolute, relative, resolve } from 'pathe'
 
 import { loadKit } from '../utils/kit'
-import { logger } from '../utils/logger'
+import { intro, logger, outro } from '../utils/logger'
 import { relativeToProcess } from '../utils/paths'
 import { templates } from '../utils/templates/index'
 import { httpMethods, modes } from '../utils/templates/modifiers'

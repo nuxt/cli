@@ -1,12 +1,13 @@
 import type { Capture } from './captures.config.ts'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { captures, NEEDS_DEV_SERVER } from './captures.config.ts'
+import { syncFixture } from './lib/fixture.ts'
 import { buildFingerprint, buildFrames } from './lib/frames.ts'
 import { record } from './lib/pty.ts'
 import { describeRules } from './lib/scrub.ts'
@@ -40,53 +41,10 @@ mkdirSync(scratchDir, { recursive: true })
 /** Caches that live in the work directory but are not fixture-managed. */
 const PRESERVED_DIRS = new Set(['node_modules', '.nuxt', '.output', '.data'])
 
-const changedFixtureFiles = syncFixture(join(repoRoot, 'capture/fixture'), appDir)
+const changedFixtureFiles = syncFixture(join(repoRoot, 'capture/fixture'), appDir, PRESERVED_DIRS)
 if (!existsSync(join(appDir, 'node_modules/nuxt')) || changedFixtureFiles.includes('package-lock.json')) {
   console.log('installing capture fixture dependencies')
   execFileSync('npm', ['ci', '--no-audit', '--no-fund'], { cwd: appDir, stdio: 'inherit' })
-}
-
-/**
- * Mirror the fixture into the work directory, returning the changed paths.
- * Only files whose content actually changed are rewritten: a blanket copy
- * touches every config file's mtime and invalidates Vite's dependency cache,
- * putting a "Re-optimizing dependencies" line into the next recording. Files
- * deleted from the fixture are removed so stale routes or handlers cannot
- * leak into a capture.
- */
-function syncFixture(from: string, to: string): string[] {
-  const changed: string[] = []
-  const sourceEntries = readdirSync(from, { recursive: true, encoding: 'utf8' })
-  const sourceFiles = new Set(sourceEntries)
-  for (const entry of sourceEntries) {
-    const source = join(from, entry)
-    if (statSync(source).isDirectory()) {
-      continue
-    }
-    const target = join(to, entry)
-    const content = readFileSync(source)
-    let unchanged = false
-    try {
-      unchanged = readFileSync(target).equals(content)
-    }
-    catch {}
-    if (!unchanged) {
-      mkdirSync(join(target, '..'), { recursive: true })
-      writeFileSync(target, content)
-      changed.push(entry)
-    }
-  }
-  for (const entry of readdirSync(to, { recursive: true, encoding: 'utf8' })) {
-    if (PRESERVED_DIRS.has(entry.split('/')[0]!)) {
-      continue
-    }
-    const target = join(to, entry)
-    if (!sourceFiles.has(entry) && !statSync(target).isDirectory()) {
-      rmSync(target)
-      changed.push(entry)
-    }
-  }
-  return changed
 }
 
 const selected = values.only!.length ? captures.filter(capture => values.only!.includes(capture.id)) : captures
@@ -123,6 +81,19 @@ async function ensureDevServer(): Promise<void> {
   await devServer.wait(1500)
 }
 
+/**
+ * A capture's `NODE_OPTIONS` adds to the ambient value rather than replacing
+ * it: scenarios use it to preload a loader, while the environment may already
+ * carry options the recorded CLI needs to reach the network at all (proxy
+ * support, TLS roots) or to run at all (heap limits).
+ */
+function captureEnv(capture: Capture): Record<string, string> | undefined {
+  if (!capture.env?.NODE_OPTIONS || !process.env.NODE_OPTIONS) {
+    return capture.env
+  }
+  return { ...capture.env, NODE_OPTIONS: `${process.env.NODE_OPTIONS} ${capture.env.NODE_OPTIONS}` }
+}
+
 async function runCapture(capture: Capture): Promise<void> {
   const columns = capture.columns ?? Number(values.columns)
   const rows = capture.rows ?? 24
@@ -142,7 +113,7 @@ async function runCapture(capture: Capture): Promise<void> {
     cwd,
     columns,
     rows,
-    env: capture.env,
+    env: captureEnv(capture),
   })
 
   // Whatever happens, the session must not outlive its capture: a leaked dev

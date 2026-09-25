@@ -44,8 +44,12 @@ export function getRegistryFromContent(content: string, scope: string | null): s
   }
 }
 
-function getNpmrcPaths(cwd: string): string[] {
-  return [join(cwd, '.npmrc'), join(homedir(), '.npmrc')]
+/**
+ * `.npmrc` files to consult, most specific first. Without a `cwd` only the user's
+ * own file is read, for requests a project should not be able to redirect.
+ */
+function getNpmrcPaths(cwd: string | undefined): string[] {
+  return cwd ? [join(cwd, '.npmrc'), join(homedir(), '.npmrc')] : [join(homedir(), '.npmrc')]
 }
 
 async function getRegistryFromFile(paths: string[], scope: string | null) {
@@ -72,7 +76,7 @@ async function getRegistryFromFile(paths: string[], scope: string | null) {
   return null
 }
 
-async function getRegistry(scope: string | null, cwd: string): Promise<string> {
+async function getRegistry(scope: string | null, cwd: string | undefined): Promise<string> {
   const registry = process.env.COREPACK_NPM_REGISTRY
     || await getRegistryFromFile(getNpmrcPaths(cwd), scope)
     || PUBLIC_REGISTRY
@@ -128,7 +132,7 @@ function readCredentials(config: Record<string, string | undefined>, registry: s
   }
 }
 
-async function getCredentials(registry: RegistryMeta['registry'], cwd: string): Promise<Pick<RegistryMeta, 'authToken' | 'authorization'>> {
+async function getCredentials(registry: RegistryMeta['registry'], cwd: string | undefined): Promise<Pick<RegistryMeta, 'authToken' | 'authorization'>> {
   for (const npmrcPath of getNpmrcPaths(cwd)) {
     let fd: FileHandle | undefined
     try {
@@ -152,11 +156,19 @@ async function getCredentials(registry: RegistryMeta['registry'], cwd: string): 
   return { authToken: null, authorization: null }
 }
 
-export async function detectNpmRegistry(scope: string | null, cwd = process.cwd()): Promise<RegistryMeta> {
-  const registry = await getRegistry(scope, cwd)
+/**
+ * Registry and credentials for `scope`, from the project's `.npmrc` in `cwd`
+ * (defaulting to the working directory) and then the user's. Pass `null` as
+ * `cwd` to ignore project configuration entirely: a project `.npmrc` may name any
+ * host and, as in `npm`, reference environment variables in its credentials, so
+ * a request the user did not ask for should not be steered by it.
+ */
+export async function detectNpmRegistry(scope: string | null, cwd: string | null = process.cwd()): Promise<RegistryMeta> {
+  const paths = cwd ?? undefined
+  const registry = await getRegistry(scope, paths)
 
   return {
     registry,
-    ...await getCredentials(registry, cwd),
+    ...await getCredentials(registry, paths),
   }
 }

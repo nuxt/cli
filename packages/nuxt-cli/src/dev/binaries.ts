@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 
 import process from 'node:process'
@@ -13,7 +14,7 @@ import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { findInPath } from '../utils/path-env'
-import { withStartupClockPaused } from '../utils/startup-clock'
+import { withUserAttention } from '../utils/startup-clock'
 
 interface ConsentOptions {
   /** Key under `tools` in the user `.nuxtrc` used to persist acceptance. */
@@ -33,13 +34,13 @@ interface ConsentOptions {
  * `cacheName` overrides the cached filename, so version-pinned tools can key
  * their cache entry by version without affecting the `PATH` lookup.
  */
-export function resolveTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
+export function resolveTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, sha256?: string, consent: ConsentOptions }): Promise<string | undefined> {
   // The consent prompt and the download indicator both redraw by moving the
   // cursor, so they need stdout back from consola for the duration.
   return withDirectStdout(() => locateTool(name, options))
 }
 
-async function locateTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, consent: ConsentOptions }): Promise<string | undefined> {
+async function locateTool(name: string, options: { url?: string, archive?: boolean, cacheName?: string, sha256?: string, consent: ConsentOptions }): Promise<string | undefined> {
   const existing = findInPath(name)
   if (existing) {
     return existing
@@ -60,11 +61,11 @@ async function locateTool(name: string, options: { url?: string, archive?: boole
   }
   // A first-run consent prompt and download can dwarf the server's own
   // startup, so neither counts towards the reported time to ready.
-  return withStartupClockPaused(async () => {
+  return withUserAttention(async () => {
     if (!await confirmToolInstall(options.consent)) {
       return undefined
     }
-    return downloadBinary(url, destination, { archive: options.archive, name })
+    return downloadBinary(url, destination, { archive: options.archive, name, sha256: options.sha256 })
   })
 }
 
@@ -105,7 +106,7 @@ async function confirmToolInstall(options: ConsentOptions): Promise<boolean> {
 
 const RESPONSE_TIMEOUT_MS = 30_000
 
-async function downloadBinary(url: string, destination: string, options: { archive?: boolean, name?: string } = {}): Promise<string | undefined> {
+async function downloadBinary(url: string, destination: string, options: { archive?: boolean, name?: string, sha256?: string } = {}): Promise<string | undefined> {
   const label = options.name || url
   try {
     // The deadline covers connecting and headers only; once bytes are flowing the
@@ -123,6 +124,12 @@ async function downloadBinary(url: string, destination: string, options: { archi
       throw new Error(`Unexpected response: ${response.status}`)
     }
     const data = await readWithProgress(response, label)
+    if (options.sha256) {
+      const digest = createHash('sha256').update(data).digest('hex')
+      if (digest !== options.sha256.toLowerCase()) {
+        throw new Error(`SHA-256 mismatch for \`${label}\`: expected ${options.sha256}, got ${digest}. The download was discarded.`)
+      }
+    }
     // Stage the install and rename into place: two dev servers racing to install
     // the same tool would otherwise interleave writes and cache a corrupt binary.
     // Staged inside the cache directory so the rename stays on one filesystem.

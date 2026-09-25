@@ -152,7 +152,7 @@ if (isMainModule) {
     process.exit(1)
   }
 
-  const rootDir = fileURLToPath(new URL('..', import.meta.url))
-  const comment = generateSizeComment(packages, rootDir)
+  const statsDir = process.env.STATS_DIR || fileURLToPath(new URL('..', import.meta.url))
+  const comment = generateSizeComment(packages, statsDir)
   console.log(comment)
 }

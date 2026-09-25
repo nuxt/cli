@@ -17,7 +17,9 @@ import { consola } from 'consola'
  * could not be attributed.
  */
 const CHANNEL = 'nuxt:dev:log'
+/** Left on the request: Nuxt reads it to attribute the error reports it publishes. */
 const HEADER = 'x-nuxt-dev-request-id'
+const LABEL_HEADER = 'x-nuxt-dev-request-label'
 
 const storage = new AsyncLocalStorage()
 
@@ -29,13 +31,16 @@ export default function (nitroApp) {
   catch {}
 }
 
-function parseRequest(header) {
-  if (!header) {
+function parseRequest(id, label) {
+  if (!id) {
     return undefined
   }
-  const separator = header.indexOf(' ')
-  const id = Number(header.slice(0, separator))
-  return Number.isFinite(id) ? { id, label: header.slice(separator + 1) } : undefined
+  let decoded = label || ''
+  try {
+    decoded = decodeURIComponent(decoded)
+  }
+  catch {}
+  return { id, label: decoded }
 }
 
 function trackRequests(nitroApp) {
@@ -46,9 +51,9 @@ function trackRequests(nitroApp) {
       let request
       try {
         const headers = event?.node?.req?.headers
-        request = parseRequest(headers?.[HEADER])
+        request = parseRequest(headers?.[HEADER], headers?.[LABEL_HEADER])
         if (request) {
-          delete headers[HEADER]
+          delete headers[LABEL_HEADER]
         }
       }
       catch {}
@@ -59,15 +64,15 @@ function trackRequests(nitroApp) {
     return
   }
 
-  const h3 = nitroApp?.h3
-  if (typeof h3?.fetch === 'function') {
-    const fetch = h3.fetch.bind(h3)
-    h3.fetch = (req, ...args) => {
+  // Every nitro v3 entry, dev and deployed, serves through `nitroApp.fetch`.
+  if (typeof nitroApp?.fetch === 'function') {
+    const fetch = nitroApp.fetch.bind(nitroApp)
+    nitroApp.fetch = (req, ...args) => {
       let request
       try {
-        request = parseRequest(req?.headers?.get?.(HEADER))
+        request = parseRequest(req?.headers?.get?.(HEADER), req?.headers?.get?.(LABEL_HEADER))
         if (request) {
-          req.headers.delete(HEADER)
+          req.headers.delete(LABEL_HEADER)
         }
       }
       catch {}

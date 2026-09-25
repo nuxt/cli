@@ -21,6 +21,29 @@ export class ActionableError extends Error {
 }
 
 /**
+ * Re-raise a Nuxt error by the remedy it carries rather than by its stack.
+ *
+ * Nuxt tags the errors it raises with `fix`, the command that resolves it, and
+ * `docs`, where the rest is explained. Those frames are all inside
+ * `node_modules` or this CLI's own `dist`, so the remedy is the whole of what a
+ * reader can act on. An untagged error is returned as it came.
+ */
+export function asActionableError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error
+  }
+  const { fix, docs } = error as Error & { fix?: unknown, docs?: unknown }
+  if (typeof fix !== 'string' || !fix.trim()) {
+    return error
+  }
+  const lines = [error.message, fix]
+  if (typeof docs === 'string' && docs.trim()) {
+    lines.push(`See ${docs}`)
+  }
+  return new ActionableError(lines.join('\n'))
+}
+
+/**
  * Errors that say something about the other end of a connection rather than
  * about this process: a broken pipe, a client hanging up mid-request, a tab
  * closed mid-navigation. These should not be reported as crashes or trigger

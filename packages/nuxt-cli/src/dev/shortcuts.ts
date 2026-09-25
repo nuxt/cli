@@ -1,4 +1,5 @@
 import type { Listener } from './listen'
+import type { ShortcutContext } from './shortcut-context'
 
 import process from 'node:process'
 import { createInterface } from 'node:readline'
@@ -6,17 +7,10 @@ import { createInterface } from 'node:readline'
 import { styleText } from 'node:util'
 import { isCI, isTest } from 'std-env'
 
-import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { guardReplayedInput, restoreRawMode, withDirectStdout } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
 
-export interface ShortcutContext {
-  listener: Listener
-  close: () => Promise<void>
-  restart?: () => void | Promise<void>
-  /** Remove the caches that make the next start cold, naming what went. */
-  clearCaches?: () => Promise<string[]>
-  onReady: (callback: (address: string) => void) => void
-}
+export type { ShortcutContext } from './shortcut-context'
 
 interface ActionContext extends ShortcutContext {
   /** Stop reading shortcuts, so a quitting server does not keep stdin open. */
@@ -40,29 +34,33 @@ const shortcuts: Shortcut[] = [
   {
     keys: ['o', 'open'],
     description: 'open in browser',
-    action: context => openBrowser(context.listener.url),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && openBrowser(context.listener.url),
   },
   {
     keys: ['u', 'urls'],
     description: 'show server URLs',
-    action: context => context.listener.showURLs(),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener?.showURLs(),
   },
   {
     keys: ['qr'],
     description: 'show a QR code for the server URL',
-    action: context => printQRCode(resolveShareableURL(context.listener), { showURL: true }),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && printQRCode(resolveShareableURL(context.listener), { showURL: true }),
   },
   {
     keys: ['copy'],
     description: 'copy the server URL to the clipboard',
-    action: context => copyURL(resolveShareableURL(context.listener)),
+    isAvailable: context => !!context.listener,
+    action: context => context.listener && copyURL(resolveShareableURL(context.listener)),
   },
   {
     keys: ['c', 'clear'],
     description: 'clear the console',
     action: async (context) => {
       await withDirectStdout(() => process.stdout.write('\u001B[2J\u001B[3J\u001B[H'))
-      context.listener.showURLs()
+      context.listener?.showURLs()
     },
   },
   {
@@ -106,13 +104,16 @@ function printHelp(context: ActionContext): void {
 }
 
 /**
- * Without a TTY there are no shortcuts to offer, so point at the way to talk to
- * the server instead: non-interactive callers (scripts, agents) otherwise have
- * no indication that one exists.
+ * Without a readable stdin there are no shortcuts to offer, so point at the way
+ * to talk to the server instead: a caller driving the CLI without a keyboard
+ * (an agent, a wrapper script) otherwise has no indication that one exists.
+ *
+ * `/` is suggested rather than an API route because it is the one path every
+ * project serves.
  */
 function printRequestHint(): void {
   // eslint-disable-next-line no-console
-  console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /api/hello')} ${styleText('dim', 'to send a request to this server')}\n`)
+  console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /')} ${styleText('dim', 'to send a request to this server')}\n`)
 }
 
 function availableShortcuts(context: ShortcutContext): Shortcut[] {
@@ -127,7 +128,9 @@ function availableShortcuts(context: ShortcutContext): Shortcut[] {
  */
 export function setupShortcuts(context: ShortcutContext): void {
   if (!process.stdin.isTTY || isCI || isTest) {
-    if (!isCI && !isTest) {
+    // A hint written into a redirected log is read by nobody and answered by
+    // nobody, so it is only offered while stdout is still a terminal.
+    if (process.stdout.isTTY && !isCI && !isTest) {
       context.onReady(() => printRequestHint())
     }
     return
@@ -141,7 +144,11 @@ export function setupShortcuts(context: ShortcutContext): void {
   restoreRawMode()
 
   const rl = createInterface({ input: process.stdin })
+  const isReplayedInput = guardReplayedInput()
   rl.on('line', async (line) => {
+    if (isReplayedInput()) {
+      return
+    }
     const input = line.trim().toLowerCase()
     const shortcut = availableShortcuts(context).find(({ keys }) => keys.includes(input))
     if (!shortcut) {

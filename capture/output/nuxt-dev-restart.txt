@@ -1,4 +1,4 @@
-styles: 6af3b1c828666453
+styles: cbc7a29b1cebf5be
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    waiting for requests

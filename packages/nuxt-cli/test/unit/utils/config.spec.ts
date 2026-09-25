@@ -128,6 +128,16 @@ describe.each([
     expect(result).toBe('export default defineNuxtConfig({\n  modules: [\n    \'@nuxt/eslint\', // keep me\n    \'@nuxt/image\',\n  ],\n})\n')
   })
 
+  it('should supply a separator before a trailing comment on the last entry', async () => {
+    const result = await add('export default defineNuxtConfig({\n  modules: [\n    \'a\' // keep me\n  ],\n})\n', ['zz'])
+
+    expect(result).toBe('export default defineNuxtConfig({\n  modules: [\n    \'a\', // keep me\n    \'zz\'\n  ],\n})\n')
+  })
+
+  it('should read a name from an entry followed by a comment', async () => {
+    expect(await read('export default defineNuxtConfig({\n  modules: [\n    \'a\' /* why */\n  ],\n})\n')).toEqual(['a'])
+  })
+
   it('should add a `modules` array to a config without one', async () => {
     const result = await add('export default defineNuxtConfig({\n  devtools: { enabled: true },\n})\n', ['@nuxt/image'])
 

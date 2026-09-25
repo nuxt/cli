@@ -1,3 +1,5 @@
+import type { PendingRender } from '../../utils/progress-snapshot'
+import type { DevReportSummary } from '../error-channel'
 import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevRequestEvent, DevRoutes } from '../utils'
@@ -12,21 +14,41 @@ export interface DevUIController {
   /** Whether the interactive UI is active (rather than the plain fallback). */
   interactive: boolean
   setStatus: (status: DevStatus, note?: string) => void
+  /**
+   * Report that a restart is over without a new server to show for it, so the
+   * panel returns to describing the one still running. A failed load keeps its
+   * error, since that is what the surviving server is.
+   */
+  settleRestart: () => void
   /** Record a structured log event forwarded from the dev server fork. */
   pushServerLog: (log: ForwardedLog) => void
   /** Record a batch of served requests for the traffic ticker. */
   pushRequests: (requests: DevRequestEvent[]) => void
+  /** Record a report the app raised, for the log view and the status line. */
+  pushReport: (report: DevReportSummary) => void
+  /** Drop a report the status line is still naming. */
+  clearReport: (id?: string) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
+  /**
+   * Report the render the server is busy with, or that it is busy with none.
+   * `awaiting` says no page has been rendered yet, which is what makes it a
+   * warmup rather than one request among many.
+   */
+  setRendering: (pending?: PendingRender, awaiting?: boolean) => void
 }
 
 /** What the plain fallback answers to everything the UI would have shown. */
 export const NOOP_CONTROLLER: DevUIController = {
   interactive: false,
   setStatus: () => {},
+  settleRestart: () => {},
   pushServerLog: () => {},
   pushRequests: () => {},
+  pushReport: () => {},
+  clearReport: () => {},
   setRoutes: () => {},
+  setRendering: () => {},
 }
 
 /**
@@ -43,6 +65,12 @@ export async function beginDevUI(options: DevUIOptions = {}): Promise<DevUISessi
   }
   const { beginDevUI } = await import('./session')
   return beginDevUI(options)
+}
+
+/** Give the terminal back, so something else can report on a clean screen. */
+export async function teardownDevUI(): Promise<void> {
+  const { teardownDevUI } = await import('./session')
+  teardownDevUI()
 }
 
 /** The interactive controller, or the line-based shortcuts and a no-op. */

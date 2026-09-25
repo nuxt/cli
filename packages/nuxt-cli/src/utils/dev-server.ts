@@ -1,4 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
+import { isIP } from 'node:net'
+import { networkInterfaces } from 'node:os'
 import { styleText } from 'node:util'
 
 import { join, resolve } from 'pathe'
@@ -51,9 +53,33 @@ export async function findDevServer(cwd: string, buildDir?: string): Promise<Run
   const dir = buildDir ? resolve(cwd, buildDir) : await resolveLockDir(cwd)
 
   const lock = readActiveLock(dir)
-  if (lock?.command === 'dev' && lock.url) {
+  if (lock?.command === 'dev' && lock.url && isOwnAddress(lock.url)) {
     return { url: toLoopback(lock.url), pid: lock.pid, cwd: lock.cwd }
   }
+}
+
+/**
+ * Whether `url` names this machine. A dev server records the address it bound,
+ * which is always local, but the lock file it is read from lives in the project
+ * and so may have been written by someone else. Requests carrying the user's
+ * headers and payloads are only sent to an origin this machine could have bound.
+ */
+function isOwnAddress(url: string): boolean {
+  let hostname: string
+  try {
+    hostname = new URL(url).hostname
+  }
+  catch {
+    return false
+  }
+  if (isLocalHost(hostname)) {
+    return true
+  }
+  const address = hostname.startsWith('[') ? hostname.slice(1, -1) : hostname
+  if (!isIP(address)) {
+    return false
+  }
+  return Object.values(networkInterfaces()).flat().some(info => info?.address === address)
 }
 
 /**

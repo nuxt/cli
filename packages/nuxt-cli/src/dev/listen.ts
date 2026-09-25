@@ -11,6 +11,7 @@ import process from 'node:process'
 
 import { styleText } from 'node:util'
 import { getPort } from 'get-port-please'
+import { isCI } from 'std-env'
 
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
@@ -334,12 +335,17 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
+    if (announce && (anyHost || !LOOPBACK_HOSTS.has(hostname))) {
+      logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
+    }
+
     if (announce) {
       if (options.showURL !== false) {
-        if (qrURL) {
-          await printQRCode(qrURL)
+        const showQR = !!qrURL && isQRCodeVisible()
+        if (showQR) {
+          await printQRCode(qrURL!)
         }
-        showURLs({ qr: !!qrURL })
+        showURLs({ qr: showQR })
       }
 
       if (options.clipboard) {
@@ -523,6 +529,15 @@ function describeBindError(error: NodeJS.ErrnoException, port: number, hostname:
       return new Error(`\`${hostname}\` could not be resolved. Pass \`--host\` with a local address, or omit it to listen on localhost.`, { cause: error })
   }
   return error
+}
+
+/**
+ * Whether block art is worth printing. A QR code is a couple of dozen lines of
+ * Unicode blocks that nothing downstream of a pipe can scan, so it is only
+ * drawn where someone is looking at a terminal.
+ */
+function isQRCodeVisible(): boolean {
+  return !!process.stdout.isTTY && !isCI
 }
 
 export async function printQRCode(url: string, { showURL = false }: { showURL?: boolean } = {}): Promise<void> {

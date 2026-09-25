@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { render, screen } from '../../utils/terminal'
 
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  isCI: false,
+}))
+
 const VERSIONS: Record<string, string> = {
   'webpack': '5.99.0',
   '@rspack/core': '1.3.0',

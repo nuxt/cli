@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolveModulePath } from 'exsolve'
 
-import { tryResolveNuxt } from './kit'
+import { tryResolveNuxt } from './resolve-nuxt'
 
 export function getPkgVersion(cwd: string, pkg: string, options?: PkgJSONOptions) {
   const pkgJSON = getPkgJSON(cwd, pkg, options)

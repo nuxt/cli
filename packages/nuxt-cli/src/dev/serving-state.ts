@@ -1,7 +1,8 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { randomUUID } from 'node:crypto'
 
 export interface InflightRequest {
-  id: number
+  id: string
   label: string
 }
 
@@ -10,7 +11,17 @@ const storage = new AsyncLocalStorage<InflightRequest>()
 /** Carries the request across the boundary the async context cannot cross. */
 export const REQUEST_HEADER = 'x-nuxt-dev-request-id'
 
-let nextId = 0
+/** Carries the request's `METHOD /path` alongside {@link REQUEST_HEADER}. */
+export const REQUEST_LABEL_HEADER = 'x-nuxt-dev-request-label'
+
+/**
+ * Identify a request, so logs and reports can be attributed to it.
+ *
+ * The id is random because it also scopes who may read the request's report.
+ */
+export function createRequest(label: string): InflightRequest {
+  return { id: randomUUID(), label }
+}
 
 /**
  * Serve `run` inside a context that identifies the request, so any log it causes
@@ -25,14 +36,14 @@ let nextId = 0
  * async one. The app's own logs are attributed by
  * `runtime/dev-request-context.mjs` instead.
  */
-export function runWithRequest<T>(label: string, run: (request: InflightRequest) => T): T {
-  const request: InflightRequest = { id: ++nextId, label }
-  return storage.run(request, () => run(request))
+export function runWithRequest<T>(request: InflightRequest | string, run: (request: InflightRequest) => T): T {
+  const inflight = typeof request === 'string' ? createRequest(request) : request
+  return storage.run(inflight, () => run(inflight))
 }
 
-/** The value of {@link REQUEST_HEADER} for `request`. */
-export function encodeRequest(request: InflightRequest): string {
-  return `${request.id} ${request.label}`
+/** The value of {@link REQUEST_LABEL_HEADER} for `request`, encoded for a header. */
+export function encodeRequestLabel(request: InflightRequest): string {
+  return encodeURIComponent(request.label)
 }
 
 /** Whether this code is running to serve a request, rather than to build. */

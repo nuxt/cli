@@ -1,13 +1,16 @@
+import type { DevLogRoute } from '../../src/dev/tui/events'
 import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
 import process from 'node:process'
+import { consola } from 'consola'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
-import { DevEventLog } from '../../src/dev/tui/events'
+import { createRequest, currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
+import { deferShortcutContext } from '../../src/dev/shortcut-context'
+import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
 import { HelpOverlay } from '../../src/dev/tui/help-overlay'
 import { beginDevUI, setupDevUI } from '../../src/dev/tui/index'
 import { InfoOverlay } from '../../src/dev/tui/info-overlay'
@@ -23,10 +26,18 @@ import { PanelSurface } from '../../src/dev/tui/surface'
 import { truncate } from '../../src/dev/tui/width'
 import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
+import { logger } from '../../src/utils/logger'
+import { useTerminalHost } from '../../src/utils/terminal-host'
 import { terminalLink } from '../../src/utils/terminal-link'
 import { paint, resolveBackground } from '../../src/utils/terminal-theme'
 import { releaseNotesUrl } from '../../src/utils/update-check'
 import { render, screen } from '../utils/terminal'
+
+const opened: string[] = []
+vi.mock('../../src/dev/listen', async importOriginal => ({
+  ...await importOriginal<typeof import('../../src/dev/listen')>(),
+  openBrowser: (url: string) => void opened.push(url),
+}))
 
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
@@ -63,6 +74,54 @@ describe('dev tui panel', () => {
         READY   watching for changes
        r restart · o open · l logs · h help · q quit"
     `)
+  })
+
+  it('should say the first request is still compiling before claiming to be ready', () => {
+    const lines = renderPanel({ ...READY, status: 'warming', progress: 0.95, awaitingFirstRender: true }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('WARMUP   compiling the first request')
+    expect(lines.join('\n')).not.toContain('READY')
+  })
+
+  it('should say which request it is busy with, and for how long', () => {
+    const first = renderPanel({ ...READY, awaitingFirstRender: true, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+    expect(first.join('\n')).toContain('WARMUP   rendering GET / · 6.4s')
+
+    const later = renderPanel({ ...READY, rendering: { label: 'GET /about', startedAt: 0 }, renderingMs: 1200 }, 80, 30).map(strip)
+    expect(later.join('\n')).toContain('READY   rendering GET /about · 1.2s')
+  })
+
+  it('should keep the last request off the line while one is in flight', () => {
+    const lines = renderPanel({
+      ...READY,
+      rendering: { label: 'GET /', startedAt: 0 },
+      renderingMs: 6700,
+      lastRequest: { method: 'GET', url: '/', status: 200, duration: 8442 },
+    }, 100, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('READY   rendering GET / · 6.7s')
+    expect(lines.join('\n')).not.toContain('8442ms')
+  })
+
+  it('should not put a clock on a render that has only just arrived', () => {
+    const lines = renderPanel({ ...READY, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 40 }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('READY   rendering GET /')
+    expect(lines.join('\n')).not.toContain('0.0s')
+  })
+
+  it('should let a load in flight keep the status line from a render', () => {
+    const lines = renderPanel({ ...READY, status: 'building', note: 'nuxt.config.ts changed', rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+
+    expect(lines.join('\n')).toContain('BUILDING   nuxt.config.ts changed')
+    expect(lines.join('\n')).not.toContain('rendering GET /')
+  })
+
+  it('should not keep claiming how fast the last load was while rebuilding', () => {
+    for (const status of ['building', 'restarting', 'error'] as const) {
+      expect(strip(renderPanel({ ...READY, status }, 100, 30)[0]!)).not.toContain('ready in')
+    }
+    expect(strip(renderPanel({ ...READY, status: 'warming' }, 100, 30)[0]!)).toContain('ready in 1.24s')
   })
 
   it('counts warnings and errors without printing them', () => {
@@ -130,6 +189,16 @@ describe('dev tui panel', () => {
     expect(lines).toHaveLength(renderPanel({ ...READY }, 100, 30).length)
   })
 
+  it('reports hosted work on the summary line in place of the counts', () => {
+    const busy = { ...READY, requests: 188, medianMs: 11, task: { label: 'Installing with pnpm', startedAt: Date.now() - 4200 } }
+    const lines = renderPanel(busy, 100, 30).map(strip)
+    const line = lines.find(entry => entry.includes('installing with pnpm'))!
+    expect(line).toContain('4.2s')
+    expect(lines.join('\n')).not.toContain('188 requests')
+    // The work borrows the line, so the panel keeps its shape.
+    expect(lines).toHaveLength(renderPanel({ ...READY, requests: 188, medianMs: 11 }, 100, 30).length)
+  })
+
   it('keeps a notice out of the way of a quit confirmation', () => {
     const text = renderPanelText({ ...READY, confirmQuit: true, notice: { text: 'copied', tone: 'success' } }, 100, 30)
     expect(text).not.toContain('copied')
@@ -151,6 +220,19 @@ describe('dev tui panel', () => {
     expect(bar).toContain('\u2501')
     // The bar borrows the summary line, so the panel keeps its shape.
     expect(lines).toHaveLength(renderPanel({ ...READY }, 100, 30).length)
+  })
+
+  it('should say how long a phase has been running once it holds the load up', () => {
+    const status = (phaseElapsedMs: number) => strip(renderPanel({
+      ...READY,
+      status: 'starting',
+      readyMs: undefined,
+      note: 'Generating types',
+      phaseElapsedMs,
+    }, 100, 30).find(line => line.includes('STARTING'))!)
+    expect(status(900)).toContain('generating types')
+    expect(status(900)).not.toMatch(/\ds/)
+    expect(status(33_400)).toContain('generating types · 33.4s')
   })
 
   it('lowercases sentence-shaped status notes without touching acronyms', () => {
@@ -179,6 +261,19 @@ describe('dev tui panel', () => {
       const live = renderPanel({ ...READY, hints: DEFAULT_HINTS }, 100, 30).at(-1)!
       expect(dimmed).not.toContain('\u001B[1mq\u001B[22m')
       expect(live).toContain('\u001B[1mq\u001B[22m')
+    }
+    finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('paints an armed hint in the brand colour', () => {
+    vi.stubEnv('FORCE_COLOR', '3')
+    try {
+      const hints = [{ key: 'o', label: 'open', priority: 40, armed: true }]
+      const armed = renderPanel({ ...READY, hints, background: 'dark' }, 100, 30).at(-1)!
+      expect(armed).toContain(paint('brand', 'open', 'dark'))
+      expect(renderPanel({ ...READY, background: 'dark' }, 100, 30).at(-1)!).not.toContain(paint('brand', 'open', 'dark'))
     }
     finally {
       vi.unstubAllEnvs()
@@ -254,6 +349,20 @@ describe('dev tui panel', () => {
         expect(strip(line).length).toBeLessThanOrEqual(columns)
       }
     }
+  })
+})
+
+describe('dev tui held notices', () => {
+  it('replaces the status badge with a labelled notice', () => {
+    const lines = renderPanelText({ ...READY, notice: { text: 'a browser is requesting permissions', tone: 'warn', label: 'ACTION' } }, 80, 30)
+    expect(lines).toContain(' ACTION   a browser is requesting permissions')
+    expect(lines).not.toContain('READY')
+  })
+
+  it('keeps an unlabelled notice alongside the status badge', () => {
+    const lines = renderPanelText({ ...READY, notice: { text: 'devframe auth code 123456', tone: 'info' } }, 80, 30)
+    expect(lines).toContain('READY')
+    expect(lines).toContain('devframe auth code 123456')
   })
 })
 
@@ -580,6 +689,61 @@ describe('dev event log', () => {
     ...overrides,
   })
 
+  it('should pair a boxed log with the output printed for it', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
+    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.recent(10)).toHaveLength(1)
+    expect(log.recent(10)[0]!.rendered).toBe(printed)
+  })
+
+  it('should keep a boxed notice out of badge classification', () => {
+    const log = new DevEventLog()
+    const message = 'Warning: a browser is requesting permissions.\ngXSptCzfAzS2Lfgy'
+    log.push(event({ time: Date.now(), type: 'box', message, source: 'build' }))
+    const [stored] = log.recent(10)
+    expect(stored!.type).toBe('box')
+    expect(stored!.message).toContain('gXSptCzfAzS2Lfgy')
+  })
+
+  it('should collapse a boxed notice repeated for a second browser', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    const printed = `\u256D\u2500 Permission Request \u2500\u256E\n\u2502 ${message} \u2502\n\u2570\u2500\u256F`
+    log.push(event({ time: now, type: 'box', message, source: 'build', rendered: printed }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    expect(log.recent(10)).toHaveLength(1)
+    expect(log.recent(10)[0]!.repeats).toBe(2)
+    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.recent(10)).toHaveLength(1)
+  })
+
+  it('should not fold a boxed notice into a warning that said the same thing', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    const merges: boolean[] = []
+    log.onEvent((_event, merged) => merges.push(!!merged))
+    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    expect(log.recent(10).map(entry => entry.type)).toEqual(['warn', 'box'])
+    expect(merges).toEqual([false, false])
+  })
+
+  it('should let a warning join the boxed notice that already asked for attention', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const message = 'A browser is requesting permissions of writing files and running commands.'
+    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
+    expect(log.recent(10).map(entry => entry.type)).toEqual(['box'])
+    expect(log.recent(10)[0]!.repeats).toBe(2)
+  })
+
   it('drops the oldest events past capacity', () => {
     const log = new DevEventLog(3)
     for (let i = 0; i < 5; i++) {
@@ -602,9 +766,9 @@ describe('dev event log', () => {
     const merges: boolean[] = []
     log.onEvent((_, merged) => merges.push(!!merged))
     const now = Date.now()
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 }))
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' }))
     log.push(event({ time: now, level: 0, type: 'error', message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue', source: 'build' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 8 }))
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r8' }))
 
     const errors = log.recent(10, e => e.level <= 0)
     expect(errors).toHaveLength(1)
@@ -612,7 +776,7 @@ describe('dev event log', () => {
     // The wording with the file and the plugin is the one worth keeping.
     expect(errors[0]!.message).toContain('vite:vue')
     // The first attribution wins; the entry stays tied to its request.
-    expect(errors[0]!.requestId).toBe(7)
+    expect(errors[0]!.requestId).toBe('r7')
     expect(merges).toEqual([false, true, true])
   })
 
@@ -691,10 +855,10 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       if (step === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 1 }, { absorb: true })
+        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 'r1' }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', raw: true, source: 'runtime' })
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime' }, { route: 'output' })
       }
     }
     return events.recent(10)
@@ -709,18 +873,123 @@ describe('dev event log', () => {
     expect(replay(order)).toHaveLength(2)
   })
 
+  it.each([
+    ['report then print', ['report', 'print']],
+    ['print then report', ['print', 'report']],
+  ])('pairs a log reported outside a request with its printed form (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    for (const step of order) {
+      if (step === 'report') {
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'booted', source: 'build' }, { route: 'report' })
+      }
+      else {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', source: 'build' }, { route: 'output' })
+      }
+    }
+    expect(events.recent(10)).toHaveLength(1)
+  })
+
+  // A fork forwards what its consola caught over IPC while the output arrives
+  // down a pipe and the app's report on a channel, in no particular order.
+  it.each([
+    [['report', 'reporter', 'output']],
+    [['report', 'output', 'reporter']],
+    [['reporter', 'report', 'output']],
+    [['reporter', 'output', 'report']],
+    [['output', 'report', 'reporter']],
+    [['output', 'reporter', 'report']],
+  ])('keeps one entry for a log that arrives by every route (%j)', (order) => {
+    const events = new DevEventLog()
+    for (const route of order) {
+      if (route === 'report') {
+        events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
+      }
+      else if (route === 'reporter') {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', source: 'runtime' }, { route: 'reporter' })
+      }
+      else {
+        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', source: 'build' }, { route: 'output' })
+      }
+    }
+    expect(events.recent(10)).toHaveLength(1)
+    expect(events.recent(10)[0]).toMatchObject({ request: 'GET /', requestId: 'r4', rendered: 'hello\n' })
+  })
+
+  it.each([
+    ['reports first', ['report 1', 'report 2', 'reporter 1', 'reporter 2']],
+    ['reporters first', ['reporter 1', 'reporter 2', 'report 1', 'report 2']],
+    ['a reporter with no report of its own', ['report 2', 'reporter 1']],
+  ])('does not join the same line from two requests (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    for (const step of order) {
+      const [route, id] = step.split(' ') as ['report' | 'reporter', string]
+      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: `r${id}` }, { route })
+    }
+    const entries = events.recent(10)
+    expect(entries).toHaveLength(2)
+    expect(new Set(entries.map(entry => entry.requestId)).size).toBe(2)
+    for (const entry of entries) {
+      expect(entry.routes!.size).toBe(order.length / 2)
+    }
+  })
+
+  it('keeps a log with the request it names when another printed the same line', () => {
+    const events = new DevEventLog()
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'report' })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'report' })
+
+    expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
+  })
+
+  // Each route runs at its own pace, so the arrivals of two occurrences can be
+  // heard in any order at all.
+  it.each([
+    ['occurrence by occurrence', ['report 1', 'reporter 1', 'output 1', 'report 2', 'reporter 2', 'output 2']],
+    ['output trailing a whole occurrence behind', ['report 1', 'reporter 1', 'report 2', 'output 1', 'reporter 2', 'output 2']],
+    ['reports ahead of everything', ['report 1', 'report 2', 'reporter 1', 'output 1', 'reporter 2', 'output 2']],
+  ])('counts an error repeated in a fork once per occurrence (%s)', (_name, order) => {
+    const events = new DevEventLog()
+    const message = 'Cannot read properties of undefined'
+    for (const step of order) {
+      const route = step.split(' ')[0] as DevLogRoute
+      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 'r1' }, { route })
+    }
+
+    expect(events.recent(10)).toHaveLength(1)
+    expect(events.recent(10)[0]!.repeats).toBe(2)
+  })
+
+  it('does not let output heard twice make room for another report', () => {
+    const events = new DevEventLog()
+    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 'r1' }, { route: 'report' })
+    const entry = report()
+    noteRoute(entry, 'output')
+    noteRoute(entry, 'output')
+
+    expect(report()).not.toBe(entry)
+  })
+
+  it('does not pair printed output with a log nothing reported', () => {
+    const events = new DevEventLog()
+    events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })
+    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'build' }, { route: 'output' })
+    expect(events.recent(10)).toHaveLength(2)
+  })
+
   it('does not swallow a printed line that never got its own report', () => {
     expect(replay(['report', 'print', 'print'])).toHaveLength(2)
   })
 
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', raw: true, source: 'runtime' })
-    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 4 }, { absorb: true })
+    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', source: 'runtime' }, { route: 'output' })
+    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
 
     const [only] = events.recent(10)
     expect(events.recent(10)).toHaveLength(1)
-    expect(only).toMatchObject({ request: 'GET /', requestId: 4, rendered: '\u001B[36mhello\u001B[39m' })
+    expect(only).toMatchObject({ request: 'GET /', requestId: 'r4', rendered: '\u001B[36mhello\u001B[39m' })
   })
 
   it('filters recent events', () => {
@@ -781,10 +1050,18 @@ describe('request attribution', () => {
     expect(attributed).toBe('GET /nested')
   })
 
-  it('gives every request its own identity', () => {
-    const first = runWithRequest('GET /', request => request.id)
-    const second = runWithRequest('GET /', request => request.id)
-    expect(second).not.toBe(first)
+  it('gives a request an identity that cannot be guessed from its route or its neighbours', () => {
+    const ids = Array.from({ length: 50 }, () => createRequest('GET /boom-page').id)
+    const value = (id: string) => BigInt(`0x${id.replaceAll('-', '')}`)
+
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const id of ids) {
+      expect(id.replaceAll('-', '')).toMatch(/^[0-9a-f]{32}$/)
+      expect(id).not.toContain('boom-page')
+      expect(id).not.toContain('GET')
+    }
+    const distances = ids.slice(1).map((id, index) => value(id) - value(ids[index]!))
+    expect(new Set(distances.map(String)).size).toBe(distances.length)
   })
 
   it('does not attribute work that has left the request context', async () => {
@@ -816,6 +1093,13 @@ describe('log overlay', () => {
     message: 'hello',
     source: 'cli' as const,
     ...overrides,
+  })
+
+  it('should leave a message that carries its own colours alone', () => {
+    const coloured = `${'\u001B[31m'}✖${'\u001B[39m'} ParseError`
+    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80, 8)
+
+    expect(lines.join('\n')).toContain(coloured)
   })
 
   it('opens focused on the newest error', () => {
@@ -963,8 +1247,8 @@ describe('log overlay', () => {
 
   it('heads a request\'s logs once, with the request beside the time', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'first', request: 'GET /about', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'second', request: 'GET /about', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'first', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'second', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -978,8 +1262,8 @@ describe('log overlay', () => {
 
   it('heads each request separately when the same path is hit twice', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'one', request: 'GET /about', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'two', request: 'GET /about', requestId: 2, source: 'runtime' }))
+    events.push(event({ message: 'one', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'two', request: 'GET /about', requestId: 'r2', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /about'))).toHaveLength(2)
@@ -988,7 +1272,7 @@ describe('log overlay', () => {
   it('puts the message at the same column whether or not it has a heading', () => {
     const events = new DevEventLog()
     events.push(event({ time: new Date('2024-01-01T10:20:30').getTime(), message: 'plain' }))
-    events.push(event({ time: new Date('2024-01-01T10:20:31').getTime(), message: 'grouped', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ time: new Date('2024-01-01T10:20:31').getTime(), message: 'grouped', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -1002,9 +1286,9 @@ describe('log overlay', () => {
 
   it('starts a new heading when another request interleaves', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'a1', request: 'GET /a', requestId: 1, source: 'runtime' }))
-    events.push(event({ message: 'b1', request: 'GET /b', requestId: 2, source: 'runtime' }))
-    events.push(event({ message: 'a2', request: 'GET /a', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'a1', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
+    events.push(event({ message: 'b1', request: 'GET /b', requestId: 'r2', source: 'runtime' }))
+    events.push(event({ message: 'a2', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /a'))).toHaveLength(2)
@@ -1105,7 +1389,7 @@ describe('log overlay', () => {
     expect(selected).toContain('line 0')
   })
 
-  it('wraps the selection around both ends', () => {
+  it('stops the selection at both ends instead of looping', () => {
     const events = new DevEventLog()
     for (let i = 0; i < 3; i++) {
       events.push(event({ message: `line ${i}` }))
@@ -1118,10 +1402,29 @@ describe('log overlay', () => {
     expect(selected()).toContain('line 0')
 
     overlay.handleKey({ name: 'up' })
+    expect(selected()).toContain('line 0')
+
+    overlay.handleKey({ name: 'pagedown' })
     expect(selected()).toContain('line 2')
 
     overlay.handleKey({ name: 'down' })
-    expect(selected()).toContain('line 0')
+    expect(selected()).toContain('line 2')
+  })
+
+  it('enters a long list at the top of the screen rather than the top of the history', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 100; i++) {
+      events.push(event({ message: `line ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const first = strip(lastFrame()).split('\n')[2]!
+
+    overlay.handleKey({ name: 'down' })
+    const selected = strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))!
+    expect(selected).toContain(first.trim())
+    expect(selected).not.toContain('line 0')
+    expect(strip(lastFrame())).not.toContain('scrolled')
   })
 
   it('trims the hint line to the terminal, keeping movement and the way out', () => {
@@ -1149,7 +1452,7 @@ describe('log overlay', () => {
 
   it('copies the selected entry, request and all', async () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'boom', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'boom', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'up' })
@@ -1343,8 +1646,8 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 })
-    log.push([{ id: 7, time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
     overlay.open()
     expect(lastFrame()).toContain('✗ 1')
   })
@@ -1353,10 +1656,10 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 7 })
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 7 })
-    events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 8 })
-    log.push([{ id: 7, time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 'r8' })
+    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
     overlay.open()
 
     overlay.handleKey({ name: 'down' })
@@ -1374,7 +1677,7 @@ describe('request overlay', () => {
   it('says so when a request has no attributed logs', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
-    log.push([{ id: 9, time: Date.now(), method: 'GET', url: '/quiet', status: 200, duration: 2 }])
+    log.push([{ id: 'r9', time: Date.now(), method: 'GET', url: '/quiet', status: 200, duration: 2 }])
     overlay.open()
     overlay.handleKey({ name: 'down' })
     overlay.handleKey({ name: 'return' })
@@ -1611,6 +1914,98 @@ describe('route overlay', () => {
 })
 
 describe('panel surface', () => {
+  /** Every write the surface makes, with the panel's own writes marked. */
+  function recordWrites(): { writes: string[], restore: () => void } {
+    const writes: string[] = []
+    const isTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      writes.push(String(chunk))
+      return true
+    })
+    return {
+      writes,
+      restore: () => {
+        write.mockRestore()
+        if (isTTY) {
+          Object.defineProperty(process.stdout, 'isTTY', isTTY)
+        }
+        else {
+          Reflect.deleteProperty(process.stdout, 'isTTY')
+        }
+      },
+    }
+  }
+
+  /**
+   * Each of these pins one write to one frame. Splitting any of them in two
+   * puts a screen with no panel on it in front of the user.
+   */
+  it('makes the room the panel needs and paints it in one write', () => {
+    const { writes, restore } = recordWrites()
+    const surface = new PanelSurface()
+    try {
+      surface.renderAtBottom(['--- footer ---'])
+
+      expect(writes).toHaveLength(1)
+      expect(writes[0]).toContain('--- footer ---')
+    }
+    finally {
+      surface.close()
+      restore()
+    }
+  })
+
+  it('erases and repaints in one write', () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      surface.render(['--- footer ---', 'second row'])
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+
+    // eslint-disable-next-line no-control-regex
+    expect(writes[0]).toMatch(/\u001B\[J[\s\S]*second row/)
+  })
+
+  it('sends a line going above the panel together with the panel', () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      surface.writeAbove('a line above')
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+
+    expect(writes[0]).toContain('a line above')
+    expect(writes[0]).toContain('--- footer ---')
+  })
+
+  it('brings the panel back in the same tick as output it cannot merge with', async () => {
+    const { writes, restore } = recordWrites()
+    try {
+      const surface = new PanelSurface()
+      surface.renderAtBottom(['--- footer ---'])
+      writes.length = 0
+      process.stdout.write('output the panel cannot fold in\n')
+      // No waiting: a repaint on a timer would be a frame with no panel in it.
+      expect(writes.join('')).toContain('--- footer ---')
+      surface.close()
+    }
+    finally {
+      restore()
+    }
+  })
+
   it('keeps the panel pinned below log output', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
@@ -1638,20 +2033,12 @@ describe('panel surface', () => {
     expect(frame.indexOf('a log line')).toBeLessThan(frame.indexOf('--- footer ---'))
   })
 
-  function withStubbedTerminal(rows: number, run: (written: () => string) => void): void {
-    const chunks: string[] = []
-    const descriptors = (['rows', 'isTTY'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'rows', { value: rows, configurable: true })
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
-      chunks.push(String(chunk))
-      return true
-    })
-    try {
-      run(() => chunks.join(''))
+  function stub(values: Array<[key: 'rows' | 'columns' | 'isTTY', value: number | boolean]>): () => void {
+    const descriptors = values.map(([key]) => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+    for (const [key, value] of values) {
+      Object.defineProperty(process.stdout, key, { value, configurable: true })
     }
-    finally {
-      write.mockRestore()
+    return () => {
       for (const [key, descriptor] of descriptors) {
         if (descriptor) {
           Object.defineProperty(process.stdout, key, descriptor)
@@ -1660,6 +2047,62 @@ describe('panel surface', () => {
           Reflect.deleteProperty(process.stdout, key)
         }
       }
+    }
+  }
+
+  function stubTerminal(rows: number): { written: () => string, restore: () => void } {
+    const chunks: string[] = []
+    const restore = stub([['rows', rows], ['isTTY', true]])
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      chunks.push(String(chunk))
+      return true
+    })
+    return {
+      written: () => chunks.join(''),
+      restore: () => {
+        write.mockRestore()
+        restore()
+      },
+    }
+  }
+
+  function withStubbedTerminal(rows: number, run: (written: () => string) => void): void {
+    const { written, restore } = stubTerminal(rows)
+    try {
+      run(written)
+    }
+    finally {
+      restore()
+    }
+  }
+
+  async function withStubbedTerminalAsync(rows: number, run: (written: () => string) => Promise<void>): Promise<void> {
+    const { written, restore } = stubTerminal(rows)
+    try {
+      await run(written)
+    }
+    finally {
+      restore()
+    }
+  }
+
+  function withStubbedColumns(columns: number, run: () => void): void {
+    const restore = stub([['columns', columns]])
+    try {
+      run()
+    }
+    finally {
+      restore()
+    }
+  }
+
+  async function withStubbedColumnsAsync(columns: number, run: () => Promise<void>): Promise<void> {
+    const restore = stub([['columns', columns]])
+    try {
+      await run()
+    }
+    finally {
+      restore()
     }
   }
 
@@ -1688,6 +2131,23 @@ describe('panel surface', () => {
     })
   })
 
+  it('lends the terminal to a prompt, painting nothing until it is done', () => {
+    withStubbedTerminal(10, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      const resume = surface.suspend()
+      const before = written().length
+
+      surface.render(['--- footer ---', 'still building'])
+      process.stdout.write('Do you want to install @nuxt/scripts package? ')
+      expect(written().slice(before)).toBe('Do you want to install @nuxt/scripts package? ')
+
+      resume()
+      expect(written().slice(before)).toContain('still building')
+      surface.close()
+    })
+  })
+
   it('asks its owner to re-render on resize rather than reusing stale lines', async () => {
     let resized = 0
     await render(async () => {
@@ -1711,6 +2171,88 @@ describe('panel surface', () => {
       process.stdout.emit('resize')
       surface.close()
       expect(written().slice(before)).toContain('\n'.repeat(10))
+    })
+  })
+
+  it('starts a clean screen once a change of width has settled', async () => {
+    let written = ''
+    await withStubbedColumnsAsync(40, () => withStubbedTerminalAsync(24, async (read) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = read().length
+      await withStubbedColumnsAsync(30, async () => {
+        process.stdout.emit('resize')
+        await new Promise(resolve => setTimeout(resolve, 200))
+      })
+      written = read().slice(before)
+      surface.close()
+    }))
+
+    expect(written).toContain('\n'.repeat(24))
+    expect(written).toContain('\u001B[24;1H\u001B[J--- footer ---')
+  })
+
+  it('does not scroll the screen away when only the height changes', async () => {
+    let written = ''
+    await withStubbedColumnsAsync(40, () => withStubbedTerminalAsync(24, async (read) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.padToBottom()
+      const before = read().length
+      Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
+      process.stdout.emit('resize')
+      await new Promise(resolve => setTimeout(resolve, 200))
+      written = read().slice(before)
+      surface.close()
+    }))
+
+    expect(written).not.toContain('\n'.repeat(20))
+    expect(written).not.toContain('\u001B[J--- footer ---')
+  })
+
+  it('erases no more rows than it painted when the width changes', () => {
+    withStubbedColumns(40, () => {
+      withStubbedTerminal(24, (written) => {
+        const surface = new PanelSurface()
+        surface.render(['x'.repeat(30)])
+        const before = written().length
+        withStubbedColumns(10, () => process.stdout.emit('resize'))
+        expect(written().slice(before)).toContain('\r\u001B[J')
+        expect(written().slice(before)).not.toContain('A\u001B[J')
+        surface.close()
+      })
+    })
+  })
+
+  it('re-seats the panel at the bottom after a resize while a view owned the screen', () => {
+    withStubbedTerminal(10, (written) => {
+      const surface = new PanelSurface()
+      surface.render(['--- footer ---'])
+      surface.screenMode = 'alternate-screen'
+      Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
+      process.stdout.emit('resize')
+      const before = written().length
+      surface.screenMode = 'split-footer'
+      surface.close()
+      expect(written().slice(before)).toContain('\n'.repeat(18))
+    })
+  })
+
+  it('starts a clean screen when the width changed while a view owned the screen', () => {
+    withStubbedColumns(40, () => {
+      withStubbedTerminal(24, (written) => {
+        const surface = new PanelSurface()
+        surface.render(['--- footer ---'])
+        surface.padToBottom()
+        surface.screenMode = 'alternate-screen'
+        withStubbedColumns(30, () => process.stdout.emit('resize'))
+        const before = written().length
+        surface.screenMode = 'split-footer'
+        expect(written().slice(before)).toContain('\n'.repeat(24))
+        expect(written().slice(before)).toContain('\u001B[24;1H\u001B[J--- footer ---')
+        surface.close()
+      })
     })
   })
 
@@ -1934,12 +2476,45 @@ describe('dev ui teardown', () => {
     }
   }
 
+  it('drops a render in flight when a new load starts', async () => {
+    await withTerminal(({ session }) => {
+      const ready = {
+        status: 'ready' as const,
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        total: 6,
+        progress: 0.95,
+        elapsed: 2400,
+        phaseElapsed: 0,
+        reload: false,
+        serving: false,
+        timings: [],
+      }
+      session.reportProgress({ ...ready, pending: { label: 'GET /', startedAt: Date.now() } })
+      expect(session.state.rendering?.label).toBe('GET /')
+
+      session.reportProgress({ ...ready, status: 'loading', phase: 'config', message: 'Reloading Nuxt...', reload: true })
+      expect(session.state.rendering).toBeUndefined()
+    })
+  })
+
   it('surfaces errors still waiting on their delay when it tears down', async () => {
     await withTerminal(({ session, written }) => {
       session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
       const before = written().length
       session.teardown()
       expect(written().slice(before)).toContain('the server could not start')
+    })
+  })
+
+  it('should surface a boxed notice above the panel once the server is ready', async () => {
+    await withTerminal(async ({ session, written }) => {
+      session.state.readyMs = 1240
+      const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
+      session.events.push({ time: Date.now(), level: 3, type: 'box', message, source: 'build' })
+      await vi.waitFor(() => expect(strip(written())).toContain('gXSptCzfAzS2Lfgy'))
+      expect(session.events.recent(10)).toHaveLength(1)
     })
   })
 
@@ -2085,62 +2660,63 @@ describe('dev ui fallback', () => {
 /** Long enough for the panel's trailing repaint to land. */
 const TICKER_SETTLE_MS = 400
 
+const context = {
+  listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
+  close: async () => {},
+  onReady: () => {},
+}
+
+async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>, session: NonNullable<ReturnType<typeof beginDevUI>>) => Promise<void>, overrides: Record<string, unknown> = {}): Promise<void> {
+  const chunks: string[] = []
+  const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+  const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+  const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+  Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
+  Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
+  Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+  Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
+  const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+    chunks.push(String(chunk))
+    return true
+  })
+  const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
+  // Passed whole: spreading a deferred context would read its listener getter.
+  const ui = setupDevUI((overrides.context ?? { ...context, ...overrides }) as never, { ci: false, test: false, version: '4.5.2' })
+  try {
+    await run(ui, async () => {
+      // The panel repaints on a trailing timer, so nothing is on screen yet.
+      await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
+      return strip(chunks.join(''))
+    }, session)
+  }
+  finally {
+    session.teardown()
+    write.mockRestore()
+    for (const [key, descriptor] of saved) {
+      if (descriptor) {
+        Object.defineProperty(process.stdout, key, descriptor)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, key)
+      }
+    }
+    if (stdin) {
+      Object.defineProperty(process.stdin, 'isTTY', stdin)
+    }
+    else {
+      Reflect.deleteProperty(process.stdin, 'isTTY')
+    }
+    if (setRawMode) {
+      Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
+    }
+    else {
+      Reflect.deleteProperty(process.stdin, 'setRawMode')
+    }
+  }
+}
+
 describe('request failures on the panel', () => {
-  const context = {
-    listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
-    close: async () => {},
-    onReady: () => {},
-  }
-
-  async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>) => Promise<void>): Promise<void> {
-    const chunks: string[] = []
-    const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-    const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
-    Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-    Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
-    Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
-    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
-    Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
-    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
-      chunks.push(String(chunk))
-      return true
-    })
-    const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
-    const ui = setupDevUI(context as never, { ci: false, test: false, version: '4.5.2' })
-    try {
-      await run(ui, async () => {
-        // The panel repaints on a trailing timer, so nothing is on screen yet.
-        await new Promise(resolve => setTimeout(resolve, TICKER_SETTLE_MS))
-        return strip(chunks.join(''))
-      })
-    }
-    finally {
-      session.teardown()
-      write.mockRestore()
-      for (const [key, descriptor] of saved) {
-        if (descriptor) {
-          Object.defineProperty(process.stdout, key, descriptor)
-        }
-        else {
-          Reflect.deleteProperty(process.stdout, key)
-        }
-      }
-      if (stdin) {
-        Object.defineProperty(process.stdin, 'isTTY', stdin)
-      }
-      else {
-        Reflect.deleteProperty(process.stdin, 'isTTY')
-      }
-      if (setRawMode) {
-        Object.defineProperty(process.stdin, 'setRawMode', setRawMode)
-      }
-      else {
-        Reflect.deleteProperty(process.stdin, 'setRawMode')
-      }
-    }
-  }
-
   it('should not report the bundler\'s own failed probes as failed requests', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building')
@@ -2149,6 +2725,84 @@ describe('request failures on the panel', () => {
 
       expect(frames).not.toContain('failed request')
       expect(frames).not.toContain('a request failed')
+    })
+  })
+
+  it('should report a render forwarded from the fork that is serving', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+      expect(await settle()).toContain('rendering GET /about')
+
+      ui.setRendering(undefined)
+      expect(await settle()).toContain('watching for changes')
+    })
+  })
+
+  it('should not let a render replace what a build is reporting', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'compiling changes')
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+
+      expect(await settle()).not.toContain('rendering GET /about')
+    })
+  })
+
+  it('should show a fork\'s first render as a warmup', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /', startedAt: Date.now() }, true)
+      expect(await settle()).toContain('WARMUP')
+
+      ui.setRendering({ label: 'GET /about', startedAt: Date.now() }, false)
+      expect(await settle()).toContain('READY')
+    })
+  })
+
+  it('should keep reporting a render when the server reports itself ready again', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setRendering({ label: 'GET /', startedAt: Date.now() })
+      // The bundler reloads while it serves the first document, which is a
+      // `building` event either side of the render it is serving.
+      ui.setStatus('building')
+      ui.setStatus('ready')
+
+      expect(await settle()).toContain('rendering GET /')
+    })
+  })
+
+  it('should name a forwarded report on the status line and count it once', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function\n  at app.vue:3:1', requestId: 'r1' })
+      const frames = await settle()
+
+      expect(frames).toContain('x is not a function · press l to read it')
+      expect(frames).toContain('1 error')
+      expect(frames).not.toContain('2 errors')
+    })
+  })
+
+  it('should drop a report from the status line once the app recovers', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      await settle()
+
+      ui.clearReport('abc')
+      expect(await settle()).toContain('an error was logged')
+    })
+  })
+
+  it('should ignore a clear for a report it is not showing', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      await settle()
+
+      ui.clearReport('older')
+      expect(await settle()).not.toContain('an error was logged')
     })
   })
 
@@ -2163,6 +2817,109 @@ describe('request failures on the panel', () => {
     })
   })
 
+  it('should hold a startup warning on the panel and print it in full', async () => {
+    await withPanel(async (_ui, settle) => {
+      logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('WARNING')
+      expect(last).toContain('the dev server is reachable from the network without authentication')
+      expect(frames).toContain('read the app, build errors and source code.')
+    })
+  })
+
+  // A fork hears an app log twice: over the log channel, and again when the
+  // app's stdout comes through its own consola.
+  it.each([
+    ['inside a request', { origin: 'runtime' as const, request: 'GET /api/log', requestId: 'r1' }],
+    ['outside a request', { origin: 'build' as const, request: undefined }],
+  ])('should record an app log a fork forwards twice once (%s)', async (_name, attribution) => {
+    await withPanel(async (ui, _settle, session) => {
+      const channel = { level: 3, logType: 'log', message: 'hello', ...attribution }
+      const stdout = { level: 2, logType: 'log', message: 'hello', origin: attribution.origin, raw: true }
+
+      ui.pushServerLog(channel)
+      ui.pushServerLog(stdout)
+      expect(session.events.recent(10)).toHaveLength(1)
+
+      ui.pushServerLog(stdout)
+      ui.pushServerLog(channel)
+      expect(session.events.recent(10)).toHaveLength(2)
+      expect(session.events.recent(10)[1]).toMatchObject({ request: attribution.request })
+    })
+  })
+
+  // In-process, the same log reaches the UI over the channel, through the
+  // console wrapper and as the bytes it printed.
+  async function logInProcess(ui: ReturnType<typeof setupDevUI>, message: string, reprint = false): Promise<void> {
+    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+    const level = consola.level
+    consola.level = 3
+    try {
+      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 'r1' })
+      consola.log(message)
+      await flush()
+      if (reprint) {
+        process.stdout.write(`${message}\n`)
+        await flush()
+      }
+    }
+    finally {
+      consola.level = level
+    }
+  }
+
+  it('should record an app log the CLI serves itself once', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'hello from the app')
+
+      const seen = session.events.recent(50).filter(event => event.message.includes('hello from the app'))
+      expect(seen).toHaveLength(1)
+      expect(seen[0]).toMatchObject({ request: 'GET /', requestId: 'r1' })
+    })
+  })
+
+  it('should keep a line printed again after it was paired', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      await logInProcess(ui, 'twice over', true)
+
+      expect(session.events.recent(50).filter(event => event.message.includes('twice over'))).toHaveLength(2)
+    })
+  })
+
+  it('should record what only reaches a fork\'s stdout', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      ui.pushServerLog({ level: 2, logType: 'log', message: 'written straight to stdout', origin: 'build', raw: true })
+      expect(session.events.recent(10).map(event => event.message)).toEqual(['written straight to stdout'])
+    })
+  })
+
+  it('should raise an action badge when something is waiting on the user', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions of writing files and running commands.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ACTION')
+      expect(frames).toContain('gXSptCzfAzS2Lfgy')
+    })
+  })
+
+  it('should keep an action badge through a borrowed prompt that consumes keys', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      await useTerminalHost()!.withTerminal(async () => {
+        process.stdin.emit('keypress', '', { name: 'y', sequence: 'y' })
+      })
+      const frames = await settle()
+
+      expect(frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))).toContain('ACTION')
+    })
+  })
+
   it('should not let an internal request clear a failure the app reported', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
@@ -2174,6 +2931,340 @@ describe('request failures on the panel', () => {
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
       expect(last).toContain('ERROR')
       expect(last).toContain('a request failed')
+    })
+  })
+
+  it('should return to ready once a request succeeds after a failing one', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      // A failed render is reported as a log as well as a status.
+      ui.pushServerLog({ level: 0, logType: 'error', message: '/app.vue \u2014 Interpolation end sign was not found.', origin: 'runtime' })
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      expect(await settle()).toContain('a request failed')
+      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('a request failed')
+    })
+  })
+
+  it('should report a load that errors rather than leaving its phase on the panel', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).toContain('an error was logged')
+      expect(last).not.toContain('BUILDING')
+    })
+  })
+
+  it('should count a request the error page answered while a load has failed', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('1 failed request')
+      expect(last).toContain('ERROR')
+      expect(last).toContain('an error was logged')
+      expect(last).not.toContain('a request failed')
+    })
+  })
+
+  describe('opening before the server is up', () => {
+    const listener = { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} }
+
+    async function withStartingPanel(run: (ready: () => void, settle: () => Promise<string>) => Promise<void>) {
+      opened.length = 0
+      const { context: deferred, attach } = deferShortcutContext()
+      const ready = () => attach({
+        listener: listener as never,
+        close: async () => {},
+        onReady: callback => callback(listener.url),
+      })
+      await withPanel(async (_ui, settle) => {
+        await settle()
+        await run(ready, settle)
+      }, { context: deferred })
+    }
+
+    it('should open once the server is up when `o` was pressed while starting', async () => {
+      await withStartingPanel(async (ready, settle) => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual([])
+        expect(strip(await settle())).toContain('o open')
+
+        ready()
+        expect(opened).toEqual(['http://localhost:3000/'])
+      })
+    })
+
+    it('should disarm the open shortcut when it is pressed again', async () => {
+      await withStartingPanel(async (ready) => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+
+        ready()
+        expect(opened).toEqual([])
+      })
+    })
+
+    it('should open at once when the server is already up', async () => {
+      await withStartingPanel(async (ready) => {
+        ready()
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual(['http://localhost:3000/'])
+      })
+    })
+  })
+
+  it('should keep a failed load on the panel across a restart that does not fix it', async () => {
+    let restarts = 0
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      await vi.waitFor(() => expect(restarts).toBe(1))
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).not.toContain('READY')
+    }, {
+      // `devServer.load` reports a failed reload through the log and resolves.
+      restart: async () => {
+        restarts++
+      },
+    })
+  })
+
+  it('should keep the error when a restart is abandoned and the broken server is kept', async () => {
+    // `replaceWithFork` keeps the outgoing server when the incoming fork dies.
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      ui.setStatus('restarting', 'restarting')
+      ui.settleRestart()
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('ERROR')
+      expect(last).not.toContain('READY')
+    })
+  })
+
+  it('should return a healthy server to ready when a restart is abandoned', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.setStatus('restarting', 'restarting')
+      ui.settleRestart()
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('RESTART')
+    })
+  })
+
+  it('should settle a restart that nothing else spoke for', async () => {
+    let restarts = 0
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      await settle()
+
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      await vi.waitFor(() => expect(restarts).toBe(1))
+      const frames = await settle()
+
+      const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
+      expect(last).toContain('READY')
+      expect(last).not.toContain('RESTART')
+    }, {
+      restart: async () => {
+        restarts++
+      },
+    })
+  })
+
+  it('should keep a failed load on the panel until a load gets through', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
+      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      await settle()
+
+      // A page answered off the previous build says nothing about the load.
+      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      const served = await settle()
+      expect(served.slice(served.lastIndexOf('Nuxt 4.5.2'))).toContain('ERROR')
+
+      ui.setStatus('ready')
+      const reloaded = await settle()
+      expect(reloaded.slice(reloaded.lastIndexOf('Nuxt 4.5.2'))).toContain('READY')
+    })
+  })
+})
+
+describe('the terminal host on the panel', () => {
+  it('publishes a host while the panel is up and withdraws it after', async () => {
+    expect(useTerminalHost()).toBeUndefined()
+    await withPanel(async () => {
+      expect(useTerminalHost()).toBeDefined()
+    })
+    expect(useTerminalHost()).toBeUndefined()
+  })
+
+  it('shows a task while it runs and its outcome once it stops', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const task = useTerminalHost()!.startTask('Installing with pnpm')
+      let frames = await settle()
+      expect(frames).toContain('installing with pnpm')
+
+      task.update('Resolving packages')
+      task.stop('Dependencies installed', 'success')
+      frames = await settle()
+      expect(frames).toContain('dependencies installed')
+    })
+  })
+
+  it('runs a nested borrow directly instead of queueing behind itself', async () => {
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      const result = await host.withTerminal(() => host.withTerminal(async () => 'inner'))
+      expect(result).toBe('inner')
+    })
+  })
+
+  it('does not take stdin back when torn down during a borrow', async () => {
+    let finish!: () => void
+    let borrowed!: Promise<unknown>
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      borrowed = host.withTerminal(() => new Promise<void>((resolve) => {
+        finish = resolve
+      }))
+      await vi.waitFor(() => expect(process.stdin.listenerCount('keypress')).toBe(0))
+    })
+    finish()
+    await borrowed
+    expect(process.stdin.listenerCount('keypress')).toBe(0)
+  })
+
+  it('holds a notification on the status line until it is dismissed', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const notice = useTerminalHost()!.notify!({
+        title: 'Permission Request',
+        message: 'A browser is asking for write access.\nOpen http://localhost:3000/auth to approve.',
+        level: 'warn',
+      })
+      let frames = await settle()
+      expect(frames).toContain('permission Request')
+      expect(frames).toContain('Open http://localhost:3000/auth to approve.')
+
+      const seen = frames.length
+      notice.dismiss()
+      await notice.dismissed
+      // Dismissal restores the status badge, so the repaint carries it.
+      frames = await settle()
+      expect(frames.slice(seen)).toContain('READY')
+      expect(frames.slice(seen)).not.toContain('permission Request')
+    })
+  })
+
+  it('lets a notification outlive passing feedback', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      const host = useTerminalHost()!
+      const notice = host.notify!({ message: 'devframe auth code 123456', level: 'info' })
+      const task = host.startTask('Installing with pnpm')
+      task.stop('Dependencies installed', 'success')
+
+      const frames = await settle()
+      expect(frames).toContain('dependencies installed')
+      const last = frames.lastIndexOf('devframe auth code 123456')
+      expect(last).toBeGreaterThan(-1)
+      notice.dismiss()
+      await notice.dismissed
+    })
+  })
+
+  it('takes any keypress as acknowledgement of a notification', async () => {
+    await withPanel(async () => {
+      const notice = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' })
+      let settled = false
+      void notice.dismissed.then(() => {
+        settled = true
+      })
+
+      await new Promise(resolve => setImmediate(resolve))
+      process.stdin.emit('keypress', '', { name: 'x', sequence: 'x' })
+      await vi.waitFor(() => expect(settled).toBe(true))
+    })
+  })
+
+  it('resolves outstanding notifications when the session ends', async () => {
+    let dismissed: Promise<void> | undefined
+    await withPanel(async () => {
+      dismissed = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' }).dismissed
+    })
+    await expect(dismissed).resolves.toBeUndefined()
+  })
+
+  it('lends the terminal to one borrower at a time', async () => {
+    await withPanel(async () => {
+      const host = useTerminalHost()!
+      const order: string[] = []
+      let releaseFirst: () => void
+      const first = host.withTerminal(() => new Promise<void>((resolve) => {
+        order.push('first')
+        releaseFirst = resolve
+      }))
+      const second = host.withTerminal(async () => {
+        order.push('second')
+      })
+      await vi.waitFor(() => expect(order).toContain('first'))
+      expect(order).toEqual(['first'])
+      releaseFirst!()
+      await Promise.all([first, second])
+      expect(order).toEqual(['first', 'second'])
+    })
+  })
+})
+
+describe('captured spinner frames', () => {
+  it('folds a run of self-rewriting frames into one entry that keeps up', async () => {
+    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+    await withPanel(async () => {
+      const session = beginDevUI()!
+      session.surface.externalOutput = 'capture'
+      process.stdout.write('\r\u001B[K\u25D2 Installing with pnpm')
+      await flush()
+      for (let second = 1; second <= 30; second++) {
+        process.stdout.write(`\r\u001B[K\u25D0 Installing with pnpm ${second}s`)
+        await flush()
+      }
+      process.stdout.write('\u2714 Dependencies installed\n')
+      await flush()
+
+      const recent = session.events.recent(50, event => !!event.routes?.has('output'))
+      const frames = recent.filter(event => event.message.includes('Installing with pnpm'))
+      expect(frames).toHaveLength(1)
+      expect(frames[0]!.message).toContain('Installing with pnpm 30s')
+      expect(recent.some(event => event.message.includes('Dependencies installed'))).toBe(true)
     })
   })
 })

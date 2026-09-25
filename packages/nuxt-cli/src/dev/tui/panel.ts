@@ -7,7 +7,7 @@ import { MUTED, paint } from '../../utils/terminal-theme'
 import { renderLogo } from './logo'
 import { stripAnsi, truncate, visibleWidth } from './width'
 
-export type DevStatus = 'starting' | 'building' | 'ready' | 'restarting' | 'error'
+export type DevStatus = 'starting' | 'building' | 'warming' | 'ready' | 'restarting' | 'error'
 
 export interface PanelURL {
   label: string
@@ -39,6 +39,8 @@ export interface PanelHint {
   label: string
   /** Higher survives longer when the line is too narrow. */
   priority: number
+  /** The shortcut is waiting on the server, and fires as soon as it is up. */
+  armed?: boolean
 }
 
 /**
@@ -67,12 +69,18 @@ export interface PanelState {
   urls?: PanelURL[]
   /** Milliseconds from process start to the first ready, once known. */
   readyMs?: number
+  /** The server is listening but has not answered a request yet. */
+  awaitingFirstRender?: boolean
   /** Milliseconds the current load has been running, while one is running. */
   elapsedMs?: number
   /** How far through startup the current load is, 0..1, while one is running. */
   progress?: number
   /** When the current load began, for the ticking elapsed time. */
   loadStartedAt?: number
+  /** When the current startup phase began, for its own ticking elapsed time. */
+  phaseStartedAt?: number
+  /** Milliseconds the current startup phase has been running. */
+  phaseElapsedMs?: number
   requests?: number
   medianMs?: number
   /** Warnings since the last successful load. */
@@ -88,8 +96,23 @@ export interface PanelState {
   active?: boolean
   /** Replaces the badge's standing description, for a restart reason. */
   note?: string
-  /** Passing feedback, shown for a moment and then dropped. */
-  notice?: { text: string, tone: 'info' | 'warn' | 'success' }
+  /**
+   * The request being rendered right now, and when it arrived. Held apart from
+   * `note` and `status`, which belong to the load: a request in flight is not a
+   * state of the load, and a load reporting itself ready again mid-render must
+   * not take it off the panel.
+   */
+  rendering?: { label: string, startedAt: number }
+  /** How long that render has been going, for its ticking clock. */
+  renderingMs?: number
+  /**
+   * Feedback in place of the badge's standing description. Passing unless it
+   * carries a `label`, which marks something waiting on the user: the label
+   * takes the badge's place until the notice is let go.
+   */
+  notice?: { text: string, tone: 'info' | 'warn' | 'success', label?: string }
+  /** Long-running work reported through the terminal host, while it runs. */
+  task?: { label: string, startedAt: number }
   confirmQuit?: boolean
   /** Shortcut hints, dropped lowest-priority first when the line is full. */
   hints?: PanelHint[]
@@ -111,6 +134,7 @@ const BADGES: Record<DevStatus, Badge> = {
   building: { label: 'BUILDING', style: ['bgYellow', 'black', 'bold'], note: 'compiling changes' },
   restarting: { label: 'RESTART', style: ['bgYellow', 'black', 'bold'], note: 'reloading the dev server' },
   error: { label: 'ERROR', style: ['bgRed', 'white', 'bold'], note: 'an error was logged · press e to view it' },
+  warming: { label: 'WARMUP', style: ['bgYellow', 'black', 'bold'], note: 'compiling the first request' },
   ready: { label: 'READY', style: ['bgGreen', 'black', 'bold'], note: 'watching for changes' },
 }
 
@@ -177,7 +201,10 @@ function renderWordmark(state: PanelState, columns: number): string {
   const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version ? ` ${styleText(MUTED, version)}` : ''}${
     state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`, state.background) : ''}`
 
-  const tail = state.readyMs === undefined
+  // How long the last load took says nothing about the one in flight, and a
+  // precise number is the wrong thing to be confident about mid-rebuild.
+  const settled = state.status === 'ready' || state.status === 'warming'
+  const tail = state.readyMs === undefined || !settled
     ? ''
     : styleText(MUTED, `ready in ${formatDuration(state.readyMs)} `)
   const gap = columns - visibleWidth(head) - visibleWidth(tail)
@@ -206,6 +233,19 @@ function renderURLs(state: PanelState, columns: number): string[] {
 
 const PROGRESS_BAR_WIDTH = 20
 
+const TASK_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'] as const
+const TASK_FRAMES_ASCII = ['|', '/', '-', '\\'] as const
+
+/** How long a phase runs before its own elapsed time is worth a mention. */
+const PHASE_ELAPSED_THRESHOLD = 2500
+
+/**
+ * How long a render runs before its own clock is worth showing. Lower than a
+ * phase's, because a render is only reported once it has already been in flight
+ * long enough to notice, and the clock is the only thing that moves.
+ */
+const RENDER_ELAPSED_THRESHOLD = 1000
+
 function renderProgress(state: PanelState, columns: number): string {
   const fraction = Math.min(1, Math.max(0, state.progress ?? 0))
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
@@ -222,6 +262,15 @@ function renderSummary(state: PanelState, columns: number): string[] {
 
   if (state.status !== 'ready' && state.status !== 'error' && state.progress !== undefined) {
     return [renderProgress(state, columns)]
+  }
+
+  // Work reported through the terminal host borrows the summary line: it is
+  // the panel's one transient row, and the counts return when the work is done.
+  if (state.task) {
+    const glyph = state.ascii ? TASK_FRAMES_ASCII : TASK_FRAMES
+    const mark = glyph[(state.frame ?? 0) % glyph.length]!
+    const elapsed = styleText(MUTED, `${((Date.now() - state.task.startedAt) / 1000).toFixed(1)}s`)
+    return [truncate(`   ${styleText('cyan', mark)} ${decapitalise(state.task.label)}${SEPARATOR}${elapsed}`, columns)]
   }
 
   const parts: string[] = []
@@ -277,10 +326,50 @@ function renderStatus(state: PanelState, columns: number): string {
     )
   }
 
-  const badge = BADGES[state.status]
-  const description = state.notice ? renderNotice(state) : styleText(MUTED, decapitalise(state.note || badge.note))
+  if (state.notice?.label) {
+    return truncate(
+      ` ${styleText(['bgYellow', 'black', 'bold'], ` ${state.notice.label} `)}  ${styleText(MUTED, decapitalise(state.notice.text))}`,
+      columns,
+    )
+  }
+
+  // A render is only worth reporting over a server with nothing else to say;
+  // a load in flight is the more important thing and keeps the line.
+  const rendering = state.status === 'ready' || state.status === 'warming' ? state.rendering : undefined
+  const badge = rendering && state.awaitingFirstRender ? BADGES.warming : BADGES[state.status]
+  const description = state.notice
+    ? renderNotice(state)
+    : rendering
+      ? styleText(MUTED, `rendering ${rendering.label}${renderRenderElapsed(state)}`)
+      : styleText(MUTED, decapitalise(state.note || badge.note) + renderPhaseElapsed(state))
   const head = ` ${styleText(badge.style, ` ${badge.label} `)}  ${description}`
-  return truncate(head + renderTicker(state, columns - visibleWidth(head)), columns)
+  // The request in flight is the more interesting one, and it is usually the
+  // same URL as the last: printing both reads as a stutter.
+  return truncate(head + (rendering ? '' : renderTicker(state, columns - visibleWidth(head))), columns)
+}
+
+/**
+ * How long the render in flight has taken. The only thing that moves on a panel
+ * whose server is up and waiting on a page, so it is what says the wait is
+ * progressing rather than stuck.
+ */
+function renderRenderElapsed(state: PanelState): string {
+  if (state.renderingMs === undefined || state.renderingMs < RENDER_ELAPSED_THRESHOLD) {
+    return ''
+  }
+  return ` \u00B7 ${(state.renderingMs / 1000).toFixed(1)}s`
+}
+
+/**
+ * How long the current phase has been running, appended to its own note. A
+ * phase can hold a startup for most of its length, and the number is what says
+ * the label is still making progress rather than stuck.
+ */
+function renderPhaseElapsed(state: PanelState): string {
+  if (!state.note || state.phaseElapsedMs === undefined || state.phaseElapsedMs < PHASE_ELAPSED_THRESHOLD) {
+    return ''
+  }
+  return ` \u00B7 ${(state.phaseElapsedMs / 1000).toFixed(1)}s`
 }
 
 /**
@@ -318,7 +407,9 @@ function renderHints(state: PanelState, columns: number): string {
     ...state.hints ?? [],
   ]
   const render = (items: PanelHint[]) => ` ${items
-    .map(({ key, label }) => `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
+    .map(({ key, label, armed }) => armed
+      ? `${paint('brand', key, state.background)} ${paint('brand', label, state.background)}`
+      : `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
     .join(SEPARATOR)}`
 
   while (remaining.length > 1 && visibleWidth(render(remaining)) > columns) {

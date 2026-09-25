@@ -1,8 +1,9 @@
 /* eslint-disable perfectionist/sort-imports -- `./force-tty` must be evaluated before anything that loads `std-env` or `consola` */
 import type { NuxtConfig } from '@nuxt/schema'
 import type { DevListenOverrides, Listener, ListenURL } from './listen'
-import type { DevProgressSnapshot } from './progress'
+import type { ProgressSnapshot } from '../utils/progress-snapshot'
 import type { DevRestartReason } from './reason'
+import type { DevReportSummary } from './error-channel'
 import type { ServerLogEvent } from './log-channel'
 import type { DevRequestEvent, DevRoutes, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
@@ -18,10 +19,12 @@ import { configureProjectConsola } from '../utils/console'
 import { overrideEnv } from '../utils/env.ts'
 import { isRemotePeerError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
 import { debug } from '../utils/logger'
+import { blankLineBefore, writeDirect } from '../utils/stdout'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
+import { closeErrorChannel, formatReportForTerminal } from './error-channel'
 import { currentRequest, isServingRequest } from './serving-state'
-import { createStartupReporter } from './startup-log'
+import { createPhaseReporter } from '../utils/phase-reporter'
 import { NuxtDevServer } from './utils'
 
 const start = Date.now()
@@ -30,6 +33,14 @@ const REQUEST_FLUSH_MS = 100
 const REQUEST_BATCH_LIMIT = 200
 const PENDING_REQUEST_BATCHES = 20
 const PENDING_LOG_LIMIT = 500
+const PENDING_REPORTS = 20
+
+/**
+ * How often a piped startup repeats the phase it is on, and the shortest gap
+ * between two narration lines within one phase. A single phase can hold a
+ * startup for tens of seconds, which is a long silence in a log file.
+ */
+const STARTUP_HEARTBEAT_MS = 2500
 
 /**
  * A fan-out that replays to the first subscriber, keeping at most `limit`
@@ -93,7 +104,7 @@ interface InitializeOptions {
    * Called with every startup progress snapshot, from before the first load
    * begins, so a UI can narrate startup as it happens rather than after.
    */
-  onProgress?: (snapshot: DevProgressSnapshot) => void
+  onProgress?: (snapshot: ProgressSnapshot) => void
   /**
    * Called as soon as a socket is bound, milliseconds into startup, and again
    * with `confirmed` once the resolved config has agreed with the address.
@@ -180,7 +191,9 @@ const ipc = new IPC()
 // The parent's UI needs structured log events for the error badge and the log
 // history, not just the formatted text it gets from the piped stdio. Forks
 // never run `setupGlobalConsole`, so the date column and `console.*` wrapping
-// are set up here to match what the parent does while it serves.
+// are set up here to match what the parent does while it serves. The app's
+// stdout is piped in here too, so a line it logs arrives this way as well as
+// over the log channel; `raw` is what lets the UI pair the two.
 if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
   consola.options.formatOptions.date = false
   consola.wrapAll()
@@ -195,6 +208,7 @@ if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
         origin: isServingRequest() ? 'runtime' : 'build',
         request: currentRequest()?.label,
         requestId: currentRequest()?.id,
+        raw: true,
       })
     },
   })
@@ -214,6 +228,10 @@ interface InitializeReturn {
   onLog: (callback: (log: ServerLogEvent) => void) => void
   /** Called with batches of served requests. */
   onRequests: (callback: (requests: DevRequestEvent[]) => void) => void
+  /** Called with reports the app forwarded, rendered for a terminal. */
+  onReport: (callback: (report: DevReportSummary) => void) => void
+  /** Called when the app reports that its error has gone. */
+  onReportClear: (callback: (id?: string) => void) => void
   /** Called when a server-side rebuild starts and finishes. */
   onBuilding: (callback: (building: boolean) => void) => void
   /** Called whenever the app's routes are (re)discovered. */
@@ -293,6 +311,31 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   const requests = createFeed<DevRequestEvent[]>(PENDING_REQUEST_BATCHES)
   const routes = createFeed<DevRoutes>(1)
   const building = createFeed<boolean>(0)
+  const reports = createFeed<DevReportSummary>(PENDING_REPORTS)
+  const reportsCleared = createFeed<string | undefined>(0)
+
+  // The app stops printing once the CLI owns the channel, so exactly one of
+  // these shows the report.
+  devServer.on('report', (report) => {
+    if (ipc.enabled) {
+      ipc.send({ type: 'nuxt:internal:dev:report', report })
+    }
+    else if (captureUIEvents) {
+      reports.emit(report)
+    }
+    // Verbatim: the rendering carries its own marker and colours.
+    if (!captureUIEvents) {
+      writeDirect(`${blankLineBefore()}${formatReportForTerminal(report)}\n`)
+    }
+  })
+  devServer.on('report:clear', (id) => {
+    if (ipc.enabled) {
+      ipc.send({ type: 'nuxt:internal:dev:report:clear', id })
+    }
+    else if (captureUIEvents) {
+      reportsCleared.emit(id)
+    }
+  })
 
   let closeLogChannel: (() => void) | undefined
   if (captureUIEvents) {
@@ -320,6 +363,22 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       routes.emit(payload)
     })
+
+    // The panel is painted by the parent, and a render in flight is all this
+    // fork has to report between being ready and having answered.
+    if (ipc.enabled) {
+      let reported: string | undefined
+      devServer.progress.onUpdate(({ status, pending, serving }) => {
+        const rendering = status === 'ready' ? pending : undefined
+        if (rendering?.label === reported) {
+          return
+        }
+        reported = rendering?.label
+        // Whether this is the render everything is waiting for is the fork's to
+        // know: the parent only sees that a request is in flight.
+        ipc.send({ type: 'nuxt:internal:dev:rendering', pending: rendering, awaiting: !serving })
+      })
+    }
 
     // A dev server serves a request per module on a cold page load, so requests
     // are batched rather than sent one IPC message at a time.
@@ -357,15 +416,38 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   // itself, so the transient reporter line would only fight it for the screen.
   const reporter = devContext.args.logLevel === 'silent' || ipc.enabled || ctx.captureUIEvents
     ? undefined
-    : createStartupReporter()
+    : createPhaseReporter({ heartbeat: STARTUP_HEARTBEAT_MS })
   const unsubscribeProgress = reporter && devServer.progress.onUpdate(reporter.update)
+  if (reporter) {
+    // The URL block is printed as soon as the socket is bound, which on a large
+    // project is a screenful of build output above the summary.
+    devServer.on('listening', ({ url }) => reporter.setURL(url))
+  }
+  const stopReporting = () => {
+    unsubscribeProgress?.()
+    reporter?.stop()
+  }
 
   try {
     await devServer.init()
   }
   finally {
-    unsubscribeProgress?.()
-    reporter?.stop()
+    // Nuxt being ready ends startup for this process but not for whoever is
+    // waiting on the first page, so the reporter stays subscribed to narrate
+    // it. Any state other than ready-but-not-serving has nothing left to wait
+    // for.
+    const snapshot = devServer.progress.snapshot
+    if (!reporter || snapshot?.status !== 'ready' || snapshot.serving) {
+      stopReporting()
+    }
+    else {
+      const unsubscribeServing = devServer.progress.onUpdate((snapshot) => {
+        if (snapshot.serving || snapshot.status === 'error') {
+          unsubscribeServing()
+          stopReporting()
+        }
+      })
+    }
   }
 
   if (process.env.DEBUG) {
@@ -400,6 +482,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       finally {
         devServer.progress.close()
+        devServer.closeErrorBridge()
+        await closeErrorChannel()
         devServer.releaseLock()
       }
     })()
@@ -429,6 +513,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     onLog: logs.subscribe,
     onRequests: requests.subscribe,
     onBuilding: building.subscribe,
+    onReport: reports.subscribe,
+    onReportClear: reportsCleared.subscribe,
     onRoutes: routes.subscribe,
     onFileChange: (callback: () => void) => {
       devServer.once('change', callback)

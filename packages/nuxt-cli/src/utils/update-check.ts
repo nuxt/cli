@@ -4,7 +4,7 @@ import { styleText } from 'node:util'
 
 import { readUser, updateUser } from 'rc9'
 import { isCI, isTest, provider } from 'std-env'
-import { isGreater, tryParse } from 'verkit'
+import { isGreaterThan, tryParse } from 'verkit'
 
 import { fetchJson } from './fetch'
 import { debug, writeNotice } from './logger'
@@ -84,7 +84,7 @@ async function resolveLatestVersion(name: string): Promise<string | undefined> {
 
   let latest: string | undefined
   try {
-    const { registry, authorization } = await detectNpmRegistry(null)
+    const { registry, authorization } = await detectNpmRegistry(null, null)
     latest = (await fetchJson<{ latest?: string }>(`${registry}/-/package/${name}/dist-tags`, {
       headers: authorization ? { Authorization: authorization } : undefined,
       timeout: FETCH_TIMEOUT,
@@ -124,7 +124,7 @@ export async function checkForUpdate(name: string, current: string | undefined):
     return undefined
   }
 
-  if (!isGreater(latest, current)) {
+  if (!isGreaterThan(latest, current)) {
     return undefined
   }
 

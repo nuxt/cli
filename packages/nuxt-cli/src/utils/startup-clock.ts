@@ -5,6 +5,8 @@
  * than how long a question sat on screen.
  */
 
+import { useTerminalHost } from './terminal-host'
+
 /** Closed pauses, as `[start, end]`. Only a handful happen in a session. */
 const pauses: Array<[number, number]> = []
 let pausedAt: number | undefined
@@ -32,6 +34,17 @@ export async function withStartupClockPaused<T>(work: () => Promise<T>): Promise
   finally {
     resumeStartupClock()
   }
+}
+
+/**
+ * {@link withStartupClockPaused}, with the terminal to itself.
+ *
+ * For work that talks to the user without going through consola's prompt,
+ * which borrows the terminal itself.
+ */
+export function withUserAttention<T>(work: () => Promise<T>): Promise<T> {
+  const host = useTerminalHost()
+  return withStartupClockPaused(host ? () => host.withTerminal(work) : work)
 }
 
 /**

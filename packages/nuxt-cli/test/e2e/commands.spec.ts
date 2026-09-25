@@ -132,7 +132,16 @@ describe('commands', () => {
       expect(res.exitCode).toBe(1)
       expect(res.stdout + res.stderr).toContain('create nuxt@latest my-app')
     },
-    'info': 'todo',
+    'info': async () => {
+      const res = await x(nuxi, ['info'], {
+        throwOnError: true,
+        nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
+      })
+      expect(res.exitCode).toBe(0)
+      const output = res.stdout + res.stderr
+      expect(output).toContain('Nuxt')
+      expect(output).toMatch(/Node.*\d\./)
+    },
   }
 
   it('throws error if no command is provided', async () => {

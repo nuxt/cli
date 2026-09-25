@@ -1,4 +1,4 @@
-import type { DevProgressSnapshot } from './progress'
+import type { ProgressSnapshot } from '../utils/progress-snapshot'
 
 import { inlineScript, progressClient, recoveryClient } from './loading-client'
 import { PROGRESS_PATH } from './progress'
@@ -16,7 +16,7 @@ const MAX_POLL_INTERVAL_MS = 1000
 const STYLES = `.nuxt-loader-bar{right:auto!important;width:var(${PROGRESS_PROPERTY},4%);transition:width .3s ease}
 #${CAPTION_ID}{position:fixed;left:0;right:0;bottom:14px;text-align:center;font:12px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif;opacity:.55;font-variant-numeric:tabular-nums}`
 
-function progressTags(snapshot: DevProgressSnapshot): string {
+function progressTags(snapshot: ProgressSnapshot): string {
   return `<style>${STYLES}</style>${inlineScript(progressClient, {
     progressPath: PROGRESS_PATH,
     captionId: CAPTION_ID,
@@ -35,7 +35,7 @@ function progressTags(snapshot: DevProgressSnapshot): string {
  * adds is a determinate bar, a phase caption, the build error inline, and a
  * reload driven by the server rather than by a poll interval.
  */
-export function withProgress(html: string, snapshot: DevProgressSnapshot): string {
+export function withProgress(html: string, snapshot: ProgressSnapshot): string {
   const tags = progressTags(snapshot)
   const index = html.lastIndexOf('</body>')
   return index === -1 ? html + tags : html.slice(0, index) + tags + html.slice(index)

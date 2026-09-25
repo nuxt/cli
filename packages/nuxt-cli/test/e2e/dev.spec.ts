@@ -139,17 +139,57 @@ describe('dev server', () => {
       const reader = response.body!.getReader()
       const decoder = new TextDecoder()
       let stream = ''
-      while (!stream.includes('event: nuxt:ready')) {
-        const { value, done } = await reader.read()
-        if (done) {
-          break
+      async function readUntil(marker: string): Promise<void> {
+        while (!stream.includes(marker)) {
+          const { value, done } = await reader.read()
+          if (done) {
+            return
+          }
+          stream += decoder.decode(value)
         }
-        stream += decoder.decode(value)
       }
+      // Only whole events, so a half-read chunk cannot be parsed as a snapshot.
+      const latest = () => JSON.parse([...stream.matchAll(/data: (.+)\n/g)].pop()![1]!)
+
+      await readUntil('event: nuxt:ready')
+      expect(stream).toContain('event: nuxt:ready')
+      // Whoever is streaming this is waiting for a page, and being ready means
+      // the server can accept that request rather than that it has answered it.
+      expect(latest()).toMatchObject({ status: 'ready', serving: false })
+
+      await fetch(`http://${host}:${port}/`, { headers: { accept: 'text/html' } })
+      await readUntil('"serving":true')
       await reader.cancel()
 
-      expect(stream).toContain('event: nuxt:ready')
-      expect(JSON.parse(stream.split('data: ').pop()!)).toMatchObject({ status: 'ready', progress: 1 })
+      expect(latest()).toMatchObject({ status: 'ready', serving: true, progress: 1 })
+    }
+    finally {
+      await close()
+    }
+  })
+
+  it('should reject internal endpoints for an unknown Host header', { timeout: 50_000 }, async () => {
+    const host = '127.0.0.1'
+    const port = await getPort({ host, port: 3034 })
+
+    const { result: { close } } = await runCommand('dev', [`--host=${host}`, `--port=${port}`, `--cwd=${fixtureDir}`]) as any
+
+    try {
+      // `fetch` refuses to forward a forged `Host`, so speak HTTP directly.
+      const { request } = await import('node:http')
+      const status = await new Promise<number | undefined>((resolve, reject) => {
+        const req = request({ host, port, path: '/__nuxt_dev__/progress', headers: { host: 'rebinding-attacker.com' } }, (res) => {
+          res.resume()
+          resolve(res.statusCode)
+        })
+        req.once('error', reject)
+        req.end()
+      })
+      expect(status).toBe(403)
+
+      const allowed = await fetch(`http://${host}:${port}/__nuxt_dev__/progress`)
+      expect(allowed.headers.get('content-type')).toBe('text/event-stream')
+      await allowed.body?.cancel()
     }
     finally {
       await close()
