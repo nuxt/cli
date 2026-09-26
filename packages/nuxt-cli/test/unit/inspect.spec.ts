@@ -114,4 +114,18 @@ describe('inspectDevWorkers', () => {
       await closeInspector()
     }
   })
+
+  it('should wait for the port to be released', async () => {
+    const port = await getFreePort()
+    const blocker = createServer()
+    await new Promise<void>(resolve => blocker.listen(port, '127.0.0.1', resolve))
+    setTimeout(() => blocker.close(), 300)
+    inspectDevWorkers(Session, { host: '127.0.0.1', port, wait: false })
+    try {
+      expect(await workerInspectorURL({ NITRO_DEV_WORKER_ID: '1' })).toMatch(`ws://127.0.0.1:${port}/`)
+    }
+    finally {
+      await closeInspector()
+    }
+  })
 })

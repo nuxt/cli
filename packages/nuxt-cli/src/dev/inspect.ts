@@ -139,7 +139,10 @@ function openWorkerInspector(host: string, port: number): void {
     }
   }
   const open = (): void => {
-    inspector.open(port, host, false)
+    try {
+      inspector.open(port, host, false)
+    }
+    catch {}
     if (!inspector.url()) {
       retry()
     }
@@ -150,7 +153,12 @@ function openWorkerInspector(host: string, port: number): void {
     }
     const probe = createServer()
     probe.unref()
-    probe.once('error', retry)
+    probe.once('error', (error: any) => {
+      if (error?.code === 'EADDRINUSE') {
+        return retry()
+      }
+      proc.stderr.write(`Could not start the inspector on ${host}:${port}: ${error?.message ?? error}\n`)
+    })
     probe.listen(port, host, () => probe.close(open))
   }
   attempt()
