@@ -12,11 +12,7 @@ const RENDER_DELAY_MS = 50
 /** How long a copy confirmation stays in the hint line. */
 const NOTICE_MS = 2000
 
-/**
- * The most that copying a whole view puts on the clipboard. What gets pasted is
- * going into an issue or an agent's prompt, where the newest entries matter and
- * ten thousand of them help nobody.
- */
+/** Most characters copying a whole view puts on the clipboard, keeping the newest entries. */
 const COPY_ALL_MAX_CHARS = 60_000
 
 /** Marks the selected entry; the same width is reserved on every row. */
@@ -84,10 +80,7 @@ export abstract class ScreenOverlay {
     return false
   }
 
-  /**
-   * Text for copying the whole view, for views whose rows are not what belongs
-   * on the clipboard. Every entry's own text is the fallback.
-   */
+  /** Text `Y` copies instead of every entry's own. */
   protected copyAllText(): Promise<string | undefined> | string | undefined {
     return undefined
   }
@@ -350,7 +343,6 @@ export abstract class ScreenOverlay {
     await this.#copy(text, 'copied')
   }
 
-  /** Copy everything the view is showing, filters and search applied. */
   async #copyAll(): Promise<void> {
     let custom: string | undefined
     try {
@@ -361,32 +353,28 @@ export abstract class ScreenOverlay {
       return
     }
     if (custom) {
-      // A view's own text reads from the top, so the head is what is kept.
-      return this.#copy(custom.slice(0, COPY_ALL_MAX_CHARS), 'copied')
+      return this.#copy(custom, 'copied')
     }
     const texts = this.#entries().map(entry => entry.copy).filter(text => !!text) as string[]
     if (!texts.length) {
       this.notify('nothing to copy')
       return
     }
-    // The tail is kept: entries run oldest first, and the newest are the ones
-    // that describe what just went wrong.
     let length = 0
     let start = texts.length
     while (start > 0 && length + texts[start - 1]!.length + 1 <= COPY_ALL_MAX_CHARS) {
       length += texts[--start]!.length + 1
     }
-    // A single entry over the limit is still worth having, cut short.
     const kept = start === texts.length ? [texts.at(-1)!.slice(0, COPY_ALL_MAX_CHARS)] : texts.slice(start)
     const count = kept.length === texts.length ? `${kept.length}` : `the last ${kept.length} of ${texts.length}`
     await this.#copy(kept.join('\n'), `copied ${count} ${texts.length === 1 ? 'entry' : 'entries'}`)
   }
 
   async #copy(text: string, done: string): Promise<void> {
-    // What lands on the clipboard is going into an issue, a search box or an
-    // agent's prompt, so it should carry no colour or hyperlink escapes.
     try {
       const { writeText } = await import('tinyclip')
+      // What lands on the clipboard is going into an issue or a search box,
+      // so it should carry no colour or hyperlink escapes.
       await writeText(stripAnsi(text))
       this.notify(`${done} to clipboard`)
     }
@@ -398,15 +386,8 @@ export abstract class ScreenOverlay {
   /** Replace the hint line with `text` for a moment. */
   protected notify(text: string): void {
     this.#notice = { text: `  ${text}`, until: Date.now() + NOTICE_MS }
-    // Copying is asynchronous, and the view may have been closed meanwhile.
-    if (this.#open) {
-      this.render()
-    }
-    setTimeout(() => {
-      if (this.#open) {
-        this.render()
-      }
-    }, NOTICE_MS + 50).unref?.()
+    this.repaint()
+    setTimeout(() => this.repaint(), NOTICE_MS + 50).unref?.()
   }
 
   #scheduleRender(): void {

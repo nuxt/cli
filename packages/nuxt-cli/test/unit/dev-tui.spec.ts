@@ -1815,15 +1815,23 @@ describe('info overlay', () => {
     expect(copied[0]).toBe('| **Nuxt version** | `4.5.1` |')
   })
 
-  it('holds the issue report to the same limit as any other copy', async () => {
+  it('does not draw once closed while the report is gathered', async () => {
     copied.length = 0
-    const overlay = new InfoOverlay(() => [], () => {}, () => {}, undefined, async () => `head${'x'.repeat(100_000)}`)
+    let output = ''
+    let finish!: (text: string) => void
+    const overlay = new InfoOverlay(() => [], (chunk) => {
+      output += chunk
+    }, () => {}, undefined, () => new Promise((resolve) => {
+      finish = resolve
+    }))
     overlay.open()
     overlay.handleKey({ name: 'y', sequence: 'Y' })
+    overlay.close()
+    const closedAt = output.length
+    finish('| report |')
 
-    await vi.waitFor(() => expect(copied).toHaveLength(1))
-    expect(copied[0]).toHaveLength(60_000)
-    expect(copied[0]!.startsWith('head')).toBe(true)
+    await vi.waitFor(() => expect(copied).toEqual(['| report |']))
+    expect(output.length).toBe(closedAt)
   })
 
   it('says so rather than copying its rows when the report cannot be gathered', async () => {

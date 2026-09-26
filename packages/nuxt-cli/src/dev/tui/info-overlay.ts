@@ -32,7 +32,7 @@ export class InfoOverlay extends ScreenOverlay {
     write: (chunk: string) => void,
     onClose: () => void,
     panel: () => string | undefined = () => undefined,
-    /** What belongs in a bug report, which is not what the view shows. */
+    /** The text `Y` copies in place of the rows. */
     report?: () => Promise<string>,
   ) {
     super({
@@ -50,11 +50,6 @@ export class InfoOverlay extends ScreenOverlay {
     this.#report = report
   }
 
-  /**
-   * The rows here are for whoever is at the terminal: URLs, uptime, a QR code.
-   * An issue wants the project's versions, config and modules instead, in the
-   * table `nuxt info` produces.
-   */
   protected async copyAllText(): Promise<string | undefined> {
     if (!this.#report) {
       return undefined
@@ -85,7 +80,6 @@ export class InfoOverlay extends ScreenOverlay {
 
     return withSidePanel(rows, this.#panel(), columns).map(line => ({
       lines: [line],
-      // A single value is what `y` is for; `Y` copies the issue report.
       copy: stripAnsi(line).trim().split(/\s{2,}/).at(-1),
     }))
   }
