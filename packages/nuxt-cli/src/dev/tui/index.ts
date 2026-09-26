@@ -31,6 +31,7 @@ import { attachKeys } from './keys'
 import { LOGO_FRAME_MS } from './logo'
 import { LogOverlay } from './overlay'
 import { describeListenURLs, URL_LABELS, URL_STYLES } from './panel'
+import { readProjectReport } from './project-report'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
@@ -140,11 +141,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     write,
     release,
     () => qrCode,
-    // Loaded on demand: gathering it evaluates the project's config.
-    async () => {
-      const { collectProjectInfo, formatMarkdownTable } = await import('../../commands/info')
-      return formatMarkdownTable((await collectProjectInfo(cwd)).info)
-    },
+    () => readProjectReport(cwd),
   )
   const views = [overlay, trafficOverlay, routeOverlay, helpOverlay, infoOverlay]
   const openOverlay = () => views.find(view => view.isOpen)
