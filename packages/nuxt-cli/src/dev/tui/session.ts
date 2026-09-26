@@ -16,6 +16,7 @@ import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { registerTerminalHost } from '../../utils/terminal-host'
 import { currentRequest, isServingRequest } from '../serving-state'
+import { isShutdownAdopted } from '../shutdown'
 import { queryBackground } from './background'
 import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
 import { createPanelState, renderPanelState } from './first-frame'
@@ -535,6 +536,12 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
   surface.externalOutput = 'capture'
 
   const onSignal = () => teardown({ keep: true })
+  const onInterrupt = (code: number) => () => {
+    teardown({ keep: true })
+    if (!isShutdownAdopted()) {
+      process.exit(code)
+    }
+  }
   // Merely listening for SIGHUP suppresses its default exit, and nothing else in
   // `nuxt dev` handles it, so a closed terminal would leave the server running
   // headless. 129 is the exit code the default disposition would have produced.
@@ -554,8 +561,8 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
   }
   handlers = [
     ['exit', onSignal],
-    ['SIGINT', onSignal],
-    ['SIGTERM', onSignal],
+    ['SIGINT', onInterrupt(130)],
+    ['SIGTERM', onInterrupt(143)],
     ['SIGHUP', onHangup],
     // Raw mode and a pinned panel would otherwise outlive the crash: node
     // prints the error and exits without unwinding through `exit` first.

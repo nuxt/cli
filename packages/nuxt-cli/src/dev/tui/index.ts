@@ -23,6 +23,7 @@ import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
 import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
+import { isShutdownAdopted } from '../shutdown'
 import { NOOP_CONTROLLER } from './controller'
 import { isBoxedNotice, normaliseMessage } from './events'
 import { HelpOverlay } from './help-overlay'
@@ -362,6 +363,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const quit = () => {
     session.teardown({ keep: true })
+    if (!isShutdownAdopted()) {
+      process.exit(130)
+    }
     process.emit('SIGINT' as any)
   }
 

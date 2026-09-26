@@ -19,7 +19,7 @@ import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { devShortcutContext } from '../dev/shortcut-context'
-import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
+import { adoptShutdown, SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
 import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
@@ -236,6 +236,7 @@ const command = defineCommand({
     provide({ clearCaches })
     const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
     setupSignalHandlers(() => shortcutContext.close())
+    adoptShutdown()
 
     // Evaluating the dev server's graph blocks the loop; let the panel answer
     // anything already typed first.
