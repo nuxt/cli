@@ -48,11 +48,11 @@ const command = defineCommand({
     ...extendsArgs,
     'inspect': {
       type: 'boolean',
-      description: 'Enable the Node.js inspector for the process serving your app (`--inspect=[host:]port`)',
+      description: 'Enable the Node.js inspector for server code (`--inspect=[host:]port`), and for the CLI process on the next port',
     },
     'inspect-brk': {
       type: 'boolean',
-      description: 'Enable the Node.js inspector and wait for a debugger to attach (`--inspect-brk=[host:]port`)',
+      description: 'Like `--inspect`, and wait for a debugger to attach to the CLI process before loading Nuxt (`--inspect-brk=[host:]port`)',
     },
     'tui': {
       type: 'boolean',

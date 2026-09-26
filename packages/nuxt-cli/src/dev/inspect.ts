@@ -1,3 +1,4 @@
+import type { Session } from 'node:inspector'
 import process from 'node:process'
 import { styleText } from 'node:util'
 import { debug, logger } from '../utils/logger'
@@ -86,11 +87,13 @@ function toPort(value: string): number | undefined {
 }
 
 /**
- * Open the inspector in the current process, or move it to the requested
- * address if Node already opened one via `execArgv`.
+ * Open the inspector for the nitro dev server worker on the requested address,
+ * and the inspector for this process on the next port. Node's own inspector
+ * from `execArgv` is moved there too.
  */
-export async function openInspector(options: InspectOptions): Promise<void> {
+export async function openInspector(inspectOptions: InspectOptions): Promise<void> {
   const inspector = await import('node:inspector')
+  const options = resolveProcessInspectOptions(inspectOptions)
 
   try {
     if (inspector.url()) {
@@ -102,11 +105,97 @@ export async function openInspector(options: InspectOptions): Promise<void> {
   catch (error) {
     logger.warn(`Could not start the inspector on ${styleText('cyan', `${options.host}:${options.port}`)}: ${error instanceof Error ? error.message : error}`)
   }
+
+  inspectDevWorkers(inspector.Session, { ...inspectOptions, wait: false })
+}
+
+let workerSession: Session | undefined
+
+/**
+ * Inspector address for the CLI process itself, which loads `nuxt.config` and
+ * modules. Server code runs in a nitro worker thread on the requested port.
+ */
+export function resolveProcessInspectOptions(options: InspectOptions): InspectOptions {
+  return { ...options, port: options.port === 0 ? 0 : options.port + 1 }
+}
+
+/**
+ * Runs inside a worker thread, so it must be self-contained. Waits for the
+ * port to be released by the worker it replaces before opening the inspector.
+ */
+function openWorkerInspector(host: string, port: number): void {
+  // eslint-disable-next-line node/prefer-global/process
+  const proc = (globalThis as any).process
+  const { workerData } = proc.getBuiltinModule('node:worker_threads')
+  if (!proc.env.NITRO_DEV_WORKER_ID && typeof workerData?.name !== 'string') {
+    return
+  }
+  const inspector = proc.getBuiltinModule('node:inspector')
+  const { createServer } = proc.getBuiltinModule('node:net')
+  const deadline = Date.now() + 10_000
+  const retry = (): void => {
+    if (Date.now() < deadline) {
+      setTimeout(attempt, 100).unref()
+    }
+  }
+  const open = (): void => {
+    try {
+      inspector.open(port, host, false)
+    }
+    catch {}
+    if (!inspector.url()) {
+      retry()
+    }
+  }
+  function attempt(): void {
+    if (port === 0) {
+      return open()
+    }
+    const probe = createServer()
+    probe.unref()
+    probe.once('error', (error: any) => {
+      if (error?.code === 'EADDRINUSE') {
+        return retry()
+      }
+      proc.stderr.write(`Could not start the inspector on ${host}:${port}: ${error?.message ?? error}\n`)
+    })
+    probe.listen(port, host, () => probe.close(open))
+  }
+  attempt()
+}
+
+/** Open an inspector inside each nitro dev worker thread this process starts. */
+export function inspectDevWorkers(SessionConstructor: typeof Session, options: InspectOptions): void {
+  try {
+    workerSession?.disconnect()
+    const session = new SessionConstructor()
+    session.connect()
+    const expression = `(${openWorkerInspector.toString()})(${JSON.stringify(options.host)}, ${options.port})`
+    session.on('NodeWorker.attachedToWorker', ({ params }) => {
+      const { sessionId } = params
+      const message = JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression } })
+      session.post('NodeWorker.sendMessageToWorker', { sessionId, message }, (error) => {
+        if (error) {
+          debug(`Could not open the inspector in a worker: ${error.message}`)
+        }
+      })
+    })
+    session.on('NodeWorker.receivedMessageFromWorker', ({ params }) => {
+      session.post('NodeWorker.detach', { sessionId: params.sessionId }, () => {})
+    })
+    session.post('NodeWorker.enable', { waitForDebuggerOnStart: false }, () => {})
+    workerSession = session
+  }
+  catch (error) {
+    debug(`Could not watch worker threads for the inspector: ${error}`)
+  }
 }
 
 /** Release the inspector port so another process (a fork) can bind to it. */
 export async function closeInspector(): Promise<void> {
   try {
+    workerSession?.disconnect()
+    workerSession = undefined
     const inspector = await import('node:inspector')
     if (inspector.url()) {
       inspector.close()
