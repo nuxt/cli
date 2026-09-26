@@ -13,6 +13,12 @@ export interface HelpEntry {
   description: string
 }
 
+const VIEW_ENTRIES: HelpEntry[] = [
+  { keys: ['y', 'enter'], description: 'copy the selected line' },
+  { keys: ['Y'], description: 'copy the whole view' },
+  { keys: ['/'], description: 'search' },
+]
+
 /** The keyboard shortcuts, as a view rather than a wall of log output. */
 export class HelpOverlay extends ScreenOverlay {
   #entries: () => HelpEntry[]
@@ -32,10 +38,15 @@ export class HelpOverlay extends ScreenOverlay {
 
   protected renderEntries(): OverlayEntry[] {
     const entries = this.#entries()
-    const width = Math.max(...entries.map(entry => formatKeys(entry).length))
-    return entries.map(entry => ({
+    const width = Math.max(...[...entries, ...VIEW_ENTRIES].map(entry => formatKeys(entry).length))
+    const row = (entry: HelpEntry): OverlayEntry => ({
       lines: [`${styleText('bold', formatKeys(entry).padEnd(width))}   ${styleText(MUTED, entry.description)}`],
-    }))
+    })
+    return [
+      ...entries.map(row),
+      { lines: ['', styleText('bold', 'in a view')] },
+      ...VIEW_ENTRIES.map(row),
+    ]
   }
 
   protected renderHints(columns: number): string {

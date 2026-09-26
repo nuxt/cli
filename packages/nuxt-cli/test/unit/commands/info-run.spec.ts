@@ -6,7 +6,7 @@ import { runCommand } from 'citty'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import info from '../../../src/commands/info'
+import info, { formatJsonAsMarkdownTable } from '../../../src/commands/info'
 import { render, screen } from '../../utils/terminal'
 
 vi.mock('tinyclip', () => ({ writeText: () => Promise.reject(new Error('no clipboard')) }))
@@ -81,6 +81,19 @@ describe('info command', () => {
 
     expect(payload.config).toContain('weird, key')
     expect(payload.modules).toEqual(['./modules/a, b.ts'])
+  })
+
+  it('should render `--json` output as the table it prints', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { modules: ['@nuxt/image'], app: {} }`)
+
+    const table = formatJsonAsMarkdownTable(await runInfoJSON())
+    vi.restoreAllMocks()
+    const output = await runInfo()
+
+    for (const row of table.trim().split('\n')) {
+      expect(output).toContain(row)
+    }
   })
 
   it('should still report on a project with no config', async () => {

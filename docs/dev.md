@@ -88,6 +88,8 @@ In an interactive terminal, `nuxt dev` renders a pinned panel: the server URLs, 
 | `?`         | Show all shortcuts                            |
 | `q`         | Quit                                          |
 
+Inside a view, `y` copies the selected row and `shift-y` copies every row the filters and search leave, keeping the newest when there is too much to paste. In the info view, `shift-y` copies the [`nuxt info`](/docs/api/commands/info) table instead.
+
 Pass `--no-tui` to stream logs instead, which is also what `NUXT_TUI=plain` does for good. `NUXT_TUI=1` forces the UI on where the environment checks would otherwise turn it off, but never where the output is piped or redirected.
 
 ![nuxt dev with plain output](/capture/output/nuxt-dev-plain-static.svg)

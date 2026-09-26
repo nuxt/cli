@@ -195,6 +195,18 @@ async function resolveDependencyVersion(
     ?? devDependencies[name]
 }
 
+/** Render `nuxt info --json` output as the Markdown table `nuxt info` copies. */
+export function formatJsonAsMarkdownTable(json: Record<string, unknown>): string {
+  const labels = Object.fromEntries(Object.entries(JSON_KEYS).map(([label, key]) => [key, label]))
+  const info: Record<string, string | undefined> = {}
+  for (const [key, value] of Object.entries(json)) {
+    if (labels[key]) {
+      info[labels[key]] = Array.isArray(value) ? value.map(item => `\`${item}\``).join(', ') : (value as string | null) ?? undefined
+    }
+  }
+  return formatMarkdownTable(info)
+}
+
 export function formatMarkdownTable(info: Record<string, string | undefined>): string {
   const entries = Object.entries(info).map(([label, value]) => [label, value || '-'] as const)
   const labelWidth = Math.max(...entries.map(([label]) => label.length + 4))
