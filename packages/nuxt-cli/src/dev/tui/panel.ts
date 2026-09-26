@@ -39,6 +39,8 @@ export interface PanelHint {
   label: string
   /** Higher survives longer when the line is too narrow. */
   priority: number
+  /** The shortcut is waiting on the server, and fires as soon as it is up. */
+  armed?: boolean
 }
 
 /**
@@ -405,7 +407,9 @@ function renderHints(state: PanelState, columns: number): string {
     ...state.hints ?? [],
   ]
   const render = (items: PanelHint[]) => ` ${items
-    .map(({ key, label }) => `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
+    .map(({ key, label, armed }) => armed
+      ? `${paint('brand', key, state.background)} ${paint('brand', label, state.background)}`
+      : `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
     .join(SEPARATOR)}`
 
   while (remaining.length > 1 && visibleWidth(render(remaining)) > columns) {

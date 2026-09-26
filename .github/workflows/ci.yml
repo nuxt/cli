@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
         env:
@@ -53,9 +53,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
-          runtime: node@22
+          runtime: node@22.23.3
           cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,7 +90,7 @@ jobs:
         run: pnpm --filter nuxt-cli-playground-nightly test
 
       - if: matrix.os != 'windows-latest'
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
 
   release:
     runs-on: ubuntu-latest
@@ -103,7 +103,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           runtime: node@latest
           cache: true
@@ -118,4 +118,7 @@ jobs:
 
       - name: 📦 release nightly
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node ./scripts/release-nightly.mjs
+        # the runner image ships npm 10, which predates OIDC trusted publishing
+        run: |
+          npm install -g npm@latest
+          node ./scripts/release-nightly.mjs

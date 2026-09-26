@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
+import { PassThrough } from 'node:stream'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -39,12 +40,12 @@ function stubStdin(reply?: string) {
 
 describe('terminal background query', () => {
   let queryBackground: Background['queryBackground']
-  let stopBackgroundQuery: Background['stopBackgroundQuery']
+  let whenStdinReleased: Background['whenStdinReleased']
   let resolveBackground: Theme['resolveBackground']
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ queryBackground, stopBackgroundQuery } = await import('../../src/dev/tui/background'))
+    ;({ queryBackground, whenStdinReleased } = await import('../../src/dev/tui/background'))
     ;({ resolveBackground } = await import('../../src/utils/terminal-theme'))
   })
 
@@ -97,24 +98,83 @@ describe('terminal background query', () => {
     expect(resolveBackground({})).toBe('unknown')
   })
 
-  it('gives stdin back the moment something else needs it', async () => {
-    const terminal = stubStdin()
-    const answer = queryBackground({
-      write: () => {},
-      stdin: terminal.stdin,
-      stdout: { isTTY: true },
-      env: { TERM: 'xterm-256color' },
-      timeout: 10_000,
-      ci: false,
-      test: false,
+  it('holds stdin until the question is answered', async () => {
+    const { answer, terminal } = ask(undefined, { timeout: 20 })
+    const held = whenStdinReleased()
+
+    expect(held).toBeDefined()
+    let released = false
+    void held!.then(() => {
+      released = true
     })
-    expect(terminal.calls.raw).toEqual([true])
+    expect(released).toBe(false)
 
-    stopBackgroundQuery()
+    terminal.emit('\u001B]11;rgb:1e1e/1e1e/1e1e\u0007')
+    await expect(answer).resolves.toBe('dark')
+    await held
+    expect(released).toBe(true)
+    expect(whenStdinReleased()).toBeUndefined()
+  })
 
-    // Synchronously, because the caller claims stdin in this same tick.
-    expect(terminal.calls.raw).toEqual([true, false])
-    await expect(answer).resolves.toBe('unknown')
+  it('hands stdin back as soon as someone types, and still reads a reply that follows', async () => {
+    const { answer, terminal } = ask(undefined, { timeout: 5000 })
+    const held = whenStdinReleased()
+
+    terminal.emit('r')
+    await held
+    expect(whenStdinReleased()).toBeUndefined()
+    expect(terminal.calls.unshifted.join('')).toBe('r')
+
+    terminal.emit('\u001B]11;rgb:1e1e/1e1e/1e1e\u0007')
+    await expect(answer).resolves.toBe('dark')
+  })
+
+  it('does not take stdin from a question that is still waiting', async () => {
+    const { attachKeys } = await import('../../src/dev/tui/keys')
+    const stdin = new PassThrough() as unknown as typeof process.stdin
+    const raw: boolean[] = []
+    Object.assign(stdin, { isTTY: true, isRaw: false, setRawMode: (mode: boolean) => {
+      raw.push(mode)
+      Object.assign(stdin, { isRaw: mode })
+    } })
+    const original = Object.getOwnPropertyDescriptor(process, 'stdin')!
+    Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
+
+    try {
+      const answer = queryBackground({
+        write: () => {},
+        stdout: { isTTY: true },
+        env: { TERM: 'xterm-256color' },
+        timeout: 50,
+        ci: false,
+        test: false,
+      })
+      const keys: Array<string | undefined> = []
+      const detach = attachKeys(key => keys.push(key.name))
+
+      // The question owns stdin, so nothing else may change the mode it restores.
+      expect(raw).toEqual([true])
+
+      stdin.write('\u001B]11;rgb:1e1e/1e1e/1e1e\u0007')
+      await expect(answer).resolves.toBe('dark')
+      await whenStdinReleased()
+      await new Promise(resolve => setImmediate(resolve))
+
+      expect(raw).toEqual([true, false, true])
+      stdin.write('o')
+      await new Promise(resolve => setImmediate(resolve))
+      detach()
+
+      expect(keys).toEqual(['o'])
+    }
+    finally {
+      Object.defineProperty(process, 'stdin', original)
+    }
+  })
+
+  it('is not holding stdin when there was nothing to ask', async () => {
+    await expect(ask(undefined, { env: { TERM: 'dumb' } }).answer).resolves.toBe('unknown')
+    expect(whenStdinReleased()).toBeUndefined()
   })
 
   it('leaves raw mode alone when it found stdin already in it', async () => {

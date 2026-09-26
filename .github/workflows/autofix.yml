@@ -18,7 +18,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
         with:
           cache: true
         env:
@@ -64,6 +64,6 @@ jobs:
 
       - name: 📼 Re-record terminal captures
         if: steps.capture-paths.outputs.changed == 'true'
-        run: node --experimental-strip-types capture/record.ts
+        run: node capture/record.ts
 
       - uses: autofix-ci/action@7a166d7532b277f34e16238930461bf77f9d7ed8 # 7a166d7532b277f34e16238930461bf77f9d7ed8

@@ -72,8 +72,11 @@ const initCommand = await import('../../src/init').then(r => r.default)
 let cwd: string
 
 class ExitError extends Error {
-  constructor(readonly code: number | undefined) {
+  readonly code: number | undefined
+
+  constructor(code: number | undefined) {
     super(`process.exit(${code})`)
+    this.code = code
   }
 }
 

@@ -3,7 +3,8 @@ import process from 'node:process'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { closeListener, closeNuxt, closeWatchers, devServers, releaseLock, startCpuProfile, stopCpuProfile } = vi.hoisted(() => ({
+const { closeErrorBridge, closeListener, closeNuxt, closeWatchers, devServers, releaseLock, startCpuProfile, stopCpuProfile } = vi.hoisted(() => ({
+  closeErrorBridge: vi.fn(),
   closeListener: vi.fn(() => Promise.resolve()),
   closeNuxt: vi.fn(() => Promise.resolve()),
   closeWatchers: vi.fn(),
@@ -20,13 +21,17 @@ vi.mock('../../../src/dev/utils', () => ({
   NuxtDevServer: class extends EventEmitter {
     listener = { url: 'http://127.0.0.1:3000', close: closeListener }
     closeWatchers = closeWatchers
+    closeErrorBridge = closeErrorBridge
     close = closeNuxt
     releaseLock = releaseLock
     load = vi.fn(() => Promise.resolve())
     progress = { onUpdate: vi.fn(() => () => {}), close: vi.fn() }
 
-    constructor(readonly options: Record<string, any>) {
+    options: Record<string, any>
+
+    constructor(options: Record<string, any>) {
       super()
+      this.options = options
       devServers.push(this)
     }
 
@@ -73,6 +78,7 @@ describe('initialize', () => {
 
     expect(order[0]).toBe('watchers')
     expect(order.at(-1)).toBe('lock')
+    expect(closeErrorBridge).toHaveBeenCalledTimes(1)
     expect(order).toContain('listener')
     expect(order).toContain('nuxt')
   })

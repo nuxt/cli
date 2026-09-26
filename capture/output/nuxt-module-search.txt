@@ -1,4 +1,4 @@
-styles: cfb7e719e9c6c714
+styles: 4556dcc182c8f324
 │
 │ │                                                                                            │
 │ │                                                                                          │
@@ -10,7 +10,6 @@ styles: cfb7e719e9c6c714
 │ │                         headless CMS.                                                  │
 │ │                         images.                                                        │
 │ │  Compatibility          nuxt: >=x.y.z                                                    │
-│ │  Compatibility          nuxt: >=x.y.z                                                   │
 │ │  Compatibility          nuxt: >=x.y.z                                                  │
 │ │  Compatibility          nuxt: >=x.y.z                                │
 │ │  Compatibility          nuxt: ^x.y.z || >=x.y.z                                            │

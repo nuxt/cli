@@ -117,6 +117,29 @@ async function serveLocally(server: InstanceType<typeof NuxtDevServer>, path: st
   return { status: res.statusCode }
 }
 
+/** Drive `handler` as a peer at `remoteAddress`, collecting the body it writes. */
+async function serveAsPeer(server: InstanceType<typeof NuxtDevServer>, remoteAddress: string, path = '/'): Promise<{ status: number, body: string }> {
+  const res = new EventEmitter() as any
+  res.statusCode = 200
+  res.headersSent = false
+  res.writableEnded = false
+  res.body = ''
+  res.setHeader = () => {}
+  res.end = (chunk?: string) => {
+    if (chunk) {
+      res.body += chunk
+    }
+    res.writableEnded = true
+    res.headersSent = true
+    res.emit('close')
+  }
+  const closed = new Promise<void>(resolve => res.once('close', resolve))
+  const req = { url: path, method: 'GET', headers: { accept: 'text/html', host: '127.0.0.1' }, rawHeaders: [], socket: { remoteAddress } } as any
+  await server.handler(req, res)
+  await closed
+  return { status: res.statusCode, body: res.body }
+}
+
 async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'nuxt-dev-lifecycle-'))
   tempDirs.push(dir)
@@ -142,7 +165,9 @@ afterEach(async () => {
     await server.listener?.close().catch(() => {})
     await server.close().catch(() => {})
   }
-  await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+  // A server that has just closed can still be flushing into `.nuxt`, which
+  // makes the removal race it and fail with ENOTEMPTY.
+  await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true, maxRetries: 3 })))
 })
 
 describe('dev server startup', () => {
@@ -261,6 +286,23 @@ describe('dev server failures', () => {
     const { status, body } = await get(server)
     expect(status).toBe(500)
     expect(body).toContain('broken on reload')
+  })
+
+  it('should keep the error history out of the failure page served to another machine', async () => {
+    const server = createServer()
+    await server.init()
+
+    loadNuxt.mockImplementation(() => Promise.reject(new Error('broken on reload')))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+
+    const local = await serveAsPeer(server, '127.0.0.1')
+    const remote = await serveAsPeer(server, '192.168.0.31')
+
+    expect(local.status).toBe(500)
+    expect(local.body).toMatch(/"history":\[\s*\{/)
+    expect(remote.status).toBe(500)
+    expect(remote.body).toContain('broken on reload')
+    expect(remote.body).not.toMatch(/"history":\[\s*\{/)
   })
 
   it('should recover once the config loads again', async () => {
@@ -505,6 +547,74 @@ describe('dev server shutdown', () => {
     await server.load(true, { type: 'shortcut' })
 
     await expect(pending).resolves.toMatchObject({ status: 503 })
+  })
+
+  it('should hand a request to the app once when the render fails', async () => {
+    let calls = 0
+    const nuxt = createNuxt()
+    nuxt.server.handler = (_req, res) => {
+      calls++
+      res.statusCode = 500
+      res.end('boom')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    await expect(get(server)).resolves.toMatchObject({ status: 500, body: 'boom' })
+    expect(calls).toBe(1)
+
+    await expect(get(server)).resolves.toMatchObject({ status: 500, body: 'boom' })
+    expect(calls).toBe(2)
+  })
+
+  it('should identify every request it forwards to the app', async () => {
+    const ids: Array<string | undefined> = []
+    const labels: Array<string | undefined> = []
+    const nuxt = createNuxt()
+    nuxt.server.handler = (req: any, res) => {
+      ids.push(req.headers['x-nuxt-dev-request-id'])
+      labels.push(req.headers['x-nuxt-dev-request-label'])
+      res.end('app')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    await get(server)
+    await get(server, '/about')
+
+    expect(ids).toHaveLength(2)
+    expect(ids[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(ids[1]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(ids[0]).not.toBe(ids[1])
+    expect(labels).toEqual(['GET%20%2F', 'GET%20%2Fabout'])
+  })
+
+  it('should replace attribution headers a client sent itself', async () => {
+    let seen: Record<string, string> = {}
+    let raw: string[] = []
+    const nuxt = createNuxt()
+    nuxt.server.handler = (req: any, res) => {
+      seen = req.headers
+      raw = req.rawHeaders
+      res.end('app')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { port } = server.listener.address as AddressInfo
+    await fetch(`http://127.0.0.1:${port}/`, {
+      headers: {
+        'x-nuxt-dev-request-id': 'forged',
+        'x-nuxt-dev-request-label': 'GET%20%2Fsomewhere-else',
+      },
+    }).then(response => response.text())
+
+    expect(seen['x-nuxt-dev-request-id']).not.toBe('forged')
+    expect(seen['x-nuxt-dev-request-label']).toBe('GET%20%2F')
+    expect(raw.filter(value => value === 'forged' || value === 'GET%20%2Fsomewhere-else')).toEqual([])
   })
 })
 

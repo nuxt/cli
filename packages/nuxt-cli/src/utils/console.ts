@@ -7,8 +7,8 @@ import { consola } from 'consola'
 import { resolveModulePath } from 'exsolve'
 
 import { isRemotePeerError } from './errors'
-import { tryResolveNuxt } from './kit'
 import { debug } from './logger'
+import { tryResolveNuxt } from './resolve-nuxt'
 import { withStartupClockPaused } from './startup-clock'
 import { isInteractiveSession, trackOutputSpacing } from './stdout'
 import { useTerminalHost } from './terminal-host'
@@ -89,6 +89,23 @@ export function restoreRawMode(): void {
   if (process.stdin.isRaw) {
     process.stdin.setRawMode(false)
   }
+}
+
+/**
+ * Guard a newly attached stdin reader against input it did not see typed: a
+ * terminal buffers keystrokes while nothing is reading and hands the whole run
+ * over in the first read once a reader resumes stdin. Anything arriving in a
+ * later read was typed while the reader was listening.
+ *
+ * Returns whether the input being handled is part of that replay.
+ */
+export function guardReplayedInput(): () => boolean {
+  let replaying = true
+  const settled = setImmediate(() => {
+    replaying = false
+  })
+  settled.unref?.()
+  return () => replaying
 }
 
 /**

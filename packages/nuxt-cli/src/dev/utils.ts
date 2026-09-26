@@ -1,13 +1,16 @@
 import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
+import type { ErrorReport } from 'my-bad'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher, Stats } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
-
 import type { PendingRender } from '../utils/progress-snapshot'
+
 import type { ResolvedCertificate } from './cert'
+import type { DevReportSummary } from './error-channel'
 import type { InspectOptions } from './inspect'
 import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
+import type { ServerLogEvent } from './log-channel'
 import type { DevRestartReason } from './reason'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
@@ -24,7 +27,7 @@ import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
 import { toNodeHandler } from 'srvx/node'
-import { provider } from 'std-env'
+import { isCI, provider } from 'std-env'
 
 import { showBanner } from '../utils/banner'
 import { loadDevServerHint, saveDevServerHint } from '../utils/dev-hint'
@@ -35,15 +38,16 @@ import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../uti
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { resolveServerBuild } from '../utils/server-build'
-import { renderError, renderErrorAnsi } from './error-lazy'
-import { isAllowedHost } from './host-check'
+import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
+import { sendErrorResponse } from './error-response'
+import { isAllowedHost, isLoopbackAddress } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
-import { encodeRequest, REQUEST_HEADER, runWithRequest } from './serving-state'
+import { createRequest, encodeRequestLabel, REQUEST_HEADER, REQUEST_LABEL_HEADER, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
 
 /**
@@ -93,11 +97,13 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:restart', reason?: DevRestartReason }
     | { type: 'nuxt:internal:dev:rejection', message: string }
     | { type: 'nuxt:internal:dev:loading:error', error: Error }
-    | { type: 'nuxt:internal:dev:log', level: number, logType: string, tag?: string, message: string, origin: 'build' | 'runtime', request?: string, requestId?: number }
+    | ({ type: 'nuxt:internal:dev:log' } & ServerLogEvent)
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }
     | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender, awaiting?: boolean }
+    | { type: 'nuxt:internal:dev:report', report: DevReportSummary }
+    | { type: 'nuxt:internal:dev:report:clear', id?: string }
 
 export interface NuxtDevContext {
   cwd: string
@@ -335,7 +341,7 @@ export interface DevRoute {
 /** A request served by the dev server, as shown in the dev UI. */
 export interface DevRequestEvent {
   /** Identity shared with the logs attributed to this request. */
-  id?: number
+  id?: string
   method: string
   url: string
   status: number
@@ -383,15 +389,23 @@ interface DevServerEventMap {
   'request': [event: DevRequestEvent]
   'routes': [payload: DevRoutes]
   'building': [building: boolean]
+  /** A report the app forwarded, rendered for a terminal. */
+  'report': [report: DevReportSummary]
+  'report:clear': [id?: string]
 }
 
 export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #handler?: RequestListener
+  /** Whether the app can reach this process, and so whether the CLI serves the channel. */
+  #ownsChannel = isThreadRunner(process.env.NITRO_DEV_RUNNER)
+  #errorChannel = DEFAULT_ERROR_CHANNEL
+  #closeErrorBridge?: () => void
+  /** The load that failed, served in place of the app until the next one succeeds. */
+  #loadingFailure?: { error: Error, report?: ErrorReport }
   #distWatcher?: FSWatcher
   #configWatcher?: () => void
   #currentNuxt?: NuxtWithServer
   #loadingMessage?: string
-  #loadingError?: Error
   #fileChangeTracker = new FileChangeTracker()
   #cwd: string
   #websocketConnections = new Set<any>()
@@ -416,14 +430,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   progress: DevProgress = this.#progress
   listener!: Listener
 
-  constructor(private options: NuxtDevServerOptions) {
+  private options: NuxtDevServerOptions
+
+  constructor(options: NuxtDevServerOptions) {
     super()
+
+    this.options = options
 
     this.loadDebounced = debounce(async () => {
       const reason = this.#pendingReason
       this.#pendingReason = undefined
 
-      if (reason?.type === 'config' && !this.#loadingError && await this.#isConfigUnchanged()) {
+      if (reason?.type === 'config' && !this.#loadingFailure && await this.#isConfigUnchanged()) {
         // eslint-disable-next-line no-console
         console.info(formatSkippedReload(reason, { rootDir: this.#cwd }))
         return
@@ -434,6 +452,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     this.#cwd = options.cwd
 
+    this.#announceErrorChannel()
+    this.#progress.onUpdate((snapshot) => {
+      void publishCliProgress(snapshot)
+    })
+
     this.handler = async (req, res) => {
       // Only the CLI's own dispatch may set the request-attribution header;
       // anything arriving on the wire is stripped so an external client cannot
@@ -442,7 +465,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
-      if ((req.url || '').split('?')[0]?.startsWith(DEV_INTERNAL_PREFIX)) {
+      const path = (req.url || '').split('?')[0] || '/'
+      if (path.startsWith(DEV_INTERNAL_PREFIX)) {
         if (this.#rejectDisallowedHost(req, res)) {
           return
         }
@@ -450,17 +474,39 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           return
         }
       }
+      // The default path answers alongside a configured one, for pages served
+      // before the config was known.
+      if (this.#ownsChannel && (isErrorChannelRequest(path, this.#errorChannel) || isErrorChannelRequest(path, DEFAULT_ERROR_CHANNEL))) {
+        if (this.#rejectDisallowedHost(req, res)) {
+          return
+        }
+        if (options.captureUIEvents) {
+          this.#internalResponses.add(res)
+        }
+        // A peer on another machine is served the channel scoped to its own
+        // request, since every header is forgeable over a direct connection.
+        const trusted = isLoopbackAddress(req.socket?.remoteAddress)
+        await handleErrorChannelRequest(req, res, this.#errorChannelOptions(), { trusted }).catch((error) => {
+          debug('Could not answer an error channel request:', error)
+          if (!res.writableEnded) {
+            res.end()
+          }
+        })
+        return
+      }
+      const method = req.method || 'GET'
+      const url = req.url || '/'
+      const request = createRequest(`${method} ${url}`)
+      const label = encodeRequestLabel(request)
+      req.headers[REQUEST_HEADER] = request.id
+      req.headers[REQUEST_LABEL_HEADER] = label
+      req.rawHeaders.push(REQUEST_HEADER, request.id, REQUEST_LABEL_HEADER, label)
       if (!options.captureUIEvents) {
         return this.#serve(req, res)
       }
       const start = performance.now()
-      const method = req.method || 'GET'
-      const url = req.url || '/'
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
-      return runWithRequest(`${method} ${url}`, (request) => {
-        const encoded = encodeRequest(request)
-        req.headers[REQUEST_HEADER] = encoded
-        req.rawHeaders.push(REQUEST_HEADER, encoded)
+      return runWithRequest(request, () => {
         res.once('close', () => {
           if (this.#internalResponses.delete(res)) {
             return
@@ -525,15 +571,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async #serve(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    if (this.#loadingError) {
+    const failure = this.#loadingFailure
+    if (failure) {
       if (this.#rejectDisallowedHost(req, res)) {
+        return
+      }
+      if (failure.report && await this.#renderReport(req, res, failure.report)) {
         return
       }
       // The error page answers a request the client made, so it stays in the
       // request feed rather than counting as one the CLI answered itself.
       // The recovery script makes the page reload itself once the next load
       // starts, so a fixed file shows up without the reader touching anything.
-      await renderError(req, res, this.#loadingError, { inject: RECOVERY_SCRIPT })
+      await sendErrorResponse(req, res, failure.error, { inject: RECOVERY_SCRIPT })
       return
     }
     if (!this.#handler) {
@@ -577,6 +627,87 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
     }
     this.#handler(req, res)
+  }
+
+  /** Root the project's own paths are written relative to. */
+  #rootDir(): string {
+    return this.#currentNuxt?.options.rootDir || this.#cwd
+  }
+
+  #errorChannelOptions(): { cwd: string, buildDir?: string } {
+    return { cwd: this.#cwd, buildDir: this.#currentNuxt?.options.buildDir }
+  }
+
+  /**
+   * Tell the app that the CLI owns the channel. The dev worker inherits this
+   * process's environment as it is when the worker starts, so this runs before
+   * Nuxt loads.
+   */
+  #announceErrorChannel(): void {
+    if (this.#ownsChannel) {
+      process.env[ERROR_CHANNEL_ENV] = this.#errorChannel
+    }
+  }
+
+  /** Start receiving the reports the app forwards. */
+  #openErrorBridge(): void {
+    if (!this.#ownsChannel) {
+      return
+    }
+    this.#closeErrorBridge ??= openErrorBridge({
+      onReport: (report, context) => {
+        void summariseReport(report, context, this.#rootDir())
+          .then(summary => this.emit('report', summary))
+          .catch(error => debug('Could not summarise a forwarded report:', error))
+      },
+      onClear: id => this.emit('report:clear', id),
+    }, this.#errorChannelOptions())
+  }
+
+  /** Move the channel to the path the config asks for, before the app is built. */
+  #resolveErrorChannel(): void {
+    if (!this.#ownsChannel || !this.#currentNuxt) {
+      return
+    }
+    const devServer = this.#currentNuxt.options.devServer as { errorChannel?: unknown }
+    const runner = (this.#currentNuxt.options.nitro?.devServer as { runner?: unknown } | undefined)?.runner
+    if (!isThreadRunner(typeof runner === 'string' ? runner : undefined)) {
+      this.#ownsChannel = false
+      delete process.env[ERROR_CHANNEL_ENV]
+      return
+    }
+    this.#errorChannel = resolveChannelPath(devServer.errorChannel) ?? DEFAULT_ERROR_CHANNEL
+    process.env[ERROR_CHANNEL_ENV] = this.#errorChannel
+  }
+
+  /**
+   * Serve `report` as a live error page, or `false` when it could not be
+   * rendered. The page dismisses itself once the channel clears the error.
+   * The report is build state broken for everyone, so any peer sees it; the
+   * history spans other requests, so only a peer on this machine sees that.
+   */
+  async #renderReport(req: IncomingMessage, res: ServerResponse, report: ErrorReport): Promise<boolean> {
+    if (!String(req.headers.accept || '').includes('text/html')) {
+      return false
+    }
+    try {
+      // Without a channel of our own there is nothing to subscribe to.
+      const channel = this.#ownsChannel ? await useErrorChannel(this.#errorChannelOptions()) : undefined
+      const html = await renderErrorPage(report, {
+        cwd: this.#rootDir(),
+        channel: channel && this.#errorChannel,
+        history: isLoopbackAddress(req.socket?.remoteAddress) ? channel?.history : undefined,
+      })
+      res.statusCode = 500
+      res.setHeader('Content-Type', 'text/html')
+      res.setHeader('Cache-Control', 'no-store')
+      res.end(html)
+      return true
+    }
+    catch (error) {
+      debug('Could not render the error page:', error)
+      return false
+    }
   }
 
   async #renderLoadingScreen(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -652,8 +783,24 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#progress.start(this.#loadingMessage)
     this.emit('loading', this.#loadingMessage)
 
+    this.#openErrorBridge()
     await this.#bindEagerListener()
 
+    try {
+      await this.#startNuxt()
+    }
+    catch (error) {
+      // A config that cannot be loaded is fixed in the editor, so keep the
+      // socket and serve the error, where there is someone to serve it to.
+      if (!this.#bound || isCI || !isInteractive()) {
+        throw error
+      }
+      await this.#reportLoadFailure(error, false)
+    }
+    this.#watchConfig()
+  }
+
+  async #startNuxt(): Promise<void> {
     await this.#loadNuxtInstance(this.#bound && this.listener.getURLs().map(({ url }) => url))
 
     // Acquire lock before serving so parallel agent invocations
@@ -666,12 +813,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     await this.#createListener()
     await this.#initializeNuxt(false)
-    this.#watchConfig()
   }
 
   closeWatchers(): void {
     this.#distWatcher?.close()
     this.#configWatcher?.()
+  }
+
+  /** Stop listening for forwarded reports. Call only on final shutdown, not during reloads. */
+  closeErrorBridge(): void {
+    this.#closeErrorBridge?.()
+    this.#closeErrorBridge = undefined
   }
 
   /**
@@ -689,20 +841,34 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
       await this.#load(reload, reason)
 
-      this.#loadingError = undefined
+      this.#loadingFailure = undefined
     }
     catch (error) {
-      console.error(
-        `Cannot ${reload ? 'restart' : 'start'} nuxt: `,
-        await renderErrorAnsi(error).catch(() => error),
-      )
-      this.#handler = undefined
-      this.#loadingError = error as Error
-      this.#loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
-      this.#progress.setError(error as Error)
-      this.emit('loading:error', error as Error)
+      await this.#reportLoadFailure(error, !!reload)
     }
     this.#watchConfig()
+  }
+
+  /** Serve and report a load that failed, in place of the app it would have served. */
+  async #reportLoadFailure(error: unknown, reload: boolean): Promise<void> {
+    this.#handler = undefined
+    this.#loadingFailure = { error: error as Error }
+    this.#loadingMessage = 'Error while loading Nuxt. Please check console and fix errors.'
+    this.#progress.setError(error as Error)
+    const report = await this.#publishError(error)
+    // Reported rather than printed, so whoever owns the terminal renders it.
+    const summary = report && await summariseReport(report, {}, this.#rootDir())
+      .catch(reportError => void debug('Could not summarise the report:', reportError))
+    if (summary) {
+      this.emit('report', summary)
+    }
+    else {
+      console.error(
+        `Cannot ${reload ? 'restart' : 'start'} nuxt: `,
+        (error as Error)?.stack ?? String(error),
+      )
+    }
+    this.emit('loading:error', error as Error)
   }
 
   #createLoadOptions(urls?: string[]): LoadNuxtOptionsWithConfigDiff {
@@ -1069,6 +1235,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       throw new Error('Nuxt must be loaded before configuration')
     }
 
+    this.#resolveErrorChannel()
+
     this.#progress.attachNuxt(this.#currentNuxt.hooks, {
       installedModules: () => this.#currentNuxt?.options._installedModules?.length ?? 0,
     })
@@ -1225,6 +1393,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this.#progress.setReady()
+    void withErrorChannel(channel => channel.clearError())
     this.emit('ready', serverUrl)
   }
 
@@ -1233,6 +1402,31 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (this.#currentNuxt) {
       await this.#currentNuxt.close()
     }
+  }
+
+  /** Publish a startup or build failure to the channel. */
+  async #publishError(error: unknown): Promise<ErrorReport | undefined> {
+    let report: ErrorReport
+    try {
+      report = await createCliReport(error, { cwd: this.#rootDir() })
+    }
+    catch (reportError) {
+      debug('Could not build a report for the error:', reportError)
+      return undefined
+    }
+    if (this.#loadingFailure) {
+      this.#loadingFailure.report = report
+    }
+    if (this.#ownsChannel) {
+      try {
+        const channel = await useErrorChannel(this.#errorChannelOptions())
+        channel.setError(report)
+      }
+      catch (channelError) {
+        debug('Could not publish the error to the channel:', channelError)
+      }
+    }
+    return report
   }
 
   /** Release the lock file. Call only on final shutdown, not during reloads. */
@@ -1335,20 +1529,27 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 }
 
 /**
- * Remove any wire-supplied copy of the request-attribution header, from both
+ * Remove any wire-supplied copy of the request-attribution headers, from both
  * the parsed headers and `rawHeaders` (which some frameworks reconstruct
- * requests from), before the CLI sets its own value.
+ * requests from), before the CLI sets its own values.
  */
 function stripRequestHeader(req: IncomingMessage): void {
-  if (req.headers[REQUEST_HEADER] === undefined) {
+  if (req.headers[REQUEST_HEADER] === undefined && req.headers[REQUEST_LABEL_HEADER] === undefined) {
     return
   }
   delete req.headers[REQUEST_HEADER]
+  delete req.headers[REQUEST_LABEL_HEADER]
   for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
-    if (req.rawHeaders[i]?.toLowerCase() === REQUEST_HEADER) {
+    const name = req.rawHeaders[i]?.toLowerCase()
+    if (name === REQUEST_HEADER || name === REQUEST_LABEL_HEADER) {
       req.rawHeaders.splice(i, 2)
     }
   }
+}
+
+/** Whether anyone is watching this terminal, directly or through the panel. */
+function isInteractive(): boolean {
+  return !!process.stdout.isTTY || !!process.env.__NUXT_DEV_PIPED_TTY__
 }
 
 function getAddressURL(addr: { address: string, port: number }, https: boolean) {

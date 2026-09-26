@@ -1,5 +1,5 @@
 import { existsSync, statSync } from 'node:fs'
-import { delimiter, relative } from 'node:path'
+import { relative } from 'node:path'
 import process from 'node:process'
 import { link } from 'clickable-path'
 import { resolve } from 'pathe'
@@ -60,8 +60,4 @@ export function relativeTo(dir: string, path: string, options: { link?: boolean 
     return relative(dir, resolve(dir, path)) || path
   }
   return link(path, { cwd: dir, formatter: absolute => relative(dir, absolute) || absolute })
-}
-
-export function withNodePath(path: string) {
-  return [path, ...(process.env.NODE_PATH?.split(delimiter) || [])]
 }

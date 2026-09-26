@@ -7,7 +7,9 @@ interface PatchableStream extends NodeJS.WriteStream {
   __write?: WriteFn
 }
 
-const REPAINT_DELAY_MS = 16
+/** How long after the last resize event a drag is taken to be over. */
+const RESIZE_SETTLE_MS = 120
+
 const PENDING_CHUNK_LIMIT = 2000
 
 /**
@@ -47,7 +49,6 @@ export class PanelSurface {
    * mid-line does not.
    */
   #atLineStart = true
-  #repaintTimer?: NodeJS.Timeout
   #restore: Array<() => void> = []
   #raw: WriteFn
   #closed = false
@@ -58,10 +59,20 @@ export class PanelSurface {
   #pending: PendingOutput[] = []
   #rowsWritten = 0
   #rows = process.stdout.rows || 24
+  #columns = process.stdout.columns || 80
   #onResize = () => {
     const rows = process.stdout.rows || 24
+    const columns = process.stdout.columns || 80
     const grew = rows > this.#rows
+    const rewrapped = columns !== this.#columns
     this.#rows = rows
+    this.#columns = columns
+    if (this.#screen === 'alternate-screen') {
+      this.#resizedWhileHidden = true
+      this.#rewrappedWhileHidden ||= rewrapped
+      this.#resized?.()
+      return
+    }
     // The owner re-renders; the cached lines were laid out for the old width.
     this.#erase()
     this.#resized?.()
@@ -71,8 +82,16 @@ export class PanelSurface {
     if (grew) {
       this.padToBottom()
     }
+    if (rewrapped) {
+      this.#scheduleRecovery()
+    }
   }
 
+  #resizedWhileHidden = false
+  #rewrappedWhileHidden = false
+  #recoverTimer?: NodeJS.Timeout
+  /** Paint against the last row rather than wherever the cursor is. */
+  #reseat = false
   #resized?: () => void
 
   constructor(options: { onResize?: () => void } = {}) {
@@ -85,6 +104,11 @@ export class PanelSurface {
     }
     process.stdout.on('resize', this.#onResize)
     this.#restore.push(() => process.stdout.off('resize', this.#onResize))
+  }
+
+  /** Repaint through this callback whenever the terminal is resized. */
+  onResize(listener: () => void): void {
+    this.#resized = listener
   }
 
   /** Hand the terminal to a full-screen view, or take it back. */
@@ -102,7 +126,19 @@ export class PanelSurface {
       return
     }
     this.#flush()
-    this.#paint()
+    const resized = this.#resizedWhileHidden
+    const rewrapped = this.#rewrappedWhileHidden
+    this.#resizedWhileHidden = false
+    this.#rewrappedWhileHidden = false
+    if (rewrapped) {
+      this.#recover()
+    }
+    else if (resized) {
+      this.padToBottom()
+    }
+    else {
+      this.#paint()
+    }
   }
 
   /**
@@ -137,8 +173,6 @@ export class PanelSurface {
       return () => {}
     }
     this.#suspended = true
-    clearTimeout(this.#repaintTimer)
-    this.#repaintTimer = undefined
     this.#erase()
     let resumed = false
     return () => {
@@ -158,8 +192,13 @@ export class PanelSurface {
     if (this.#closed || this.#screen === 'alternate-screen' || unchanged) {
       return
     }
-    this.#erase()
-    this.#paint()
+    this.#paint(this.#eraseSequence())
+  }
+
+  /** Paint `lines` already resting on the last row, in one write. */
+  renderAtBottom(lines: string[]): void {
+    this.#lines = lines
+    this.padToBottom()
   }
 
   /**
@@ -173,13 +212,42 @@ export class PanelSurface {
     if (this.#closed || this.#suspended || this.#screen === 'alternate-screen') {
       return
     }
-    this.#erase()
+    const erase = this.#eraseSequence()
     const rows = process.stdout.rows || 24
     const padding = rows - this.#lines.length - this.#rowsWritten - 1
-    if (padding > 0) {
-      this.#raw('\n'.repeat(padding))
-      this.#rowsWritten += padding
+    if (padding <= 0) {
+      this.#paint(erase)
+      return
     }
+    this.#rowsWritten += padding
+    this.#atLineStart = true
+    this.#paint(`${erase}${'\n'.repeat(padding)}`)
+  }
+
+  #scheduleRecovery(): void {
+    clearTimeout(this.#recoverTimer)
+    this.#recoverTimer = setTimeout(() => {
+      this.#recoverTimer = undefined
+      this.#recover()
+    }, RESIZE_SETTLE_MS)
+    this.#recoverTimer.unref?.()
+  }
+
+  /**
+   * Scroll the screen into the scrollback and paint the panel on what is left.
+   *
+   * A terminal re-wraps the screen when its width changes, so afterwards
+   * neither the rows the panel occupies nor the row the cursor is on follow
+   * from what was painted, and there is nothing to erase against.
+   */
+  #recover(): void {
+    if (this.#closed || this.#suspended || this.#screen !== 'split-footer' || !this.#lines.length) {
+      return
+    }
+    this.#painted = 0
+    this.#raw('\n'.repeat(process.stdout.rows || 24))
+    this.#atLineStart = true
+    this.#reseat = true
     this.#paint()
   }
 
@@ -220,7 +288,8 @@ export class PanelSurface {
     }
     this.#externalOutput = 'passthrough'
     this.#sink = undefined
-    clearTimeout(this.#repaintTimer)
+    this.#reseat = false
+    clearTimeout(this.#recoverTimer)
     this.#erase()
     // Whatever a view was holding is the session's last word on what happened,
     // and there is no longer anywhere to fold it away to.
@@ -264,10 +333,11 @@ export class PanelSurface {
         }
         return true
       }
+      // The panel comes back in the same tick: a frame without it reads as a blink.
       this.#erase()
       this.#track(asText(chunk))
       const result = original.call(stream, chunk, encoding, callback)
-      this.#scheduleRepaint()
+      this.#paint()
       return result
     }
     stream[target] = guarded
@@ -312,10 +382,9 @@ export class PanelSurface {
   }
 
   #toScrollback(text: string): void {
-    this.#erase()
+    const erase = this.#eraseSequence()
     this.#track(text)
-    this.#raw(text)
-    this.#scheduleRepaint()
+    this.#paint(`${erase}${text}`)
   }
 
   #track(text: string | undefined): void {
@@ -326,36 +395,49 @@ export class PanelSurface {
     this.#atLineStart = text.endsWith('\n')
   }
 
-  #scheduleRepaint(): void {
-    if (this.#repaintTimer) {
+  /** `before` is written in the same call, for callers making room first. */
+  #paint(before = ''): void {
+    if (!this.#lines.length || this.#closed || this.#suspended || this.#screen === 'alternate-screen') {
+      if (before) {
+        this.#raw(before)
+      }
       return
     }
-    this.#repaintTimer = setTimeout(() => {
-      this.#repaintTimer = undefined
-      if (!this.#closed && !this.#painted) {
-        this.#paint()
-      }
-    }, REPAINT_DELAY_MS)
-    this.#repaintTimer.unref?.()
-  }
-
-  #paint(): void {
-    if (!this.#lines.length || this.#closed || this.#suspended || this.#screen === 'alternate-screen') {
-      return
+    let prefix = before
+    if (this.#reseat) {
+      this.#reseat = false
+      const rows = process.stdout.rows || 24
+      this.#rowsWritten = Math.max(0, rows - this.#lines.length)
+      // Seating at an absolute row supersedes whatever room the caller made.
+      prefix = `\u001B[${Math.max(1, rows - this.#lines.length + 1)};1H\u001B[J`
+      this.#atLineStart = true
     }
     const leading = this.#atLineStart ? '' : '\n'
-    this.#raw(`${leading}${this.#lines.join('\n')}`)
+    this.#raw(`${prefix}${leading}${this.#lines.join('\n')}`)
     this.#painted = this.#lines.length
   }
 
   #erase(): void {
+    const sequence = this.#eraseSequence()
+    if (sequence) {
+      this.#raw(sequence)
+    }
+  }
+
+  /**
+   * The sequence that takes the painted rows off the screen, marking them gone.
+   *
+   * Returned rather than written so a repaint sends it with the rows that
+   * replace it: two writes are two frames on a terminal that presents between.
+   */
+  #eraseSequence(): string {
     if (!this.#painted) {
-      return
+      return ''
     }
     const up = this.#painted - 1
-    this.#raw(`\r${up > 0 ? `\u001B[${up}A` : ''}\u001B[J`)
     this.#painted = 0
     this.#atLineStart = true
+    return `\r${up > 0 ? `\u001B[${up}A` : ''}\u001B[J`
   }
 }
 

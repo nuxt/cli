@@ -6,6 +6,10 @@ minimumReleaseAgeExclude:
   - vue
   - '@vue/*'
   - fuzzysort@4.0.1
+  - errx@0.2.1 || 0.2.2
+  - my-bad@0.2.2 || 0.2.5 || 0.2.6 || 0.2.7
+
+verifyDepsBeforeRun: install
 
 packages:
   - packages/*
@@ -13,28 +17,36 @@ packages:
   - playground
   - playground-nightly
 
-verifyDepsBeforeRun: install
-
 overrides:
   '@nuxt/cli': workspace:*
   # scoped by range: `playground-nightly` resolves its own Nuxt 5 nightly schema
   '@nuxt/schema@^4': 4.5.2
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
-  eslint-plugin-jsdoc: 64.3.2
-  eslint-plugin-unicorn: 74.0.0
+  eslint-plugin-jsdoc: 64.5.4
+  eslint-plugin-unicorn: 76.0.0
   # scoped by range: nitro v3 in `playground-nightly` needs h3 v2
   h3@^1: ^1.15.11
   httpxy: 0.5.5
   nitropack: 2.13.4
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
-  rolldown: 1.2.7
+  rolldown: 1.2.9
+
+packageExtensions:
+  # nitro@3.0.260903-beta dropped its optional `vite` peer, so its dev worker
+  # resolves a hoisted vite 7 instead of the vite 8 the builder runs
+  nitro:
+    peerDependencies:
+      vite: ^7 || ^8
+    peerDependenciesMeta:
+      vite:
+        optional: true
+
+patchedDependencies:
+  citty@0.2.2: patches/citty@0.2.2.patch
 
 allowBuilds:
   '@parcel/watcher': false
   esbuild: false
   unrs-resolver: false
-
-patchedDependencies:
-  citty@0.2.2: patches/citty@0.2.2.patch

@@ -13,10 +13,11 @@ import { buildSuite } from './suites/build.ts'
 import { devSuite } from './suites/dev.ts'
 import { footprintSuite } from './suites/footprint.ts'
 import { modulesSuite } from './suites/modules.ts'
+import { panelSuite } from './suites/panel.ts'
 import { restartSuite } from './suites/restart.ts'
 import { startupSuite } from './suites/startup.ts'
 
-const ALL_SUITES = ['startup', 'modules', 'dev', 'restart', 'build', 'footprint'] as const
+const ALL_SUITES = ['startup', 'modules', 'panel', 'dev', 'restart', 'build', 'footprint'] as const
 type SuiteName = typeof ALL_SUITES[number]
 
 const { values } = parseArgs({
@@ -27,6 +28,7 @@ const { values } = parseArgs({
     'workdir': { type: 'string', default: join(homedir(), '.cache', 'nuxt-cli-bench') },
     'out': { type: 'string', default: join(repoRoot, 'bench/results/report.md') },
     'startup-reps': { type: 'string', default: '15' },
+    'panel-reps': { type: 'string', default: '5' },
     'dev-reps': { type: 'string', default: '5' },
     'restart-reps': { type: 'string', default: '5' },
     'build-reps': { type: 'string', default: '3' },
@@ -46,10 +48,10 @@ mkdirSync(workdir, { recursive: true })
 
 console.log(`workdir: ${workdir}`)
 const targets = prepareTargets(workdir, values.baseline!)
-const needsFixtures = suites.has('dev') || suites.has('restart') || suites.has('build')
+const needsFixtures = suites.has('panel') || suites.has('dev') || suites.has('restart') || suites.has('build')
 const fixtures = needsFixtures ? prepareFixtures(workdir).filter(fixture => values.fixture!.includes(fixture.id)) : []
 if (needsFixtures && fixtures.length === 0) {
-  throw new Error(`no fixtures matched ${values.fixture!.join(', ')}; the dev, restart and build suites need at least one`)
+  throw new Error(`no fixtures matched ${values.fixture!.join(', ')}; the panel, dev, restart and build suites need at least one`)
 }
 for (const target of targets) {
   console.log(`target ${target.id}: ${target.spec} -> v${target.version}`)
@@ -75,6 +77,12 @@ if (suites.has('modules')) {
   const { markdown, results } = await modulesSuite(targets, workdir)
   json.modules = moduleResults = results
   sections.push(`## Module load cost\n\n${markdown}`)
+}
+
+if (suites.has('panel')) {
+  console.log('running panel suite')
+  const { markdown } = await panelSuite(targets, fixtures, Number(values['panel-reps']))
+  sections.push(`## \`nuxt dev\` panel startup\n\n${markdown}`)
 }
 
 if (suites.has('dev')) {

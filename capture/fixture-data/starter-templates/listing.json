@@ -1,0 +1,87 @@
+[
+  {
+    "name": "community",
+    "type": "dir",
+    "download_url": null
+  },
+  {
+    "name": "content.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/content.json"
+  },
+  {
+    "name": "doc-driven.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/doc-driven.json"
+  },
+  {
+    "name": "hub.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/hub.json"
+  },
+  {
+    "name": "layer.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/layer.json"
+  },
+  {
+    "name": "minimal.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/minimal.json"
+  },
+  {
+    "name": "module-devtools.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/module-devtools.json"
+  },
+  {
+    "name": "module.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/module.json"
+  },
+  {
+    "name": "ui-vue.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/ui-vue.json"
+  },
+  {
+    "name": "ui-vue",
+    "type": "dir",
+    "download_url": null
+  },
+  {
+    "name": "ui.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/ui.json"
+  },
+  {
+    "name": "ui",
+    "type": "dir",
+    "download_url": null
+  },
+  {
+    "name": "v2-bridge.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/v2-bridge.json"
+  },
+  {
+    "name": "v3.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/v3.json"
+  },
+  {
+    "name": "v4-compat.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/v4-compat.json"
+  },
+  {
+    "name": "v4.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/v4.json"
+  },
+  {
+    "name": "v5-nightly.json",
+    "type": "file",
+    "download_url": "https://raw.githubusercontent.com/nuxt/starter/templates/templates/v5-nightly.json"
+  }
+]

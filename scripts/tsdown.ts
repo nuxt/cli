@@ -43,7 +43,7 @@ export function defineCliConfig(config: UserConfig & PackagingContract): UserCon
     fixedExtension: true,
     failOnWarn: !isAnalysingSize,
     ...rest,
-    dts: !isAnalysingSize && { oxc: true, ...(typeof dts === 'object' ? dts : {}) },
+    dts: !isAnalysingSize && { generator: 'oxc', ...(typeof dts === 'object' ? dts : {}) },
     plugins: [
       ...(traced.length ? [externals({ include: traced })] : []),
       purgePolyfills.rolldown({ logLevel: 'verbose' }),
