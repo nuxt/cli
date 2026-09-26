@@ -1483,7 +1483,7 @@ describe('log overlay', () => {
   it('copies every entry the filters leave', async () => {
     const events = new DevEventLog()
     events.push(event({ message: 'all good', source: 'cli' }))
-    events.push(event({ message: 'boom\n    at handler (server/api/x.ts:3:9)', level: 0, type: 'error', request: 'GET /x', requestId: 1, source: 'runtime' }))
+    events.push(event({ message: 'boom\n    at handler (server/api/x.ts:3:9)', level: 0, type: 'error', request: 'GET /x', requestId: '1', source: 'runtime' }))
     events.push(event({ message: 'careful', level: 1, type: 'warn', tag: 'vite', source: 'build' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
@@ -1753,6 +1753,13 @@ describe('help overlay', () => {
     expect(lastFrame()).toContain('shift-r')
     expect(lastFrame()).toContain('h / ?')
     expect(lastFrame()).toContain('restart the dev server')
+  })
+
+  it('lists the keys available inside a view', () => {
+    const { overlay, lastFrame } = create()
+    overlay.open()
+    expect(lastFrame()).toContain('in a view')
+    expect(lastFrame()).toMatch(/shift-y\s+copy the whole view/)
   })
 
   it('closes on h as well as q', () => {
