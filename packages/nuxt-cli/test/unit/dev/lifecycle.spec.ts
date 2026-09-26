@@ -1,8 +1,9 @@
-import type { AddressInfo } from 'node:net'
+import type { AddressInfo, Socket } from 'node:net'
 
 import { EventEmitter } from 'node:events'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
 
@@ -449,6 +450,32 @@ describe('dev server shutdown', () => {
 
     expect(close).toHaveBeenCalledTimes(1)
     expect(existsSync(join(cwd, '.nuxt', 'nuxt.lock'))).toBe(false)
+  })
+
+  it('should drop open websocket connections before running nuxt close hooks', async () => {
+    const nuxt = createNuxt()
+    const upgraded = new Set<Socket>()
+    Object.assign(nuxt.server, {
+      upgrade: (_req: unknown, socket: Socket) => {
+        upgraded.add(socket)
+        socket.once('close', () => upgraded.delete(socket))
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n')
+      },
+    })
+    nuxt.hook('close', () => vi.waitFor(() => expect(upgraded.size).toBe(0), { timeout: 2000 }))
+    nuxt.close = () => nuxt.callHook('close')
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    const { port } = server.listener.address as AddressInfo
+
+    const client = connect(port, '127.0.0.1')
+    client.on('error', () => {})
+    client.write('GET /_ws HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n')
+    await vi.waitFor(() => expect(upgraded.size).toBe(1))
+
+    await expect(server.close()).resolves.toBeUndefined()
+    client.destroy()
   })
 
   it('should stop answering once the listener is closed', async () => {
