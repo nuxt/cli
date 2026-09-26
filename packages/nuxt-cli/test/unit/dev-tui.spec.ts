@@ -2590,6 +2590,22 @@ describe('dev ui teardown', () => {
     })
   })
 
+  it('should end the process with the SIGTERM status when terminated before the command is listening', async () => {
+    await withTerminal(({ session }) => {
+      const detach = attachKeys(() => {})
+      session.onTeardown(detach)
+
+      const exit = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+      try {
+        process.emit('SIGTERM')
+        expect(exit).toHaveBeenCalledWith(143)
+      }
+      finally {
+        exit.mockRestore()
+      }
+    })
+  })
+
   it('should leave the exit to the command once it has taken shutdown over', async () => {
     await withTerminal(({ session }) => {
       const detach = attachKeys(() => {})
