@@ -215,8 +215,8 @@ describe('help', () => {
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
-                               --inspect    Enable the Node.js inspector for the process serving your app (\`--inspect=[host:]port\`)                                                             
-                           --inspect-brk    Enable the Node.js inspector and wait for a debugger to attach (\`--inspect-brk=[host:]port\`)                                                        
+                               --inspect    Enable the Node.js inspector for server code (\`--inspect=[host:]port\`), and for the CLI process on the next port                                    
+                           --inspect-brk    Like \`--inspect\`, and wait for a debugger to attach to the CLI process before loading Nuxt (\`--inspect-brk=[host:]port\`)                            
                                    --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
                                 --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
                                  --clear    Clear console on restart (Default: false)                                                                                                           

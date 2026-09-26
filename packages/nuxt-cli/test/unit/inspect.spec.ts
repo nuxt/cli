@@ -1,6 +1,10 @@
+import { Session } from 'node:inspector'
+import { createServer } from 'node:net'
+import process from 'node:process'
+import { Worker } from 'node:worker_threads'
 import { describe, expect, it } from 'vitest'
 
-import { parseInspectArgs } from '../../src/dev/inspect'
+import { closeInspector, inspectDevWorkers, parseInspectArgs, resolveProcessInspectOptions } from '../../src/dev/inspect'
 
 describe('parseInspectArgs', () => {
   it('should return undefined when the inspector is not requested', () => {
@@ -57,5 +61,57 @@ describe('parseInspectArgs', () => {
 
   it('should ignore invalid ports', () => {
     expect(parseInspectArgs(['--inspect=99999'])).toStrictEqual({ host: '127.0.0.1', port: 9229, wait: false })
+  })
+})
+
+describe('resolveProcessInspectOptions', () => {
+  it('should use the next port', () => {
+    expect(resolveProcessInspectOptions({ host: '0.0.0.0', port: 9229, wait: true })).toStrictEqual({ host: '0.0.0.0', port: 9230, wait: true })
+  })
+
+  it('should keep a random port random', () => {
+    expect(resolveProcessInspectOptions({ host: '127.0.0.1', port: 0, wait: false }).port).toBe(0)
+  })
+})
+
+describe('inspectDevWorkers', () => {
+  const getFreePort = () => new Promise<number>((resolve) => {
+    const server = createServer().listen(0, '127.0.0.1', () => {
+      const { port } = server.address() as { port: number }
+      server.close(() => resolve(port))
+    })
+  })
+
+  const workerInspectorURL = (env: Record<string, string>) => {
+    const worker = new Worker(
+      `const { parentPort } = require('node:worker_threads')
+      parentPort.on('message', () => parentPort.postMessage(require('node:inspector').url() ?? null))`,
+      { eval: true, env: { ...process.env, ...env } },
+    )
+    const deadline = Date.now() + 2000
+    return new Promise<string | null>((resolve) => {
+      const poll = () => worker.postMessage('url')
+      worker.on('message', (url) => {
+        if (url || Date.now() > deadline) {
+          worker.terminate().then(() => resolve(url))
+        }
+        else {
+          setTimeout(poll, 50)
+        }
+      })
+      poll()
+    })
+  }
+
+  it('should open an inspector in nitro dev workers', async () => {
+    const port = await getFreePort()
+    inspectDevWorkers(Session, { host: '127.0.0.1', port, wait: false })
+    try {
+      expect(await workerInspectorURL({ NITRO_DEV_WORKER_ID: '1' })).toMatch(`ws://127.0.0.1:${port}/`)
+      expect(await workerInspectorURL({})).toBeNull()
+    }
+    finally {
+      await closeInspector()
+    }
   })
 })
