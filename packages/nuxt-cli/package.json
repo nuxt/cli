@@ -102,7 +102,6 @@
     "nitropack": "^2.13.4",
     "nypm": "^0.6.10",
     "rolldown": "^1.2.9",
-    "rollup": "^4.63.5",
     "tsdown": "^0.23.0",
     "typescript": "^6.0.3",
     "undici": "^8.11.2",
