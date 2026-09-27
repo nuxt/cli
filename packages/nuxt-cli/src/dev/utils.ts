@@ -41,6 +41,7 @@ import { resolveServerBuild } from '../utils/server-build'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
 import { isAllowedHost, isLoopbackAddress } from './host-check'
+import { INSPECT_ENV } from './inspect'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -72,13 +73,13 @@ function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): v
   }
 }
 
-function registerCloseSocketsPlugin(nitro: NitroConfigForHook): void {
+function registerRuntimePlugin(nitro: NitroConfigForHook, name: 'dev-close-sockets' | 'dev-inspector'): void {
   try {
     nitro.plugins ||= []
-    nitro.plugins.push(fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-close-sockets')))
+    nitro.plugins.push(fileURLToPath(import.meta.resolve(`@nuxt/cli/runtime/${name}`)))
   }
   catch (error) {
-    debug('Could not resolve the close sockets plugin:', error)
+    debug(`Could not resolve the ${name} plugin:`, error)
   }
 }
 
@@ -902,7 +903,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         hooks: {
           ...this.options.overrides.hooks,
           'nitro:config': (nitro) => {
-            registerCloseSocketsPlugin(nitro)
+            registerRuntimePlugin(nitro, 'dev-close-sockets')
+            if (process.env[INSPECT_ENV]) {
+              registerRuntimePlugin(nitro, 'dev-inspector')
+            }
             if (captureUIEvents) {
               registerRequestContextPlugin(nitro, this.options.cwd)
             }
