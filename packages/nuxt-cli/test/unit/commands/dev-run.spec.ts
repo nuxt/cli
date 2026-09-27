@@ -18,7 +18,7 @@ const {
   preflight,
   setupShortcuts,
   startWarming,
-  takeOverDevServer,
+  takeOverServer,
 } = vi.hoisted(() => ({
   close: vi.fn(() => Promise.resolve()),
   createFork: vi.fn(),
@@ -31,7 +31,7 @@ const {
   preflight: vi.fn((options: { cwd: string }) => Promise.resolve(options.cwd)),
   setupShortcuts: vi.fn(),
   startWarming: vi.fn(),
-  takeOverDevServer: vi.fn<(buildDir: string, options?: TakeoverOptions) => Promise<TakeoverResult>>(() => Promise.resolve({ action: 'none' })),
+  takeOverServer: vi.fn<(buildDir: string, options?: TakeoverOptions) => Promise<TakeoverResult>>(() => Promise.resolve({ action: 'none' })),
 }))
 
 vi.mock('../../../src/dev/index', () => ({ initialize }))
@@ -50,7 +50,7 @@ vi.mock('../../../src/dev/shortcuts', async importOriginal => ({
 vi.mock('../../../src/utils/dev-server', () => ({ resolveLockDir: (cwd: string) => Promise.resolve(`${cwd}/.nuxt`) }))
 vi.mock('../../../src/dev/takeover', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/dev/takeover')>(),
-  takeOverDevServer,
+  takeOverServer,
 }))
 vi.mock('../../../src/dev/pool', () => ({
   ForkPool: class {
@@ -93,7 +93,7 @@ let exit: ReturnType<typeof vi.spyOn>
 
 beforeEach(() => {
   vi.clearAllMocks()
-  takeOverDevServer.mockResolvedValue({ action: 'none' })
+  takeOverServer.mockResolvedValue({ action: 'none' })
   isReusePortSupported.mockResolvedValue(true)
   preflight.mockImplementation((options: { cwd: string }) => Promise.resolve(options.cwd))
   initialize.mockImplementation(() => Promise.resolve({
@@ -176,7 +176,7 @@ describe('dev command startup', () => {
 
 describe('dev command takeover', () => {
   it('should not start when a takeover is refused', async () => {
-    takeOverDevServer.mockResolvedValue({ action: 'refused', existing: existingLock(), reason: 'declined' })
+    takeOverServer.mockResolvedValue({ action: 'refused', existing: existingLock(), reason: 'declined' })
 
     await expect(runDev(['--no-fork'])).rejects.toThrow('process.exit')
 
@@ -185,7 +185,7 @@ describe('dev command takeover', () => {
   })
 
   it('should adopt the port of the server it took over', async () => {
-    takeOverDevServer.mockResolvedValue({ action: 'taken', port: 3210, pid: 4321 })
+    takeOverServer.mockResolvedValue({ action: 'taken', port: 3210, pid: 4321 })
 
     await runDev(['--no-fork'])
 
@@ -197,11 +197,11 @@ describe('dev command takeover', () => {
   it('should ask the takeover for the port it was given', async () => {
     await runDev(['--no-fork', '--port=4001'])
 
-    expect(vi.mocked(takeOverDevServer).mock.calls[0]![1]).toMatchObject({ requestedPort: 4001 })
+    expect(vi.mocked(takeOverServer).mock.calls[0]![1]).toMatchObject({ requestedPort: 4001 })
   })
 
   it('should bypass the lock when the user starts a second server anyway', async () => {
-    takeOverDevServer.mockResolvedValue({ action: 'start-anyway', existing: existingLock() })
+    takeOverServer.mockResolvedValue({ action: 'start-anyway', existing: existingLock() })
     vi.stubEnv('NUXT_IGNORE_LOCK', '')
 
     await runDev(['--no-fork'])

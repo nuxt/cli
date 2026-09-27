@@ -42,7 +42,24 @@ export type TakeoverResult
 
 export type TakeoverChoice = 'takeover' | 'abort' | 'start-anyway'
 
+type ServerCommand = 'dev' | 'preview'
+
+const SERVER_KINDS: Record<ServerCommand, { label: string, startAnywayHint: string, secondServer: string }> = {
+  dev: {
+    label: 'dev server',
+    startAnywayHint: 'unsupported: both servers share the build directory',
+    secondServer: '`NUXT_IGNORE_LOCK=1` to run a second server (unsupported)',
+  },
+  preview: {
+    label: 'preview server',
+    startAnywayHint: 'on another free port',
+    secondServer: '`--port` to run a second one alongside it',
+  },
+}
+
 export interface TakeoverOptions {
+  /** Which kind of server to take over. Defaults to `dev`. */
+  command?: ServerCommand
   /** Port this invocation was explicitly asked to use, if any. */
   requestedPort?: number
   /** `--takeover` / `--no-takeover`; either skips the prompt. */
@@ -56,31 +73,31 @@ export interface TakeoverOptions {
 }
 
 /**
- * Decide what to do about an existing dev server on this build directory, and
- * carry out a takeover if that is the answer.
+ * Decide what to do about an existing server of the same kind recorded in
+ * `lockDir`, and carry out a takeover if that is the answer.
  *
  * Must be called before anything binds a port or writes to the build directory,
  * because a takeover adopts the port the outgoing server was using.
  */
-export function takeOverDevServer(buildDir: string, options: TakeoverOptions = {}): Promise<TakeoverResult> {
+export function takeOverServer(lockDir: string, options: TakeoverOptions = {}): Promise<TakeoverResult> {
   // The prompt and the spinner below both redraw by moving the cursor, so they
   // need stdout back from consola for the duration.
-  return withDirectStdout(() => resolveTakeover(buildDir, options))
+  return withDirectStdout(() => resolveTakeover(lockDir, options))
 }
 
-async function resolveTakeover(buildDir: string, options: TakeoverOptions): Promise<TakeoverResult> {
+async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promise<TakeoverResult> {
   if (!isLockEnabled()) {
     return { action: 'none' }
   }
 
-  const existing = readLock(buildDir)
+  const existing = readLock(lockDir)
   if (!existing || existing.pid === process.pid) {
     return { action: 'none' }
   }
 
-  // Signalling a `build` is never on the table, and a dev server that has not
+  // Signalling a `build` is never on the table, and a server that has not
   // bound a port yet cannot be identified well enough to touch.
-  if (existing.command !== 'dev' || !existing.port) {
+  if (existing.command !== (options.command ?? 'dev') || !existing.port) {
     return { action: 'none' }
   }
 
@@ -94,9 +111,9 @@ async function resolveTakeover(buildDir: string, options: TakeoverOptions): Prom
   // and would otherwise refuse to start on behalf of a server that is not there.
   if (!alive || portFree) {
     if (!alive && !portFree) {
-      logger.warn(`The dev server that was using port ${existing.port} is gone, but something is still listening there.`)
+      logger.warn(`The ${describeServer(existing)} that was using port ${existing.port} is gone, but something is still listening there.`)
     }
-    clearStaleLock(buildDir, existing)
+    clearStaleLock(lockDir, existing)
     return { action: 'stale' }
   }
 
@@ -132,43 +149,45 @@ async function resolveTakeover(buildDir: string, options: TakeoverOptions): Prom
         return { action: 'refused', existing, reason: 'declined' }
       }
       if (choice === 'start-anyway') {
-        logger.warn(`Starting a second dev server: both will write to ${styleText('cyan', buildDir)}, which is unsupported and may corrupt the build.`)
+        if (existing.command === 'dev') {
+          logger.warn(`Starting a second dev server: both will write to ${styleText('cyan', lockDir)}, which is unsupported and may corrupt the build.`)
+        }
         return { action: 'start-anyway', existing }
       }
     }
   }
 
-  return withUserAttention(() => performTakeover(buildDir, existing, options.timeouts))
+  return withUserAttention(() => performTakeover(lockDir, existing, options.timeouts))
 }
 
-async function performTakeover(buildDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {
+async function performTakeover(lockDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {
   const port = existing.port!
+  const label = describeServer(existing)
   const startedAt = new Date(existing.startedAt).toLocaleTimeString()
-  const progress = startProgress(`Taking over the dev server on port ${port} (PID ${existing.pid}, started ${startedAt})`)
+  const progress = startProgress(`Taking over the ${label} on port ${port} (PID ${existing.pid}, started ${startedAt})`)
 
-  markTakenOver(buildDir, process.pid)
+  markTakenOver(lockDir, process.pid)
 
-  const pids = existing.parentPid && existing.parentPid !== existing.pid
-    ? [existing.pid, existing.parentPid]
-    : [existing.pid]
+  const pids = [...new Set([existing.pid, existing.parentPid, existing.serverPid])]
+    .filter((pid): pid is number => !!pid)
 
   // On Windows `SIGTERM` is not delivered as a signal and terminates the process
   // outright, so the graceful window below simply passes quickly there.
   signalAll(pids, 'SIGTERM')
   if (await waitForRelease(pids, port, existing.hostname, timeouts.graceful ?? DEV_SHUTDOWN_TIMEOUT_MS)) {
-    progress.stop(`Stopped the dev server on port ${port} (PID ${existing.pid})`)
+    progress.stop(`Stopped the ${label} on port ${port} (PID ${existing.pid})`)
     return { action: 'taken', port, pid: existing.pid }
   }
 
-  progress.update(`Waiting for the dev server on port ${port} to exit`)
+  progress.update(`Waiting for the ${label} on port ${port} to exit`)
   signalAll(pids, 'SIGKILL')
   if (await waitForRelease(pids, port, existing.hostname, timeouts.force ?? TAKEOVER_KILL_TIMEOUT_MS)) {
-    progress.stop(`Stopped the dev server on port ${port} (PID ${existing.pid})`)
+    progress.stop(`Stopped the ${label} on port ${port} (PID ${existing.pid})`)
     return { action: 'taken', port, pid: existing.pid }
   }
 
-  progress.fail(`Could not stop the dev server on port ${port}`)
-  clearTakeover(buildDir, process.pid)
+  progress.fail(`Could not stop the ${label} on port ${port}`)
+  clearTakeover(lockDir, process.pid)
   return { action: 'refused', existing, reason: 'timeout' }
 }
 
@@ -211,8 +230,8 @@ export function formatTakeoverRefusal(existing: LockInfo, reason: TakeoverRefusa
   const lines = [
     '',
     reason === 'timeout'
-      ? `The dev server on port ${existing.port} did not exit, so this one will not start.`
-      : 'Another Nuxt dev server is already running:',
+      ? `The ${describeServer(existing)} on port ${existing.port} did not exit, so this one will not start.`
+      : `Another Nuxt ${describeServer(existing)} is already running:`,
     '',
     `  URL:     ${location}`,
     `  PID:     ${existing.pid}`,
@@ -225,11 +244,19 @@ export function formatTakeoverRefusal(existing: LockInfo, reason: TakeoverRefusa
     lines.push('It was started interactively, so it is not stopped automatically.')
   }
   if (reason !== 'timeout') {
-    lines.push('Pass `--takeover` to stop it and start this server in its place, or `NUXT_IGNORE_LOCK=1` to run a second server (unsupported).')
+    lines.push(`Pass \`--takeover\` to stop it and start this server in its place, or ${serverKind(existing).secondServer}.`)
   }
   lines.push('')
 
   return lines.join('\n')
+}
+
+function serverKind(existing: LockInfo) {
+  return SERVER_KINDS[existing.command === 'preview' ? 'preview' : 'dev']
+}
+
+function describeServer(existing: LockInfo): string {
+  return serverKind(existing).label
 }
 
 function describeLocation(existing: LockInfo): string {
@@ -237,20 +264,20 @@ function describeLocation(existing: LockInfo): string {
 }
 
 async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice): Promise<TakeoverChoice> {
-  logger.info(`A Nuxt dev server is already running here (PID ${existing.pid}, ${describeLocation(existing)}).`)
+  logger.info(`A Nuxt ${describeServer(existing)} is already running here (PID ${existing.pid}, ${describeLocation(existing)}).`)
   const choice = await select<TakeoverChoice>({
     message: 'What would you like to do?',
     initialValue: defaultChoice,
     options: [
       { value: 'takeover', label: `Take over port ${existing.port}`, hint: 'stops the running server (--takeover)' },
       { value: 'abort', label: 'Do not start', hint: '--no-takeover' },
-      { value: 'start-anyway', label: 'Start anyway', hint: 'unsupported: both servers share the build directory' },
+      { value: 'start-anyway', label: 'Start anyway', hint: serverKind(existing).startAnywayHint },
     ],
   })
   restoreRawMode()
   // Ctrl-C must never be the thing that stops the other server.
   if (isCancel(choice)) {
-    cancel('Not starting a second dev server.')
+    cancel(`Not starting a second ${describeServer(existing)}.`)
     return 'abort'
   }
   return choice
@@ -265,8 +292,10 @@ function signalAll(pids: number[], signal: NodeJS.Signals): void {
   }
 }
 
+// A lock without a hostname was bound to every interface, and on macOS a
+// `localhost` probe succeeds next to such a listener, so check them all.
 async function isPortFree(port: number, hostname?: string): Promise<boolean> {
-  return await checkPort(port, hostname || 'localhost') !== false
+  return await checkPort(port, hostname || undefined) !== false
 }
 
 async function waitForRelease(pids: number[], port: number, hostname: string | undefined, timeout: number): Promise<boolean> {
