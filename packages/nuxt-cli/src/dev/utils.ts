@@ -72,6 +72,16 @@ function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): v
   }
 }
 
+function registerCloseSocketsPlugin(nitro: NitroConfigForHook): void {
+  try {
+    nitro.plugins ||= []
+    nitro.plugins.push(fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-close-sockets')))
+  }
+  catch (error) {
+    debug('Could not resolve the close sockets plugin:', error)
+  }
+}
+
 /**
  * The `consola` the app itself logs through, which is the one
  * `@nuxt/nitro-server` wraps `console` with: its own, not the CLI's. Reporting
@@ -889,17 +899,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           clearScreen: this.options.clear,
           ...this.options.overrides.vite,
         },
-        ...captureUIEvents
-          ? {
-              hooks: {
-                ...this.options.overrides.hooks,
-                'nitro:config': (nitro) => {
-                  registerRequestContextPlugin(nitro, this.options.cwd)
-                  return this.options.overrides.hooks?.['nitro:config']?.(nitro)
-                },
-              } satisfies NuxtConfig['hooks'],
+        hooks: {
+          ...this.options.overrides.hooks,
+          'nitro:config': (nitro) => {
+            registerCloseSocketsPlugin(nitro)
+            if (captureUIEvents) {
+              registerRequestContextPlugin(nitro, this.options.cwd)
             }
-          : {},
+            return this.options.overrides.hooks?.['nitro:config']?.(nitro)
+          },
+        } satisfies NuxtConfig['hooks'],
       },
     }
 
