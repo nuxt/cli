@@ -1,4 +1,4 @@
-import { subscribe } from 'node:diagnostics_channel'
+import { subscribe, unsubscribe } from 'node:diagnostics_channel'
 
 /**
  * Destroy sockets left open in the Nitro dev worker on shutdown, including
@@ -8,11 +8,13 @@ import { subscribe } from 'node:diagnostics_channel'
  */
 export default function (nitroApp) {
   const sockets = new Set()
-  subscribe('net.server.socket', ({ socket }) => {
+  const track = ({ socket }) => {
     sockets.add(socket)
     socket.once('close', () => sockets.delete(socket))
-  })
+  }
+  subscribe('net.server.socket', track)
   nitroApp.hooks.hook('close', () => {
+    unsubscribe('net.server.socket', track)
     for (const socket of sockets) {
       socket.destroy()
     }
