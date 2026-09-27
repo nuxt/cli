@@ -19,7 +19,7 @@ import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { devShortcutContext } from '../dev/shortcut-context'
-import { SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
+import { adoptShutdown, SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverServer } from '../dev/takeover'
 import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
@@ -48,11 +48,11 @@ const command = defineCommand({
     ...extendsArgs,
     'inspect': {
       type: 'boolean',
-      description: 'Enable the Node.js inspector for the process serving your app (`--inspect=[host:]port`)',
+      description: 'Enable the Node.js inspector for server code (`--inspect=[host:]port`), and for the CLI process on the next port',
     },
     'inspect-brk': {
       type: 'boolean',
-      description: 'Enable the Node.js inspector and wait for a debugger to attach (`--inspect-brk=[host:]port`)',
+      description: 'Like `--inspect`, and wait for a debugger to attach to the CLI process before loading Nuxt (`--inspect-brk=[host:]port`)',
     },
     'tui': {
       type: 'boolean',
@@ -236,6 +236,7 @@ const command = defineCommand({
     provide({ clearCaches })
     const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
     setupSignalHandlers(() => shortcutContext.close())
+    adoptShutdown()
 
     // Evaluating the dev server's graph blocks the loop; let the panel answer
     // anything already typed first.

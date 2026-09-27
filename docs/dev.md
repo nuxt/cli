@@ -36,8 +36,8 @@ The `dev` command starts a development server with hot module replacement at [ht
 | `--dotenv=<path>...`                 |                   | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 | `--envName=<environment>`            |                   | The environment to use when resolving configuration overrides (default is `production` when building, and `development` when running the dev server) |
 | `-e, --extends=<layer-name>...`      |                   | Extend from a Nuxt layer                                                                                                                             |
-| `--inspect`                          |                   | Enable the Node.js inspector for the process serving your app (`--inspect=[host:]port`)                                                              |
-| `--inspect-brk`                      |                   | Enable the Node.js inspector and wait for a debugger to attach (`--inspect-brk=[host:]port`)                                                         |
+| `--inspect`                          |                   | Enable the Node.js inspector for server code (`--inspect=[host:]port`), and for the CLI process on the next port                                     |
+| `--inspect-brk`                      |                   | Like `--inspect`, and wait for a debugger to attach to the CLI process before loading Nuxt (`--inspect-brk=[host:]port`)                             |
 | `--tui`                              | `true`            | Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts)                                                                  |
 | `--no-tui`                           |                   | Disable the interactive terminal UI and stream logs instead                                                                                          |
 | `--clear`                            | `false`           | Clear console on restart                                                                                                                             |
@@ -88,6 +88,8 @@ In an interactive terminal, `nuxt dev` renders a pinned panel: the server URLs, 
 | `?`         | Show all shortcuts                            |
 | `q`         | Quit                                          |
 
+Inside a view, `y` copies the selected row and `shift-y` copies every row the filters and search leave, keeping the newest when there is too much to paste. In the info view, `shift-y` copies the [`nuxt info`](/docs/api/commands/info) table instead.
+
 Pass `--no-tui` to stream logs instead, which is also what `NUXT_TUI=plain` does for good. `NUXT_TUI=1` forces the UI on where the environment checks would otherwise turn it off, but never where the output is piped or redirected.
 
 ![nuxt dev with plain output](/capture/output/nuxt-dev-plain-static.svg)
@@ -114,7 +116,17 @@ Node does not read your system trust store, so requests made from Node to a serv
 
 ## Debugging
 
-`--inspect` opens the Node.js inspector on the process actually serving your app, and `--inspect-brk` waits for a debugger to attach before running. Both accept an optional `[host:]port`.
+`--inspect` opens the Node.js inspector for your server code: server routes, middleware and server-side rendering, which run in a Nitro worker thread. It accepts an optional `[host:]port` and defaults to `127.0.0.1:9229`, so Chrome DevTools (`chrome://inspect`) and most editors find it without configuration. Your debugger reconnects automatically when the server reloads.
+
+### Debugging the CLI
+
+`nuxt.config`, modules and build hooks run in the CLI process instead, which gets its own inspector on the next port (`9230` by default). Add `localhost:9230` as a target in `chrome://inspect` (**Configure...**) or point your editor at it.
+
+To debug code that runs while Nuxt is loading, use `--inspect-brk`. The CLI process then waits for a debugger to attach to the next port before loading Nuxt:
+
+```bash
+npx nuxt dev --inspect-brk
+```
 
 `--profile` writes a V8 CPU profile to `nuxt-dev.cpuprofile` in your project when the process exits. `--profile=verbose` also prints a full report to the console.
 

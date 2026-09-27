@@ -41,6 +41,7 @@ import { resolveServerBuild } from '../utils/server-build'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
 import { isAllowedHost, isLoopbackAddress } from './host-check'
+import { INSPECT_ENV } from './inspect'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -69,6 +70,16 @@ function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): v
   }
   catch (error) {
     debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
+  }
+}
+
+function registerRuntimePlugin(nitro: NitroConfigForHook, name: 'dev-close-sockets' | 'dev-inspector'): void {
+  try {
+    nitro.plugins ||= []
+    nitro.plugins.push(fileURLToPath(import.meta.resolve(`@nuxt/cli/runtime/${name}`)))
+  }
+  catch (error) {
+    debug(`Could not resolve the ${name} plugin:`, error)
   }
 }
 
@@ -889,17 +900,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           clearScreen: this.options.clear,
           ...this.options.overrides.vite,
         },
-        ...captureUIEvents
-          ? {
-              hooks: {
-                ...this.options.overrides.hooks,
-                'nitro:config': (nitro) => {
-                  registerRequestContextPlugin(nitro, this.options.cwd)
-                  return this.options.overrides.hooks?.['nitro:config']?.(nitro)
-                },
-              } satisfies NuxtConfig['hooks'],
+        hooks: {
+          ...this.options.overrides.hooks,
+          'nitro:config': (nitro) => {
+            registerRuntimePlugin(nitro, 'dev-close-sockets')
+            if (process.env[INSPECT_ENV]) {
+              registerRuntimePlugin(nitro, 'dev-inspector')
             }
-          : {},
+            if (captureUIEvents) {
+              registerRequestContextPlugin(nitro, this.options.cwd)
+            }
+            return this.options.overrides.hooks?.['nitro:config']?.(nitro)
+          },
+        } satisfies NuxtConfig['hooks'],
       },
     }
 

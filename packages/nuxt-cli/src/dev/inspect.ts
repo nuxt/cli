@@ -12,6 +12,8 @@ export interface InspectOptions {
 const DEFAULT_HOST = '127.0.0.1'
 const DEFAULT_PORT = 9229
 
+export const INSPECT_ENV = '__NUXT_DEV_INSPECT__'
+
 const INSPECT_ARG_RE = /^--inspect(-brk|-wait|-port)?(?:=(.*))?$/
 
 /**
@@ -86,11 +88,13 @@ function toPort(value: string): number | undefined {
 }
 
 /**
- * Open the inspector in the current process, or move it to the requested
- * address if Node already opened one via `execArgv`.
+ * Open the inspector for the nitro dev server worker on the requested address,
+ * and the inspector for this process on the next port. Node's own inspector
+ * from `execArgv` is moved there too.
  */
-export async function openInspector(options: InspectOptions): Promise<void> {
+export async function openInspector(inspectOptions: InspectOptions): Promise<void> {
   const inspector = await import('node:inspector')
+  const options = resolveProcessInspectOptions(inspectOptions)
 
   try {
     if (inspector.url()) {
@@ -102,6 +106,16 @@ export async function openInspector(options: InspectOptions): Promise<void> {
   catch (error) {
     logger.warn(`Could not start the inspector on ${styleText('cyan', `${options.host}:${options.port}`)}: ${error instanceof Error ? error.message : error}`)
   }
+
+  process.env[INSPECT_ENV] = JSON.stringify({ host: inspectOptions.host, port: inspectOptions.port })
+}
+
+/**
+ * Inspector address for the CLI process itself, which loads `nuxt.config` and
+ * modules. Server code runs in a nitro worker thread on the requested port.
+ */
+export function resolveProcessInspectOptions(options: InspectOptions): InspectOptions {
+  return { ...options, port: options.port === 0 ? 0 : options.port + 1 }
 }
 
 /** Release the inspector port so another process (a fork) can bind to it. */

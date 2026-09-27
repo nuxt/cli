@@ -25,12 +25,15 @@ const VALUE_STYLES: Array<{ pattern: RegExp, style: Parameters<typeof styleText>
 export class InfoOverlay extends ScreenOverlay {
   #sections: () => InfoSection[]
   #panel: () => string | undefined
+  #report?: () => Promise<string>
 
   constructor(
     sections: () => InfoSection[],
     write: (chunk: string) => void,
     onClose: () => void,
     panel: () => string | undefined = () => undefined,
+    /** The text `Y` copies in place of the rows. */
+    report?: () => Promise<string>,
   ) {
     super({
       write,
@@ -44,6 +47,15 @@ export class InfoOverlay extends ScreenOverlay {
     })
     this.#sections = sections
     this.#panel = panel
+    this.#report = report
+  }
+
+  protected async copyAllText(): Promise<string | undefined> {
+    if (!this.#report) {
+      return undefined
+    }
+    this.notify('collecting project info…')
+    return this.#report()
   }
 
   protected get closeKeys(): readonly string[] {
@@ -68,13 +80,17 @@ export class InfoOverlay extends ScreenOverlay {
 
     return withSidePanel(rows, this.#panel(), columns).map(line => ({
       lines: [line],
-      // Copying a whole info screen is rarely useful; a single value is.
       copy: stripAnsi(line).trim().split(/\s{2,}/).at(-1),
     }))
   }
 
   protected renderHints(columns: number): string {
-    return formatHints([['q', 'close']], columns)
+    return formatHints([
+      ['↑/↓', 'select'],
+      ['y', 'copy'],
+      ...this.#report ? [['Y', 'copy for an issue'] as [string, string]] : [],
+      ['q', 'close'],
+    ], columns)
   }
 }
 
