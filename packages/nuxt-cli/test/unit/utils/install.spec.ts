@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { getIgnoredBuilds, isExecutableAvailable, nonInteractiveArgs, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
 
@@ -104,6 +104,34 @@ describe('runInstall', () => {
     expect(result.success).toBe(true)
     expect(result.output).not.toContain('Ignored build scripts')
     expect(result.ignoredBuilds).toEqual(['esbuild@0.28.1'])
+  })
+
+  it.skipIf(process.platform === 'win32')('should run the package manager directly when corepack is not on the PATH', async () => {
+    const { dir } = await createFakePackageManager()
+    const bin = join(dir, 'bin')
+    const nodeBin = join(dir, 'node', 'bin')
+    await mkdir(bin)
+    await mkdir(nodeBin, { recursive: true })
+    await writeFile(join(bin, 'pnpm'), ['#!/bin/sh', 'echo "all done"'].join('\n'))
+    await writeFile(join(nodeBin, 'corepack'), ['#!/bin/sh', 'echo "0.34.0"'].join('\n'))
+    await chmod(join(bin, 'pnpm'), 0o755)
+    await chmod(join(nodeBin, 'corepack'), 0o755)
+    vi.stubEnv('PATH', bin)
+    const execPath = process.execPath
+    process.execPath = join(nodeBin, 'node')
+    vi.resetModules()
+
+    try {
+      const { runInstall } = await import('../../../src/utils/install')
+      const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', command: 'pnpm' } })
+
+      expect(result.success).toBe(true)
+      expect(result.command).toMatch(/^pnpm install/)
+    }
+    finally {
+      vi.unstubAllEnvs()
+      process.execPath = execPath
+    }
   })
 
   it('should report a missing package manager instead of throwing', async () => {

@@ -443,7 +443,7 @@ async function withCorepack(command: string, args: string[]): Promise<[string, s
 }
 
 async function hasCorepack(): Promise<boolean> {
-  if (provider === 'stackblitz') {
+  if (provider === 'stackblitz' || !isExecutableAvailable('corepack')) {
     return false
   }
   corepackAvailable ||= Promise.resolve(x('corepack', ['--version']))
