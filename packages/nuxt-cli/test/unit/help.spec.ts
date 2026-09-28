@@ -1,10 +1,13 @@
 import type { CommandDef, Resolvable } from 'citty'
 
+import { styleText } from 'node:util'
+
 import { renderUsage } from 'citty'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { commands } from '../../src/commands'
 import { main } from '../../src/main'
+import { showUsage } from '../../src/run'
 
 async function resolve(def: Resolvable<CommandDef>): Promise<CommandDef> {
   return typeof def === 'function' ? await def() : def
@@ -526,5 +529,20 @@ describe('help', () => {
                            --json    Print output as JSON                                                              
       "
     `)
+  })
+})
+
+describe('showUsage', () => {
+  it('should drop ANSI styling when stdout does not support colour', async () => {
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    try {
+      await showUsage({ meta: { name: 'nuxt', description: styleText('bold', 'Nuxt CLI', { validateStream: false }) } })
+      const output = String(write.mock.calls[0]![0])
+      expect(output).toContain('Nuxt CLI')
+      expect(output).not.toContain('\u001B[')
+    }
+    finally {
+      write.mockRestore()
+    }
   })
 })

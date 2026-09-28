@@ -4,7 +4,7 @@ import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
-import { cancel, confirm, isCancel, select, spinner } from '@clack/prompts'
+import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
 import { addDevDependency, detectPackageManager } from 'nypm'
@@ -18,6 +18,7 @@ import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
+import { createSpinner } from '../utils/spinner'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
@@ -355,7 +356,7 @@ async function installMissingPackages(options: {
     return false
   }
 
-  const spin = spinner()
+  const spin = createSpinner()
   spin.start(`Installing ${list} with ${styleText('cyan', pmName)}`)
   try {
     await addDevDependency(packages, { cwd, packageManager, silent: true })

@@ -3,13 +3,13 @@ import type { DownloadTemplateResult } from 'giget'
 import type { PackageManagerName } from 'nypm'
 import type { InstallResult } from '../../nuxt-cli/src/utils/install'
 import type { TemplateData } from '../../nuxt-cli/src/utils/starter-templates'
-
 import { existsSync } from 'node:fs'
+
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
-
 import { styleText } from 'node:util'
-import { cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
+
+import { cancel, confirm, intro, isCancel, outro, S_BAR, select, text } from '@clack/prompts'
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
 import { detectPackageManager } from 'nypm'
@@ -17,8 +17,8 @@ import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
-
 import { cwdArgs, logLevelArgs } from '../../nuxt-cli/src/commands/_shared'
+
 import { selectModulesAutocomplete } from '../../nuxt-cli/src/commands/module/_autocomplete'
 import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from '../../nuxt-cli/src/commands/module/_utils'
 import addModuleCommand from '../../nuxt-cli/src/commands/module/add'
@@ -30,6 +30,7 @@ import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnre
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../../nuxt-cli/src/utils/network'
 import { relativeToProcess } from '../../nuxt-cli/src/utils/paths'
+import { createSpinner } from '../../nuxt-cli/src/utils/spinner'
 import { getTemplates, TEMPLATES_API_URL } from '../../nuxt-cli/src/utils/starter-templates'
 import { paint } from '../../nuxt-cli/src/utils/terminal-theme'
 import { getNuxtVersion } from '../../nuxt-cli/src/utils/versions'
@@ -236,7 +237,7 @@ export default defineCommand({
         availableTemplates = defaultTemplates
       }
       else {
-        const templatesSpinner = spinner()
+        const templatesSpinner = createSpinner()
         templatesSpinner.start('Loading available templates')
 
         try {
@@ -384,7 +385,7 @@ export default defineCommand({
 
     const registry = process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
 
-    const downloadSpinner = spinner()
+    const downloadSpinner = createSpinner()
     downloadSpinner.start(`Downloading ${styleText('cyan', templateName)} template`)
 
     try {
@@ -436,7 +437,7 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
-      const nightlySpinner = spinner()
+      const nightlySpinner = createSpinner()
       nightlySpinner.start('Fetching nightly version info')
 
       const response = await fetchJson<{ 'dist-tags': Record<string, string> }>(NIGHTLY_DIST_TAGS_URL).catch((err) => {
@@ -568,7 +569,7 @@ export default defineCommand({
     else {
       const installController = new AbortController()
       const installLog = createInstallLog({ verbose: isVerbose(ctx.args.logLevel) })
-      const installSpinner = spinner({
+      const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
       })
@@ -619,7 +620,7 @@ export default defineCommand({
     }
 
     if (gitInit) {
-      const gitSpinner = spinner()
+      const gitSpinner = createSpinner()
       gitSpinner.start('Initializing git repository')
 
       const git = await x('git', ['init'], {
@@ -674,7 +675,7 @@ export default defineCommand({
       prompted = true
 
       if (wantsUserModules) {
-        const modulesSpinner = spinner()
+        const modulesSpinner = createSpinner()
         modulesSpinner.start('Fetching available modules')
 
         const [response, templateDeps, nuxtVersion] = await Promise.all([

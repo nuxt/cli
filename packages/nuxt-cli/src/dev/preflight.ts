@@ -3,7 +3,7 @@ import type { PackageManager } from 'nypm'
 import { accessSync, constants, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { styleText } from 'node:util'
 
-import { confirm, isCancel, spinner } from '@clack/prompts'
+import { confirm, isCancel } from '@clack/prompts'
 import { dirname, join } from 'pathe'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
@@ -12,6 +12,7 @@ import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
 import { relativeTo } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
+import { createSpinner } from '../utils/spinner'
 import { withUserAttention } from '../utils/startup-clock'
 import { isInteractive } from '../utils/stdout'
 
@@ -253,7 +254,7 @@ async function offerInstall(cwd: string, interactive: boolean): Promise<void> {
 
   const controller = new AbortController()
   const installLog = createInstallLog()
-  const installSpinner = spinner({ indicator: 'timer', onCancel: () => controller.abort() })
+  const installSpinner = createSpinner({ indicator: 'timer', onCancel: () => controller.abort() })
   installSpinner.start(`Installing with ${styleText('cyan', packageManager.name)}`)
 
   const result = await runInstall({
