@@ -2,6 +2,7 @@ import type { PendingRender } from '../../utils/progress-snapshot'
 import type { DevReportSummary } from '../error-channel'
 import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
+import type { DevRequestSpan } from '../span-channel'
 import type { DevRequestEvent, DevRoutes } from '../utils'
 import type { DevUIOptions } from './index'
 import type { DevStatus } from './panel'
@@ -24,6 +25,8 @@ export interface DevUIController {
   pushServerLog: (log: ForwardedLog) => void
   /** Record a batch of served requests for the traffic ticker. */
   pushRequests: (requests: DevRequestEvent[]) => void
+  /** Record spans the app timed while serving requests, for the trace view. */
+  pushSpans: (spans: DevRequestSpan[]) => void
   /** Record a report the app raised, for the log view and the status line. */
   pushReport: (report: DevReportSummary) => void
   /** Drop a report the status line is still naming. */
@@ -45,6 +48,7 @@ export const NOOP_CONTROLLER: DevUIController = {
   settleRestart: () => {},
   pushServerLog: () => {},
   pushRequests: () => {},
+  pushSpans: () => {},
   pushReport: () => {},
   clearReport: () => {},
   setRoutes: () => {},

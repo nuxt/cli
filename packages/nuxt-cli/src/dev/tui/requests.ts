@@ -1,7 +1,11 @@
+import type { DevRequestSpan } from '../span-channel'
+
 export interface DevRequest {
   /** Identity shared with attributed log events, when the server reported one. */
   id?: string
   time: number
+  /** Epoch milliseconds at which the server received it, fractional. */
+  start?: number
   method: string
   url: string
   status: number
@@ -16,6 +20,7 @@ export class RequestLog {
   #listeners = new Set<() => void>()
   #capacity: number
   #total = 0
+  #spans = new Map<string, DevRequestSpan[]>()
 
   constructor(capacity = 1000) {
     this.#capacity = capacity
@@ -33,11 +38,46 @@ export class RequestLog {
     this.#total += requests.length
     this.#requests.push(...requests)
     if (this.#requests.length > this.#capacity) {
-      this.#requests.splice(0, this.#requests.length - this.#capacity)
+      for (const dropped of this.#requests.splice(0, this.#requests.length - this.#capacity)) {
+        if (dropped.id !== undefined) {
+          this.#spans.delete(dropped.id)
+        }
+      }
     }
     for (const listener of this.#listeners) {
       listener()
     }
+  }
+
+  /** Record spans the app timed, against the requests they were timed for. */
+  pushSpans(spans: DevRequestSpan[]): void {
+    if (!spans.length) {
+      return
+    }
+    for (const span of spans) {
+      const list = this.#spans.get(span.requestId)
+      if (list) {
+        list.push(span)
+      }
+      else {
+        this.#spans.set(span.requestId, [span])
+      }
+    }
+    // Spans can arrive for a request whose own event never does; bound them too.
+    while (this.#spans.size > this.#capacity) {
+      this.#spans.delete(this.#spans.keys().next().value!)
+    }
+    for (const listener of this.#listeners) {
+      listener()
+    }
+  }
+
+  /** The spans timed for a request, in the order they started, outermost first. */
+  spansFor(request: DevRequest): DevRequestSpan[] {
+    if (request.id === undefined) {
+      return []
+    }
+    return [...this.#spans.get(request.id) ?? []].sort((a, b) => a.start - b.start || b.duration - a.duration)
   }
 
   recent(count: number, filter?: (request: DevRequest) => boolean): DevRequest[] {
@@ -67,6 +107,7 @@ export class RequestLog {
   /** Drop the history and the running total, telling anyone displaying them. */
   clear(): void {
     this.#requests.length = 0
+    this.#spans.clear()
     this.#total = 0
     for (const listener of this.#listeners) {
       listener()

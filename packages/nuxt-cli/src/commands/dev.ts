@@ -257,7 +257,7 @@ const command = defineCommand({
       throw error
     })
 
-    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onRoutes, onBuilding, onReport, onReportClear, onFileChange } = started
+    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onSpans, onRoutes, onBuilding, onReport, onReportClear, onFileChange } = started
 
     /** Feed the dev UI from the server running in this process. */
     function attachDevUI(devUI: DevUIController): DevUIController {
@@ -266,6 +266,7 @@ const command = defineCommand({
       onBuilding(building => devUI.setStatus(building ? 'building' : 'ready'))
       onLog(log => devUI.pushServerLog(log))
       onRequests(requests => devUI.pushRequests(requests))
+      onSpans(spans => devUI.pushSpans(spans))
       onReport(report => devUI.pushReport(report))
       onReportClear(id => devUI.clearReport(id))
       onRoutes(payload => devUI.setRoutes(payload))
@@ -370,6 +371,9 @@ const command = defineCommand({
             }
             else if (message.type === 'nuxt:internal:dev:requests') {
               devUI.pushRequests(message.requests)
+            }
+            else if (message.type === 'nuxt:internal:dev:spans') {
+              devUI.pushSpans(message.spans)
             }
             else if (message.type === 'nuxt:internal:dev:report') {
               devUI.pushReport(message.report)

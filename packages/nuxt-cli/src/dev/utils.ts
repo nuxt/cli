@@ -7,11 +7,13 @@ import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResp
 import type { PendingRender } from '../utils/progress-snapshot'
 
 import type { ResolvedCertificate } from './cert'
+import type { InflightAppRequest } from './compile-timing'
 import type { DevReportSummary } from './error-channel'
 import type { InspectOptions } from './inspect'
 import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenURL } from './listen'
 import type { ServerLogEvent } from './log-channel'
 import type { DevRestartReason } from './reason'
+import type { DevRequestSpan } from './span-channel'
 import { Buffer } from 'node:buffer'
 import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
@@ -48,7 +50,7 @@ import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
-import { createRequest, encodeRequestLabel, REQUEST_HEADER, REQUEST_LABEL_HEADER, runWithRequest } from './serving-state'
+import { createRequest, currentRequest, encodeRequestLabel, REQUEST_HEADER, REQUEST_LABEL_HEADER, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
 
 /**
@@ -110,6 +112,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:loading:error', error: Error }
     | ({ type: 'nuxt:internal:dev:log' } & ServerLogEvent)
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
+    | { type: 'nuxt:internal:dev:spans', spans: DevRequestSpan[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
     | { type: 'nuxt:internal:dev:building', building: boolean }
     | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender, awaiting?: boolean }
@@ -356,6 +359,8 @@ export interface DevRequestEvent {
   method: string
   url: string
   status: number
+  /** Epoch milliseconds at which the request was received, fractional. */
+  start?: number
   /** Milliseconds from receiving the request to the response closing. */
   duration: number
   /** Served by the bundler (module graph, HMR plumbing) rather than the app. */
@@ -398,6 +403,8 @@ interface DevServerEventMap {
   'restart': [reason?: DevRestartReason]
   'change': []
   'request': [event: DevRequestEvent]
+  /** Time spent serving a request that the app did not publish itself. */
+  'span': [span: DevRequestSpan]
   'routes': [payload: DevRoutes]
   'building': [building: boolean]
   /** A report the app forwarded, rendered for a terminal. */
@@ -423,6 +430,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #inflightResponses = new Set<ServerResponse>()
   /** Responses the CLI answered itself, kept out of the dev UI's request feed. */
   #internalResponses = new Set<ServerResponse>()
+  /** Requests being served, which the compile time Vite reports is charged to. */
+  #inflight = new Map<string, InflightAppRequest>()
+  #unsubscribeCompileTiming?: () => void
   #lockCleanup?: () => void
   #lockedBuildDir?: string
   #pendingReason?: DevRestartReason
@@ -517,8 +527,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
       const start = performance.now()
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
+      this.#inflight.set(request.id, { id: request.id, internal: isBundlerRequest(url, fetchDest) })
       return runWithRequest(request, () => {
         res.once('close', () => {
+          this.#inflight.delete(request.id)
           if (this.#internalResponses.delete(res)) {
             return
           }
@@ -527,6 +539,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
             method,
             url,
             status: res.statusCode,
+            start: performance.timeOrigin + start,
             duration: Math.round(performance.now() - start),
             internal: isBundlerRequest(url, fetchDest) || undefined,
           })
@@ -795,6 +808,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('loading', this.#loadingMessage)
 
     this.#openErrorBridge()
+    if (this.options.captureUIEvents && !this.#unsubscribeCompileTiming) {
+      const { subscribeCompileTiming } = await import('./compile-timing')
+      this.#unsubscribeCompileTiming = subscribeCompileTiming({
+        rootDir: () => this.#rootDir(),
+        current: currentRequest,
+        inflight: () => [...this.#inflight.values()],
+        report: span => this.emit('span', span),
+      })
+    }
     await this.#bindEagerListener()
 
     try {
@@ -831,10 +853,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#configWatcher?.()
   }
 
-  /** Stop listening for forwarded reports. Call only on final shutdown, not during reloads. */
+  /** Stop listening for forwarded reports and bundler timings. Call only on final shutdown, not during reloads. */
   closeErrorBridge(): void {
     this.#closeErrorBridge?.()
     this.#closeErrorBridge = undefined
+    this.#unsubscribeCompileTiming?.()
+    this.#unsubscribeCompileTiming = undefined
   }
 
   /**
@@ -920,6 +944,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       // Pass hostname and https info for proper CORS and allowedHosts setup
       const hostname = this.options.listenOverrides?.hostname
       loadOptions.defaults = resolveDevServerDefaults({ hostname, https: !!this.listener?.https }, urls)
+    }
+
+    // A default rather than an override, so a project can still opt out.
+    if (captureUIEvents) {
+      loadOptions.defaults = { ...loadOptions.defaults, tracingChannel: true } as NuxtConfig
     }
 
     return loadOptions

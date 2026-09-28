@@ -1718,6 +1718,48 @@ describe('request overlay', () => {
     expect(lastFrame()).toContain('traffic')
   })
 
+  it('draws the spans timed for a request on a timeline', () => {
+    const { log, overlay, lastFrame } = create({ events: new DevEventLog() })
+    log.push([{ id: 'r1', time: 0, start: 1000, method: 'GET', url: '/', status: 200, duration: 100 }])
+    log.pushSpans([
+      { requestId: 'r1', kind: 'route', name: 'GET /api/data', start: 1010, duration: 50, status: 200 },
+      { requestId: 'r1', kind: 'hook', name: 'render:html', start: 1080, duration: 0.4 },
+      { requestId: 'r1', kind: 'fetch', name: 'GET https://a.dev', start: 1020, duration: 30, status: 200 },
+      { requestId: 'r1', kind: 'middleware', name: 'GET /api/data', start: 1010, duration: 5 },
+      { requestId: 'r2', kind: 'hook', name: 'unrelated', start: 1000, duration: 1 },
+    ])
+    overlay.open()
+    overlay.handleKey({ name: 'down' })
+    overlay.handleKey({ name: 'return' })
+    const frame = lastFrame()
+    expect(frame).toContain('timeline')
+    expect(frame).toMatch(/route\s+ {2}GET \/api\/data 200\s+█+\s+50ms/)
+    expect(frame).toMatch(/middleware\s+ {4}GET \/api\/data\s+█+\s+5\.0ms/)
+    expect(frame).toMatch(/fetch\s+ {4}GET https:\/\/a\.dev 200/)
+    expect(frame).toMatch(/hook\s+ {2}render:html\s+█\s+0\.4ms/)
+    expect(frame).not.toContain('unrelated')
+    expect(frame.indexOf('GET /api/data')).toBeLessThan(frame.indexOf('a.dev'))
+  })
+
+  it('draws compiled modules as one row and breaks their time down by plugin', () => {
+    const { log, overlay, lastFrame } = create({ events: new DevEventLog() })
+    log.push([{ id: 'r1', time: 0, start: 1000, method: 'GET', url: '/', status: 200, duration: 100 }])
+    log.pushSpans([
+      { requestId: 'r1', kind: 'compile', name: 'app/app.vue', start: 1000, duration: 30, environment: 'nitro', plugins: { 'vite:vue': 20, 'nuxt:components': 4 } },
+      { requestId: 'r1', kind: 'compile', name: 'vue/index.mjs', start: 1010, duration: 10, environment: 'nitro', plugins: { 'vite:vue': 1 } },
+      { requestId: 'r1', kind: 'compile', name: 'app/pages/index.vue', start: 1060, duration: 20, environment: 'nitro', plugins: { 'nuxt:components': 9 } },
+      { requestId: 'r1', kind: 'route', name: 'GET /', start: 1030, duration: 60, status: 200 },
+    ])
+    overlay.open()
+    overlay.handleKey({ name: 'down' })
+    overlay.handleKey({ name: 'return' })
+    const frame = lastFrame()
+    expect(frame).toMatch(/compile\s+3 modules\s+█+ +█+ +50ms/)
+    expect(frame).toMatch(/vite plugins[\s\S]*21ms\s+vite:vue[\s\S]*13ms\s+nuxt:components/)
+    expect(frame).toMatch(/slowest modules[\s\S]*30ms\s+app\/app\.vue \(nitro\)/)
+    expect(frame).not.toMatch(/compile\s+ {2}app\/app\.vue/)
+  })
+
   it('says so when a request has no attributed logs', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })

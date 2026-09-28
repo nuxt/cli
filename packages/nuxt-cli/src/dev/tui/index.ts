@@ -672,6 +672,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       activityTimer = setTimeout(clearActivity, ACTIVITY_MS)
       activityTimer.unref?.()
     },
+    pushSpans: spans => requests.pushSpans(spans),
     pushReport: (report) => {
       // Set before the event, which would otherwise paint the badge's standing
       // description in between.
