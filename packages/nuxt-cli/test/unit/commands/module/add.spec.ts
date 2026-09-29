@@ -9,7 +9,7 @@ import * as versions from '../../../../src/utils/versions'
 const { readNuxtConfig, addNuxtConfigEntries, detectPackageManager } = vi.hoisted(() => ({
   readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
   addNuxtConfigEntries: vi.fn(() => Promise.resolve()),
-  detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', command: 'npm' })),
+  detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', agent: 'npm' })),
 }))
 
 let v3 = '3.0.0'
@@ -27,12 +27,10 @@ function applyMocks() {
       createNuxtConfig: vi.fn(),
     }
   })
-  vi.mock('nypm', async () => {
-    return {
-      detectPackageManager,
-      packageManagers: [{ name: 'npm', command: 'npm' }],
-    }
-  })
+  vi.mock('../../../../src/utils/package-managers', async importOriginal => ({
+    ...await importOriginal<typeof import('../../../../src/utils/package-managers')>(),
+    detectPackageManager,
+  }))
   vi.mock('pkg-types', async () => {
     return {
       readPackageJSON: () => {
@@ -130,8 +128,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dependencies: [`@nuxt/content@${v3}`],
       dev: true,
-      packageManager: { name: 'npm', command: 'npm' },
-      workspace: false,
+      packageManager: { name: 'npm', agent: 'npm' },
     }))
   })
 
@@ -148,8 +145,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dependencies: ['@nuxt/content@2.9.0'],
       dev: true,
-      packageManager: { name: 'npm', command: 'npm' },
-      workspace: false,
+      packageManager: { name: 'npm', agent: 'npm' },
     }))
   })
 
@@ -166,8 +162,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dependencies: ['@nuxt/content@2.13.1'],
       dev: true,
-      packageManager: { name: 'npm', command: 'npm' },
-      workspace: false,
+      packageManager: { name: 'npm', agent: 'npm' },
     }))
   })
 
@@ -184,8 +179,7 @@ describe('module add', () => {
       cwd: '/fake-dir',
       dependencies: ['@nuxt/content@3.1.1'],
       dev: true,
-      packageManager: { name: 'npm', command: 'npm' },
-      workspace: false,
+      packageManager: { name: 'npm', agent: 'npm' },
     }))
   })
 })

@@ -1,11 +1,7 @@
-import type { PackageManager } from 'nypm'
 import type { PackageJson } from 'pkg-types'
-
-import { existsSync } from 'node:fs'
 
 import { styleText } from 'node:util'
 import { confirm, isCancel } from '@clack/prompts'
-import { resolve } from 'pathe'
 import { satisfies } from 'verkit'
 
 import { fetchJson } from '../../utils/fetch'
@@ -238,10 +234,6 @@ export async function ensureNuxtDependency(cwd: string, projectPkg: PackageJson)
   })
 
   return !isCancel(shouldContinue) && shouldContinue === true
-}
-
-export function isPnpmWorkspace(packageManager: PackageManager | undefined, cwd: string): boolean {
-  return packageManager?.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml'))
 }
 
 /** Forward `cwd` and log-level args to a chained command invocation. */

@@ -1,3 +1,4 @@
+import type { DetectResult } from 'package-manager-detector'
 import type { TSConfig } from 'pkg-types'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
@@ -7,15 +8,16 @@ import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
-import { addDevDependency, detectPackageManager } from 'nypm'
 import { dirname, resolve } from 'pathe'
 import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { resolveDotenvFileNames } from '../utils/args'
+import { runInstall } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
+import { detectPackageManager } from '../utils/package-managers'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
@@ -258,13 +260,12 @@ async function ensureGolarConfig(cwd: string) {
 }
 
 async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
-  const packageManager = await detectPackageManager(cwd, { includeParentDirs: true })
-  const pmName = packageManager?.name ?? 'npm'
+  const packageManager = await detectPackageManager(cwd) ?? { name: 'npm', agent: 'npm' }
+  const pmName = packageManager.name
   const devFlag = pmName === 'bun' ? '-d' : '-D'
-  const pmCommand = packageManager?.command ?? pmName
 
   if (!hasTTY) {
-    printInstallInstructions(pmCommand, devFlag, preferred ? [preferred] : CHECKER_PRIORITY)
+    printInstallInstructions(pmName, devFlag, preferred ? [preferred] : CHECKER_PRIORITY)
     return
   }
 
@@ -289,7 +290,7 @@ async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): P
     selected = answer
   }
 
-  const installCommand = formatInstallCommand(selected, pmCommand, devFlag)
+  const installCommand = formatInstallCommand(selected, pmName, devFlag)
   const { missing } = TYPE_CHECKERS[selected].resolve(cwd)
 
   if (missing.length > 0) {
@@ -336,7 +337,7 @@ function formatInstallCommand(checker: TypeChecker, pmCommand: string, devFlag: 
 
 async function installMissingPackages(options: {
   cwd: string
-  packageManager: Awaited<ReturnType<typeof detectPackageManager>>
+  packageManager: DetectResult
   pmName: string
   packages: string[]
   installCommand: string
@@ -358,17 +359,15 @@ async function installMissingPackages(options: {
 
   const spin = createSpinner()
   spin.start(`Installing ${list} with ${styleText('cyan', pmName)}`)
-  try {
-    await addDevDependency(packages, { cwd, packageManager, silent: true })
+  const result = await runInstall({ cwd, packageManager, dependencies: packages, dev: true })
+  if (result.success) {
     spin.stop(`Installed ${list}`)
     return true
   }
-  catch (error) {
-    spin.error(`Failed to install ${list}`)
-    logger.error(error instanceof Error ? error.message : String(error))
-    logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${styleText('bold', installCommand)}\n`)
-    return false
-  }
+  spin.error(`Failed to install ${list}`)
+  logger.error(result.error ?? result.output)
+  logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${styleText('bold', installCommand)}\n`)
+  return false
 }
 
 async function writeTypes(cwd: string, dotenv?: string[], logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {

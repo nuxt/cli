@@ -327,9 +327,9 @@ importers:
       giget:
         specifier: ^3.3.1
         version: 3.3.1
-      nypm:
-        specifier: ^0.6.10
-        version: 0.6.10
+      package-manager-detector:
+        specifier: ^1.8.0
+        version: 1.8.0
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
@@ -424,6 +424,9 @@ importers:
       oxc-parser:
         specifier: '>=0.56.3'
         version: 0.150.0
+      package-manager-detector:
+        specifier: ^1.8.0
+        version: 1.8.0
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
@@ -497,9 +500,6 @@ importers:
       nitropack:
         specifier: 2.13.4
         version: 2.13.4(oxc-parser@0.150.0)(rolldown@1.2.11)(srvx@1.0.5)(supports-color@10.2.2)(vite@8.3.0)
-      nypm:
-        specifier: ^0.6.10
-        version: 0.6.10
       rolldown:
         specifier: 1.2.11
         version: 1.2.11

@@ -8,7 +8,6 @@ import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
-import { detectPackageManager } from 'nypm'
 import { readPackageJSON } from 'pkg-types'
 import { camelCase } from 'scule'
 import { isBun, isDeno, isMinimal } from 'std-env'
@@ -23,7 +22,7 @@ import { logger } from '../utils/logger'
 import { resolveNitroVersion } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
-import { getPackageManagerVersion } from '../utils/packageManagers'
+import { detectPackageManager, getPackageManagerVersion } from '../utils/package-managers'
 import { resolveRootDir } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
 import { rootDirArgs } from './_shared'
@@ -96,7 +95,7 @@ export default defineCommand({
     const moduleNames = modules.filter(module => module !== null)
     const builder = nuxtConfig.builder || 'vite'
     const packageManager = detectedPackageManager
-      ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.command)}`
+      ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.name)}`
       : 'unknown'
     const osType = os.type()
     const cpus = os.cpus()

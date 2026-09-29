@@ -5,8 +5,8 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { addDevDependency, answers, resolveModulePath, tinyexec, writeTypes } = vi.hoisted(() => ({
-  addDevDependency: vi.fn(() => Promise.resolve()),
+const { runInstall, answers, resolveModulePath, tinyexec, writeTypes } = vi.hoisted(() => ({
+  runInstall: vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })),
   answers: { select: [] as unknown[], confirm: [] as unknown[] },
   resolveModulePath: vi.fn(),
   tinyexec: vi.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
@@ -20,10 +20,14 @@ vi.mock('exsolve', async importOriginal => ({
   resolveModulePath,
 }))
 
-vi.mock('nypm', async importOriginal => ({
-  ...await importOriginal<typeof import('nypm')>(),
-  addDevDependency,
-  detectPackageManager: () => Promise.resolve({ name: 'pnpm', command: 'pnpm' }),
+vi.mock('../../../src/utils/install', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/utils/install')>(),
+  runInstall,
+}))
+
+vi.mock('../../../src/utils/package-managers', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/utils/package-managers')>(),
+  detectPackageManager: () => Promise.resolve({ name: 'pnpm', agent: 'pnpm' }),
 }))
 
 vi.mock('../../../src/utils/kit', () => ({
@@ -83,7 +87,7 @@ beforeEach(async () => {
   answers.confirm.length = 0
   vi.clearAllMocks()
   tinyexec.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' })
-  addDevDependency.mockImplementation(() => Promise.resolve())
+  runInstall.mockImplementation(() => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] }))
   installed('typescript', 'vue-tsc/bin/vue-tsc.js')
   await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', type: 'module' }))
 })
@@ -138,14 +142,14 @@ describe('typecheck installation advice', () => {
     installed()
     answers.select.push('vue-tsc')
     answers.confirm.push(true)
-    addDevDependency.mockImplementation(() => {
+    runInstall.mockImplementation(() => {
       installed('typescript', 'vue-tsc/bin/vue-tsc.js')
-      return Promise.resolve()
+      return Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })
     })
 
     await runTypecheck()
 
-    expect(addDevDependency).toHaveBeenCalledWith(['typescript', 'vue-tsc'], expect.objectContaining({ cwd }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ cwd, dependencies: ['typescript', 'vue-tsc'], dev: true }))
     expect(tinyexec).toHaveBeenCalledTimes(1)
   })
 
