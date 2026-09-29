@@ -18,7 +18,7 @@ import { createInstallLog, runInstall } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { readDependencyPackageJson } from '../../utils/package-json'
-import { detectPackageManager } from '../../utils/package-managers'
+import { defaultPackageManager, detectPackageManager } from '../../utils/package-managers'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
@@ -217,7 +217,7 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const dependency = toRemove.length > 1 ? 'dependencies' : 'dependency'
     logger.info(`Uninstalling ${removeList} ${dependency}`)
 
-    const packageManager = await detectPackageManager(cwd) ?? { name: 'npm', agent: 'npm' }
+    const packageManager = await detectPackageManager(cwd) ?? defaultPackageManager
     const installLog = createInstallLog()
 
     const result = await runInstall({

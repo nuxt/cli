@@ -14,10 +14,8 @@ import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { resolveDotenvFileNames } from '../utils/args'
-import { runInstall } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
-import { detectPackageManager } from '../utils/package-managers'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
@@ -260,7 +258,8 @@ async function ensureGolarConfig(cwd: string) {
 }
 
 async function promptTypeCheckerInstall(cwd: string, preferred?: TypeChecker): Promise<TypeCheckerSetup | undefined> {
-  const packageManager = await detectPackageManager(cwd) ?? { name: 'npm', agent: 'npm' }
+  const { defaultPackageManager, detectPackageManager } = await import('../utils/package-managers')
+  const packageManager = await detectPackageManager(cwd) ?? defaultPackageManager
   const pmName = packageManager.name
   const devFlag = pmName === 'bun' ? '-d' : '-D'
 
@@ -359,6 +358,7 @@ async function installMissingPackages(options: {
 
   const spin = createSpinner()
   spin.start(`Installing ${list} with ${styleText('cyan', pmName)}`)
+  const { runInstall } = await import('../utils/install')
   const result = await runInstall({ cwd, packageManager, dependencies: packages, dev: true })
   if (result.success) {
     spin.stop(`Installed ${list}`)

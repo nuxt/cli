@@ -223,8 +223,8 @@ async function checkDependencies(cwd: string, interactive: boolean): Promise<voi
 }
 
 async function detectInstaller(cwd: string): Promise<DetectResult> {
-  const { detectPackageManager } = await import('../utils/package-managers')
-  return await detectPackageManager(cwd) ?? { name: 'npm', agent: 'npm' }
+  const { defaultPackageManager, detectPackageManager } = await import('../utils/package-managers')
+  return await detectPackageManager(cwd) ?? defaultPackageManager
 }
 
 async function offerInstall(cwd: string, interactive: boolean): Promise<void> {

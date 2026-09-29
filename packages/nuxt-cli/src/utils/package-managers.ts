@@ -8,6 +8,9 @@ import { detect } from 'package-manager-detector/detect'
 /** Supported package managers, in the order they are offered to the user. */
 export const packageManagerNames: AgentName[] = ['npm', 'pnpm', 'yarn', 'bun', 'deno', 'aube', 'nub']
 
+/** Used when no package manager can be detected. */
+export const defaultPackageManager: DetectResult = { name: 'npm', agent: 'npm' }
+
 export function isPackageManagerName(name: unknown): name is AgentName {
   return packageManagerNames.includes(name as AgentName)
 }

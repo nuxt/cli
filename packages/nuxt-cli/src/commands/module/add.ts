@@ -19,7 +19,7 @@ import { fetchJson } from '../../utils/fetch'
 import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
-import { detectPackageManager, isPackageManagerName, packageManagerNames } from '../../utils/package-managers'
+import { defaultPackageManager, detectPackageManager, isPackageManagerName, packageManagerNames } from '../../utils/package-managers'
 import { detectNpmRegistry } from '../../utils/registry'
 import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
@@ -285,7 +285,7 @@ async function selectPackageManager(cwd: string, name?: string): Promise<DetectR
   const detected = await detectPackageManager(cwd)
 
   if (!requested) {
-    return detected ?? { name: 'npm', agent: 'npm' }
+    return detected ?? defaultPackageManager
   }
 
   return detected?.name === requested
