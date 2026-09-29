@@ -1,3 +1,4 @@
+import http from 'node:http'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
@@ -52,15 +53,18 @@ export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv:
 
 export type ProxySetupResult = 'unused' | 'active' | 'children-only' | 'unsupported'
 
+type EnableGlobalProxy = (env: NodeJS.ProcessEnv) => unknown
+
+const setGlobalProxyFromEnv = (http as { setGlobalProxyFromEnv?: EnableGlobalProxy }).setGlobalProxyFromEnv
+
 let envProxyActive: boolean | undefined
 let proxyHintShown = false
 
 /**
- * Propagate Node.js' built-in proxy support to child processes (package manager
- * installs, the dev server) when proxy environment variables are set, and record
- * whether the current process is itself proxy-aware so failures can say so.
+ * Route requests from this process and its children through the proxy
+ * environment variables, and record whether this process is proxy-aware.
  */
-export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: NodeFlags): ProxySetupResult {
+export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: NodeFlags, enableGlobalProxy: EnableGlobalProxy | null = setGlobalProxyFromEnv ?? null): ProxySetupResult {
   proxyHintShown = false
 
   if (!hasProxyEnv(env)) {
@@ -73,6 +77,10 @@ export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: 
   }
 
   envProxyActive = isEnvProxyActive(env, process.execArgv, flags)
+  if (!envProxyActive && enableGlobalProxy && env.NODE_USE_ENV_PROXY !== '0') {
+    enableGlobalProxy(env)
+    envProxyActive = true
+  }
   env.NODE_USE_ENV_PROXY ||= '1'
 
   return envProxyActive ? 'active' : 'children-only'

@@ -11,6 +11,7 @@ import { stripVTControlCharacters } from 'node:util'
 
 import { downloadTemplate } from 'giget'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { setGlobalProxyFromEnv, startTunnelProxy } from '../../utils/proxy'
 
 const logs: Array<[string, string]> = []
 
@@ -80,8 +81,29 @@ describe('setupProxySupport', () => {
 
   it('propagates proxy support to child processes', () => {
     const env = { HTTP_PROXY: 'http://localhost:3128' } as NodeJS.ProcessEnv
-    expect(setupProxySupport(env, MODERN_NODE)).toBe('children-only')
+    expect(setupProxySupport(env, MODERN_NODE, null)).toBe('children-only')
     expect(env.NODE_USE_ENV_PROXY).toBe('1')
+  })
+
+  it.skipIf(!setGlobalProxyFromEnv)('routes fetch through the proxy while honouring NO_PROXY', async () => {
+    const proxy = await startTunnelProxy()
+    try {
+      const env = { HTTP_PROXY: proxy.proxyUrl, NO_PROXY: '127.0.0.1' } as NodeJS.ProcessEnv
+      expect(setupProxySupport(env, MODERN_NODE)).toBe('active')
+      expect(await fetch('http://nuxt.invalid/').then(r => r.text())).toBe('ok')
+      expect(await fetch(proxy.targetUrl).then(r => r.text())).toBe('ok')
+      expect(proxy.tunnelled).toEqual(['nuxt.invalid:80'])
+      expect(getProxyHint('refused', { env, flags: MODERN_NODE })).toBeUndefined()
+    }
+    finally {
+      proxy.close()
+    }
+  })
+
+  it('does not enable the proxy when NODE_USE_ENV_PROXY is explicitly disabled', () => {
+    const enable = vi.fn()
+    expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '0' }, MODERN_NODE, enable)).toBe('children-only')
+    expect(enable).not.toHaveBeenCalled()
   })
 
   it('reports Node.js versions that cannot use the proxy', () => {
