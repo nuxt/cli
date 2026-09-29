@@ -10,12 +10,14 @@ const realIsTTY = process.stdout.isTTY
 
 afterEach(() => {
   process.stdout.isTTY = realIsTTY
+  vi.restoreAllMocks()
 })
 
 describe('withSpinner', () => {
   it('should log each stage as a line without a terminal to animate', async () => {
     process.stdout.isTTY = false
     const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    const success = vi.spyOn(logger, 'success').mockImplementation(() => {})
 
     const result = await withSpinner('Searching', async (spinner) => {
       spinner.update('Downloading')
@@ -24,7 +26,27 @@ describe('withSpinner', () => {
     }, { done: 'Searched' })
 
     expect(result).toBe('done')
-    expect(info.mock.calls.map(call => call[0])).toEqual(['Searching...', 'Downloading...', 'Searched 3 pages'])
+    expect(info.mock.calls.map(call => call[0])).toEqual(['Searching...', 'Downloading...'])
+    expect(success.mock.calls.map(call => call[0])).toEqual(['Searched 3 pages'])
+  })
+})
+
+describe('createSpinner', () => {
+  it('should log each distinct message once without a terminal to animate', () => {
+    process.stdout.isTTY = false
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    const success = vi.spyOn(logger, 'success').mockImplementation(() => {})
+
+    const spinner = createSpinner({ indicator: 'timer' })
+    spinner.start('Installing with pnpm')
+    spinner.message('`pnpm add` may be stuck')
+    spinner.message('`pnpm add` may be stuck')
+    spinner.stop('Dependencies installed')
+
+    expect(info.mock.calls.map(call => call[0])).toEqual(['Installing with pnpm...', '`pnpm add` may be stuck...'])
+    expect(success.mock.calls.map(call => call[0])).toEqual(['Dependencies installed'])
+    expect(write).not.toHaveBeenCalled()
   })
 })
 
@@ -105,13 +127,5 @@ describe('spinners with a terminal host', () => {
     finally {
       release()
     }
-  })
-
-  it('should hand out a clack spinner when nothing owns the terminal', () => {
-    const spinner = createSpinner()
-
-    expect(typeof spinner.start).toBe('function')
-    expect(typeof spinner.message).toBe('function')
-    expect(typeof spinner.stop).toBe('function')
   })
 })

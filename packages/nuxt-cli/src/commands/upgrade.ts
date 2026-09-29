@@ -2,24 +2,25 @@ import type { PackageJson } from 'pkg-types'
 
 import type { UpdateCatalogEntriesResult } from '../utils/catalog'
 import type { InstallResult } from '../utils/install'
-
 import { existsSync } from 'node:fs'
-import process from 'node:process'
 
+import process from 'node:process'
 import { styleText } from 'node:util'
-import { cancel, isCancel, note, select, spinner } from '@clack/prompts'
+
+import { cancel, isCancel, note, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { detectPackageManager } from 'nypm'
 import { dirname, relative, resolve } from 'pathe'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
-
 import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
+
 import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { intro, logger, outro } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
 import { getPackageManagerVersion } from '../utils/packageManagers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { createSpinner } from '../utils/spinner'
 import { getNuxtVersion, resolveRegistryVersion } from '../utils/versions'
 import { logLevelArgs, rootDirArgs } from './_shared'
 
@@ -269,7 +270,7 @@ export default defineCommand({
     let catalogResult: UpdateCatalogEntriesResult | 'skipped' = 'skipped'
 
     if (catalogUpdates.length > 0) {
-      const catalogSpinner = spinner()
+      const catalogSpinner = createSpinner()
       catalogSpinner.start('Updating catalog entries')
 
       const resolved: Array<{ catalog: string, pkg: string, specifier: string }> = []
@@ -352,7 +353,7 @@ export default defineCommand({
       }
     }
 
-    const cleanupSpinner = spinner()
+    const cleanupSpinner = createSpinner()
     cleanupSpinner.start('Cleaning up build directories')
     let buildDir: string = '.nuxt'
     try {
@@ -368,7 +369,7 @@ export default defineCommand({
       cleanupSpinner.stop('Build directories cleaned')
     }
     catch (err) {
-      cleanupSpinner.stop('Could not clean build directories')
+      cleanupSpinner.error('Could not clean build directories')
       logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error ? err.message : err}`)
     }
 
@@ -423,7 +424,7 @@ async function withInstallSpinner(
 ): Promise<boolean> {
   const controller = new AbortController()
   const installLog = createInstallLog({ verbose: options.verbose })
-  const spin = spinner({
+  const spin = createSpinner({
     indicator: 'timer',
     onCancel: () => controller.abort(),
   })

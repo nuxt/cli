@@ -1,7 +1,10 @@
+import type { CommandDef } from 'citty'
+
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { stripVTControlCharacters } from 'node:util'
 
-import { runCommand as _runCommand, runMain as _runMain } from 'citty'
+import { runCommand as _runCommand, runMain as _runMain, renderUsage } from 'citty'
 
 import { commands } from './commands'
 import { globalCwdArgs } from './commands/_shared'
@@ -34,7 +37,7 @@ export async function runMain(): Promise<void> {
     const { initCompletions } = await import('./completions')
     await initCompletions(main)
   }
-  await _runMain(main)
+  await _runMain(main, { showUsage })
 
   if (!currentCommand || !LONG_RUNNING_COMMANDS.has(currentCommand)) {
     warnOnHang({ action: currentCommand ? `\`nuxt ${currentCommand}\`` : 'command' })
@@ -57,4 +60,11 @@ export async function runCommand(
       overrides: data.overrides || {},
     },
   })
+}
+
+/** Print usage, unstyled when stdout lacks colour support. */
+export async function showUsage(cmd: CommandDef<any>, parent?: CommandDef<any>): Promise<void> {
+  const usage = await renderUsage(cmd, parent)
+  const plain = process.env.NO_COLOR || !process.stdout.hasColors?.()
+  process.stdout.write(`${plain ? stripVTControlCharacters(usage) : usage}\n\n`)
 }
