@@ -1,6 +1,6 @@
 import type { Buffer } from 'node:buffer'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
-import type { DetectResult } from 'package-manager-detector'
+import type { Agent, Command, DetectResult } from 'package-manager-detector'
 
 import { spawn } from 'node:child_process'
 import { existsSync, rmSync, statSync } from 'node:fs'
@@ -9,7 +9,7 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 
 import { log, S_BAR } from '@clack/prompts'
-import { resolveCommand } from 'package-manager-detector/commands'
+import { COMMANDS, resolveCommand } from 'package-manager-detector/commands'
 import { normalizeSpawnCommand } from 'tinyexec'
 
 import { getLockFiles } from './package-managers'
@@ -28,16 +28,21 @@ const ANSI_RE = /\u001B\[[\d;]*[A-Z]/gi
 
 const DENO_SPECIFIER_RE = /^(?:npm|jsr|file):/
 
+/** Like `resolveCommand`, but `null` rather than a throw for an agent `package-manager-detector` does not know. */
+function resolveAgentCommand(agent: Agent, command: Command, args: string[]) {
+  return Object.hasOwn(COMMANDS, agent) ? resolveCommand(agent, command, args) : null
+}
+
 function getInstallCommand({ cwd, packageManager: { agent, name }, dependencies = [], dev, uninstall }: InstallOptions) {
   if (!dependencies.length) {
-    return resolveCommand(agent, 'install', [])!
+    return resolveAgentCommand(agent, 'install', [])
   }
-  return resolveCommand(agent, uninstall ? 'uninstall' : 'add', [
+  return resolveAgentCommand(agent, uninstall ? 'uninstall' : 'add', [
     // pnpm refuses to add to a workspace root without this flag.
     ...name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')) ? ['--workspace-root'] : [],
     ...dev && !uninstall ? ['-D'] : [],
     ...name === 'deno' ? dependencies.map(dep => DENO_SPECIFIER_RE.test(dep) ? dep : `npm:${dep}`) : dependencies,
-  ])!
+  ])
 }
 
 export interface InstallOptions {
@@ -78,8 +83,11 @@ export interface InstallResult {
  * instead of hanging behind a spinner where its question is invisible.
  */
 export async function runInstall(options: InstallOptions): Promise<InstallResult> {
-  const { command, args } = getInstallCommand(options)
-  return await execute(command, [...args, ...nonInteractiveArgs(options.packageManager)], options)
+  const exec = getInstallCommand(options)
+  if (!exec) {
+    return { success: false, output: '', command: '', ignoredBuilds: [], error: `Installing dependencies is not supported for ${options.packageManager.name}` }
+  }
+  return await execute(exec.command, [...exec.args, ...nonInteractiveArgs(options.packageManager)], options)
 }
 
 export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'uninstall'> {
@@ -107,7 +115,7 @@ export async function runDedupe(options: DedupeOptions): Promise<InstallResult> 
 
   const { agent, name } = options.packageManager
   // Yarn 1 deduplicates as part of a regular install.
-  const exec = resolveCommand(agent, agent === 'yarn' ? 'install' : 'dedupe', [])
+  const exec = resolveAgentCommand(agent, agent === 'yarn' ? 'install' : 'dedupe', [])
   if (!exec) {
     return { success: false, output: '', command: '', ignoredBuilds: [], error: `Deduplication is not supported for ${name}` }
   }

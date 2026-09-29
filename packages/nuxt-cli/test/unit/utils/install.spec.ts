@@ -1,3 +1,4 @@
+import type { DetectResult } from 'package-manager-detector'
 import { existsSync } from 'node:fs'
 import { chmod, mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -141,6 +142,13 @@ describe.skipIf(process.platform === 'win32')('runInstall arguments', () => {
     const result = await runInstall({ cwd: dir, packageManager: { name: 'deno', agent: 'deno' }, dependencies: ['a', 'jsr:@std/path'] })
     expect(result.command).toBe('deno add npm:a jsr:@std/path')
   })
+
+  it('should report a package manager without commands as a failure', async () => {
+    const packageManager = { name: 'unknown-pm', agent: 'unknown-pm' } as unknown as DetectResult
+    const result = await runInstall({ cwd: process.cwd(), packageManager, dependencies: ['a'] })
+
+    expect(result).toEqual({ success: false, output: '', command: '', ignoredBuilds: [], error: 'Installing dependencies is not supported for unknown-pm' })
+  })
 })
 
 describe('runDedupe', () => {
@@ -197,6 +205,14 @@ describe('runDedupe', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toBe('Deduplication is not supported for bun')
+  })
+
+  it('should report a package manager without commands as a failure', async () => {
+    const packageManager = { name: 'unknown-pm', agent: 'unknown-pm' } as unknown as DetectResult
+    const result = await runDedupe({ cwd: process.cwd(), packageManager })
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Deduplication is not supported for unknown-pm')
   })
 
   it('should report a missing package manager instead of throwing', async () => {

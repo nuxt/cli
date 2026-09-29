@@ -2,11 +2,19 @@ import type { AgentName, DetectResult } from 'package-manager-detector'
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 
+import { COMMANDS } from 'package-manager-detector/commands'
 import { LOCKS } from 'package-manager-detector/constants'
 import { detect } from 'package-manager-detector/detect'
 
-/** Supported package managers, in the order they are offered to the user. */
-export const packageManagerNames: AgentName[] = ['npm', 'pnpm', 'yarn', 'bun', 'deno', 'aube', 'nub']
+const preferredOrder = ['npm', 'pnpm', 'yarn', 'bun', 'deno', 'aube', 'nub', 'upm']
+
+/**
+ * Supported package managers, in the order they are offered to the user.
+ *
+ * Only those `package-manager-detector` has commands for are kept, so a name it
+ * does not support yet (such as `upm`) is never offered and then fails to install.
+ */
+export const packageManagerNames = preferredOrder.filter((name): name is AgentName => Object.hasOwn(COMMANDS, name))
 
 /** Used when no package manager can be detected. */
 export const defaultPackageManager: DetectResult = { name: 'npm', agent: 'npm' }

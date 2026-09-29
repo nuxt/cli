@@ -1,11 +1,13 @@
+import type { AgentName } from 'package-manager-detector'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
 
+import process from 'node:process'
+import { resolveCommand } from 'package-manager-detector/commands'
 import { describe, expect, it } from 'vitest'
 
-import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../../../src/utils/package-managers'
+import { detectPackageManager, getLockFiles, getPackageManagerVersion, isPackageManagerName, packageManagerNames } from '../../../src/utils/package-managers'
 
 describe('detectPackageManager', () => {
   async function createNestedProject() {
@@ -34,6 +36,30 @@ describe('detectPackageManager', () => {
 describe('getLockFiles', () => {
   it('should not include workspace manifests', () => {
     expect(getLockFiles('pnpm')).toEqual(['pnpm-lock.yaml'])
+  })
+})
+
+describe('packageManagerNames', () => {
+  it('should only offer package managers that can install', () => {
+    for (const name of packageManagerNames) {
+      expect(resolveCommand(name, 'install', []), name).not.toBeNull()
+      expect(resolveCommand(name, 'add', ['a']), name).not.toBeNull()
+      expect(resolveCommand(name, 'uninstall', ['a']), name).not.toBeNull()
+    }
+  })
+})
+
+// upm is offered once `package-manager-detector` supports it.
+describe.skipIf(!isPackageManagerName('upm'))('upm', () => {
+  it('should be detected from `upm.lock`', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nuxt-pm-test-'))
+    await writeFile(join(dir, 'upm.lock'), '')
+
+    expect(await detectPackageManager(dir)).toEqual({ name: 'upm', agent: 'upm' })
+  })
+
+  it('should own `upm.lock`', () => {
+    expect(getLockFiles('upm' as AgentName)).toEqual(['upm.lock'])
   })
 })
 
