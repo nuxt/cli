@@ -1,8 +1,12 @@
+import type { DevRequestSpan } from '../../src/dev/span-channel'
+
+import { channel, tracingChannel } from 'node:diagnostics_channel'
 import { BroadcastChannel } from 'node:worker_threads'
 
 import { describe, expect, it, vi } from 'vitest'
 
 import { DEV_LOG_CHANNEL, openDevLogChannel } from '../../src/dev/log-channel'
+import { openDevSpanChannel } from '../../src/dev/span-channel'
 
 const reporters: Array<{ log: (logObj: unknown) => void }> = []
 vi.mock('consola', () => ({
@@ -141,6 +145,61 @@ describe('dev request context plugin', () => {
       await vi.waitFor(() => expect(received).toHaveLength(1))
       expect(received[0]!.origin).toBe('build')
       expect(received[0]!.requestId).toBeUndefined()
+    }
+    finally {
+      close()
+    }
+  })
+
+  it('reports spans published while serving a request, against that request', async () => {
+    const before: Array<(event: { name: string, context: Record<symbol, unknown> }) => void> = []
+    const after: typeof before = []
+    const hooks = {
+      _hooks: { 'render:html': [() => {}] } as Record<string, unknown[]>,
+      beforeEach: (fn: (typeof before)[number]) => before.push(fn),
+      afterEach: (fn: (typeof before)[number]) => after.push(fn),
+      callHook(name: string) {
+        const event = { name, context: {} }
+        before.forEach(fn => fn(event))
+        after.forEach(fn => fn(event))
+      },
+    }
+    const fetchRequest = { method: 'GET', origin: 'https://api.example.com', path: '/data' }
+    const { app, nitroApp: instance } = nitroApp(async () => {
+      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, { plugin: { name: 'nuxt:head' } })
+      await tracingChannel('nuxt.hook').tracePromise(async () => {}, { name: 'app:rendered', args: [] })
+      await tracingChannel('nuxt.hook').tracePromise(async () => {}, { hook: { name: 'app:created' } })
+      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, { middleware: { name: 'auth', global: false } })
+      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, { middleware: { path: '@/project/node_modules/nuxt/dist/app/middleware/guard.js', global: true } })
+      await tracingChannel('nuxt.data').tracePromise(async () => {}, { key: 'posts', functionName: 'useFetch' })
+      await tracingChannel('h3.request').tracePromise(async () => {}, { type: 'route', event: { req: { method: 'GET', url: 'http://localhost/api/posts?page=2' }, res: { status: 201 } } })
+      hooks.callHook('render:html')
+      hooks.callHook('request')
+      channel('undici:request:create').publish({ request: fetchRequest })
+      channel('undici:request:headers').publish({ request: fetchRequest, response: { statusCode: 200 } })
+      channel('undici:request:trailers').publish({ request: fetchRequest })
+      return 'served'
+    })
+    plugin({ ...instance, hooks })
+
+    const received: DevRequestSpan[] = []
+    const close = openDevSpanChannel(span => received.push(span))
+    try {
+      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, { plugin: { name: 'outside a request' } })
+      await app.handler(eventFor({ [HEADER]: 'req-9', [LABEL_HEADER]: 'GET%20%2F' }))
+      await vi.waitFor(() => expect(received).toHaveLength(9))
+      expect(received.every(span => span.requestId === 'req-9')).toBe(true)
+      expect(received.map(({ kind, name, status }) => ({ kind, name, status }))).toEqual(expect.arrayContaining([
+        { kind: 'plugin', name: 'nuxt:head', status: undefined },
+        { kind: 'hook', name: 'app:rendered', status: undefined },
+        { kind: 'hook', name: 'app:created', status: undefined },
+        { kind: 'middleware', name: 'auth', status: undefined },
+        { kind: 'middleware', name: 'nuxt/dist/app/middleware/guard.js', status: undefined },
+        { kind: 'data', name: 'useFetch(posts)', status: undefined },
+        { kind: 'route', name: 'GET /api/posts?page=2', status: 201 },
+        { kind: 'hook', name: 'render:html', status: undefined },
+        { kind: 'fetch', name: 'GET https://api.example.com/data', status: 200 },
+      ]))
     }
     finally {
       close()

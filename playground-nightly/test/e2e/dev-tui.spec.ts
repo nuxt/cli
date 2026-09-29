@@ -87,4 +87,42 @@ describe('dev ui on nuxt nightly', () => {
 
     expect(output.split('log from the server route')).toHaveLength(2)
   }, 240_000)
+
+  it('should trace a page through its middleware, data fetching and render', async () => {
+    const session = record(`NUXT_IGNORE_LOCK=1 NUXT_TUI=1 node ${bin} dev --port 3214 --no-takeover`, {
+      cwd,
+      rows: 80,
+      columns: 140,
+      env: {},
+    })
+    try {
+      await session.waitFor(/ready in/, 180_000)
+      await fetch('http://localhost:3214/trace').then(response => response.text())
+      await session.wait(2000)
+      session.send('n')
+      await session.wait(500)
+      session.send('/')
+      session.send('trace')
+      session.send('\r')
+      session.send('\u001B[B')
+      await session.wait(500)
+      session.send('\r')
+      await session.wait(1500)
+      const trace = plain(session.output()).split('trace · GET /trace').at(-1)!
+
+      expect(trace).toContain('timeline')
+      expect(trace).toMatch(/middleware\s+traced/)
+      expect(trace).toMatch(/data\s+useFetch\(/)
+      expect(trace).toMatch(/route\s+GET \/api\/pid/)
+      expect(trace).toMatch(/render\s+renderToString/)
+      expect(trace).toMatch(/plugin\s+nuxt:router/)
+      expect(trace).toMatch(/hook\s+app:rendered/)
+      expect(trace).not.toContain('@/')
+      expect(trace).toMatch(/compile\s+\d+ modules/)
+      expect(trace).toMatch(/vite plugins[\s\S]*slowest modules/)
+    }
+    finally {
+      await session.stop()
+    }
+  }, 240_000)
 })

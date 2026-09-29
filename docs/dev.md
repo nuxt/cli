@@ -90,7 +90,15 @@ In an interactive terminal, `nuxt dev` renders a pinned panel: the server URLs, 
 
 Inside a view, `y` copies the selected row and `shift-y` copies every row the filters and search leave, keeping the newest when there is too much to paste. In the info view, `shift-y` copies the [`nuxt info`](/docs/api/commands/info) table instead.
 
-Pass `--no-tui` to stream logs instead, which is also what `NUXT_TUI=plain` does for good. `NUXT_TUI=1` forces the UI on where the environment checks would otherwise turn it off, but never where the output is piped or redirected.
+### Tracing a request
+
+In the network view (`n`), select a request and press `enter` to see where its time went. The trace draws everything the server did for that request on one timeline: route middleware, server route handlers, Nuxt plugins, hooks, data fetching, rendering, and requests your app made to other servers. Below the timeline, it lists how long Vite spent compiling modules for the request, broken down by Vite plugin and slowest module, followed by the logs the request produced.
+
+The trace is built from the [tracing channels](https://nodejs.org/api/diagnostics_channel.html#class-tracingchannel) that Nuxt and Nitro publish, so how much it shows depends on your versions. `nuxt dev` turns on the `tracingChannel` option for you; set `tracingChannel: false` in your `nuxt.config` to opt out.
+
+### Disabling the UI
+
+Pass `--no-tui` or set `NUXT_TUI=plain` to stream logs instead. You can also force the UI _on_ by passing `NUXT_TUI=1` (though this doesn't do anything if the output is piped or redirected).
 
 ![nuxt dev with plain output](/capture/output/nuxt-dev-plain-static.svg)
 
