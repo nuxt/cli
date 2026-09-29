@@ -1,5 +1,6 @@
 import type { CommandDef } from 'citty'
 
+import { consola } from 'consola'
 import { describe, expect, it } from 'vitest'
 
 import { withRemedy } from '../../src/commands'
@@ -43,6 +44,20 @@ describe('command error boundary', () => {
     const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(parse) })
 
     await expect(run(command)).rejects.toBe(parse)
+  })
+
+  it('should report a failed command through consola after the console was unwrapped', async () => {
+    consola.restoreConsole()
+    const original = console.error
+    const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(new Error('build failed')) })
+
+    try {
+      await expect(run(command)).rejects.toThrow('build failed')
+      expect(console.error).not.toBe(original)
+    }
+    finally {
+      consola.restoreConsole()
+    }
   })
 
   it('should carry the boundary into subcommands', async () => {
