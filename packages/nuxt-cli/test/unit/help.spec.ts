@@ -535,6 +535,8 @@ describe('help', () => {
 describe('showUsage', () => {
   it('should drop ANSI styling when stdout does not support colour', async () => {
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const hasColors = process.stdout.hasColors
+    process.stdout.hasColors = () => false
     try {
       await showUsage({ meta: { name: 'nuxt', description: styleText('bold', 'Nuxt CLI', { validateStream: false }) } })
       const output = String(write.mock.calls[0]![0])
@@ -543,6 +545,7 @@ describe('showUsage', () => {
     }
     finally {
       write.mockRestore()
+      process.stdout.hasColors = hasColors
     }
   })
 })

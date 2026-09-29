@@ -369,7 +369,7 @@ export default defineCommand({
       cleanupSpinner.stop('Build directories cleaned')
     }
     catch (err) {
-      cleanupSpinner.stop('Could not clean build directories')
+      cleanupSpinner.error('Could not clean build directories')
       logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error ? err.message : err}`)
     }
 
