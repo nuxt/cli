@@ -1,20 +1,18 @@
 import type { Buffer } from 'node:buffer'
 import type { ChildProcess, SpawnOptions } from 'node:child_process'
+import type { DetectResult } from 'package-manager-detector'
 
-import type { PackageManager, PackageManagerName } from 'nypm'
 import { spawn } from 'node:child_process'
-import { rmSync, statSync } from 'node:fs'
+import { existsSync, rmSync, statSync } from 'node:fs'
 import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
-
 import { styleText } from 'node:util'
-import { log, S_BAR } from '@clack/prompts'
-import { addDependency, dedupeDependencies, detectPackageManager, installDependencies, packageManagers } from 'nypm'
-import { provider } from 'std-env'
-import { normalizeSpawnCommand, x } from 'tinyexec'
 
-/** Package managers nypm delegates to corepack, so version pins keep working. */
-const COREPACK_PACKAGE_MANAGERS = new Set(['pnpm', 'yarn'])
+import { log, S_BAR } from '@clack/prompts'
+import { resolveCommand } from 'package-manager-detector/commands'
+import { normalizeSpawnCommand } from 'tinyexec'
+
+import { getLockFiles } from './package-managers'
 
 const TRAILING_DOT_RE = /\.$/
 const SURROUNDING_QUOTES_RE = /^"(.*)"$/
@@ -28,41 +26,28 @@ const IGNORED_BUILDS_RE = /Ignored build scripts:\s*([^\n│]+)/
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[\d;]*[A-Z]/gi
 
-/**
- * Build a full package manager descriptor for `name`, carrying over nypm's own
- * metadata (lockfile and marker files, and the major version it derives command
- * flags from) rather than only the command to run.
- */
-export function resolvePackageManagerDescriptor(name: PackageManagerName, version?: string): PackageManager {
-  const descriptor = packageManagers.find(pm => pm.name === name)
-  const resolvedVersion = version ?? descriptor?.version
+const DENO_SPECIFIER_RE = /^(?:npm|jsr|file):/
 
-  return {
-    ...descriptor,
-    name,
-    command: name,
-    version: resolvedVersion,
-    majorVersion: resolvedVersion?.split('.')[0] ?? descriptor?.majorVersion,
+function getInstallCommand({ cwd, packageManager: { agent, name }, dependencies = [], dev, uninstall }: InstallOptions) {
+  if (!dependencies.length) {
+    return resolveCommand(agent, 'install', [])!
   }
-}
-
-/**
- * Detect the package manager a project uses, looking at the project itself
- * before its parent directories, so a project nested inside another workspace is
- * not installed with that workspace's package manager.
- */
-export async function detectProjectPackageManager(cwd: string): Promise<PackageManager | undefined> {
-  return await detectPackageManager(cwd, { includeParentDirs: false })
-    ?? await detectPackageManager(cwd)
+  return resolveCommand(agent, uninstall ? 'uninstall' : 'add', [
+    // pnpm refuses to add to a workspace root without this flag.
+    ...name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')) ? ['--workspace-root'] : [],
+    ...dev && !uninstall ? ['-D'] : [],
+    ...name === 'deno' ? dependencies.map(dep => DENO_SPECIFIER_RE.test(dep) ? dep : `npm:${dep}`) : dependencies,
+  ])!
 }
 
 export interface InstallOptions {
   cwd: string
-  packageManager: PackageManager
+  packageManager: DetectResult
   /** Packages to add. When omitted, the project's existing dependencies are installed. */
   dependencies?: string[]
   dev?: boolean
-  workspace?: boolean | string
+  /** Remove `dependencies` instead of adding them. */
+  uninstall?: boolean
   /** Called with each line of package manager output as it arrives. */
   onOutput?: (line: string) => void
   /** Called with a status update while the install is running. */
@@ -81,8 +66,6 @@ export interface InstallResult {
   ignoredBuilds: string[]
   /** Human-readable failure reason. Only set when `success` is `false`. */
   error?: string
-  /** Set when the package manager binary could not be found. */
-  missingPackageManager?: boolean
 }
 
 /**
@@ -95,29 +78,11 @@ export interface InstallResult {
  * instead of hanging behind a spinner where its question is invisible.
  */
 export async function runInstall(options: InstallOptions): Promise<InstallResult> {
-  const nypmOptions = {
-    cwd: options.cwd,
-    packageManager: options.packageManager,
-    dev: options.dev,
-    workspace: options.workspace,
-    dry: true,
-  }
-
-  const { exec } = options.dependencies?.length
-    ? await addDependency(options.dependencies, nypmOptions)
-    : await installDependencies(nypmOptions)
-
-  if (!exec) {
-    return { success: true, output: '', command: '', ignoredBuilds: [] }
-  }
-
-  const args = [...exec.args, ...nonInteractiveArgs(options.packageManager)]
-  const [command, commandArgs] = await withCorepack(exec.command, args)
-
-  return await execute(command, commandArgs, options)
+  const { command, args } = getInstallCommand(options)
+  return await execute(command, [...args, ...nonInteractiveArgs(options.packageManager)], options)
 }
 
-export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'workspace'> {
+export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'uninstall'> {
   /** Delete node_modules and the lockfile, then resolve dependencies from scratch. */
   recreateLockfile?: boolean
   /** Lockfile path relative to cwd. */
@@ -133,40 +98,21 @@ export async function runDedupe(options: DedupeOptions): Promise<InstallResult> 
     rmSync(resolve(options.cwd, 'node_modules'), { recursive: true, force: true })
     const lockFiles = options.lockFile
       ? [options.lockFile]
-      : [options.packageManager.lockFile].flat().filter(Boolean) as string[]
+      : getLockFiles(options.packageManager.name)
     for (const lockFile of lockFiles) {
       rmSync(resolve(options.cwd, lockFile), { force: true })
     }
     return await runInstall(options)
   }
 
-  let exec
-  try {
-    ({ exec } = await dedupeDependencies({
-      cwd: options.cwd,
-      packageManager: options.packageManager,
-      recreateLockfile: false,
-      dry: true,
-    }))
-  }
-  catch (error) {
-    return {
-      success: false,
-      output: '',
-      command: '',
-      ignoredBuilds: [],
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-
+  const { agent, name } = options.packageManager
+  // Yarn 1 deduplicates as part of a regular install.
+  const exec = resolveCommand(agent, agent === 'yarn' ? 'install' : 'dedupe', [])
   if (!exec) {
-    return { success: true, output: '', command: '', ignoredBuilds: [] }
+    return { success: false, output: '', command: '', ignoredBuilds: [], error: `Deduplication is not supported for ${name}` }
   }
 
-  const args = [...exec.args, ...nonInteractiveArgs(options.packageManager)]
-  const [command, commandArgs] = await withCorepack(exec.command, args)
-
-  return await execute(command, commandArgs, options)
+  return await execute(exec.command, [...exec.args, ...nonInteractiveArgs(options.packageManager)], options)
 }
 
 /**
@@ -178,7 +124,7 @@ export async function runDedupe(options: DedupeOptions): Promise<InstallResult> 
  * frozen lockfile), which would break installs for templates whose lockfile is
  * not perfectly in sync.
  */
-export function nonInteractiveArgs(packageManager: PackageManager): string[] {
+export function nonInteractiveArgs(packageManager: DetectResult): string[] {
   if (packageManager.name === 'pnpm') {
     // `confirm-modules-purge` prompts before recreating `node_modules`, and
     // `strict-dep-builds` turns blocked dependency build scripts into a failed
@@ -294,7 +240,6 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
   if (!isExecutableAvailable(command, options.cwd)) {
     return Promise.resolve({
       success: false,
-      missingPackageManager: true,
       error: `\`${command}\` was not found. Install it (or choose a different package manager) and try again.`,
       command: displayCommand,
       output: '',
@@ -305,8 +250,8 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
   const spawnOptions: SpawnOptions = {
     cwd: options.cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
-    // Give the install its own process group so aborting can reach the package
-    // manager corepack spawns, not just corepack itself.
+    // Give the install its own process group so aborting also reaches the
+    // processes the package manager spawns.
     detached: process.platform !== 'win32',
   }
   const normalized = normalizeSpawnCommand(command, args, spawnOptions)
@@ -381,7 +326,6 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
       if (error.code === 'ENOENT') {
         finish({
           success: false,
-          missingPackageManager: true,
           error: `\`${command}\` was not found. Install it (or choose a different package manager) and try again.`,
         })
         return
@@ -431,23 +375,4 @@ function killTree(child: ChildProcess) {
 function tail(output: string): string {
   const lines = output.replace(/\s+$/, '').split('\n')
   return lines.slice(-OUTPUT_TAIL_LINES).join('\n')
-}
-
-let corepackAvailable: Promise<boolean> | undefined
-
-async function withCorepack(command: string, args: string[]): Promise<[string, string[]]> {
-  if (!COREPACK_PACKAGE_MANAGERS.has(command) || !await hasCorepack()) {
-    return [command, args]
-  }
-  return ['corepack', [command, ...args]]
-}
-
-async function hasCorepack(): Promise<boolean> {
-  if (provider === 'stackblitz' || !isExecutableAvailable('corepack')) {
-    return false
-  }
-  corepackAvailable ||= Promise.resolve(x('corepack', ['--version']))
-    .then(result => result.exitCode === 0)
-    .catch(() => false)
-  return await corepackAvailable
 }

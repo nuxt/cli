@@ -1,4 +1,4 @@
-import type { PackageManagerName } from 'nypm'
+import type { AgentName } from 'package-manager-detector'
 
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -18,7 +18,7 @@ const CREATE_BIN_RE = /^create-nuxt(?:-app)?$/
 
 // `@latest` everywhere: package managers happily reuse a cached `create-nuxt`,
 // so an unpinned invocation can keep scaffolding from a stale version.
-const createCommands: Partial<Record<PackageManagerName, string>> = {
+const createCommands: Partial<Record<AgentName, string>> = {
   npm: 'npm create nuxt@latest',
   pnpm: 'pnpm create nuxt@latest',
   yarn: 'yarn create nuxt@latest',
@@ -26,9 +26,9 @@ const createCommands: Partial<Record<PackageManagerName, string>> = {
   deno: 'deno run -A npm:create-nuxt@latest',
 }
 
-function currentPackageManager(userAgent: string | undefined): PackageManagerName | undefined {
+function currentPackageManager(userAgent: string | undefined): AgentName | undefined {
   const name = userAgent?.split('/')[0]
-  return name && name in createCommands ? name as PackageManagerName : undefined
+  return name && name in createCommands ? name as AgentName : undefined
 }
 
 /**
@@ -146,7 +146,7 @@ export interface HeadlessCommandOptions {
   prefix?: string
   dir: string
   template: string
-  packageManager: PackageManagerName
+  packageManager: AgentName
   gitInit: boolean
   install: boolean
   force?: boolean

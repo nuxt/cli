@@ -1,6 +1,6 @@
-import type { PackageManager } from 'nypm'
-import type { PackageJson } from 'pkg-types'
+import type { DetectResult } from 'package-manager-detector'
 
+import type { PackageJson } from 'pkg-types'
 import type { ConfigEntries } from '../../utils/config'
 import type { RegistryMeta } from '../../utils/registry'
 import type { NuxtModule } from './_utils'
@@ -9,7 +9,6 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { packageManagers } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { findMaxSatisfying, satisfies } from 'verkit'
@@ -17,30 +16,19 @@ import { findMaxSatisfying, satisfies } from 'verkit'
 import { runCommandDef as runCommand } from '../../run-command'
 import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
 import { fetchJson } from '../../utils/fetch'
-import { createInstallLog, detectProjectPackageManager, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
+import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
+import { defaultPackageManager, detectPackageManager, isPackageManagerName, packageManagerNames } from '../../utils/package-managers'
 import { detectNpmRegistry } from '../../utils/registry'
 import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
+import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
 
 const WHITESPACE_RE = /\s/
-
-/** Read order for the `--packageManager` hint. Names nypm adds later are listed after these. */
-const PACKAGE_MANAGER_ORDER = ['npm', 'pnpm', 'yarn', 'bun', 'deno']
-
-const packageManagerNames = packageManagers
-  .map(pm => pm.name)
-  .sort((a, b) => rank(a) - rank(b))
-
-function rank(name: string): number {
-  const index = PACKAGE_MANAGER_ORDER.indexOf(name)
-  return index === -1 ? PACKAGE_MANAGER_ORDER.length : index
-}
 
 interface ResolvedModule {
   nuxtModule?: NuxtModule
@@ -204,7 +192,7 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const a = notInstalledModules.length > 1 ? '' : ' a'
       logger.info(`Installing ${notInstalledModulesList} as${a}${isDev ? ' development' : ''} ${dependency}`)
 
-      const packageManager = await resolvePackageManager(cwd, packageManagerName)
+      const packageManager = await selectPackageManager(cwd, packageManagerName)
 
       const peers = resolveRequiredPeerDependencies(notInstalledModules, dependencies)
       if (peers.length > 0) {
@@ -225,7 +213,6 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         packageManager,
         dependencies: [...notInstalledModules.map(module => module.pkg), ...peers],
         dev: isDev,
-        workspace: isPnpmWorkspace(packageManager, cwd),
         onOutput: installLog.onOutput,
         onStatus: message => installSpinner.message(message),
         signal: installController.signal,
@@ -289,23 +276,21 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
  * (e.g. the one selected during `nuxt init`) and otherwise detecting one from
  * the project.
  */
-async function resolvePackageManager(cwd: string, name?: string): Promise<PackageManager> {
-  const requested = name ? packageManagers.find(pm => pm.name === name) : undefined
+async function selectPackageManager(cwd: string, name?: string): Promise<DetectResult> {
+  const requested = isPackageManagerName(name) ? name : undefined
   if (name && !requested) {
     logger.warn(`Unknown package manager ${styleText('cyan', name)}, detecting one instead.`)
   }
 
-  const detected = await detectProjectPackageManager(cwd)
+  const detected = await detectPackageManager(cwd)
 
   if (!requested) {
-    return detected ?? resolvePackageManagerDescriptor('npm')
+    return detected ?? defaultPackageManager
   }
 
-  // The detected descriptor knows the version the project pins, which the static
-  // list does not, so prefer it when it agrees with the requested manager.
-  return detected?.name === requested.name
+  return detected?.name === requested
     ? detected
-    : resolvePackageManagerDescriptor(requested.name)
+    : { name: requested, agent: requested }
 }
 
 /**

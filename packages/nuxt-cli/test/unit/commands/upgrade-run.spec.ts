@@ -27,8 +27,8 @@ vi.mock('@clack/prompts', async (importOriginal) => {
   }
 })
 
-vi.mock('nypm', async importOriginal => ({
-  ...await importOriginal<typeof import('nypm')>(),
+vi.mock('../../../src/utils/package-managers', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../src/utils/package-managers')>(),
   detectPackageManager,
 }))
 
@@ -96,7 +96,7 @@ beforeEach(async () => {
   answers.select.length = 0
   progress.length = 0
   vi.clearAllMocks()
-  detectPackageManager.mockResolvedValue({ name: 'pnpm', command: 'pnpm', lockFile: ['pnpm-lock.yaml'] })
+  detectPackageManager.mockResolvedValue({ name: 'pnpm', agent: 'pnpm' })
   getNuxtVersion.mockResolvedValue('4.0.0')
   resolveRegistryVersion.mockResolvedValue('4.1.0')
   runInstall.mockResolvedValue(installed)
@@ -211,7 +211,7 @@ describe('upgrade with a pnpm catalog', () => {
   })
 
   it('should leave the catalog alone for a package manager without catalogs', async () => {
-    detectPackageManager.mockResolvedValue({ name: 'npm', command: 'npm', lockFile: ['package-lock.json'] })
+    detectPackageManager.mockResolvedValue({ name: 'npm', agent: 'npm' })
     await writeProject({ 'package-lock.json': '{}' })
 
     await runUpgrade()

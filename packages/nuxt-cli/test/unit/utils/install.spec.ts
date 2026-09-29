@@ -4,29 +4,35 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getIgnoredBuilds, isExecutableAvailable, nonInteractiveArgs, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../../../src/utils/install'
 
-async function createFakePackageManager(script: string[] = ['#!/bin/sh', 'echo "all done"']) {
+async function createFakePackageManager(name = 'pnpm', script: string[] = ['#!/bin/sh', 'echo "all done"']) {
   const dir = await mkdtemp(join(tmpdir(), 'nuxt-install-test-'))
-  const command = join(dir, 'fake-package-manager')
-  await writeFile(command, script.join('\n'))
-  await chmod(command, 0o755)
-  return { dir, command }
+  const bin = join(dir, 'bin')
+  await mkdir(bin)
+  await writeFile(join(bin, name), script.join('\n'))
+  await chmod(join(bin, name), 0o755)
+  vi.stubEnv('PATH', bin)
+  return { dir }
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe('nonInteractiveArgs', () => {
   it('should opt pnpm out of prompts and strict dep builds', () => {
-    expect(nonInteractiveArgs({ name: 'pnpm', command: 'pnpm' })).toEqual([
+    expect(nonInteractiveArgs({ name: 'pnpm', agent: 'pnpm' })).toEqual([
       '--config.confirm-modules-purge=false',
       '--config.strict-dep-builds=false',
     ])
   })
 
   it('should pass no extra arguments to other package managers', () => {
-    expect(nonInteractiveArgs({ name: 'npm', command: 'npm' })).toEqual([])
-    expect(nonInteractiveArgs({ name: 'yarn', command: 'yarn' })).toEqual([])
+    expect(nonInteractiveArgs({ name: 'npm', agent: 'npm' })).toEqual([])
+    expect(nonInteractiveArgs({ name: 'yarn', agent: 'yarn' })).toEqual([])
   })
 })
 
@@ -90,81 +96,77 @@ describe('isExecutableAvailable', () => {
 
 describe('runInstall', () => {
   it.skipIf(process.platform === 'win32')('should report ignored builds printed before the end of the output', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'nuxt-install-test-'))
-    const command = join(dir, 'fake-package-manager')
-    await writeFile(command, [
+    const { dir } = await createFakePackageManager('pnpm', [
       '#!/bin/sh',
       'echo "Ignored build scripts: esbuild@0.28.1."',
       'i=0; while [ $i -lt 60 ]; do echo "line $i"; i=$((i+1)); done',
-    ].join('\n'))
-    await chmod(command, 0o755)
+    ])
 
-    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', command } })
+    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' } })
 
     expect(result.success).toBe(true)
     expect(result.output).not.toContain('Ignored build scripts')
     expect(result.ignoredBuilds).toEqual(['esbuild@0.28.1'])
   })
 
-  it.skipIf(process.platform === 'win32')('should run the package manager directly when corepack is not on the PATH', async () => {
-    const { dir } = await createFakePackageManager()
-    const bin = join(dir, 'bin')
-    const nodeBin = join(dir, 'node', 'bin')
-    await mkdir(bin)
-    await mkdir(nodeBin, { recursive: true })
-    await writeFile(join(bin, 'pnpm'), ['#!/bin/sh', 'echo "all done"'].join('\n'))
-    await writeFile(join(nodeBin, 'corepack'), ['#!/bin/sh', 'echo "0.34.0"'].join('\n'))
-    await chmod(join(bin, 'pnpm'), 0o755)
-    await chmod(join(nodeBin, 'corepack'), 0o755)
-    vi.stubEnv('PATH', bin)
-    const execPath = process.execPath
-    process.execPath = join(nodeBin, 'node')
-    vi.resetModules()
-
-    try {
-      const { runInstall } = await import('../../../src/utils/install')
-      const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', command: 'pnpm' } })
-
-      expect(result.success).toBe(true)
-      expect(result.command).toMatch(/^pnpm install/)
-    }
-    finally {
-      vi.unstubAllEnvs()
-      process.execPath = execPath
-    }
-  })
-
   it('should report a missing package manager instead of throwing', async () => {
+    vi.stubEnv('PATH', join(tmpdir(), 'nuxt-cli-nonexistent-bin'))
     const result = await runInstall({
-      cwd: process.cwd(),
-      packageManager: { name: 'npm', command: 'nuxt-cli-nonexistent-package-manager' },
+      cwd: tmpdir(),
+      packageManager: { name: 'npm', agent: 'npm' },
     })
 
     expect(result.success).toBe(false)
-    expect(result.missingPackageManager).toBe(true)
-    expect(result.error).toContain('nuxt-cli-nonexistent-package-manager')
-    expect(result.command).toBe('nuxt-cli-nonexistent-package-manager install')
+    expect(result.error).toContain('`npm` was not found')
+    expect(result.command).toBe('npm i')
+  })
+})
+
+describe.skipIf(process.platform === 'win32')('runInstall arguments', () => {
+  it('should add dev dependencies with `-D`', async () => {
+    const { dir } = await createFakePackageManager('npm')
+    const result = await runInstall({ cwd: dir, packageManager: { name: 'npm', agent: 'npm' }, dependencies: ['a'], dev: true })
+    expect(result.command).toBe('npm i -D a')
+  })
+
+  it('should add to the root of a pnpm workspace', async () => {
+    const { dir } = await createFakePackageManager('pnpm')
+    await writeFile(join(dir, 'pnpm-workspace.yaml'), '')
+    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' }, dependencies: ['a'] })
+    expect(result.command).toMatch(/^pnpm add --workspace-root a /)
+  })
+
+  it('should prefix bare deno specifiers with `npm:`', async () => {
+    const { dir } = await createFakePackageManager('deno')
+    const result = await runInstall({ cwd: dir, packageManager: { name: 'deno', agent: 'deno' }, dependencies: ['a', 'jsr:@std/path'] })
+    expect(result.command).toBe('deno add npm:a jsr:@std/path')
   })
 })
 
 describe('runDedupe', () => {
   it.skipIf(process.platform === 'win32')('should dedupe without printing the package manager output', async () => {
-    const { dir, command } = await createFakePackageManager()
+    const { dir } = await createFakePackageManager()
 
     const lines: string[] = []
     const result = await runDedupe({
       cwd: dir,
-      packageManager: { name: 'pnpm', command },
+      packageManager: { name: 'pnpm', agent: 'pnpm' },
       onOutput: line => lines.push(line),
     })
 
     expect(result.success).toBe(true)
-    expect(result.command).toBe(`${command} dedupe --config.confirm-modules-purge=false --config.strict-dep-builds=false`)
+    expect(result.command).toBe(`pnpm dedupe --config.confirm-modules-purge=false --config.strict-dep-builds=false`)
     expect(lines).toEqual(['all done'])
   })
 
+  it.skipIf(process.platform === 'win32')('should dedupe with Yarn 1 by installing', async () => {
+    const { dir } = await createFakePackageManager('yarn')
+    const result = await runDedupe({ cwd: dir, packageManager: { name: 'yarn', agent: 'yarn' } })
+    expect(result.command).toBe('yarn install')
+  })
+
   it.skipIf(process.platform === 'win32')('should install after removing node_modules and the selected lockfile', async () => {
-    const { dir, command } = await createFakePackageManager()
+    const { dir } = await createFakePackageManager()
     const appDir = join(dir, 'app')
     const nodeModules = join(appDir, 'node_modules')
     const localLockFile = join(appDir, 'pnpm-lock.yaml')
@@ -175,13 +177,13 @@ describe('runDedupe', () => {
 
     const result = await runDedupe({
       cwd: appDir,
-      packageManager: { name: 'pnpm', command, lockFile: 'pnpm-lock.yaml' },
+      packageManager: { name: 'pnpm', agent: 'pnpm' },
       recreateLockfile: true,
       lockFile: '../pnpm-lock.yaml',
     })
 
     expect(result.success).toBe(true)
-    expect(result.command).toContain(`${command} install`)
+    expect(result.command).toContain('pnpm i ')
     expect(existsSync(nodeModules)).toBe(false)
     expect(existsSync(workspaceLockFile)).toBe(false)
     expect(existsSync(localLockFile)).toBe(true)
@@ -190,7 +192,7 @@ describe('runDedupe', () => {
   it('should report unsupported dedupe commands as failures', async () => {
     const result = await runDedupe({
       cwd: process.cwd(),
-      packageManager: { name: 'bun', command: 'bun' },
+      packageManager: { name: 'bun', agent: 'bun' },
     })
 
     expect(result.success).toBe(false)
@@ -198,12 +200,13 @@ describe('runDedupe', () => {
   })
 
   it('should report a missing package manager instead of throwing', async () => {
+    vi.stubEnv('PATH', join(tmpdir(), 'nuxt-cli-nonexistent-bin'))
     const result = await runDedupe({
-      cwd: process.cwd(),
-      packageManager: { name: 'npm', command: 'nuxt-cli-nonexistent-package-manager' },
+      cwd: tmpdir(),
+      packageManager: { name: 'npm', agent: 'npm' },
     })
 
     expect(result.success).toBe(false)
-    expect(result.missingPackageManager).toBe(true)
+    expect(result.error).toContain('`npm` was not found')
   })
 })

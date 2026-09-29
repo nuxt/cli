@@ -9,7 +9,6 @@ import { styleText } from 'node:util'
 
 import { cancel, isCancel, note, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { detectPackageManager } from 'nypm'
 import { dirname, relative, resolve } from 'pathe'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
@@ -18,7 +17,7 @@ import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } 
 import { loadKit } from '../utils/kit'
 import { intro, logger, outro } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
-import { getPackageManagerVersion } from '../utils/packageManagers'
+import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../utils/package-managers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { createSpinner } from '../utils/spinner'
 import { getNuxtVersion, resolveRegistryVersion } from '../utils/versions'
@@ -182,7 +181,7 @@ export default defineCommand({
       logger.info(`Please either add the ${styleText('cyan', 'packageManager')} field to ${styleText('cyan', 'package.json')} or execute the installation command for your package manager. For example, you can use ${styleText('cyan', 'pnpm i')}, ${styleText('cyan', 'npm i')}, ${styleText('cyan', 'bun i')}, or ${styleText('cyan', 'yarn i')}, and then try again.`)
       process.exit(1)
     }
-    const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
+    const { name: packageManagerName } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
     logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${packageManagerVersion}`)
 
@@ -216,7 +215,7 @@ export default defineCommand({
 
     const toRemove = ['node_modules']
 
-    const lockFile = findLockFile(cwd, workspaceDir, lockFileCandidates)
+    const lockFile = findLockFile(cwd, workspaceDir, getLockFiles(packageManagerName))
     if (lockFile) {
       toRemove.push(lockFile)
     }
@@ -327,7 +326,6 @@ export default defineCommand({
         packageManager,
         dependencies: directPackages,
         dev: nuxtDependencyType === 'devDependencies',
-        workspace: packageManager.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
         ...hooks,
       }),
     )

@@ -8,8 +8,8 @@ interface FakeConfig { file: string, cwd: string, modules: string[], extends: st
 
 const readNuxtConfig = vi.fn((): Promise<FakeConfig | undefined> => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: ['@nuxt/content'], extends: [] }))
 const removeNuxtConfigEntries = vi.fn(() => Promise.resolve())
-const removeDependency = vi.fn(() => Promise.resolve())
-const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm' }))
+const runInstall = vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] }))
+const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm', agent: 'npm' }))
 const confirm = vi.fn((): Promise<boolean | symbol> => Promise.resolve(false))
 const multiselect = vi.fn((): Promise<string[] | symbol> => Promise.resolve([]))
 
@@ -28,7 +28,14 @@ interface CommandsType {
 }
 
 vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, removeNuxtConfigEntries }))
-vi.mock('nypm', () => ({ removeDependency, detectPackageManager }))
+vi.mock('../../../../src/utils/package-managers', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../../src/utils/package-managers')>(),
+  detectPackageManager,
+}))
+vi.mock('../../../../src/utils/install', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../../src/utils/install')>(),
+  runInstall,
+}))
 vi.mock('pkg-types', () => ({ readPackageJSON }))
 vi.mock('../../../../src/utils/package-json', () => ({ readDependencyPackageJson }))
 vi.mock('@clack/prompts', async importOriginal => ({
@@ -68,7 +75,7 @@ describe('module remove', () => {
   beforeEach(() => {
     readNuxtConfig.mockClear()
     removeNuxtConfigEntries.mockClear()
-    removeDependency.mockClear()
+    runInstall.mockClear()
     confirm.mockReset().mockResolvedValue(false)
     multiselect.mockReset().mockResolvedValue([])
     readPackageJSON.mockReset().mockImplementation(() => Promise.resolve(defaultProjectPkg))
@@ -84,11 +91,12 @@ describe('module remove', () => {
       },
     })
 
-    expect(removeDependency).toHaveBeenCalledWith(['@nuxt/content'], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@nuxt/content'],
+      uninstall: true,
       cwd: '/fake-dir',
-      packageManager: { name: 'npm' },
-      workspace: false,
-    })
+      packageManager: { name: 'npm', agent: 'npm' },
+    }))
   })
 
   it('should strip a database module subpath before uninstalling', async () => {
@@ -115,7 +123,7 @@ describe('module remove', () => {
     const removeCommand = await (commands as CommandsType).subCommands.remove()
     await removeCommand.setup({ args: { cwd: '/fake-dir', skipConfig: true, moduleName: ['example-module'] } })
 
-    expect(removeDependency).toHaveBeenCalledWith(['example'], expect.objectContaining({ cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['example'], uninstall: true, cwd: '/fake-dir' }))
   })
 
   it('should remove a Nuxt module by npm name', async () => {
@@ -127,11 +135,12 @@ describe('module remove', () => {
       },
     })
 
-    expect(removeDependency).toHaveBeenCalledWith(['@nuxt/content'], {
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@nuxt/content'],
+      uninstall: true,
       cwd: '/fake-dir',
-      packageManager: { name: 'npm' },
-      workspace: false,
-    })
+      packageManager: { name: 'npm', agent: 'npm' },
+    }))
   })
 
   it('should remove modules selected from the picker when none are given', async () => {
@@ -146,7 +155,7 @@ describe('module remove', () => {
     })
 
     expect(multiselect).toHaveBeenCalled()
-    expect(removeDependency).toHaveBeenCalledWith(['@nuxt/content'], expect.objectContaining({ cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@nuxt/content'], uninstall: true, cwd: '/fake-dir' }))
   })
 
   it('should remove a layer from `extends` without uninstalling a local path', async () => {
@@ -162,7 +171,7 @@ describe('module remove', () => {
     })
 
     expect(removeNuxtConfigEntries).toHaveBeenCalledWith(expect.anything(), { extends: ['./layers/admin'] })
-    expect(removeDependency).not.toHaveBeenCalled()
+    expect(runInstall).not.toHaveBeenCalled()
   })
 
   it('should skip uninstall when --skipInstall is set', async () => {
@@ -175,7 +184,7 @@ describe('module remove', () => {
       },
     })
 
-    expect(removeDependency).not.toHaveBeenCalled()
+    expect(runInstall).not.toHaveBeenCalled()
   })
 
   it('should stop before uninstall when the config update fails', async () => {
@@ -189,7 +198,7 @@ describe('module remove', () => {
       },
     })).rejects.toThrow('process.exit unexpectedly called with "1"')
 
-    expect(removeDependency).not.toHaveBeenCalled()
+    expect(runInstall).not.toHaveBeenCalled()
   })
 
   it('should skip config update when --skipConfig is set', async () => {
@@ -219,7 +228,7 @@ describe('module remove', () => {
       },
     })
 
-    expect(removeDependency).not.toHaveBeenCalled()
+    expect(runInstall).not.toHaveBeenCalled()
   })
 
   it('should remove orphaned peer dependencies when confirmed', async () => {
@@ -244,10 +253,7 @@ describe('module remove', () => {
     })
 
     expect(confirm).toHaveBeenCalled()
-    expect(removeDependency).toHaveBeenCalledWith(
-      ['@vee-validate/nuxt', 'vee-validate'],
-      expect.objectContaining({ cwd: '/fake-dir' }),
-    )
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt', 'vee-validate'], uninstall: true, cwd: '/fake-dir' }))
   })
 
   it('should not suggest removing optional peer dependencies', async () => {
@@ -268,7 +274,7 @@ describe('module remove', () => {
     await removeCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['@example/nuxt'] } })
 
     expect(confirm).not.toHaveBeenCalled()
-    expect(removeDependency).toHaveBeenCalledWith(['@example/nuxt'], expect.objectContaining({ cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@example/nuxt'], uninstall: true, cwd: '/fake-dir' }))
   })
 
   it('should keep orphaned peer dependencies when declined', async () => {
@@ -293,10 +299,7 @@ describe('module remove', () => {
     })
 
     expect(confirm).toHaveBeenCalled()
-    expect(removeDependency).toHaveBeenCalledWith(
-      ['@vee-validate/nuxt'],
-      expect.objectContaining({ cwd: '/fake-dir' }),
-    )
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt'], uninstall: true, cwd: '/fake-dir' }))
   })
 
   it('should inspect retained dependencies in parallel', async () => {
@@ -356,9 +359,6 @@ describe('module remove', () => {
     })
 
     expect(confirm).not.toHaveBeenCalled()
-    expect(removeDependency).toHaveBeenCalledWith(
-      ['@vee-validate/nuxt'],
-      expect.objectContaining({ cwd: '/fake-dir' }),
-    )
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt'], uninstall: true, cwd: '/fake-dir' }))
   })
 })
