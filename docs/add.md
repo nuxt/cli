@@ -8,10 +8,6 @@ links:
     size: xs
 ---
 
-::tip
-Demo days!
-::
-
 <!--add-cmd-->
 ```bash [Terminal]
 npx nuxt add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>]
