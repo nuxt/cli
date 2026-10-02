@@ -6,17 +6,26 @@ import { styleText } from 'node:util'
 import { box } from '@clack/prompts'
 import { tokenizeArgs } from 'args-tokenizer'
 import { defineCommand } from 'citty'
+import { checkPort } from 'get-port-please'
 import { resolve } from 'pathe'
 import { x } from 'tinyexec'
 
+import { parsePort, resolvePort } from '../dev/listen'
+import { formatTakeoverRefusal, takeOverServer } from '../dev/takeover'
 import { resolveDotenvFileNames } from '../utils/args'
+import { ActionableError } from '../utils/errors'
 import { loadKit } from '../utils/kit'
+import { acquireLock, previewLockDir, updateLock } from '../utils/lockfile'
 import { logger, outro } from '../utils/logger'
 import { withPrependedPath } from '../utils/path-env'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { resolveServerBuild } from '../utils/server-build'
 import { findStaticEntry, formatServerURL, previewStaticOutput } from '../utils/static-preview'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+
+// Other preview commands (such as `wrangler dev`) choose their own port.
+const PORT_AWARE_RUNTIMES = new Set(['node', 'bun', 'deno'])
+const DEFAULT_PORT = 3000
 
 const command = defineCommand({
   meta: {
@@ -39,6 +48,16 @@ const command = defineCommand({
       description: 'Host to listen on (default: `NUXT_HOST || NITRO_HOST || HOST`)',
       valueHint: 'host',
       alias: ['h'],
+    },
+    takeover: {
+      type: 'boolean',
+      description: 'Stop a preview server already running on this project and take its place',
+      negativeDescription: 'Never stop a preview server already running on this project',
+    },
+    strictPort: {
+      type: 'boolean',
+      description: 'Exit if the requested port is unavailable instead of using another one',
+      default: false,
     },
     ...dotEnvArgs,
   },
@@ -106,6 +125,31 @@ const command = defineCommand({
       || process.env.NITRO_HOST
       || process.env.HOST
 
+    async function claimPort(): Promise<number> {
+      const requestedPort = parsePort(port)
+      const takeover = await takeOverServer(previewLockDir(cwd), {
+        command: 'preview',
+        requestedPort,
+        takeover: ctx.args.takeover,
+      })
+      if (takeover.action === 'refused') {
+        logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
+        process.exit(1)
+      }
+      if (takeover.action === 'taken') {
+        return takeover.port
+      }
+
+      const listenPort = requestedPort ?? DEFAULT_PORT
+      if (!ctx.args.strictPort) {
+        return resolvePort(listenPort, host || '')
+      }
+      if (listenPort !== 0 && await checkPort(listenPort, host || undefined) === false) {
+        throw new ActionableError(`Port ${listenPort} is already in use (\`--strictPort\` is enabled).`)
+      }
+      return listenPort
+    }
+
     let previewCommand: string | undefined
     let outputPath: string | undefined
     let target: readonly [label: string, value: string] | undefined
@@ -154,7 +198,9 @@ const command = defineCommand({
         const entry = findStaticEntry(dir)
         if (entry) {
           logger.info(`This build has no server, so ${styleText('cyan', relativeToProcess(dir))} is being served statically.`)
-          const server = await previewStaticOutput({ dir, entry, port, hostname: host })
+          const listenPort = await claimPort()
+          const server = await previewStaticOutput({ dir, entry, port: String(listenPort), hostname: host })
+          recordPreview(cwd, listenPort, host)
           outro(`Previewing ${styleText('cyan', relativeToProcess(dir))} at ${styleText('cyan', formatServerURL(server.url))}`)
           return
         }
@@ -173,6 +219,10 @@ const command = defineCommand({
 
     // `outputPath` is set whenever a preview command was found.
     const previewDir = outputPath!
+
+    const [command, ...commandArgs] = tokenizeArgs(previewCommand) as [string, ...string[]]
+    const listenPort = PORT_AWARE_RUNTIMES.has(command) ? await claimPort() : undefined
+    const serverPort = listenPort === undefined ? port : String(listenPort)
 
     const info = [
       ['Node.js:', `v${process.versions.node}`],
@@ -227,8 +277,8 @@ const command = defineCommand({
 
     outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(previewDir))}`)
 
-    const [command, ...commandArgs] = tokenizeArgs(previewCommand) as [string, ...string[]]
-    await x(command, commandArgs, {
+    const recordServer = listenPort === undefined ? undefined : recordPreview(cwd, listenPort, host)
+    const server = x(command, commandArgs, {
       throwOnError: true,
       nodeOptions: {
         stdio: 'inherit',
@@ -238,14 +288,38 @@ const command = defineCommand({
             resolve(previewDir, 'node_modules/.bin'),
             resolve(cwd, 'node_modules/.bin'),
           ]),
-          NUXT_PORT: port,
-          NITRO_PORT: port,
+          NUXT_PORT: serverPort,
+          NITRO_PORT: serverPort,
           NUXT_HOST: host,
           NITRO_HOST: host,
         },
       },
     })
+    if (recordServer && server.pid) {
+      recordServer(server.pid)
+    }
+    await server
   },
 })
 
 export default command
+
+function recordPreview(rootDir: string, port: number, hostname: string | undefined): (serverPid: number) => void {
+  if (port === 0) {
+    return () => {}
+  }
+  const lockDir = previewLockDir(rootDir)
+  const host = hostname || 'localhost'
+  const info = {
+    command: 'preview' as const,
+    cwd: rootDir,
+    port,
+    hostname,
+    url: `http://${host.includes(':') && !host.startsWith('[') ? `[${host}]` : host}:${port}`,
+  }
+  const { release } = acquireLock(lockDir, info)
+  if (!release) {
+    return () => {}
+  }
+  return serverPid => updateLock(lockDir, { ...info, serverPid })
+}

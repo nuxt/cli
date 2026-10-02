@@ -5,7 +5,7 @@ import process from 'node:process'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { takeOverDevServer } from '../../../src/dev/takeover'
+import { takeOverServer } from '../../../src/dev/takeover'
 import { findDevServer, findNitroDevWorker } from '../../../src/utils/dev-server'
 import { parseLockInfo, readLock } from '../../../src/utils/lockfile'
 
@@ -58,7 +58,12 @@ describe('parseLockInfo', () => {
 
   it('should drop a negative parent pid rather than the whole lock', () => {
     expect(parseLockInfo(baseLock({ parentPid: -1 }))?.parentPid).toBeUndefined()
+    expect(parseLockInfo(baseLock({ serverPid: -1 }))?.serverPid).toBeUndefined()
     expect(parseLockInfo(baseLock({ takenOverBy: -1 }))?.takenOverBy).toBeUndefined()
+  })
+
+  it('should accept a preview lock and the pid of the server it runs', () => {
+    expect(parseLockInfo(baseLock({ command: 'preview', serverPid: 4242 }))).toMatchObject({ command: 'preview', serverPid: 4242 })
   })
 
   it('should drop an out-of-range port', () => {
@@ -100,7 +105,7 @@ describe('reading an untrusted lock', () => {
 
   it('should never signal a process group during takeover', async () => {
     const kill = vi.spyOn(process, 'kill')
-    const result = await takeOverDevServer(
+    const result = await takeOverServer(
       await writeLock(baseLock({ pid: -1, port: 3000, url: 'http://localhost:3000' })),
       { takeover: true },
     )

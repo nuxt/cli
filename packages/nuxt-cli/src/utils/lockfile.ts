@@ -9,7 +9,7 @@ import { isInteractiveSession } from './stdout'
 export interface LockInfo {
   pid: number
   startedAt: number
-  command: 'dev' | 'build' | 'analyze'
+  command: 'dev' | 'build' | 'analyze' | 'preview'
   cwd: string
   /**
    * Whether the holder was started from a terminal a user is sitting at. Only
@@ -25,6 +25,8 @@ export interface LockInfo {
    * Signalling the holder alone would leave its supervisor running.
    */
   parentPid?: number
+  /** PID of the child process serving, for a holder that spawns one (`nuxt preview`). */
+  serverPid?: number
   /** PID of the process that claimed this lock, written before it signals us. */
   takenOverBy?: number
 }
@@ -130,7 +132,7 @@ function readLockFile(lockPath: string): LockInfo | undefined {
   }
 }
 
-const LOCK_COMMANDS = new Set<LockInfo['command']>(['dev', 'build', 'analyze'])
+const LOCK_COMMANDS = new Set<LockInfo['command']>(['dev', 'build', 'analyze', 'preview'])
 const MAX_LOCK_STRING_LENGTH = 1024
 // C0 and C1 control characters, which would otherwise reach the terminal when a
 // lock is described to the user.
@@ -192,6 +194,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
   const port = input.port
   const hostname = lockText(input.hostname)
   const parentPid = lockPid(input.parentPid)
+  const serverPid = lockPid(input.serverPid)
   const takenOverBy = lockPid(input.takenOverBy)
 
   return {
@@ -204,6 +207,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
     ...hostname && LOCK_HOSTNAME_RE.test(hostname) ? { hostname } : {},
     ...lockURL(input.url) ? { url: lockURL(input.url) } : {},
     ...parentPid ? { parentPid } : {},
+    ...serverPid ? { serverPid } : {},
     ...takenOverBy ? { takenOverBy } : {},
   }
 }
@@ -300,6 +304,11 @@ export function acquireOutputLock(
   const dir = join(rootDir, OUTPUT_LOCK_DIRNAME)
   const key = createHash('sha256').update(outputDir).digest('hex').slice(0, 8)
   return acquireLockAt(join(dir, `output-${key}.lock`), dir, info)
+}
+
+/** Kept apart from the build directory, which `nuxt preview` never writes to. */
+export function previewLockDir(rootDir: string): string {
+  return join(rootDir, OUTPUT_LOCK_DIRNAME, 'preview')
 }
 
 function acquireLockAt(

@@ -488,7 +488,7 @@ export function parsePort(value: string | number | undefined): number | undefine
   return port
 }
 
-async function resolvePort(requestedPort: number | undefined, hostname: string, strictPort?: boolean): Promise<number> {
+export async function resolvePort(requestedPort: number | undefined, hostname: string, strictPort?: boolean): Promise<number> {
   if (requestedPort === 0) {
     return getPort({ random: true, host: hostname || undefined })
   }
