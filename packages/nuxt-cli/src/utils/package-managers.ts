@@ -5,8 +5,15 @@ import process from 'node:process'
 import { LOCKS } from 'package-manager-detector/constants'
 import { detect } from 'package-manager-detector/detect'
 
+const preferredOrder: AgentName[] = ['npm', 'pnpm', 'yarn', 'bun', 'deno']
+
+function rank(name: AgentName) {
+  const index = preferredOrder.indexOf(name)
+  return index === -1 ? preferredOrder.length : index
+}
+
 /** Supported package managers, in the order they are offered to the user. */
-export const packageManagerNames: AgentName[] = ['npm', 'pnpm', 'yarn', 'bun', 'deno', 'aube', 'nub']
+export const packageManagerNames: AgentName[] = [...new Set(Object.values(LOCKS))].sort((a, b) => rank(a) - rank(b))
 
 /** Used when no package manager can be detected. */
 export const defaultPackageManager: DetectResult = { name: 'npm', agent: 'npm' }
