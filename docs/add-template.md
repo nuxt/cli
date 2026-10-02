@@ -8,6 +8,10 @@ links:
     size: xs
 ---
 
+::tip
+Demo days!
+::
+
 <!--add-template-cmd-->
 ```bash [Terminal]
 npx nuxt add-template <TEMPLATE> <NAME> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--force] [--mode=<client|server>] [--method=<connect|delete|get|head|options|patch|post|put|trace>] [--global] [--api] [--pages] [--client] [--server] [--connect] [--delete] [--get] [--head] [--options] [--post] [--put] [--trace] [--patch]
