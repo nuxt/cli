@@ -8,12 +8,9 @@ import { basename } from 'pathe'
 import { isWindows } from 'std-env'
 
 import { debug } from './logger'
+import { quoteArgument } from './shell-quote'
 
 const BIN_EXTENSION_RE = /\.[cm]?js$/
-const NEEDS_QUOTING_RE = /[\s"'$`\\]/
-const SINGLE_QUOTE_RE = /'/g
-const BACKSLASHES_BEFORE_QUOTE_RE = /(\\*)"/g
-const TRAILING_BACKSLASHES_RE = /(\\*)$/
 const CREATE_BIN_RE = /^create-nuxt(?:-app)?$/
 
 // `@latest` everywhere: package managers happily reuse a cached `create-nuxt`,
@@ -118,28 +115,6 @@ function getContinuation(windows: boolean, env: NodeJS.ProcessEnv): string {
   // is set in PowerShell, which needs a backtick, and absent in a bare cmd.exe,
   // which needs `^`. A cmd.exe launched from PowerShell inherits it and loses.
   return env.PSModulePath ? '`' : '^'
-}
-
-/**
- * Quote a value so the shell passes it through unchanged. POSIX shells still
- * expand `$` and backticks inside double quotes, so single quotes are used
- * there; cmd.exe and PowerShell have no single-quoted form in common.
- *
- * Windows argument parsing only treats a backslash as an escape when a quote
- * follows it, so each run of backslashes is doubled in exactly those two places
- * it would otherwise escape the quote we are adding.
- */
-function quoteArgument(value: string, windows: boolean): string {
-  if (!NEEDS_QUOTING_RE.test(value)) {
-    return value
-  }
-  if (!windows) {
-    return `'${value.replace(SINGLE_QUOTE_RE, `'\\''`)}'`
-  }
-  const escaped = value
-    .replace(BACKSLASHES_BEFORE_QUOTE_RE, '$1$1\\"')
-    .replace(TRAILING_BACKSLASHES_RE, '$1$1')
-  return `"${escaped}"`
 }
 
 export interface HeadlessCommandOptions {

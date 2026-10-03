@@ -6,6 +6,7 @@ import { basename } from 'pathe'
 import { isWindows } from 'std-env'
 
 import { logger } from './logger'
+import { quoteArgument } from './shell-quote'
 
 const PROXY_ENV_VARS = [
   'HTTP_PROXY',
@@ -67,19 +68,18 @@ export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGl
 
 const BIN_NAMES = new Set(['nuxi', 'nuxi-ng', 'nuxt', 'nuxt-cli'])
 const BIN_EXTENSION_RE = /\.[cm]?js$/
-const NEEDS_QUOTING_RE = /[\s"'$`]/
 
 /**
  * The command the user typed, if it can be reconstructed. Returns `undefined`
  * when the CLI was reached indirectly (`npm create nuxt`, `npx`, programmatic
  * usage), where echoing `argv` back would suggest a command that does not exist.
  */
-function getCurrentCommand(argv: string[] = process.argv): string | undefined {
+function getCurrentCommand(argv: string[], windows: boolean): string | undefined {
   const entry = argv[1]
   if (!entry || !BIN_NAMES.has(basename(entry).replace(BIN_EXTENSION_RE, ''))) {
     return
   }
-  const args = argv.slice(2).map(arg => NEEDS_QUOTING_RE.test(arg) ? JSON.stringify(arg) : arg)
+  const args = argv.slice(2).map(arg => quoteArgument(arg, windows))
   return ['nuxt', ...args].join(' ')
 }
 
@@ -96,7 +96,7 @@ export interface CommandContext {
  */
 export function formatRetryCommand(vars: Record<string, string>, ctx: CommandContext = {}): string {
   const { argv = process.argv, env = process.env, windows = isWindows } = ctx
-  const command = getCurrentCommand(argv)
+  const command = getCurrentCommand(argv, windows)
   const entries = Object.entries(vars)
 
   if (windows) {

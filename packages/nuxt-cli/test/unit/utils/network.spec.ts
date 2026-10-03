@@ -309,7 +309,15 @@ describe('describeNetworkError', () => {
 describe('formatRetryCommand', () => {
   it('rebuilds the invocation with an environment prefix', () => {
     expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv: NUXI_ARGV, env: {}, windows: false }))
-      .toBe('NODE_USE_ENV_PROXY=1 nuxt init "my app"')
+      .toBe('NODE_USE_ENV_PROXY=1 nuxt init \'my app\'')
+  })
+
+  it('quotes arguments so the shell does not expand them', () => {
+    const argv = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', '$HOME', '`id`', 'it\'s']
+    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv, env: {}, windows: false }))
+      .toBe(`NODE_USE_ENV_PROXY=1 nuxt init '$HOME' '\`id\`' 'it'\\''s'`)
+    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv: [...argv.slice(0, 3), 'C:\\my app\\'], env: {}, windows: true }))
+      .toBe('set NODE_USE_ENV_PROXY=1 && nuxt init "C:\\my app\\\\"')
   })
 
   it('uses PowerShell or cmd syntax on Windows', () => {
@@ -338,7 +346,7 @@ describe('getProxyHint', () => {
   it('points out when a configured proxy is not in use', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128' }
     const hint = clean(getProxyHint('dns', { argv: NUXI_ARGV, env, windows: false })!)
-    expect(hint).toContain('NODE_USE_ENV_PROXY=1 nuxt init "my app"')
+    expect(hint).toContain('NODE_USE_ENV_PROXY=1 nuxt init \'my app\'')
   })
   it('stays quiet when the proxy is already in use', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }
@@ -347,7 +355,7 @@ describe('getProxyHint', () => {
 
   it('suggests a root certificate for intercepted TLS', () => {
     const hint = clean(getProxyHint('tls', { argv: NUXI_ARGV, env: {}, windows: false })!)
-    expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init "my app"')
+    expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init \'my app\'')
   })
 
   it('suggests credentials for a 407', () => {
@@ -362,7 +370,7 @@ describe('getProxyHint', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }
     const hint = clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false })!)
     expect(hint).toContain('re-signing TLS traffic')
-    expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init "my app"')
+    expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init \'my app\'')
   })
 
   it('prefers the proxy-not-in-use hint over the certificate hint', () => {
