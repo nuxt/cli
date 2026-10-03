@@ -54,8 +54,12 @@ vi.mock('node:child_process', () => ({ fork }))
 
 const context: NuxtDevContext = { cwd: '/app', args: {} as NuxtDevContext['args'] }
 
-function createPool() {
-  return new ForkPool({ rawArgs: [], listenOverrides: { port: 3000 } })
+function createPool(poolSize?: number) {
+  return new ForkPool({ rawArgs: [], poolSize, listenOverrides: { port: 3000 } })
+}
+
+function killAll(pool: ForkPool) {
+  (pool as unknown as { killAll: (signal: NodeJS.Signals) => void }).killAll('SIGTERM')
 }
 
 describe('fork pool', () => {
@@ -215,5 +219,36 @@ describe('fork pool', () => {
     forks[0]!.emit('message', { type: 'nuxt:internal:dev:restart' })
 
     expect(onMessage).toHaveBeenCalledExactlyOnceWith({ type: 'nuxt:internal:dev:restart' })
+  })
+
+  it('should warm a single fork by default, and only once', async () => {
+    const pool = createPool()
+    pool.startWarming()
+    pool.startWarming()
+    expect(fork).toHaveBeenCalledTimes(1)
+  })
+
+  it('should hand out the warm fork and warm a replacement', async () => {
+    const pool = createPool()
+    pool.startWarming()
+    await Promise.resolve()
+    const active = await pool.getFork(context)
+    expect(active.pid).toBe(forks[0]!.pid)
+    expect(fork).toHaveBeenCalledTimes(2)
+  })
+
+  it('should never warm a fork when the pool is disabled', async () => {
+    const pool = createPool(0)
+    pool.startWarming()
+    await pool.getFork(context)
+    expect(fork).toHaveBeenCalledTimes(1)
+  })
+
+  it('should kill every fork on exit', async () => {
+    const pool = createPool(3)
+    await pool.getFork(context)
+    expect(forks).toHaveLength(4)
+    killAll(pool)
+    expect(forks.map(f => f.killed)).toEqual(Array.from({ length: 4 }).fill('SIGTERM'))
   })
 })

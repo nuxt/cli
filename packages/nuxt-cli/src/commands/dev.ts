@@ -19,12 +19,11 @@ import { ForkPool } from '../dev/pool'
 import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { devShortcutContext } from '../dev/shortcut-context'
-import { adoptShutdown, SUPERVISOR_SHUTDOWN_TIMEOUT_MS } from '../dev/shutdown'
+import { handleShutdownSignals } from '../dev/shutdown'
 import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
 import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
-import { summariseActiveResources } from '../utils/hang'
 import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { startupElapsedMs } from '../utils/startup-clock'
@@ -32,7 +31,6 @@ import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDi
 
 const startTime: number | undefined = Date.now()
 
-const SHUTDOWN_NOTICE_MS = 1500
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 
 const command = defineCommand({
@@ -235,8 +233,7 @@ const command = defineCommand({
     const { context: shortcutContext, attach: attachServer, provide } = devShortcutContext()
     provide({ clearCaches })
     const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
-    setupSignalHandlers(() => shortcutContext.close())
-    adoptShutdown()
+    handleShutdownSignals(() => shortcutContext.close())
 
     // Evaluating the dev server's graph blocks the loop; let the panel answer
     // anything already typed first.
@@ -477,64 +474,6 @@ async function beforeServing<T>(work: () => Promise<T>): Promise<T> {
     await teardownDevUI()
     throw error
   }
-}
-
-/**
- * Shut the dev server down on `SIGINT`/`SIGTERM`.
- *
- * Registering any listener for these signals (the fork pool and the CPU
- * profiler both do) suppresses Node's default exit behaviour, so Ctrl-C would
- * otherwise leave the server, its forks and any tunnel running.
- *
- * Shutdown is given enough time for `close` hooks (nitro plugins closing database
- * connections, and so on) to finish; a second Ctrl-C skips the wait.
- */
-function setupSignalHandlers(close: () => Promise<void>): void {
-  let closing = false
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-    process.on(signal, () => {
-      if (closing) {
-        process.exit(130)
-      }
-      closing = true
-
-      // Ctrl-C should always give the terminal back, even if a watcher or an
-      // open connection stops the graceful shutdown from settling.
-      const deadline = setTimeout(() => {
-        const summary = summariseActiveResources()
-        logger.warn(`The dev server did not shut down within ${SUPERVISOR_SHUTDOWN_TIMEOUT_MS / 1000}s${summary ? `: ${summary}` : ''}. Exiting anyway.`)
-        process.exit()
-      }, SUPERVISOR_SHUTDOWN_TIMEOUT_MS)
-
-      // Closing can take a while (nitro plugins draining connections, forks
-      // exiting), so it says so rather than appearing to hang.
-      void shutdownWithSpinner(async (indicator) => {
-        const notice = setTimeout(() => {
-          indicator.update('Cleaning up... press Ctrl-C again to exit immediately')
-        }, SHUTDOWN_NOTICE_MS)
-        notice.unref?.()
-        try {
-          await close()
-        }
-        catch (error) {
-          console.error(error)
-          process.exitCode = 1
-        }
-        finally {
-          clearTimeout(notice)
-          clearTimeout(deadline)
-        }
-      }).finally(() => {
-        process.exit()
-      })
-    })
-  }
-}
-
-/** `withSpinner`, loaded on the way out rather than on every `nuxt dev`. */
-async function shutdownWithSpinner(work: (indicator: { update: (message: string) => void }) => Promise<void>): Promise<void> {
-  const { withSpinner } = await import('../utils/spinner')
-  return withSpinner('Cleaning up', work, { done: 'Stopped the dev server' })
 }
 
 function resolveForkPoolSize(): number | undefined {
