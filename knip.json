@@ -13,9 +13,7 @@
       ],
       "entry": [
         "scripts/*",
-        "bench/run.ts",
         "bench/ab.ts",
-        "capture/record.ts",
         "capture/lib/fetch-stub.mjs"
       ],
       "ignore": [

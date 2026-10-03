@@ -427,7 +427,6 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     headers.Authorization = meta.authorization
   }
 
-  // TODO: spinner
   const pkgUrl = `${meta.registry}/${pkgName}`
   const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
     logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${styleText('cyan', pkgName)}.` })
