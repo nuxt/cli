@@ -24,34 +24,18 @@ export function hasProxyEnv(env: NodeJS.ProcessEnv = process.env): boolean {
 // (`--require=/tmp/--use-env-proxy.js`) is not mistaken for it being enabled.
 const USE_ENV_PROXY_RE = /(?:^|\s)--use-env-proxy(?:$|[\s=])/
 
-/** The flags the running Node.js accepts, i.e. `process.allowedNodeEnvironmentFlags`. */
-export interface NodeFlags {
-  has: (flag: string) => boolean
-}
-
-/**
- * Whether the current Node.js can route `fetch`/`http` through `HTTP_PROXY`,
- * `HTTPS_PROXY` and `NO_PROXY` itself.
- */
-export function supportsEnvProxy(flags: NodeFlags | undefined = process.allowedNodeEnvironmentFlags): boolean {
-  return flags?.has('--use-env-proxy') ?? false
-}
-
 /**
  * Whether the current process routes requests through the proxy environment
  * variables. Node.js resolves this during bootstrap, so it cannot be turned on
  * from within the process.
  */
-export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv: string[] = process.execArgv, flags?: NodeFlags): boolean {
-  if (!supportsEnvProxy(flags)) {
-    return false
-  }
+export function isEnvProxyActive(env: NodeJS.ProcessEnv = process.env, execArgv: string[] = process.execArgv): boolean {
   return env.NODE_USE_ENV_PROXY === '1'
     || execArgv.includes('--use-env-proxy')
     || USE_ENV_PROXY_RE.test(env.NODE_OPTIONS || '')
 }
 
-export type ProxySetupResult = 'unused' | 'active' | 'children-only' | 'unsupported'
+export type ProxySetupResult = 'unused' | 'active' | 'children-only'
 
 type EnableGlobalProxy = (env: NodeJS.ProcessEnv) => unknown
 
@@ -64,19 +48,14 @@ let proxyHintShown = false
  * Route requests from this process and its children through the proxy
  * environment variables, and record whether this process is proxy-aware.
  */
-export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, flags?: NodeFlags, enableGlobalProxy: EnableGlobalProxy | null = setGlobalProxyFromEnv ?? null): ProxySetupResult {
+export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGlobalProxy: EnableGlobalProxy | null = setGlobalProxyFromEnv ?? null): ProxySetupResult {
   proxyHintShown = false
 
   if (!hasProxyEnv(env)) {
     envProxyActive = undefined
     return 'unused'
   }
-  if (!supportsEnvProxy(flags)) {
-    envProxyActive = false
-    return 'unsupported'
-  }
-
-  envProxyActive = isEnvProxyActive(env, process.execArgv, flags)
+  envProxyActive = isEnvProxyActive(env)
   if (!envProxyActive && enableGlobalProxy && env.NODE_USE_ENV_PROXY !== '0') {
     enableGlobalProxy(env)
     envProxyActive = true
@@ -108,7 +87,6 @@ export interface CommandContext {
   argv?: string[]
   env?: NodeJS.ProcessEnv
   windows?: boolean
-  flags?: NodeFlags
 }
 
 /**
@@ -300,7 +278,7 @@ export function describeNetworkError(err: unknown, url?: string): string {
  */
 export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandContext = {}): string | undefined {
   const env = ctx.env ?? process.env
-  const proxyInUse = () => envProxyActive ?? isEnvProxyActive(env, process.execArgv, ctx.flags)
+  const proxyInUse = () => envProxyActive ?? isEnvProxyActive(env)
 
   // A server that answered is normally not a proxy problem, unless a proxy is
   // configured and being bypassed (a blocked egress often answers 403).
@@ -318,10 +296,6 @@ export function getProxyHint(kind: NetworkFailureKind = 'unknown', ctx: CommandC
 
   if (!hasProxyEnv(env)) {
     return `If you are behind a proxy, set ${styleText('cyan', 'HTTPS_PROXY')} and ${styleText('cyan', 'NODE_USE_ENV_PROXY=1')} (plus ${styleText('cyan', 'NO_PROXY')} for internal hosts).`
-  }
-
-  if (!supportsEnvProxy(ctx.flags)) {
-    return `A proxy is configured but this version of Node.js cannot use it; upgrade to Node.js 24 (or 22.18+) to enable ${styleText('cyan', 'NODE_USE_ENV_PROXY')}.`
   }
 
   if (!proxyInUse()) {

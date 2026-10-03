@@ -24,14 +24,10 @@ vi.mock('../../../src/utils/logger', () => ({
   debug: () => {},
 }))
 
-const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, probeNetworkError, setupProxySupport, supportsEnvProxy } = await import('../../../src/utils/network')
+const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, probeNetworkError, setupProxySupport } = await import('../../../src/utils/network')
 const { fetchJson } = await import('../../../src/utils/fetch')
 
 const NUXI_ARGV = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', 'my app']
-
-/** Stand in for the flags Node.js accepts, so tests do not depend on the runtime. */
-const MODERN_NODE = new Set(['--use-env-proxy'])
-const OLD_NODE = new Set<string>()
 
 function clean(message: string) {
   return stripVTControlCharacters(message)
@@ -81,7 +77,7 @@ describe('setupProxySupport', () => {
 
   it('propagates proxy support to child processes', () => {
     const env = { HTTP_PROXY: 'http://localhost:3128' } as NodeJS.ProcessEnv
-    expect(setupProxySupport(env, MODERN_NODE, null)).toBe('children-only')
+    expect(setupProxySupport(env, null)).toBe('children-only')
     expect(env.NODE_USE_ENV_PROXY).toBe('1')
   })
 
@@ -89,11 +85,11 @@ describe('setupProxySupport', () => {
     const proxy = await startTunnelProxy()
     try {
       const env = { HTTP_PROXY: proxy.proxyUrl, NO_PROXY: '127.0.0.1' } as NodeJS.ProcessEnv
-      expect(setupProxySupport(env, MODERN_NODE)).toBe('active')
+      expect(setupProxySupport(env)).toBe('active')
       expect(await fetch('http://nuxt.invalid/').then(r => r.text())).toBe('ok')
       expect(await fetch(proxy.targetUrl).then(r => r.text())).toBe('ok')
       expect(proxy.tunnelled).toEqual(['nuxt.invalid:80'])
-      expect(getProxyHint('refused', { env, flags: MODERN_NODE })).toBeUndefined()
+      expect(getProxyHint('refused', { env })).toBeUndefined()
     }
     finally {
       proxy.close()
@@ -102,31 +98,17 @@ describe('setupProxySupport', () => {
 
   it('does not enable the proxy when NODE_USE_ENV_PROXY is explicitly disabled', () => {
     const enable = vi.fn()
-    expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '0' }, MODERN_NODE, enable)).toBe('children-only')
+    expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '0' }, enable)).toBe('children-only')
     expect(enable).not.toHaveBeenCalled()
   })
-
-  it('reports Node.js versions that cannot use the proxy', () => {
-    const env = { HTTP_PROXY: 'http://localhost:3128' } as NodeJS.ProcessEnv
-    expect(setupProxySupport(env, OLD_NODE)).toBe('unsupported')
-    expect(env.NODE_USE_ENV_PROXY).toBeUndefined()
-  })
-
-  it('detects support from the flags Node.js accepts', () => {
-    expect(supportsEnvProxy(new Set(['--use-env-proxy']))).toBe(true)
-    expect(supportsEnvProxy(new Set(['--enable-source-maps']))).toBe(false)
-    expect(supportsEnvProxy({ has: () => false })).toBe(false)
-  })
-
   it('reports the current process as proxy-aware when launched with the flag', () => {
-    expect(isEnvProxyActive({ NODE_USE_ENV_PROXY: '1' }, [], MODERN_NODE)).toBe(true)
-    expect(isEnvProxyActive({ NODE_OPTIONS: '--use-env-proxy' }, [], MODERN_NODE)).toBe(true)
-    expect(isEnvProxyActive({ NODE_OPTIONS: '--max-old-space-size=4096 --use-env-proxy' }, [], MODERN_NODE)).toBe(true)
-    expect(isEnvProxyActive({ NODE_OPTIONS: '--require=/tmp/--use-env-proxy.js' }, [], MODERN_NODE)).toBe(false)
-    expect(isEnvProxyActive({}, ['--use-env-proxy'], MODERN_NODE)).toBe(true)
-    expect(isEnvProxyActive({ HTTPS_PROXY: 'http://localhost:3128' }, [], MODERN_NODE)).toBe(false)
-    expect(isEnvProxyActive({ NODE_USE_ENV_PROXY: '1' }, [], OLD_NODE)).toBe(false)
-    expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }, MODERN_NODE)).toBe('active')
+    expect(isEnvProxyActive({ NODE_USE_ENV_PROXY: '1' }, [])).toBe(true)
+    expect(isEnvProxyActive({ NODE_OPTIONS: '--use-env-proxy' }, [])).toBe(true)
+    expect(isEnvProxyActive({ NODE_OPTIONS: '--max-old-space-size=4096 --use-env-proxy' }, [])).toBe(true)
+    expect(isEnvProxyActive({ NODE_OPTIONS: '--require=/tmp/--use-env-proxy.js' }, [])).toBe(false)
+    expect(isEnvProxyActive({}, ['--use-env-proxy'])).toBe(true)
+    expect(isEnvProxyActive({ HTTPS_PROXY: 'http://localhost:3128' }, [])).toBe(false)
+    expect(setupProxySupport({ HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' })).toBe('active')
   })
 })
 
@@ -269,7 +251,7 @@ describe.skipIf(!hasOpenSSL)('describeNetworkError with an untrusted certificate
 
   it('advises a root certificate for a self-signed chain, whatever the proxy state', async () => {
     const err = await captureError(() => fetch(url))
-    const hint = clean(getProxyHint(classifyNetworkError(err).kind, { argv: NUXI_ARGV, env: {}, windows: false, flags: MODERN_NODE })!)
+    const hint = clean(getProxyHint(classifyNetworkError(err).kind, { argv: NUXI_ARGV, env: {}, windows: false })!)
     expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem')
   })
 })
@@ -355,21 +337,12 @@ describe('getProxyHint', () => {
 
   it('points out when a configured proxy is not in use', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128' }
-    const hint = clean(getProxyHint('dns', { argv: NUXI_ARGV, env, windows: false, flags: MODERN_NODE })!)
+    const hint = clean(getProxyHint('dns', { argv: NUXI_ARGV, env, windows: false })!)
     expect(hint).toContain('NODE_USE_ENV_PROXY=1 nuxt init "my app"')
   })
-
-  it('asks for a Node.js upgrade when the flag is unavailable', () => {
-    const env = { HTTPS_PROXY: 'http://localhost:3128' }
-    const hint = clean(getProxyHint('dns', { argv: NUXI_ARGV, env, windows: false, flags: OLD_NODE })!)
-    expect(hint).toContain('cannot use it')
-    expect(hint).toContain('Node.js 24 (or 22.18+)')
-    expect(hint).not.toContain('Retry with')
-  })
-
   it('stays quiet when the proxy is already in use', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }
-    expect(getProxyHint('dns', { env, flags: MODERN_NODE })).toBeUndefined()
+    expect(getProxyHint('dns', { env })).toBeUndefined()
   })
 
   it('suggests a root certificate for intercepted TLS', () => {
@@ -387,14 +360,14 @@ describe('getProxyHint', () => {
 
   it('suspects TLS interception when a proxy in use resets the connection', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128', NODE_USE_ENV_PROXY: '1' }
-    const hint = clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false, flags: MODERN_NODE })!)
+    const hint = clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false })!)
     expect(hint).toContain('re-signing TLS traffic')
     expect(hint).toContain('NODE_EXTRA_CA_CERTS=/path/to/corporate-ca.pem nuxt init "my app"')
   })
 
   it('prefers the proxy-not-in-use hint over the certificate hint', () => {
     const env = { HTTPS_PROXY: 'http://localhost:3128' }
-    expect(clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false, flags: MODERN_NODE })!))
+    expect(clean(getProxyHint('reset', { argv: NUXI_ARGV, env, windows: false })!))
       .toContain('NODE_USE_ENV_PROXY=1')
   })
 })
