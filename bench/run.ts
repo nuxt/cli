@@ -149,7 +149,10 @@ for (const [caseId, label] of STARTUP_CASES) {
   const baseline = moduleResults?.find(r => r.case === caseId && r.target === 'baseline')
   const head = moduleResults?.find(r => r.case === caseId && r.target === 'head')
   if (baseline && head) {
-    headlineRows.push([`${label} modules loaded`, String(baseline.modules), String(head.modules), formatDelta(baseline.modules, head.modules)])
+    headlineRows.push(
+      [`${label} modules loaded`, String(baseline.modules), String(head.modules), formatDelta(baseline.modules, head.modules)],
+      [`${label} built-ins loaded`, String(baseline.builtins), String(head.builtins), formatDelta(baseline.builtins, head.builtins)],
+    )
   }
 }
 if (footprintResults) {

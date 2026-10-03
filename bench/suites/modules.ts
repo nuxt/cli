@@ -19,6 +19,8 @@ export interface ModuleCount {
   modules: number
   nodeModules: number
   bytes: number
+  /** Node.js built-ins loaded after bootstrap, internals included. */
+  builtins: number
 }
 
 export async function modulesSuite(targets: Target[], cwd: string): Promise<{ results: ModuleCount[], markdown: string }> {
@@ -36,7 +38,7 @@ export async function modulesSuite(targets: Target[], cwd: string): Promise<{ re
       if (!match) {
         throw new Error(`no module stats for ${target.id} ${testCase.id}:\n${result.stderr.slice(-2000)}`)
       }
-      const parsed = JSON.parse(match[1]!) as { modules: number, nodeModules: number, bytes: number }
+      const parsed = JSON.parse(match[1]!) as { modules: number, nodeModules: number, bytes: number, builtins: number }
       const entry = { case: testCase.id, target: target.id, ...parsed }
       results.push(entry)
       perTarget.push(entry)
@@ -50,14 +52,17 @@ export async function modulesSuite(targets: Target[], cwd: string): Promise<{ re
       formatBytes(baseline!.bytes),
       formatBytes(head!.bytes),
       formatDelta(baseline!.bytes, head!.bytes),
+      String(baseline!.builtins),
+      String(head!.builtins),
+      formatDelta(baseline!.builtins, head!.builtins),
     ])
   }
 
   const markdown = [
-    'Counted with a `module.registerHooks` load hook, compile cache disabled. Counts every JS module actually evaluated on that code path (built-ins excluded, native addons excluded).',
+    'Counted with a `module.registerHooks` load hook, compile cache disabled. Counts every JS module actually evaluated on that code path (native addons excluded). Built-ins loaded after bootstrap are counted separately, including the internal modules they load.',
     '',
     markdownTable(
-      ['Command', `${shortLabel(targets[0]!)} modules`, `${shortLabel(targets[1]!)} modules`, 'Delta', `${shortLabel(targets[0]!)} source bytes`, `${shortLabel(targets[1]!)} source bytes`, 'Delta'],
+      ['Command', `${shortLabel(targets[0]!)} modules`, `${shortLabel(targets[1]!)} modules`, 'Delta', `${shortLabel(targets[0]!)} source bytes`, `${shortLabel(targets[1]!)} source bytes`, 'Delta', `${shortLabel(targets[0]!)} built-ins`, `${shortLabel(targets[1]!)} built-ins`, 'Delta'],
       rows,
     ),
   ].join('\n')
