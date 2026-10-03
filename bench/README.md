@@ -41,7 +41,7 @@ pnpm bench:cli --suite startup --startup-reps 31
 ## Suites
 
 - **`startup`** - cold `nuxi --version`, `--help`, and unknown-command time. Catches anything pulled onto the module graph of the fast paths.
-- **`modules`** - how many modules each target loads for those same commands, via `bench/lib/module-hook.mjs`. A count rather than a time, so it is stable across machines and is the better regression guard of the two.
+- **`modules`** - how many modules (and Node.js built-ins) each target loads for those same commands, via `bench/lib/module-hook.mjs`. A count rather than a time, so it is stable across machines and is the better regression guard of the two.
 - **`panel`** - time from spawn to the first painted `nuxt dev` frame, and until a keypress at that frame is answered.
 - **`dev`** - time from spawn to the dev server answering a request.
 - **`restart`** - time to serve again after a `nuxt.config.ts` edit, plus a no-op edit case to check that ignored changes stay ignored.

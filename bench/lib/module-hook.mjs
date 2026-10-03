@@ -2,6 +2,7 @@ import module from 'node:module'
 import process from 'node:process'
 
 const loaded = new Map()
+const bootBuiltins = new Set(process.moduleLoadList)
 
 module.registerHooks({
   load(url, context, nextLoad) {
@@ -25,5 +26,6 @@ process.on('exit', () => {
     }
   }
   // `_rawDebug` writes straight to fd 2 and cannot be intercepted by the CLI's own logging
-  process._rawDebug(`__BENCH_MODULES__${JSON.stringify({ modules: loaded.size, nodeModules, bytes })}`)
+  const builtins = process.moduleLoadList.filter(entry => entry.startsWith('NativeModule ') && !bootBuiltins.has(entry)).length
+  process._rawDebug(`__BENCH_MODULES__${JSON.stringify({ modules: loaded.size, nodeModules, bytes, builtins })}`)
 })
