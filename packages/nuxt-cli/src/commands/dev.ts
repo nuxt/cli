@@ -28,16 +28,14 @@ import { debug, logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { startupElapsedMs } from '../utils/startup-clock'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const startTime: number | undefined = Date.now()
 
 const forkSupported = !isTest && (!isBun || isBunForkSupported())
 
 const command = defineCommand({
-  meta: {
-    name: 'dev',
-    description: 'Run Nuxt development server',
-  },
+  meta: commandMeta.dev,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

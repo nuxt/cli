@@ -21,6 +21,7 @@ import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { createSpinner } from '../utils/spinner'
 import { getNuxtVersion, resolveRegistryVersion } from '../utils/versions'
 import { logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 function checkNuxtDependencyType(pkg: PackageJson): 'dependencies' | 'devDependencies' {
   if (pkg.dependencies?.nuxt) {
@@ -143,10 +144,7 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
 }
 
 export default defineCommand({
-  meta: {
-    name: 'upgrade',
-    description: 'Upgrade Nuxt',
-  },
+  meta: commandMeta.upgrade,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

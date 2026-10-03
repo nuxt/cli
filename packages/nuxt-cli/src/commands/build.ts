@@ -20,15 +20,13 @@ import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-report
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
+import { commandMeta } from './meta'
 
 /** How often a phase repeats itself where there is no animated line. */
 const HEARTBEAT_INTERVAL = 5000
 
 export default defineCommand({
-  meta: {
-    name: 'build',
-    description: 'Build Nuxt for production deployment',
-  },
+  meta: commandMeta.build,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

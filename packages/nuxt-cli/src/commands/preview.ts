@@ -17,12 +17,10 @@ import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { resolveServerBuild } from '../utils/server-build'
 import { findStaticEntry, formatServerURL, previewStaticOutput } from '../utils/static-preview'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const command = defineCommand({
-  meta: {
-    name: 'preview',
-    description: 'Launches Nitro server for local testing after `nuxt build`.',
-  },
+  meta: commandMeta.preview,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

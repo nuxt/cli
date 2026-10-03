@@ -22,6 +22,7 @@ import { defaultPackageManager, detectPackageManager, isPackageManagerName, pack
 import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
+import { commandMeta } from '../meta'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
 import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
@@ -47,7 +48,7 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
   return defineCommand({
     meta: {
       name: 'add',
-      description: layers ? 'Add Nuxt modules and layers' : 'Add Nuxt modules',
+      description: layers ? commandMeta.add.description : 'Add Nuxt modules',
     },
     args: {
       ...cwdArgs,

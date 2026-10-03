@@ -14,6 +14,7 @@ import { templates } from '../utils/templates/index'
 import { httpMethods, modes } from '../utils/templates/modifiers'
 import { templateNames } from '../utils/templates/names'
 import { cwdArgs, logLevelArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const modifierArgs = Object.fromEntries([
   ...modes.map(mode => [mode, `Shorthand for \`--mode ${mode}\``] as const),
@@ -21,10 +22,7 @@ const modifierArgs = Object.fromEntries([
 ].map(([name, description]) => [name, { type: 'boolean', description }] as const))
 
 export default defineCommand({
-  meta: {
-    name: 'add-template',
-    description: 'Create a new template file.',
-  },
+  meta: commandMeta['add-template'],
   args: {
     ...cwdArgs,
     ...logLevelArgs,

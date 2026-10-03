@@ -2,12 +2,10 @@ import { defineCommand } from 'citty'
 
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 import buildCommand from './build'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: 'generate',
-    description: 'Build Nuxt and prerender all routes',
-  },
+  meta: commandMeta.generate,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

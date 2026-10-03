@@ -21,6 +21,7 @@ import { intro, logger, outro } from '../utils/logger'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const NON_WORD_RE = /[^\w-]/g
 
@@ -44,10 +45,7 @@ const indexHtml = `
 `.trim()
 
 export default defineCommand({
-  meta: {
-    name: 'analyze',
-    description: 'Build Nuxt and analyze production bundle (experimental)',
-  },
+  meta: commandMeta.analyze,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

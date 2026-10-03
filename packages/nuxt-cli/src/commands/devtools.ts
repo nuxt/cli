@@ -4,12 +4,10 @@ import { x } from 'tinyexec'
 import { ActionableError } from '../utils/errors'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: 'devtools',
-    description: 'Enable or disable devtools in a Nuxt project',
-  },
+  meta: commandMeta.devtools,
   args: {
     command: {
       type: 'positional',

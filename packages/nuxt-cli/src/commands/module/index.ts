@@ -1,10 +1,8 @@
 import { defineCommand } from 'citty'
+import { commandMeta } from '../meta'
 
 export default defineCommand({
-  meta: {
-    name: 'module',
-    description: 'Manage Nuxt modules',
-  },
+  meta: commandMeta.module,
   args: {},
   subCommands: {
     add: () => import('./add').then(r => r.default || r),

@@ -15,6 +15,7 @@ import { logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const HAS_SCHEME_RE = /^[a-z][a-z\d+.-]*:\/\//i
 const JSON_CONTENT_TYPE_RE = /^application\/(?:[\w.+-]+\+)?json\b/i
@@ -45,10 +46,7 @@ const BINARY_SNIFF_BYTES = 4096
 const HTTP_ERROR_EXIT_CODE = 22
 
 export default defineCommand({
-  meta: {
-    name: 'curl',
-    description: 'Send an HTTP request to your running Nuxt dev server',
-  },
+  meta: commandMeta.curl,
   args: {
     // `url` has to precede the `dir` positional supplied by `rootDirArgs`
     url: {
