@@ -1164,8 +1164,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           socket.destroy()
           return
         }
-        if (viteHmrUrl !== undefined && new URL(req.url || '/', 'http://localhost').pathname === viteHmrUrl) {
-          return
+        if (viteHmrUrl !== undefined) {
+          let pathname: string
+          try {
+            pathname = new URL(`http://localhost${req.url}`).pathname
+          }
+          catch {
+            socket.destroy()
+            return
+          }
+          if (pathname === viteHmrUrl) {
+            return
+          }
         }
       }
       if (nuxt.server && 'upgrade' in nuxt.server) {

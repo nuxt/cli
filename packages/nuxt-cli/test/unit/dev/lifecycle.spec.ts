@@ -695,7 +695,7 @@ describe('dev server websocket upgrades', () => {
     const hmrBase = server.ws.path ? join(base, server.ws.path) : base
     server.ws.server.on('upgrade', (req: import('node:http').IncomingMessage, socket: Socket) => {
       const protocol = req.headers['sec-websocket-protocol']
-      if ((protocol === 'vite-hmr' || protocol === 'vite-ping') && new URL(req.url!, 'http://localhost').pathname === hmrBase) {
+      if ((protocol === 'vite-hmr' || protocol === 'vite-ping') && new URL(`http://example.com${req.url}`).pathname === hmrBase) {
         accept(req, socket)
       }
     })
@@ -799,6 +799,25 @@ describe('dev server websocket upgrades', () => {
     const { closed } = upgrade(server, path, protocol)
     await expectClosedPromptly(closed)
     expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['//a:b', 'http://a:b/'])('should not throw on an upgrade to %s', async (path) => {
+    const nuxt = createNuxt()
+    const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    const server = await startServer(nuxt)
+    await attachFakeVite(nuxt)
+    const uncaught = vi.fn()
+    process.on('uncaughtException', uncaught)
+
+    try {
+      const { closed } = upgrade(server, path)
+      await expectClosedPromptly(closed)
+      expect(uncaught).not.toHaveBeenCalled()
+    }
+    finally {
+      process.off('uncaughtException', uncaught)
+    }
   })
 
   it('should route other upgrades to the Nuxt server', async () => {
