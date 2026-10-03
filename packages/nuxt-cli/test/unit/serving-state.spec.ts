@@ -13,7 +13,8 @@ describe('request attribution', () => {
   })
 
   it('attributes work on the call stack to the request that started it', () => {
-    runWithRequest('GET /about', (request) => {
+    const request = createRequest('GET /about')
+    runWithRequest(request, () => {
       expect(currentRequest()).toBeDefined()
       expect(currentRequest()?.label).toBe('GET /about')
       expect(currentRequest()?.id).toBe(request.id)
@@ -31,9 +32,9 @@ describe('request attribution', () => {
     }
 
     await Promise.all([
-      runWithRequest('GET /page', () => serve('GET /page', 4)),
-      runWithRequest('GET /_nuxt/app.js', () => serve('GET /_nuxt/app.js', 1)),
-      runWithRequest('GET /api/hello', () => serve('GET /api/hello', 2)),
+      runWithRequest(createRequest('GET /page'), () => serve('GET /page', 4)),
+      runWithRequest(createRequest('GET /_nuxt/app.js'), () => serve('GET /_nuxt/app.js', 1)),
+      runWithRequest(createRequest('GET /api/hello'), () => serve('GET /api/hello', 2)),
     ])
 
     expect(seen).toHaveLength(6)
@@ -43,7 +44,7 @@ describe('request attribution', () => {
   })
 
   it('follows a request into a nested callback the handler creates', async () => {
-    const attributed = await runWithRequest('GET /nested', () => new Promise<string | undefined>((resolve) => {
+    const attributed = await runWithRequest(createRequest('GET /nested'), () => new Promise<string | undefined>((resolve) => {
       process.nextTick(() => {
         setImmediate(() => {
           queueMicrotask(() => resolve(currentRequest()?.label))
@@ -69,7 +70,7 @@ describe('request attribution', () => {
 
   it('does not attribute work that has left the request context', async () => {
     let escaped: string | undefined = 'unset'
-    runWithRequest('GET /leaky', () => {
+    runWithRequest(createRequest('GET /leaky'), () => {
       // A queue the handler does not own loses the context, by design.
       queue.push(() => {
         escaped = currentRequest()?.label

@@ -229,23 +229,26 @@ function parseRequest(id, label) {
   return { id, label: decoded }
 }
 
+/** Run `serve` inside the context of the request `read` identifies, if any. */
+function withRequest(read, remove, serve) {
+  let request
+  try {
+    request = parseRequest(read(HEADER), read(LABEL_HEADER))
+    if (request) {
+      remove(LABEL_HEADER)
+    }
+  }
+  catch {}
+  return request ? storage.run(request, serve) : serve()
+}
+
 function trackRequests(nitroApp) {
   const h3App = nitroApp?.h3App
   if (typeof h3App?.handler === 'function') {
     const handler = h3App.handler
     h3App.handler = Object.assign(function (event) {
-      let request
-      try {
-        const headers = event?.node?.req?.headers
-        request = parseRequest(headers?.[HEADER], headers?.[LABEL_HEADER])
-        if (request) {
-          delete headers[LABEL_HEADER]
-        }
-      }
-      catch {}
-      return request
-        ? storage.run(request, () => handler.call(this, event))
-        : handler.call(this, event)
+      const headers = event?.node?.req?.headers
+      return withRequest(name => headers?.[name], name => delete headers[name], () => handler.call(this, event))
     }, handler)
     return
   }
@@ -253,19 +256,7 @@ function trackRequests(nitroApp) {
   // Every nitro v3 entry, dev and deployed, serves through `nitroApp.fetch`.
   if (typeof nitroApp?.fetch === 'function') {
     const fetch = nitroApp.fetch.bind(nitroApp)
-    nitroApp.fetch = (req, ...args) => {
-      let request
-      try {
-        request = parseRequest(req?.headers?.get?.(HEADER), req?.headers?.get?.(LABEL_HEADER))
-        if (request) {
-          req.headers.delete(LABEL_HEADER)
-        }
-      }
-      catch {}
-      return request
-        ? storage.run(request, () => fetch(req, ...args))
-        : fetch(req, ...args)
-    }
+    nitroApp.fetch = (req, ...args) => withRequest(name => req?.headers?.get?.(name), name => req.headers.delete(name), () => fetch(req, ...args))
   }
 }
 

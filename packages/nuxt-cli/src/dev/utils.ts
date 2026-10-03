@@ -2,7 +2,7 @@ import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
 import type { ErrorReport } from 'my-bad'
 import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
-import type { FSWatcher, Stats } from 'node:fs'
+import type { FSWatcher } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
 import type { PendingRender } from '../utils/progress-snapshot'
 
@@ -14,17 +14,13 @@ import type { BoundServer, DevListenOverrides, Listener, ListenOptions, ListenUR
 import type { ServerLogEvent } from './log-channel'
 import type { DevRestartReason } from './reason'
 import type { DevRequestSpan } from './span-channel'
-import { Buffer } from 'node:buffer'
-import { hash } from 'node:crypto'
 import EventEmitter from 'node:events'
-import { closeSync, existsSync, openSync, readdirSync, readFileSync, readSync, statSync, watch } from 'node:fs'
+import { existsSync, watch } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { styleText } from 'node:util'
 import defu from 'defu'
-import { resolveModulePath } from 'exsolve'
 import { toNodeListener } from 'h3'
 import { join, resolve } from 'pathe'
 import { debounce } from 'perfect-debounce'
@@ -40,63 +36,20 @@ import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../uti
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { resolveServerBuild } from '../utils/server-build'
-import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
+import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
+import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
-import { isAllowedHost, isLoopbackAddress } from './host-check'
-import { INSPECT_ENV } from './inspect'
+import { isAllowedHost } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
 import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
-import { createRequest, currentRequest, encodeRequestLabel, REQUEST_HEADER, REQUEST_LABEL_HEADER, runWithRequest } from './serving-state'
+import { isBundlerRequest, isDocumentRequest } from './request-kind'
+import { registerDevPlugins } from './runtime-plugins'
+import { attachRequest, currentRequest, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
-
-/**
- * Nitro plugin that attributes the app's logs to the request that caused them,
- * from inside the module runner's realm. Resolved through this package's own
- * exports because the caller may be bundled into any chunk.
- */
-function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): void {
-  try {
-    const source = fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
-    const id = join(nitro.buildDir || join(cwd, '.nuxt'), 'dev-request-context.mjs')
-    // The build dir is not a package, so `consola` is pinned to the copy the app
-    // itself logs through; a bare specifier would not resolve from there.
-    const consola = resolveConsola(cwd)
-    nitro.virtual ||= {}
-    nitro.virtual[id] = () => readFileSync(source, 'utf8').replace('\'consola\'', JSON.stringify(consola))
-    nitro.plugins ||= []
-    nitro.plugins.push(id)
-  }
-  catch (error) {
-    debug('Could not resolve the request context plugin; app logs will not be attributed:', error)
-  }
-}
-
-function registerRuntimePlugin(nitro: NitroConfigForHook, name: 'dev-close-sockets' | 'dev-inspector'): void {
-  try {
-    nitro.plugins ||= []
-    nitro.plugins.push(fileURLToPath(import.meta.resolve(`@nuxt/cli/runtime/${name}`)))
-  }
-  catch (error) {
-    debug(`Could not resolve the ${name} plugin:`, error)
-  }
-}
-
-/**
- * The `consola` the app itself logs through, which is the one
- * `@nuxt/nitro-server` wraps `console` with: its own, not the CLI's. Reporting
- * from any other instance sees none of the app's logs.
- */
-function resolveConsola(cwd: string): string {
-  const nuxt = resolveModulePath('nuxt', { from: cwd, try: true })
-  const from = [nuxt, cwd].filter(Boolean) as string[]
-  return resolveModulePath('consola', { from, try: true }) ?? fileURLToPath(import.meta.resolve('consola'))
-}
-
-type NitroConfigForHook = Parameters<NonNullable<NonNullable<NuxtConfig['hooks']>['nitro:config']>>[0]
 
 export type NuxtParentIPCMessage
   = | { type: 'nuxt:internal:dev:context', context: NuxtDevContext, listenOverrides: DevListenOverrides, inspect?: InspectOptions }
@@ -167,8 +120,6 @@ function devForkParentPid(): number | undefined {
   return process.ppid > 1 ? process.ppid : undefined
 }
 
-// https://regex101.com/r/7HkR5c/1
-const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 const TRAILING_SLASH_RE = /\/$/
 
 /**
@@ -178,117 +129,6 @@ const TRAILING_SLASH_RE = /\/$/
 function noDevServerMessage(builder: string, built: boolean): string {
   return `The ${styleText('cyan', builder)} server builder ${built ? 'did not provide' : 'does not provide'} a dev server.\n`
     + `       A ${styleText('cyan', 'server.builder')} must expose a \`handler\`, \`fetch\` or \`app\` on \`nuxt.server\` to be served by ${styleText('cyan', 'nuxt dev')}.`
-}
-
-/**
- * Files above this size are tracked by mtime alone.
- */
-const MAX_HASHED_FILE_SIZE = 256 * 1024
-
-interface TrackedFile {
-  mtimeMs: number
-  /** Absent for directories and for files too large to hash. */
-  contentHash?: string
-}
-
-function hashFileContents(path: string, size: number): string | undefined {
-  if (size > MAX_HASHED_FILE_SIZE) {
-    return undefined
-  }
-  let fd: number | undefined
-  try {
-    fd = openSync(path, 'r')
-    // The stat'd size can be stale, so cap the read rather than trusting it; an
-    // extra byte means the file outgrew the limit and falls back to mtime.
-    const buffer = Buffer.allocUnsafe(MAX_HASHED_FILE_SIZE + 1)
-    let read = 0
-    while (read < buffer.length) {
-      const bytes = readSync(fd, buffer, read, buffer.length - read, read)
-      if (bytes === 0) {
-        break
-      }
-      read += bytes
-    }
-    if (read > MAX_HASHED_FILE_SIZE) {
-      return undefined
-    }
-    return hash('sha1', buffer.subarray(0, read), 'hex')
-  }
-  catch {
-    return undefined
-  }
-  finally {
-    if (fd !== undefined) {
-      try {
-        closeSync(fd)
-      }
-      catch {}
-    }
-  }
-}
-
-function trackFile(path: string, stats: Stats): TrackedFile {
-  if (stats.isDirectory()) {
-    return { mtimeMs: stats.mtimeMs }
-  }
-  return { mtimeMs: stats.mtimeMs, contentHash: hashFileContents(path, stats.size) }
-}
-
-export class FileChangeTracker {
-  private entries = new Map<string, TrackedFile>()
-
-  /**
-   * Whether a watcher event for `filePath` represents a real change.
-   *
-   * Regular files are compared by content, so identical rewrites (atomic saves,
-   * formatters, `git checkout` of the same revision) do not trigger a reload.
-   * Directories and files over `MAX_HASHED_FILE_SIZE` fall back to mtime.
-   */
-  shouldEmitChange(filePath: string): boolean {
-    const resolved = resolve(filePath)
-    try {
-      const stats = statSync(resolved)
-      const previous = this.entries.get(resolved)
-      const current = trackFile(resolved, stats)
-
-      this.entries.set(resolved, current)
-
-      if (previous === undefined) {
-        return true
-      }
-      if (previous.contentHash !== undefined && current.contentHash !== undefined) {
-        return previous.contentHash !== current.contentHash
-      }
-      return previous.mtimeMs !== current.mtimeMs
-    }
-    catch {
-      // remove from cache if it has been deleted or is inaccessible
-      this.entries.delete(resolved)
-      return true
-    }
-  }
-
-  prime(filePath: string, recursive: boolean = false): void {
-    const resolved = resolve(filePath)
-    const stat = statSync(resolved)
-    this.entries.set(resolved, trackFile(resolved, stat))
-    if (stat.isDirectory()) {
-      const entries = readdirSync(resolved)
-      for (const entry of entries) {
-        const fullPath = resolve(resolved, entry)
-        try {
-          const stats = statSync(fullPath)
-          this.entries.set(fullPath, trackFile(fullPath, stats))
-          if (recursive && stats.isDirectory()) {
-            this.prime(fullPath, recursive)
-          }
-        }
-        catch {
-          // ignore
-        }
-      }
-    }
-  }
 }
 
 type NuxtWithServer = Omit<Nuxt, 'server'> & { server?: NitroDevServer | ReturnType<typeof createDevServer> }
@@ -365,33 +205,6 @@ export interface DevRequestEvent {
   duration: number
   /** Served by the bundler (module graph, HMR plumbing) rather than the app. */
   internal?: boolean
-}
-
-/** Vite/webpack module-graph URLs: `/@id/...`, `/@fs/...`, `virtual:` modules, SFC block queries, plus Nuxt's dev-only virtual file system endpoint. */
-const BUNDLER_URL_RE = /^\/(?:@|__|_nuxt\/|_vfs(?:\.json)?(?:$|[/?]))|\/node_modules\/|virtual:|[?&](?:vue&type=|import(?:&|=|$)|direct(?:&|=|$)|html-proxy|raw(?:&|=|$)|worker(?:&|=|$))/
-
-/**
- * Whether a request is the bundler talking to itself rather than the app being
- * used. There is no dedicated header, but in dev every script and style
- * subresource is served through the bundler pipeline, so `sec-fetch-dest`
- * identifies most of it and the URL shape catches the rest.
- */
-export function isBundlerRequest(url: string, fetchDest?: string): boolean {
-  return fetchDest === 'script' || fetchDest === 'style' || BUNDLER_URL_RE.test(url)
-}
-
-/**
- * Whether a request is one the app renders a page for, rather than the bundler
- * fetching a module or a client asking for data.
- */
-export function isDocumentRequest(req: IncomingMessage): boolean {
-  if ((req.method || 'GET') !== 'GET') {
-    return false
-  }
-  if (!String(req.headers.accept || '').includes('text/html')) {
-    return false
-  }
-  return !isBundlerRequest(req.url || '/', String(req.headers['sec-fetch-dest'] || '') || undefined)
 }
 
 interface DevServerEventMap {
@@ -479,10 +292,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this.handler = async (req, res) => {
-      // Only the CLI's own dispatch may set the request-attribution header;
-      // anything arriving on the wire is stripped so an external client cannot
-      // forge or steal another request's identity in the logs.
-      stripRequestHeader(req)
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
@@ -504,10 +313,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         if (options.captureUIEvents) {
           this.#internalResponses.add(res)
         }
-        // A peer on another machine is served the channel scoped to its own
-        // request, since every header is forgeable over a direct connection.
-        const trusted = isLoopbackAddress(req.socket?.remoteAddress)
-        await handleErrorChannelRequest(req, res, this.#errorChannelOptions(), { trusted }).catch((error) => {
+        await handleErrorChannelRequest(req, res, this.#errorChannelOptions()).catch((error) => {
           debug('Could not answer an error channel request:', error)
           if (!res.writableEnded) {
             res.end()
@@ -515,16 +321,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         })
         return
       }
-      const method = req.method || 'GET'
-      const url = req.url || '/'
-      const request = createRequest(`${method} ${url}`)
-      const label = encodeRequestLabel(request)
-      req.headers[REQUEST_HEADER] = request.id
-      req.headers[REQUEST_LABEL_HEADER] = label
-      req.rawHeaders.push(REQUEST_HEADER, request.id, REQUEST_LABEL_HEADER, label)
+      const request = attachRequest(req)
       if (!options.captureUIEvents) {
         return this.#serve(req, res)
       }
+      const method = req.method || 'GET'
+      const url = req.url || '/'
       const start = performance.now()
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
       this.#inflight.set(request.id, { id: request.id, internal: isBundlerRequest(url, fetchDest) })
@@ -720,7 +522,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const html = await renderErrorPage(report, {
         cwd: this.#rootDir(),
         channel: channel && this.#errorChannel,
-        history: isLoopbackAddress(req.socket?.remoteAddress) ? channel?.history : undefined,
+        history: isLocalPeer(req) ? channel?.history : undefined,
       })
       res.statusCode = 500
       res.setHeader('Content-Type', 'text/html')
@@ -927,13 +729,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         hooks: {
           ...this.options.overrides.hooks,
           'nitro:config': (nitro) => {
-            registerRuntimePlugin(nitro, 'dev-close-sockets')
-            if (process.env[INSPECT_ENV]) {
-              registerRuntimePlugin(nitro, 'dev-inspector')
-            }
-            if (captureUIEvents) {
-              registerRequestContextPlugin(nitro, this.options.cwd)
-            }
+            registerDevPlugins(nitro, this.options.cwd, captureUIEvents)
             return this.options.overrides.hooks?.['nitro:config']?.(nitro)
           },
         } satisfies NuxtConfig['hooks'],
@@ -1297,7 +1093,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.#currentNuxt.hooks.hookOnce('close', () => {
-      this.#closeWebSocketConnections()
       this.listener.server.removeAllListeners('upgrade')
     })
 
@@ -1570,25 +1365,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 }
 
-/**
- * Remove any wire-supplied copy of the request-attribution headers, from both
- * the parsed headers and `rawHeaders` (which some frameworks reconstruct
- * requests from), before the CLI sets its own values.
- */
-function stripRequestHeader(req: IncomingMessage): void {
-  if (req.headers[REQUEST_HEADER] === undefined && req.headers[REQUEST_LABEL_HEADER] === undefined) {
-    return
-  }
-  delete req.headers[REQUEST_HEADER]
-  delete req.headers[REQUEST_LABEL_HEADER]
-  for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
-    const name = req.rawHeaders[i]?.toLowerCase()
-    if (name === REQUEST_HEADER || name === REQUEST_LABEL_HEADER) {
-      req.rawHeaders.splice(i, 2)
-    }
-  }
-}
-
 /** Whether anyone is watching this terminal, directly or through the panel. */
 function isInteractive(): boolean {
   return !!process.stdout.isTTY || !!process.env.__NUXT_DEV_PIPED_TTY__
@@ -1661,117 +1437,4 @@ function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boo
   }
 
   return defaultConfig
-}
-
-// Skips the root (already watched) and external layers (`node_modules` or out of tree) whose config
-// isn't expected to change during local dev.
-export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?: { rootDir?: string } | null }>, cwd: string): string[] {
-  const root = resolve(cwd)
-  const dirs = new Set<string>()
-  for (const layer of layers) {
-    const dir = layer.cwd || layer.config?.rootDir
-    const resolved = dir && resolve(dir)
-    if (resolved && resolved !== root && resolved.startsWith(`${root}/`) && !resolved.includes('/node_modules/')) {
-      dirs.add(resolved)
-    }
-  }
-  return [...dirs]
-}
-
-function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: (file: string) => void, onReload: (file: string) => void, layerDirs: string[] = []) {
-  const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
-
-  // each local layer dir is watched alongside the root, but only the root restarts on dotenv changes.
-  const closers = [
-    watchConfigDir(cwd, onReload, (file, path) => dotenvFileNames.has(file) && onRestart(path)),
-    ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
-  ]
-
-  return () => {
-    for (const close of closers) {
-      close()
-    }
-  }
-}
-
-/**
- * Collapse the burst of watcher events a single save produces into one call per
- * file. A truncate-then-write save is briefly observable as an empty file, and
- * evaluating it mid-write would report a spurious change.
- */
-export function perFile(handler: (file: string) => void, delay = 30): { listener: (event: unknown, file: string | null) => void, cancel: () => void } {
-  const timers = new Map<string, NodeJS.Timeout>()
-  return {
-    listener: (_event, file) => {
-      if (!file) {
-        return
-      }
-      clearTimeout(timers.get(file))
-      const timer = setTimeout(() => {
-        timers.delete(file)
-        handler(file)
-      }, delay)
-      timer.unref?.()
-      timers.set(file, timer)
-    },
-    cancel: () => {
-      for (const timer of timers.values()) {
-        clearTimeout(timer)
-      }
-      timers.clear()
-    },
-  }
-}
-
-function watchConfigDir(dir: string, onReload: (path: string) => void, onFile?: (file: string, path: string) => void) {
-  const fileWatcher = new FileChangeTracker()
-  fileWatcher.prime(dir)
-  const watcher = watch(dir)
-  let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
-
-  const { listener, cancel } = perFile((file) => {
-    if (!fileWatcher.shouldEmitChange(resolve(dir, file))) {
-      return
-    }
-
-    onFile?.(file, resolve(dir, file))
-
-    if (RESTART_RE.test(file)) {
-      onReload(resolve(dir, file))
-    }
-
-    if (file === '.config') {
-      configDirWatcher ||= createConfigDirWatcher(dir, onReload)
-    }
-  })
-  watcher.on('change', listener)
-
-  return () => {
-    cancel()
-    watcher.close()
-    configDirWatcher?.()
-  }
-}
-
-function createConfigDirWatcher(cwd: string, onReload: (path: string) => void) {
-  const configDir = join(cwd, '.config')
-  const fileWatcher = new FileChangeTracker()
-
-  fileWatcher.prime(configDir)
-  const configDirWatcher = watch(configDir)
-  const { listener, cancel } = perFile((file) => {
-    if (!fileWatcher.shouldEmitChange(resolve(configDir, file))) {
-      return
-    }
-
-    if (RESTART_RE.test(file)) {
-      onReload(resolve(configDir, file))
-    }
-  })
-  configDirWatcher.on('change', listener)
-
-  return () => {
-    cancel()
-    configDirWatcher.close()
-  }
 }
