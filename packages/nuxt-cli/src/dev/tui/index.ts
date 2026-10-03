@@ -16,11 +16,11 @@ import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { formatDuration, terminalLink } from '../../utils/formatting'
+import { releaseNotesUrl } from '../../utils/release-notes'
 import { startupElapsedMs } from '../../utils/startup-clock'
 
 import { registerTerminalHost } from '../../utils/terminal-host'
 import { MUTED, paint } from '../../utils/terminal-theme'
-import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
 import { openBrowser, writeClipboard } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { isShutdownAdopted } from '../shutdown'
@@ -843,10 +843,14 @@ async function resolveQRCode(context: ShortcutContext): Promise<string | undefin
 
 /** The newer Nuxt release, if the registry knows of one and checks are enabled. */
 async function resolveUpdate(current?: string): Promise<string | undefined> {
-  if (!current || !isUpdateCheckEnabled()) {
+  if (!current) {
     return undefined
   }
   try {
+    const { checkForUpdate, isUpdateCheckEnabled } = await import('../../utils/update-check')
+    if (!isUpdateCheckEnabled()) {
+      return undefined
+    }
     const update = await checkForUpdate('nuxt', current)
     return update?.latest
   }

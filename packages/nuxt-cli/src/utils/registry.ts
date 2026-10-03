@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { parseINI } from 'confbox'
+import { parseINI } from 'confbox/ini'
 
 const TRAILING_SLASH_RE = /\/$/
 const ENV_REFERENCE_RE = /\$\{([^}]+)\}/g

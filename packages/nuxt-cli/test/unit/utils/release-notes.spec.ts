@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { terminalLink } from '../../../src/utils/formatting'
-import { releaseNotesUrl } from '../../../src/utils/update-check'
+import { releaseNotesUrl } from '../../../src/utils/release-notes'
 
 describe('release notes links', () => {
   it('points at the tag for packages with a known repository', () => {
