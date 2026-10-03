@@ -109,7 +109,7 @@ describe('runInstall', () => {
     expect(result.ignoredBuilds).toEqual(['esbuild@0.28.1'])
   })
 
-  it('should report a missing package manager instead of throwing', async () => {
+  it('should report a missing package manager instead of throwing when installing', async () => {
     vi.stubEnv('PATH', join(tmpdir(), 'nuxt-cli-nonexistent-bin'))
     const result = await runInstall({
       cwd: tmpdir(),
@@ -199,7 +199,7 @@ describe('runDedupe', () => {
     expect(result.error).toBe('Deduplication is not supported for bun')
   })
 
-  it('should report a missing package manager instead of throwing', async () => {
+  it('should report a missing package manager instead of throwing when deduping', async () => {
     vi.stubEnv('PATH', join(tmpdir(), 'nuxt-cli-nonexistent-bin'))
     const result = await runDedupe({
       cwd: tmpdir(),

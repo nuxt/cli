@@ -30,6 +30,7 @@ vi.mock('@clack/prompts', async (importOriginal) => {
 vi.mock('../../../src/utils/package-managers', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/utils/package-managers')>(),
   detectPackageManager,
+  getPackageManagerVersion: () => '10.0.0',
 }))
 
 vi.mock('../../../src/utils/install', async importOriginal => ({

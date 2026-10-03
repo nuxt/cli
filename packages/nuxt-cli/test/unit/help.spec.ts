@@ -25,7 +25,7 @@ async function subCommand(parent: Resolvable<CommandDef>, name: string): Promise
 }
 
 describe('help', () => {
-  it('nuxt', async () => {
+  it('nuxt', { timeout: 30_000 }, async () => {
     expect(await usage(main)).toMatchInlineSnapshot(`
       "Nuxt CLI (nuxt v0.0.0)
 

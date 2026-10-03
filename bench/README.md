@@ -21,11 +21,12 @@ Useful flags:
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--baseline` | `latest` | Any npm spec for `@nuxt/cli` to treat as the "before", or `ref:<git-ref>` to build the baseline from a commit of this repo (CI uses the PR's base sha) |
-| `--suite` | all | Repeatable. One of `startup`, `modules`, `dev`, `restart`, `build`, `footprint` |
+| `--suite` | all | Repeatable. One of `startup`, `modules`, `panel`, `dev`, `restart`, `build`, `footprint` |
 | `--fixture` | `playground`, `large` | Repeatable. Which fixture to run the project-level suites against |
 | `--workdir` | `~/.cache/nuxt-cli-bench` | Where isolated installs and fixtures live |
 | `--out` | `bench/results/report.md` | Markdown report path. A `.json` sibling is written alongside |
 | `--startup-reps` | `15` | Repetitions for the startup suite |
+| `--panel-reps` | `5` | Repetitions for the panel suite |
 | `--dev-reps` | `5` | Repetitions for the dev-server suite |
 | `--restart-reps` | `5` | Repetitions for the restart suite |
 | `--build-reps` | `3` | Repetitions for the build suite |
@@ -41,6 +42,7 @@ pnpm bench:cli --suite startup --startup-reps 31
 
 - **`startup`** - cold `nuxi --version`, `--help`, and unknown-command time. Catches anything pulled onto the module graph of the fast paths.
 - **`modules`** - how many modules each target loads for those same commands, via `bench/lib/module-hook.mjs`. A count rather than a time, so it is stable across machines and is the better regression guard of the two.
+- **`panel`** - time from spawn to the first painted `nuxt dev` frame, and until a keypress at that frame is answered.
 - **`dev`** - time from spawn to the dev server answering a request.
 - **`restart`** - time to serve again after a `nuxt.config.ts` edit, plus a no-op edit case to check that ignored changes stay ignored.
 - **`build`** - wall time for `nuxt build`.

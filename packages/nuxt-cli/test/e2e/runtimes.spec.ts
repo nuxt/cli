@@ -1,6 +1,5 @@
 import type { ChildProcess } from 'node:child_process'
 import type { MessageEvent } from 'undici'
-import type { TestOptions } from 'vitest'
 import { spawn, spawnSync } from 'node:child_process'
 import { cpSync, rmSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
@@ -10,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { checkPort, getPort, waitForPort } from 'get-port-please'
 import { isCI } from 'std-env'
 import { WebSocket } from 'undici'
-import { it as _it, afterAll, beforeAll, describe, expect, vi } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 
 const playgroundDir = fileURLToPath(new URL('../../../../playground', import.meta.url))
 const nuxiPath = join(fileURLToPath(new URL('../..', import.meta.url)), 'bin/nuxi.mjs')
@@ -23,61 +22,6 @@ const runtime = {
   node: true,
 }
 
-type SupportStatus = boolean | {
-  start: boolean
-  fetching: boolean
-  websockets: boolean
-}
-
-function createIt(runtimeName: typeof runtimes[number]) {
-  function it(description: string, fn: () => Promise<void>): void
-  function it(description: string, options: TestOptions, fn: () => Promise<void>): void
-  function it(description: string, _options: TestOptions | (() => Promise<void>), _fn?: () => Promise<void>): void {
-    const supportMatrix: Record<typeof runtimes[number], SupportStatus> = {
-      node: true,
-      bun: {
-        start: true,
-        fetching: true,
-        websockets: true,
-      },
-      deno: true,
-    }
-    const status = supportMatrix[runtimeName]
-
-    const fn = typeof _options === 'function' ? _options : _fn!
-    const options = typeof _options === 'function' ? {} : _options
-
-    if (status === false) {
-      return _it.fails(`${description} [expected to fail with ${runtimeName}]`, options, fn)
-    }
-    if (status === true) {
-      return _it(description, options, fn)
-    }
-    if (description.includes('should start dev server')) {
-      if (!status.start) {
-        return _it.fails(description, options, fn)
-      }
-      return beforeAll(fn, options.timeout)
-    }
-    if (!status.start) {
-      return _it.todo(description)
-    }
-    if (description.includes('websocket')) {
-      if (!status.websockets) {
-        return _it.fails(`${description} [expected to fail with ${runtimeName}]`, options, fn)
-      }
-      return _it(description, options, fn)
-    }
-    // Handle fetching tests (all tests that are not websocket or start tests)
-    if (!status.fetching) {
-      return _it.fails(description, options, fn)
-    }
-    return _it(description, options, fn)
-  }
-
-  return it
-}
-
 const requestTimeout = isCI ? 30_000 : 10_000
 
 describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
@@ -85,7 +29,7 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
 
   if (!isCI && !runtime[runtimeName]) {
     console.warn(`Not testing locally with ${runtimeName} as it is not installed.`)
-    _it.skip(`should pass with ${runtimeName}`)
+    it.skip(`should pass with ${runtimeName}`)
     return
   }
 
@@ -95,8 +39,6 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     await server?.close()
     await rm(cwd, { recursive: true, force: true }).catch(() => null)
   })
-
-  const it = createIt(runtimeName)
 
   it('should start dev server', { timeout: isCI ? 120_000 : 30_000 }, async () => {
     rmSync(cwd, { recursive: true, force: true })
