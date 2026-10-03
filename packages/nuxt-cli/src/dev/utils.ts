@@ -139,12 +139,15 @@ type HmrOptions = Exclude<ViteServerOptions['hmr'], boolean>
 /**
  * Pin Vite's HMR websocket to the main dev server so no separate HMR port is allocated.
  * vite >= 8.1 reads `server.ws`; older versions only read `server.hmr`.
+ * Returns the websocket path, which is set on both.
  */
-export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer): void {
+export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer): string | undefined {
   const target = server as Omit<ViteServerOptions, 'ws'> & { ws?: HmrOptions | boolean }
+  const path = (target.ws as HmrOptions | undefined)?.path ?? (target.hmr as HmrOptions | undefined)?.path
   target.ws = {
     protocol: undefined,
     ...(target.ws as HmrOptions),
+    path,
     port: undefined,
     host: undefined,
     server: hmrServer,
@@ -152,10 +155,12 @@ export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpSe
   target.hmr = {
     protocol: undefined,
     ...(target.hmr as HmrOptions),
+    path,
     port: undefined,
     host: undefined,
     server: hmrServer,
   }
+  return path
 }
 
 interface NuxtConfigDiffEntry {
@@ -1093,10 +1098,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.emit('change')
     })
 
+    let viteHmrPinned = false
+    let viteWsPath: string | undefined
+    let viteHmrUrl: string | undefined
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
-          attachViteHmrServer(config.server, this.listener.server)
+          viteWsPath = attachViteHmrServer(config.server, this.listener.server)
+          viteHmrPinned = true
+        }
+      })
+      this.#currentNuxt.hooks.hook('vite:serverCreated', (server, { isClient }) => {
+        if (isClient && viteHmrPinned) {
+          viteHmrUrl = viteWsPath ? join(server.config.base, viteWsPath) : server.config.base
         }
       })
     }
@@ -1135,24 +1149,39 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       await this.load(true, { type: 'hook' })
     })
 
-    if (this.#currentNuxt.server && 'upgrade' in this.#currentNuxt.server) {
-      this.listener.server.on('upgrade', (req, socket, head) => {
-        const nuxt = this.#currentNuxt
-        if (!nuxt || !nuxt.server)
-          return
-        const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
-        const assetsDir = nuxt.options.app.buildAssetsDir
-        const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${assetsDir.replace(/^\//, '')}`
-        this.#websocketConnections.add(socket)
-        socket.on('close', () => {
-          this.#websocketConnections.delete(socket)
-        })
-        if (req.url?.startsWith(viteHmrPath)) {
-          return // Skip for Vite HMR
-        }
-        nuxt.server.upgrade(req, socket as any, head)
+    const nuxt = this.#currentNuxt
+    const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
+    const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${nuxt.options.app.buildAssetsDir.replace(/^\//, '')}`
+    const expectsViteHmr = !process.env.NUXI_DISABLE_VITE_HMR && (!nuxt.options.builder || String(nuxt.options.builder).includes('vite'))
+    this.listener.server.on('upgrade', (req, socket, head) => {
+      this.#websocketConnections.add(socket)
+      socket.on('close', () => {
+        this.#websocketConnections.delete(socket)
       })
-    }
+      const protocol = req.headers['sec-websocket-protocol']
+      if (expectsViteHmr && (protocol === 'vite-hmr' || protocol === 'vite-ping')) {
+        if (viteHmrUrl === undefined && req.url?.startsWith(viteHmrPath)) {
+          socket.destroy()
+          return
+        }
+        if (viteHmrUrl !== undefined) {
+          let pathname: string
+          try {
+            pathname = new URL(`http://localhost${req.url}`).pathname
+          }
+          catch {
+            socket.destroy()
+            return
+          }
+          if (pathname === viteHmrUrl) {
+            return
+          }
+        }
+      }
+      if (nuxt.server && 'upgrade' in nuxt.server) {
+        nuxt.server.upgrade(req, socket as any, head)
+      }
+    })
 
     await this.#currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
