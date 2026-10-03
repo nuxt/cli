@@ -1,24 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { PendingRender, PhaseTiming, ProgressSnapshot, ProgressStatus } from '../utils/progress-snapshot'
+import type { PendingRender, Phase, ProgressSnapshot, ProgressStatus } from '../utils/progress-snapshot'
 
-import { READY_MESSAGE } from '../utils/progress-snapshot'
+import { PhaseTimeline, READY_MESSAGE } from '../utils/progress-snapshot'
 
 /** Path prefix reserved for the CLI's own dev-time endpoints. */
 export const DEV_INTERNAL_PREFIX: string = '/__nuxt_dev__/'
 export const PROGRESS_PATH: string = `${DEV_INTERNAL_PREFIX}progress`
 const HEARTBEAT_INTERVAL = 15_000
 
-interface DevPhase {
-  id: string
-  message: string
-}
-
 /**
  * Startup phases, in the order they are reached. The index doubles as the
  * progress fraction shown to clients, so the list is deliberately coarse and
  * monotonic: a phase is never re-entered during a single load.
  */
-const DEV_PHASES: readonly DevPhase[] = [
+const DEV_PHASES: readonly Phase[] = [
   { id: 'config', message: 'Loading Nuxt config' },
   { id: 'modules', message: 'Setting up modules' },
   { id: 'app', message: 'Preparing app' },
@@ -189,18 +184,13 @@ interface ActiveHook {
  * Tracks how far a `nuxt dev` load has got and fans that out to the terminal
  * reporter and to any loading pages connected over SSE.
  */
-export class DevProgress {
+export class DevProgress extends PhaseTimeline {
   #clients = new Set<ServerResponse>()
-  #listeners = new Set<(snapshot: ProgressSnapshot) => void>()
   #heartbeat?: NodeJS.Timeout
 
-  #index = 0
   #message = DEV_PHASES[0]!.message
   #status: ProgressStatus = 'loading'
   #error?: Error
-  #startedAt = Date.now()
-  #phaseStartedAt = Date.now()
-  #timings: PhaseTiming[] = []
   #reload = false
   #baseMessage = DEV_PHASES[0]!.message
   #module?: ActiveHook
@@ -216,52 +206,37 @@ export class DevProgress {
   #observed = new WeakSet<HookableLike>()
   #ticker?: NodeJS.Timeout
 
-  get snapshot(): ProgressSnapshot {
-    const phase = DEV_PHASES[this.#index]!
+  constructor() {
+    super(DEV_PHASES)
+  }
+
+  override get snapshot(): ProgressSnapshot {
+    const snapshot = super.snapshot
     return {
+      ...snapshot,
       status: this.#status,
-      phase: phase.id,
       message: this.#message,
-      index: this.#index,
-      total: DEV_PHASES.length - 1,
-      progress: this.#status === 'ready'
-        ? (this.#serving ? 1 : READY_PROGRESS)
-        : this.#index / (DEV_PHASES.length - 1),
-      elapsed: Date.now() - this.#startedAt,
-      phaseElapsed: Date.now() - this.#phaseStartedAt,
+      progress: this.#status === 'ready' ? (this.#serving ? 1 : READY_PROGRESS) : snapshot.progress,
       reload: this.#reload,
       serving: this.#serving,
       pending: this.#pending,
-      timings: this.#timings,
       error: this.#error && { name: this.#error.name, message: this.#error.message },
     }
   }
 
-  get timings(): PhaseTiming[] {
-    return this.#timings
-  }
-
-  onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
-    this.#listeners.add(listener)
-    return () => this.#listeners.delete(listener)
-  }
-
   start(message?: string, reload = false): void {
     this.#hooks = []
-    this.#clearModule()
+    this.#module = undefined
     this.#narrating = false
     if (this.#observing) {
       this.#startNarrating()
     }
-    this.#index = 0
+    this.restart()
     this.#status = 'loading'
     this.#error = undefined
-    this.#timings = []
     this.#reload = reload
     this.#serving = false
     this.#clearPending()
-    this.#startedAt = Date.now()
-    this.#phaseStartedAt = this.#startedAt
     this.#baseMessage = message || DEV_PHASES[0]!.message
     this.#message = this.#baseMessage
     this.#emit()
@@ -377,23 +352,17 @@ export class DevProgress {
   }
 
   #advance(id: string, message: string | undefined, emit: boolean): void {
-    const index = DEV_PHASES.findIndex(phase => phase.id === id)
-    if (index === -1 || index < this.#index || this.#status === 'error') {
+    if (this.#status === 'error') {
       return
     }
-    const advanced = index > this.#index
-    if (advanced) {
-      const previous = DEV_PHASES[this.#index]!
-      this.#timings.push({
-        phase: previous.id,
-        message: previous.message,
-        duration: Date.now() - this.#phaseStartedAt,
-      })
-      this.#phaseStartedAt = Date.now()
-      this.#index = index
-      this.#clearModule()
+    const advanced = this.enter(id)
+    if (advanced === undefined) {
+      return
     }
-    const next = message || DEV_PHASES[index]!.message
+    if (advanced) {
+      this.#module = undefined
+    }
+    const next = message || DEV_PHASES[this.index]!.message
     if (!advanced && next === this.#baseMessage) {
       return
     }
@@ -403,10 +372,6 @@ export class DevProgress {
     if (emit) {
       this.#emit()
     }
-  }
-
-  #clearModule(): void {
-    this.#module = undefined
   }
 
   /**
@@ -422,7 +387,7 @@ export class DevProgress {
     const now = Date.now()
     // A phase this long in has stopped being explained by its own label, so
     // whatever is running is named as soon as it is seen.
-    const impatient = now - this.#phaseStartedAt >= PHASE_PATIENCE
+    const impatient = now - this.phaseStartedAt >= PHASE_PATIENCE
     let text: string | undefined
 
     // A module name reads better than the hook it was installed from, so an
@@ -438,7 +403,7 @@ export class DevProgress {
         // A hook that was already running when the phase began is an ancestor of
         // the current work: the phase label describes it better, and naming it
         // would replace each new phase label with the hook awaiting it.
-        if (hook.at < this.#phaseStartedAt) {
+        if (hook.at < this.phaseStartedAt) {
           break
         }
         if (now - hook.at < (impatient ? IMPATIENT_HOOK_DWELL : HOOK_DWELL)) {
@@ -456,7 +421,7 @@ export class DevProgress {
     // No current nuxt says which module it is installing, so a phase that has
     // named nothing counts the ones that have finished instead: the number
     // moving is the only sign that the ones left are being worked through.
-    if (!text && impatient && this.#index === MODULES_INDEX) {
+    if (!text && impatient && this.index === MODULES_INDEX) {
       const installed = this.#installedModules?.() ?? 0
       if (installed) {
         text = `${this.#baseMessage} \u00B7 ${installed} installed`
@@ -486,7 +451,7 @@ export class DevProgress {
     clearInterval(this.#ticker)
     this.#ticker = undefined
     this.#hooks = []
-    this.#clearModule()
+    this.#module = undefined
   }
 
   /**
@@ -557,7 +522,7 @@ export class DevProgress {
       // A module that finishes before it earned a mention must not be named
       // afterwards: whatever the load is waiting on by then is not this module.
       else if (name === MODULE_FINISHED && moduleName(args?.[0]) === this.#module?.name) {
-        this.#clearModule()
+        this.#module = undefined
       }
       else if (name === NITRO_HOOK) {
         this.#observe((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks, NITRO_PREFIX)
@@ -642,10 +607,7 @@ export class DevProgress {
   }
 
   #emit(): void {
-    const snapshot = this.snapshot
-    for (const listener of this.#listeners) {
-      listener(snapshot)
-    }
+    const snapshot = this.emit()
     for (const client of this.#clients) {
       this.#send(client, snapshot)
     }
