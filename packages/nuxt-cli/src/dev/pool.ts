@@ -14,10 +14,7 @@ interface ForkPoolOptions {
   poolSize?: number
   listenOverrides: DevListenOverrides
   inspect?: InspectOptions
-  /**
-   * Pipe fork stdio through this process instead of inheriting the terminal,
-   * so the interactive dev UI can keep its footer below all output.
-   */
+  /** Pipe fork stdio through this process so the dev UI stays below all output. */
   pipeOutput?: boolean
 }
 
@@ -32,10 +29,7 @@ interface PooledFork {
 
 export interface ActiveFork {
   pid?: number
-  /**
-   * Resolves once the fork holds the listener, whether the app loaded or the
-   * error page is being served, and rejects if it dies before that.
-   */
+  /** Resolves once the fork holds the listener (app or error page); rejects if it dies first. */
   serving: Promise<void>
   /** Promote the fork so that a later crash takes the dev session down. */
   promote: () => void
@@ -61,21 +55,18 @@ export class ForkPool {
     this.poolSize = options.poolSize ?? 1
 
     if (options.pipeOutput) {
-      // Piped forks read the terminal width from their environment snapshot,
-      // so resizes have to be forwarded for the fancy reporter's alignment.
+      // Piped forks cannot see terminal resizes.
       process.stdout.on('resize', () => {
         for (const fork of this.forks) {
           if (fork.process.connected) {
-            // A fork can die between the check and the send, and this runs from
-            // a `resize` event where a throw would end the session.
+            // The fork may have exited since the check.
             fork.process.send({ type: 'nuxt:internal:dev:resize', columns: process.stdout.columns || 80 } satisfies NuxtParentIPCMessage, () => {})
           }
         }
       })
     }
 
-    // Last resort for forks that outlive this process. `SIGINT`/`SIGTERM` close
-    // forks gracefully through the dev command instead.
+    // Last resort; signals close forks gracefully through the dev command.
     process.once('exit', () => this.killAll('SIGTERM'))
     process.once('SIGQUIT', () => this.killAll('SIGQUIT'))
   }
@@ -88,8 +79,7 @@ export class ForkPool {
   }
 
   async getFork(context: NuxtDevContext, options: GetForkOptions = {}): Promise<ActiveFork> {
-    // Once the app is served by a fork, file changes are no longer visible to
-    // this process, so a restart is the only signal left that more may follow.
+    // File changes are invisible here once a fork serves the app.
     this.warming = true
 
     const fork = this.idle.find(f => f.isReady) ?? this.idle[0] ?? this.createFork()
@@ -97,8 +87,7 @@ export class ForkPool {
     await fork.ready
 
     const serving = trackServing(fork.process)
-    // Callers that never await `serving` must not turn its rejection into an
-    // unhandled rejection.
+    // Not every caller awaits `serving`.
     serving.catch(() => {})
     const onMessage = options.onMessage
     if (onMessage) {
@@ -137,8 +126,7 @@ export class ForkPool {
   private createFork(): PooledFork {
     const pipeOutput = this.options.pipeOutput
     const childProc = fork(globalThis.__nuxt_cli__.devEntry!, this.options.rawArgs, {
-      // The inspector is opened by the fork that actually serves the app, never
-      // via `execArgv`, so idle forks don't race each other for the debug port.
+      // Only the serving fork opens the inspector, so idle forks do not contend for the port.
       execArgv: ['--enable-source-maps'],
       stdio: pipeOutput ? ['ignore', 'pipe', 'pipe', 'ipc'] : undefined,
       env: {
@@ -168,8 +156,7 @@ export class ForkPool {
           }
         })
         childProc.on('error', reject)
-        // A fork can exit without ever emitting `error` (a throw while loading the
-        // entry, or a kill), which would leave `ready` pending forever.
+        // A fork can exit without emitting `error`.
         childProc.on('close', () => reject(new Error('Dev server fork exited before it finished starting.')))
       }),
       isReady: false,
@@ -184,8 +171,6 @@ export class ForkPool {
     childProc.on('error', () => this.forget(pooledFork))
     childProc.on('close', (errorCode) => {
       if (pooledFork.serving && errorCode) {
-        // Ending the session on the crash of the process that holds the listener is
-        // silent otherwise, leaving no clue as to what stopped the dev server.
         logger.error(`The dev server process (PID ${childProc.pid}) exited with code ${errorCode}.`)
         process.exit(errorCode)
       }
@@ -195,11 +180,7 @@ export class ForkPool {
     return pooledFork
   }
 
-  /**
-   * Ask a fork to shut down and wait for its `close` hooks to run, so nitro plugins
-   * and anything else the app opened get to tear down before the process goes away.
-   * A fork that takes too long, or can no longer be asked, is signalled instead.
-   */
+  /** Ask a fork to run its `close` hooks and exit, signalling it if that fails or takes too long. */
   private async closeFork(fork: PooledFork): Promise<void> {
     const alive = !fork.closing && fork.process.exitCode === null
     fork.closing = true
@@ -246,10 +227,7 @@ export class ForkPool {
   }
 }
 
-/**
- * Resolves when the fork has bound its listener and is answering requests. A load
- * failure counts: the fork is serving an error page and owns the port either way.
- */
+/** Resolves when the fork is answering requests, including with an error page. */
 function trackServing(child: ChildProcess): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     function settle(finish: () => void) {
@@ -272,11 +250,7 @@ function trackServing(child: ChildProcess): Promise<void> {
   })
 }
 
-/**
- * Color settings for a fork whose stdio is piped back to this terminal.
- * `isTTY` alone is not enough: `styleText` and most color libraries consult
- * the color depth or `FORCE_COLOR`, which a pipe does not carry.
- */
+/** Colour settings for a piped fork, which cannot detect colour support itself. */
 function forcedColorEnv(): Record<string, string> {
   if (process.env.NO_COLOR || process.env.FORCE_COLOR) {
     return {}

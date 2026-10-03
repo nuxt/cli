@@ -10,17 +10,12 @@ import { join } from 'pathe'
 import { debug } from '../utils/logger'
 import { INSPECT_ENV } from './inspect'
 
-/**
- * Nitro plugin that attributes the app's logs to the request that caused them,
- * from inside the module runner's realm. Resolved through this package's own
- * exports because the caller may be bundled into any chunk.
- */
+/** Nitro plugin attributing app logs to their request. Resolved via package exports, as the caller may be in any chunk. */
 function registerRequestContextPlugin(nitro: NitroConfigForHook, cwd: string): void {
   try {
     const source = fileURLToPath(import.meta.resolve('@nuxt/cli/runtime/dev-request-context'))
     const id = join(nitro.buildDir || join(cwd, '.nuxt'), 'dev-request-context.mjs')
-    // The build dir is not a package, so `consola` is pinned to the copy the app
-    // itself logs through; a bare specifier would not resolve from there.
+    // A bare specifier would not resolve from the build dir.
     const consola = resolveConsola(cwd)
     nitro.virtual ||= {}
     nitro.virtual[id] = () => readFileSync(source, 'utf8').replace('\'consola\'', JSON.stringify(consola))
@@ -42,11 +37,7 @@ function registerRuntimePlugin(nitro: NitroConfigForHook, name: 'dev-close-socke
   }
 }
 
-/**
- * The `consola` the app itself logs through, which is the one
- * `@nuxt/nitro-server` wraps `console` with: its own, not the CLI's. Reporting
- * from any other instance sees none of the app's logs.
- */
+/** The `consola` instance `@nuxt/nitro-server` wraps `console` with, rather than the CLI.s own. */
 function resolveConsola(cwd: string): string {
   const nuxt = resolveModulePath('nuxt', { from: cwd, try: true })
   const from = [nuxt, cwd].filter(Boolean) as string[]

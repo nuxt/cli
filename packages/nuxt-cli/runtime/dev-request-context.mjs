@@ -229,7 +229,6 @@ function parseRequest(id, label) {
   return { id, label: decoded }
 }
 
-/** Run `serve` inside the context of the request `read` identifies, if any. */
 function withRequest(read, remove, serve) {
   let request
   try {

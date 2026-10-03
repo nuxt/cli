@@ -37,10 +37,7 @@ export function getRegistryFromContent(content: string, scope: string | null): s
   }
 }
 
-/**
- * Parsed `.npmrc` files to consult, most specific first. Without a `cwd` only
- * the user's own file is read, for requests a project should not be able to redirect.
- */
+/** Parsed `.npmrc` files, most specific first; only the user file without a `cwd`. */
 async function readNpmrcs(cwd: string | undefined): Promise<NpmConfig[]> {
   const paths = cwd ? [join(cwd, '.npmrc'), join(homedir(), '.npmrc')] : [join(homedir(), '.npmrc')]
   const configs = await Promise.all(paths.map(async (npmrcPath) => {

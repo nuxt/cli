@@ -66,7 +66,7 @@ export function getPkgJSON(cwd: string, pkg: string, options?: PkgJSONOptions) {
   return null
 }
 
-/** The version of Nuxt installed in `cwd`, under either of its package names. */
+/** The installed Nuxt version in `cwd`. */
 export function getNuxtPkgVersion(cwd: string): string {
   for (const name of NUXT_PACKAGES) {
     const version = getPkgVersion(cwd, name)

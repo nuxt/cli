@@ -142,7 +142,6 @@ export interface InstallLog {
   finish: (result: InstallResult) => void
 }
 
-/** Whether install output should always be printed, for `--logLevel verbose` or `DEBUG`. */
 export function isVerboseInstall(logLevel?: string): boolean {
   return logLevel === 'verbose' || Boolean(process.env.DEBUG)
 }

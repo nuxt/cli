@@ -71,7 +71,6 @@ describe('request attribution', () => {
   it('does not attribute work that has left the request context', async () => {
     let escaped: string | undefined = 'unset'
     runWithRequest(createRequest('GET /leaky'), () => {
-      // A queue the handler does not own loses the context, by design.
       queue.push(() => {
         escaped = currentRequest()?.label
       })

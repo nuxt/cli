@@ -62,10 +62,7 @@ export interface Phase {
   message: string
 }
 
-/**
- * An ordered list of phases a command moves through, never backwards, timing
- * each one as it is left.
- */
+/** Forward-only sequence of phases, timing each as it is left. */
 export class PhaseTimeline {
   timings: PhaseTiming[] = []
   protected index: number = 0
@@ -107,17 +104,13 @@ export class PhaseTimeline {
     this.phaseStartedAt = this.startedAt
   }
 
-  /** Record how long the current phase took, and start timing the next. */
   protected closePhase(): void {
     const phase = this.phases[this.index]!
     this.timings.push({ phase: phase.id, message: phase.message, duration: Date.now() - this.phaseStartedAt })
     this.phaseStartedAt = Date.now()
   }
 
-  /**
-   * Move to the phase `id`, returning whether it was newly entered, or
-   * `undefined` where it is unknown or already behind.
-   */
+  /** Enter phase `id`; `undefined` if unknown or already passed. */
   protected enter(id: string): boolean | undefined {
     const index = this.phases.findIndex(phase => phase.id === id)
     if (index === -1 || index < this.index) {

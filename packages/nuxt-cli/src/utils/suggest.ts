@@ -29,12 +29,10 @@ const flagPolicy: SuggestionPolicy = {
   tolerance: input => input.length <= 4 ? 1 : 2,
 }
 
-/** Best guess at the command a user meant to type. */
 export function suggestCommand(input: string, commands: string[]): Promise<string | undefined> {
   return suggestClosest(input, commands, commandPolicy)
 }
 
-/** Best guess at the flag a user meant to type. */
 export function suggestFlag(input: string, flags: string[]): Promise<string | undefined> {
   return suggestClosest(input, flags, flagPolicy)
 }

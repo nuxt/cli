@@ -10,14 +10,8 @@ const DEFAULT_PUBLIC_DIR = '.output/public'
 const DEFAULT_TARGET_LABEL = 'preset'
 
 /**
- * A server builder as the CLI needs to see it: what to call it, an optional
- * deploy target within it, whether it can serve `nuxt dev`, where its build
- * lands and how to preview it.
- *
- * Everything a builder can move during its own init is a getter rather than a
- * value: Nitro resolves its preset and then `nitro:config` and
- * `nitro.updateConfig()` can each change `output.dir`, so a snapshot taken
- * before the build can be wrong by the time it is used.
+ * A server builder as the CLI sees it. Anything a builder can change during its
+ * own init is a getter, so it is read when used rather than snapshotted.
  */
 export interface ServerBuild {
   /** The builder's display name, e.g. `Nitro` or `Vite SPA`. */

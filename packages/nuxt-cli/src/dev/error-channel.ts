@@ -110,16 +110,11 @@ export function isErrorChannelRequest(path: string, base: string): boolean {
   return path === base || path.startsWith(`${base}/`)
 }
 
-/**
- * Whether `req` came from this machine. Only such a peer may see reports raised
- * for other requests, the error history and privileged actions; every header
- * is forgeable over a direct connection, so the socket address decides.
- */
+/** Whether `req` came from this machine, by socket address since headers are forgeable. */
 export function isLocalPeer(req: IncomingMessage): boolean {
   return isLoopbackAddress(req.socket?.remoteAddress)
 }
 
-/** Answer a request under the mounted channel path, scoped to its own request for a remote peer. */
 export async function handleErrorChannelRequest(req: IncomingMessage, res: ServerResponse, options: ErrorChannelOptions = {}): Promise<void> {
   const instance = await useErrorChannel(options)
   if (await instance.handler(req, res, { trusted: isLocalPeer(req) })) {

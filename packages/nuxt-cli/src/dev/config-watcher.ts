@@ -6,12 +6,9 @@ import { closeSync, existsSync, openSync, readdirSync, readSync, statSync, watch
 
 import { join, resolve } from 'pathe'
 
-// https://regex101.com/r/7HkR5c/1
 const RESTART_RE = /^(?:nuxt\.config\.[a-z0-9]+|\.nuxtignore|\.nuxtrc|\.config\/nuxt(?:\.config)?\.[a-z0-9]+)$/
 
-/**
- * Files above this size are tracked by mtime alone.
- */
+/** Files above this size are tracked by mtime alone. */
 const MAX_HASHED_FILE_SIZE = 256 * 1024
 
 interface TrackedFile {
@@ -27,8 +24,7 @@ function hashFileContents(path: string, size: number): string | undefined {
   let fd: number | undefined
   try {
     fd = openSync(path, 'r')
-    // The stat'd size can be stale, so cap the read rather than trusting it; an
-    // extra byte means the file outgrew the limit and falls back to mtime.
+    // The stat size may be stale; reading one extra byte detects a file that outgrew the limit.
     const buffer = Buffer.allocUnsafe(MAX_HASHED_FILE_SIZE + 1)
     let read = 0
     while (read < buffer.length) {
@@ -66,13 +62,7 @@ function trackFile(path: string, stats: Stats): TrackedFile {
 export class FileChangeTracker {
   private entries = new Map<string, TrackedFile>()
 
-  /**
-   * Whether a watcher event for `filePath` represents a real change.
-   *
-   * Regular files are compared by content, so identical rewrites (atomic saves,
-   * formatters, `git checkout` of the same revision) do not trigger a reload.
-   * Directories and files over `MAX_HASHED_FILE_SIZE` fall back to mtime.
-   */
+  /** Whether `filePath` changed: by content for regular files, by mtime otherwise. */
   shouldEmitChange(filePath: string): boolean {
     const resolved = resolve(filePath)
     try {
@@ -91,7 +81,6 @@ export class FileChangeTracker {
       return previous.mtimeMs !== current.mtimeMs
     }
     catch {
-      // remove from cache if it has been deleted or is inaccessible
       this.entries.delete(resolved)
       return true
     }
@@ -112,16 +101,13 @@ export class FileChangeTracker {
             this.prime(fullPath, recursive)
           }
         }
-        catch {
-          // ignore
-        }
+        catch {}
       }
     }
   }
 }
 
-// Skips the root (already watched) and external layers (`node_modules` or out of tree) whose config
-// isn't expected to change during local dev.
+/** Local layer directories to watch, excluding the root and layers in `node_modules` or outside it. */
 export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?: { rootDir?: string } | null }>, cwd: string): string[] {
   const root = resolve(cwd)
   const dirs = new Set<string>()
@@ -138,7 +124,7 @@ export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?:
 export function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: (file: string) => void, onReload: (file: string) => void, layerDirs: string[] = []) {
   const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
 
-  // each local layer dir is watched alongside the root, but only the root restarts on dotenv changes.
+  // Only the root restarts on dotenv changes.
   const closers = [
     watchConfigDir(cwd, onReload, (file, path) => dotenvFileNames.has(file) && onRestart(path)),
     ...layerDirs.map(dir => watchConfigDir(dir, onReload)),
@@ -151,11 +137,7 @@ export function createConfigWatcher(cwd: string, dotenvFileName: string | string
   }
 }
 
-/**
- * Collapse the burst of watcher events a single save produces into one call per
- * file. A truncate-then-write save is briefly observable as an empty file, and
- * evaluating it mid-write would report a spurious change.
- */
+/** Collapse the events of a single save into one call per file, so a half-written file is never evaluated. */
 export function perFile(handler: (file: string) => void, delay = 30): { listener: (event: unknown, file: string | null) => void, cancel: () => void } {
   const timers = new Map<string, NodeJS.Timeout>()
   return {

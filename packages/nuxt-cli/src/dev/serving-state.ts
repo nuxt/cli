@@ -25,12 +25,7 @@ export function createRequest(label: string): InflightRequest {
   return { id: randomUUID(), label }
 }
 
-/**
- * Identify `req` to the app, replacing any wire-supplied copy of the headers so
- * an external client cannot forge or steal another request's identity. Both
- * the parsed headers and `rawHeaders` (which some frameworks reconstruct
- * requests from) are rewritten.
- */
+/** Stamp `req` with a fresh identity, overwriting any client-supplied copy in `headers` and `rawHeaders`. */
 export function attachRequest(req: IncomingMessage): InflightRequest {
   if (req.headers[REQUEST_HEADER] !== undefined || req.headers[REQUEST_LABEL_HEADER] !== undefined) {
     for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {

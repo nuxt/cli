@@ -146,7 +146,6 @@ export async function withDirectStdout<T>(fn: () => T | Promise<T>): Promise<T> 
   }
 }
 
-/** Write `value` to stdout as pretty-printed JSON, bypassing consola's wrapping. */
 export function printJson(value: unknown): Promise<unknown> {
   return withDirectStdout(() => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`))
 }

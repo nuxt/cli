@@ -152,8 +152,7 @@ async function performTakeover(buildDir: string, existing: LockInfo, timeouts: T
     ? [existing.pid, existing.parentPid]
     : [existing.pid]
 
-  // On Windows `SIGTERM` is not delivered as a signal and terminates the process
-  // outright, so the graceful window simply passes quickly there.
+  // On Windows `SIGTERM` terminates outright.
   const phases = [
     ['SIGTERM', timeouts.graceful ?? DEV_SHUTDOWN_TIMEOUT_MS],
     ['SIGKILL', timeouts.force ?? TAKEOVER_KILL_TIMEOUT_MS],

@@ -20,7 +20,6 @@ export interface PanelStartOptions extends DevUISupportOptions {
   startTime?: number
 }
 
-/** The given Nuxt version, or the one installed in `cwd`. */
 export function resolveNuxtVersion(options: { version?: string, cwd?: string }): string | undefined {
   const cwd = options.cwd || process.cwd()
   return options.version || getNuxtPkgVersion(cwd) || undefined

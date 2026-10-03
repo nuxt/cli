@@ -1,22 +1,14 @@
 import type { IncomingMessage } from 'node:http'
 
-/** Vite/webpack module-graph URLs: `/@id/...`, `/@fs/...`, `virtual:` modules, SFC block queries, plus Nuxt's dev-only virtual file system endpoint. */
+/** Bundler module-graph URLs (`/@id/`, `/@fs/`, `virtual:`, SFC block queries, Nuxt VFS). */
 const BUNDLER_URL_RE = /^\/(?:@|__|_nuxt\/|_vfs(?:\.json)?(?:$|[/?]))|\/node_modules\/|virtual:|[?&](?:vue&type=|import(?:&|=|$)|direct(?:&|=|$)|html-proxy|raw(?:&|=|$)|worker(?:&|=|$))/
 
-/**
- * Whether a request is the bundler talking to itself rather than the app being
- * used. There is no dedicated header, but in dev every script and style
- * subresource is served through the bundler pipeline, so `sec-fetch-dest`
- * identifies most of it and the URL shape catches the rest.
- */
+/** Whether a request is a bundler subresource rather than app traffic, by `sec-fetch-dest` or URL shape. */
 export function isBundlerRequest(url: string, fetchDest?: string): boolean {
   return fetchDest === 'script' || fetchDest === 'style' || BUNDLER_URL_RE.test(url)
 }
 
-/**
- * Whether a request is one the app renders a page for, rather than the bundler
- * fetching a module or a client asking for data.
- */
+/** Whether a request is for a rendered page. */
 export function isDocumentRequest(req: IncomingMessage): boolean {
   if ((req.method || 'GET') !== 'GET') {
     return false
