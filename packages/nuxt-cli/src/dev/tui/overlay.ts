@@ -7,8 +7,8 @@ import { styleText } from 'node:util'
 
 import { MUTED, paint } from '../../utils/terminal-theme'
 
+import { truncate } from '../../utils/width'
 import { formatHints, ScreenOverlay } from './screen'
-import { truncate } from './width'
 
 type LevelFilter = 'all' | 'warn' | 'error'
 

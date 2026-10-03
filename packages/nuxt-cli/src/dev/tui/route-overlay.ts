@@ -10,8 +10,8 @@ import { link } from 'clickable-path'
 
 import { MUTED } from '../../utils/terminal-theme'
 
+import { truncate } from '../../utils/width'
 import { formatHints, ScreenOverlay } from './screen'
-import { truncate } from './width'
 
 type RouteFilter = 'all' | 'page' | 'server'
 

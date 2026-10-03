@@ -13,10 +13,10 @@ import { link } from 'clickable-path'
 
 import { MUTED, paint } from '../../utils/terminal-theme'
 
+import { truncate } from '../../utils/width'
 import { formatEvent, formatTime } from './overlay'
 import { paintStatus } from './panel'
 import { formatHints, ScreenOverlay } from './screen'
-import { truncate } from './width'
 
 type TrafficFilter = 'all' | 'errors' | 'slow'
 

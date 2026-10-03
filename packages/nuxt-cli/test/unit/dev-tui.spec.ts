@@ -23,12 +23,12 @@ import { RequestLog } from '../../src/dev/tui/requests'
 import { RouteOverlay } from '../../src/dev/tui/route-overlay'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
-import { truncate } from '../../src/dev/tui/width'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
 import { logger } from '../../src/utils/logger'
 import { useTerminalHost } from '../../src/utils/terminal-host'
 import { terminalLink } from '../../src/utils/terminal-link'
 import { paint } from '../../src/utils/terminal-theme'
+import { truncate } from '../../src/utils/width'
 import { render, screen } from '../utils/terminal'
 
 const opened: string[] = []

@@ -5,7 +5,7 @@ import { styleText } from 'node:util'
 
 import { MUTED, paint } from '../../utils/terminal-theme'
 
-import { stripAnsi, truncate, visibleWidth } from './width'
+import { stripAnsi, truncate, visibleWidth } from '../../utils/width'
 
 const RENDER_DELAY_MS = 50
 

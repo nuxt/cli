@@ -4,8 +4,8 @@ import { styleText } from 'node:util'
 
 import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
+import { stripAnsi, truncate, visibleWidth } from '../../utils/width'
 import { renderLogo } from './logo'
-import { stripAnsi, truncate, visibleWidth } from './width'
 
 export type DevStatus = 'starting' | 'building' | 'warming' | 'ready' | 'restarting' | 'error'
 

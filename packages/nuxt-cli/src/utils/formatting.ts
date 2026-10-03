@@ -1,44 +1,10 @@
 import process from 'node:process'
-import { stripVTControlCharacters, styleText } from 'node:util'
+import { styleText } from 'node:util'
+
+import { visibleWidth } from './width'
 
 const AT_MENTION_RE = /\b@([^, ]+)/g
 const BACKTICK_RE = /`([^`]*)`/g
-
-function getStringWidth(str: string): number {
-  const stripped = stripVTControlCharacters(str)
-  let width = 0
-
-  for (const char of stripped) {
-    const code = char.codePointAt(0)
-    if (!code) {
-      continue
-    }
-
-    // Variation selectors don't add width
-    if (code >= 0xFE00 && code <= 0xFE0F) {
-      continue
-    }
-
-    // Emoji and wide characters (simplified heuristic)
-    // Most emojis are in these ranges
-    if (
-      (code >= 0x1F300 && code <= 0x1F9FF) // Emoticons, symbols, pictographs
-      || (code >= 0x1F600 && code <= 0x1F64F) // Emoticons
-      || (code >= 0x1F680 && code <= 0x1F6FF) // Transport and map symbols
-      || (code >= 0x2600 && code <= 0x26FF) // Miscellaneous symbols (includes ❤)
-      || (code >= 0x2700 && code <= 0x27BF) // Dingbats
-      || (code >= 0x1F900 && code <= 0x1F9FF) // Supplemental symbols and pictographs
-      || (code >= 0x1FA70 && code <= 0x1FAFF) // Symbols and Pictographs Extended-A
-    ) {
-      width += 2
-    }
-    else {
-      width += 1
-    }
-  }
-
-  return width
-}
 
 export function formatInfoBox(infoObj: Record<string, string | undefined>): string {
   let firstColumnLength = 0
@@ -67,7 +33,7 @@ export function formatInfoBox(infoObj: Record<string, string | undefined>): stri
     let currentLine = ''
 
     for (const word of words) {
-      const wordLength = getStringWidth(word)
+      const wordLength = visibleWidth(word)
       const spaceLength = currentLine ? 1 : 0
 
       if (boxRowLength + wordLength + spaceLength > terminalWidth) {
