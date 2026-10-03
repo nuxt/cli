@@ -183,12 +183,15 @@ export default defineCommand({
     }
     const { name: packageManagerName } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
-    logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${packageManagerVersion}`)
+    const currentVersionPromise = getNuxtVersion(cwd)
+    currentVersionPromise.catch(() => {})
+    const pkgPromise = readPackageJSON(cwd).catch(() => null)
 
-    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
+    logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${await packageManagerVersion}`)
+    const currentVersion = (await currentVersionPromise) || '[unknown]'
     logger.step(`Current Nuxt version: ${styleText('cyan', currentVersion)}`)
 
-    const pkg = await readPackageJSON(cwd).catch(() => null)
+    const pkg = await pkgPromise
 
     const nuxtDependencyType = pkg ? checkNuxtDependencyType(pkg) : 'dependencies'
     const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']

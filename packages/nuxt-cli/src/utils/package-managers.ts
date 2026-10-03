@@ -1,5 +1,5 @@
 import type { AgentName, DetectResult } from 'package-manager-detector'
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import process from 'node:process'
 
 import { LOCKS } from 'package-manager-detector/constants'
@@ -32,13 +32,13 @@ export async function detectPackageManager(cwd: string, { includeParentDirs = tr
   return await detect({ cwd, stopDir: includeParentDirs ? undefined : cwd }).catch(() => null) ?? undefined
 }
 
-export function getPackageManagerVersion(command: string) {
+export function getPackageManagerVersion(command: string): Promise<string> {
   // Package managers are `.cmd` shims on Windows, which cannot be spawned without a shell.
   const isWindows = process.platform === 'win32'
-  try {
-    return execFileSync(isWindows ? `"${command}"` : command, ['--version'], { shell: isWindows, stdio: ['ignore', 'pipe', 'ignore'] }).toString('utf8').trim()
-  }
-  catch {
-    return 'unknown'
-  }
+  return new Promise((resolve) => {
+    const child = execFile(isWindows ? `"${command}"` : command, ['--version'], { shell: isWindows }, (error, stdout) => {
+      resolve(error ? 'unknown' : stdout.trim())
+    })
+    child.stdin?.end()
+  })
 }

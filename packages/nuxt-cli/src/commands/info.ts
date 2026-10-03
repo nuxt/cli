@@ -58,10 +58,11 @@ export default defineCommand({
   },
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
-    const [nuxtConfig, projectPkg, detectedPackageManager] = await Promise.all([
+    const packageManagerPromise = detectPackageManager(cwd).then(async detected =>
+      detected ? `${detected.name}@${await getPackageManagerVersion(detected.name)}` : 'unknown')
+    const [nuxtConfig, projectPkg] = await Promise.all([
       getNuxtConfig(cwd),
       readPackageJSON(cwd).catch(() => ({} as PackageJson)),
-      detectPackageManager(cwd),
     ])
     const { dependencies = {}, devDependencies = {} } = projectPkg
     const nuxtPath = tryResolveNuxt(cwd)
@@ -85,17 +86,15 @@ export default defineCommand({
       const version = packageName && await getDepVersion(packageName)
       return version ? `${name}@${version}` : name
     }))
-    const [modules, nuxtVersion = '-', nitroVersion] = await Promise.all([
+    const [modules, nuxtVersion = '-', nitroVersion, packageManager] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
       resolveNitroVersion(cwd, getDepVersion),
+      packageManagerPromise,
     ])
     const configKeys = Object.keys(nuxtConfig).sort()
     const moduleNames = modules.filter(module => module !== null)
     const builder = nuxtConfig.builder || 'vite'
-    const packageManager = detectedPackageManager
-      ? `${detectedPackageManager.name}@${getPackageManagerVersion(detectedPackageManager.name)}`
-      : 'unknown'
     const osType = os.type()
     const cpus = os.cpus()
     const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)

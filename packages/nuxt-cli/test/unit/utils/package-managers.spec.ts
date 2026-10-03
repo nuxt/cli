@@ -38,11 +38,11 @@ describe('getLockFiles', () => {
 })
 
 describe('getPackageManagerVersion', () => {
-  it('returns the command version', () => {
-    expect(getPackageManagerVersion(process.execPath)).toBe(process.version)
+  it('returns the command version', async () => {
+    await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(process.version)
   })
 
-  it('does not fail when the package manager is unavailable', () => {
-    expect(getPackageManagerVersion('nuxt-cli-missing-package-manager')).toBe('unknown')
+  it('does not fail when the package manager is unavailable', async () => {
+    await expect(getPackageManagerVersion('nuxt-cli-missing-package-manager')).resolves.toBe('unknown')
   })
 })
