@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { commands } from '../../../src/commands'
-import { commandPolicy, flagPolicy, suggestClosest } from '../../../src/utils/suggest'
-import { suggestCommand } from '../../../src/utils/suggest-command'
+import { suggestCommand, suggestFlag } from '../../../src/utils/suggest'
 
 const names = Object.keys(commands).filter(name => !name.startsWith('_'))
 
@@ -44,25 +43,25 @@ describe('suggestCommand', () => {
   })
 })
 
-describe('suggestClosest', () => {
+describe('suggestFlag', () => {
   const candidates = ['dotenv', 'logLevel', 'strictPort', 'port']
 
   it('matches a differently cased spelling', async () => {
-    await expect(suggestClosest('loglevel', candidates, flagPolicy)).resolves.toBe('logLevel')
+    await expect(suggestFlag('loglevel', candidates)).resolves.toBe('logLevel')
   })
 
   it('leaves an exact candidate alone', async () => {
-    await expect(suggestClosest('logLevel', candidates, flagPolicy)).resolves.toBeUndefined()
+    await expect(suggestFlag('logLevel', candidates)).resolves.toBeUndefined()
   })
 
   it('holds command suggestions to a higher bar than flag suggestions', async () => {
-    await expect(suggestClosest('dtnv', candidates, flagPolicy)).resolves.toBe('dotenv')
-    await expect(suggestClosest('dtnv', candidates, commandPolicy)).resolves.toBeUndefined()
+    await expect(suggestFlag('dtnv', candidates)).resolves.toBe('dotenv')
+    await expect(suggestCommand('dtnv', candidates)).resolves.toBeUndefined()
   })
 
   it('rejects a tie only when the policy asks it to', async () => {
     const tied = ['task', 'test']
-    await expect(suggestClosest('tesk', tied, commandPolicy)).resolves.toBeUndefined()
-    await expect(suggestClosest('tesk', tied, flagPolicy)).resolves.toBe('task')
+    await expect(suggestCommand('tesk', tied)).resolves.toBeUndefined()
+    await expect(suggestFlag('tesk', tied)).resolves.toBe('task')
   })
 })

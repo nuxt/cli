@@ -85,7 +85,7 @@ const _main = defineCommand({
 })
 
 async function reportUnknownCommand(command: string): Promise<void> {
-  const { suggestCommand } = await import('../../nuxt-cli/src/utils/suggest-command')
+  const { suggestCommand } = await import('../../nuxt-cli/src/utils/suggest')
   const suggestion = await suggestCommand(command, nuxiCommands.filter(name => !name.startsWith('_')))
   if (!suggestion) {
     return

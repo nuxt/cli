@@ -9,14 +9,13 @@ import { box } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { readPackageJSON } from 'pkg-types'
-import { camelCase } from 'scule'
 import { isBun, isDeno, isMinimal } from 'std-env'
 import { writeText } from 'tinyclip'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
 import { resolveCatalogEntry } from '../utils/catalog'
-import { withDirectStdout } from '../utils/console'
+import { printJson } from '../utils/console'
 import { formatInfoBox } from '../utils/formatting'
 import { logger } from '../utils/logger'
 import { resolveNitroVersion } from '../utils/nitro'
@@ -126,14 +125,13 @@ export default defineCommand({
       // Arrays come from the source values rather than the rendered string, so a
       // key or module path containing `, ` stays a single entry.
       const lists: Record<string, string[]> = { config: configKeys, modules: moduleNames }
-      const payload = JSON.stringify({
+      await printJson({
         rootDir: nuxtConfig.rootDir || cwd,
         ...Object.fromEntries(Object.entries(infoObj).map(([label, value]) => {
-          const key = JSON_KEYS[label] ?? camelCase(label)
+          const key = JSON_KEYS[label]!
           return [key, lists[key] ?? (value?.replaceAll('`', '') || null)]
         })),
-      }, null, 2)
-      await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+      })
       return
     }
 

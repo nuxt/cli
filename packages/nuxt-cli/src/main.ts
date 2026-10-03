@@ -16,6 +16,7 @@ import { setupGlobalConsole } from './utils/console'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
 import { findInPath, withLocalBinPath } from './utils/path-env'
+import { suggestCommand } from './utils/suggest'
 import { templateNames } from './utils/templates/names'
 import { findUnknownFlags, replaceFlag, suggestFlags } from './utils/unknown-args'
 import { scheduleUpdateNudge } from './utils/update-lazy'
@@ -177,7 +178,6 @@ function resolveLazy<T>(value: T | (() => T | Promise<T>) | undefined): Promise<
  * showing usage.
  */
 async function reportUnknownCommand(command: string, rawArgs: string[]): Promise<void> {
-  const { suggestCommand } = await import('./utils/suggest-command')
   const names = Object.keys(commands).filter(name => !name.startsWith('_'))
   const suggestion = await suggestCommand(command, names)
   if (!suggestion) {

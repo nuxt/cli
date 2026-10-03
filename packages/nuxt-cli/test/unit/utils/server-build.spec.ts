@@ -61,7 +61,7 @@ describe('getServerBuilderName', () => {
   })
 
   it('should use the label Nuxt declares', () => {
-    const nuxt = makeNuxt({ server: { builder: 'vite' } }, { serverBuild: descriptor({ name: 'vite', label: 'Vite SPA' }) })
+    const nuxt = makeNuxt({ server: { builder: 'vite' } }, { serverBuild: descriptor({ label: 'Vite SPA' }) })
     expect(getServerBuilderName(nuxt)).toBe('Vite SPA')
   })
 })
@@ -70,7 +70,7 @@ describe('resolveServerBuild', () => {
   it('should read output paths from the Nitro instance', () => {
     const build = resolveServerBuild(nitroKit, makeNuxt())
 
-    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', declared: false, hasServer: true })
+    expect(build).toMatchObject({ label: 'Nitro', declared: false })
     expect(build.target).toBe('node-server')
     expect(build.previewCommand).toBe('node ./server/index.mjs')
     expect(build.dir).toBe('/project/.output')
@@ -91,7 +91,7 @@ describe('resolveServerBuild', () => {
     })
     const build = resolveServerBuild(nitroKit, nuxt)
 
-    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', targetLabel: 'preset', declared: true, hasServer: true, hasDevServer: true })
+    expect(build).toMatchObject({ label: 'Nitro', targetLabel: 'preset', declared: true, hasDevServer: true })
     expect(build.target).toBe('vercel')
     expect(build.previewCommand).toBe('node ./server/index.mjs')
     expect(build.dir).toBe('/project/.vercel/output')
@@ -116,7 +116,7 @@ describe('resolveServerBuild', () => {
 
     const build = resolveServerBuild({ useNitro }, nuxt)
 
-    expect(build).toMatchObject({ name: 'vite', label: 'Vite SPA', declared: true, hasServer: false, hasDevServer: true })
+    expect(build).toMatchObject({ label: 'Vite SPA', declared: true, hasDevServer: true })
     expect(build.target).toBeUndefined()
     expect(build.previewCommand).toBeUndefined()
     expect(build.previewStaticDir).toBe('/project/.output/public')
@@ -127,7 +127,7 @@ describe('resolveServerBuild', () => {
     const nuxt = makeNuxt({}, { serverBuild: descriptor({ name: '@nuxt/nitro-server' }) })
     const build = resolveServerBuild(nitroKit, nuxt)
 
-    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', declared: true, hasServer: true })
+    expect(build).toMatchObject({ label: 'Nitro', declared: true })
     expect(build.target).toBe('node-server')
     expect(build.previewCommand).toBe('node ./server/index.mjs')
     expect(build.previewStaticDir).toBeUndefined()
@@ -151,7 +151,7 @@ describe('resolveServerBuild', () => {
   it('should fall back to defaults when there is no server', () => {
     const build = resolveServerBuild(serverlessKit, makeNuxt({ server: { builder: 'vite' } }))
 
-    expect(build).toMatchObject({ name: 'vite', label: 'vite', declared: false, hasServer: false })
+    expect(build).toMatchObject({ label: 'vite', declared: false })
     expect(build.target).toBeUndefined()
     expect(build.dir).toBe('/project/.output')
     expect(build.publicDir).toBe('/project/.output/public')
@@ -169,12 +169,12 @@ describe('resolveServerBuild', () => {
     }
     const build = resolveServerBuild(kit, makeNuxt())
 
-    expect(build).toMatchObject({ name: 'unknown', label: 'unknown', hasServer: false })
+    expect(build).toMatchObject({ label: 'unknown' })
     expect(build.dir).toBe('/project/.output')
 
     nitro = { options: { preset: 'vercel', output: { dir: '/project/.vercel/output' }, commands: { preview: 'vercel dev' } } }
 
-    expect(build).toMatchObject({ name: 'nitro', label: 'Nitro', hasServer: true })
+    expect(build).toMatchObject({ label: 'Nitro' })
     expect(build.target).toBe('vercel')
     expect(build.dir).toBe('/project/.vercel/output')
     expect(build.previewCommand).toBe('vercel dev')

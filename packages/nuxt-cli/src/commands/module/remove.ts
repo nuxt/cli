@@ -94,7 +94,6 @@ export default defineCommand({
   },
 })
 
-// -- Internal Utils --
 async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean | undefined> {
   const removedFromConfig: string[] = []
   const dependencies = getProjectDependencies(projectPkg)
@@ -158,9 +157,6 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
   }
 
   if (!skipInstall) {
-    const installedModules: string[] = []
-    const notInstalledModules: string[] = []
-
     // Entries removed from the config are only uninstalled when they name an
     // installed package, so a local layer (`./layers/admin`) is left alone.
     const targets = Array.from(new Set([
@@ -168,14 +164,8 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
       ...removedFromConfig.map(basePackageName).filter(name => dependencies.has(name)),
     ]))
 
-    for (const module of targets) {
-      if (dependencies.has(module)) {
-        installedModules.push(module)
-      }
-      else {
-        notInstalledModules.push(module)
-      }
-    }
+    const installedModules = targets.filter(module => dependencies.has(module))
+    const notInstalledModules = targets.filter(module => !dependencies.has(module))
 
     if (notInstalledModules.length > 0) {
       const notInstalledList = notInstalledModules.map(m => styleText('cyan', m)).join(', ')
@@ -297,11 +287,7 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
     }
   }
 
-  const orphans: OrphanedPeer[] = []
-  for (const [peer, source] of candidates) {
-    if (!stillNeeded.has(peer)) {
-      orphans.push({ peer, source })
-    }
-  }
-  return orphans
+  return [...candidates]
+    .filter(([peer]) => !stillNeeded.has(peer))
+    .map(([peer, source]) => ({ peer, source }))
 }

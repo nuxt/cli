@@ -25,7 +25,7 @@ import { runCommandDef as runCommand } from '../../nuxt-cli/src/run-command'
 import { nuxtIcon } from '../../nuxt-cli/src/utils/ascii'
 import { fetchJson } from '../../nuxt-cli/src/utils/fetch'
 import { formatHeadlessCommand } from '../../nuxt-cli/src/utils/headless'
-import { createInstallLog, runInstall, takeUnreportedIgnoredBuilds } from '../../nuxt-cli/src/utils/install'
+import { createInstallLog, isVerboseInstall, runInstall, takeUnreportedIgnoredBuilds } from '../../nuxt-cli/src/utils/install'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../../nuxt-cli/src/utils/network'
 import { detectPackageManager, isPackageManagerName, packageManagerNames } from '../../nuxt-cli/src/utils/package-managers'
@@ -293,11 +293,6 @@ export default defineCommand({
 
     templateName ||= DEFAULT_TEMPLATE_NAME
 
-    if (typeof templateName !== 'string') {
-      logger.error('Please specify a template!')
-      process.exit(1)
-    }
-
     let dir = ctx.args.dir
     if (dir === '') {
       const defaultDir = availableTemplates[templateName]?.defaultDir || 'nuxt-app'
@@ -434,12 +429,6 @@ export default defineCommand({
       })
       const nightlyChannelTag = ctx.args.nightly || 'latest'
 
-      if (!nightlyChannelTag) {
-        nightlySpinner.error('Failed to get nightly channel tag')
-        logger.error(`Error getting nightly channel tag.`)
-        process.exit(1)
-      }
-
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
       if (!nightlyChannelVersion) {
@@ -548,14 +537,13 @@ export default defineCommand({
       prompted = true
     }
 
-    if (!installRequested || skipInstallOnConflict) {
-      if (!skipInstallOnConflict) {
-        logger.info('Skipping install dependencies step.')
-      }
+    const shouldInstall = installRequested && !skipInstallOnConflict
+    if (!installRequested) {
+      logger.info('Skipping install dependencies step.')
     }
-    else {
+    else if (shouldInstall) {
       const installController = new AbortController()
-      const installLog = createInstallLog({ verbose: isVerbose(ctx.args.logLevel) })
+      const installLog = createInstallLog({ verbose: isVerboseInstall(ctx.args.logLevel) })
       const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
@@ -715,7 +703,7 @@ export default defineCommand({
       const args: string[] = [
         ...modulesToAdd,
         `--cwd=${template.dir}`,
-        installRequested && !skipInstallOnConflict ? '' : '--skipInstall',
+        shouldInstall ? '' : '--skipInstall',
         `--packageManager=${selectedPackageManager}`,
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
@@ -786,8 +774,7 @@ async function getModuleDependencies(moduleName: string) {
   const url = `https://registry.npmjs.org/${moduleName}/latest`
   try {
     const response = await fetchJson<{ dependencies?: Record<string, string> }>(url)
-    const dependencies = response.dependencies || {}
-    return Object.keys(dependencies)
+    return Object.keys(response.dependencies || {})
   }
   catch (err) {
     logNetworkError(err, { url, level: 'warn', prefix: `Could not get dependencies for ${styleText('cyan', moduleName)}.` })
@@ -796,28 +783,11 @@ async function getModuleDependencies(moduleName: string) {
 }
 
 function filterModules(modules: string[], allDependencies: Record<string, string[]>) {
-  const result = {
-    toInstall: [] as string[],
-    skipped: [] as string[],
+  const isDependency = (module: string) => modules.some(other => other !== module && allDependencies[other]?.includes(module))
+  return {
+    toInstall: modules.filter(module => !isDependency(module)),
+    skipped: modules.filter(isDependency),
   }
-
-  for (const module of modules) {
-    const isDependency = modules.some((otherModule) => {
-      if (otherModule === module)
-        return false
-      const deps = allDependencies[otherModule] || []
-      return deps.includes(module)
-    })
-
-    if (isDependency) {
-      result.skipped.push(module)
-    }
-    else {
-      result.toInstall.push(module)
-    }
-  }
-
-  return result
 }
 
 async function getTemplateDependencies(templateDir: string) {
@@ -827,31 +797,14 @@ async function getTemplateDependencies(templateDir: string) {
       return []
     }
     const packageJson = await readPackageJSON(packageJsonPath)
-    const directDeps = {
-      ...packageJson.dependencies,
-      ...packageJson.devDependencies,
-    }
-    const directDepNames = Object.keys(directDeps)
-    const allDeps = new Set(directDepNames)
-
-    const transitiveDepsResults = await Promise.all(
-      directDepNames.map(dep => getModuleDependencies(dep)),
-    )
-
-    transitiveDepsResults.forEach((deps) => {
-      deps.forEach(dep => allDeps.add(dep))
-    })
-
-    return [...allDeps]
+    const directDepNames = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies })
+    const transitiveDeps = await Promise.all(directDepNames.map(getModuleDependencies))
+    return [...new Set([...directDepNames, ...transitiveDeps.flat()])]
   }
   catch (err) {
     logger.warn(`Could not read template dependencies: ${err}`)
     return []
   }
-}
-
-function isVerbose(logLevel?: string) {
-  return logLevel === 'verbose' || Boolean(process.env.DEBUG)
 }
 
 function detectCurrentPackageManager() {

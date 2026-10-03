@@ -6,7 +6,7 @@ import { defineCommand } from 'citty'
 import fuzzysort from 'fuzzysort'
 import { kebabCase, upperFirst } from 'scule'
 
-import { withDirectStdout } from '../../utils/console'
+import { printJson } from '../../utils/console'
 import { formatInfoBox } from '../../utils/formatting'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
@@ -95,7 +95,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string, json?: b
   }).map(({ obj: { item } }) => item)
 
   if (json) {
-    const payload = JSON.stringify({
+    await printJson({
       query,
       nuxtVersion,
       modules: matches.map(item => ({
@@ -109,8 +109,7 @@ async function findModuleByKeywords(query: string, nuxtVersion: string, json?: b
         monthlyDownloads: item.stats.downloads,
         install: `npx nuxt add ${item.name}`,
       })),
-    }, null, 2)
-    await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+    })
     return
   }
 

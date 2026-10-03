@@ -142,6 +142,11 @@ export interface InstallLog {
   finish: (result: InstallResult) => void
 }
 
+/** Whether install output should always be printed, for `--logLevel verbose` or `DEBUG`. */
+export function isVerboseInstall(logLevel?: string): boolean {
+  return logLevel === 'verbose' || Boolean(process.env.DEBUG)
+}
+
 /**
  * Collects a package manager's output and prints it once the install is over: on
  * failure, or on success when `verbose` is set. It is printed as plain gutter
