@@ -666,7 +666,7 @@ describe('dev server handover', () => {
 })
 
 describe('dev server websocket upgrades', () => {
-  function upgrade(server: InstanceType<typeof NuxtDevServer>, path: string) {
+  function upgrade(server: InstanceType<typeof NuxtDevServer>, path: string, protocol = 'vite-ping') {
     const { port } = server.listener.address as AddressInfo
     const client = connect(port, '127.0.0.1')
     client.on('error', () => {})
@@ -675,30 +675,48 @@ describe('dev server websocket upgrades', () => {
       response += chunk
     })
     const closed = new Promise<void>(resolve => client.once('close', () => resolve()))
-    client.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: vite-ping\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`)
+    client.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: ${protocol}\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`)
     return { client, closed, response: () => response }
   }
 
-  function attachFakeVite(nuxt: FakeNuxt) {
-    const config = { server: {} as Record<string, any> }
-    return nuxt.callHook('vite:extend', { config }).then(() => {
-      config.server.hmr.server.on('upgrade', (_req: unknown, socket: Socket) => {
-        socket.once('end', () => socket.destroy())
-        socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n')
-      })
+  function expectClosedPromptly(closed: Promise<void>) {
+    return expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+  }
+
+  function accept(_req: unknown, socket: Socket) {
+    socket.once('end', () => socket.destroy())
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n')
+  }
+
+  async function attachFakeVite(nuxt: FakeNuxt, server: Record<string, any> = {}) {
+    const config = { server }
+    await nuxt.callHook('vite:extend', { config })
+    const base = '/_nuxt/'
+    const hmrBase = server.ws.path ? join(base, server.ws.path) : base
+    server.ws.server.on('upgrade', (req: import('node:http').IncomingMessage, socket: Socket) => {
+      const protocol = req.headers['sec-websocket-protocol']
+      if ((protocol === 'vite-hmr' || protocol === 'vite-ping') && new URL(req.url!, 'http://localhost').pathname === hmrBase) {
+        accept(req, socket)
+      }
     })
+    await nuxt.callHook('vite:serverCreated', { config: { base } }, { isClient: true, isServer: false })
+  }
+
+  async function startServer(nuxt: FakeNuxt) {
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    return server
   }
 
   it('should close Vite HMR upgrades that arrive before Vite attaches', async () => {
     const nuxt = createNuxt()
     const nitroUpgrade = vi.fn()
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(nuxt)
 
     const { closed, response } = upgrade(server, '/_nuxt/')
-    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    await expectClosedPromptly(closed)
     expect(response()).toBe('')
     expect(nitroUpgrade).not.toHaveBeenCalled()
   })
@@ -707,82 +725,129 @@ describe('dev server websocket upgrades', () => {
     const nuxt = createNuxt()
     nuxt.hook('listen', (server: import('node:http').Server) => {
       server.on('upgrade', () => {})
+      setTimeout(() => server.on('upgrade', () => {}))
     })
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(nuxt)
+    await new Promise(resolve => setTimeout(resolve, 10))
 
     const { closed, response } = upgrade(server, '/_nuxt/')
-    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    await expectClosedPromptly(closed)
     expect(response()).toBe('')
+  })
+
+  it('should close Vite HMR upgrades before Vite attaches when the SSR Vite server exists', async () => {
+    const nuxt = createNuxt()
+    const server = await startServer(nuxt)
+    await nuxt.callHook('vite:extend', { config: { server: {} } })
+    await nuxt.callHook('vite:serverCreated', { config: { base: '/_nuxt/' } }, { isClient: false, isServer: true })
+
+    const { closed } = upgrade(server, '/_nuxt/')
+    await expectClosedPromptly(closed)
   })
 
   it('should hand Vite HMR upgrades to Vite once it attaches', async () => {
     const nuxt = createNuxt()
     const nitroUpgrade = vi.fn()
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(nuxt)
+    await attachFakeVite(nuxt)
+
+    for (const protocol of ['vite-ping', 'vite-hmr']) {
+      const { client, response } = upgrade(server, '/_nuxt/?token=abc', protocol)
+      await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+      client.destroy()
+    }
+    expect(nitroUpgrade).not.toHaveBeenCalled()
+  })
+
+  it('should hand Vite HMR upgrades to Vite even when Nuxt has no upgrade handler', async () => {
+    const nuxt = createNuxt()
+    const server = await startServer(nuxt)
     await attachFakeVite(nuxt)
 
     const { client, response } = upgrade(server, '/_nuxt/')
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    client.destroy()
+  })
+
+  it.each([
+    ['ws', { ws: { path: 'hmr' } }],
+    ['hmr', { hmr: { path: 'hmr' } }],
+  ])('should hand Vite HMR upgrades on a custom %s path to Vite', async (_key, viteServer) => {
+    const nuxt = createNuxt()
+    const nitroUpgrade = vi.fn()
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    const server = await startServer(nuxt)
+    await attachFakeVite(nuxt, viteServer)
+
+    const { client, response } = upgrade(server, '/_nuxt/hmr')
     await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
     expect(nitroUpgrade).not.toHaveBeenCalled()
     client.destroy()
   })
 
-  it('should hand Vite HMR upgrades to Vite even when Nuxt has no upgrade handler', async () => {
+  it.each([
+    ['another asset path', '/_nuxt/other', 'vite-ping'],
+    ['another protocol', '/_nuxt/', 'graphql-ws'],
+  ])('should route upgrades Vite does not accept to the Nuxt server (%s)', async (_label, path, protocol) => {
     const nuxt = createNuxt()
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    const server = await startServer(nuxt)
     await attachFakeVite(nuxt)
 
-    const { client, response } = upgrade(server, '/_nuxt/')
-    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
-    client.destroy()
+    const { closed } = upgrade(server, path, protocol)
+    await expectClosedPromptly(closed)
+    expect(nitroUpgrade).toHaveBeenCalledTimes(1)
   })
 
   it('should route other upgrades to the Nuxt server', async () => {
     const nuxt = createNuxt()
     const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(nuxt)
 
     const { closed } = upgrade(server, '/_ws')
-    await closed
+    await expectClosedPromptly(closed)
     expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+  })
+
+  it('should leave upgrades to other listeners when Nuxt has no upgrade handler', async () => {
+    const nuxt = createNuxt()
+    nuxt.hook('listen', (server: import('node:http').Server) => {
+      server.on('upgrade', accept)
+    })
+    const server = await startServer(nuxt)
+
+    const { client, response } = upgrade(server, '/_ws', 'chat')
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(client.destroyed).toBe(false)
+    client.destroy()
   })
 
   it.each(['@nuxt/webpack-builder', '@nuxt/rspack-builder'])('should route asset upgrades to the Nuxt server with %s', async (builder) => {
     const nuxt = createNuxt({ builder })
     const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
-    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(nuxt)
 
     const { closed } = upgrade(server, '/_nuxt/')
-    await closed
+    await expectClosedPromptly(closed)
     expect(nitroUpgrade).toHaveBeenCalledTimes(1)
   })
 
   it('should close Vite HMR upgrades after a reload until the new Vite server attaches', async () => {
     const first = createNuxt()
     first.close = () => first.callHook('close')
-    loadNuxt.mockImplementation(() => Promise.resolve(first))
-    const server = createServer()
-    await server.init()
+    const server = await startServer(first)
     await attachFakeVite(first)
 
     loadNuxt.mockImplementation(() => Promise.resolve(createNuxt()))
     await server.load(true, { type: 'shortcut' })
 
     const { closed, response } = upgrade(server, '/_nuxt/')
-    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    await expectClosedPromptly(closed)
     expect(response()).toBe('')
   })
 })
