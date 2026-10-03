@@ -257,8 +257,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #openedEagerly = false
   #progress = new DevProgress()
   #warmup = new WarmupGate()
+  #closed = false
 
-  loadDebounced: () => void
+  loadDebounced: ReturnType<typeof debounce<[], void>>
   handler: RequestListener
   /** Live startup progress, streamed to the loading page and the terminal. */
   progress: DevProgress = this.#progress
@@ -655,8 +656,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#configWatcher?.()
   }
 
-  /** Stop listening for forwarded reports and bundler timings. Call only on final shutdown, not during reloads. */
-  closeErrorBridge(): void {
+  /** Stop watching and reloading for good. Reloads use `closeWatchers` instead. */
+  shutdown(): void {
+    this.#closed = true
+    this.loadDebounced.cancel()
+    this.closeWatchers()
     this.#closeErrorBridge?.()
     this.#closeErrorBridge = undefined
     this.#unsubscribeCompileTiming?.()
@@ -673,6 +677,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async load(reload?: boolean, reason?: DevRestartReason): Promise<void> {
+    if (this.#closed) {
+      return
+    }
     try {
       this.closeWatchers()
 
@@ -683,7 +690,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     catch (error) {
       await this.#reportLoadFailure(error, !!reload)
     }
-    this.#watchConfig()
+    if (!this.#closed) {
+      this.#watchConfig()
+    }
   }
 
   /** Serve and report a load that failed, in place of the app it would have served. */

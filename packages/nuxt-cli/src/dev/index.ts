@@ -505,7 +505,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     closePromise ??= (async () => {
       closeLogChannel?.()
       closeSpanChannel?.()
-      devServer.closeWatchers()
+      devServer.shutdown()
       try {
         await Promise.all([
           devServer.listener.close(),
@@ -514,7 +514,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       finally {
         devServer.progress.close()
-        devServer.closeErrorBridge()
         await closeErrorChannel()
         devServer.releaseLock()
       }

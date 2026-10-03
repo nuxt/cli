@@ -474,6 +474,20 @@ describe('dev server config reload', () => {
     await vi.waitFor(() => expect(loadNuxt).toHaveBeenCalledTimes(1), { timeout: 10_000 })
     expect(loadNuxt).toHaveBeenCalledTimes(1)
   })
+
+  it('should not reload once shut down', async () => {
+    const server = createServer()
+    await server.init()
+    loadNuxt.mockClear()
+
+    server.scheduleReload({ type: 'shortcut' })
+    server.closeWatchers()
+    server.shutdown()
+    await server.load(true, { type: 'shortcut' })
+    await new Promise(resolve => setTimeout(resolve, 50))
+
+    expect(loadNuxt).not.toHaveBeenCalled()
+  })
 })
 
 describe('dev server shutdown', () => {

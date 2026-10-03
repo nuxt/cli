@@ -3,11 +3,10 @@ import process from 'node:process'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { closeErrorBridge, closeListener, closeNuxt, closeWatchers, devServers, releaseLock, startCpuProfile, stopCpuProfile } = vi.hoisted(() => ({
-  closeErrorBridge: vi.fn(),
+const { closeListener, closeNuxt, devServers, releaseLock, shutdown, startCpuProfile, stopCpuProfile } = vi.hoisted(() => ({
   closeListener: vi.fn(() => Promise.resolve()),
   closeNuxt: vi.fn(() => Promise.resolve()),
-  closeWatchers: vi.fn(),
+  shutdown: vi.fn(),
   devServers: [] as any[],
   releaseLock: vi.fn(),
   startCpuProfile: vi.fn(() => Promise.resolve()),
@@ -20,8 +19,7 @@ vi.mock('../../../src/utils/env.ts', () => ({ overrideEnv: vi.fn() }))
 vi.mock('../../../src/dev/utils', () => ({
   NuxtDevServer: class extends EventEmitter {
     listener = { url: 'http://127.0.0.1:3000', close: closeListener }
-    closeWatchers = closeWatchers
-    closeErrorBridge = closeErrorBridge
+    shutdown = shutdown
     close = closeNuxt
     releaseLock = releaseLock
     load = vi.fn(() => Promise.resolve())
@@ -66,9 +64,9 @@ describe('initialize', () => {
     expect(seen).toEqual(['http://127.0.0.1:3000'])
   })
 
-  it('should close the watchers, the listener and nuxt before releasing the lock', async () => {
+  it('should stop reloads, then close the listener and nuxt before releasing the lock', async () => {
     const order: string[] = []
-    closeWatchers.mockImplementation(() => order.push('watchers'))
+    shutdown.mockImplementation(() => order.push('shutdown'))
     closeListener.mockImplementation(async () => void order.push('listener'))
     closeNuxt.mockImplementation(async () => void order.push('nuxt'))
     releaseLock.mockImplementation(() => order.push('lock'))
@@ -76,9 +74,8 @@ describe('initialize', () => {
     const { close } = await initialize(context())
     await close()
 
-    expect(order[0]).toBe('watchers')
+    expect(order[0]).toBe('shutdown')
     expect(order.at(-1)).toBe('lock')
-    expect(closeErrorBridge).toHaveBeenCalledTimes(1)
     expect(order).toContain('listener')
     expect(order).toContain('nuxt')
   })
