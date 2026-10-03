@@ -1,12 +1,10 @@
 import { readPackageJSON } from 'pkg-types'
 import { coerce, findMaxSatisfying, normalize } from 'verkit'
 
-import { resolveCatalogEntry } from './catalog'
 import { fetchJson } from './fetch'
 import { debug } from './logger'
 import { NUXT_PACKAGES } from './nuxt-packages'
 import { readDependencyPackageJson } from './package-json'
-import { detectNpmRegistry, PUBLIC_REGISTRY } from './registry'
 
 /** How long to wait on the registry before giving up on a version lookup. */
 const FETCH_TIMEOUT = 10_000
@@ -27,7 +25,7 @@ export async function getNuxtVersion(cwd: string) {
   if (nuxtPkg?.version && NUXT_PACKAGE_NAMES.has(nuxtPkg.name!)) {
     return nuxtPkg.version
   }
-  const pkg = await readPackageJSON(cwd)
+  const [pkg, { resolveCatalogEntry }] = await Promise.all([readPackageJSON(cwd), import('./catalog')])
   const pkgDep = resolveCatalogEntry(cwd, pkg, 'nuxt')?.specifier
     ?? (pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt)
   const coerced = pkgDep && coerce(pkgDep)
@@ -41,6 +39,7 @@ export async function getNuxtVersion(cwd: string) {
  */
 export async function resolveRegistryVersion(pkg: string, range: string): Promise<string | undefined> {
   const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
+  const { detectNpmRegistry, PUBLIC_REGISTRY } = await import('./registry')
   const { registry, authorization } = await detectNpmRegistry(scope)
 
   const packument = await fetchPackument(pkg, registry, authorization)

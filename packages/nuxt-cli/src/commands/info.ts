@@ -14,7 +14,6 @@ import { writeText } from 'tinyclip'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
-import { resolveCatalogEntry } from '../utils/catalog'
 import { printJson } from '../utils/console'
 import { formatInfoBox } from '../utils/formatting'
 import { logger } from '../utils/logger'
@@ -186,6 +185,7 @@ async function resolveDependencyVersion(
       return pkg.version
     }
   }
+  const { resolveCatalogEntry } = await import('../utils/catalog')
   return resolveCatalogEntry(cwd, projectPkg, name)?.specifier
     ?? dependencies[name]
     ?? devDependencies[name]
