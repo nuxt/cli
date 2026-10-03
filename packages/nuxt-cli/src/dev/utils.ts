@@ -1135,26 +1135,32 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       await this.load(true, { type: 'hook' })
     })
 
-    if (this.#currentNuxt.server && 'upgrade' in this.#currentNuxt.server) {
-      this.listener.server.on('upgrade', (req, socket, head) => {
-        const nuxt = this.#currentNuxt
-        if (!nuxt || !nuxt.server)
-          return
-        const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
-        const assetsDir = nuxt.options.app.buildAssetsDir
-        const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${assetsDir.replace(/^\//, '')}`
-        this.#websocketConnections.add(socket)
-        socket.on('close', () => {
-          this.#websocketConnections.delete(socket)
-        })
-        if (req.url?.startsWith(viteHmrPath)) {
-          return // Skip for Vite HMR
-        }
-        nuxt.server.upgrade(req, socket as any, head)
+    const nuxt = this.#currentNuxt
+    const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
+    const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${nuxt.options.app.buildAssetsDir.replace(/^\//, '')}`
+    const expectsViteHmr = !process.env.NUXI_DISABLE_VITE_HMR && (!nuxt.options.builder || String(nuxt.options.builder).includes('vite'))
+    let upgradeListenersBeforeVite = Number.POSITIVE_INFINITY
+    this.listener.server.on('upgrade', (req, socket, head) => {
+      this.#websocketConnections.add(socket)
+      socket.on('close', () => {
+        this.#websocketConnections.delete(socket)
       })
-    }
+      if (expectsViteHmr && req.url?.startsWith(viteHmrPath)) {
+        // Vite adds its `upgrade` listener to this server when its dev server is created.
+        if (this.listener.server.listenerCount('upgrade') <= upgradeListenersBeforeVite) {
+          socket.destroy()
+        }
+        return
+      }
+      if (nuxt.server && 'upgrade' in nuxt.server) {
+        nuxt.server.upgrade(req, socket as any, head)
+        return
+      }
+      socket.destroy()
+    })
 
     await this.#currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
+    upgradeListenersBeforeVite = this.listener.server.listenerCount('upgrade')
 
     // Sync internal server info to the internals BEFORE building
     // This prevents Nitro from trying to create its own listener

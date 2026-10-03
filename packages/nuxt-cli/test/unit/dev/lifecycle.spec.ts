@@ -664,3 +664,125 @@ describe('dev server handover', () => {
     expect(notices.join('')).toContain(`Handed over to another \`nuxt dev\` (PID ${process.ppid})`)
   })
 })
+
+describe('dev server websocket upgrades', () => {
+  function upgrade(server: InstanceType<typeof NuxtDevServer>, path: string) {
+    const { port } = server.listener.address as AddressInfo
+    const client = connect(port, '127.0.0.1')
+    client.on('error', () => {})
+    let response = ''
+    client.on('data', (chunk) => {
+      response += chunk
+    })
+    const closed = new Promise<void>(resolve => client.once('close', () => resolve()))
+    client.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: vite-ping\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`)
+    return { client, closed, response: () => response }
+  }
+
+  function attachFakeVite(nuxt: FakeNuxt) {
+    const config = { server: {} as Record<string, any> }
+    return nuxt.callHook('vite:extend', { config }).then(() => {
+      config.server.hmr.server.on('upgrade', (_req: unknown, socket: Socket) => {
+        socket.once('end', () => socket.destroy())
+        socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n')
+      })
+    })
+  }
+
+  it('should close Vite HMR upgrades that arrive before Vite attaches', async () => {
+    const nuxt = createNuxt()
+    const nitroUpgrade = vi.fn()
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { closed, response } = upgrade(server, '/_nuxt/')
+    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    expect(response()).toBe('')
+    expect(nitroUpgrade).not.toHaveBeenCalled()
+  })
+
+  it('should close Vite HMR upgrades before Vite attaches when a module listens for upgrades', async () => {
+    const nuxt = createNuxt()
+    nuxt.hook('listen', (server: import('node:http').Server) => {
+      server.on('upgrade', () => {})
+    })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { closed, response } = upgrade(server, '/_nuxt/')
+    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    expect(response()).toBe('')
+  })
+
+  it('should hand Vite HMR upgrades to Vite once it attaches', async () => {
+    const nuxt = createNuxt()
+    const nitroUpgrade = vi.fn()
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    await attachFakeVite(nuxt)
+
+    const { client, response } = upgrade(server, '/_nuxt/')
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    expect(nitroUpgrade).not.toHaveBeenCalled()
+    client.destroy()
+  })
+
+  it('should hand Vite HMR upgrades to Vite even when Nuxt has no upgrade handler', async () => {
+    const nuxt = createNuxt()
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    await attachFakeVite(nuxt)
+
+    const { client, response } = upgrade(server, '/_nuxt/')
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    client.destroy()
+  })
+
+  it('should route other upgrades to the Nuxt server', async () => {
+    const nuxt = createNuxt()
+    const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { closed } = upgrade(server, '/_ws')
+    await closed
+    expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['@nuxt/webpack-builder', '@nuxt/rspack-builder'])('should route asset upgrades to the Nuxt server with %s', async (builder) => {
+    const nuxt = createNuxt({ builder })
+    const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    const { closed } = upgrade(server, '/_nuxt/')
+    await closed
+    expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+  })
+
+  it('should close Vite HMR upgrades after a reload until the new Vite server attaches', async () => {
+    const first = createNuxt()
+    first.close = () => first.callHook('close')
+    loadNuxt.mockImplementation(() => Promise.resolve(first))
+    const server = createServer()
+    await server.init()
+    await attachFakeVite(first)
+
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxt()))
+    await server.load(true, { type: 'shortcut' })
+
+    const { closed, response } = upgrade(server, '/_nuxt/')
+    await expect(Promise.race([closed.then(() => 'closed'), new Promise(resolve => setTimeout(resolve, 2000, 'pending'))])).resolves.toBe('closed')
+    expect(response()).toBe('')
+  })
+})
