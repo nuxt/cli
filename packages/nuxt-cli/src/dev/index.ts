@@ -24,7 +24,7 @@ import { blankLineBefore, writeDirect } from '../utils/stdout'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
 import { closeErrorChannel, formatReportForTerminal } from './error-channel'
-import { currentRequest, isServingRequest } from './serving-state'
+import { currentRequest } from './serving-state'
 import { createPhaseReporter } from '../utils/phase-reporter'
 import { NuxtDevServer } from './utils'
 
@@ -202,15 +202,16 @@ if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
   consola.wrapAll()
   consola.addReporter({
     log(logObj) {
+      const request = currentRequest()
       ipc.send({
         type: 'nuxt:internal:dev:log',
         level: logObj.level,
         logType: logObj.type,
         tag: logObj.tag || undefined,
         message: formatWithOptions({ colors: false }, ...logObj.args),
-        origin: isServingRequest() ? 'runtime' : 'build',
-        request: currentRequest()?.label,
-        requestId: currentRequest()?.id,
+        origin: request ? 'runtime' : 'build',
+        request: request?.label,
+        requestId: request?.id,
         raw: true,
       })
     },

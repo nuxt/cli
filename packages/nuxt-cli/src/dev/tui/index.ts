@@ -36,6 +36,7 @@ import { readProjectReport } from './project-report'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
+import { writeClipboard } from './screen'
 import { beginDevUI } from './session'
 
 export { beginDevUI } from './session'
@@ -177,10 +178,6 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   // the animation for whatever it has just put there.
   session.onProgressChange(refresh)
 
-  function clearActivity(): void {
-    update({ active: false })
-  }
-
   function advanceFrame(): void {
     const working = state.status !== 'ready' && state.status !== 'error'
     update({
@@ -271,6 +268,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({ notice: { text: text.split('\n')[0]!.trim(), tone } })
     noticeTimer = setTimeout(clearNotice, NOTICE_MS)
     noticeTimer.unref?.()
+  }
+
+  function clearActivity(): void {
+    update({ active: false })
   }
 
   const repaintTicker = createTickerRepainter(refresh)
@@ -746,12 +747,10 @@ async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'i
     notify('no server to copy the url of yet', 'warn')
     return
   }
-  try {
-    const { writeText } = await import('tinyclip')
-    await writeText(url)
+  if (await writeClipboard(url)) {
     notify(`copied ${url} to the clipboard`, 'success')
   }
-  catch {
+  else {
     notify('no clipboard available', 'warn')
   }
 }

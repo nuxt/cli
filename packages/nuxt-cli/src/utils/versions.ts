@@ -4,6 +4,7 @@ import { coerce, findMaxSatisfying, normalize } from 'verkit'
 import { resolveCatalogEntry } from './catalog'
 import { fetchJson } from './fetch'
 import { debug } from './logger'
+import { NUXT_PACKAGES } from './nuxt-packages'
 import { readDependencyPackageJson } from './package-json'
 import { detectNpmRegistry, PUBLIC_REGISTRY } from './registry'
 
@@ -16,7 +17,7 @@ const FETCH_TIMEOUT = 10_000
  * when the package exposes no `./package.json` export) is not mistaken for Nuxt's
  * own.
  */
-const NUXT_PACKAGE_NAMES = new Set(['nuxt', 'nuxt-nightly'])
+const NUXT_PACKAGE_NAMES = new Set<string>(NUXT_PACKAGES)
 
 /** Assumed Nuxt version when the project declares no resolvable one. */
 export const DEFAULT_NUXT_VERSION = '3.0.0'

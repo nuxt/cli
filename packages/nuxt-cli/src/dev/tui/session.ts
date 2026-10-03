@@ -11,15 +11,14 @@ import { consola } from 'consola'
 
 import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
-import { getPkgVersion } from '../../utils/pkg'
 import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { registerTerminalHost } from '../../utils/terminal-host'
-import { currentRequest, isServingRequest } from '../serving-state'
+import { currentRequest } from '../serving-state'
 import { isShutdownAdopted } from '../shutdown'
 import { queryBackground } from './background'
 import { DevEventLog, isBoxedNotice, normaliseMessage, noteRoute } from './events'
-import { createPanelState, renderPanelState } from './first-frame'
+import { createPanelState, renderPanelState, resolveNuxtVersion } from './first-frame'
 import { LOGO_FRAME_MS } from './logo'
 import { describeListenURLs } from './panel'
 import { resolveDevUISupport } from './support'
@@ -31,21 +30,6 @@ const SHOW_CURSOR = '\u001B[?25h'
 /** Long enough for a forwarded log to be paired with its printed output. */
 const ERROR_SURFACE_DELAY_MS = 60
 
-/** An error as it belongs in scrollback: as printed, or as reported. */
-function renderErrorLine(event: DevLogEvent): string {
-  return event.rendered ?? `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`
-}
-
-/** A boxed notice as it belongs in scrollback: as printed, or as reported. */
-function renderNoticeBlock(event: DevLogEvent): string {
-  return event.rendered ?? `${event.message}\n`
-}
-
-/** A warning as it belongs in scrollback: as printed, or as reported. */
-function renderWarningLine(event: DevLogEvent): string {
-  return event.rendered ?? `${styleText(['yellow', 'bold'], 'WARN')} ${event.message}`
-}
-
 /** Cursor movement and erasure: output that repaints rather than appends. */
 // eslint-disable-next-line no-control-regex
 const REWRITE_RE = /\r(?!\n)|\u001B\[[0-9;]*[A-GJK]/
@@ -53,11 +37,6 @@ const REWRITE_RE = /\r(?!\n)|\u001B\[[0-9;]*[A-GJK]/
 /** Sequences a settled line no longer needs: movement, erasure, visibility. */
 // eslint-disable-next-line no-control-regex
 const CURSOR_RE = /\u001B\[[0-9;]*[A-GJK]|\u001B\[\?25[hl]/g
-
-/** Whether `chunk` rewrites earlier output instead of adding to it. */
-function isRewrite(chunk: string): boolean {
-  return REWRITE_RE.test(chunk)
-}
 
 /**
  * What a run of self-rewriting output leaves on screen: each line keeps only
@@ -333,7 +312,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
       noteRoute(owner, 'output')
       return
     }
-    const rewriting = isRewrite(chunk)
+    const rewriting = REWRITE_RE.test(chunk)
     const message = (rewriting ? settleRewrites(plain) : plain).replace(/\n+$/, '')
     if (!message.trim()) {
       return
@@ -349,15 +328,16 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
       transient = undefined
       return
     }
+    const request = currentRequest()
     const event: DevLogEvent = {
       time: Date.now(),
       level: 2,
       type: 'log',
       message,
       rendered: chunk,
-      source: isServingRequest() ? 'runtime' : 'build',
-      request: currentRequest()?.label,
-      requestId: currentRequest()?.id,
+      source: request ? 'runtime' : 'build',
+      request: request?.label,
+      requestId: request?.id,
     }
     const stored = events.push(event, { route: 'output' })
     // Only an entry of this run's own may be rewritten by its later frames:
@@ -367,13 +347,13 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
   }
 
   /**
-   * Write text into scrollback above the panel, once the event it was rendered
-   * from has had time to be paired with its printed form.
-   *
-   * Delayed by a beat because a log forwarded from a fork arrives before the
-   * output that renders it, and the rendered form is what should be shown.
+   * Write `event` into scrollback above the panel, as printed or else as
+   * `fallback`, once it has had time to be paired with its printed form: a log
+   * forwarded from a fork arrives before the output that renders it.
    */
-  function surfaceLater(render: () => string): void {
+  function surfaceLater(event: DevLogEvent, fallback: string): void {
+    event.surfaced = true
+    const render = () => event.rendered ?? fallback
     const timer: NodeJS.Timeout = setTimeout(() => {
       pendingSurfaces.delete(timer)
       surfaceText(render())
@@ -382,53 +362,37 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     pendingSurfaces.set(timer, render)
   }
 
-  function surfaceError(event: DevLogEvent): void {
-    // Once the server has been ready, errors belong to the panel's badge and the
-    // log view. Before that, one may be the last thing the process ever says.
+  /**
+   * Boxed notices carry something (a URL, a token) that has to be readable and
+   * selectable, so they reach scrollback at any point. Errors and CLI warnings
+   * only do before the server is first ready; after that they belong to the
+   * badge and the log view.
+   */
+  function surfaceEvent(event: DevLogEvent): void {
+    const text = normaliseMessage(event.message)
+    if (event.surfaced || !text) {
+      return
+    }
+    if (isBoxedNotice(event)) {
+      return surfaceLater(event, `${event.message}\n`)
+    }
     if (state.readyMs !== undefined) {
       return
     }
-    const text = normaliseMessage(event.message)
     // A watcher that keeps failing the same way should say so once.
-    if (event.surfaced || !text || text === lastSurfacedError) {
-      return
+    if (event.level <= 0 && text !== lastSurfacedError) {
+      lastSurfacedError = text
+      surfaceLater(event, `${styleText(['red', 'bold'], 'ERROR')} ${event.message}`)
     }
-    event.surfaced = true
-    lastSurfacedError = text
-    surfaceLater(() => renderErrorLine(event))
-  }
-
-  /**
-   * Write a warning the CLI raised during startup into scrollback above the
-   * panel. The panel holds a badge for it, but a badge has one truncated line
-   * and these run to a sentence or two.
-   */
-  function surfaceWarning(event: DevLogEvent): void {
-    if (event.surfaced || state.readyMs !== undefined || !normaliseMessage(event.message)) {
-      return
+    else if (event.level === 1 && event.source === 'cli') {
+      surfaceLater(event, `${styleText(['yellow', 'bold'], 'WARN')} ${event.message}`)
     }
-    event.surfaced = true
-    surfaceLater(() => renderWarningLine(event))
-  }
-
-  /**
-   * Write a boxed notice into scrollback above the panel, at any point in the
-   * session: it carries something (a URL, a token) that has to be readable and
-   * selectable, which a status line cannot offer.
-   */
-  function surfaceNotice(event: DevLogEvent): void {
-    // Repeats within the dedupe window are merged into the entry already shown;
-    // a later request is news again, and has to be answered again.
-    if (event.surfaced || !normaliseMessage(event.message)) {
-      return
-    }
-    event.surfaced = true
-    surfaceLater(() => renderNoticeBlock(event))
   }
 
   const reporter = {
     log(logObj: { level: number, type: string, tag?: string, args: unknown[] }) {
       const cli = isEmittingCliLog()
+      const request = cli ? undefined : currentRequest()
       expectRender(events.push({
         time: Date.now(),
         level: logObj.level,
@@ -438,9 +402,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
         // The app, the build and the CLI share this consola instance on one
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
-        source: cli ? 'cli' : isServingRequest() ? 'runtime' : 'build',
-        request: cli ? undefined : currentRequest()?.label,
-        requestId: cli ? undefined : currentRequest()?.id,
+        source: cli ? 'cli' : request ? 'runtime' : 'build',
+        request: request?.label,
+        requestId: request?.id,
       }, {
         // A log the CLI wrote itself reaches the UI no other way.
         route: cli ? undefined : 'reporter',
@@ -497,17 +461,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     onTeardown: task => void teardownTasks.push(task),
   }
 
-  events.onEvent((event) => {
-    if (isBoxedNotice(event)) {
-      surfaceNotice(event)
-    }
-    else if (event.level <= 0) {
-      surfaceError(event)
-    }
-    else if (event.level === 1 && event.source === 'cli') {
-      surfaceWarning(event)
-    }
-  })
+  events.onEvent(surfaceEvent)
 
   consola.addReporter(reporter)
 
@@ -574,8 +528,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
 
   current = session
   retargetCurrent = (next) => {
-    const nextCwd = next.cwd || cwd
-    const version = next.version || getPkgVersion(nextCwd, 'nuxt') || getPkgVersion(nextCwd, 'nuxt-nightly') || undefined
+    const version = resolveNuxtVersion({ version: next.version, cwd: next.cwd || cwd })
     if (version === state.version) {
       return
     }

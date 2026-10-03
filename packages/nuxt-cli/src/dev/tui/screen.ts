@@ -294,19 +294,16 @@ export abstract class ScreenOverlay {
       : this.renderHints(columns)
   }
 
-  /**
-   * Move the selection, stopping at both ends. A list that loops has no start
-   * or end to get your bearings from, least of all a log that is still growing.
-   *
-   * With nothing selected, moving up starts at the bottom and moving down
-   * starts at the top of what is on screen, so either arrow is a way in and
-   * neither one jumps somewhere else.
-   */
   /** Views lay out inside the gutter, so their own truncation stays exact. */
   #entries(): OverlayEntry[] {
     return this.renderEntries((process.stdout.columns || 80) - GUTTER_WIDTH)
   }
 
+  /**
+   * Move the selection, stopping at both ends. With nothing selected, moving up
+   * starts at the bottom and moving down starts at the top of what is on
+   * screen.
+   */
   #move(delta: number): void {
     const entries = this.#entries()
     if (!entries.length) {
@@ -371,16 +368,7 @@ export abstract class ScreenOverlay {
   }
 
   async #copy(text: string, done: string): Promise<void> {
-    try {
-      const { writeText } = await import('tinyclip')
-      // What lands on the clipboard is going into an issue or a search box,
-      // so it should carry no colour or hyperlink escapes.
-      await writeText(stripAnsi(text))
-      this.notify(`${done} to clipboard`)
-    }
-    catch {
-      this.notify('no clipboard available')
-    }
+    this.notify(await writeClipboard(stripAnsi(text)) ? `${done} to clipboard` : 'no clipboard available')
   }
 
   /** Replace the hint line with `text` for a moment. */
@@ -401,6 +389,18 @@ export abstract class ScreenOverlay {
       }
     }, RENDER_DELAY_MS)
     this.#renderTimer.unref?.()
+  }
+}
+
+/** Put `text` on the clipboard, returning whether one was available. */
+export async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    const { writeText } = await import('tinyclip')
+    await writeText(text)
+    return true
+  }
+  catch {
+    return false
   }
 }
 

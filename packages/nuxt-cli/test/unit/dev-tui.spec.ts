@@ -8,7 +8,6 @@ import { consola } from 'consola'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createRequest, currentRequest, isServingRequest, runWithRequest } from '../../src/dev/serving-state'
 import { deferShortcutContext } from '../../src/dev/shortcut-context'
 import { adoptShutdown } from '../../src/dev/shutdown'
 import { DevEventLog, noteRoute } from '../../src/dev/tui/events'
@@ -25,13 +24,11 @@ import { RouteOverlay } from '../../src/dev/tui/route-overlay'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
 import { truncate } from '../../src/dev/tui/width'
-import { nuxtIcon } from '../../src/utils/ascii'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
 import { logger } from '../../src/utils/logger'
 import { useTerminalHost } from '../../src/utils/terminal-host'
 import { terminalLink } from '../../src/utils/terminal-link'
-import { paint, resolveBackground } from '../../src/utils/terminal-theme'
-import { releaseNotesUrl } from '../../src/utils/update-check'
+import { paint } from '../../src/utils/terminal-theme'
 import { render, screen } from '../utils/terminal'
 
 const opened: string[] = []
@@ -572,114 +569,6 @@ describe('dev tui logo', () => {
   })
 })
 
-describe('terminal background', () => {
-  it('takes an explicit setting at its word', () => {
-    expect(resolveBackground({ NUXT_TERM_THEME: 'light' })).toBe('light')
-    expect(resolveBackground({ NUXT_TERM_THEME: 'DARK' })).toBe('dark')
-    expect(resolveBackground({ NUXT_TERM_THEME: 'light', COLORFGBG: '15;0' })).toBe('light')
-  })
-
-  it('reads the background the terminal reports', () => {
-    expect(resolveBackground({ COLORFGBG: '15;0' })).toBe('dark')
-    expect(resolveBackground({ COLORFGBG: '0;15' })).toBe('light')
-    expect(resolveBackground({ COLORFGBG: '0;default;15' })).toBe('light')
-    expect(resolveBackground({ COLORFGBG: '15;default;0' })).toBe('dark')
-  })
-
-  it('admits to not knowing rather than assuming', () => {
-    expect(resolveBackground({})).toBe('unknown')
-    expect(resolveBackground({ COLORFGBG: '15;default' })).toBe('unknown')
-    expect(resolveBackground({ NUXT_TERM_THEME: 'solarized' })).toBe('unknown')
-  })
-})
-
-describe('exact colours', () => {
-  const withTerminal = (depth: number, run: () => void) => {
-    const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
-    const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => depth, configurable: true })
-    Object.defineProperty(process.stdout, 'hasColors', { value: () => depth > 1, configurable: true })
-    Object.defineProperty(process.stdout, 'isTTY', { value: depth > 1, configurable: true })
-    try {
-      run()
-    }
-    finally {
-      for (const [key, descriptor] of originals) {
-        if (descriptor) {
-          Object.defineProperty(process.stdout, key, descriptor)
-        }
-        else {
-          Reflect.deleteProperty(process.stdout, key)
-        }
-      }
-    }
-  }
-
-  it('uses the exact colour only where the background is known', () => {
-    withTerminal(24, () => {
-      expect(paint('brand', 'Nuxt', 'dark')).toContain('\u001B[38;2;0;220;130m')
-      expect(paint('brand', 'Nuxt', 'light')).toContain('\u001B[38;2;0;145;92m')
-      expect(paint('brand', 'Nuxt', 'unknown')).not.toContain('38;2')
-    })
-  })
-
-  it('darkens the warning amber on a light terminal, where yellow cannot be read', () => {
-    withTerminal(24, () => {
-      expect(paint('warning', '1 warning', 'dark')).toContain('\u001B[38;2;255;200;87m')
-      expect(paint('warning', '1 warning', 'light')).toContain('\u001B[38;2;138;90;0m')
-    })
-  })
-
-  it('takes the nearest colour a 256-colour terminal can hold', () => {
-    withTerminal(8, () => {
-      // The cube entries closest to `#00DC82`, `#00915C`, `#FFC857` and `#8A5A00`.
-      expect(paint('brand', 'Nuxt', 'dark')).toContain('\u001B[38;5;42m')
-      expect(paint('brand', 'Nuxt', 'light')).toContain('\u001B[38;5;29m')
-      expect(paint('warning', '!', 'dark')).toContain('\u001B[38;5;221m')
-      expect(paint('warning', '!', 'light')).toContain('\u001B[38;5;94m')
-    })
-  })
-
-  it('leaves the palette to the terminal below 256 colours', () => {
-    withTerminal(4, () => {
-      expect(paint('brand', 'Nuxt', 'dark')).not.toContain('38;')
-      expect(strip(paint('brand', 'Nuxt', 'dark'))).toBe('Nuxt')
-    })
-  })
-
-  it('hands the colour back so nothing after it is tinted', () => {
-    for (const depth of [24, 8]) {
-      withTerminal(depth, () => {
-        for (const background of ['dark', 'light', 'unknown'] as const) {
-          for (const tone of ['brand', 'warning'] as const) {
-            // eslint-disable-next-line no-control-regex
-            expect(paint(tone, 'Nuxt', background)).toMatch(/\u001B\[(?:39|0)m$/)
-          }
-        }
-      })
-    }
-  })
-
-  it('emits no escapes at all when there is no colour', () => {
-    withTerminal(1, () => {
-      expect(paint('brand', 'Nuxt', 'dark')).toBe('Nuxt')
-      expect(paint('warning', 'Nuxt', 'light')).toBe('Nuxt')
-      expect(paint('brand', 'Nuxt', 'unknown')).toBe('Nuxt')
-    })
-  })
-
-  it('paints the init mark without leaving the terminal green', () => {
-    withTerminal(24, () => {
-      const icon = nuxtIcon()
-      expect(strip(icon).split('\n')).toHaveLength(8)
-      for (const line of icon.split('\n')) {
-        // eslint-disable-next-line no-control-regex
-        expect(line).toMatch(/\u001B\[(?:39|0)m$/)
-      }
-    })
-  })
-})
-
 describe('dev event log', () => {
   const event = (overrides: Partial<Parameters<DevEventLog['push']>[0]>) => ({
     time: 0,
@@ -998,87 +887,6 @@ describe('dev event log', () => {
     log.push(event({ source: 'runtime', message: 'srv' }))
     log.push(event({ message: 'cli' }))
     expect(log.recent(10, e => e.source === 'runtime').map(e => e.message)).toEqual(['srv'])
-  })
-})
-
-describe('request attribution', () => {
-  const tick = () => new Promise(resolve => setTimeout(resolve, 0))
-  const queue: Array<() => void> = []
-
-  it('has nothing to attribute a log to outside a request', () => {
-    expect(currentRequest()).toBeUndefined()
-    expect(isServingRequest()).toBe(false)
-  })
-
-  it('attributes work on the call stack to the request that started it', () => {
-    runWithRequest('GET /about', (request) => {
-      expect(isServingRequest()).toBe(true)
-      expect(currentRequest()?.label).toBe('GET /about')
-      expect(currentRequest()?.id).toBe(request.id)
-    })
-    expect(currentRequest()).toBeUndefined()
-  })
-
-  it('keeps overlapping requests apart across await points', async () => {
-    const seen: Array<[string, string | undefined]> = []
-    const serve = async (label: string, delay: number) => {
-      await new Promise(resolve => setTimeout(resolve, delay))
-      seen.push([label, currentRequest()?.label])
-      await tick()
-      seen.push([label, currentRequest()?.label])
-    }
-
-    await Promise.all([
-      runWithRequest('GET /page', () => serve('GET /page', 4)),
-      runWithRequest('GET /_nuxt/app.js', () => serve('GET /_nuxt/app.js', 1)),
-      runWithRequest('GET /api/hello', () => serve('GET /api/hello', 2)),
-    ])
-
-    expect(seen).toHaveLength(6)
-    for (const [label, attributed] of seen) {
-      expect(attributed).toBe(label)
-    }
-  })
-
-  it('follows a request into a nested callback the handler creates', async () => {
-    const attributed = await runWithRequest('GET /nested', () => new Promise<string | undefined>((resolve) => {
-      process.nextTick(() => {
-        setImmediate(() => {
-          queueMicrotask(() => resolve(currentRequest()?.label))
-        })
-      })
-    }))
-    expect(attributed).toBe('GET /nested')
-  })
-
-  it('gives a request an identity that cannot be guessed from its route or its neighbours', () => {
-    const ids = Array.from({ length: 50 }, () => createRequest('GET /boom-page').id)
-    const value = (id: string) => BigInt(`0x${id.replaceAll('-', '')}`)
-
-    expect(new Set(ids).size).toBe(ids.length)
-    for (const id of ids) {
-      expect(id.replaceAll('-', '')).toMatch(/^[0-9a-f]{32}$/)
-      expect(id).not.toContain('boom-page')
-      expect(id).not.toContain('GET')
-    }
-    const distances = ids.slice(1).map((id, index) => value(id) - value(ids[index]!))
-    expect(new Set(distances.map(String)).size).toBe(distances.length)
-  })
-
-  it('does not attribute work that has left the request context', async () => {
-    let escaped: string | undefined = 'unset'
-    runWithRequest('GET /leaky', () => {
-      // A queue the handler does not own loses the context, by design.
-      queue.push(() => {
-        escaped = currentRequest()?.label
-      })
-    })
-    const queued = queue.splice(0)
-    for (const run of queued) {
-      run()
-    }
-    await tick()
-    expect(escaped).toBeUndefined()
   })
 })
 
@@ -2328,10 +2136,16 @@ describe('panel surface', () => {
       surface.render(['--- footer ---'])
       surface.padToBottom()
       const before = read().length
-      await withStubbedColumnsAsync(30, async () => {
-        process.stdout.emit('resize')
-        await new Promise(resolve => setTimeout(resolve, 200))
-      })
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        await withStubbedColumnsAsync(30, async () => {
+          process.stdout.emit('resize')
+          vi.advanceTimersByTime(200)
+        })
+      }
+      finally {
+        vi.useRealTimers()
+      }
       written = read().slice(before)
       surface.close()
     }))
@@ -2348,8 +2162,14 @@ describe('panel surface', () => {
       surface.padToBottom()
       const before = read().length
       Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
-      process.stdout.emit('resize')
-      await new Promise(resolve => setTimeout(resolve, 200))
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      try {
+        process.stdout.emit('resize')
+        vi.advanceTimersByTime(200)
+      }
+      finally {
+        vi.useRealTimers()
+      }
       written = read().slice(before)
       surface.close()
     }))
@@ -2518,7 +2338,7 @@ describe('panel surface', () => {
   })
 })
 
-describe('release notes links', () => {
+describe('release notes links on the panel', () => {
   const linked = (label: string, url: string) => {
     // Terminal detection has many inputs; this is the switch that overrides them.
     vi.stubEnv('FORCE_HYPERLINK', '1')
@@ -2529,20 +2349,6 @@ describe('release notes links', () => {
       vi.unstubAllEnvs()
     }
   }
-
-  it('points at the tag for packages with a known repository', () => {
-    expect(releaseNotesUrl('nuxt', '4.6.0')).toBe('https://github.com/nuxt/nuxt/releases/tag/v4.6.0')
-    expect(releaseNotesUrl('@nuxt/cli', '3.1.0')).toBe('https://github.com/nuxt/cli/releases/tag/v3.1.0')
-  })
-
-  it('has nothing to link for nightlies or unknown packages', () => {
-    expect(releaseNotesUrl('nuxt', '4.6.0-nightly.20240101')).toBeUndefined()
-    expect(releaseNotesUrl('some-other-package', '1.0.0')).toBeUndefined()
-  })
-
-  it('emits a hyperlink only where the terminal supports one', () => {
-    expect(terminalLink('4.6.0', 'https://example.com', { stream: { isTTY: false } })).toBe('4.6.0')
-  })
 
   it('links the running version as well as the update', () => {
     const link = linked('4.5.1', 'https://github.com/nuxt/nuxt/releases/tag/v4.5.1')

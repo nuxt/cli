@@ -126,7 +126,7 @@ export class RequestOverlay extends ScreenOverlay {
     const errors = this.#errorCounts()
     return matching.map(request => ({
       lines: [this.#format(request, columns, request.id === undefined ? 0 : errors.get(request.id) ?? 0)],
-      copy: `${request.method} ${request.url} ${request.status} ${request.duration}ms`,
+      copy: describeRequest(request),
     }))
   }
 
@@ -160,7 +160,7 @@ export class RequestOverlay extends ScreenOverlay {
     const summary: OverlayEntry[] = [
       {
         lines: [this.#format(request, columns, 0)],
-        copy: `${request.method} ${request.url} ${request.status} ${request.duration}ms`,
+        copy: describeRequest(request),
       },
       ...file ? [{ lines: [`${' '.repeat(12)}${styleText(MUTED, 'served by ')}${link(file, { cwd: this.#cwd })}`], copy: file }] : [],
       { lines: [''] },
@@ -382,6 +382,10 @@ function renderCompileBreakdown(compiled: DevRequestSpan[], columns: number): Ov
     ...modules.map(span => row(span.environment ? `${span.name} ${styleText(MUTED, `(${span.environment})`)}` : span.name, span.duration)),
     { lines: [''] },
   ]
+}
+
+function describeRequest(request: DevRequest): string {
+  return `${request.method} ${request.url} ${request.status} ${request.duration}ms`
 }
 
 function formatSpanDuration(duration: number): string {

@@ -10,13 +10,12 @@ import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
+import { NUXT_PACKAGES } from '../utils/nuxt-packages'
 import { relativeTo } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
 import { withUserAttention } from '../utils/startup-clock'
 import { isInteractive } from '../utils/stdout'
-
-const NUXT_PACKAGES = ['nuxt', 'nuxt-nightly']
 
 /**
  * Extensions `c12` accepts for a config it parses rather than imports. Reporting

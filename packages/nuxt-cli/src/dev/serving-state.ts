@@ -46,11 +46,6 @@ export function encodeRequestLabel(request: InflightRequest): string {
   return encodeURIComponent(request.label)
 }
 
-/** Whether this code is running to serve a request, rather than to build. */
-export function isServingRequest(): boolean {
-  return storage.getStore() !== undefined
-}
-
 /**
  * The request being served on this call stack, if any.
  *
