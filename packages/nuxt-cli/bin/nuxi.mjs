@@ -74,7 +74,15 @@ if (process.argv[2] === 'dev') {
   await import('../dist/boot.mjs').then(({ bootDevUI }) => bootDevUI()).catch(() => {})
 }
 
-// eslint-disable-next-line antfu/no-top-level-await
-const { runMain } = await import('../dist/index.mjs')
+// Mirrors citty's built-in version flag without loading the command graph.
+const args = process.argv.slice(2)
+if (args.length === 1 && (args[0] === '--version' || args[0] === '-v')) {
+  // eslint-disable-next-line no-console
+  console.log(nodeModule.createRequire(import.meta.url)('../package.json').version)
+}
+else {
+  // eslint-disable-next-line antfu/no-top-level-await
+  const { runMain } = await import('../dist/index.mjs')
 
-runMain()
+  runMain()
+}
