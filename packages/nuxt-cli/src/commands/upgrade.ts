@@ -11,7 +11,6 @@ import { cancel, isCancel, note, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { dirname, relative, resolve } from 'pathe'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
-import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
 
 import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
@@ -173,7 +172,7 @@ export default defineCommand({
 
     intro(styleText('cyan', 'Upgrading Nuxt ...'))
 
-    const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
+    const [packageManager, workspaceDir = cwd, { resolveCatalogEntry, updateCatalogEntries }] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true }), import('../utils/catalog')])
     if (!packageManager) {
       logger.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in ${styleText('cyan', relativeToProcess(cwd))}, and no ${styleText('cyan', 'packageManager')} field specified in ${styleText('cyan', 'package.json')}.`,

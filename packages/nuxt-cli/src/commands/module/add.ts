@@ -19,7 +19,6 @@ import { createInstallLog, isVerboseInstall, runInstall, takeUnreportedIgnoredBu
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { defaultPackageManager, detectPackageManager, isPackageManagerName, packageManagerNames } from '../../utils/package-managers'
-import { detectNpmRegistry } from '../../utils/registry'
 import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
@@ -403,6 +402,7 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
 
   let version = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
+  const { detectNpmRegistry } = await import('../../utils/registry')
   const meta = await detectNpmRegistry(pkgScope, cwd)
   const headers: HeadersInit = meta.authorization ? { Authorization: meta.authorization } : {}
 
