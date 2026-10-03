@@ -3,13 +3,10 @@ import { defineCommand } from 'citty'
 import { resolveRootDir } from '../utils/paths'
 
 import { dotEnvArgs, envNameArgs, logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: '_dev',
-    description: 'Run Nuxt development server (internal command to start child process)',
-    hidden: true,
-  },
+  meta: commandMeta._dev,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

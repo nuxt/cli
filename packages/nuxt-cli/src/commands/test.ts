@@ -7,12 +7,10 @@ import { resolveModulePath } from 'exsolve'
 import { ActionableError } from '../utils/errors'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: 'test',
-    description: 'Run tests',
-  },
+  meta: commandMeta.test,
   args: {
     ...rootDirArgs,
     dev: {

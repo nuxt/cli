@@ -13,14 +13,12 @@ import { resolveRootDir } from '../utils/paths'
 import { withSpinner } from '../utils/spinner'
 import { isInteractive } from '../utils/stdout'
 import { cwdArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const MAX_RESULTS = 8
 
 export default defineCommand({
-  meta: {
-    name: 'docs',
-    description: 'Search or open the Nuxt documentation',
-  },
+  meta: commandMeta.docs,
   args: {
     query: {
       type: 'positional',

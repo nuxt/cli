@@ -6,12 +6,10 @@ import { logger } from '../utils/logger'
 import { cleanupNuxtDirs } from '../utils/nuxt'
 import { resolveRootDir } from '../utils/paths'
 import { rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: 'cleanup',
-    description: 'Clean up generated Nuxt files and caches',
-  },
+  meta: commandMeta.cleanup,
   args: {
     ...rootDirArgs,
   },

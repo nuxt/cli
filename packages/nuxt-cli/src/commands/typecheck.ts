@@ -21,6 +21,7 @@ import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 type TypeChecker = 'vue-tsc' | 'golar'
 
@@ -108,10 +109,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
 const CHECKER_PRIORITY = Object.keys(TYPE_CHECKERS) as TypeChecker[]
 
 export default defineCommand({
-  meta: {
-    name: 'typecheck',
-    description: 'Runs type-checking throughout your app using `vue-tsc` or Golar.',
-  },
+  meta: commandMeta.typecheck,
   args: {
     ...rootDirArgs,
     ...logLevelArgs,

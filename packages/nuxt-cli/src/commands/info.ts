@@ -24,6 +24,7 @@ import { detectPackageManager, getPackageManagerVersion } from '../utils/package
 import { resolveRootDir } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
 import { rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 const LEADING_SLASH_RE = /^\//
 
@@ -44,10 +45,7 @@ const JSON_KEYS: Record<string, string> = {
 }
 
 export default defineCommand({
-  meta: {
-    name: 'info',
-    description: 'Get information about Nuxt project',
-  },
+  meta: commandMeta.info,
   args: {
     ...rootDirArgs,
     json: {

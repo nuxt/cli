@@ -1,10 +1,8 @@
 import { defineCommand } from 'citty'
+import { commandMeta } from '../meta'
 
 export default defineCommand({
-  meta: {
-    name: 'task',
-    description: 'List and run Nitro tasks on your dev server',
-  },
+  meta: commandMeta.task,
   args: {},
   subCommands: {
     list: () => import('./list').then(r => r.default || r),

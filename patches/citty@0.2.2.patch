@@ -49,7 +49,7 @@ index a1366a146c3e54139fd82fd9d562a4f4329fa733..de79b9a2be12feb563d9e5b572a7f0ec
  declare function runCommand<T extends ArgsDef = ArgsDef>(cmd: CommandDef<T>, opts: RunCommandOptions): Promise<{
    result: unknown;
 diff --git a/dist/index.mjs b/dist/index.mjs
-index d0af470ebf46490d35a130436b67f287c46bdb0f..59d8d72cae4bb091a660cfb576e066333af64857 100644
+index d0af470ebf46490d35a130436b67f287c46bdb0f..065ab6f227fd68c3aa8033f43877aa0887f2f74b 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -26,6 +26,7 @@ var CLIError = class extends Error {
@@ -212,7 +212,15 @@ index d0af470ebf46490d35a130436b67f287c46bdb0f..59d8d72cae4bb091a660cfb576e06633
  				} else if (!cmd.run) throw new CLIError(`No command specified.`, "E_NO_COMMAND");
  			}
  		}
-@@ -278,14 +308,42 @@ function findSubCommandIndex(rawArgs, argsDef) {
+@@ -256,6 +286,7 @@ async function resolveSubCommand(cmd, rawArgs, parent) {
+ 	return [cmd, parent];
+ }
+ async function _findSubCommand(subCommands, name) {
++	if (name === void 0) return;
+ 	if (name in subCommands) return resolveValue(subCommands[name]);
+ 	for (const sub of Object.values(subCommands)) {
+ 		const resolved = await resolveValue(sub);
+@@ -278,14 +309,42 @@ function findSubCommandIndex(rawArgs, argsDef) {
  	return -1;
  }
  function _isValueFlag(flag, argsDef) {
@@ -259,7 +267,7 @@ index d0af470ebf46490d35a130436b67f287c46bdb0f..59d8d72cae4bb091a660cfb576e06633
  }
  //#endregion
  //#region src/usage.ts
-@@ -307,11 +365,12 @@ async function renderUsage(cmd, parent) {
+@@ -307,11 +366,12 @@ async function renderUsage(cmd, parent) {
  	const commandsLines = [];
  	const usageLine = [];
  	for (const arg of cmdArgs) if (arg.type === "positional") {
@@ -273,7 +281,7 @@ index d0af470ebf46490d35a130436b67f287c46bdb0f..59d8d72cae4bb091a660cfb576e06633
  		const isRequired = arg.required === true && arg.default === void 0;
  		const argStr = [...(arg.alias || []).map((a) => `-${a}`), `--${arg.name}`].join(", ") + renderValueHint(arg);
  		argLines.push([cyan(argStr), renderDescription(arg, isRequired)]);
-@@ -364,9 +423,10 @@ async function renderUsage(cmd, parent) {
+@@ -364,9 +424,10 @@ async function renderUsage(cmd, parent) {
  function renderValueHint(arg) {
  	const valueHint = arg.valueHint ? `=<${arg.valueHint}>` : "";
  	const fallbackValueHint = valueHint || `=<${snakeCase(arg.name)}>`;

@@ -10,12 +10,10 @@ import { readActiveLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
+import { commandMeta } from './meta'
 
 export default defineCommand({
-  meta: {
-    name: 'prepare',
-    description: 'Prepare Nuxt for development/build',
-  },
+  meta: commandMeta.prepare,
   args: {
     ...rootDirArgs,
     ...dotEnvArgs,

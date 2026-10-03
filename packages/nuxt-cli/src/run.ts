@@ -8,6 +8,7 @@ import { runCommand as _runCommand, runMain as _runMain, renderUsage } from 'cit
 
 import { commands } from './commands'
 import { globalCwdArgs } from './commands/_shared'
+import { commandMeta } from './commands/meta'
 import { main } from './main'
 import { warnOnHang } from './utils/hang'
 
@@ -62,9 +63,17 @@ export async function runCommand(
   })
 }
 
+/** The root command with each subcommand reduced to its meta, so listing them loads none. */
+function withCommandMeta(cmd: CommandDef<any>): CommandDef<any> {
+  return {
+    ...cmd,
+    subCommands: Object.fromEntries(Object.keys(commands).map(name => [name, { meta: commandMeta[name as keyof typeof commands] }])),
+  }
+}
+
 /** Print usage, unstyled when stdout lacks colour support. */
 export async function showUsage(cmd: CommandDef<any>, parent?: CommandDef<any>): Promise<void> {
-  const usage = await renderUsage(cmd, parent)
+  const usage = await renderUsage(cmd === main ? withCommandMeta(cmd) : cmd, parent)
   const plain = process.env.NO_COLOR || !process.stdout.hasColors?.()
   process.stdout.write(`${plain ? stripVTControlCharacters(usage) : usage}\n\n`)
 }
