@@ -1,4 +1,3 @@
-import http from 'node:http'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
@@ -40,7 +39,10 @@ export type ProxySetupResult = 'unused' | 'active' | 'children-only'
 
 type EnableGlobalProxy = (env: NodeJS.ProcessEnv) => unknown
 
-const setGlobalProxyFromEnv = (http as { setGlobalProxyFromEnv?: EnableGlobalProxy }).setGlobalProxyFromEnv
+// `node:http` loads tls, crypto, http2 and undici, so it stays off the startup path.
+function getGlobalProxySetter(): EnableGlobalProxy | null {
+  return (process.getBuiltinModule('node:http') as { setGlobalProxyFromEnv?: EnableGlobalProxy }).setGlobalProxyFromEnv ?? null
+}
 
 let envProxyActive: boolean | undefined
 let proxyHintShown = false
@@ -49,7 +51,7 @@ let proxyHintShown = false
  * Route requests from this process and its children through the proxy
  * environment variables, and record whether this process is proxy-aware.
  */
-export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGlobalProxy: EnableGlobalProxy | null = setGlobalProxyFromEnv ?? null): ProxySetupResult {
+export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGlobalProxy?: EnableGlobalProxy | null): ProxySetupResult {
   proxyHintShown = false
 
   if (!hasProxyEnv(env)) {
@@ -57,9 +59,12 @@ export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGl
     return 'unused'
   }
   envProxyActive = isEnvProxyActive(env)
-  if (!envProxyActive && enableGlobalProxy && env.NODE_USE_ENV_PROXY !== '0') {
-    enableGlobalProxy(env)
-    envProxyActive = true
+  if (!envProxyActive && env.NODE_USE_ENV_PROXY !== '0') {
+    const enable = enableGlobalProxy === undefined ? getGlobalProxySetter() : enableGlobalProxy
+    if (enable) {
+      enable(env)
+      envProxyActive = true
+    }
   }
   env.NODE_USE_ENV_PROXY ||= '1'
 
