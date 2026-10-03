@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { terminalLink } from '../../../src/utils/terminal-link'
+import { terminalLink } from '../../../src/utils/formatting'
 import { releaseNotesUrl } from '../../../src/utils/update-check'
 
 describe('release notes links', () => {

@@ -1,4 +1,4 @@
-import { stripAnsi } from '../../utils/width'
+import { stripAnsi } from '../../utils/formatting'
 
 export type DevLogSource = 'cli' | 'build' | 'runtime'
 

@@ -5,11 +5,10 @@ import { styleText } from 'node:util'
 
 import { isCI } from 'std-env'
 
-import { formatDuration } from './formatting'
+import { decapitalise, formatDuration, terminalLink } from './formatting'
 import { logger } from './logger'
 import { READY_MESSAGE } from './progress-snapshot'
 import { tapOutput } from './stdout'
-import { terminalLink } from './terminal-link'
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
@@ -29,14 +28,6 @@ const SHOW_CURSOR = '\u001B[?25h'
  * A ticking elapsed time, in tenths of a second. Anything finer changes the
  * line on every frame, which is the whole cost the frame-only repaint avoids.
  */
-function formatTicking(ms: number): string {
-  if (ms < 60_000) {
-    return `${(ms / 1000).toFixed(1)}s`
-  }
-  const minutes = Math.floor(ms / 60_000)
-  return `${minutes}m ${Math.floor((ms - minutes * 60_000) / 1000)}s`
-}
-
 /**
  * How long the phase in flight has taken, and how long the command has been
  * running, where those have parted company. A phase can hold a command for most
@@ -46,8 +37,8 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
   const total = snapshot.elapsed + drift
   const phase = snapshot.phaseElapsed + drift
   return total - phase >= PHASE_ELAPSED_THRESHOLD
-    ? `${formatTicking(phase)} \u00B7 ${formatTicking(total)}`
-    : formatTicking(total)
+    ? `${formatDuration(phase)} \u00B7 ${formatDuration(total)}`
+    : formatDuration(total)
 }
 
 export interface PhaseReporter {
@@ -87,10 +78,6 @@ export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
  */
 function formatURL(url: string): string {
   return `  ${styleText('dim', '\u2192')} ${styleText('cyan', terminalLink(url, url))}`
-}
-
-function decapitalise(text: string): string {
-  return /^[A-Z][a-z]/.test(text) ? text[0]!.toLowerCase() + text.slice(1) : text
 }
 
 /**
@@ -173,7 +160,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   function describe(): string {
     const pending = summarised ? snapshot!.pending : undefined
     return pending
-      ? `rendering ${pending.label} ${styleText('dim', formatTicking(Date.now() - pending.startedAt))}`
+      ? `rendering ${pending.label} ${styleText('dim', formatDuration(Date.now() - pending.startedAt))}`
       : `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
   }
 
@@ -234,7 +221,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
   /** A render, as its own line, for output that cannot redraw one in place. */
   function announce(label: string, elapsed?: number): string {
-    return `Rendering ${label}${elapsed === undefined ? '' : ` ${styleText('dim', `(${formatTicking(elapsed)})`)}`}`
+    return `Rendering ${label}${elapsed === undefined ? '' : ` ${styleText('dim', `(${formatDuration(elapsed)})`)}`}`
   }
 
   /** Take the line down, leaving the terminal as it was found. */

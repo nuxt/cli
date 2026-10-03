@@ -11,9 +11,9 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
-import { MUTED, paint } from '../../utils/terminal-theme'
+import { formatDuration, truncate } from '../../utils/formatting'
 
-import { truncate } from '../../utils/width'
+import { MUTED, paint } from '../../utils/terminal-theme'
 import { formatEvent, formatTime } from './overlay'
 import { paintStatus } from './panel'
 import { formatHints, ScreenOverlay } from './screen'
@@ -104,12 +104,12 @@ export class RequestOverlay extends ScreenOverlay {
     if (this.#detail) {
       const request = this.#detail
       const status = paintStatus(request.status)
-      return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${request.duration}ms${this.renderSearch()}`
+      return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${formatDuration(request.duration)}${this.renderSearch()}`
     }
     const shown = this.#matching().length
     const label = this.#filter === 'all' ? 'all' : this.#filter
     const median = this.#requests.medianDuration()
-    const summary = styleText(MUTED, `${this.#requests.total} total · median ${median}ms`)
+    const summary = styleText(MUTED, `${this.#requests.total} total · median ${formatDuration(median)}`)
     const hiddenInternal = this.#showInternal ? 0 : this.#requests.recent(SCAN_LIMIT, request => !!request.internal).length
     const bundler = hiddenInternal ? ` · ${styleText(MUTED, `${hiddenInternal} bundler hidden`)}` : ''
     return ` ${styleText('bold', 'traffic')} · ${label} (${shown}) · ${summary}${bundler}${this.renderPosition()}${this.renderSearch()}`
@@ -307,17 +307,17 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
   const longest = Math.max(...rows.map(row => row.label.length))
   const labelWidth = Math.max(LABEL_MIN_WIDTH, Math.min(longest, Math.floor(columns * 0.4)))
   const width = Math.max(TIMELINE_MIN_WIDTH, columns - labelWidth - TIMELINE_CHROME)
-  const totalLabel = formatSpanDuration(total)
+  const totalLabel = formatDuration(total)
   const axis = styleText(MUTED, `${'0ms'.padEnd(width - totalLabel.length)}${totalLabel}`)
 
   return [
     { lines: [`${styleText('bold', 'timeline'.padEnd(labelWidth + 11))} ${axis}`] },
     ...rows.map((row) => {
       const label = truncate(row.label, labelWidth).padEnd(labelWidth)
-      const time = formatSpanDuration(row.duration).padStart(9)
+      const time = formatDuration(row.duration).padStart(9)
       return {
         lines: [`${styleText(MUTED, row.kind.padEnd(10))} ${label} ${drawBar(row, origin, total, width)} ${styleText(MUTED, time)}`],
-        copy: `+${formatSpanDuration(row.segments[0]![0] - origin)} ${row.kind} ${row.label.trim()} ${formatSpanDuration(row.duration)}`,
+        copy: `+${formatDuration(row.segments[0]![0] - origin)} ${row.kind} ${row.label.trim()} ${formatDuration(row.duration)}`,
       }
     }),
     { lines: [''] },
@@ -367,8 +367,8 @@ function renderCompileBreakdown(compiled: DevRequestSpan[], columns: number): Ov
   const modules = [...compiled].sort((a, b) => b.duration - a.duration).slice(0, TOP_MODULES)
   const nameWidth = Math.max(0, columns - 12)
   const row = (name: string, duration: number): OverlayEntry => ({
-    lines: [`  ${formatSpanDuration(duration).padStart(8)}  ${truncate(name, nameWidth)}`],
-    copy: `${formatSpanDuration(duration)} ${name}`,
+    lines: [`  ${formatDuration(duration).padStart(8)}  ${truncate(name, nameWidth)}`],
+    copy: `${formatDuration(duration)} ${name}`,
   })
   return [
     ...plugins.length
@@ -385,15 +385,11 @@ function renderCompileBreakdown(compiled: DevRequestSpan[], columns: number): Ov
 }
 
 function describeRequest(request: DevRequest): string {
-  return `${request.method} ${request.url} ${request.status} ${request.duration}ms`
+  return `${request.method} ${request.url} ${request.status} ${formatDuration(request.duration)}`
 }
 
-function formatSpanDuration(duration: number): string {
-  return duration < 10 ? `${Math.max(0, duration).toFixed(1)}ms` : `${Math.round(duration)}ms`
-}
-
-function formatDuration(duration: number): string {
-  const text = `${duration}ms`.padStart(7)
+function paintDuration(duration: number): string {
+  const text = formatDuration(duration).padStart(7)
   if (duration >= VERY_SLOW_MS) {
     return styleText('red', text)
   }
@@ -404,11 +400,11 @@ function formatRequest(request: DevRequest, columns: number, target?: { file: st
   const time = styleText(MUTED, formatTime(request.time).padStart(11))
   const method = styleText('bold', request.method.padEnd(6))
   const status = paintStatus(request.status, String(request.status).padEnd(4))
-  const duration = formatDuration(request.duration)
+  const duration = paintDuration(request.duration)
   const marker = errors ? ` ${styleText(['red', 'bold'], `✗ ${errors}`)}` : ''
   // The four fixed columns above, plus the spaces between them and the marker.
   const room = Math.max(10, columns - 34 - (errors ? `  ✗ ${errors}`.length : 0))
-  const label = request.url.length > room ? `${request.url.slice(0, room - 1)}…` : request.url
+  const label = truncate(request.url, room)
   const url = target ? link(target.file, { cwd: target.cwd, formatter: () => label }) : label
   return `${time} ${method} ${status} ${duration}  ${url}${marker}`
 }

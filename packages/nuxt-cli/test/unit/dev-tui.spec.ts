@@ -6,7 +6,7 @@ import type { DevRoute } from '../../src/dev/utils'
 import process from 'node:process'
 import { consola } from 'consola'
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { deferShortcutContext } from '../../src/dev/shortcut-context'
 import { adoptShutdown } from '../../src/dev/shutdown'
@@ -24,11 +24,10 @@ import { RouteOverlay } from '../../src/dev/tui/route-overlay'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
+import { terminalLink, truncate } from '../../src/utils/formatting'
 import { logger } from '../../src/utils/logger'
 import { useTerminalHost } from '../../src/utils/terminal-host'
-import { terminalLink } from '../../src/utils/terminal-link'
 import { paint } from '../../src/utils/terminal-theme'
-import { truncate } from '../../src/utils/width'
 import { render, screen } from '../utils/terminal'
 
 const opened: string[] = []
@@ -44,6 +43,13 @@ vi.mock('tinyclip', () => ({
     return Promise.resolve()
   },
 }))
+
+beforeEach(() => {
+  vi.stubEnv('DISPLAY', ':0')
+})
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 // eslint-disable-next-line no-control-regex
 const strip = (text: string) => text.replaceAll(/\u001B\[[0-9;]*m|\u001B\]8;[^\u0007]*\u0007/g, '')
@@ -83,10 +89,10 @@ describe('dev tui panel', () => {
 
   it('should say which request it is busy with, and for how long', () => {
     const first = renderPanel({ ...READY, awaitingFirstRender: true, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
-    expect(first.join('\n')).toContain('WARMUP   rendering GET / · 6.4s')
+    expect(first.join('\n')).toContain('WARMUP   rendering GET / · 6.40s')
 
     const later = renderPanel({ ...READY, rendering: { label: 'GET /about', startedAt: 0 }, renderingMs: 1200 }, 80, 30).map(strip)
-    expect(later.join('\n')).toContain('READY   rendering GET /about · 1.2s')
+    expect(later.join('\n')).toContain('READY   rendering GET /about · 1.20s')
   })
 
   it('should keep the last request off the line while one is in flight', () => {
@@ -97,15 +103,15 @@ describe('dev tui panel', () => {
       lastRequest: { method: 'GET', url: '/', status: 200, duration: 8442 },
     }, 100, 30).map(strip)
 
-    expect(lines.join('\n')).toContain('READY   rendering GET / · 6.7s')
-    expect(lines.join('\n')).not.toContain('8442ms')
+    expect(lines.join('\n')).toContain('READY   rendering GET / · 6.70s')
+    expect(lines.join('\n')).not.toContain('8.44s')
   })
 
   it('should not put a clock on a render that has only just arrived', () => {
     const lines = renderPanel({ ...READY, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 40 }, 80, 30).map(strip)
 
     expect(lines.join('\n')).toContain('READY   rendering GET /')
-    expect(lines.join('\n')).not.toContain('0.0s')
+    expect(lines.join('\n')).not.toContain('40ms')
   })
 
   it('should let a load in flight keep the status line from a render', () => {
@@ -191,7 +197,7 @@ describe('dev tui panel', () => {
     const busy = { ...READY, requests: 188, medianMs: 11, task: { label: 'Installing with pnpm', startedAt: Date.now() - 4200 } }
     const lines = renderPanel(busy, 100, 30).map(strip)
     const line = lines.find(entry => entry.includes('installing with pnpm'))!
-    expect(line).toContain('4.2s')
+    expect(line).toContain('4.20s')
     expect(lines.join('\n')).not.toContain('188 requests')
     // The work borrows the line, so the panel keeps its shape.
     expect(lines).toHaveLength(renderPanel({ ...READY, requests: 188, medianMs: 11 }, 100, 30).length)
@@ -214,7 +220,7 @@ describe('dev tui panel', () => {
     const lines = renderPanel({ ...READY, status: 'starting', readyMs: undefined, progress: 0.5, elapsedMs: 3200, note: 'Bundling app' }, 100, 30).map(strip)
     const bar = lines.find(line => line.includes('%'))
     expect(bar).toContain('50%')
-    expect(bar).toContain('3.2s')
+    expect(bar).toContain('3.20s')
     expect(bar).toContain('\u2501')
     // The bar borrows the summary line, so the panel keeps its shape.
     expect(lines).toHaveLength(renderPanel({ ...READY }, 100, 30).length)

@@ -7,10 +7,10 @@ import { isCI, isTest, provider } from 'std-env'
 import { isGreaterThan, tryParse } from 'verkit'
 
 import { fetchJson } from './fetch'
+import { terminalLink } from './formatting'
 import { debug, writeNotice } from './logger'
 import { detectNpmRegistry } from './registry'
 import { trackOutputSpacing } from './stdout'
-import { terminalLink } from './terminal-link'
 
 const RC_FILE = '.nuxtrc'
 const CACHE_KEY = 'updateCheck'

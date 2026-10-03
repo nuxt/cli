@@ -3,9 +3,10 @@ import type { Key } from './keys'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
+import { stripAnsi, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
 
-import { stripAnsi, truncate, visibleWidth } from '../../utils/width'
+import { writeClipboard } from '../listen'
 
 const RENDER_DELAY_MS = 50
 
@@ -299,11 +300,6 @@ export abstract class ScreenOverlay {
     return this.renderEntries((process.stdout.columns || 80) - GUTTER_WIDTH)
   }
 
-  /**
-   * Move the selection, stopping at both ends. With nothing selected, moving up
-   * starts at the bottom and moving down starts at the top of what is on
-   * screen.
-   */
   #move(delta: number): void {
     const entries = this.#entries()
     if (!entries.length) {
@@ -389,18 +385,6 @@ export abstract class ScreenOverlay {
       }
     }, RENDER_DELAY_MS)
     this.#renderTimer.unref?.()
-  }
-}
-
-/** Put `text` on the clipboard, returning whether one was available. */
-export async function writeClipboard(text: string): Promise<boolean> {
-  try {
-    const { writeText } = await import('tinyclip')
-    await writeText(text)
-    return true
-  }
-  catch {
-    return false
   }
 }
 

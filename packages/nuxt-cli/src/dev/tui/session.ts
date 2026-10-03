@@ -10,11 +10,11 @@ import { formatWithOptions, styleText } from 'node:util'
 import { consola } from 'consola'
 
 import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
+import { stripAnsi } from '../../utils/formatting'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
 import { READY_MESSAGE } from '../../utils/progress-snapshot'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { registerTerminalHost } from '../../utils/terminal-host'
-import { stripAnsi } from '../../utils/width'
 import { currentRequest } from '../serving-state'
 import { isShutdownAdopted } from '../shutdown'
 import { queryBackground } from './background'
@@ -346,11 +346,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     transient = rewriting && stored === event ? stored : undefined
   }
 
-  /**
-   * Write `event` into scrollback above the panel, as printed or else as
-   * `fallback`, once it has had time to be paired with its printed form: a log
-   * forwarded from a fork arrives before the output that renders it.
-   */
+  // Deferred: a forwarded log arrives before its printed form.
   function surfaceLater(event: DevLogEvent, fallback: string): void {
     event.surfaced = true
     const render = () => event.rendered ?? fallback
@@ -362,12 +358,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     pendingSurfaces.set(timer, render)
   }
 
-  /**
-   * Boxed notices carry something (a URL, a token) that has to be readable and
-   * selectable, so they reach scrollback at any point. Errors and CLI warnings
-   * only do before the server is first ready; after that they belong to the
-   * badge and the log view.
-   */
+  // Boxed notices always reach scrollback; errors and CLI warnings only before first ready.
   function surfaceEvent(event: DevLogEvent): void {
     const text = normaliseMessage(event.message)
     if (event.surfaced || !text) {

@@ -14,6 +14,7 @@ import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
 import { resolveDotenvFileNames } from '../utils/args'
+import { formatDuration } from '../utils/formatting'
 import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
@@ -164,7 +165,7 @@ export default defineCommand({
     const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(useProjectReferences), {
       nodeOptions: { stdio: 'inherit', cwd },
     })
-    const duration = `${Date.now() - start}ms`
+    const duration = formatDuration(Date.now() - start)
 
     if (result.exitCode === 0) {
       if (hasTTY) {

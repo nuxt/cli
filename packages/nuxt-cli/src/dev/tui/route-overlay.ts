@@ -8,9 +8,9 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
-import { MUTED } from '../../utils/terminal-theme'
+import { truncate } from '../../utils/formatting'
 
-import { truncate } from '../../utils/width'
+import { MUTED } from '../../utils/terminal-theme'
 import { formatHints, ScreenOverlay } from './screen'
 
 type RouteFilter = 'all' | 'page' | 'server'

@@ -2,9 +2,8 @@ import type { TerminalBackground } from '../../utils/terminal-theme'
 
 import { styleText } from 'node:util'
 
-import { terminalLink } from '../../utils/terminal-link'
+import { decapitalise, formatDuration, stripAnsi, terminalLink, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
-import { stripAnsi, truncate, visibleWidth } from '../../utils/width'
 import { renderLogo } from './logo'
 
 export type DevStatus = 'starting' | 'building' | 'warming' | 'ready' | 'restarting' | 'error'
@@ -251,7 +250,7 @@ function renderProgress(state: PanelState, columns: number): string {
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
   const glyph = state.ascii ? '=' : '\u2501'
   const bar = styleText('green', glyph.repeat(filled)) + styleText(MUTED, glyph.repeat(PROGRESS_BAR_WIDTH - filled))
-  const elapsed = state.elapsedMs === undefined ? '' : `${SEPARATOR}${styleText(MUTED, `${(state.elapsedMs / 1000).toFixed(1)}s`)}`
+  const elapsed = state.elapsedMs === undefined ? '' : `${SEPARATOR}${styleText(MUTED, formatDuration(state.elapsedMs))}`
   return truncate(`   ${bar} ${styleText(MUTED, `${Math.round(fraction * 100)}%`)}${elapsed}`, columns)
 }
 
@@ -269,7 +268,7 @@ function renderSummary(state: PanelState, columns: number): string[] {
   if (state.task) {
     const glyph = state.ascii ? TASK_FRAMES_ASCII : TASK_FRAMES
     const mark = glyph[(state.frame ?? 0) % glyph.length]!
-    const elapsed = styleText(MUTED, `${((Date.now() - state.task.startedAt) / 1000).toFixed(1)}s`)
+    const elapsed = styleText(MUTED, formatDuration(Date.now() - state.task.startedAt))
     return [truncate(`   ${styleText('cyan', mark)} ${decapitalise(state.task.label)}${SEPARATOR}${elapsed}`, columns)]
   }
 
@@ -301,10 +300,6 @@ function renderSummary(state: PanelState, columns: number): string[] {
  * sentences ("Restarting Nuxt...", the progress phases). Only a leading
  * capital followed by lowercase is folded, so acronyms survive.
  */
-function decapitalise(text: string): string {
-  return /^[A-Z][a-z]/.test(text) ? text[0]!.toLowerCase() + text.slice(1) : text
-}
-
 const NOTICE_TONES = {
   info: { mark: { unicode: '\u2139', ascii: 'i' }, paint: (glyph: string) => styleText('cyan', glyph) },
   warn: { mark: { unicode: '\u26A0', ascii: '!' }, paint: (glyph: string, background?: TerminalBackground) => paint('warning', glyph, background) },
@@ -357,7 +352,7 @@ function renderRenderElapsed(state: PanelState): string {
   if (state.renderingMs === undefined || state.renderingMs < RENDER_ELAPSED_THRESHOLD) {
     return ''
   }
-  return ` \u00B7 ${(state.renderingMs / 1000).toFixed(1)}s`
+  return ` \u00B7 ${formatDuration(state.renderingMs)}`
 }
 
 /**
@@ -369,7 +364,7 @@ function renderPhaseElapsed(state: PanelState): string {
   if (!state.note || state.phaseElapsedMs === undefined || state.phaseElapsedMs < PHASE_ELAPSED_THRESHOLD) {
     return ''
   }
-  return ` \u00B7 ${(state.phaseElapsedMs / 1000).toFixed(1)}s`
+  return ` \u00B7 ${formatDuration(state.phaseElapsedMs)}`
 }
 
 /**
@@ -383,7 +378,7 @@ function renderTicker(state: PanelState, room: number): string {
   }
 
   const head = `${SEPARATOR}${styleText('bold', request.method)} `
-  const tail = `${SEPARATOR}${paintStatus(request.status, undefined, state.background)}${SEPARATOR}${styleText(MUTED, `${request.duration}ms`)}`
+  const tail = `${SEPARATOR}${paintStatus(request.status, undefined, state.background)}${SEPARATOR}${styleText(MUTED, formatDuration(request.duration))}`
   const available = room - visibleWidth(head) - visibleWidth(tail)
   if (available < 8) {
     return ''
@@ -429,10 +424,6 @@ export function paintStatus(status: number, text = String(status), background?: 
 
 function plural(count: number, word: string): string {
   return count === 1 ? word : `${word}s`
-}
-
-function formatDuration(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(2)}s`
 }
 
 /** The panel as plain text, for asserting layout without styling. */

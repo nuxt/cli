@@ -5,7 +5,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname } from '../../src/dev/listen'
+import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -443,6 +443,27 @@ describe('listener.close', () => {
   })
 })
 
+describe('writeClipboard', () => {
+  afterEach(() => {
+    restoreEnvironment()
+    vi.clearAllMocks()
+  })
+
+  it('should not reach for a clipboard tool without a display server on linux', async () => {
+    stubEnvironment('linux')
+
+    await expect(writeClipboard('text')).resolves.toBe(false)
+    expect(writeText).not.toHaveBeenCalled()
+  })
+
+  it('should resolve false rather than throw when the write fails', async () => {
+    stubEnvironment('darwin')
+    writeText.mockRejectedValueOnce(new Error('no clipboard tool found'))
+
+    await expect(writeClipboard('text')).resolves.toBe(false)
+  })
+})
+
 describe('copyURL', () => {
   afterEach(() => {
     restoreEnvironment()
@@ -471,13 +492,6 @@ describe('copyURL', () => {
     await copyURL('http://localhost:3000/')
 
     expect(writeText).toHaveBeenCalledWith('http://localhost:3000/')
-  })
-
-  it('should warn rather than throw when copying fails', async () => {
-    stubEnvironment('darwin')
-    writeText.mockRejectedValueOnce(new Error('no clipboard tool found'))
-
-    await expect(copyURL('http://localhost:3000/')).resolves.toBeUndefined()
   })
 })
 

@@ -15,13 +15,13 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
+import { formatDuration, terminalLink } from '../../utils/formatting'
 import { startupElapsedMs } from '../../utils/startup-clock'
 
 import { registerTerminalHost } from '../../utils/terminal-host'
-import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
-import { openBrowser } from '../listen'
+import { openBrowser, writeClipboard } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { isShutdownAdopted } from '../shutdown'
 import { NOOP_CONTROLLER } from './controller'
@@ -36,7 +36,6 @@ import { readProjectReport } from './project-report'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
-import { writeClipboard } from './screen'
 import { beginDevUI } from './session'
 
 export { beginDevUI } from './session'
@@ -804,9 +803,9 @@ function describeSession(
     {
       heading: 'session',
       entries: [
-        ['uptime', formatUptime(Date.now() - sessionStart)],
+        ['uptime', formatDuration(Date.now() - sessionStart)],
         ['requests', String(requests.total)],
-        ['median', requests.total ? `${requests.medianDuration()}ms` : undefined],
+        ['median', requests.total ? formatDuration(requests.medianDuration()) : undefined],
         ['directory', cwd],
       ],
     },
@@ -855,11 +854,4 @@ async function resolveUpdate(current?: string): Promise<string | undefined> {
     // An unreachable registry must never disturb the session.
     return undefined
   }
-}
-
-function formatUptime(elapsed: number): string {
-  const seconds = Math.floor(elapsed / 1000)
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  return [...hours ? [`${hours}h`] : [], ...hours || minutes ? [`${minutes}m`] : [], `${seconds % 60}s`].join(' ')
 }
