@@ -57,7 +57,7 @@ export class LogOverlay extends ScreenOverlay {
         return this.#setLevel('warn')
       case 'e':
         return this.#setLevel('error')
-      case 'c':
+      case 't':
         return this.#toggleSource('cli')
       case 'b':
         return this.#toggleSource('build')
@@ -105,9 +105,9 @@ export class LogOverlay extends ScreenOverlay {
       ['e', 'errors'],
       ['w', 'warnings'],
       ['a', 'all'],
-      ['c/b/r', 'cli/build/runtime'],
+      ['t/b/r', 'cli/build/runtime'],
       ['/', 'search'],
-      ['x', 'clear'],
+      ['x', 'delete logs'],
       ['y', 'copy'],
       ['Y', 'copy all'],
       ['q', 'close'],
@@ -148,14 +148,7 @@ export function formatTime(time: number): string {
   return new Date(time).toLocaleTimeString()
 }
 
-/**
- * A log as one or more rows.
- *
- * A log emitted for a request is headed by that request, sharing the line with
- * the timestamp, and its message sits underneath at the usual message column.
- * The heading repeats whenever the request changes, keyed on the individual
- * request so two calls to the same path stay separate.
- */
+/** Format log rows with timestamps and request headings. */
 export function formatEvent(event: DevLogEvent, columns: number, sameRequest = false): string[] {
   const messageColumn = 9
   const date = new Date(event.time)

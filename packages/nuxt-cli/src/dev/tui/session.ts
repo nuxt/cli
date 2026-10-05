@@ -508,6 +508,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     ['exit', onSignal],
     ['SIGINT', onInterrupt(130)],
     ['SIGTERM', onInterrupt(143)],
+    ['SIGQUIT', onInterrupt(131)],
     ['SIGHUP', onHangup],
     // Raw mode and a pinned panel would otherwise outlive the crash: node
     // prints the error and exits without unwinding through `exit` first.

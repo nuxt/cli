@@ -55,15 +55,15 @@ export class RequestOverlay extends ScreenOverlay {
     return ['n']
   }
 
-  handleKey(key: Key): void {
-    // Inside a trace, the ways out lead back to the table, not out of the view.
+  protected handleNavigationKey(key: Key): boolean {
     if (this.#detail && (key.name === 'escape' || key.name === 'q' || key.name === 'backspace' || key.name === 'n')) {
       this.#detail = undefined
       this.resetSelection()
       this.resetScroll()
-      return this.repaint()
+      this.repaint()
+      return true
     }
-    super.handleKey(key)
+    return false
   }
 
   protected activate(index: number): boolean {

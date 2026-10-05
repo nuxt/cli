@@ -10,13 +10,10 @@ import { writeClipboard } from '../listen'
 
 const RENDER_DELAY_MS = 50
 
-/** How long a copy confirmation stays in the hint line. */
 const NOTICE_MS = 2000
 
-/** Most characters copying a whole view puts on the clipboard, keeping the newest entries. */
 const COPY_ALL_MAX_CHARS = 60_000
 
-/** Marks the selected entry; the same width is reserved on every row. */
 const SELECTED_GUTTER = '▎ '
 const GUTTER = '  '
 const GUTTER_WIDTH = 2
@@ -32,14 +29,7 @@ export interface OverlayEntry {
 const ENTER_ALT = '\u001B[?1049h\u001B[?25l'
 const LEAVE_ALT = '\u001B[?25h\u001B[?1049l'
 
-/**
- * A full-screen view in the alternate buffer.
- *
- * Entering and leaving never disturbs the real scrollback, so a view can own the
- * whole terminal for as long as it is open. Subclasses supply the content and
- * any keys of their own; scrolling, throttled repaints, search, copying and the
- * buffer switch are handled here.
- */
+/** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
   #write: (chunk: string) => void
   #onClose: () => void
@@ -130,13 +120,24 @@ export abstract class ScreenOverlay {
     this.#onClose()
   }
 
+  protected handleNavigationKey(_key: Key): boolean {
+    return false
+  }
+
   handleKey(key: Key): void {
+    if (key.ctrl || key.meta) {
+      return
+    }
     if (this.#searching) {
       return this.#handleSearchKey(key)
     }
     if (key.sequence === '/') {
       this.#searching = true
       return this.render()
+    }
+
+    if (this.handleNavigationKey(key)) {
+      return
     }
 
     const page = Math.max(1, this.bodyRows() - 1)
@@ -199,7 +200,6 @@ export abstract class ScreenOverlay {
     return Math.max(1, (process.stdout.rows || 24) - 3)
   }
 
-  /** Follow status and rows below the viewport. */
   protected renderPosition(): string {
     return this.#following ? '' : ` · ${paint('warning', `follow paused${this.#offset > 0 ? ` · ↓${this.#offset} rows below` : ''}`)}`
   }
@@ -229,7 +229,7 @@ export abstract class ScreenOverlay {
     else if (key.name === 'backspace') {
       this.#query = this.#query.slice(0, -1)
     }
-    else if (key.sequence && key.sequence.length === 1 && !key.ctrl && key.sequence >= ' ') {
+    else if (key.sequence && key.sequence.length === 1 && key.sequence >= ' ') {
       this.#query += key.sequence
     }
     else {
@@ -247,7 +247,6 @@ export abstract class ScreenOverlay {
     this.#revealSelection = false
   }
 
-  /** Drop the selection, for views that swap their entry list wholesale. */
   protected resetSelection(): void {
     this.#selected = undefined
     this.#selectedKey = undefined
@@ -330,7 +329,6 @@ export abstract class ScreenOverlay {
       : this.renderHints(columns)
   }
 
-  /** Views lay out inside the gutter, so their own truncation stays exact. */
   #entries(): OverlayEntry[] {
     return this.renderEntries((process.stdout.columns || 80) - GUTTER_WIDTH)
   }
@@ -431,11 +429,7 @@ export abstract class ScreenOverlay {
   }
 }
 
-/**
- * `key description` pairs joined the way every view's hint line is, dropped
- * from the right until they fit. The first and last are kept: moving around
- * and getting out matter more than any filter.
- */
+/** Format hints to fit, preserving the first and last. */
 export function formatHints(hints: Array<[key: string, description: string]>, columns = Number.POSITIVE_INFINITY): string {
   const remaining = [...hints]
   const render = () => remaining

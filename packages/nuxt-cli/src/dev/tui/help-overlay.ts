@@ -8,28 +8,38 @@ import { formatHints, ScreenOverlay } from './screen'
 
 export interface HelpEntry {
   keys: string[]
-  /** The key that does the same thing when held with control. */
   ctrl?: string
   description: string
 }
 
 const VIEW_ENTRIES: HelpEntry[] = [
-  { keys: ['↑', '↓'], description: 'select an entry' },
+  { keys: ['↑ / k', '↓ / j'], description: 'select an entry' },
   { keys: ['Page Up', 'Page Down'], description: 'scroll a screenful' },
   { keys: ['Home', 'g'], description: 'go to the beginning' },
   { keys: ['End', 'G'], description: 'follow the latest entries' },
-  { keys: ['y', 'enter'], description: 'copy the selected line' },
+  { keys: ['y'], description: 'copy the selected entry' },
+  { keys: ['enter'], description: 'open details, otherwise copy' },
   { keys: ['Y'], description: 'copy the whole view' },
-  { keys: ['/'], description: 'search' },
+  { keys: ['/'], description: 'search (enter applies, esc cancels)' },
+  { keys: ['esc', 'q'], description: 'close or go back; opening key also closes' },
 ]
 
-/** The keyboard shortcuts, as a view rather than a wall of log output. */
+/** Keyboard shortcut reference. */
 export class HelpOverlay extends ScreenOverlay {
   #entries: () => HelpEntry[]
 
   constructor(entries: () => HelpEntry[], write: (chunk: string) => void, onClose: () => void) {
     super({ write, onClose })
     this.#entries = entries
+  }
+
+  open(): void {
+    if (this.isOpen) {
+      return
+    }
+    super.open()
+    this.select(0)
+    this.repaint()
   }
 
   protected get closeKeys(): readonly string[] {
@@ -47,18 +57,20 @@ export class HelpOverlay extends ScreenOverlay {
       lines: [`${styleText('bold', formatKeys(entry).padEnd(width))}   ${styleText(MUTED, entry.description)}`],
     })
     return [
-      ...entries.map(row),
+      { lines: [styleText('bold', 'global')] },
+      ...entries.filter(entry => entry.ctrl).map(row),
+      { lines: ['', styleText('bold', 'main panel')] },
+      ...entries.filter(entry => !entry.ctrl).map(row),
       { lines: ['', styleText('bold', 'in a view')] },
       ...VIEW_ENTRIES.map(row),
     ]
   }
 
   protected renderHints(columns: number): string {
-    return formatHints([['q', 'close']], columns)
+    return formatHints([['↑/↓', 'select'], ['PgUp/PgDn', 'scroll'], ['esc/q', 'close']], columns)
   }
 }
 
-/** Keys as a user presses them, with shifted letters spelled out. */
 function formatKeys({ keys, ctrl }: HelpEntry): string {
   const named = keys.map(key => /^[A-Z]$/.test(key) ? `shift-${key.toLowerCase()}` : key)
   return [...named, ...ctrl ? [`ctrl-${ctrl}`] : []].join(' / ')

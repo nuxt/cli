@@ -8,20 +8,14 @@ import { filterTerminalReplies } from './terminal-replies'
 export interface Key {
   name?: string
   ctrl?: boolean
+  meta?: boolean
+  shift?: boolean
   sequence?: string
 }
 
 /**
- * Put stdin into raw mode and deliver single keypresses.
- *
- * Raw mode means the terminal no longer turns Ctrl-C into `SIGINT`, so the
- * handler receives it as a key and is responsible for shutdown. Replies from
- * the terminal are dropped, and keys wait until the background query has
- * finished with stdin.
- *
- * Pass `ignoreBufferedInput` when taking stdin back after something else held
- * it, such as a prompt: what the terminal buffered meanwhile was typed at that,
- * not at the panel.
+ * Deliver raw keypresses, excluding terminal replies. The handler owns Ctrl-C.
+ * Set `ignoreBufferedInput` when returning from a prompt.
  */
 export function attachKeys(onKey: (key: Key) => void, { ignoreBufferedInput = false }: { ignoreBufferedInput?: boolean } = {}): () => void {
   let release: (() => void) | undefined
@@ -61,7 +55,6 @@ export function attachKeys(onKey: (key: Key) => void, { ignoreBufferedInput = fa
     }
   }
 
-  // Synchronous when nothing holds stdin, so a caller can deliver a key at once.
   const held = whenStdinReleased()
   if (held) {
     void held.then(attach)
