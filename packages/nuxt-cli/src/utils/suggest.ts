@@ -1,4 +1,4 @@
-export interface SuggestionPolicy {
+interface SuggestionPolicy {
   /** Minimum `fuzzysort` score for a subsequence match to be believed. */
   threshold: number
   /** How far ahead of the runner up a subsequence match has to be. */
@@ -16,7 +16,7 @@ export interface SuggestionPolicy {
  * have read, so it has to be right; a wrong flag suggestion sits next to the
  * flag they typed, so a lower bar is worth the extra hits.
  */
-export const commandPolicy: SuggestionPolicy = {
+const commandPolicy: SuggestionPolicy = {
   threshold: 0.6,
   margin: 0.1,
   tolerance: input => input.length <= 4 ? 1 : 2,
@@ -24,9 +24,17 @@ export const commandPolicy: SuggestionPolicy = {
   requireUnique: true,
 }
 
-export const flagPolicy: SuggestionPolicy = {
+const flagPolicy: SuggestionPolicy = {
   threshold: 0.3,
   tolerance: input => input.length <= 4 ? 1 : 2,
+}
+
+export function suggestCommand(input: string, commands: string[]): Promise<string | undefined> {
+  return suggestClosest(input, commands, commandPolicy)
+}
+
+export function suggestFlag(input: string, flags: string[]): Promise<string | undefined> {
+  return suggestClosest(input, flags, flagPolicy)
 }
 
 /**
@@ -37,7 +45,7 @@ export const flagPolicy: SuggestionPolicy = {
  * at zero (`biuld` against `build`, `dotnev` against `dotenv`), which is the
  * most common typo of all, so edit distance covers what it rejects.
  */
-export async function suggestClosest(input: string, candidates: string[], policy: SuggestionPolicy): Promise<string | undefined> {
+async function suggestClosest(input: string, candidates: string[], policy: SuggestionPolicy): Promise<string | undefined> {
   const query = input.toLowerCase()
   if (!query || candidates.includes(input)) {
     return undefined

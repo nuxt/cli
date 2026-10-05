@@ -171,19 +171,25 @@ async function performTakeover(lockDir: string, existing: LockInfo, timeouts: Ta
   const pids = [...new Set([existing.pid, existing.parentPid, existing.serverPid])]
     .filter((pid): pid is number => !!pid)
 
-  // On Windows `SIGTERM` is not delivered as a signal and terminates the process
-  // outright, so the graceful window below simply passes quickly there.
-  signalAll(pids, 'SIGTERM')
-  if (await waitForRelease(pids, port, existing.hostname, timeouts.graceful ?? DEV_SHUTDOWN_TIMEOUT_MS)) {
-    progress.stop(`Stopped the ${label} on port ${port} (PID ${existing.pid})`)
-    return { action: 'taken', port, pid: existing.pid }
-  }
-
-  progress.update(`Waiting for the ${label} on port ${port} to exit`)
-  signalAll(pids, 'SIGKILL')
-  if (await waitForRelease(pids, port, existing.hostname, timeouts.force ?? TAKEOVER_KILL_TIMEOUT_MS)) {
-    progress.stop(`Stopped the ${label} on port ${port} (PID ${existing.pid})`)
-    return { action: 'taken', port, pid: existing.pid }
+  // On Windows `SIGTERM` terminates outright.
+  const phases = [
+    ['SIGTERM', timeouts.graceful ?? DEV_SHUTDOWN_TIMEOUT_MS],
+    ['SIGKILL', timeouts.force ?? TAKEOVER_KILL_TIMEOUT_MS],
+  ] as const
+  for (const [signal, timeout] of phases) {
+    if (signal === 'SIGKILL') {
+      progress.update(`Waiting for the ${label} on port ${port} to exit`)
+    }
+    for (const pid of pids) {
+      try {
+        process.kill(pid, signal)
+      }
+      catch {}
+    }
+    if (await waitForRelease(pids, port, existing.hostname, timeout)) {
+      progress.stop(`Stopped the ${label} on port ${port} (PID ${existing.pid})`)
+      return { action: 'taken', port, pid: existing.pid }
+    }
   }
 
   progress.fail(`Could not stop the ${label} on port ${port}`)
@@ -281,15 +287,6 @@ async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoi
     return 'abort'
   }
   return choice
-}
-
-function signalAll(pids: number[], signal: NodeJS.Signals): void {
-  for (const pid of pids) {
-    try {
-      process.kill(pid, signal)
-    }
-    catch {}
-  }
 }
 
 // A lock without a hostname was bound to every interface, and on macOS a

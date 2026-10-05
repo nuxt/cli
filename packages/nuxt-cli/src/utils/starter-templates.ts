@@ -2,7 +2,7 @@ import process from 'node:process'
 
 import { fetchJson } from './fetch.ts'
 
-export const hiddenTemplates = [
+const hiddenTemplates = [
   'doc-driven',
   'v4',
   'v4-compat',

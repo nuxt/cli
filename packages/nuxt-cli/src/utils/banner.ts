@@ -4,7 +4,7 @@ import { styleText } from 'node:util'
 
 import { logger } from './logger'
 import { getNitroVersion } from './nitro'
-import { getPkgJSON, getPkgVersion } from './pkg'
+import { getNuxtPkgVersion, getPkgJSON, getPkgVersion } from './pkg'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
   switch (builder) {
@@ -43,7 +43,7 @@ export interface StackVersions {
 /** The versions of the framework packages in use, for the banner and the dev UI. */
 export function resolveStackVersions(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'] } = {}): StackVersions {
   return {
-    nuxt: options.nuxtVersion || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly'),
+    nuxt: options.nuxtVersion || getNuxtPkgVersion(cwd),
     nitro: getNitroVersion(cwd),
     builder: getBuilder(cwd, options.builder as Exclude<NuxtOptions['builder'], NuxtBuilder>),
     vue: getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null,

@@ -3,7 +3,7 @@ import type { DevUISupportOptions } from './support'
 
 import process from 'node:process'
 
-import { getPkgVersion } from '../../utils/pkg'
+import { getNuxtPkgVersion } from '../../utils/pkg'
 import { resolveBackground } from '../../utils/terminal-theme'
 import { DEFAULT_HINTS, renderPanel } from './panel'
 import { resolveDevUISupport, supportsUnicode } from './support'
@@ -20,12 +20,16 @@ export interface PanelStartOptions extends DevUISupportOptions {
   startTime?: number
 }
 
+export function resolveNuxtVersion(options: { version?: string, cwd?: string }): string | undefined {
+  const cwd = options.cwd || process.cwd()
+  return options.version || getNuxtPkgVersion(cwd) || undefined
+}
+
 /** The panel as it looks before anything has been loaded. */
 export function createPanelState(options: PanelStartOptions = {}): PanelState {
-  const cwd = options.cwd || process.cwd()
   return {
     status: 'starting',
-    version: options.version || getPkgVersion(cwd, 'nuxt') || getPkgVersion(cwd, 'nuxt-nightly') || undefined,
+    version: resolveNuxtVersion(options),
     warnings: 0,
     errors: 0,
     ascii: !supportsUnicode(),

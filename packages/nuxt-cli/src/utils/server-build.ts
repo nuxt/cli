@@ -10,26 +10,16 @@ const DEFAULT_PUBLIC_DIR = '.output/public'
 const DEFAULT_TARGET_LABEL = 'preset'
 
 /**
- * A server builder as the CLI needs to see it: what to call it, an optional
- * deploy target within it, what it can do, where its build lands and how to
- * preview it.
- *
- * Everything a builder can move during its own init is a getter rather than a
- * value: Nitro resolves its preset and then `nitro:config` and
- * `nitro.updateConfig()` can each change `output.dir`, so a snapshot taken
- * before the build can be wrong by the time it is used.
+ * A server builder as the CLI sees it. Anything a builder can change during its
+ * own init is a getter, so it is read when used rather than snapshotted.
  */
 export interface ServerBuild {
-  /** The configured server builder, e.g. `nitro` or `vite`. */
-  readonly name: string
   /** The builder's display name, e.g. `Nitro` or `Vite SPA`. */
   readonly label: string
   /** What the builder calls its deploy target axis, e.g. `preset`. */
   targetLabel: string
   /** Whether Nuxt described this build itself, rather than the CLI inferring it. */
   declared: boolean
-  /** Whether this build produces a server runtime. */
-  readonly hasServer: boolean
   /** Whether this builder can serve `nuxt dev`. */
   hasDevServer: boolean
   /** The deploy target within the builder, e.g. a Nitro preset. */
@@ -139,16 +129,6 @@ function normalizeBuilderName(specifier: string): string {
 }
 
 /**
- * A directory path that compares equal to another naming the same directory.
- *
- * `nitro.options.output.*` carries a trailing slash, and these paths are used as
- * lock keys and printed relative to the cwd.
- */
-function normalizeDir(dir: string): string {
-  return resolve(dir)
-}
-
-/**
  * Describe a loaded Nuxt instance's build in builder-agnostic terms.
  *
  * `nuxt.serverBuild` answers all of this where it exists; otherwise it is
@@ -165,25 +145,19 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
     targetLabel: declared?.targetLabel ?? DEFAULT_TARGET_LABEL,
     declared: !!declared,
     hasDevServer: declared?.capabilities.dev ?? true,
-    get name() {
-      return (declared ? normalizeBuilderName(declared.name) : undefined) ?? inferBuilderName(nuxt) ?? (getNitro() ? 'nitro' : 'unknown')
-    },
     get label() {
       return getServerBuilderName(nuxt, !!getNitro())
-    },
-    get hasServer() {
-      return declared?.capabilities.server ?? !!getNitro()
     },
     get target() {
       return declared?.target?.() ?? getNitro()?.options.preset
     },
     get dir() {
-      return normalizeDir(declared?.output.dir()
+      return resolve(declared?.output.dir()
         ?? getNitro()?.options.output?.dir
         ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.dir || DEFAULT_OUTPUT_DIR))
     },
     get publicDir() {
-      return normalizeDir(declared?.output.publicDir()
+      return resolve(declared?.output.publicDir()
         ?? getNitro()?.options.output?.publicDir
         ?? resolve(nuxt.options.rootDir, nuxt.options.nitro?.output?.publicDir || DEFAULT_PUBLIC_DIR))
     },
@@ -192,7 +166,7 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
     },
     get previewStaticDir() {
       const dir = declared?.preview?.staticDir?.()
-      return dir ? normalizeDir(dir) : undefined
+      return dir ? resolve(dir) : undefined
     },
   }
 }

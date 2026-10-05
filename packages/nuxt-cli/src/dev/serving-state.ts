@@ -1,3 +1,5 @@
+import type { IncomingMessage } from 'node:http'
+
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { randomUUID } from 'node:crypto'
 
@@ -9,10 +11,10 @@ export interface InflightRequest {
 const storage = new AsyncLocalStorage<InflightRequest>()
 
 /** Carries the request across the boundary the async context cannot cross. */
-export const REQUEST_HEADER = 'x-nuxt-dev-request-id'
+const REQUEST_HEADER = 'x-nuxt-dev-request-id'
 
-/** Carries the request's `METHOD /path` alongside {@link REQUEST_HEADER}. */
-export const REQUEST_LABEL_HEADER = 'x-nuxt-dev-request-label'
+/** Carries the request's `METHOD /path`, URI-encoded, alongside {@link REQUEST_HEADER}. */
+const REQUEST_LABEL_HEADER = 'x-nuxt-dev-request-label'
 
 /**
  * Identify a request, so logs and reports can be attributed to it.
@@ -23,12 +25,27 @@ export function createRequest(label: string): InflightRequest {
   return { id: randomUUID(), label }
 }
 
+/** Stamp `req` with a fresh identity, overwriting any client-supplied copy in `headers` and `rawHeaders`. */
+export function attachRequest(req: IncomingMessage): InflightRequest {
+  if (req.headers[REQUEST_HEADER] !== undefined || req.headers[REQUEST_LABEL_HEADER] !== undefined) {
+    for (let i = req.rawHeaders.length - 2; i >= 0; i -= 2) {
+      const name = req.rawHeaders[i]?.toLowerCase()
+      if (name === REQUEST_HEADER || name === REQUEST_LABEL_HEADER) {
+        req.rawHeaders.splice(i, 2)
+      }
+    }
+  }
+  const request = createRequest(`${req.method || 'GET'} ${req.url || '/'}`)
+  const label = encodeURIComponent(request.label)
+  req.headers[REQUEST_HEADER] = request.id
+  req.headers[REQUEST_LABEL_HEADER] = label
+  req.rawHeaders.push(REQUEST_HEADER, request.id, REQUEST_LABEL_HEADER, label)
+  return request
+}
+
 /**
  * Serve `run` inside a context that identifies the request, so any log it causes
  * can be attributed to it.
- *
- * The dev server, the build tooling and the app all log through the same consola
- * on the same thread, so the call site says nothing about who is logging.
  *
  * The context reaches everything on the handler's own async chain, timers and
  * microtasks included, but not the app: Nuxt's dev pipeline re-dispatches
@@ -36,19 +53,8 @@ export function createRequest(label: string): InflightRequest {
  * async one. The app's own logs are attributed by
  * `runtime/dev-request-context.mjs` instead.
  */
-export function runWithRequest<T>(request: InflightRequest | string, run: (request: InflightRequest) => T): T {
-  const inflight = typeof request === 'string' ? createRequest(request) : request
-  return storage.run(inflight, () => run(inflight))
-}
-
-/** The value of {@link REQUEST_LABEL_HEADER} for `request`, encoded for a header. */
-export function encodeRequestLabel(request: InflightRequest): string {
-  return encodeURIComponent(request.label)
-}
-
-/** Whether this code is running to serve a request, rather than to build. */
-export function isServingRequest(): boolean {
-  return storage.getStore() !== undefined
+export function runWithRequest<T>(request: InflightRequest, run: () => T): T {
+  return storage.run(request, run)
 }
 
 /**

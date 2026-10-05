@@ -6,7 +6,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 
 import { commands } from '../../../src/commands'
-import { suggestCommand } from '../../../src/utils/suggest-command'
+import { suggestCommand } from '../../../src/utils/suggest'
 import { findUnknownFlags, replaceFlag, suggestFlags } from '../../../src/utils/unknown-args'
 
 const RUNS = Number(process.env.NUXT_CLI_FUZZ_RUNS) || 200

@@ -12,12 +12,15 @@ import { isNuxiCommand, nuxiCommands } from '../../nuxt-cli/src/commands/_utils'
 import { setupGlobalConsole } from '../../nuxt-cli/src/utils/console'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
+import { setupProxySupport } from '../../nuxt-cli/src/utils/network'
 import { findInPath, withLocalBinPath } from '../../nuxt-cli/src/utils/path-env'
 import { description, name, version } from '../package.json'
 
 const commands = {
   init: () => import('../../create-nuxt/src/init').then(m => m.default || m),
 } as const
+
+setupProxySupport()
 
 const _main = defineCommand({
   meta: {
@@ -82,7 +85,7 @@ const _main = defineCommand({
 })
 
 async function reportUnknownCommand(command: string): Promise<void> {
-  const { suggestCommand } = await import('../../nuxt-cli/src/utils/suggest-command')
+  const { suggestCommand } = await import('../../nuxt-cli/src/utils/suggest')
   const suggestion = await suggestCommand(command, nuxiCommands.filter(name => !name.startsWith('_')))
   if (!suggestion) {
     return

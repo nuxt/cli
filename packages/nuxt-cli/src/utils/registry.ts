@@ -6,7 +6,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { parseINI } from 'confbox'
+import { parseINI } from 'confbox/ini'
 
 const TRAILING_SLASH_RE = /\/$/
 const ENV_REFERENCE_RE = /\$\{([^}]+)\}/g
@@ -22,66 +22,38 @@ export interface RegistryMeta {
   authorization: string | null
 }
 
+type NpmConfig = Record<string, string | undefined>
+
+function registryFromConfig(config: NpmConfig, scope: string | null): string | null {
+  return (scope && config[`${scope}:registry`]?.trim()) || config.registry?.trim() || null
+}
+
 export function getRegistryFromContent(content: string, scope: string | null): string | null {
   try {
-    const npmConfig = parseINI<Record<string, string | undefined>>(content)
-
-    if (scope) {
-      const scopeKey = `${scope}:registry`
-      if (npmConfig[scopeKey]) {
-        return npmConfig[scopeKey].trim()
-      }
-    }
-
-    if (npmConfig.registry) {
-      return npmConfig.registry.trim()
-    }
-
-    return null
+    return registryFromConfig(parseINI<NpmConfig>(content), scope)
   }
   catch {
     return null
   }
 }
 
-/**
- * `.npmrc` files to consult, most specific first. Without a `cwd` only the user's
- * own file is read, for requests a project should not be able to redirect.
- */
-function getNpmrcPaths(cwd: string | undefined): string[] {
-  return cwd ? [join(cwd, '.npmrc'), join(homedir(), '.npmrc')] : [join(homedir(), '.npmrc')]
-}
-
-async function getRegistryFromFile(paths: string[], scope: string | null) {
-  for (const npmrcPath of paths) {
+/** Parsed `.npmrc` files, most specific first; only the user file without a `cwd`. */
+async function readNpmrcs(cwd: string | undefined): Promise<NpmConfig[]> {
+  const paths = cwd ? [join(cwd, '.npmrc'), join(homedir(), '.npmrc')] : [join(homedir(), '.npmrc')]
+  const configs = await Promise.all(paths.map(async (npmrcPath) => {
     let fd: FileHandle | undefined
     try {
       fd = await fs.promises.open(npmrcPath, 'r')
       if (await fd.stat().then(r => r.isFile())) {
-        const npmrcContent = await fd.readFile('utf-8')
-        const registry = getRegistryFromContent(npmrcContent, scope)
-
-        if (registry) {
-          return registry
-        }
+        return parseINI<NpmConfig>(await fd.readFile('utf-8'))
       }
     }
-    catch {
-      // swallow errors as file does not exist
-    }
+    catch {}
     finally {
       await fd?.close()
     }
-  }
-  return null
-}
-
-async function getRegistry(scope: string | null, cwd: string | undefined): Promise<string> {
-  const registry = process.env.COREPACK_NPM_REGISTRY
-    || await getRegistryFromFile(getNpmrcPaths(cwd), scope)
-    || PUBLIC_REGISTRY
-
-  return registry.replace(TRAILING_SLASH_RE, '')
+  }))
+  return configs.filter(c => !!c)
 }
 
 /**
@@ -111,7 +83,7 @@ function expand(value: string): string {
   return value.trim().replace(ENV_REFERENCE_RE, (match, name: string) => process.env[name] ?? match)
 }
 
-function readCredentials(config: Record<string, string | undefined>, registry: string): Pick<RegistryMeta, 'authToken' | 'authorization'> | undefined {
+function readCredentials(config: NpmConfig, registry: string): Pick<RegistryMeta, 'authToken' | 'authorization'> | undefined {
   for (const prefix of authKeyPrefixes(registry)) {
     const token = config[`${prefix}:_authToken`]
     if (token) {
@@ -132,30 +104,6 @@ function readCredentials(config: Record<string, string | undefined>, registry: s
   }
 }
 
-async function getCredentials(registry: RegistryMeta['registry'], cwd: string | undefined): Promise<Pick<RegistryMeta, 'authToken' | 'authorization'>> {
-  for (const npmrcPath of getNpmrcPaths(cwd)) {
-    let fd: FileHandle | undefined
-    try {
-      fd = await fs.promises.open(npmrcPath, 'r')
-      if (await fd.stat().then(r => r.isFile())) {
-        const config = parseINI<Record<string, string | undefined>>(await fd.readFile('utf-8'))
-        const credentials = readCredentials(config, registry)
-        if (credentials) {
-          return credentials
-        }
-      }
-    }
-    catch {
-      // swallow errors as file does not exist
-    }
-    finally {
-      await fd?.close()
-    }
-  }
-
-  return { authToken: null, authorization: null }
-}
-
 /**
  * Registry and credentials for `scope`, from the project's `.npmrc` in `cwd`
  * (defaulting to the working directory) and then the user's. Pass `null` as
@@ -164,11 +112,16 @@ async function getCredentials(registry: RegistryMeta['registry'], cwd: string | 
  * a request the user did not ask for should not be steered by it.
  */
 export async function detectNpmRegistry(scope: string | null, cwd: string | null = process.cwd()): Promise<RegistryMeta> {
-  const paths = cwd ?? undefined
-  const registry = await getRegistry(scope, paths)
+  const configs = await readNpmrcs(cwd ?? undefined)
+  const registry = (process.env.COREPACK_NPM_REGISTRY
+    || configs.map(config => registryFromConfig(config, scope)).find(Boolean)
+    || PUBLIC_REGISTRY).replace(TRAILING_SLASH_RE, '')
 
-  return {
-    registry,
-    ...await getCredentials(registry, paths),
+  for (const config of configs) {
+    const credentials = readCredentials(config, registry)
+    if (credentials) {
+      return { registry, ...credentials }
+    }
   }
+  return { registry, authToken: null, authorization: null }
 }

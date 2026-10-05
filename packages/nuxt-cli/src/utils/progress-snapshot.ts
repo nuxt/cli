@@ -56,3 +56,79 @@ export interface ProgressSnapshot {
   timings: PhaseTiming[]
   error?: { name: string, message: string }
 }
+
+export interface Phase {
+  id: string
+  message: string
+}
+
+/** Forward-only sequence of phases, timing each as it is left. */
+export class PhaseTimeline {
+  timings: PhaseTiming[] = []
+  protected index: number = 0
+  protected startedAt: number = Date.now()
+  protected phaseStartedAt: number = this.startedAt
+  protected readonly phases: readonly Phase[]
+  #listeners = new Set<(snapshot: ProgressSnapshot) => void>()
+
+  constructor(phases: readonly Phase[]) {
+    this.phases = phases
+  }
+
+  get snapshot(): ProgressSnapshot {
+    const now = Date.now()
+    return {
+      status: 'loading',
+      phase: this.phases[this.index]!.id,
+      message: this.phases[this.index]!.message,
+      index: this.index,
+      total: this.phases.length - 1,
+      progress: this.index / (this.phases.length - 1),
+      elapsed: now - this.startedAt,
+      phaseElapsed: now - this.phaseStartedAt,
+      reload: false,
+      serving: true,
+      timings: this.timings,
+    }
+  }
+
+  onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
+    this.#listeners.add(listener)
+    return () => this.#listeners.delete(listener)
+  }
+
+  protected restart(): void {
+    this.index = 0
+    this.timings = []
+    this.startedAt = Date.now()
+    this.phaseStartedAt = this.startedAt
+  }
+
+  protected closePhase(): void {
+    const phase = this.phases[this.index]!
+    this.timings.push({ phase: phase.id, message: phase.message, duration: Date.now() - this.phaseStartedAt })
+    this.phaseStartedAt = Date.now()
+  }
+
+  /** Enter phase `id`; `undefined` if unknown or already passed. */
+  protected enter(id: string): boolean | undefined {
+    const index = this.phases.findIndex(phase => phase.id === id)
+    if (index === -1 || index < this.index) {
+      return undefined
+    }
+    if (index === this.index) {
+      return false
+    }
+    this.closePhase()
+    this.index = index
+    return true
+  }
+
+  protected emit(): ProgressSnapshot {
+    const snapshot = this.snapshot
+    for (const listener of this.#listeners) {
+      listener(snapshot)
+    }
+    return snapshot
+  }
+}

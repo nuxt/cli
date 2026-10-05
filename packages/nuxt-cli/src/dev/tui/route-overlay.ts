@@ -8,10 +8,10 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
-import { MUTED } from '../../utils/terminal-theme'
+import { truncate } from '../../utils/formatting'
 
+import { MUTED } from '../../utils/terminal-theme'
 import { formatHints, ScreenOverlay } from './screen'
-import { truncate } from './width'
 
 type RouteFilter = 'all' | 'page' | 'server'
 

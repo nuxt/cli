@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isBundlerRequest } from '../../src/dev/utils'
+import { isBundlerRequest } from '../../src/dev/request-kind'
 
 describe('isBundlerRequest', () => {
   it.each([

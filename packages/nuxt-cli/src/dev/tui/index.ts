@@ -15,13 +15,13 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
+import { formatDuration, terminalLink } from '../../utils/formatting'
+import { releaseNotesUrl } from '../../utils/release-notes'
 import { startupElapsedMs } from '../../utils/startup-clock'
 
 import { registerTerminalHost } from '../../utils/terminal-host'
-import { terminalLink } from '../../utils/terminal-link'
 import { MUTED, paint } from '../../utils/terminal-theme'
-import { checkForUpdate, isUpdateCheckEnabled, releaseNotesUrl } from '../../utils/update-check'
-import { openBrowser } from '../listen'
+import { openBrowser, writeClipboard } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { isShutdownAdopted } from '../shutdown'
 import { NOOP_CONTROLLER } from './controller'
@@ -177,10 +177,6 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   // the animation for whatever it has just put there.
   session.onProgressChange(refresh)
 
-  function clearActivity(): void {
-    update({ active: false })
-  }
-
   function advanceFrame(): void {
     const working = state.status !== 'ready' && state.status !== 'error'
     update({
@@ -271,6 +267,10 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({ notice: { text: text.split('\n')[0]!.trim(), tone } })
     noticeTimer = setTimeout(clearNotice, NOTICE_MS)
     noticeTimer.unref?.()
+  }
+
+  function clearActivity(): void {
+    update({ active: false })
   }
 
   const repaintTicker = createTickerRepainter(refresh)
@@ -672,6 +672,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       activityTimer = setTimeout(clearActivity, ACTIVITY_MS)
       activityTimer.unref?.()
     },
+    pushSpans: spans => requests.pushSpans(spans),
     pushReport: (report) => {
       // Set before the event, which would otherwise paint the badge's standing
       // description in between.
@@ -745,12 +746,10 @@ async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'i
     notify('no server to copy the url of yet', 'warn')
     return
   }
-  try {
-    const { writeText } = await import('tinyclip')
-    await writeText(url)
+  if (await writeClipboard(url)) {
     notify(`copied ${url} to the clipboard`, 'success')
   }
-  catch {
+  else {
     notify('no clipboard available', 'warn')
   }
 }
@@ -804,9 +803,9 @@ function describeSession(
     {
       heading: 'session',
       entries: [
-        ['uptime', formatUptime(Date.now() - sessionStart)],
+        ['uptime', formatDuration(Date.now() - sessionStart)],
         ['requests', String(requests.total)],
-        ['median', requests.total ? `${requests.medianDuration()}ms` : undefined],
+        ['median', requests.total ? formatDuration(requests.medianDuration()) : undefined],
         ['directory', cwd],
       ],
     },
@@ -844,10 +843,14 @@ async function resolveQRCode(context: ShortcutContext): Promise<string | undefin
 
 /** The newer Nuxt release, if the registry knows of one and checks are enabled. */
 async function resolveUpdate(current?: string): Promise<string | undefined> {
-  if (!current || !isUpdateCheckEnabled()) {
+  if (!current) {
     return undefined
   }
   try {
+    const { checkForUpdate, isUpdateCheckEnabled } = await import('../../utils/update-check')
+    if (!isUpdateCheckEnabled()) {
+      return undefined
+    }
     const update = await checkForUpdate('nuxt', current)
     return update?.latest
   }
@@ -855,11 +858,4 @@ async function resolveUpdate(current?: string): Promise<string | undefined> {
     // An unreachable registry must never disturb the session.
     return undefined
   }
-}
-
-function formatUptime(elapsed: number): string {
-  const seconds = Math.floor(elapsed / 1000)
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  return [...hours ? [`${hours}h`] : [], ...hours || minutes ? [`${minutes}m`] : [], `${seconds % 60}s`].join(' ')
 }

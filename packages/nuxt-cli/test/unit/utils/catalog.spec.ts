@@ -52,7 +52,7 @@ describe('catalog resolution', () => {
       '    typescript: ^5.9.0',
     ].join('\n'))
 
-    expect(readCatalogConfig(tempDir)?.catalogs).toEqual({
+    expect(readCatalogConfig(tempDir)).toEqual({
       default: { nuxt: '^4.2.0' },
       dev: { typescript: '^5.9.0' },
     })
@@ -160,10 +160,10 @@ describe('updateCatalogEntries', () => {
   it('should invalidate cached catalog config after a write', async () => {
     await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalog:\n  nuxt: ^4.1.0\n')
 
-    expect(readCatalogConfig(tempDir)?.catalogs.default).toEqual({ nuxt: '^4.1.0' })
+    expect(readCatalogConfig(tempDir)?.default).toEqual({ nuxt: '^4.1.0' })
     updateCatalogEntries(tempDir, [{ catalog: 'default', pkg: 'nuxt', specifier: '^4.2.0' }])
 
-    expect(readCatalogConfig(tempDir)?.catalogs.default).toEqual({ nuxt: '^4.2.0' })
+    expect(readCatalogConfig(tempDir)?.default).toEqual({ nuxt: '^4.2.0' })
   })
 
   it('should keep an anchor when updating the entry that defines it', async () => {

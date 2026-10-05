@@ -1,5 +1,7 @@
 import type { CommandDef, SubCommandsDef } from 'citty'
 
+import { consola } from 'consola'
+
 import { asActionableError } from '../utils/errors'
 
 type Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>)
@@ -45,6 +47,8 @@ export function withRemedy(command: CommandDef): CommandDef {
           return await run(context)
         }
         catch (error) {
+          // `@nuxt/vite-builder` can leave the console unwrapped when a build throws.
+          consola.wrapConsole()
           throw asActionableError(error)
         }
       },

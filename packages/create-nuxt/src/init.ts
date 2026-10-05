@@ -1,24 +1,23 @@
 import type { ArgsDef, CommandDef } from 'citty'
 import type { DownloadTemplateResult } from 'giget'
-import type { PackageManagerName } from 'nypm'
+import type { AgentName } from 'package-manager-detector'
 import type { InstallResult } from '../../nuxt-cli/src/utils/install'
 import type { TemplateData } from '../../nuxt-cli/src/utils/starter-templates'
 
 import { existsSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import process from 'node:process'
-
 import { styleText } from 'node:util'
-import { cancel, confirm, intro, isCancel, outro, S_BAR, select, spinner, text } from '@clack/prompts'
+
+import { cancel, confirm, intro, isCancel, outro, S_BAR, select, text } from '@clack/prompts'
 import { defineCommand, showUsage } from 'citty'
 import { downloadTemplate, startShell } from 'giget'
-import { detectPackageManager } from 'nypm'
 import { basename, join, relative, resolve } from 'pathe'
 import { findFile, readPackageJSON, writePackageJSON } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
-
 import { cwdArgs, logLevelArgs } from '../../nuxt-cli/src/commands/_shared'
+
 import { selectModulesAutocomplete } from '../../nuxt-cli/src/commands/module/_autocomplete'
 import { checkNuxtCompatibility, fetchModules, MODULES_API_URL } from '../../nuxt-cli/src/commands/module/_utils'
 import addModuleCommand from '../../nuxt-cli/src/commands/module/add'
@@ -26,10 +25,12 @@ import { runCommandDef as runCommand } from '../../nuxt-cli/src/run-command'
 import { nuxtIcon } from '../../nuxt-cli/src/utils/ascii'
 import { fetchJson } from '../../nuxt-cli/src/utils/fetch'
 import { formatHeadlessCommand } from '../../nuxt-cli/src/utils/headless'
-import { createInstallLog, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../nuxt-cli/src/utils/install'
+import { createInstallLog, isVerboseInstall, runInstall, takeUnreportedIgnoredBuilds } from '../../nuxt-cli/src/utils/install'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
 import { classifyNetworkError, describeNetworkError, logNetworkError, probeNetworkError } from '../../nuxt-cli/src/utils/network'
+import { detectPackageManager, isPackageManagerName, packageManagerNames } from '../../nuxt-cli/src/utils/package-managers'
 import { relativeToProcess } from '../../nuxt-cli/src/utils/paths'
+import { createSpinner } from '../../nuxt-cli/src/utils/spinner'
 import { getTemplates, TEMPLATES_API_URL } from '../../nuxt-cli/src/utils/starter-templates'
 import { paint } from '../../nuxt-cli/src/utils/terminal-theme'
 import { getNuxtVersion } from '../../nuxt-cli/src/utils/versions'
@@ -41,19 +42,6 @@ const LEADING_TRAILING_DASH_RE = /^-|-$/g
 const DEFAULT_REGISTRY = 'https://raw.githubusercontent.com/nuxt/starter/templates/templates'
 const DEFAULT_TEMPLATE_NAME = 'minimal'
 const NIGHTLY_DIST_TAGS_URL = 'https://registry.npmjs.org/nuxt-nightly'
-
-const pms: Record<PackageManagerName, undefined> = {
-  npm: undefined,
-  pnpm: undefined,
-  yarn: undefined,
-  bun: undefined,
-  deno: undefined,
-  aube: undefined,
-  nub: undefined,
-}
-
-// this is for type safety to prompt updating code in nuxi when nypm adds a new package manager
-const packageManagerOptions = Object.keys(pms) as PackageManagerName[]
 
 // Arguments that would otherwise be gathered through interactive prompts,
 // so they must be explicitly provided when no TTY is available
@@ -119,7 +107,7 @@ export function getNextSteps(options: {
   installFailure?: unknown
   installSkipped?: boolean
   recoveryCommands: string[]
-  packageManager: PackageManagerName
+  packageManager: AgentName
 }): string[] {
   const { dir, shell, installFailure, installSkipped, recoveryCommands, packageManager } = options
   const runCmd = packageManager === 'deno' ? 'task' : 'run'
@@ -185,7 +173,7 @@ export default defineCommand({
     packageManager: {
       type: 'string',
       description: 'Package manager choice',
-      valueHint: packageManagerOptions.join('|'),
+      valueHint: packageManagerNames.join('|'),
     },
     modules: {
       type: 'string',
@@ -206,8 +194,8 @@ export default defineCommand({
     // banner or network work) so a typo fails fast with a clear message instead
     // of being silently ignored once a template's own package manager is
     // detected.
-    if (ctx.args.packageManager && !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)) {
-      logger.error(`Invalid package manager: ${styleText('cyan', ctx.args.packageManager)}. Choose one of ${packageManagerOptions.map(pm => styleText('cyan', pm)).join(', ')}.`)
+    if (ctx.args.packageManager && !isPackageManagerName(ctx.args.packageManager)) {
+      logger.error(`Invalid package manager: ${styleText('cyan', ctx.args.packageManager)}. Choose one of ${packageManagerNames.map(pm => styleText('cyan', pm)).join(', ')}.`)
       process.exit(ARG_ERROR_EXIT_CODE)
     }
 
@@ -236,7 +224,7 @@ export default defineCommand({
         availableTemplates = defaultTemplates
       }
       else {
-        const templatesSpinner = spinner()
+        const templatesSpinner = createSpinner()
         templatesSpinner.start('Loading available templates')
 
         try {
@@ -265,7 +253,7 @@ export default defineCommand({
           if (ctx.args.template) {
             return false
           }
-          return !packageManagerOptions.includes(ctx.args.packageManager as PackageManagerName)
+          return !isPackageManagerName(ctx.args.packageManager)
         }
         return ctx.args[name] === undefined || ctx.args[name] === ''
       })
@@ -304,11 +292,6 @@ export default defineCommand({
     }
 
     templateName ||= DEFAULT_TEMPLATE_NAME
-
-    if (typeof templateName !== 'string') {
-      logger.error('Please specify a template!')
-      process.exit(1)
-    }
 
     let dir = ctx.args.dir
     if (dir === '') {
@@ -384,7 +367,7 @@ export default defineCommand({
 
     const registry = process.env.NUXI_INIT_REGISTRY || DEFAULT_REGISTRY
 
-    const downloadSpinner = spinner()
+    const downloadSpinner = createSpinner()
     downloadSpinner.start(`Downloading ${styleText('cyan', templateName)} template`)
 
     try {
@@ -436,7 +419,7 @@ export default defineCommand({
     }
 
     if (ctx.args.nightly !== undefined && !ctx.args.offline && !ctx.args.preferOffline) {
-      const nightlySpinner = spinner()
+      const nightlySpinner = createSpinner()
       nightlySpinner.start('Fetching nightly version info')
 
       const response = await fetchJson<{ 'dist-tags': Record<string, string> }>(NIGHTLY_DIST_TAGS_URL).catch((err) => {
@@ -445,12 +428,6 @@ export default defineCommand({
         process.exit(1)
       })
       const nightlyChannelTag = ctx.args.nightly || 'latest'
-
-      if (!nightlyChannelTag) {
-        nightlySpinner.error('Failed to get nightly channel tag')
-        logger.error(`Error getting nightly channel tag.`)
-        process.exit(1)
-      }
 
       const nightlyChannelVersion = response['dist-tags'][nightlyChannelTag]
 
@@ -483,8 +460,8 @@ export default defineCommand({
     const recoveryCommands: string[] = []
 
     const currentPackageManager = detectCurrentPackageManager()
-    const packageManagerArg = ctx.args.packageManager as PackageManagerName
-    const packageManagerSelectOptions = packageManagerOptions.map(pm => ({
+    const packageManagerArg = ctx.args.packageManager
+    const packageManagerSelectOptions = packageManagerNames.map(pm => ({
       label: pm,
       value: pm,
       hint: currentPackageManager === pm ? 'current' : undefined,
@@ -496,16 +473,16 @@ export default defineCommand({
     // workspace config (e.g. `pnpm-workspace.yaml`) behind and silently break
     // the project. Shipping a template that works across package managers (i.e.
     // without a lockfile) is left to the template author.
-    const templatePackageManager = await detectTemplatePackageManager(template.dir)
+    const templatePackageManager = await detectPackageManager(template.dir, { includeParentDirs: false })
 
-    let selectedPackageManager: PackageManagerName
+    let selectedPackageManager: AgentName
     // Set when an explicit `--packageManager` conflicts with the template's pin:
     // installing would run the requested package manager against the template's
     // lockfile and workspace config for a different one, leaving a broken
     // project. We won't mutate the template, so we scaffold it as-is and skip
     // the install, letting the user reconcile the package manager themselves.
     let skipInstallOnConflict = false
-    if (packageManagerOptions.includes(packageManagerArg)) {
+    if (isPackageManagerName(packageManagerArg)) {
       selectedPackageManager = packageManagerArg
       if (templatePackageManager && templatePackageManager.name !== packageManagerArg) {
         skipInstallOnConflict = true
@@ -560,15 +537,14 @@ export default defineCommand({
       prompted = true
     }
 
-    if (!installRequested || skipInstallOnConflict) {
-      if (!skipInstallOnConflict) {
-        logger.info('Skipping install dependencies step.')
-      }
+    const shouldInstall = installRequested && !skipInstallOnConflict
+    if (!installRequested) {
+      logger.info('Skipping install dependencies step.')
     }
-    else {
+    else if (shouldInstall) {
       const installController = new AbortController()
-      const installLog = createInstallLog({ verbose: isVerbose(ctx.args.logLevel) })
-      const installSpinner = spinner({
+      const installLog = createInstallLog({ verbose: isVerboseInstall(ctx.args.logLevel) })
+      const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
       })
@@ -577,10 +553,9 @@ export default defineCommand({
 
       const result = await runInstall({
         cwd: template.dir,
-        packageManager: resolvePackageManagerDescriptor(
-          selectedPackageManager,
-          templatePackageManager?.name === selectedPackageManager ? templatePackageManager.version : undefined,
-        ),
+        packageManager: templatePackageManager?.name === selectedPackageManager
+          ? templatePackageManager
+          : { name: selectedPackageManager, agent: selectedPackageManager },
         onOutput: installLog.onOutput,
         onStatus: message => installSpinner.message(message),
         signal: installController.signal,
@@ -619,7 +594,7 @@ export default defineCommand({
     }
 
     if (gitInit) {
-      const gitSpinner = spinner()
+      const gitSpinner = createSpinner()
       gitSpinner.start('Initializing git repository')
 
       const git = await x('git', ['init'], {
@@ -674,7 +649,7 @@ export default defineCommand({
       prompted = true
 
       if (wantsUserModules) {
-        const modulesSpinner = spinner()
+        const modulesSpinner = createSpinner()
         modulesSpinner.start('Fetching available modules')
 
         const [response, templateDeps, nuxtVersion] = await Promise.all([
@@ -728,7 +703,7 @@ export default defineCommand({
       const args: string[] = [
         ...modulesToAdd,
         `--cwd=${template.dir}`,
-        installRequested && !skipInstallOnConflict ? '' : '--skipInstall',
+        shouldInstall ? '' : '--skipInstall',
         `--packageManager=${selectedPackageManager}`,
         ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
       ].filter(Boolean)
@@ -799,8 +774,7 @@ async function getModuleDependencies(moduleName: string) {
   const url = `https://registry.npmjs.org/${moduleName}/latest`
   try {
     const response = await fetchJson<{ dependencies?: Record<string, string> }>(url)
-    const dependencies = response.dependencies || {}
-    return Object.keys(dependencies)
+    return Object.keys(response.dependencies || {})
   }
   catch (err) {
     logNetworkError(err, { url, level: 'warn', prefix: `Could not get dependencies for ${styleText('cyan', moduleName)}.` })
@@ -809,28 +783,11 @@ async function getModuleDependencies(moduleName: string) {
 }
 
 function filterModules(modules: string[], allDependencies: Record<string, string[]>) {
-  const result = {
-    toInstall: [] as string[],
-    skipped: [] as string[],
+  const isDependency = (module: string) => modules.some(other => other !== module && allDependencies[other]?.includes(module))
+  return {
+    toInstall: modules.filter(module => !isDependency(module)),
+    skipped: modules.filter(isDependency),
   }
-
-  for (const module of modules) {
-    const isDependency = modules.some((otherModule) => {
-      if (otherModule === module)
-        return false
-      const deps = allDependencies[otherModule] || []
-      return deps.includes(module)
-    })
-
-    if (isDependency) {
-      result.skipped.push(module)
-    }
-    else {
-      result.toInstall.push(module)
-    }
-  }
-
-  return result
 }
 
 async function getTemplateDependencies(templateDir: string) {
@@ -840,56 +797,14 @@ async function getTemplateDependencies(templateDir: string) {
       return []
     }
     const packageJson = await readPackageJSON(packageJsonPath)
-    const directDeps = {
-      ...packageJson.dependencies,
-      ...packageJson.devDependencies,
-    }
-    const directDepNames = Object.keys(directDeps)
-    const allDeps = new Set(directDepNames)
-
-    const transitiveDepsResults = await Promise.all(
-      directDepNames.map(dep => getModuleDependencies(dep)),
-    )
-
-    transitiveDepsResults.forEach((deps) => {
-      deps.forEach(dep => allDeps.add(dep))
-    })
-
-    return [...allDeps]
+    const directDepNames = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies })
+    const transitiveDeps = await Promise.all(directDepNames.map(getModuleDependencies))
+    return [...new Set([...directDepNames, ...transitiveDeps.flat()])]
   }
   catch (err) {
     logger.warn(`Could not read template dependencies: ${err}`)
     return []
   }
-}
-
-export interface TemplatePackageManager {
-  name: PackageManagerName
-  version?: string
-}
-
-/**
- * Detect the package manager a template pins, scoped to the template directory
- * (so we don't pick up the parent project's setup) via its lockfile, marker
- * files or `packageManager` field. Returns `undefined` when the template pins
- * none, in which case it is package-manager agnostic and the user is free to
- * pick any. Detection errors are treated as "no pin".
- */
-export async function detectTemplatePackageManager(templateDir: string): Promise<TemplatePackageManager | undefined> {
-  const detected = await detectPackageManager(templateDir, {
-    includeParentDirs: false,
-    ignoreArgv: true,
-  }).catch(() => undefined)
-
-  if (!detected) {
-    return
-  }
-
-  return { name: detected.name, version: detected.version }
-}
-
-function isVerbose(logLevel?: string) {
-  return logLevel === 'verbose' || Boolean(process.env.DEBUG)
 }
 
 function detectCurrentPackageManager() {
@@ -898,7 +813,7 @@ function detectCurrentPackageManager() {
     return
   }
   const [name] = userAgent.split('/')
-  if (packageManagerOptions.includes(name as PackageManagerName)) {
-    return name as PackageManagerName
+  if (isPackageManagerName(name)) {
+    return name
   }
 }

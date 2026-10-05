@@ -2,7 +2,7 @@ import type { IncomingMessage } from 'node:http'
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { isDocumentRequest } from '../../src/dev/utils'
+import { isDocumentRequest } from '../../src/dev/request-kind'
 import { WarmupGate } from '../../src/dev/warmup-gate'
 
 /** Just enough of a response for the gate: it only ever waits for `close`. */

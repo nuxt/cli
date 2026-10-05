@@ -60,7 +60,7 @@ describe('phase reporter', () => {
       startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
     })
 
-    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0s$/)
+    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0ms$/)
   })
 
   it('should show how long the phase has taken alongside the total', async () => {
@@ -117,7 +117,7 @@ describe('phase reporter', () => {
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
-      ◆  Ready in 2.4s
+      ◆  Ready in 2.40s
       │  config 320ms · bundle 940ms"
     `)
   })
@@ -210,9 +210,9 @@ describe('phase reporter', () => {
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
-      ◆  Ready in 2.4s · compiling the first request
+      ◆  Ready in 2.40s · compiling the first request
       │
-      ◆  Serving in 8.1s"
+      ◆  Serving in 8.10s"
     `)
   })
 
@@ -226,7 +226,7 @@ describe('phase reporter', () => {
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
-      ◆  Ready in 2.4s  → http://localhost:3000/"
+      ◆  Ready in 2.40s  → http://localhost:3000/"
     `)
   })
 
@@ -246,7 +246,7 @@ describe('phase reporter', () => {
       }))
     })
 
-    expect(screen(renderer)).toMatch(/^. rendering GET \/ 4\.2s$/m)
+    expect(screen(renderer)).toMatch(/^. rendering GET \/ 4\.20s$/m)
   })
 
   it('should announce a render once where the line cannot be redrawn', async () => {
@@ -262,11 +262,11 @@ describe('phase reporter', () => {
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
-      ◆  Ready in 2.4s
+      ◆  Ready in 2.40s
       │
       ●  Rendering GET /
       │
-      ◆  First render in 6.4s"
+      ◆  First render in 6.40s"
     `)
   })
 
@@ -303,7 +303,7 @@ describe('phase reporter', () => {
       startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 2600 }))
     })
 
-    expect(screen(renderer)).toBe('│\n◆  Ready in 2.4s')
+    expect(screen(renderer)).toBe('│\n◆  Ready in 2.40s')
   })
 
   it('should say nothing more after a build error, which is reported separately', async () => {
@@ -350,7 +350,7 @@ describe('phase reporter', () => {
       }
     })
 
-    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0s$/)
+    expect(screen(renderer)).toMatch(/^. Bundling app 0\.0ms$/)
   })
 
   it('should clear the line before output that consola writes through `__write`', async () => {

@@ -16,9 +16,9 @@ const { readNuxtConfig, addNuxtConfigEntries } = vi.hoisted(() => ({
 let manifest: Record<string, unknown> = {}
 
 vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, addNuxtConfigEntries, createNuxtConfig: vi.fn() }))
-vi.mock('nypm', () => ({
-  detectPackageManager: () => Promise.resolve({ name: 'npm', command: 'npm' }),
-  packageManagers: [{ name: 'npm', command: 'npm' }],
+vi.mock('../../../../src/utils/package-managers', async importOriginal => ({
+  ...await importOriginal<typeof import('../../../../src/utils/package-managers')>(),
+  detectPackageManager: () => Promise.resolve({ name: 'npm', agent: 'npm' }),
 }))
 vi.mock('pkg-types', () => ({
   readPackageJSON: () => Promise.resolve({ devDependencies: { nuxt: '3.0.0' } }),

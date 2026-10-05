@@ -263,10 +263,12 @@ describe('formatReportForTerminal', () => {
 })
 
 describe('summariseReport', () => {
+  const repoRoot = join(import.meta.dirname, '../../../..')
+
   it('should carry the rendering and the topmost frame of the project', async () => {
     const error = new Error('summarise me')
-    const report = await createCliReport(error, { cwd: process.cwd() })
-    const summary = await summariseReport(report, { requestId: 'r7' })
+    const report = await createCliReport(error, { cwd: repoRoot })
+    const summary = await summariseReport(report, { requestId: 'r7' }, repoRoot)
 
     expect(summary).toMatchObject({ id: report.id, name: 'Error', message: 'summarise me', requestId: 'r7' })
     expect(summary.file).toContain('error-channel.spec.ts')

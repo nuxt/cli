@@ -6,10 +6,13 @@ import { provider } from 'std-env'
 import { checkEngines } from '../../nuxt-cli/src/utils/engines'
 import { getCreateCommand, isPinnedCreateInvocation } from '../../nuxt-cli/src/utils/headless'
 import { debug, logger } from '../../nuxt-cli/src/utils/logger'
+import { setupProxySupport } from '../../nuxt-cli/src/utils/network'
 import { scheduleSelfUpdateNudge } from '../../nuxt-cli/src/utils/update-check'
 import { description, name, version } from '../package.json'
 import { setupInitCompletions } from './completions'
 import init from './init'
+
+setupProxySupport()
 
 const _main = defineCommand({
   meta: {

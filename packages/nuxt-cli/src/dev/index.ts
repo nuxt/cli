@@ -5,6 +5,7 @@ import type { ProgressSnapshot } from '../utils/progress-snapshot'
 import type { DevRestartReason } from './reason'
 import type { DevReportSummary } from './error-channel'
 import type { ServerLogEvent } from './log-channel'
+import type { DevRequestSpan } from './span-channel'
 import type { DevRequestEvent, DevRoutes, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
@@ -23,7 +24,7 @@ import { blankLineBefore, writeDirect } from '../utils/stdout'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
 import { openInspector } from './inspect'
 import { closeErrorChannel, formatReportForTerminal } from './error-channel'
-import { currentRequest, isServingRequest } from './serving-state'
+import { currentRequest } from './serving-state'
 import { createPhaseReporter } from '../utils/phase-reporter'
 import { NuxtDevServer } from './utils'
 
@@ -31,6 +32,8 @@ const start = Date.now()
 
 const REQUEST_FLUSH_MS = 100
 const REQUEST_BATCH_LIMIT = 200
+/** A cold page load compiles hundreds of modules, each reported as a span. */
+const SPAN_BATCH_LIMIT = 5000
 const PENDING_REQUEST_BATCHES = 20
 const PENDING_LOG_LIMIT = 500
 const PENDING_REPORTS = 20
@@ -199,15 +202,16 @@ if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
   consola.wrapAll()
   consola.addReporter({
     log(logObj) {
+      const request = currentRequest()
       ipc.send({
         type: 'nuxt:internal:dev:log',
         level: logObj.level,
         logType: logObj.type,
         tag: logObj.tag || undefined,
         message: formatWithOptions({ colors: false }, ...logObj.args),
-        origin: isServingRequest() ? 'runtime' : 'build',
-        request: currentRequest()?.label,
-        requestId: currentRequest()?.id,
+        origin: request ? 'runtime' : 'build',
+        request: request?.label,
+        requestId: request?.id,
         raw: true,
       })
     },
@@ -228,6 +232,8 @@ interface InitializeReturn {
   onLog: (callback: (log: ServerLogEvent) => void) => void
   /** Called with batches of served requests. */
   onRequests: (callback: (requests: DevRequestEvent[]) => void) => void
+  /** Called with batches of spans the app timed while serving requests. */
+  onSpans: (callback: (spans: DevRequestSpan[]) => void) => void
   /** Called with reports the app forwarded, rendered for a terminal. */
   onReport: (callback: (report: DevReportSummary) => void) => void
   /** Called when the app reports that its error has gone. */
@@ -309,6 +315,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
 
   const logs = createFeed<ServerLogEvent>(PENDING_LOG_LIMIT)
   const requests = createFeed<DevRequestEvent[]>(PENDING_REQUEST_BATCHES)
+  const spans = createFeed<DevRequestSpan[]>(PENDING_REQUEST_BATCHES)
   const routes = createFeed<DevRoutes>(1)
   const building = createFeed<boolean>(0)
   const reports = createFeed<DevReportSummary>(PENDING_REPORTS)
@@ -338,6 +345,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   })
 
   let closeLogChannel: (() => void) | undefined
+  let closeSpanChannel: (() => void) | undefined
   if (captureUIEvents) {
     const { openDevLogChannel } = await import('./log-channel')
     closeLogChannel = openDevLogChannel((log) => {
@@ -347,6 +355,29 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       logs.emit(log)
     })
+
+    const { openDevSpanChannel } = await import('./span-channel')
+    let spanBatch: DevRequestSpan[] = []
+    let spanTimer: NodeJS.Timeout | undefined
+    const pushSpan = (span: DevRequestSpan) => {
+      spanBatch.push(span)
+      if (spanBatch.length > SPAN_BATCH_LIMIT) {
+        spanBatch.shift()
+      }
+      spanTimer ??= setTimeout(() => {
+        spanTimer = undefined
+        const flushed = spanBatch
+        spanBatch = []
+        if (ipc.enabled) {
+          ipc.send({ type: 'nuxt:internal:dev:spans', spans: flushed })
+          return
+        }
+        spans.emit(flushed)
+      }, REQUEST_FLUSH_MS)
+      spanTimer.unref?.()
+    }
+    closeSpanChannel = openDevSpanChannel(pushSpan)
+    devServer.on('span', pushSpan)
 
     devServer.on('building', (value) => {
       if (ipc.enabled) {
@@ -473,7 +504,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   const close = () => {
     closePromise ??= (async () => {
       closeLogChannel?.()
-      devServer.closeWatchers()
+      closeSpanChannel?.()
+      devServer.shutdown()
       try {
         await Promise.all([
           devServer.listener.close(),
@@ -482,7 +514,6 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
       }
       finally {
         devServer.progress.close()
-        devServer.closeErrorBridge()
         await closeErrorChannel()
         devServer.releaseLock()
       }
@@ -512,6 +543,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     },
     onLog: logs.subscribe,
     onRequests: requests.subscribe,
+    onSpans: spans.subscribe,
     onBuilding: building.subscribe,
     onReport: reports.subscribe,
     onReportClear: reportsCleared.subscribe,

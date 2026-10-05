@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 import process from 'node:process'
 import { PassThrough } from 'node:stream'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { attachKeys } from '../../src/dev/tui/keys'
 import { filterTerminalReplies } from '../../src/dev/tui/terminal-replies'
@@ -109,10 +109,12 @@ describe('panel keys', () => {
   })
 
   it('should give the keyboard back when a reply is never terminated', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    restores.push(() => vi.useRealTimers())
     const { keys, type } = attach()
 
     await type('\u001B]11;rgb:1e1e')
-    await new Promise(resolve => setTimeout(resolve, 250))
+    vi.advanceTimersByTime(250)
     await type('o')
 
     expect(keys).toEqual(['o'])

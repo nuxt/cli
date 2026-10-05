@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { perFile } from '../../src/dev/utils'
+import { perFile } from '../../src/dev/config-watcher'
 
 describe('perFile', () => {
   it('should collapse a burst of events for one file into a single call', async () => {

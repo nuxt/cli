@@ -5,7 +5,7 @@ import { styleText } from 'node:util'
 
 import { defineCommand } from 'citty'
 
-import { withDirectStdout } from '../../utils/console'
+import { printJson } from '../../utils/console'
 import { logger } from '../../utils/logger'
 import { resolveRootDir } from '../../utils/paths'
 import { jsonArgs, rootDirArgs } from '../_shared'
@@ -38,11 +38,10 @@ export default defineCommand({
     const names = Object.keys(tasks).sort()
 
     if (ctx.args.json) {
-      const payload = JSON.stringify({
+      await printJson({
         tasks: names.map(name => ({ name, description: tasks[name]?.description || null })),
         scheduledTasks: (scheduledTasks || []).map(({ cron, tasks }) => ({ cron, tasks })),
-      }, null, 2)
-      await withDirectStdout(() => process.stdout.write(`${payload}\n`))
+      })
       return
     }
 

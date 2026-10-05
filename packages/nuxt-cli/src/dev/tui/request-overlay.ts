@@ -1,3 +1,4 @@
+import type { DevRequestSpan } from '../span-channel'
 import type { DevEventLog, DevLogEvent } from './events'
 import type { Key } from './keys'
 import type { DevRequest, RequestLog } from './requests'
@@ -10,8 +11,9 @@ import { styleText } from 'node:util'
 
 import { link } from 'clickable-path'
 
-import { MUTED, paint } from '../../utils/terminal-theme'
+import { formatDuration, truncate } from '../../utils/formatting'
 
+import { MUTED, paint } from '../../utils/terminal-theme'
 import { formatEvent, formatTime } from './overlay'
 import { paintStatus } from './panel'
 import { formatHints, ScreenOverlay } from './screen'
@@ -102,12 +104,12 @@ export class RequestOverlay extends ScreenOverlay {
     if (this.#detail) {
       const request = this.#detail
       const status = paintStatus(request.status)
-      return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${request.duration}ms${this.renderSearch()}`
+      return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${formatDuration(request.duration)}${this.renderSearch()}`
     }
     const shown = this.#matching().length
     const label = this.#filter === 'all' ? 'all' : this.#filter
     const median = this.#requests.medianDuration()
-    const summary = styleText(MUTED, `${this.#requests.total} total · median ${median}ms`)
+    const summary = styleText(MUTED, `${this.#requests.total} total · median ${formatDuration(median)}`)
     const hiddenInternal = this.#showInternal ? 0 : this.#requests.recent(SCAN_LIMIT, request => !!request.internal).length
     const bundler = hiddenInternal ? ` · ${styleText(MUTED, `${hiddenInternal} bundler hidden`)}` : ''
     return ` ${styleText('bold', 'traffic')} · ${label} (${shown}) · ${summary}${bundler}${this.renderPosition()}${this.renderSearch()}`
@@ -124,7 +126,7 @@ export class RequestOverlay extends ScreenOverlay {
     const errors = this.#errorCounts()
     return matching.map(request => ({
       lines: [this.#format(request, columns, request.id === undefined ? 0 : errors.get(request.id) ?? 0)],
-      copy: `${request.method} ${request.url} ${request.status} ${request.duration}ms`,
+      copy: describeRequest(request),
     }))
   }
 
@@ -158,10 +160,11 @@ export class RequestOverlay extends ScreenOverlay {
     const summary: OverlayEntry[] = [
       {
         lines: [this.#format(request, columns, 0)],
-        copy: `${request.method} ${request.url} ${request.status} ${request.duration}ms`,
+        copy: describeRequest(request),
       },
       ...file ? [{ lines: [`${' '.repeat(12)}${styleText(MUTED, 'served by ')}${link(file, { cwd: this.#cwd })}`], copy: file }] : [],
       { lines: [''] },
+      ...renderTimeline(request, this.#requests.spansFor(request), columns),
     ]
     const events = this.#traceEvents(request)
     if (!events.length) {
@@ -221,8 +224,172 @@ export class RequestOverlay extends ScreenOverlay {
   }
 }
 
-function formatDuration(duration: number): string {
-  const text = `${duration}ms`.padStart(7)
+type SpanColor = 'white' | 'red' | 'cyan' | 'green' | 'magenta' | 'blue' | 'yellow' | 'gray'
+
+const SPAN_COLORS: Record<DevRequestSpan['kind'], SpanColor> = {
+  route: 'green',
+  middleware: 'green',
+  fetch: 'magenta',
+  hook: 'cyan',
+  plugin: 'blue',
+  data: 'yellow',
+  render: 'white',
+  island: 'white',
+  compile: 'gray',
+}
+
+/** Columns taken by the kind, the duration and the gaps between them and the label and bar. */
+const TIMELINE_CHROME = 22
+const LABEL_MIN_WIDTH = 16
+const TIMELINE_MIN_WIDTH = 10
+/** How many Vite plugins and modules the compile breakdown lists. */
+const TOP_PLUGINS = 8
+const TOP_MODULES = 5
+
+interface TimelineRow {
+  kind: string
+  label: string
+  /** Disjoint intervals drawn on the row, as `[start, end]` in epoch milliseconds. */
+  segments: Array<[number, number]>
+  duration: number
+  color: SpanColor
+}
+
+/**
+ * The request and every span timed for it, as bars on one time axis spanning
+ * the request. Each span is indented beneath the spans it ran inside, and the
+ * server modules compiled for it are drawn as one row wherever any was
+ * compiling.
+ */
+function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: number): OverlayEntry[] {
+  if (!spans.length) {
+    return []
+  }
+  const origin = Math.min(request.start ?? Number.POSITIVE_INFINITY, ...spans.map(span => span.start))
+  const end = Math.max(origin + request.duration, ...spans.map(span => span.start + span.duration))
+  const total = Math.max(end - origin, 1)
+  const requestStart = request.start ?? origin
+
+  const compiled = spans.filter(span => span.kind === 'compile')
+  const rows: TimelineRow[] = [
+    { kind: 'request', label: `${request.method} ${request.url}`, segments: [[requestStart, requestStart + request.duration]], duration: request.duration, color: 'white' },
+  ]
+  if (compiled.length) {
+    const segments = mergeIntervals(compiled.map(span => [span.start, span.start + span.duration]))
+    const shared = compiled.some(span => span.shared) ? ', shared' : ''
+    rows.push({
+      kind: 'compile',
+      label: `  ${compiled.length} ${compiled.length === 1 ? 'module' : 'modules'}${shared}`,
+      segments,
+      duration: segments.reduce((sum, [from, to]) => sum + to - from, 0),
+      color: SPAN_COLORS.compile,
+    })
+  }
+  const open: DevRequestSpan[] = []
+  for (const span of spans) {
+    if (span.kind === 'compile') {
+      continue
+    }
+    const spanEnd = span.start + span.duration
+    while (open.length && open.at(-1)!.start + open.at(-1)!.duration < spanEnd) {
+      open.pop()
+    }
+    rows.push({
+      kind: span.kind,
+      label: `${'  '.repeat(open.length + 1)}${span.name}${span.status ? ` ${span.status}` : ''}`,
+      segments: [[span.start, spanEnd]],
+      duration: span.duration,
+      color: span.error || (span.status ?? 0) >= 400 ? 'red' : SPAN_COLORS[span.kind] ?? 'white',
+    })
+    open.push(span)
+  }
+
+  const longest = Math.max(...rows.map(row => row.label.length))
+  const labelWidth = Math.max(LABEL_MIN_WIDTH, Math.min(longest, Math.floor(columns * 0.4)))
+  const width = Math.max(TIMELINE_MIN_WIDTH, columns - labelWidth - TIMELINE_CHROME)
+  const totalLabel = formatDuration(total)
+  const axis = styleText(MUTED, `${'0ms'.padEnd(width - totalLabel.length)}${totalLabel}`)
+
+  return [
+    { lines: [`${styleText('bold', 'timeline'.padEnd(labelWidth + 11))} ${axis}`] },
+    ...rows.map((row) => {
+      const label = truncate(row.label, labelWidth).padEnd(labelWidth)
+      const time = formatDuration(row.duration).padStart(9)
+      return {
+        lines: [`${styleText(MUTED, row.kind.padEnd(10))} ${label} ${drawBar(row, origin, total, width)} ${styleText(MUTED, time)}`],
+        copy: `+${formatDuration(row.segments[0]![0] - origin)} ${row.kind} ${row.label.trim()} ${formatDuration(row.duration)}`,
+      }
+    }),
+    { lines: [''] },
+    ...renderCompileBreakdown(compiled, columns),
+  ]
+}
+
+function drawBar(row: TimelineRow, origin: number, total: number, width: number): string {
+  const cells = Array.from<boolean>({ length: width }).fill(false)
+  for (const [from, to] of row.segments) {
+    const offset = Math.min(width - 1, Math.floor((from - origin) / total * width))
+    const length = Math.max(1, Math.min(width - offset, Math.round((to - from) / total * width)))
+    cells.fill(true, offset, offset + length)
+  }
+  return cells
+    .map(filled => filled ? '█' : ' ')
+    .join('')
+    .replace(/█+/g, run => styleText(row.color, run))
+}
+
+function mergeIntervals(intervals: Array<[number, number]>): Array<[number, number]> {
+  const merged: Array<[number, number]> = []
+  for (const [from, to] of intervals.sort((a, b) => a[0] - b[0])) {
+    const last = merged.at(-1)
+    if (last && from <= last[1]) {
+      last[1] = Math.max(last[1], to)
+    }
+    else {
+      merged.push([from, to])
+    }
+  }
+  return merged
+}
+
+/** Where the compile time went: the busiest Vite plugins, then the slowest modules. */
+function renderCompileBreakdown(compiled: DevRequestSpan[], columns: number): OverlayEntry[] {
+  if (!compiled.length) {
+    return []
+  }
+  const byPlugin = new Map<string, number>()
+  for (const span of compiled) {
+    for (const [plugin, time] of Object.entries(span.plugins ?? {})) {
+      byPlugin.set(plugin, (byPlugin.get(plugin) ?? 0) + time)
+    }
+  }
+  const plugins = [...byPlugin].sort((a, b) => b[1] - a[1]).slice(0, TOP_PLUGINS)
+  const modules = [...compiled].sort((a, b) => b.duration - a.duration).slice(0, TOP_MODULES)
+  const nameWidth = Math.max(0, columns - 12)
+  const row = (name: string, duration: number): OverlayEntry => ({
+    lines: [`  ${formatDuration(duration).padStart(8)}  ${truncate(name, nameWidth)}`],
+    copy: `${formatDuration(duration)} ${name}`,
+  })
+  return [
+    ...plugins.length
+      ? [
+          { lines: [styleText('bold', 'vite plugins') + styleText(MUTED, ' · time spent compiling for this request')] },
+          ...plugins.map(([plugin, time]) => row(plugin, time)),
+          { lines: [''] },
+        ]
+      : [],
+    { lines: [styleText('bold', 'slowest modules')] },
+    ...modules.map(span => row(span.environment ? `${span.name} ${styleText(MUTED, `(${span.environment})`)}` : span.name, span.duration)),
+    { lines: [''] },
+  ]
+}
+
+function describeRequest(request: DevRequest): string {
+  return `${request.method} ${request.url} ${request.status} ${formatDuration(request.duration)}`
+}
+
+function paintDuration(duration: number): string {
+  const text = formatDuration(duration).padStart(7)
   if (duration >= VERY_SLOW_MS) {
     return styleText('red', text)
   }
@@ -233,11 +400,11 @@ function formatRequest(request: DevRequest, columns: number, target?: { file: st
   const time = styleText(MUTED, formatTime(request.time).padStart(11))
   const method = styleText('bold', request.method.padEnd(6))
   const status = paintStatus(request.status, String(request.status).padEnd(4))
-  const duration = formatDuration(request.duration)
+  const duration = paintDuration(request.duration)
   const marker = errors ? ` ${styleText(['red', 'bold'], `✗ ${errors}`)}` : ''
   // The four fixed columns above, plus the spaces between them and the marker.
   const room = Math.max(10, columns - 34 - (errors ? `  ✗ ${errors}`.length : 0))
-  const label = request.url.length > room ? `${request.url.slice(0, room - 1)}…` : request.url
+  const label = truncate(request.url, room)
   const url = target ? link(target.file, { cwd: target.cwd, formatter: () => label }) : label
   return `${time} ${method} ${status} ${duration}  ${url}${marker}`
 }

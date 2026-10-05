@@ -58,7 +58,7 @@ describe('resolveRootDir', () => {
 
 describe('resolveProjectDir', () => {
   it('should follow the ROOTDIR positional a command will run against', () => {
-    expect(resolveProjectDir({ cwd: '.', _: ['dev', 'packages'] })).toBe(resolve('packages'))
+    expect(resolveProjectDir({ cwd: '.', _: ['dev', import.meta.dirname] })).toBe(resolve(import.meta.dirname))
   })
 
   it('should fall back to the working directory without a positional', () => {

@@ -1,15 +1,13 @@
-import type { PackageManager } from 'nypm'
-import type { PackageJson } from 'pkg-types'
+import type { DetectResult } from 'package-manager-detector'
 
+import type { PackageJson } from 'pkg-types'
 import type { ConfigEntries } from '../../utils/config'
-import type { RegistryMeta } from '../../utils/registry'
 import type { NuxtModule } from './_utils'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { packageManagers } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 import { findMaxSatisfying, satisfies } from 'verkit'
@@ -17,36 +15,22 @@ import { findMaxSatisfying, satisfies } from 'verkit'
 import { runCommandDef as runCommand } from '../../run-command'
 import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
 import { fetchJson } from '../../utils/fetch'
-import { createInstallLog, detectProjectPackageManager, resolvePackageManagerDescriptor, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
+import { createInstallLog, isVerboseInstall, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
-import { detectNpmRegistry } from '../../utils/registry'
+import { defaultPackageManager, detectPackageManager, isPackageManagerName, packageManagerNames } from '../../utils/package-managers'
 import { createSpinner } from '../../utils/spinner'
 import { getNuxtVersion } from '../../utils/versions'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
 import { selectModulesAutocomplete } from './_autocomplete'
-import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
+import { basePackageName, checkNuxtCompatibility, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, MODULES_API_URL, parseModuleSpec, resolveModuleEntry } from './_utils'
 
 const WHITESPACE_RE = /\s/
 
-/** Read order for the `--packageManager` hint. Names nypm adds later are listed after these. */
-const PACKAGE_MANAGER_ORDER = ['npm', 'pnpm', 'yarn', 'bun', 'deno']
-
-const packageManagerNames = packageManagers
-  .map(pm => pm.name)
-  .sort((a, b) => rank(a) - rank(b))
-
-function rank(name: string): number {
-  const index = PACKAGE_MANAGER_ORDER.indexOf(name)
-  return index === -1 ? PACKAGE_MANAGER_ORDER.length : index
-}
-
 interface ResolvedModule {
-  nuxtModule?: NuxtModule
   pkg: string
   pkgName: string
-  pkgVersion: string
   /** Specifier to write to `nuxt.config`, which may include a subpath. */
   specifier: string
   /** Whether the package is a Nuxt layer, and so belongs in `extends`. */
@@ -54,8 +38,6 @@ interface ResolvedModule {
   peerDependencies?: Record<string, string>
   optionalPeerDependencies?: string[]
 }
-type UnresolvedModule = false
-type ModuleResolution = ResolvedModule | UnresolvedModule
 
 /**
  * `layers` only affects help text: `nuxt add` is documented as accepting layers as
@@ -173,22 +155,11 @@ export function defineAddCommand({ layers = false }: { layers?: boolean } = {}) 
 
 export default defineAddCommand()
 
-// -- Internal Utils --
 async function addModules(modules: ResolvedModule[], { skipInstall = false, skipConfig = false, cwd, dev = false, packageManager: packageManagerName, logLevel }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string, dev?: boolean, packageManager?: string, logLevel?: string }, projectPkg: PackageJson): Promise<boolean> {
   if (!skipInstall) {
-    const installedModules: ResolvedModule[] = []
-    const notInstalledModules: ResolvedModule[] = []
-
     const dependencies = getProjectDependencies(projectPkg)
-
-    for (const module of modules) {
-      if (dependencies.has(module.pkgName)) {
-        installedModules.push(module)
-      }
-      else {
-        notInstalledModules.push(module)
-      }
-    }
+    const installedModules = modules.filter(module => dependencies.has(module.pkgName))
+    const notInstalledModules = modules.filter(module => !dependencies.has(module.pkgName))
 
     if (installedModules.length > 0) {
       const installedModulesList = installedModules.map(module => styleText('cyan', module.pkgName)).join(', ')
@@ -204,16 +175,15 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const a = notInstalledModules.length > 1 ? '' : ' a'
       logger.info(`Installing ${notInstalledModulesList} as${a}${isDev ? ' development' : ''} ${dependency}`)
 
-      const packageManager = await resolvePackageManager(cwd, packageManagerName)
+      const packageManager = await selectPackageManager(cwd, packageManagerName)
 
       const peers = resolveRequiredPeerDependencies(notInstalledModules, dependencies)
       if (peers.length > 0) {
         logger.info(`Also installing required peer ${peers.length > 1 ? 'dependencies' : 'dependency'} ${peers.map(peer => styleText('cyan', peer)).join(', ')}`)
       }
 
-      const verbose = logLevel === 'verbose' || Boolean(process.env.DEBUG)
       const installController = new AbortController()
-      const installLog = createInstallLog({ verbose })
+      const installLog = createInstallLog({ verbose: isVerboseInstall(logLevel) })
       const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
@@ -225,7 +195,6 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
         packageManager,
         dependencies: [...notInstalledModules.map(module => module.pkg), ...peers],
         dev: isDev,
-        workspace: isPnpmWorkspace(packageManager, cwd),
         onOutput: installLog.onOutput,
         onStatus: message => installSpinner.message(message),
         signal: installController.signal,
@@ -289,23 +258,21 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
  * (e.g. the one selected during `nuxt init`) and otherwise detecting one from
  * the project.
  */
-async function resolvePackageManager(cwd: string, name?: string): Promise<PackageManager> {
-  const requested = name ? packageManagers.find(pm => pm.name === name) : undefined
+async function selectPackageManager(cwd: string, name?: string): Promise<DetectResult> {
+  const requested = isPackageManagerName(name) ? name : undefined
   if (name && !requested) {
     logger.warn(`Unknown package manager ${styleText('cyan', name)}, detecting one instead.`)
   }
 
-  const detected = await detectProjectPackageManager(cwd)
+  const detected = await detectPackageManager(cwd)
 
   if (!requested) {
-    return detected ?? resolvePackageManagerDescriptor('npm')
+    return detected ?? defaultPackageManager
   }
 
-  // The detected descriptor knows the version the project pins, which the static
-  // list does not, so prefer it when it agrees with the requested manager.
-  return detected?.name === requested.name
+  return detected?.name === requested
     ? detected
-    : resolvePackageManagerDescriptor(requested.name)
+    : { name: requested, agent: requested }
 }
 
 /**
@@ -359,7 +326,7 @@ export default defineNuxtConfig({
 })`
 }
 
-async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtModule[], getProjectNuxtVersion: () => Promise<string>): Promise<ModuleResolution> {
+async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtModule[], getProjectNuxtVersion: () => Promise<string>): Promise<ResolvedModule | false> {
   const spec = parseModuleSpec(moduleName)
 
   if (!spec) {
@@ -435,14 +402,10 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
 
   let version = pkgVersion || 'latest'
   const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
-  const meta: RegistryMeta = await detectNpmRegistry(pkgScope, cwd)
-  const headers: HeadersInit = {}
+  const { detectNpmRegistry } = await import('../../utils/registry')
+  const meta = await detectNpmRegistry(pkgScope, cwd)
+  const headers: HeadersInit = meta.authorization ? { Authorization: meta.authorization } : {}
 
-  if (meta.authorization) {
-    headers.Authorization = meta.authorization
-  }
-
-  // TODO: spinner
   const pkgUrl = `${meta.registry}/${pkgName}`
   const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
     logNetworkError(err, { url: pkgUrl, prefix: `Failed to fetch package details for ${styleText('cyan', pkgName)}.` })
@@ -470,11 +433,7 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     logger.info(`${styleText('cyan', pkgName)} is a Nuxt layer, and will be added to ${styleText('cyan', 'extends')}.`)
   }
 
-  const pkgDependencies = Object.assign(
-    pkg.dependencies || {},
-    pkg.devDependencies || {},
-    pkg.peerDependencies || {},
-  )
+  const pkgDependencies = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies }
   // A package exposing its module behind a `nuxt`/`module` subpath is a Nuxt
   // integration regardless of how it declares its dependency on Nuxt.
   if (
@@ -494,10 +453,8 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   }
 
   return {
-    nuxtModule: matchedModule,
     pkg: `${pkgName}@${version}`,
     pkgName,
-    pkgVersion: version,
     specifier: subpath ? `${pkgName}/${subpath}` : pkgName,
     isLayer: entry.isLayer,
     peerDependencies: pkg.peerDependencies,

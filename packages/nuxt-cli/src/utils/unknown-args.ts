@@ -1,6 +1,6 @@
 import type { ArgsDef } from 'citty'
 
-import { flagPolicy, suggestClosest } from './suggest'
+import { suggestFlag } from './suggest'
 
 /** Always accepted by citty, so never reported as unknown. */
 const BUILTIN_FLAGS = ['help', 'version']
@@ -53,7 +53,7 @@ export function findUnknownFlags(argsDef: ArgsDef, rawArgs: string[]): UnknownFl
  */
 export async function suggestFlags({ flags, known }: UnknownFlags): Promise<Array<{ flag: string, suggestion?: string }>> {
   return Promise.all(flags.map(async (flag) => {
-    const match = await suggestClosest(flag.replace(NEGATION_RE, ''), known, flagPolicy)
+    const match = await suggestFlag(flag.replace(NEGATION_RE, ''), known)
     return { flag: `--${flag}`, suggestion: match && `--${match}` }
   }))
 }

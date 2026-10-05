@@ -1,21 +1,21 @@
-import type { PackageManager } from 'nypm'
+import type { DetectResult } from 'package-manager-detector'
 
 import { accessSync, constants, existsSync, readdirSync, readFileSync } from 'node:fs'
 import { styleText } from 'node:util'
 
-import { confirm, isCancel, spinner } from '@clack/prompts'
+import { confirm, isCancel } from '@clack/prompts'
 import { dirname, join } from 'pathe'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
+import { NUXT_PACKAGES } from '../utils/nuxt-packages'
 import { relativeTo } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
+import { createSpinner } from '../utils/spinner'
 import { withUserAttention } from '../utils/startup-clock'
 import { isInteractive } from '../utils/stdout'
-
-const NUXT_PACKAGES = ['nuxt', 'nuxt-nightly']
 
 /**
  * Extensions `c12` accepts for a config it parses rather than imports. Reporting
@@ -221,15 +221,9 @@ async function checkDependencies(cwd: string, interactive: boolean): Promise<voi
   await withUserAttention(() => offerInstall(cwd, interactive))
 }
 
-/**
- * The package manager to tell the user to run. `../utils/install` is loaded on
- * demand: it and `nypm` are only needed once something is already wrong, so they
- * stay out of the modules a successful `nuxt dev` loads.
- */
-async function detectInstaller(cwd: string): Promise<PackageManager> {
-  const { detectProjectPackageManager, resolvePackageManagerDescriptor } = await import('../utils/install')
-
-  return await detectProjectPackageManager(cwd) ?? resolvePackageManagerDescriptor('npm')
+async function detectInstaller(cwd: string): Promise<DetectResult> {
+  const { defaultPackageManager, detectPackageManager } = await import('../utils/package-managers')
+  return await detectPackageManager(cwd) ?? defaultPackageManager
 }
 
 async function offerInstall(cwd: string, interactive: boolean): Promise<void> {
@@ -253,7 +247,7 @@ async function offerInstall(cwd: string, interactive: boolean): Promise<void> {
 
   const controller = new AbortController()
   const installLog = createInstallLog()
-  const installSpinner = spinner({ indicator: 'timer', onCancel: () => controller.abort() })
+  const installSpinner = createSpinner({ indicator: 'timer', onCancel: () => controller.abort() })
   installSpinner.start(`Installing with ${styleText('cyan', packageManager.name)}`)
 
   const result = await runInstall({

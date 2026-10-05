@@ -2,10 +2,10 @@ import type { OverlayEntry } from './screen'
 
 import { styleText } from 'node:util'
 
-import { MUTED } from '../../utils/terminal-theme'
+import { stripAnsi, visibleWidth } from '../../utils/formatting'
 
+import { MUTED } from '../../utils/terminal-theme'
 import { formatHints, ScreenOverlay } from './screen'
-import { stripAnsi, visibleWidth } from './width'
 
 export interface InfoSection {
   heading: string

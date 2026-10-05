@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { stripAnsi } from '../../../src/dev/tui/width'
+import { stripAnsi } from '../../../src/utils/formatting'
 import { logger } from '../../../src/utils/logger'
 
 const environment = vi.hoisted(() => ({ isCI: false }))

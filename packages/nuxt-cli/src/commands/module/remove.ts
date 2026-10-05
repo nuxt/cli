@@ -8,20 +8,21 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, multiselect } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { detectPackageManager, removeDependency } from 'nypm'
 import { resolve } from 'pathe'
 import { readPackageJSON } from 'pkg-types'
 
 import { runCommandDef as runCommand } from '../../run-command'
 import { readNuxtConfig, removeNuxtConfigEntries } from '../../utils/config'
 import { CONFIG_KEYS } from '../../utils/config-parse'
+import { createInstallLog, runInstall } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
 import { readDependencyPackageJson } from '../../utils/package-json'
+import { defaultPackageManager, detectPackageManager } from '../../utils/package-managers'
 import { relativeToProcess } from '../../utils/paths'
 import { cwdArgs, logLevelArgs } from '../_shared'
 import prepareCommand from '../prepare'
-import { basePackageName, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, isPnpmWorkspace, MODULES_API_URL } from './_utils'
+import { basePackageName, ensureNuxtDependency, fetchModules, forwardCommandArgs, getProjectDependencies, MODULES_API_URL } from './_utils'
 
 interface OrphanedPeer {
   peer: string
@@ -93,7 +94,6 @@ export default defineCommand({
   },
 })
 
-// -- Internal Utils --
 async function removeModules(modules: string[], { skipInstall = false, skipConfig = false, cwd }: { skipInstall?: boolean, skipConfig?: boolean, cwd: string }, projectPkg: PackageJson): Promise<boolean | undefined> {
   const removedFromConfig: string[] = []
   const dependencies = getProjectDependencies(projectPkg)
@@ -157,9 +157,6 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
   }
 
   if (!skipInstall) {
-    const installedModules: string[] = []
-    const notInstalledModules: string[] = []
-
     // Entries removed from the config are only uninstalled when they name an
     // installed package, so a local layer (`./layers/admin`) is left alone.
     const targets = Array.from(new Set([
@@ -167,14 +164,8 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
       ...removedFromConfig.map(basePackageName).filter(name => dependencies.has(name)),
     ]))
 
-    for (const module of targets) {
-      if (dependencies.has(module)) {
-        installedModules.push(module)
-      }
-      else {
-        notInstalledModules.push(module)
-      }
-    }
+    const installedModules = targets.filter(module => dependencies.has(module))
+    const notInstalledModules = targets.filter(module => !dependencies.has(module))
 
     if (notInstalledModules.length > 0) {
       const notInstalledList = notInstalledModules.map(m => styleText('cyan', m)).join(', ')
@@ -216,18 +207,20 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     const dependency = toRemove.length > 1 ? 'dependencies' : 'dependency'
     logger.info(`Uninstalling ${removeList} ${dependency}`)
 
-    const packageManager = await detectPackageManager(cwd)
+    const packageManager = await detectPackageManager(cwd) ?? defaultPackageManager
+    const installLog = createInstallLog()
 
-    const removed = await removeDependency(toRemove, {
+    const result = await runInstall({
       cwd,
       packageManager,
-      workspace: isPnpmWorkspace(packageManager, cwd),
-    }).then(() => true).catch((error) => {
-      logger.error(String(error))
-      return false
+      dependencies: toRemove,
+      uninstall: true,
+      onOutput: installLog.onOutput,
     })
+    installLog.finish(result)
 
-    if (!removed) {
+    if (!result.success) {
+      logger.error(result.error ?? `Failed to uninstall ${removeList}`)
       return false
     }
   }
@@ -294,11 +287,7 @@ async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cw
     }
   }
 
-  const orphans: OrphanedPeer[] = []
-  for (const [peer, source] of candidates) {
-    if (!stillNeeded.has(peer)) {
-      orphans.push({ peer, source })
-    }
-  }
-  return orphans
+  return [...candidates]
+    .filter(([peer]) => !stillNeeded.has(peer))
+    .map(([peer, source]) => ({ peer, source }))
 }

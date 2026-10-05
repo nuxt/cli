@@ -16,11 +16,7 @@ export interface CatalogEntry {
   specifier?: string
 }
 
-export interface CatalogConfig {
-  /** Absolute path of the `pnpm-workspace.yaml` the catalogs are declared in. */
-  filePath: string
-  catalogs: Record<string, Record<string, string>>
-}
+type Catalogs = Record<string, Record<string, string>>
 
 /**
  * The catalog a `catalog:` / `catalog:name` specifier refers to, or `undefined`
@@ -47,7 +43,7 @@ export function findPnpmWorkspaceYaml(cwd: string): string | undefined {
   }
 }
 
-const configCache = new Map<string, CatalogConfig | undefined>()
+const configCache = new Map<string, Catalogs | undefined>()
 
 /** Discard memoised catalog configuration, so a later read sees changes on disk. */
 export function clearCatalogCache(): void {
@@ -61,7 +57,7 @@ export function clearCatalogCache(): void {
  * Results are memoised per workspace file, as commands such as `nuxi info` query
  * dozens of dependencies in a row.
  */
-export function readCatalogConfig(cwd: string): CatalogConfig | undefined {
+export function readCatalogConfig(cwd: string): Catalogs | undefined {
   const filePath = findPnpmWorkspaceYaml(cwd)
   if (!filePath) {
     return undefined
@@ -81,7 +77,7 @@ interface WorkspaceYaml {
   catalogs?: Record<string, Record<string, string>>
 }
 
-function parseCatalogConfig(filePath: string): CatalogConfig | undefined {
+function parseCatalogConfig(filePath: string): Catalogs | undefined {
   let json: WorkspaceYaml
   try {
     json = parseYAML<WorkspaceYaml>(readFileSync(filePath, 'utf-8')) || {}
@@ -90,16 +86,12 @@ function parseCatalogConfig(filePath: string): CatalogConfig | undefined {
     return undefined
   }
 
-  const catalogs: CatalogConfig['catalogs'] = { ...json.catalogs }
+  const catalogs: Catalogs = { ...json.catalogs }
   if (json.catalog) {
     catalogs[DEFAULT_CATALOG] = json.catalog
   }
 
-  if (Object.keys(catalogs).length === 0) {
-    return undefined
-  }
-
-  return { filePath, catalogs }
+  return Object.keys(catalogs).length > 0 ? catalogs : undefined
 }
 
 /**
@@ -115,7 +107,7 @@ export function resolveCatalogEntry(cwd: string, pkgJson: PackageJson | null | u
   }
 
   const config = readCatalogConfig(cwd)
-  return { catalog, specifier: config?.catalogs[catalog]?.[pkg] }
+  return { catalog, specifier: config?.[catalog]?.[pkg] }
 }
 
 /** The outcome of a {@link updateCatalogEntries} call. */

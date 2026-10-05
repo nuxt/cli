@@ -21,51 +21,32 @@ export interface Spinner {
  * says what it is doing. Stopped with `options.done`, or silently, once `fn`
  * settles.
  *
- * Anywhere the frames would be noise rather than animation (CI, an agent, a piped
- * log) each message is logged as a plain line instead.
+ * Without a TTY or in CI, each message is logged once as a plain line.
  */
 export async function withSpinner<T>(message: string, fn: (spinner: Spinner) => Promise<T>, options: { done?: string } = {}): Promise<T> {
   let done = options.done
   const setDone = (text: string) => {
     done = text
   }
-
-  const host = useTerminalHost()
-  if (host) {
-    const task = host.startTask(message)
+  const indicator = createSpinner()
+  const run = async () => {
+    indicator.start(message)
     try {
-      const result = await fn({ update: text => task.update(text), done: setDone })
-      task.stop(done, 'success')
+      const result = await fn({ update: text => indicator.message(text), done: setDone })
+      indicator.stop(done)
       return result
     }
     catch (error) {
       // The message the work chose describes it succeeding; whoever threw
       // reports the failure itself.
-      task.stop(undefined, 'failure')
+      indicator.error()
       throw error
     }
-  }
-
-  if (!process.stdout.isTTY || isCI) {
-    logger.info(`${message}...`)
-    const result = await fn({ update: text => logger.info(`${text}...`), done: setDone })
-    if (done) {
-      logger.info(done)
-    }
-    return result
-  }
-
-  return withDirectStdout(async () => {
-    const indicator = spinner()
-    indicator.start(message)
-    try {
-      return await fn({ update: text => indicator.message(text), done: setDone })
-    }
     finally {
-      indicator.stop(done)
       restoreRawMode()
     }
-  })
+  }
+  return useTerminalHost() ? run() : withDirectStdout(run)
 }
 
 export interface CliSpinner {
@@ -84,12 +65,17 @@ export interface CliSpinner {
  * history one frame at a time. With a terminal host published, the work is
  * reported as a task on the host's own status line instead.
  *
+ * Without a TTY or in CI, each distinct message is logged once as a plain line.
+ *
  * A host implies an interactive terminal, so cancellation stays with its key
  * handling: `onCancel` only fires on the clack path.
  */
 export function createSpinner(options: { indicator?: 'dots' | 'timer', onCancel?: () => void } = {}): CliSpinner {
   const host = useTerminalHost()
   if (!host) {
+    if (!process.stdout.isTTY || isCI) {
+      return createPlainSpinner()
+    }
     return spinner(options)
   }
   let task: TerminalTask | undefined
@@ -104,5 +90,27 @@ export function createSpinner(options: { indicator?: 'dots' | 'timer', onCancel?
       task?.stop(message, 'failure')
       task = undefined
     },
+  }
+}
+
+function createPlainSpinner(): CliSpinner {
+  let last: string | undefined
+  const log = (text: string) => {
+    if (text !== last) {
+      last = text
+      logger.info(`${text}...`)
+    }
+  }
+  const finish = (report: (message: string) => void) => (message?: string) => {
+    if (message) {
+      report(message)
+    }
+    last = undefined
+  }
+  return {
+    start: log,
+    message: log,
+    stop: finish(message => logger.success(message)),
+    error: finish(message => logger.error(message)),
   }
 }

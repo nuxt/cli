@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { FileChangeTracker, getLocalLayerDirs } from '../../src/dev/utils'
+import { FileChangeTracker, getLocalLayerDirs } from '../../src/dev/config-watcher'
 
 describe('fileWatcher', () => {
   let tempDir: string

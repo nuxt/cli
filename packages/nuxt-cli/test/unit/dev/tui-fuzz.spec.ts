@@ -4,7 +4,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 
 import { renderPanel } from '../../../src/dev/tui/panel'
-import { stripAnsi, truncate, visibleWidth } from '../../../src/dev/tui/width'
+import { stripAnsi, truncate, visibleWidth } from '../../../src/utils/formatting'
 
 const RUNS = Number(process.env.NUXT_CLI_FUZZ_RUNS) || 500
 

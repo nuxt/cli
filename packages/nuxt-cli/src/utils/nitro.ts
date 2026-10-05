@@ -1,5 +1,6 @@
 import type { PackageJson } from 'pkg-types'
 
+import { NUXT_PACKAGES } from './nuxt-packages'
 import { getPkgJSON, getPkgVersion } from './pkg'
 
 /**
@@ -18,14 +19,6 @@ const NITRO_PKGS = ['nitro', 'nitropack']
  * version Nuxt actually uses.
  */
 const NITRO_SERVER_PKG = '@nuxt/nitro-server'
-
-/**
- * Packages whose declared Nitro dependency is authoritative.
- *
- * Nightly releases are usually aliased onto `nuxt`, so `nuxt-nightly` only
- * covers an install under its own name.
- */
-const NUXT_PKGS = ['nuxt', 'nuxt-nightly']
 
 interface NitroCandidate {
   /** The name Nitro is installed under. */
@@ -54,7 +47,7 @@ function getNitroCandidates(cwd: string): NitroCandidate[] {
 function getNuxtNitroDependency(cwd: string): NitroCandidate | undefined {
   const readManifest = (name: string, via?: string[]) => getPkgJSON(cwd, name, { via, strict: true })
 
-  for (const owner of NUXT_PKGS) {
+  for (const owner of NUXT_PACKAGES) {
     const manifest = readManifest(owner)
     if (!manifest) {
       continue

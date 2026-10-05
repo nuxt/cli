@@ -41,4 +41,20 @@ describe('attachViteHmrServer', () => {
     expect(server.ws).toMatchObject({ server: hmrServer })
     expect(server.hmr).toMatchObject({ server: hmrServer })
   })
+
+  it.each([
+    ['ws', { ws: { path: 'hmr' } }],
+    ['hmr', { hmr: { path: 'hmr' } }],
+  ])('sets a %s path on both ws and hmr and returns it', (_key, server: Record<string, any>) => {
+    expect(attachViteHmrServer(server, hmrServer)).toBe('hmr')
+    expect(server.ws.path).toBe('hmr')
+    expect(server.hmr.path).toBe('hmr')
+  })
+
+  it('prefers the ws path when both are set', () => {
+    const server: Record<string, any> = { ws: { path: 'a' }, hmr: { path: 'b' } }
+
+    expect(attachViteHmrServer(server, hmrServer)).toBe('a')
+    expect(server.hmr.path).toBe('a')
+  })
 })

@@ -8,7 +8,6 @@ import { defineCommand } from 'citty'
 
 import { openBrowser } from '../dev/listen'
 import { releaseStdin, withDirectStdout } from '../utils/console'
-import { DOCS_BASE_URL, DOCS_PATH, resolveDocsIndex } from '../utils/docs-index'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withSpinner } from '../utils/spinner'
@@ -37,9 +36,10 @@ export default defineCommand({
     },
   },
   async run(ctx) {
+    const { DOCS_BASE_URL, DOCS_PATH, resolveDocsIndex } = await import('../utils/docs-index')
     const query = ctx.args._.join(' ').trim()
     if (!query) {
-      return visit(DOCS_PATH, ctx.args.open)
+      return visit(DOCS_BASE_URL + DOCS_PATH, ctx.args.open)
     }
 
     const found = await withSpinner(`Searching the Nuxt documentation for ${styleText('cyan', query)}`, async (spinner) => {
@@ -58,13 +58,13 @@ export default defineCommand({
 
     if (!found) {
       logger.warn(`Could not read the Nuxt documentation for this project. Run again with ${styleText('cyan', 'DEBUG=nuxi*')} to see why.`)
-      return visit(DOCS_PATH, ctx.args.open)
+      return visit(DOCS_BASE_URL + DOCS_PATH, ctx.args.open)
     }
 
     const { index, results } = found
     if (results.length === 0) {
       logger.warn(`Nothing in the Nuxt ${index.version} documentation matches ${styleText('cyan', query)}.`)
-      return visit(DOCS_PATH, ctx.args.open)
+      return visit(DOCS_BASE_URL + DOCS_PATH, ctx.args.open)
     }
 
     if (results.length > 1 && ctx.args.open && isInteractive()) {
@@ -82,7 +82,7 @@ export default defineCommand({
         cancel(`Nuxt documentation: ${DOCS_BASE_URL}${index.base}${results[0]!.path}`)
         return
       }
-      return visit(index.base + choice, true)
+      return visit(DOCS_BASE_URL + index.base + choice, true)
     }
 
     const width = Math.max(...results.map(entry => entry.title.length))
@@ -92,12 +92,11 @@ export default defineCommand({
     })
     process.stdout.write(`${lines.join('\n')}\n`)
 
-    return visit(index.base + results[0]!.path, ctx.args.open)
+    return visit(DOCS_BASE_URL + index.base + results[0]!.path, ctx.args.open)
   },
 })
 
-function visit(path: string, open: boolean): void {
-  const url = DOCS_BASE_URL + path
+function visit(url: string, open: boolean): void {
   logger.info(`${open ? 'Opening' : 'Nuxt documentation:'} ${styleText('cyan', url)}`)
   if (open) {
     openBrowser(url)

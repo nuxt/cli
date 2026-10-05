@@ -14,7 +14,7 @@ interface FakeResponse {
   response: ServerResponse
 }
 
-function createRequest(accept?: string, url = '/'): IncomingMessage {
+function createIncomingMessage(accept?: string, url = '/'): IncomingMessage {
   return { url, method: 'GET', headers: accept ? { accept } : {}, rawHeaders: [] } as unknown as IncomingMessage
 }
 
@@ -54,7 +54,7 @@ function createResponse(): FakeResponse {
 describe('sendErrorResponse', () => {
   it('should escape an error message in the html error page', async () => {
     const res = createResponse()
-    await sendErrorResponse(createRequest('text/html'), res.response, new Error('<script>alert(1)</script>'))
+    await sendErrorResponse(createIncomingMessage('text/html'), res.response, new Error('<script>alert(1)</script>'))
 
     expect(res.statusCode).toBe(500)
     expect(res.headers['content-type']).toBe('text/html')
@@ -64,14 +64,14 @@ describe('sendErrorResponse', () => {
 
   it('should escape a reflected request url in the html error page', async () => {
     const res = createResponse()
-    await sendErrorResponse(createRequest('text/html', '/</script><script>alert(1)</script>'), res.response, new Error('boom'))
+    await sendErrorResponse(createIncomingMessage('text/html', '/</script><script>alert(1)</script>'), res.response, new Error('boom'))
 
     expect(res.body).not.toContain('<script>alert(1)</script>')
   })
 
   it('should answer a non-html client with json', async () => {
     const res = createResponse()
-    await sendErrorResponse(createRequest('application/json'), res.response, new Error('boom'))
+    await sendErrorResponse(createIncomingMessage('application/json'), res.response, new Error('boom'))
 
     expect(res.headers['content-type']).toBe('application/json')
     expect(JSON.parse(res.body)).toMatchObject({ error: true, status: 500, message: 'boom' })
@@ -79,7 +79,7 @@ describe('sendErrorResponse', () => {
 
   it('should send hardening headers with the error page', async () => {
     const res = createResponse()
-    await sendErrorResponse(createRequest('text/html'), res.response, new Error('boom'))
+    await sendErrorResponse(createIncomingMessage('text/html'), res.response, new Error('boom'))
 
     expect(res.headers).toMatchObject({
       'cache-control': 'no-store',
@@ -92,14 +92,14 @@ describe('sendErrorResponse', () => {
   it('should not write a body once headers have been sent', async () => {
     const res = createResponse()
     res.headersSent = true
-    await sendErrorResponse(createRequest('text/html'), res.response, new Error('boom'))
+    await sendErrorResponse(createIncomingMessage('text/html'), res.response, new Error('boom'))
 
     expect(res.body).toBe('')
   })
 
   it('should render a non-error rejection value', async () => {
     const res = createResponse()
-    await sendErrorResponse(createRequest('application/json'), res.response, 'just a string')
+    await sendErrorResponse(createIncomingMessage('application/json'), res.response, 'just a string')
 
     expect(JSON.parse(res.body)).toMatchObject({ status: 500, message: 'Unknown error' })
   })
@@ -114,7 +114,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(({ loading }) => `<p>${loading}</p>`)
     const res = createResponse()
 
-    server.handler(createRequest('text/html'), res as unknown as ServerResponse)
+    server.handler(createIncomingMessage('text/html'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.statusCode).toBe(503)
@@ -126,7 +126,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(() => '<p>ignored</p>')
     const res = createResponse()
 
-    server.handler(createRequest('application/json'), res as unknown as ServerResponse)
+    server.handler(createIncomingMessage('application/json'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.statusCode).toBe(503)
@@ -137,7 +137,7 @@ describe('dev server loading screen', () => {
     const server = createDevServer(() => 'loading')
     const res = createResponse()
 
-    server.handler(createRequest('text/html'), res as unknown as ServerResponse)
+    server.handler(createIncomingMessage('text/html'), res as unknown as ServerResponse)
     await res.finished
 
     expect(res.headers).toMatchObject({ 'cache-control': 'no-store', 'refresh': '3' })

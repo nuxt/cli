@@ -2,24 +2,23 @@ import type { PackageJson } from 'pkg-types'
 
 import type { UpdateCatalogEntriesResult } from '../utils/catalog'
 import type { InstallResult } from '../utils/install'
-
 import { existsSync } from 'node:fs'
-import process from 'node:process'
 
+import process from 'node:process'
 import { styleText } from 'node:util'
-import { cancel, isCancel, note, select, spinner } from '@clack/prompts'
+
+import { cancel, isCancel, note, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
-import { detectPackageManager } from 'nypm'
 import { dirname, relative, resolve } from 'pathe'
 import { findWorkspaceDir, readPackageJSON } from 'pkg-types'
 
-import { resolveCatalogEntry, updateCatalogEntries } from '../utils/catalog'
 import { createInstallLog, runDedupe, runInstall, takeUnreportedIgnoredBuilds } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { intro, logger, outro } from '../utils/logger'
 import { cleanupNuxtDirs, nuxtVersionToGitIdentifier } from '../utils/nuxt'
-import { getPackageManagerVersion } from '../utils/packageManagers'
+import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../utils/package-managers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
+import { createSpinner } from '../utils/spinner'
 import { getNuxtVersion, resolveRegistryVersion } from '../utils/versions'
 import { logLevelArgs, rootDirArgs } from './_shared'
 
@@ -173,7 +172,7 @@ export default defineCommand({
 
     intro(styleText('cyan', 'Upgrading Nuxt ...'))
 
-    const [packageManager, workspaceDir = cwd] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true })])
+    const [packageManager, workspaceDir = cwd, { resolveCatalogEntry, updateCatalogEntries }] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true }), import('../utils/catalog')])
     if (!packageManager) {
       logger.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in ${styleText('cyan', relativeToProcess(cwd))}, and no ${styleText('cyan', 'packageManager')} field specified in ${styleText('cyan', 'package.json')}.`,
@@ -181,14 +180,17 @@ export default defineCommand({
       logger.info(`Please either add the ${styleText('cyan', 'packageManager')} field to ${styleText('cyan', 'package.json')} or execute the installation command for your package manager. For example, you can use ${styleText('cyan', 'pnpm i')}, ${styleText('cyan', 'npm i')}, ${styleText('cyan', 'bun i')}, or ${styleText('cyan', 'yarn i')}, and then try again.`)
       process.exit(1)
     }
-    const { name: packageManagerName, lockFile: lockFileCandidates } = packageManager
+    const { name: packageManagerName } = packageManager
     const packageManagerVersion = getPackageManagerVersion(packageManagerName)
-    logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${packageManagerVersion}`)
+    const currentVersionPromise = getNuxtVersion(cwd)
+    currentVersionPromise.catch(() => {})
+    const pkgPromise = readPackageJSON(cwd).catch(() => null)
 
-    const currentVersion = (await getNuxtVersion(cwd)) || '[unknown]'
+    logger.step(`Package manager: ${styleText('cyan', packageManagerName)} ${await packageManagerVersion}`)
+    const currentVersion = (await currentVersionPromise) || '[unknown]'
     logger.step(`Current Nuxt version: ${styleText('cyan', currentVersion)}`)
 
-    const pkg = await readPackageJSON(cwd).catch(() => null)
+    const pkg = await pkgPromise
 
     const nuxtDependencyType = pkg ? checkNuxtDependencyType(pkg) : 'dependencies'
     const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
@@ -215,7 +217,7 @@ export default defineCommand({
 
     const toRemove = ['node_modules']
 
-    const lockFile = findLockFile(cwd, workspaceDir, lockFileCandidates)
+    const lockFile = findLockFile(cwd, workspaceDir, getLockFiles(packageManagerName))
     if (lockFile) {
       toRemove.push(lockFile)
     }
@@ -269,7 +271,7 @@ export default defineCommand({
     let catalogResult: UpdateCatalogEntriesResult | 'skipped' = 'skipped'
 
     if (catalogUpdates.length > 0) {
-      const catalogSpinner = spinner()
+      const catalogSpinner = createSpinner()
       catalogSpinner.start('Updating catalog entries')
 
       const resolved: Array<{ catalog: string, pkg: string, specifier: string }> = []
@@ -326,7 +328,6 @@ export default defineCommand({
         packageManager,
         dependencies: directPackages,
         dev: nuxtDependencyType === 'devDependencies',
-        workspace: packageManager.name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')),
         ...hooks,
       }),
     )
@@ -352,7 +353,7 @@ export default defineCommand({
       }
     }
 
-    const cleanupSpinner = spinner()
+    const cleanupSpinner = createSpinner()
     cleanupSpinner.start('Cleaning up build directories')
     let buildDir: string = '.nuxt'
     try {
@@ -368,7 +369,7 @@ export default defineCommand({
       cleanupSpinner.stop('Build directories cleaned')
     }
     catch (err) {
-      cleanupSpinner.stop('Could not clean build directories')
+      cleanupSpinner.error('Could not clean build directories')
       logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error ? err.message : err}`)
     }
 
@@ -423,7 +424,7 @@ async function withInstallSpinner(
 ): Promise<boolean> {
   const controller = new AbortController()
   const installLog = createInstallLog({ verbose: options.verbose })
-  const spin = spinner({
+  const spin = createSpinner({
     indicator: 'timer',
     onCancel: () => controller.abort(),
   })
