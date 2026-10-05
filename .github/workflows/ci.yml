@@ -140,6 +140,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       id-token: write
+    environment: nightly
     steps:
       - uses: danielroe/uppt/publish@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
         with:
