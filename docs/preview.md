@@ -58,7 +58,9 @@ A preview records itself in `node_modules/.cache/nuxt/preview`, so a second `nux
 
 Pass `--takeover` to always stop it and start in its place, or `--no-takeover` to never do so. Choosing "Start anyway" at the prompt, or passing a different `--port`, runs a second preview alongside it instead.
 
-When anything else is using the port (`3000` unless you pass `--port`), the preview moves to another free port as `nuxt dev` does, or exits if you pass `--strictPort`. This only applies to presets whose server runs directly with Node.js, Bun or Deno; other presets' preview commands choose their own port.
+When another server, including `nuxt dev`, is using the requested port, the preview automatically uses another free port without stopping that server. Pass `--strictPort` to exit instead. The requested port comes from `--port`, `NUXT_PORT`, `NITRO_PORT`, or `PORT`, defaulting to `3000`.
+
+Port selection applies to static previews and preview commands that run directly with Node.js, Bun, or Deno. Other preview commands choose their own port.
 
 This command sets `process.env.NODE_ENV` to `production`. To override, define `NODE_ENV` in a `.env` file or as command-line argument.
 

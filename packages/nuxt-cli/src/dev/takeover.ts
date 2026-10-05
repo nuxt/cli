@@ -162,13 +162,24 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
 
 async function performTakeover(lockDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {
   const port = existing.port!
+  const portFree = await isPortFree(port, existing.hostname)
+  if (!matchesLock(readLock(lockDir), existing)) {
+    return { action: 'none' }
+  }
+  if (!isProcessAlive(existing.pid) || portFree) {
+    clearStaleLock(lockDir, existing)
+    return { action: 'stale' }
+  }
+
   const label = describeServer(existing)
   const startedAt = new Date(existing.startedAt).toLocaleTimeString()
   const progress = startProgress(`Taking over the ${label} on port ${port} (PID ${existing.pid}, started ${startedAt})`)
 
   markTakenOver(lockDir, process.pid)
 
-  const pids = [...new Set([existing.pid, existing.parentPid, existing.serverPid])]
+  const pids = [...new Set(existing.command === 'preview'
+    ? [existing.serverPid, existing.pid]
+    : [existing.pid, existing.parentPid])]
     .filter((pid): pid is number => !!pid)
 
   // On Windows `SIGTERM` terminates outright.
@@ -181,6 +192,11 @@ async function performTakeover(lockDir: string, existing: LockInfo, timeouts: Ta
       progress.update(`Waiting for the ${label} on port ${port} to exit`)
     }
     for (const pid of pids) {
+      const current = readLock(lockDir)
+      if (!matchesLock(current, existing)
+        || (pid !== existing.pid && pid !== current?.parentPid && pid !== current?.serverPid)) {
+        continue
+      }
       try {
         process.kill(pid, signal)
       }
@@ -195,6 +211,14 @@ async function performTakeover(lockDir: string, existing: LockInfo, timeouts: Ta
   progress.fail(`Could not stop the ${label} on port ${port}`)
   clearTakeover(lockDir, process.pid)
   return { action: 'refused', existing, reason: 'timeout' }
+}
+
+function matchesLock(current: LockInfo | undefined, existing: LockInfo): boolean {
+  return current?.pid === existing.pid
+    && current.startedAt === existing.startedAt
+    && current.command === existing.command
+    && current.port === existing.port
+    && current.hostname === existing.hostname
 }
 
 interface TakeoverProgress {

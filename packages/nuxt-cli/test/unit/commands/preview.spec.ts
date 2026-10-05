@@ -228,18 +228,65 @@ describe('preview', () => {
   })
 
   it('records the server it starts so a later preview can take it over', async () => {
-    x.mockReturnValue(Object.assign(Promise.resolve({ exitCode: 0 }), { pid: 4242 }))
+    let recorded: LockInfo | undefined
+    x.mockReturnValue({
+      pid: 4242,
+      then(resolve: (value: { exitCode: number }) => void) {
+        recorded = readLock(previewLockDir(cwd))
+        resolve({ exitCode: 0 })
+      },
+    })
     await writeNitroJSON(join(cwd, '.output'))
 
     await runCommand(preview, { rawArgs: [cwd, '--port=4321'] })
 
-    expect(readLock(previewLockDir(cwd))).toMatchObject({
+    expect(recorded).toMatchObject({
       pid: process.pid,
       command: 'preview',
       port: 4321,
       url: 'http://localhost:4321',
       serverPid: 4242,
     })
+    expect(readLock(previewLockDir(cwd))).toBeUndefined()
+  })
+
+  it.each(['spawn', 'exit'])('releases the lock after a child %s error', async (failure) => {
+    const error = new Error('preview failed')
+    if (failure === 'spawn') {
+      x.mockImplementation(() => {
+        throw error
+      })
+    }
+    else {
+      x.mockRejectedValue(error)
+    }
+    await writeNitroJSON(join(cwd, '.output'))
+    const listeners = process.listenerCount('exit')
+
+    await expect(runCommand(preview, { rawArgs: [cwd] })).rejects.toThrow(error)
+
+    expect(readLock(previewLockDir(cwd))).toBeUndefined()
+    expect(process.listenerCount('exit')).toBe(listeners)
+  })
+
+  it('allocates a random port when port zero is requested', async () => {
+    getPort.mockResolvedValue(4321)
+    await writeNitroJSON(join(cwd, '.output'))
+
+    await runCommand(preview, { rawArgs: [cwd, '--port=0'] })
+
+    expect(getPort).toHaveBeenCalledWith({ random: true, host: undefined })
+    expectServerPort('4321')
+  })
+
+  it('rejects an invalid port before starting a server', async () => {
+    await writeNitroJSON(join(cwd, '.output'))
+
+    await expect(runCommand(preview, { rawArgs: [cwd, '--port=invalid'] }))
+      .rejects
+      .toThrow('Invalid port')
+
+    expect(x).not.toHaveBeenCalled()
   })
 
   describe('with a preview of this project already running', () => {
@@ -254,7 +301,7 @@ describe('preview', () => {
 
       await runCommand(preview, { rawArgs: [cwd] })
 
-      expect(signals).toEqual([[HOLDER_PID, 'SIGTERM'], [SERVER_PID, 'SIGTERM']])
+      expect(signals).toEqual([[SERVER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
       expectServerPort('4500')
     })
 
@@ -280,7 +327,7 @@ describe('preview', () => {
 
       await runCommand(preview, { rawArgs: [cwd, '--takeover'] })
 
-      expect(signals).toEqual([[HOLDER_PID, 'SIGTERM'], [SERVER_PID, 'SIGTERM']])
+      expect(signals).toEqual([[SERVER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
       expectServerPort('4500')
     })
 

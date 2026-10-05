@@ -1,7 +1,7 @@
 import type { TakeoverChoice } from '../../src/dev/takeover'
 import type { LockInfo } from '../../src/utils/lockfile'
 
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -360,7 +360,66 @@ describe('takeOverServer', () => {
       writeLock(buildDir, { command: 'preview', serverPid: 434343 })
       const proc = mockProcess()
       await takeOverServer(buildDir, { command: 'preview', interactive: false })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM'], [434343, 'SIGTERM']])
+      expect(proc.signals).toEqual([[434343, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
+    })
+
+    it.each(['removed', 'replaced', 'free'])('does not signal a preview whose lock is %s while prompting', async (change) => {
+      writeLock(buildDir, { command: 'preview', serverPid: 434343 })
+      const proc = mockProcess()
+      const result = await takeOverServer(buildDir, {
+        command: 'preview',
+        interactive: true,
+        prompt: async () => {
+          if (change === 'removed') {
+            unlinkSync(join(buildDir, 'nuxt.lock'))
+          }
+          else if (change === 'replaced') {
+            writeLock(buildDir, { command: 'preview', pid: 555555 })
+          }
+          else {
+            checkPort.mockResolvedValue(3000)
+          }
+          return 'takeover'
+        },
+      })
+      expect(result.action).toBe(change === 'free' ? 'stale' : 'none')
+      expect(proc.signals).toHaveLength(0)
+      if (change === 'replaced') {
+        expect(readLock(buildDir)).toMatchObject({ pid: 555555 })
+        expect(readLock(buildDir)?.takenOverBy).toBeUndefined()
+      }
+    })
+
+    it('does not signal a child removed from the lock while prompting', async () => {
+      const lock = writeLock(buildDir, { command: 'preview', serverPid: 434343 })
+      const proc = mockProcess()
+      await takeOverServer(buildDir, {
+        command: 'preview',
+        interactive: true,
+        prompt: async () => {
+          writeLock(buildDir, { ...lock, serverPid: undefined })
+          return 'takeover'
+        },
+      })
+      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM']])
+    })
+
+    it('does not escalate against a preview whose lock was released', async () => {
+      writeLock(buildDir, { command: 'preview', serverPid: 434343 })
+      const proc = mockProcess({ diesOn: 'never' })
+      proc.kill.mockImplementation((pid, signal) => {
+        if (signal === 'SIGTERM') {
+          proc.signals.push([pid as number, signal])
+          unlinkSync(join(buildDir, 'nuxt.lock'))
+        }
+        return true as never
+      })
+      expect(await takeOverServer(buildDir, {
+        command: 'preview',
+        takeover: true,
+        timeouts: { graceful: 1, force: 1 },
+      })).toMatchObject({ action: 'refused', reason: 'timeout' })
+      expect(proc.signals).toEqual([[434343, 'SIGTERM']])
     })
 
     it('can be started alongside without a warning about the build directory', async () => {

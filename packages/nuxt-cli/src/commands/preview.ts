@@ -277,36 +277,41 @@ const command = defineCommand({
 
     outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(previewDir))}`)
 
-    const recordServer = listenPort === undefined ? undefined : recordPreview(cwd, listenPort, host)
-    const server = x(command, commandArgs, {
-      throwOnError: true,
-      nodeOptions: {
-        stdio: 'inherit',
-        cwd: previewDir,
-        env: {
-          ...withPrependedPath(process.env, [
-            resolve(previewDir, 'node_modules/.bin'),
-            resolve(cwd, 'node_modules/.bin'),
-          ]),
-          NUXT_PORT: serverPort,
-          NITRO_PORT: serverPort,
-          NUXT_HOST: host,
-          NITRO_HOST: host,
+    const previewLock = listenPort === undefined ? undefined : recordPreview(cwd, listenPort, host)
+    try {
+      const server = x(command, commandArgs, {
+        throwOnError: true,
+        nodeOptions: {
+          stdio: 'inherit',
+          cwd: previewDir,
+          env: {
+            ...withPrependedPath(process.env, [
+              resolve(previewDir, 'node_modules/.bin'),
+              resolve(cwd, 'node_modules/.bin'),
+            ]),
+            NUXT_PORT: serverPort,
+            NITRO_PORT: serverPort,
+            NUXT_HOST: host,
+            NITRO_HOST: host,
+          },
         },
-      },
-    })
-    if (recordServer && server.pid) {
-      recordServer(server.pid)
+      })
+      if (server.pid) {
+        previewLock?.update(server.pid)
+      }
+      await server
     }
-    await server
+    finally {
+      previewLock?.release()
+    }
   },
 })
 
 export default command
 
-function recordPreview(rootDir: string, port: number, hostname: string | undefined): (serverPid: number) => void {
+function recordPreview(rootDir: string, port: number, hostname: string | undefined): { update: (serverPid: number) => void, release: () => void } | undefined {
   if (port === 0) {
-    return () => {}
+    return
   }
   const lockDir = previewLockDir(rootDir)
   const host = hostname || 'localhost'
@@ -319,7 +324,10 @@ function recordPreview(rootDir: string, port: number, hostname: string | undefin
   }
   const { release } = acquireLock(lockDir, info)
   if (!release) {
-    return () => {}
+    return
   }
-  return serverPid => updateLock(lockDir, { ...info, serverPid })
+  return {
+    release,
+    update: serverPid => updateLock(lockDir, { ...info, serverPid }),
+  }
 }
