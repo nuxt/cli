@@ -1,4 +1,4 @@
-styles: eba055abc05015cd
+styles: 676a790aac9bd9d9
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    waiting for requests
@@ -23,6 +23,7 @@ styles: eba055abc05015cd
   STARTING   preparing your app
   STARTING   setting up modules
   STARTING   starting Nuxt...
+ o open · i info · l logs · n network · p routes · ? help · q quit
  r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  ⣠⣦⣠⡀  Nuxt x.y.z
  ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
