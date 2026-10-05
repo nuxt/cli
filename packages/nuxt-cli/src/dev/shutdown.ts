@@ -46,7 +46,7 @@ const SHUTDOWN_NOTICE_MS = 1500
 export function handleShutdownSignals(close: () => Promise<void>): void {
   adoptShutdown()
   let closing = false
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGQUIT'] as const) {
     process.on(signal, () => {
       if (closing) {
         process.exit(130)

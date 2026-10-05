@@ -203,11 +203,6 @@ describe('dev tui panel', () => {
     expect(lines).toHaveLength(renderPanel({ ...READY, requests: 188, medianMs: 11 }, 100, 30).length)
   })
 
-  it('keeps a notice out of the way of a quit confirmation', () => {
-    const text = renderPanelText({ ...READY, confirmQuit: true, notice: { text: 'copied', tone: 'success' } }, 100, 30)
-    expect(text).not.toContain('copied')
-  })
-
   it('keeps the status line and hints when the panel is squeezed', () => {
     const lines = renderPanel({ ...READY, notice: { text: 'copied', tone: 'success' } }, 60, 3).map(strip)
     expect(lines).toHaveLength(2)
@@ -289,13 +284,6 @@ describe('dev tui panel', () => {
     expect(pending.find(line => line.includes('localhost'))).toContain('\u280B')
     const confirmed = renderPanel({ ...READY }, 100, 30).map(strip)
     expect(confirmed.find(line => line.includes('localhost'))).not.toContain('\u280B')
-  })
-
-  it('replaces the hints with a confirmation prompt', () => {
-    const text = renderPanelText({ ...READY, confirmQuit: true }, 100, 30)
-    expect(text).toContain('QUIT?')
-    expect(text).toContain('press y to confirm')
-    expect(text).not.toContain('q quit')
   })
 
   it('substitutes plain characters when the terminal cannot render glyphs', () => {
@@ -912,7 +900,7 @@ describe('log overlay', () => {
 
   it('should leave a message that carries its own colours alone', () => {
     const coloured = `${'\u001B[31m'}✖${'\u001B[39m'} ParseError`
-    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80, 8)
+    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80)
 
     expect(lines.join('\n')).toContain(coloured)
   })
@@ -938,8 +926,7 @@ describe('log overlay', () => {
 
   it('truncates by visible width and carries styling across the cut', () => {
     const styled = event({ message: `\u001B[32m➜\u001B[39m DevTools: press Shift + A in your browser to enable the DevTools`, level: 2 })
-    const timeWidth = new Date(0).toLocaleTimeString().length
-    const [line] = formatEvent(styled as any, 40, timeWidth)
+    const [line] = formatEvent(styled as any, 40)
     expect(strip(line!).length).toBeLessThanOrEqual(40)
     // The cut must not swallow the reset, or everything after stays green.
     expect(line!.endsWith('\u001B[0m')).toBe(true)
@@ -1012,6 +999,24 @@ describe('log overlay', () => {
     expect(process.stdout.listenerCount('resize')).toBe(before)
   })
 
+  it('ignores modified view shortcuts', () => {
+    const events = new DevEventLog()
+    events.push(event({ source: 'runtime', message: 'runtime log' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const before = lastFrame()
+    for (const key of [
+      { name: 'r', ctrl: true },
+      { name: 'x', ctrl: true },
+      { name: 'q', meta: true },
+    ]) {
+      overlay.handleKey(key)
+      expect(lastFrame()).toBe(before)
+      expect(overlay.isOpen).toBe(true)
+    }
+    overlay.close()
+  })
+
   it('clears the history from the view', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'old news' }))
@@ -1046,7 +1051,7 @@ describe('log overlay', () => {
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
-    overlay.handleKey({ name: 'c' })
+    overlay.handleKey({ name: 't' })
     expect(strip(lastFrame())).not.toContain('from cli')
     expect(strip(lastFrame())).toContain('from runtime')
     expect(strip(lastFrame())).toContain('from build')
@@ -1184,11 +1189,183 @@ describe('log overlay', () => {
 
     overlay.handleKey({ name: 'g' })
     expect(strip(lastFrame())).toContain('line 0')
-    expect(strip(lastFrame())).toContain('scrolled')
+    expect(strip(lastFrame())).toContain('paused')
 
     overlay.handleKey({ sequence: 'G', name: 'g' })
-    expect(strip(lastFrame())).not.toContain('scrolled')
+    expect(strip(lastFrame())).not.toContain('paused')
     expect(lastFrame()).not.toContain('\u258E')
+  })
+
+  it('pages through an entry taller than the viewport', () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n') }))
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    expect(body()[0]).toContain('row 0')
+    overlay.handleKey({ name: 'pagedown' })
+    expect(body()[0]).toContain(`row ${rows - 1}`)
+    overlay.handleKey({ name: 'pagedown' })
+    expect(body()[0]).toContain(`row ${2 * (rows - 1)}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(body()[0]).toContain(`row ${rows - 1}`)
+    overlay.handleKey({ name: 'end' })
+    expect(body().at(-1)).toContain(`row ${rows * 3 - 1}`)
+    expect(strip(lastFrame())).not.toContain('paused')
+    overlay.close()
+  })
+
+  it('pages by rows across entries of different heights', () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: 'short' }))
+    events.push(event({ message: Array.from({ length: rows * 2 }, (_, i) => `stack ${i}`).join('\n') }))
+    events.push(event({ message: 'last' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'pagedown' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain(`stack ${rows - 2}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain('short')
+    overlay.close()
+  })
+
+  it('keeps the viewport still while paused and resumes following with End', async () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    for (let i = 0; i < rows * 2; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows).join('\n')
+    overlay.open()
+    overlay.handleKey({ name: 'pageup' })
+    const before = body()
+    events.push(event({ message: 'new arrival\nsecond row' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows + 1} rows below`))
+    expect(body()).toBe(before)
+    overlay.handleKey({ name: 'end' })
+    expect(body()).toContain('new arrival')
+    expect(strip(lastFrame())).not.toContain('paused')
+    events.push(event({ message: 'following again' }))
+    await vi.waitFor(() => expect(body()).toContain('following again'))
+    overlay.close()
+  })
+
+  it('shows incoming logs in spare rows without moving the selection', async () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'selected entry' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'up' })
+    const selected = strip(lastFrame()).split('\n')[2]
+    events.push(event({ message: 'incoming entry' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain('incoming entry'))
+    expect(strip(lastFrame()).split('\n')[2]).toBe(selected)
+    expect(strip(lastFrame())).toContain('follow paused')
+    overlay.close()
+  })
+
+  it('keeps the viewport anchored when old events leave the history', async () => {
+    const rows = (process.stdout.rows || 24) - 3
+    const events = new DevEventLog(rows * 3)
+    for (let i = 0; i < rows * 3; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows).join('\n')
+    overlay.open()
+    overlay.handleKey({ name: 'pageup' })
+    const before = body()
+    events.push(event({ message: 'new arrival' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows} rows below`))
+    expect(body()).toBe(before)
+    overlay.close()
+  })
+
+  it('keeps a paged position inside a large entry when the terminal height changes', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'rows')
+    const events = new DevEventLog()
+    events.push(event({ message: Array.from({ length: 40 }, (_, i) => `row ${i}`).join('\n') }))
+    const { overlay, lastFrame } = create(events)
+    try {
+      Object.defineProperty(process.stdout, 'rows', { value: 8, configurable: true })
+      overlay.open()
+      overlay.handleKey({ name: 'home' })
+      overlay.handleKey({ name: 'pagedown' })
+      expect(strip(lastFrame()).split('\n')[2]).toContain('row 4')
+      Object.defineProperty(process.stdout, 'rows', { value: 12, configurable: true })
+      process.stdout.emit('resize')
+      await vi.waitFor(() => expect(strip(lastFrame()).split('\n')).toHaveLength(12))
+      expect(strip(lastFrame()).split('\n')[2]).toContain('row 4')
+    }
+    finally {
+      overlay.close()
+      if (descriptor) {
+        Object.defineProperty(process.stdout, 'rows', descriptor)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'rows')
+      }
+    }
+  })
+
+  it('copies a complete entry after paging into its middle', async () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    const time = new Date(2024, 0, 1, 13, 2, 3).getTime()
+    const message = Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n')
+    events.push(event({ time, message }))
+    const { overlay } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'pagedown' })
+    overlay.handleKey({ name: 'y' })
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    expect(copied[0]).toBe(`${new Date(time).toLocaleTimeString()} ${message}`)
+    overlay.close()
+  })
+
+  it('resumes following and clears the selection when filters change', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'info' }))
+    events.push(event({ message: 'error', level: 0 }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    expect(strip(lastFrame())).toContain('paused')
+    overlay.handleKey({ name: 'e' })
+    expect(strip(lastFrame())).not.toContain('paused')
+    expect(lastFrame()).not.toContain('▎')
+    expect(strip(lastFrame())).toContain('error')
+    overlay.close()
+  })
+
+  it('uses Home and End as aliases for g and G', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 100; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    const home = lastFrame()
+    overlay.handleKey({ name: 'end' })
+    const end = lastFrame()
+    overlay.handleKey({ name: 'g', sequence: 'g' })
+    expect(lastFrame()).toBe(home)
+    overlay.handleKey({ name: 'g', sequence: 'G' })
+    expect(lastFrame()).toBe(end)
+    overlay.close()
+  })
+
+  it('uses a compact local 24-hour timestamp in the gutter', () => {
+    const time = new Date(2024, 0, 1, 13, 2, 3).getTime()
+    const [line] = formatEvent(event({ time, message: 'message' }), 80)
+    expect(strip(line!)).toBe('13:02:03 message')
   })
 
   it('starts at the top when entering the list with the down arrow', () => {
@@ -1532,6 +1709,26 @@ describe('request overlay', () => {
     expect(lastFrame()).toContain('traffic')
   })
 
+  it('keeps trace navigation keys inside search', () => {
+    const { log, overlay, lastFrame } = create()
+    log.push([{ time: 0, method: 'GET', url: '/quiet', status: 200, duration: 2 }])
+    overlay.open()
+    overlay.handleKey({ name: 'down' })
+    overlay.handleKey({ name: 'return' })
+    overlay.handleKey({ sequence: '/' })
+    overlay.handleKey({ name: 'q', sequence: 'q' })
+    overlay.handleKey({ name: 'n', sequence: 'n' })
+    expect(lastFrame()).toContain('search qn')
+    overlay.handleKey({ name: 'backspace' })
+    expect(lastFrame()).toContain('search q')
+    overlay.handleKey({ name: 'escape' })
+    expect(lastFrame()).toContain('trace')
+    expect(lastFrame()).not.toContain('search')
+    overlay.handleKey({ name: 'escape' })
+    expect(lastFrame()).toContain('traffic')
+    overlay.close()
+  })
+
   it('draws the spans timed for a request on a timeline', () => {
     const { log, overlay, lastFrame } = create({ events: new DevEventLog() })
     log.push([{ id: 'r1', time: 0, start: 1000, method: 'GET', url: '/', status: 200, duration: 100 }])
@@ -1591,7 +1788,8 @@ describe('help overlay', () => {
     let closed = 0
     const overlay = new HelpOverlay(
       () => [
-        { keys: ['r'], ctrl: 'r', description: 'restart the dev server' },
+        { keys: ['r'], description: 'restart the dev server' },
+        { keys: [], ctrl: 'r', description: 'restart the dev server' },
         { keys: ['R'], description: 'restart with a cleared cache' },
         { keys: ['h', '?'], description: 'show this help' },
       ],
@@ -1606,10 +1804,34 @@ describe('help overlay', () => {
   it('lists shortcuts with their aliases instead of logging them', () => {
     const { overlay, lastFrame } = create()
     overlay.open()
-    expect(lastFrame()).toContain('r / ctrl-r')
+    expect(lastFrame()).toContain('ctrl-r')
+    expect(lastFrame()).toContain('global')
+    expect(lastFrame()).toContain('main panel')
+    expect(lastFrame().indexOf('ctrl-r')).toBeLessThan(lastFrame().indexOf('main panel'))
+    expect(lastFrame().indexOf('shift-r')).toBeGreaterThan(lastFrame().indexOf('main panel'))
     expect(lastFrame()).toContain('shift-r')
     expect(lastFrame()).toContain('h / ?')
     expect(lastFrame()).toContain('restart the dev server')
+  })
+
+  it('opens at the beginning in a short terminal', () => {
+    const rows = Object.getOwnPropertyDescriptor(process.stdout, 'rows')
+    const { overlay, lastFrame } = create()
+    try {
+      Object.defineProperty(process.stdout, 'rows', { value: 8, configurable: true })
+      overlay.open()
+      expect(lastFrame().split('\n')[2]).toContain('global')
+      expect(lastFrame()).toContain('ctrl-r')
+    }
+    finally {
+      overlay.close()
+      if (rows) {
+        Object.defineProperty(process.stdout, 'rows', rows)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'rows')
+      }
+    }
   })
 
   it('lists the keys available inside a view', () => {
@@ -2725,6 +2947,165 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
   }
 }
 
+describe('panel shortcut routing', () => {
+  it.each(['ready', 'starting', 'building', 'restarting', 'warming', 'error'] as const)('quits without confirmation while %s', async (status) => {
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (ui) => {
+        ui.setStatus(status)
+        process.stdin.emit('keypress', 'q', { name: 'q', sequence: 'q' })
+        expect(interrupt).toHaveBeenCalledOnce()
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it('quits with Ctrl-D from search inside a view', async () => {
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (_ui, _settle) => {
+        process.stdin.emit('keypress', 'l', { name: 'l' })
+        process.stdin.emit('keypress', '/', { sequence: '/' })
+        process.stdin.emit('keypress', '', { name: 'd', ctrl: true })
+        expect(interrupt).toHaveBeenCalledOnce()
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it.runIf(process.platform !== 'win32')('forwards Ctrl-backslash as SIGQUIT', async () => {
+    const quit = vi.fn()
+    process.on('SIGQUIT', quit)
+    try {
+      await withPanel(async () => {
+        process.stdin.emit('keypress', '', { name: '\\', ctrl: true })
+        expect(quit).toHaveBeenCalledOnce()
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+      })
+    }
+    finally {
+      process.off('SIGQUIT', quit)
+    }
+  })
+
+  it('hides unavailable restart shortcuts and reports their use', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      expect(session.state.hints?.some(hint => hint.key === 'r')).toBe(false)
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      expect(session.state.notice?.text).toContain('not available yet')
+    })
+  })
+
+  it('keeps the active view open when Ctrl-R is unavailable', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdin.emit('keypress', 'l', { name: 'l' })
+      expect(session.surface.screenMode).toBe('alternate-screen')
+      process.stdin.emit('keypress', '', { name: 'r', ctrl: true })
+      expect(session.state.notice?.text).toContain('not available yet')
+      expect(session.surface.screenMode).toBe('alternate-screen')
+      process.stdin.emit('keypress', '', { name: 'escape' })
+      expect(session.surface.screenMode).toBe('split-footer')
+    })
+  })
+
+  it('clears caches only for Shift-R', async () => {
+    const clearCaches = vi.fn(async () => [])
+    const restart = vi.fn()
+    await withPanel(async () => {
+      process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+      expect(restart).toHaveBeenCalledOnce()
+      expect(clearCaches).not.toHaveBeenCalled()
+      process.stdin.emit('keypress', 'R', { name: 'r', sequence: 'R', shift: true })
+      await vi.waitFor(() => expect(restart).toHaveBeenCalledTimes(2))
+      expect(clearCaches).toHaveBeenCalledOnce()
+    }, { restart, clearCaches })
+  })
+
+  it('ignores Alt-Q and restarts globally with Ctrl-R', async () => {
+    const restart = vi.fn()
+    await withPanel(async (_ui, _settle) => {
+      process.stdin.emit('keypress', '', { name: 'q', meta: true })
+      expect(process.stdin.listenerCount('keypress')).toBeGreaterThan(0)
+      expect(restart).not.toHaveBeenCalled()
+      process.stdin.emit('keypress', 'l', { name: 'l' })
+      process.stdin.emit('keypress', '', { name: 'r', ctrl: true })
+      expect(restart).toHaveBeenCalledOnce()
+    }, { restart })
+  })
+
+  it('preserves history when clearing the display and deletes it with x', async () => {
+    await withPanel(async (ui, _settle, session) => {
+      ui.pushServerLog({ level: 3, logType: 'info', message: 'retained log' })
+      ui.pushRequests([{ method: 'GET', url: '/retained', status: 200, duration: 1 }])
+      process.stdin.emit('keypress', 'c', { name: 'c' })
+      process.stdin.emit('keypress', '', { name: 'l', ctrl: true })
+      expect(session.events.recent(10).some(event => event.message === 'retained log')).toBe(true)
+      expect(session.state.requests).toBe(1)
+      process.stdin.emit('keypress', 'l', { name: 'l' })
+      process.stdin.emit('keypress', '', { name: 'l', ctrl: true })
+      expect(session.events.recent(10).some(event => event.message === 'retained log')).toBe(true)
+      process.stdin.emit('keypress', '', { name: 'escape' })
+      process.stdin.emit('keypress', 'x', { name: 'x' })
+      expect(session.events.recent(10)).toEqual([])
+      expect(session.state.requests).toBeUndefined()
+    })
+  })
+
+  it.runIf(process.platform !== 'win32')('keeps borrowed input exclusive across suspend and resume', async () => {
+    const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
+    try {
+      await withPanel(async (_ui, _settle, session) => {
+        let finish!: () => void
+        const borrowed = useTerminalHost()!.withTerminal(() => new Promise<void>((resolve) => {
+          finish = resolve
+        }))
+        await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+        process.emit('SIGTSTP')
+        process.emit('SIGCONT')
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+        finish()
+        await borrowed
+        await new Promise(resolve => setImmediate(resolve))
+        expect(process.stdin.listenerCount('keypress')).toBe(1)
+        session.teardown()
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+      })
+    }
+    finally {
+      kill.mockRestore()
+    }
+  })
+
+  it.runIf(process.platform !== 'win32')('restores keyboard input after suspension', async () => {
+    const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
+    try {
+      const restart = vi.fn()
+      await withPanel(async () => {
+        process.stdin.emit('keypress', 'l', { name: 'l' })
+        process.stdin.emit('keypress', '', { name: 'z', ctrl: true })
+        expect(kill).toHaveBeenCalledWith(process.pid, 'SIGSTOP')
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+        process.emit('SIGCONT')
+        await new Promise(resolve => setImmediate(resolve))
+        expect(process.stdin.listenerCount('keypress')).toBe(1)
+        process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
+        expect(restart).toHaveBeenCalledOnce()
+      }, { restart })
+    }
+    finally {
+      kill.mockRestore()
+    }
+  })
+})
+
 describe('request failures on the panel', () => {
   it('should not report the bundler\'s own failed probes as failed requests', async () => {
     await withPanel(async (ui, settle) => {
@@ -3025,6 +3406,24 @@ describe('request failures on the panel', () => {
         ready()
         expect(opened).toEqual([])
       })
+    })
+
+    it('should cancel opening after a listener binds but before readiness', async () => {
+      opened.length = 0
+      const { context: deferred, attach } = deferShortcutContext()
+      let ready!: () => void
+      await withPanel(async () => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        attach({
+          listener: listener as never,
+          close: async () => {},
+          onReady: (callback) => { ready = () => callback(listener.url) },
+        })
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual([])
+        ready()
+        expect(opened).toEqual([])
+      }, { context: deferred })
     })
 
     it('should open at once when the server is already up', async () => {

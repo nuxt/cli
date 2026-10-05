@@ -9,12 +9,13 @@ import { isCI, isTest } from 'std-env'
 
 import { guardReplayedInput, restoreRawMode, withDirectStdout } from '../utils/console'
 import { copyURL, openBrowser, printQRCode } from './listen'
+import { isShutdownAdopted } from './shutdown'
 
 export type { ShortcutContext } from './shortcut-context'
 
 interface ActionContext extends ShortcutContext {
-  /** Stop reading shortcuts, so a quitting server does not keep stdin open. */
   closeInput: () => void
+  open: () => void
 }
 
 interface Shortcut {
@@ -32,10 +33,18 @@ const shortcuts: Shortcut[] = [
     action: context => context.restart?.(),
   },
   {
+    keys: ['restart-clear', 'restart --clear'],
+    description: 'restart with a cleared cache',
+    isAvailable: context => !!context.restart && !!context.clearCaches,
+    action: async (context) => {
+      await context.clearCaches?.()
+      await context.restart?.()
+    },
+  },
+  {
     keys: ['o', 'open'],
-    description: 'open in browser',
-    isAvailable: context => !!context.listener,
-    action: context => context.listener && openBrowser(context.listener.url),
+    description: 'open in browser (press again while starting to cancel)',
+    action: context => context.open(),
   },
   {
     keys: ['u', 'urls'],
@@ -50,7 +59,7 @@ const shortcuts: Shortcut[] = [
     action: context => context.listener && printQRCode(resolveShareableURL(context.listener), { showURL: true }),
   },
   {
-    keys: ['copy'],
+    keys: ['y', 'copy'],
     description: 'copy the server URL to the clipboard',
     isAvailable: context => !!context.listener,
     action: context => context.listener && copyURL(resolveShareableURL(context.listener)),
@@ -85,6 +94,10 @@ function resolveShareableURL(listener: Listener): string {
 
 async function quit(context: ActionContext): Promise<void> {
   context.closeInput()
+  if (isShutdownAdopted()) {
+    process.emit('SIGINT' as any)
+    return
+  }
   try {
     await context.close()
   }
@@ -100,17 +113,9 @@ function printHelp(context: ActionContext): void {
     `  ${styleText('dim', 'press')} ${styleText('bold', `${keys[0]} + enter`)} ${styleText('dim', `to ${description}`)}`,
   )
   // eslint-disable-next-line no-console
-  console.log(`\n${lines.join('\n')}\n`)
+  console.log(`\n${lines.join('\n')}\n  ${styleText('bold', 'Ctrl-C')} ${styleText('dim', 'to quit; press again during cleanup to force exit')}\n`)
 }
 
-/**
- * Without a readable stdin there are no shortcuts to offer, so point at the way
- * to talk to the server instead: a caller driving the CLI without a keyboard
- * (an agent, a wrapper script) otherwise has no indication that one exists.
- *
- * `/` is suggested rather than an API route because it is the one path every
- * project serves.
- */
 function printRequestHint(): void {
   // eslint-disable-next-line no-console
   console.log(`\n  ${styleText('dim', 'run')} ${styleText('bold', 'nuxt curl /')} ${styleText('dim', 'to send a request to this server')}\n`)
@@ -120,23 +125,23 @@ function availableShortcuts(context: ShortcutContext): Shortcut[] {
   return shortcuts.filter(shortcut => shortcut.isAvailable?.(context) !== false)
 }
 
-/**
- * Bind `<command> + enter` shortcuts to stdin.
- *
- * No output stream is passed to readline, so it stays in non-terminal mode and
- * does not intercept Ctrl-C or put stdin into raw mode.
- */
+/** Bind line-based commands without raw mode or intercepting Ctrl-C. */
 export function setupShortcuts(context: ShortcutContext): void {
   if (!process.stdin.isTTY || isCI || isTest) {
-    // A hint written into a redirected log is read by nobody and answered by
-    // nobody, so it is only offered while stdout is still a terminal.
     if (process.stdout.isTTY && !isCI && !isTest) {
       context.onReady(() => printRequestHint())
     }
     return
   }
 
+  let armedOpen = false
+  let ready = false
   context.onReady(() => {
+    ready = true
+    if (armedOpen && context.listener) {
+      armedOpen = false
+      openBrowser(context.listener.url)
+    }
     // eslint-disable-next-line no-console
     console.log(`\n  ${styleText('dim', 'press')} ${styleText('bold', 'h + enter')} ${styleText('dim', 'to see available shortcuts')}\n`)
   })
@@ -155,7 +160,16 @@ export function setupShortcuts(context: ShortcutContext): void {
       return
     }
     try {
-      await shortcut.action({ ...context, closeInput: () => rl.close() })
+      await shortcut.action({ ...context, closeInput: () => rl.close(), open: () => {
+        if (ready && context.listener) {
+          openBrowser(context.listener.url)
+        }
+        else {
+          armedOpen = !armedOpen
+          // eslint-disable-next-line no-console
+          console.log(armedOpen ? 'Browser will open when the server is ready.' : 'Browser opening cancelled.')
+        }
+      } })
     }
     catch (error) {
       console.error(error)

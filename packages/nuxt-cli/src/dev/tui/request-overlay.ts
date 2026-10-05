@@ -55,15 +55,15 @@ export class RequestOverlay extends ScreenOverlay {
     return ['n']
   }
 
-  handleKey(key: Key): void {
-    // Inside a trace, the ways out lead back to the table, not out of the view.
+  protected handleNavigationKey(key: Key): boolean {
     if (this.#detail && (key.name === 'escape' || key.name === 'q' || key.name === 'backspace' || key.name === 'n')) {
       this.#detail = undefined
       this.resetSelection()
       this.resetScroll()
-      return this.repaint()
+      this.repaint()
+      return true
     }
-    super.handleKey(key)
+    return false
   }
 
   protected activate(index: number): boolean {
@@ -142,7 +142,8 @@ export class RequestOverlay extends ScreenOverlay {
     return formatHints([
       ['↑/↓', 'select'],
       ['enter', 'trace'],
-      ['g/G', 'top/bottom'],
+      ['Home/End', 'top/live'],
+      ['PgUp/PgDn', 'scroll'],
       ['e', 'errors'],
       ['s', `slow >${SLOW_MS}ms`],
       ['a', 'all'],
@@ -170,9 +171,9 @@ export class RequestOverlay extends ScreenOverlay {
     if (!events.length) {
       return [...summary, { lines: [styleText(MUTED, request.id === undefined ? 'this request predates log attribution' : 'no logs were captured for this request')] }]
     }
-    const timeWidth = Math.max(0, ...events.map(event => formatTime(event.time).length))
     return [...summary, ...events.map(event => ({
-      lines: formatEvent(event, columns, timeWidth, true),
+      key: event,
+      lines: formatEvent(event, columns, true),
       copy: [formatTime(event.time), event.message].filter(Boolean).join(' '),
     }))]
   }

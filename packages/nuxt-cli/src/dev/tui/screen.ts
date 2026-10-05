@@ -10,19 +10,18 @@ import { writeClipboard } from '../listen'
 
 const RENDER_DELAY_MS = 50
 
-/** How long a copy confirmation stays in the hint line. */
 const NOTICE_MS = 2000
 
-/** Most characters copying a whole view puts on the clipboard, keeping the newest entries. */
 const COPY_ALL_MAX_CHARS = 60_000
 
-/** Marks the selected entry; the same width is reserved on every row. */
 const SELECTED_GUTTER = '▎ '
 const GUTTER = '  '
 const GUTTER_WIDTH = 2
 
 export interface OverlayEntry {
   lines: string[]
+  /** Stable entry identity. */
+  key?: object | string
   /** Plain text put on the clipboard when this entry is copied. */
   copy?: string
 }
@@ -30,26 +29,24 @@ export interface OverlayEntry {
 const ENTER_ALT = '\u001B[?1049h\u001B[?25l'
 const LEAVE_ALT = '\u001B[?25h\u001B[?1049l'
 
-/**
- * A full-screen view in the alternate buffer.
- *
- * Entering and leaving never disturbs the real scrollback, so a view can own the
- * whole terminal for as long as it is open. Subclasses supply the content and
- * any keys of their own; scrolling, throttled repaints, search, copying and the
- * buffer switch are handled here.
- */
+/** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
   #write: (chunk: string) => void
   #onClose: () => void
   #subscribe: (listener: () => void) => () => void
   #open = false
   #offset = 0
+  #following = true
+  #top = 0
+  #anchor?: { key?: object | string, index: number, line: number }
+  #revealSelection = false
   #renderTimer?: NodeJS.Timeout
   #unsubscribe?: () => void
   #onResize = () => this.#scheduleRender()
   #query = ''
   #searching = false
   #selected?: number
+  #selectedKey?: object | string
   #notice?: { text: string, until: number }
 
   constructor(options: {
@@ -102,8 +99,8 @@ export abstract class ScreenOverlay {
       return
     }
     this.#open = true
-    this.#offset = 0
-    this.#selected = undefined
+    this.resetScroll()
+    this.resetSelection()
     this.#write(ENTER_ALT)
     this.#unsubscribe = this.#subscribe(() => this.#scheduleRender())
     process.stdout.on('resize', this.#onResize)
@@ -116,8 +113,6 @@ export abstract class ScreenOverlay {
     }
     this.#open = false
     clearTimeout(this.#renderTimer)
-    // A cleared timer that stays set would make every later repaint a no-op,
-    // and the views are reopened for the life of the session.
     this.#renderTimer = undefined
     process.stdout.off('resize', this.#onResize)
     this.#unsubscribe?.()
@@ -125,13 +120,24 @@ export abstract class ScreenOverlay {
     this.#onClose()
   }
 
+  protected handleNavigationKey(_key: Key): boolean {
+    return false
+  }
+
   handleKey(key: Key): void {
+    if (key.ctrl || key.meta) {
+      return
+    }
     if (this.#searching) {
       return this.#handleSearchKey(key)
     }
     if (key.sequence === '/') {
       this.#searching = true
       return this.render()
+    }
+
+    if (this.handleNavigationKey(key)) {
+      return
     }
 
     const page = Math.max(1, this.bodyRows() - 1)
@@ -148,18 +154,25 @@ export abstract class ScreenOverlay {
         this.#move(1)
         break
       case 'pageup':
-        this.#move(-page)
+        this.#page(-page)
         break
       case 'pagedown':
-        this.#move(page)
+        this.#page(page)
+        break
+      case 'home':
+        this.select(0)
+        break
+      case 'end':
+        this.resetSelection()
+        this.resetScroll()
         break
       case 'g':
         if (key.sequence === 'G') {
-          this.#selected = undefined
-          this.#offset = 0
+          this.resetSelection()
+          this.resetScroll()
         }
         else {
-          this.#selected = 0
+          this.select(0)
         }
         break
       case 'return':
@@ -187,9 +200,8 @@ export abstract class ScreenOverlay {
     return Math.max(1, (process.stdout.rows || 24) - 3)
   }
 
-  /** The scroll position for a title line, or an empty string at the tail. */
   protected renderPosition(): string {
-    return this.#offset > 0 ? ` \u00B7 ${paint('warning', `scrolled \u2191${this.#offset}`)}` : ''
+    return this.#following ? '' : ` · ${paint('warning', `follow paused${this.#offset > 0 ? ` · ↓${this.#offset} rows below` : ''}`)}`
   }
 
   /** The active search text, lowercased. Empty when nothing is being searched. */
@@ -217,28 +229,34 @@ export abstract class ScreenOverlay {
     else if (key.name === 'backspace') {
       this.#query = this.#query.slice(0, -1)
     }
-    else if (key.sequence && key.sequence.length === 1 && !key.ctrl && key.sequence >= ' ') {
+    else if (key.sequence && key.sequence.length === 1 && key.sequence >= ' ') {
       this.#query += key.sequence
     }
     else {
       return
     }
+    this.resetSelection()
     this.resetScroll()
     this.render()
   }
 
   protected resetScroll(): void {
     this.#offset = 0
+    this.#following = true
+    this.#anchor = undefined
+    this.#revealSelection = false
   }
 
-  /** Drop the selection, for views that swap their entry list wholesale. */
   protected resetSelection(): void {
     this.#selected = undefined
+    this.#selectedKey = undefined
   }
 
   /** Move the selection to `index`; rendering scrolls it into view. */
   protected select(index: number): void {
     this.#selected = index
+    this.#following = false
+    this.#revealSelection = true
   }
 
   protected render(): void {
@@ -246,9 +264,14 @@ export abstract class ScreenOverlay {
     const bodyRows = this.bodyRows()
 
     const entries = this.#entries()
+    if (!this.#revealSelection && this.#selectedKey !== undefined) {
+      const index = entries.findIndex(entry => entry.key === this.#selectedKey)
+      this.#selected = index < 0 ? undefined : index
+    }
     if (this.#selected !== undefined) {
       this.#selected = entries.length ? Math.min(this.#selected, entries.length - 1) : undefined
     }
+    this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
 
     const rows: string[] = []
     let selectedRows: { start: number, end: number } | undefined
@@ -262,17 +285,29 @@ export abstract class ScreenOverlay {
       }
     }
 
-    const maxOffset = Math.max(0, rows.length - bodyRows)
-    this.#offset = Math.min(this.#offset, maxOffset)
-    let end = rows.length - this.#offset
-    // Keep the selection on screen, scrolling the least needed to do so.
-    if (selectedRows) {
-      end = Math.max(end, selectedRows.end)
-      end = Math.min(end, Math.max(selectedRows.start + bodyRows, bodyRows))
-      end = Math.min(end, rows.length)
-      this.#offset = rows.length - end
+    const maxTop = Math.max(0, rows.length - bodyRows)
+    let top = this.#following ? maxTop : this.#top
+    if (!this.#following && this.#anchor) {
+      const anchor = this.#anchor
+      const index = anchor.key === undefined ? anchor.index : entries.findIndex(entry => entry.key === anchor.key)
+      top = index < 0
+        ? 0
+        : entries.slice(0, index).reduce((total, entry) => total + entry.lines.length, 0)
+          + Math.min(anchor.line, Math.max(0, (entries[index]?.lines.length ?? 1) - 1))
     }
-    const visible = rows.slice(Math.max(0, end - bodyRows), end)
+    if (selectedRows && this.#revealSelection) {
+      if (selectedRows.end - selectedRows.start > bodyRows || selectedRows.start < top) {
+        top = selectedRows.start
+      }
+      else if (selectedRows.end > top + bodyRows) {
+        top = selectedRows.end - bodyRows
+      }
+    }
+    this.#revealSelection = false
+    this.#top = Math.min(Math.max(0, top), maxTop)
+    this.#offset = Math.max(0, rows.length - this.#top - bodyRows)
+    this.#anchor = this.#rowAnchor(entries, this.#top)
+    const visible = rows.slice(this.#top, this.#top + bodyRows)
 
     const frame = [
       truncate(this.renderTitle(columns), columns),
@@ -288,14 +323,12 @@ export abstract class ScreenOverlay {
     if (this.#notice && this.#notice.until > Date.now()) {
       return styleText('green', this.#notice.text)
     }
-    // Typing captures every key, so the way out has to be on screen.
     const columns = process.stdout.columns || 80
     return this.#searching
       ? formatHints([['enter', 'apply'], ['esc', 'cancel'], ['⌫', 'delete']], columns)
       : this.renderHints(columns)
   }
 
-  /** Views lay out inside the gutter, so their own truncation stays exact. */
   #entries(): OverlayEntry[] {
     return this.renderEntries((process.stdout.columns || 80) - GUTTER_WIDTH)
   }
@@ -306,24 +339,32 @@ export abstract class ScreenOverlay {
       return
     }
     if (this.#selected === undefined) {
-      this.#selected = delta > 0 ? this.#firstVisible(entries) : entries.length - 1
+      const first = this.#rowAnchor(entries, this.#top)
+      this.select(delta > 0 ? Math.min((first?.index ?? 0) + (first?.line ? 1 : 0), entries.length - 1) : entries.length - 1)
       return
     }
-    this.#selected = Math.min(Math.max(this.#selected + delta, 0), entries.length - 1)
+    this.select(Math.min(Math.max(this.#selected + delta, 0), entries.length - 1))
   }
 
-  /** The first entry that starts inside the rows currently on screen. */
-  #firstVisible(entries: OverlayEntry[]): number {
+  #page(delta: number): void {
+    const entries = this.#entries()
     const rows = entries.reduce((total, entry) => total + entry.lines.length, 0)
-    const top = Math.max(0, rows - this.#offset - this.bodyRows())
-    let row = 0
+    this.#following = false
+    this.#top = Math.min(Math.max(0, this.#top + delta), Math.max(0, rows - this.bodyRows()))
+    this.#anchor = this.#rowAnchor(entries, this.#top)
+    this.#selected = this.#rowAnchor(entries, delta < 0 ? this.#top : Math.min(rows - 1, this.#top + this.bodyRows() - 1))?.index
+    this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
+    this.#revealSelection = false
+  }
+
+  #rowAnchor(entries: OverlayEntry[], row: number): { key?: object | string, index: number, line: number } | undefined {
+    let start = 0
     for (const [index, entry] of entries.entries()) {
-      if (row >= top) {
-        return index
+      if (row < start + entry.lines.length) {
+        return { key: entry.key, index, line: Math.max(0, row - start) }
       }
-      row += entry.lines.length
+      start += entry.lines.length
     }
-    return entries.length - 1
   }
 
   async #copySelected(): Promise<void> {
@@ -388,11 +429,7 @@ export abstract class ScreenOverlay {
   }
 }
 
-/**
- * `key description` pairs joined the way every view's hint line is, dropped
- * from the right until they fit. The first and last are kept: moving around
- * and getting out matter more than any filter.
- */
+/** Format hints to fit, preserving the first and last. */
 export function formatHints(hints: Array<[key: string, description: string]>, columns = Number.POSITIVE_INFINITY): string {
   const remaining = [...hints]
   const render = () => remaining

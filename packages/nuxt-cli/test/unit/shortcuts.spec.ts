@@ -175,6 +175,50 @@ describe('setupShortcuts', () => {
     await vi.waitFor(() => expect(copyURL).toHaveBeenCalledWith('http://192.168.1.20:3000/'))
   })
 
+  it('should copy the URL with y', async () => {
+    const { press } = setup()
+    await press('y')
+    expect(copyURL).toHaveBeenCalledWith('http://localhost:3000/')
+  })
+
+  it.each(['restart-clear', 'restart --clear'])('should clear caches before %s', async (command) => {
+    const order: string[] = []
+    const { press } = setup({
+      clearCaches: async () => {
+        order.push('clear')
+        return []
+      },
+      restart: () => { order.push('restart') },
+    })
+    await press(command)
+    expect(order).toEqual(['clear', 'restart'])
+  })
+
+  it('should queue opening the browser until ready', async () => {
+    let ready!: (address: string) => void
+    const { context, listener, press } = setup({ listener: undefined, onReady: (callback) => {
+      ready = callback
+    } })
+    await press('o')
+    expect(openBrowser).not.toHaveBeenCalled()
+    context.listener = listener
+    ready(listener.url)
+    expect(openBrowser).toHaveBeenCalledWith(listener.url)
+  })
+
+  it('should cancel a queued browser opening', async () => {
+    let ready!: (address: string) => void
+    const { context, listener, press } = setup({ listener: undefined, onReady: (callback) => {
+      ready = callback
+    } })
+    await press('o')
+    context.listener = listener
+    await press('o')
+    expect(openBrowser).not.toHaveBeenCalled()
+    ready(listener.url)
+    expect(openBrowser).not.toHaveBeenCalled()
+  })
+
   it('should restart when a restart handler is available', async () => {
     const restart = vi.fn()
     const { press } = setup({ restart })

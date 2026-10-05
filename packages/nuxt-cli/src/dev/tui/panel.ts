@@ -112,7 +112,6 @@ export interface PanelState {
   notice?: { text: string, tone: 'info' | 'warn' | 'success', label?: string }
   /** Long-running work reported through the terminal host, while it runs. */
   task?: { label: string, startedAt: number }
-  confirmQuit?: boolean
   /** Shortcut hints, dropped lowest-priority first when the line is full. */
   hints?: PanelHint[]
   /** The keys are not being listened for yet, so the hints render greyed out. */
@@ -314,13 +313,6 @@ function renderNotice(state: PanelState): string {
 }
 
 function renderStatus(state: PanelState, columns: number): string {
-  if (state.confirmQuit) {
-    return truncate(
-      ` ${styleText(['bgYellow', 'black', 'bold'], ' QUIT? ')}  ${styleText(MUTED, 'press')} ${styleText('bold', 'y')} ${styleText(MUTED, 'to confirm,')} ${styleText('bold', 'esc')} ${styleText(MUTED, 'to stay')}`,
-      columns,
-    )
-  }
-
   if (state.notice?.label) {
     return truncate(
       ` ${styleText(['bgYellow', 'black', 'bold'], ` ${state.notice.label} `)}  ${styleText(MUTED, decapitalise(state.notice.text))}`,
@@ -393,9 +385,6 @@ function renderTicker(state: PanelState, room: number): string {
  * go, only help is left: the rest of the keys are listed there anyway.
  */
 function renderHints(state: PanelState, columns: number): string {
-  if (state.confirmQuit) {
-    return ''
-  }
   const remaining = [
     // Whatever else has to go, the way to read the error stays on screen.
     ...state.errors ? [{ key: 'e', label: 'last error', priority: Number.POSITIVE_INFINITY }] : [],

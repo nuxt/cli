@@ -192,13 +192,14 @@ describe('dev server terminal output', () => {
       const renderer = await render(() => press('h'))
 
       expect(screen(renderer)).toMatchInlineSnapshot(`
-        "  press o + enter to open in browser
+        "  press o + enter to open in browser (press again while starting to cancel)
           press u + enter to show server URLs
           press qr + enter to show a QR code for the server URL
-          press copy + enter to copy the server URL to the clipboard
+          press y + enter to copy the server URL to the clipboard
           press c + enter to clear the console
           press q + enter to quit
-          press h + enter to show this help"
+          press h + enter to show this help
+          Ctrl-C to quit; press again during cleanup to force exit"
       `)
     })
 
