@@ -14,6 +14,10 @@ export interface HelpEntry {
 }
 
 const VIEW_ENTRIES: HelpEntry[] = [
+  { keys: ['↑', '↓'], description: 'select an entry' },
+  { keys: ['Page Up', 'Page Down'], description: 'scroll a screenful' },
+  { keys: ['Home', 'g'], description: 'go to the beginning' },
+  { keys: ['End', 'G'], description: 'follow the latest entries' },
   { keys: ['y', 'enter'], description: 'copy the selected line' },
   { keys: ['Y'], description: 'copy the whole view' },
   { keys: ['/'], description: 'search' },

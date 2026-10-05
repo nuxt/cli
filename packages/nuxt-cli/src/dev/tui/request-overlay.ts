@@ -142,7 +142,8 @@ export class RequestOverlay extends ScreenOverlay {
     return formatHints([
       ['↑/↓', 'select'],
       ['enter', 'trace'],
-      ['g/G', 'top/bottom'],
+      ['Home/End', 'top/live'],
+      ['PgUp/PgDn', 'scroll'],
       ['e', 'errors'],
       ['s', `slow >${SLOW_MS}ms`],
       ['a', 'all'],
@@ -170,9 +171,9 @@ export class RequestOverlay extends ScreenOverlay {
     if (!events.length) {
       return [...summary, { lines: [styleText(MUTED, request.id === undefined ? 'this request predates log attribution' : 'no logs were captured for this request')] }]
     }
-    const timeWidth = Math.max(0, ...events.map(event => formatTime(event.time).length))
     return [...summary, ...events.map(event => ({
-      lines: formatEvent(event, columns, timeWidth, true),
+      key: event,
+      lines: formatEvent(event, columns, true),
       copy: [formatTime(event.time), event.message].filter(Boolean).join(' '),
     }))]
   }

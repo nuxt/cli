@@ -912,7 +912,7 @@ describe('log overlay', () => {
 
   it('should leave a message that carries its own colours alone', () => {
     const coloured = `${'\u001B[31m'}✖${'\u001B[39m'} ParseError`
-    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80, 8)
+    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80)
 
     expect(lines.join('\n')).toContain(coloured)
   })
@@ -938,8 +938,7 @@ describe('log overlay', () => {
 
   it('truncates by visible width and carries styling across the cut', () => {
     const styled = event({ message: `\u001B[32m➜\u001B[39m DevTools: press Shift + A in your browser to enable the DevTools`, level: 2 })
-    const timeWidth = new Date(0).toLocaleTimeString().length
-    const [line] = formatEvent(styled as any, 40, timeWidth)
+    const [line] = formatEvent(styled as any, 40)
     expect(strip(line!).length).toBeLessThanOrEqual(40)
     // The cut must not swallow the reset, or everything after stays green.
     expect(line!.endsWith('\u001B[0m')).toBe(true)
@@ -1184,11 +1183,183 @@ describe('log overlay', () => {
 
     overlay.handleKey({ name: 'g' })
     expect(strip(lastFrame())).toContain('line 0')
-    expect(strip(lastFrame())).toContain('scrolled')
+    expect(strip(lastFrame())).toContain('paused')
 
     overlay.handleKey({ sequence: 'G', name: 'g' })
-    expect(strip(lastFrame())).not.toContain('scrolled')
+    expect(strip(lastFrame())).not.toContain('paused')
     expect(lastFrame()).not.toContain('\u258E')
+  })
+
+  it('pages through an entry taller than the viewport', () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n') }))
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    expect(body()[0]).toContain('row 0')
+    overlay.handleKey({ name: 'pagedown' })
+    expect(body()[0]).toContain(`row ${rows - 1}`)
+    overlay.handleKey({ name: 'pagedown' })
+    expect(body()[0]).toContain(`row ${2 * (rows - 1)}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(body()[0]).toContain(`row ${rows - 1}`)
+    overlay.handleKey({ name: 'end' })
+    expect(body().at(-1)).toContain(`row ${rows * 3 - 1}`)
+    expect(strip(lastFrame())).not.toContain('paused')
+    overlay.close()
+  })
+
+  it('pages by rows across entries of different heights', () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: 'short' }))
+    events.push(event({ message: Array.from({ length: rows * 2 }, (_, i) => `stack ${i}`).join('\n') }))
+    events.push(event({ message: 'last' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'pagedown' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain(`stack ${rows - 2}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain('short')
+    overlay.close()
+  })
+
+  it('keeps the viewport still while paused and resumes following with End', async () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    for (let i = 0; i < rows * 2; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows).join('\n')
+    overlay.open()
+    overlay.handleKey({ name: 'pageup' })
+    const before = body()
+    events.push(event({ message: 'new arrival\nsecond row' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows + 1} rows below`))
+    expect(body()).toBe(before)
+    overlay.handleKey({ name: 'end' })
+    expect(body()).toContain('new arrival')
+    expect(strip(lastFrame())).not.toContain('paused')
+    events.push(event({ message: 'following again' }))
+    await vi.waitFor(() => expect(body()).toContain('following again'))
+    overlay.close()
+  })
+
+  it('shows incoming logs in spare rows without moving the selection', async () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'selected entry' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'up' })
+    const selected = strip(lastFrame()).split('\n')[2]
+    events.push(event({ message: 'incoming entry' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain('incoming entry'))
+    expect(strip(lastFrame()).split('\n')[2]).toBe(selected)
+    expect(strip(lastFrame())).toContain('follow paused')
+    overlay.close()
+  })
+
+  it('keeps the viewport anchored when old events leave the history', async () => {
+    const rows = (process.stdout.rows || 24) - 3
+    const events = new DevEventLog(rows * 3)
+    for (let i = 0; i < rows * 3; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows).join('\n')
+    overlay.open()
+    overlay.handleKey({ name: 'pageup' })
+    const before = body()
+    events.push(event({ message: 'new arrival' }))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows} rows below`))
+    expect(body()).toBe(before)
+    overlay.close()
+  })
+
+  it('keeps a paged position inside a large entry when the terminal height changes', async () => {
+    const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'rows')
+    const events = new DevEventLog()
+    events.push(event({ message: Array.from({ length: 40 }, (_, i) => `row ${i}`).join('\n') }))
+    const { overlay, lastFrame } = create(events)
+    try {
+      Object.defineProperty(process.stdout, 'rows', { value: 8, configurable: true })
+      overlay.open()
+      overlay.handleKey({ name: 'home' })
+      overlay.handleKey({ name: 'pagedown' })
+      expect(strip(lastFrame()).split('\n')[2]).toContain('row 4')
+      Object.defineProperty(process.stdout, 'rows', { value: 12, configurable: true })
+      process.stdout.emit('resize')
+      await vi.waitFor(() => expect(strip(lastFrame()).split('\n')).toHaveLength(12))
+      expect(strip(lastFrame()).split('\n')[2]).toContain('row 4')
+    }
+    finally {
+      overlay.close()
+      if (descriptor) {
+        Object.defineProperty(process.stdout, 'rows', descriptor)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'rows')
+      }
+    }
+  })
+
+  it('copies a complete entry after paging into its middle', async () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    const time = new Date(2024, 0, 1, 13, 2, 3).getTime()
+    const message = Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n')
+    events.push(event({ time, message }))
+    const { overlay } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'pagedown' })
+    overlay.handleKey({ name: 'y' })
+    await vi.waitFor(() => expect(copied).toHaveLength(1))
+    expect(copied[0]).toBe(`${new Date(time).toLocaleTimeString()} ${message}`)
+    overlay.close()
+  })
+
+  it('resumes following and clears the selection when filters change', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'info' }))
+    events.push(event({ message: 'error', level: 0 }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    expect(strip(lastFrame())).toContain('paused')
+    overlay.handleKey({ name: 'e' })
+    expect(strip(lastFrame())).not.toContain('paused')
+    expect(lastFrame()).not.toContain('▎')
+    expect(strip(lastFrame())).toContain('error')
+    overlay.close()
+  })
+
+  it('uses Home and End as aliases for g and G', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 100; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    const home = lastFrame()
+    overlay.handleKey({ name: 'end' })
+    const end = lastFrame()
+    overlay.handleKey({ name: 'g', sequence: 'g' })
+    expect(lastFrame()).toBe(home)
+    overlay.handleKey({ name: 'g', sequence: 'G' })
+    expect(lastFrame()).toBe(end)
+    overlay.close()
+  })
+
+  it('uses a compact local 24-hour timestamp in the gutter', () => {
+    const time = new Date(2024, 0, 1, 13, 2, 3).getTime()
+    const [line] = formatEvent(event({ time, message: 'message' }), 80)
+    expect(strip(line!)).toBe('13:02:03 message')
   })
 
   it('starts at the top when entering the list with the down arrow', () => {
