@@ -97,8 +97,6 @@ jobs:
     permissions:
       id-token: write
     if: github.repository_owner == 'nuxt' && github.event_name != 'merge_group'
-    outputs:
-      files: ${{ steps.pack.outputs.files }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -118,9 +116,29 @@ jobs:
       - name: 📦 release pkg.pr.new
         run: pnpm pkg-pr-new publish --compact --template './playground' ./packages/create-nuxt ./packages/nuxi ./packages/nuxt-cli
 
+  pack-nightly:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'nuxt' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      files: ${{ steps.pack.outputs.files }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+        with:
+          runtime: node@latest
+          cache: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🛠 Build project
+        run: pnpm build
+
       - name: 📦 Pack nightly
         id: pack
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: danielroe/uppt/pack@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
         with:
           checkout: false
@@ -132,8 +150,8 @@ jobs:
             packages/nuxt-cli
 
   nightly:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release.outputs.files != ''
-    needs: release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.pack-nightly.outputs.files != ''
+    needs: pack-nightly
     runs-on: ubuntu-latest
     concurrency:
       group: nightly-${{ github.ref }}
@@ -145,4 +163,4 @@ jobs:
       - uses: danielroe/uppt/publish@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
         with:
           nightly: true
-          files: ${{ needs.release.outputs.files }}
+          files: ${{ needs.pack-nightly.outputs.files }}
