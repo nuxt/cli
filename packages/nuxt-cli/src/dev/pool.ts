@@ -130,7 +130,7 @@ export class ForkPool {
       execArgv: ['--enable-source-maps'],
       stdio: pipeOutput ? ['ignore', 'pipe', 'pipe', 'ipc'] : undefined,
       env: {
-        ...process.env,
+        ...withoutDotenvVars(process.env),
         __NUXT__FORK: 'true',
         ...pipeOutput
           ? {
@@ -248,6 +248,14 @@ function trackServing(child: ChildProcess): Promise<void> {
     child.once('close', onExit)
     child.once('error', onExit)
   })
+}
+
+function withoutDotenvVars(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const dotenvVars = (globalThis as { __c12_dotenv_vars__?: Map<object, Set<string>> }).__c12_dotenv_vars__?.get(env)
+  if (!dotenvVars?.size) {
+    return env
+  }
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !dotenvVars.has(key)))
 }
 
 /** Colour settings for a piped fork, which cannot detect colour support itself. */
