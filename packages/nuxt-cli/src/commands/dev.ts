@@ -20,7 +20,7 @@ import { preflight } from '../dev/preflight'
 import { formatRestartReason } from '../dev/reason'
 import { devShortcutContext } from '../dev/shortcut-context'
 import { handleShutdownSignals } from '../dev/shutdown'
-import { formatTakeoverRefusal, takeOverDevServer } from '../dev/takeover'
+import { formatTakeoverRefusal, takeOverServer } from '../dev/takeover'
 import { beginDevUI, setupDevUI, teardownDevUI } from '../dev/tui/controller'
 import { replaceCwdArg } from '../utils/args'
 import { resolveLockDir } from '../utils/dev-server'
@@ -183,7 +183,7 @@ const command = defineCommand({
 
     const buildDir = await beforeServing(() => resolveLockDir(cwd))
 
-    const takeover = await beforeServing(() => takeOverDevServer(buildDir, {
+    const takeover = await beforeServing(() => takeOverServer(buildDir, {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
     }))

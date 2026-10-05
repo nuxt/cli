@@ -383,6 +383,9 @@ describe('help', () => {
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                        -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
                        -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
+                              --takeover    Stop a preview server already running on this project and take its place                                                                            
+                           --no-takeover    Never stop a preview server already running on this project                                                                                         
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)
@@ -405,6 +408,9 @@ describe('help', () => {
            -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
                        -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
                        -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
+                              --takeover    Stop a preview server already running on this project and take its place                                                                            
+                           --no-takeover    Never stop a preview server already running on this project                                                                                         
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)

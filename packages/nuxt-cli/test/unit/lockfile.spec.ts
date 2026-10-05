@@ -12,7 +12,7 @@ vi.mock('std-env', async (importOriginal) => {
   return { ...original, isCI: false }
 })
 
-const { acquireLock, acquireOutputLock, formatLockError, isLockEnabled, readActiveLock, updateLock } = await import('../../src/utils/lockfile')
+const { acquireLock, acquireOutputLock, formatLockError, isLockEnabled, previewLockDir, readActiveLock, readLock, updateLock } = await import('../../src/utils/lockfile')
 
 describe('lockfile', () => {
   let tempDir: string
@@ -272,6 +272,28 @@ describe('lockfile', () => {
       expect(process.listenerCount('exit')).toBe(before + 1)
       lock.release!()
       expect(process.listenerCount('exit')).toBe(before)
+    })
+  })
+
+  describe('previewLockDir', () => {
+    it('keeps a preview apart from the dev server of the same project', () => {
+      const buildDir = join(tempDir, '.nuxt')
+      const dev = acquireLock(buildDir, { command: 'dev', cwd: tempDir, port: 3000 })
+      const preview = acquireLock(previewLockDir(tempDir), { command: 'preview', cwd: tempDir, port: 3001 })
+      expect(dev.release).toBeDefined()
+      expect(preview.release).toBeDefined()
+      expect(readLock(buildDir)?.command).toBe('dev')
+      expect(readLock(previewLockDir(tempDir))?.command).toBe('preview')
+      dev.release?.()
+      preview.release?.()
+    })
+
+    it('records the pid of the server a preview runs', () => {
+      const lockDir = previewLockDir(tempDir)
+      const { release } = acquireLock(lockDir, { command: 'preview', cwd: tempDir, port: 3000 })
+      updateLock(lockDir, { command: 'preview', cwd: tempDir, port: 3000, serverPid: 4242 })
+      expect(readLock(lockDir)).toMatchObject({ pid: process.pid, serverPid: 4242 })
+      release?.()
     })
   })
 

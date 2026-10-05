@@ -10,7 +10,7 @@ links:
 
 <!--preview-cmd-->
 ```bash [Terminal]
-npx nuxt preview [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--envName=<environment>] [-e, --extends=<layer-name>...] [-p, --port=<port>] [-h, --host=<host>] [--dotenv=<path>...]
+npx nuxt preview [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--envName=<environment>] [-e, --extends=<layer-name>...] [-p, --port=<port>] [-h, --host=<host>] [--takeover] [--strictPort] [--dotenv=<path>...]
 ```
 <!--/preview-cmd-->
 
@@ -39,8 +39,28 @@ Some Nitro presets do not produce a server that can be run locally. For those, t
 | `-e, --extends=<layer-name>...`      |         | Extend from a Nuxt layer                                                                                                                             |
 | `-p, --port=<port>`                  |         | Port to listen on (default: `NUXT_PORT \|\| NITRO_PORT \|\| PORT`)                                                                                   |
 | `-h, --host=<host>`                  |         | Host to listen on (default: `NUXT_HOST \|\| NITRO_HOST \|\| HOST`)                                                                                   |
+| `--takeover`                         |         | Stop a preview server already running on this project and take its place                                                                             |
+| `--no-takeover`                      |         | Never stop a preview server already running on this project                                                                                          |
+| `--strictPort`                       | `false` | Exit if the requested port is unavailable instead of using another one                                                                               |
 | `--dotenv=<path>...`                 |         | Path to `.env` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                    |
 <!--/preview-opts-->
+
+## Taking over a running preview
+
+A preview records itself in `node_modules/.cache/nuxt/preview`, so a second `nuxt preview` for the same project deals with the one already running the way [`nuxt dev`](/docs/api/commands/dev#taking-over-a-running-dev-server) deals with a running dev server:
+
+| Running preview was started | New preview is started | What happens |
+|-----------------------------|------------------------|--------------|
+| without a terminal | without a terminal | It is stopped, and the new one takes its port. |
+| without a terminal | in a terminal | You are asked, defaulting to taking it over. |
+| in a terminal | without a terminal | The new one exits, saying where the running one is. |
+| in a terminal | in a terminal | You are asked, defaulting to not starting. |
+
+Pass `--takeover` to always stop it and start in its place, or `--no-takeover` to never do so. Choosing "Start anyway" at the prompt, or passing a different `--port`, runs a second preview alongside it instead.
+
+When another server, including `nuxt dev`, is using the requested port, the preview automatically uses another free port without stopping that server. Pass `--strictPort` to exit instead. The requested port comes from `--port`, `NUXT_PORT`, `NITRO_PORT`, or `PORT`, defaulting to `3000`.
+
+Port selection applies to static previews and preview commands that run directly with Node.js, Bun, or Deno. Other preview commands choose their own port.
 
 This command sets `process.env.NODE_ENV` to `production`. To override, define `NODE_ENV` in a `.env` file or as command-line argument.
 
