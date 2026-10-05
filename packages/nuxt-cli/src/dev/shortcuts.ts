@@ -135,7 +135,9 @@ export function setupShortcuts(context: ShortcutContext): void {
   }
 
   let armedOpen = false
+  let ready = false
   context.onReady(() => {
+    ready = true
     if (armedOpen && context.listener) {
       armedOpen = false
       openBrowser(context.listener.url)
@@ -159,7 +161,7 @@ export function setupShortcuts(context: ShortcutContext): void {
     }
     try {
       await shortcut.action({ ...context, closeInput: () => rl.close(), open: () => {
-        if (context.listener) {
+        if (ready && context.listener) {
           openBrowser(context.listener.url)
         }
         else {

@@ -3047,6 +3047,31 @@ describe('panel shortcut routing', () => {
     })
   })
 
+  it.runIf(process.platform !== 'win32')('keeps borrowed input exclusive across suspend and resume', async () => {
+    const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
+    try {
+      await withPanel(async (_ui, _settle, session) => {
+        let finish!: () => void
+        const borrowed = useTerminalHost()!.withTerminal(() => new Promise<void>((resolve) => {
+          finish = resolve
+        }))
+        await vi.waitFor(() => expect(finish).toBeTypeOf('function'))
+        process.emit('SIGTSTP')
+        process.emit('SIGCONT')
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+        finish()
+        await borrowed
+        await new Promise(resolve => setImmediate(resolve))
+        expect(process.stdin.listenerCount('keypress')).toBe(1)
+        session.teardown()
+        expect(process.stdin.listenerCount('keypress')).toBe(0)
+      })
+    }
+    finally {
+      kill.mockRestore()
+    }
+  })
+
   it.runIf(process.platform !== 'win32')('restores keyboard input after suspension', async () => {
     const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
     try {
@@ -3369,6 +3394,24 @@ describe('request failures on the panel', () => {
         ready()
         expect(opened).toEqual([])
       })
+    })
+
+    it('should cancel opening after a listener binds but before readiness', async () => {
+      opened.length = 0
+      const { context: deferred, attach } = deferShortcutContext()
+      let ready!: () => void
+      await withPanel(async () => {
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        attach({
+          listener: listener as never,
+          close: async () => {},
+          onReady: (callback) => { ready = () => callback(listener.url) },
+        })
+        process.stdin.emit('keypress', 'o', { name: 'o', sequence: 'o' })
+        expect(opened).toEqual([])
+        ready()
+        expect(opened).toEqual([])
+      }, { context: deferred })
     })
 
     it('should open at once when the server is already up', async () => {

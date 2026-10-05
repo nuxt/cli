@@ -212,8 +212,9 @@ describe('setupShortcuts', () => {
       ready = callback
     } })
     await press('o')
-    await press('o')
     context.listener = listener
+    await press('o')
+    expect(openBrowser).not.toHaveBeenCalled()
     ready(listener.url)
     expect(openBrowser).not.toHaveBeenCalled()
   })

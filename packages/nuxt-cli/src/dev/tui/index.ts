@@ -124,6 +124,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   let shortcuts: UIShortcut[] = []
   let qrCode: string | undefined
   let armedOpen = false
+  let ready = false
   const helpOverlay = new HelpOverlay(() => shortcuts.filter(shortcut => shortcut.isAvailable?.() !== false), write, release)
   const infoOverlay = new InfoOverlay(
     () => describeSession(context, cwd, requests, sessionStart, state.update, state.updateLink),
@@ -276,6 +277,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   })
 
   context.onReady(() => {
+    ready = true
     if (armedOpen && context.listener) {
       armedOpen = false
       openBrowser(context.listener.url)
@@ -379,7 +381,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   ]
 
   function open(): void {
-    if (context.listener) {
+    if (ready && context.listener) {
       openBrowser(context.listener.url)
       return
     }
@@ -438,14 +440,32 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   let torn = false
   let resumeTerminal: (() => void) | undefined
+  let terminalHolds = 0
+  let resumeSurface: (() => void) | undefined
+
+  function holdTerminal(): () => void {
+    if (terminalHolds++ === 0) {
+      openOverlay()?.close()
+      detach()
+      resumeSurface = surface.suspend()
+    }
+    return () => {
+      if (--terminalHolds === 0) {
+        resumeSurface?.()
+        resumeSurface = undefined
+        if (!torn) {
+          detach = attachKeys(onKey, { ignoreBufferedInput: true })
+          render()
+        }
+      }
+    }
+  }
 
   function suspend(): void {
     if (process.platform === 'win32' || torn || resumeTerminal) {
       return
     }
-    openOverlay()?.close()
-    detach()
-    resumeTerminal = surface.suspend()
+    resumeTerminal = holdTerminal()
     process.kill(process.pid, 'SIGSTOP')
   }
 
@@ -455,10 +475,6 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
     resumeTerminal()
     resumeTerminal = undefined
-    if (!torn) {
-      detach = attachKeys(onKey, { ignoreBufferedInput: true })
-      render()
-    }
   }
 
   if (process.platform !== 'win32') {
@@ -467,18 +483,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   }
 
   async function lendTerminal<T>(work: () => Promise<T>): Promise<T> {
-    openOverlay()?.close()
-    detach()
-    const resume = surface.suspend()
+    const resume = holdTerminal()
     try {
       return await work()
     }
     finally {
       resume()
-      if (!torn) {
-        detach = attachKeys(onKey, { ignoreBufferedInput: true })
-        render()
-      }
     }
   }
 
