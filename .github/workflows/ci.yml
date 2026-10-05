@@ -97,6 +97,8 @@ jobs:
     permissions:
       id-token: write
     if: github.repository_owner == 'nuxt' && github.event_name != 'merge_group'
+    outputs:
+      files: ${{ steps.pack.outputs.files }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -116,9 +118,30 @@ jobs:
       - name: 📦 release pkg.pr.new
         run: pnpm pkg-pr-new publish --compact --template './playground' ./packages/create-nuxt ./packages/nuxi ./packages/nuxt-cli
 
-      - name: 📦 release nightly
+      - name: 📦 Pack nightly
+        id: pack
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        # the runner image ships npm 10, which predates OIDC trusted publishing
-        run: |
-          npm install -g npm@latest
-          node ./scripts/release-nightly.mjs
+        uses: danielroe/uppt/pack@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
+        with:
+          checkout: false
+          install: false
+          nightly: true
+          packages: |
+            packages/create-nuxt
+            packages/nuxi
+            packages/nuxt-cli
+
+  nightly:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.release.outputs.files != ''
+    needs: release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: nightly-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+    steps:
+      - uses: danielroe/uppt/publish@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
+        with:
+          nightly: true
+          files: ${{ needs.release.outputs.files }}

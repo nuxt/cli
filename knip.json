@@ -7,7 +7,6 @@
     ".": {
       "ignoreDependencies": [
         "@nuxt/test-utils",
-        "changelogen",
         "vue",
         "vue-router"
       ],
