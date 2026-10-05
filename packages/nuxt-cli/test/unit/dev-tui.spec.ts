@@ -3004,6 +3004,18 @@ describe('panel shortcut routing', () => {
     })
   })
 
+  it('keeps the active view open when Ctrl-R is unavailable', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdin.emit('keypress', 'l', { name: 'l' })
+      expect(session.surface.screenMode).toBe('alternate-screen')
+      process.stdin.emit('keypress', '', { name: 'r', ctrl: true })
+      expect(session.state.notice?.text).toContain('not available yet')
+      expect(session.surface.screenMode).toBe('alternate-screen')
+      process.stdin.emit('keypress', '', { name: 'escape' })
+      expect(session.surface.screenMode).toBe('split-footer')
+    })
+  })
+
   it('clears caches only for Shift-R', async () => {
     const clearCaches = vi.fn(async () => [])
     const restart = vi.fn()

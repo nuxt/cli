@@ -420,6 +420,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
     if (key.ctrl) {
       const shortcut = shortcuts.find(shortcut => shortcut.ctrl === key.name)
+      if (shortcut?.isAvailable?.() === false) {
+        return showNotice('shortcut is not available yet', 'info')
+      }
       return shortcut?.action()
     }
     if (active) {
