@@ -77,7 +77,7 @@
     "get-port-please": "^3.2.0",
     "my-bad": "^0.2.9",
     "obug": "^3.0.0",
-    "package-manager-detector": "^1.8.0",
+    "package-manager-detector": "^1.9.0",
     "pathe": "^2.0.3",
     "perfect-debounce": "^2.1.0",
     "pkg-types": "^2.3.3",

@@ -35,7 +35,7 @@
     "@types/node": "^24.19.1",
     "citty": "^0.2.2",
     "giget": "^3.3.1",
-    "package-manager-detector": "^1.8.0",
+    "package-manager-detector": "^1.9.0",
     "pathe": "^2.0.3",
     "pkg-types": "^2.3.3",
     "std-env": "^4.3.0",

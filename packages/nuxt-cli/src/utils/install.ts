@@ -3,7 +3,7 @@ import type { ChildProcess, SpawnOptions } from 'node:child_process'
 import type { DetectResult } from 'package-manager-detector'
 
 import { spawn } from 'node:child_process'
-import { existsSync, rmSync, statSync } from 'node:fs'
+import { rmSync, statSync } from 'node:fs'
 import { delimiter, resolve } from 'node:path'
 import process from 'node:process'
 import { styleText } from 'node:util'
@@ -26,18 +26,14 @@ const IGNORED_BUILDS_RE = /Ignored build scripts:\s*([^\n│]+)/
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[\d;]*[A-Z]/gi
 
-const DENO_SPECIFIER_RE = /^(?:npm|jsr|file):/
-
-function getInstallCommand({ cwd, packageManager: { agent, name }, dependencies = [], dev, uninstall }: InstallOptions) {
+function getInstallCommand({ packageManager: { agent }, dependencies = [], dev, uninstall }: InstallOptions) {
   if (!dependencies.length) {
     return resolveCommand(agent, 'install', [])!
   }
   return resolveCommand(agent, uninstall ? 'uninstall' : 'add', [
-    // pnpm refuses to add to a workspace root without this flag.
-    ...name === 'pnpm' && existsSync(resolve(cwd, 'pnpm-workspace.yaml')) ? ['--workspace-root'] : [],
     ...dev && !uninstall ? ['-D'] : [],
-    ...name === 'deno' ? dependencies.map(dep => DENO_SPECIFIER_RE.test(dep) ? dep : `npm:${dep}`) : dependencies,
-  ])!
+    ...dependencies,
+  ], { ignoreWorkspaceRootCheck: true })!
 }
 
 export interface InstallOptions {
