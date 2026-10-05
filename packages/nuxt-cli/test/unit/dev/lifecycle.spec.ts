@@ -666,7 +666,7 @@ describe('dev server handover', () => {
 })
 
 describe('dev server websocket upgrades', () => {
-  function upgrade(server: InstanceType<typeof NuxtDevServer>, path: string, protocol = 'vite-ping') {
+  function upgrade(server: InstanceType<typeof NuxtDevServer>, path: string, protocol: string | null = 'vite-ping') {
     const { port } = server.listener.address as AddressInfo
     const client = connect(port, '127.0.0.1')
     client.on('error', () => {})
@@ -675,7 +675,7 @@ describe('dev server websocket upgrades', () => {
       response += chunk
     })
     const closed = new Promise<void>(resolve => client.once('close', () => resolve()))
-    client.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Protocol: ${protocol}\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`)
+    client.write(`GET ${path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n${protocol ? `Sec-WebSocket-Protocol: ${protocol}\r\n` : ''}Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`)
     return { client, closed, response: () => response }
   }
 
@@ -789,16 +789,26 @@ describe('dev server websocket upgrades', () => {
   it.each([
     ['another asset path', '/_nuxt/other', 'vite-ping'],
     ['another protocol', '/_nuxt/', 'graphql-ws'],
-  ])('should route upgrades Vite does not accept to the Nuxt server (%s)', async (_label, path, protocol) => {
+  ])('should leave asset upgrades Vite does not accept to other listeners (%s)', async (_label, path, protocol) => {
     const nuxt = createNuxt()
     const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    nuxt.hook('listen', (server: import('node:http').Server) => {
+      server.on('upgrade', (req: import('node:http').IncomingMessage, socket: Socket) => {
+        if (req.url === path && req.headers['sec-websocket-protocol'] === protocol) {
+          accept(req, socket)
+        }
+      })
+    })
     const server = await startServer(nuxt)
     await attachFakeVite(nuxt)
 
-    const { closed } = upgrade(server, path, protocol)
-    await expectClosedPromptly(closed)
-    expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+    const { client, response } = upgrade(server, path, protocol)
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(client.destroyed).toBe(false)
+    expect(nitroUpgrade).not.toHaveBeenCalled()
+    client.destroy()
   })
 
   it.each(['//a:b', 'http://a:b/'])('should not throw on an upgrade to %s', async (path) => {
@@ -845,13 +855,34 @@ describe('dev server websocket upgrades', () => {
     client.destroy()
   })
 
-  it.each(['@nuxt/webpack-builder', '@nuxt/rspack-builder'])('should route asset upgrades to the Nuxt server with %s', async (builder) => {
+  it.each([undefined, 'vite', 'webpack', 'rspack', '@nuxt/webpack-builder', '@nuxt/rspack-builder'])('should leave asset upgrades to the bundler with %s', async (builder) => {
+    const nuxt = createNuxt({ builder })
+    const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
+    Object.assign(nuxt.server, { upgrade: nitroUpgrade })
+    nuxt.hook('listen', (server: import('node:http').Server) => {
+      server.on('upgrade', (req: import('node:http').IncomingMessage, socket: Socket) => {
+        if (new URL(`http://example.com${req.url}`).pathname === '/_nuxt/rsbuild-hmr') {
+          accept(req, socket)
+        }
+      })
+    })
+    const server = await startServer(nuxt)
+
+    const { client, response } = upgrade(server, '/_nuxt/rsbuild-hmr?token=abc', null)
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(client.destroyed).toBe(false)
+    expect(nitroUpgrade).not.toHaveBeenCalled()
+    client.destroy()
+  })
+
+  it.each(['webpack', 'rspack'])('should route other upgrades to the Nuxt server with %s', async (builder) => {
     const nuxt = createNuxt({ builder })
     const nitroUpgrade = vi.fn((_req: unknown, socket: Socket) => socket.destroy())
     Object.assign(nuxt.server, { upgrade: nitroUpgrade })
     const server = await startServer(nuxt)
 
-    const { closed } = upgrade(server, '/_nuxt/')
+    const { closed } = upgrade(server, '/_ws', null)
     await expectClosedPromptly(closed)
     expect(nitroUpgrade).toHaveBeenCalledTimes(1)
   })
