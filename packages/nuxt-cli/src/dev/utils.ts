@@ -1099,18 +1099,17 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     let viteHmrPinned = false
-    let viteWsPath: string | undefined
-    let viteHmrUrl: string | undefined
+    let viteHmrAttached = false
     if (!process.env.NUXI_DISABLE_VITE_HMR) {
       this.#currentNuxt.hooks.hook('vite:extend', ({ config }) => {
         if (config.server) {
-          viteWsPath = attachViteHmrServer(config.server, this.listener.server)
+          attachViteHmrServer(config.server, this.listener.server)
           viteHmrPinned = true
         }
       })
-      this.#currentNuxt.hooks.hook('vite:serverCreated', (server, { isClient }) => {
+      this.#currentNuxt.hooks.hook('vite:serverCreated', (_server, { isClient }) => {
         if (isClient && viteHmrPinned) {
-          viteHmrUrl = viteWsPath ? join(server.config.base, viteWsPath) : server.config.base
+          viteHmrAttached = true
         }
       })
     }
@@ -1151,32 +1150,19 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const nuxt = this.#currentNuxt
     const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
-    const viteHmrPath = `${baseURL.replace(/\/$/, '')}/${nuxt.options.app.buildAssetsDir.replace(/^\//, '')}`
+    const buildAssetsPath = `${baseURL.replace(/\/$/, '')}/${nuxt.options.app.buildAssetsDir.replace(/^\//, '')}`
     const expectsViteHmr = !process.env.NUXI_DISABLE_VITE_HMR && (!nuxt.options.builder || String(nuxt.options.builder).includes('vite'))
     this.listener.server.on('upgrade', (req, socket, head) => {
       this.#websocketConnections.add(socket)
       socket.on('close', () => {
         this.#websocketConnections.delete(socket)
       })
-      const protocol = req.headers['sec-websocket-protocol']
-      if (expectsViteHmr && (protocol === 'vite-hmr' || protocol === 'vite-ping')) {
-        if (viteHmrUrl === undefined && req.url?.startsWith(viteHmrPath)) {
+      if (req.url?.startsWith(buildAssetsPath)) {
+        const protocol = req.headers['sec-websocket-protocol']
+        if (expectsViteHmr && !viteHmrAttached && (protocol === 'vite-hmr' || protocol === 'vite-ping')) {
           socket.destroy()
-          return
         }
-        if (viteHmrUrl !== undefined) {
-          let pathname: string
-          try {
-            pathname = new URL(`http://localhost${req.url}`).pathname
-          }
-          catch {
-            socket.destroy()
-            return
-          }
-          if (pathname === viteHmrUrl) {
-            return
-          }
-        }
+        return
       }
       if (nuxt.server && 'upgrade' in nuxt.server) {
         nuxt.server.upgrade(req, socket as any, head)
