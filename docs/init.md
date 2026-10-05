@@ -10,7 +10,7 @@ links:
 
 <!--init-cmd-->
 ```bash [Terminal]
-npm create nuxt@latest [DIR] -- [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [-t, --template=<template-name>] [-f, --force] [--offline] [--preferOffline] [--install] [--gitInit] [--shell] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>] [-M, --modules=<module-names>] [--nightly=<dist-tag>]
+npm create nuxt@latest [DIR] -- [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [-t, --template=<template-name>] [-f, --force] [--offline] [--preferOffline] [--install] [--gitInit] [--shell] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>] [-M, --modules=<module-names>] [--nightly=<dist-tag>]
 ```
 <!--/init-cmd-->
 
@@ -33,23 +33,23 @@ The `create-nuxt` command initializes a fresh Nuxt project using [unjs/giget](ht
 ## Options
 
 <!--init-opts-->
-| Option                                                     | Default | Description                                                                          |
-|------------------------------------------------------------|---------|--------------------------------------------------------------------------------------|
-| `--cwd=<directory>`                                        | `.`     | Specify the directory to create the project in                                       |
-| `--logLevel=<silent\|info\|verbose>`                       |         | Specify build-time log level                                                         |
-| `-t, --template=<template-name>`                           |         | Template name                                                                        |
-| `-f, --force`                                              |         | Override existing directory                                                          |
-| `--offline`                                                |         | Force offline mode                                                                   |
-| `--preferOffline`                                          |         | Prefer offline mode                                                                  |
-| `--install`                                                | `true`  | Install dependencies once the project has been scaffolded                            |
-| `--no-install`                                             |         | Skip installing dependencies                                                         |
-| `--gitInit`                                                |         | Initialize git repository                                                            |
-| `--no-gitInit`                                             |         | Skip git repository initialization                                                   |
-| `--shell`                                                  |         | Start shell after installation in project directory                                  |
-| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub>` |         | Package manager choice                                                               |
-| `-M, --modules=<module-names>`                             |         | Nuxt modules to install (comma separated without spaces)                             |
-| `--no-modules`                                             |         | Skip module installation prompt                                                      |
-| `--nightly=<dist-tag>`                                     |         | Use Nuxt nightly release channel (a `nuxt-nightly` dist tag, defaulting to `latest`) |
+| Option                                                          | Default | Description                                                                          |
+|-----------------------------------------------------------------|---------|--------------------------------------------------------------------------------------|
+| `--cwd=<directory>`                                             | `.`     | Specify the directory to create the project in                                       |
+| `--logLevel=<silent\|info\|verbose>`                            |         | Specify build-time log level                                                         |
+| `-t, --template=<template-name>`                                |         | Template name                                                                        |
+| `-f, --force`                                                   |         | Override existing directory                                                          |
+| `--offline`                                                     |         | Force offline mode                                                                   |
+| `--preferOffline`                                               |         | Prefer offline mode                                                                  |
+| `--install`                                                     | `true`  | Install dependencies once the project has been scaffolded                            |
+| `--no-install`                                                  |         | Skip installing dependencies                                                         |
+| `--gitInit`                                                     |         | Initialize git repository                                                            |
+| `--no-gitInit`                                                  |         | Skip git repository initialization                                                   |
+| `--shell`                                                       |         | Start shell after installation in project directory                                  |
+| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub\|upm>` |         | Package manager choice                                                               |
+| `-M, --modules=<module-names>`                                  |         | Nuxt modules to install (comma separated without spaces)                             |
+| `--no-modules`                                                  |         | Skip module installation prompt                                                      |
+| `--nightly=<dist-tag>`                                          |         | Use Nuxt nightly release channel (a `nuxt-nightly` dist tag, defaulting to `latest`) |
 <!--/init-opts-->
 
 ## Non-interactive use

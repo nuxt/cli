@@ -10,7 +10,7 @@ links:
 
 <!--add-cmd-->
 ```bash [Terminal]
-npx nuxt add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>]
+npx nuxt add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>]
 ```
 <!--/add-cmd-->
 
@@ -27,14 +27,14 @@ The `add` command installs [Nuxt modules](/modules) and [layers](/docs/getting-s
 ## Options
 
 <!--add-opts-->
-| Option                                                     | Default | Description                                     |
-|------------------------------------------------------------|---------|-------------------------------------------------|
-| `--cwd=<directory>`                                        | `.`     | Specify the root directory of your Nuxt project |
-| `--logLevel=<silent\|info\|verbose>`                       |         | Specify build-time log level                    |
-| `--skipInstall`                                            |         | Skip npm install                                |
-| `--skipConfig`                                             |         | Skip nuxt.config.ts update                      |
-| `--dev`                                                    |         | Install modules as dev dependencies             |
-| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub>` |         | Package manager to install with                 |
+| Option                                                          | Default | Description                                     |
+|-----------------------------------------------------------------|---------|-------------------------------------------------|
+| `--cwd=<directory>`                                             | `.`     | Specify the root directory of your Nuxt project |
+| `--logLevel=<silent\|info\|verbose>`                            |         | Specify build-time log level                    |
+| `--skipInstall`                                                 |         | Skip npm install                                |
+| `--skipConfig`                                                  |         | Skip nuxt.config.ts update                      |
+| `--dev`                                                         |         | Install modules as dev dependencies             |
+| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub\|upm>` |         | Package manager to install with                 |
 <!--/add-opts-->
 
 When running the command, it will:

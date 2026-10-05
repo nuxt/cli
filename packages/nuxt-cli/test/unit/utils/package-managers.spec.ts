@@ -29,11 +29,22 @@ describe('detectPackageManager', () => {
     expect((await detectPackageManager(app))?.name).toBe('pnpm')
     expect(await detectPackageManager(app, { includeParentDirs: false })).toBeUndefined()
   })
+
+  it('should detect upm from `upm.lock`', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nuxt-pm-test-'))
+    await writeFile(join(dir, 'upm.lock'), '')
+
+    expect(await detectPackageManager(dir)).toEqual({ name: 'upm', agent: 'upm' })
+  })
 })
 
 describe('getLockFiles', () => {
   it('should not include workspace manifests', () => {
     expect(getLockFiles('pnpm')).toEqual(['pnpm-lock.yaml'])
+  })
+
+  it('should return the upm lockfile', () => {
+    expect(getLockFiles('upm')).toEqual(['upm.lock'])
   })
 })
 
