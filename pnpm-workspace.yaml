@@ -8,7 +8,6 @@ minimumReleaseAgeExclude:
   - fuzzysort@4.0.1
   - errx
   - my-bad
-  - package-manager-detector@1.9.0
 
 verifyDepsBeforeRun: install
 
