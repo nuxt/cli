@@ -134,7 +134,6 @@ describe.skipIf(process.platform === 'win32')('runInstall arguments', () => {
     const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' }, dependencies: ['a'] })
     expect(result.command).toBe('pnpm add --ignore-workspace-root-check a --config.confirm-modules-purge=false --config.strict-dep-builds=false')
   })
-
 })
 
 describe('runDedupe', () => {
