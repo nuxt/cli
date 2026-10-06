@@ -76,12 +76,12 @@ describe('help', () => {
 
       OPTIONS
 
-                                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                          --logLevel=<silent|info|verbose>    Specify build-time log level                                
-                                             --skipInstall    Skip npm install                                            
-                                              --skipConfig    Skip nuxt.config.ts update                                  
-                                                     --dev    Install modules as dev dependencies                         
-        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>    Package manager to install with                             
+                                             --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                              --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                 --skipInstall    Skip npm install                                            
+                                                  --skipConfig    Skip nuxt.config.ts update                                  
+                                                         --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with                             
       "
     `)
   })
@@ -488,12 +488,12 @@ describe('help', () => {
 
       OPTIONS
 
-                                         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                          --logLevel=<silent|info|verbose>    Specify build-time log level                                
-                                             --skipInstall    Skip npm install                                            
-                                              --skipConfig    Skip nuxt.config.ts update                                  
-                                                     --dev    Install modules as dev dependencies                         
-        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>    Package manager to install with                             
+                                             --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                              --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                 --skipInstall    Skip npm install                                            
+                                                  --skipConfig    Skip nuxt.config.ts update                                  
+                                                         --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with                             
       "
     `)
   })

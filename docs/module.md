@@ -14,7 +14,7 @@ Nuxt provides a few utilities to work with [Nuxt modules](/modules) seamlessly.
 
 <!--module-add-cmd-->
 ```bash [Terminal]
-npx nuxt module add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub>]
+npx nuxt module add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--skipInstall] [--skipConfig] [--dev] [--packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>]
 ```
 <!--/module-add-cmd-->
 
@@ -29,14 +29,14 @@ npx nuxt module add <MODULENAME...> [--cwd=<directory>] [--logLevel=<silent|info
 ### Options
 
 <!--module-add-opts-->
-| Option                                                     | Default | Description                                     |
-|------------------------------------------------------------|---------|-------------------------------------------------|
-| `--cwd=<directory>`                                        | `.`     | Specify the root directory of your Nuxt project |
-| `--logLevel=<silent\|info\|verbose>`                       |         | Specify build-time log level                    |
-| `--skipInstall`                                            |         | Skip npm install                                |
-| `--skipConfig`                                             |         | Skip nuxt.config.ts update                      |
-| `--dev`                                                    |         | Install modules as dev dependencies             |
-| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub>` |         | Package manager to install with                 |
+| Option                                                          | Default | Description                                     |
+|-----------------------------------------------------------------|---------|-------------------------------------------------|
+| `--cwd=<directory>`                                             | `.`     | Specify the root directory of your Nuxt project |
+| `--logLevel=<silent\|info\|verbose>`                            |         | Specify build-time log level                    |
+| `--skipInstall`                                                 |         | Skip npm install                                |
+| `--skipConfig`                                                  |         | Skip nuxt.config.ts update                      |
+| `--dev`                                                         |         | Install modules as dev dependencies             |
+| `--packageManager=<npm\|pnpm\|yarn\|bun\|deno\|aube\|nub\|upm>` |         | Package manager to install with                 |
 <!--/module-add-opts-->
 
 The command lets you install [Nuxt modules](/modules) in your application with no manual work.
