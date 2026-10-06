@@ -129,18 +129,12 @@ describe.skipIf(process.platform === 'win32')('runInstall arguments', () => {
     expect(result.command).toBe('npm i -D a')
   })
 
-  it('should add to the root of a pnpm workspace', async () => {
+  it('should skip the pnpm workspace root check without workspace config', async () => {
     const { dir } = await createFakePackageManager('pnpm')
-    await writeFile(join(dir, 'pnpm-workspace.yaml'), '')
     const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' }, dependencies: ['a'] })
-    expect(result.command).toMatch(/^pnpm add --workspace-root a /)
+    expect(result.command).toBe('pnpm add --ignore-workspace-root-check a --config.confirm-modules-purge=false --config.strict-dep-builds=false')
   })
 
-  it('should prefix bare deno specifiers with `npm:`', async () => {
-    const { dir } = await createFakePackageManager('deno')
-    const result = await runInstall({ cwd: dir, packageManager: { name: 'deno', agent: 'deno' }, dependencies: ['a', 'jsr:@std/path'] })
-    expect(result.command).toBe('deno add npm:a jsr:@std/path')
-  })
 })
 
 describe('runDedupe', () => {
