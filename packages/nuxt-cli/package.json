@@ -92,8 +92,8 @@
   },
   "devDependencies": {
     "@bomb.sh/tab": "^0.0.22",
-    "@nuxt/kit": "^4.5.2",
-    "@nuxt/schema": "^4.5.2",
+    "@nuxt/kit": "^4.6.0",
+    "@nuxt/schema": "^4.6.0",
     "@nuxt/test-utils": "^4.3.3",
     "@speed-highlight/core": "^2.1.0",
     "@types/node": "^24.19.1",
