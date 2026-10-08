@@ -154,7 +154,9 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   const date = new Date(event.time)
   const clock = [date.getHours(), date.getMinutes(), date.getSeconds()].map(part => String(part).padStart(2, '0')).join(':')
   const time = styleText(MUTED, clock)
-  const tag = event.tag && !event.request ? styleText(MUTED, `[${event.tag}] `) : ''
+  const budget = columns - messageColumn - 1
+  // A long tag gives way, so the message and its repeat marker keep their room.
+  const tag = event.tag && !event.request ? styleText(MUTED, `${truncate(`[${event.tag}]`, Math.max(1, Math.floor(budget / 2)))} `) : ''
   const tagWidth = visibleWidth(tag)
   const indent = ' '.repeat(messageColumn)
 
@@ -164,7 +166,7 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   const lines = event.message
     .split('\n')
     .map((line, index) => {
-      const room = Math.max(20, columns - messageColumn - 1 - (index === 0 ? markerWidth + tagWidth : 0))
+      const room = Math.max(1, budget - (index === 0 ? markerWidth + tagWidth : 0))
       const text = colorBySeverity(truncate(line, room), event)
       return index === 0 ? `${text}${marker}` : text
     })

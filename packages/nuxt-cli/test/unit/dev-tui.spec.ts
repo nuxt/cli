@@ -911,6 +911,12 @@ describe('log overlay', () => {
     expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[@nuxt\/content\] Processed .*…$/)
   })
 
+  it('keeps the repeat marker when a long tag leaves little room', () => {
+    const [line] = formatEvent(event({ tag: 'nuxt:devtools:config-retriever', message: 'defines Vite-specific options', repeats: 12 }), 38)
+    expect(strip(line!).length).toBeLessThanOrEqual(38)
+    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:devtool… defines … ×12$/)
+  })
+
   it('never paints a row wider than the terminal', () => {
     const events = new DevEventLog()
     events.push(event({ tag: 'a'.repeat(60), message: 'b'.repeat(60) }))
