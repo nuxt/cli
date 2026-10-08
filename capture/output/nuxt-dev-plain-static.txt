@@ -1,10 +1,10 @@
-styles: e436f2ee732d3233
+styles: 0b16b2e9f0d61733
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
-ℹ Vite client warmed up in 42 ms
-ℹ Vite server warmed up in 42 ms
+ WARN  Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (configResolved) in a plugin returned from applyToEnvironment. These hooks will be ignored.
+ WARN  Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (configResolved) in a plugin returned from applyToEnvironment. These hooks will be ignored. (x2)
 │
 │  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
 ◆  Ready in 42 ms  → http://localhost:3000/

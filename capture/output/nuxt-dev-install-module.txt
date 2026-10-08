@@ -1,7 +1,6 @@
-styles: 676a790aac9bd9d9
+styles: c631b1f09ab5adaa
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
-   waiting for requests
    ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 33% · 42 ms
@@ -9,13 +8,17 @@ styles: 676a790aac9bd9d9
    ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
    ⚠ 1 warning
+   ⚠ 2 warnings
    ✔ 1 request   42 ms median
-   ✔ 1 request   42 ms median   ⚠ 1 warning
+   ✔ 1 request   42 ms median   ⚠ 2 warnings
+   ⠋ installing @nuxt/scripts... · 42 ms
    ⠋ installing with npm · 42 ms
   BUILDING   ✔ dependencies installed · GET /scripts · 200 · 42 ms
+  BUILDING   ✔ installed @nuxt/scripts · GET /scripts · 200 · 42 ms
   READY   watching for changes
   READY   watching for changes · GET /scripts · 200 · 42 ms
   READY   ✔ dependencies installed · GET /scripts · 200 · 42 ms
+  READY   ✔ installed @nuxt/scripts · GET /scripts · 200 · 42 ms
   STARTING   building server
   STARTING   bundling app
   STARTING   generating types

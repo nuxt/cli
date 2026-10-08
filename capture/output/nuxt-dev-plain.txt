@@ -1,11 +1,11 @@
-styles: a2e3f38c20e4471a
+styles: adf88c3e78754b3b
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
+ WARN  Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (configResolved) in a plugin returned from applyToEnvironment. These hooks will be ignored.
 ℹ Re-optimizing dependencies because vite config has changed
-ℹ Vite client warmed up in 42 ms
-ℹ Vite server warmed up in 42 ms
+ℹ dependency optimized: @vue/devtools-core
 │
 │  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
 ◆  Ready in 42 ms  → http://localhost:3000/

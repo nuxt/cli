@@ -1,12 +1,12 @@
-styles: cc8073ef7ffad653
+styles: b9481c350ba0bd29
+  devtools updated
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
+ WARN  Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (configResolved) in a plugin returned from applyToEnvironment. These hooks will be ignored.
+ WARN  Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (configResolved) in a plugin returned from applyToEnvironment. These hooks will be ignored. (x2)
 ℹ Re-optimizing dependencies because vite config has changed
-ℹ Re-optimizing dependencies because vite config has changed (x2)
-ℹ Vite client warmed up in 42 ms
-ℹ Vite server warmed up in 42 ms
 ℹ nuxt.config.ts changed. Reloading Nuxt...
 │
 │  config 42 ms · modules 42 ms · app 42 ms · types 42 ms · bundle 42 ms · server 42 ms
