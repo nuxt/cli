@@ -223,3 +223,124 @@ describe('typecheck results', () => {
     expect(exitCode).toBe(2)
   })
 })
+
+describe('typecheck per project', () => {
+  const app = './.nuxt/tsconfig.app.json'
+
+  /** A checker process killed by `signal` before it could exit. */
+  function killed(signal: string) {
+    return Object.assign(Promise.resolve({ exitCode: undefined as unknown as number, stdout: '', stderr: '' }), { signalCode: signal })
+  }
+
+  beforeEach(async () => {
+    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({
+      files: [],
+      references: [{ path: app }, { path: './.nuxt/tsconfig.server.json' }, { path: 'layers/base' }],
+    }))
+  })
+
+  it('should check each reference in its own process, resolving files and directories', async () => {
+    const { output, exitCode } = await runTypecheck(['--per-project'])
+
+    expect(tinyexec.mock.calls.map(call => (call as unknown[])[1])).toEqual([
+      ['-p', join(cwd, '.nuxt/tsconfig.app.json'), '--noEmit'],
+      ['-p', join(cwd, '.nuxt/tsconfig.server.json'), '--noEmit'],
+      ['-p', join(cwd, 'layers/base/tsconfig.json'), '--noEmit'],
+    ])
+    expect(tinyexec).toHaveBeenCalledWith(expect.stringContaining('vue-tsc'), expect.anything(), expect.objectContaining({
+      nodeOptions: expect.objectContaining({ cwd }),
+    }))
+    expect(output).toContain('.nuxt/tsconfig.app.json passed')
+    expect(output).toContain('layers/base/tsconfig.json passed')
+    expect(output).toContain('Type check passed')
+    expect(exitCode).toBeFalsy()
+  })
+
+  it('should not split a tsconfig found above the root directory', async () => {
+    const rootDir = join(cwd, 'app')
+    await mkdir(rootDir)
+
+    const { output } = await runTypecheck(['--per-project', '--build', `--cwd=${rootDir}`])
+
+    expect(output).toContain('Ignoring')
+    expect(tinyexec).toHaveBeenCalledTimes(1)
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit'], expect.anything())
+  })
+
+  it('should split with an explicit `--build`', async () => {
+    await runTypecheck(['--per-project', '--build'])
+
+    expect(tinyexec).toHaveBeenCalledTimes(3)
+    expect((tinyexec.mock.calls[0] as unknown[])[1]).toEqual(['-p', join(cwd, '.nuxt/tsconfig.app.json'), '--noEmit'])
+  })
+
+  it('should start the next project only after the previous one finished', async () => {
+    let finish!: () => void
+    tinyexec.mockReturnValueOnce(new Promise((resolve) => {
+      finish = () => resolve({ exitCode: 0, stdout: '', stderr: '' })
+    }))
+
+    const run = runTypecheck(['--per-project'])
+    await vi.waitFor(() => expect(tinyexec).toHaveBeenCalledTimes(1))
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(tinyexec).toHaveBeenCalledTimes(1)
+
+    finish()
+    await run
+    expect(tinyexec).toHaveBeenCalledTimes(3)
+  })
+
+  it('should keep going after a failing project and exit with its code', async () => {
+    tinyexec
+      .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '' })
+      .mockResolvedValueOnce({ exitCode: 2, stdout: '', stderr: '' })
+      .mockResolvedValueOnce({ exitCode: 0, stdout: '', stderr: '' })
+
+    const { output, exitCode } = await runTypecheck(['--per-project'])
+
+    expect(tinyexec).toHaveBeenCalledTimes(3)
+    expect(output).toContain('.nuxt/tsconfig.server.json failed')
+    expect(output).toContain('Type check failed')
+    expect(output).toContain('1 of 3 projects')
+    expect(exitCode).toBe(2)
+  })
+
+  it('should report a project killed by a signal rather than as type errors', async () => {
+    tinyexec.mockReturnValueOnce(killed('SIGKILL'))
+
+    const { output, exitCode } = await runTypecheck(['--per-project'])
+
+    expect(tinyexec).toHaveBeenCalledTimes(3)
+    expect(output).toContain('was killed by SIGKILL')
+    expect(output).toContain('out of memory')
+    expect(output).not.toContain('.nuxt/tsconfig.app.json failed')
+    expect(exitCode).toBe(1)
+  })
+
+  it('should pass each project to golar', async () => {
+    await mkdir(join(cwd, 'node_modules/golar'), { recursive: true })
+    await writeFile(join(cwd, 'node_modules/golar/package.json'), JSON.stringify({ name: 'golar', bin: './bin.js' }))
+    installed('golar/unstable', '@golar/vue')
+
+    await runTypecheck(['--per-project', '--checker=golar'])
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.stringContaining('golar'), ['tsc', '-p', join(cwd, '.nuxt/tsconfig.app.json'), '--noEmit'], expect.anything())
+  })
+
+  it('should run a single check when there are no project references to split', async () => {
+    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({ include: ['src'] }))
+
+    const { output } = await runTypecheck(['--per-project'])
+
+    expect(output).toContain('Ignoring')
+    expect(tinyexec).toHaveBeenCalledTimes(1)
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['--noEmit'], expect.anything())
+  })
+
+  it('should run a single check with `--no-build`', async () => {
+    const { output } = await runTypecheck(['--per-project', '--no-build'])
+
+    expect(output).toContain('Ignoring')
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['--noEmit'], expect.anything())
+  })
+})
