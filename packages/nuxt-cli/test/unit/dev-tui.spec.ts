@@ -905,6 +905,25 @@ describe('log overlay', () => {
     expect(lines.join('\n')).toContain(coloured)
   })
 
+  it('counts the tag against the width a message is cut to', () => {
+    const [line] = formatEvent(event({ tag: '@nuxt/content', message: 'Processed 2 collections and 0 files in 59.89ms (0 cached, 0 parsed)' }), 60)
+    expect(strip(line!).length).toBeLessThanOrEqual(60)
+    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[@nuxt\/content\] Processed .*…$/)
+  })
+
+  it('never paints a row wider than the terminal', () => {
+    const events = new DevEventLog()
+    events.push(event({ tag: 'a'.repeat(60), message: 'b'.repeat(60) }))
+    events.push(event({ request: `GET /${'c'.repeat(120)}`, requestId: '1', message: 'boom' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const columns = process.stdout.columns || 80
+    for (const row of strip(lastFrame()).split('\n')) {
+      expect(row.length).toBeLessThanOrEqual(columns)
+    }
+    overlay.close()
+  })
+
   it('opens focused on the newest error', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'all fine' }))
