@@ -428,7 +428,7 @@ describe('dev server restart', () => {
 
 describe('dev server config reload', () => {
   function stubConfigDiff(changedKeys: string[]) {
-    diffNuxtConfig.mockImplementation(() => changedKeys.map(key => ({ key })))
+    diffNuxtConfig.mockImplementation(() => changedKeys.map(label => ({ label })))
     loadNuxtConfig.mockImplementation(async (options: { onConfigResolved?: (ctx: { rawConfig: Record<string, unknown> }) => void }) => {
       await options.onConfigResolved?.({ rawConfig: { revision: changedKeys.length } })
       return {}
