@@ -652,12 +652,12 @@ export function openBrowser(url: string): void {
   if (!resolved) {
     return
   }
-  if (!hasDisplayServer()) {
+  const [command, args] = resolved
+  if (command === 'xdg-open' && !hasDisplayServer()) {
     logger.warn(`No browser is available in this environment. Open ${styleText('cyan', url)} manually.`)
     return
   }
 
-  const [command, args] = resolved
   const onFailure = (error: unknown) => {
     debug('Failed to open browser:', error)
     logger.warn(`Could not open ${styleText('cyan', url)} in a browser.`)
