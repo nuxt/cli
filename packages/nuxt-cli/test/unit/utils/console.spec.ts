@@ -1,17 +1,24 @@
-import type { ConsolaOptions, PromptOptions } from 'consola'
+import type { ConsolaOptions, LogObject, PromptOptions } from 'consola'
 
+import { cpSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 import { consola } from 'consola'
+import { resolveModulePath } from 'exsolve'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
+import { configureProjectConsola, interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
 import { registerTerminalHost } from '../../../src/utils/terminal-host'
 
 type PromptFn = NonNullable<ConsolaOptions['prompt']>
 
 /** Whether the session has a terminal a question could be answered on. */
 let interactive = true
+
+vi.mock('../../../src/utils/resolve-nuxt', () => ({ tryResolveNuxt: () => null }))
 
 vi.mock('../../../src/utils/stdout', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/utils/stdout')>(),
@@ -205,5 +212,28 @@ describe('interceptPrompts', () => {
     interceptPrompts(instance)
 
     expect(instance.options.prompt).toBeUndefined()
+  })
+})
+
+describe('configureProjectConsola', () => {
+  it('should send logs from a separate project consola through the CLI\'s reporters', async () => {
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'nuxt-cli-consola-')))
+    const reporters = consola.options.reporters
+    try {
+      cpSync(dirname(dirname(resolveModulePath('consola', { from: import.meta.url }))), join(root, 'node_modules/consola'), { recursive: true, dereference: true })
+      await configureProjectConsola(root)
+      const { consola: project } = await import(pathToFileURL(resolveModulePath('consola', { from: root })).href) as { consola: typeof consola }
+      const logs: LogObject[] = []
+      consola.options.reporters = [{ log: logObj => void logs.push(logObj) }]
+
+      project.withTag('@nuxt/robots').warn('You have disallowed robots')
+
+      expect(project).not.toBe(consola)
+      expect(logs).toMatchObject([{ type: 'warn', tag: '@nuxt/robots', args: ['You have disallowed robots'] }])
+    }
+    finally {
+      consola.options.reporters = reporters
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 })
