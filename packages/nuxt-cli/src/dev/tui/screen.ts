@@ -310,12 +310,12 @@ export abstract class ScreenOverlay {
     const visible = rows.slice(this.#top, this.#top + bodyRows)
 
     const frame = [
-      truncate(this.renderTitle(columns), columns),
+      this.renderTitle(columns),
       styleText(MUTED, '─'.repeat(Math.max(0, columns))),
       ...visible,
       ...Array.from({ length: bodyRows - visible.length }).fill('') as string[],
       this.#hintLine(),
-    ]
+    ].map(row => truncate(row, columns))
     this.#write(`\u001B[H\u001B[2J${frame.join('\n')}`)
   }
 
