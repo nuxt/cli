@@ -579,7 +579,7 @@ describe('dev event log', () => {
     const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
     log.push(event({ time: now, type: 'box', message, source: 'build' }))
     const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
-    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.attachRendered([{ message: printed, rendered: printed }])).toEqual([])
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.rendered).toBe(printed)
   })
@@ -602,8 +602,31 @@ describe('dev event log', () => {
     log.push(event({ time: now, type: 'box', message, source: 'build' }))
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.repeats).toBe(2)
-    expect(log.attachRendered(printed, printed)).toBe(true)
+    expect(log.attachRendered([{ message: printed, rendered: printed }])).toEqual([])
     expect(log.recent(10)).toHaveLength(1)
+  })
+
+  it('should pair a forwarded log with its own printed log and leave the rest', () => {
+    const log = new DevEventLog()
+    log.push(event({ time: Date.now(), level: 0, type: 'error', message: 'boom happened here today', source: 'build' }))
+    const before = { message: '[nuxt:icon] \u2714 Nuxt Icon loaded', rendered: '[nuxt:icon] \u2714 Nuxt Icon loaded\n' }
+    const own = { message: ' ERROR  boom happened here today', rendered: '\n ERROR  boom happened here today\n\n' }
+    const after = { message: '[@nuxt/robots]  WARN  You have disallowed robots', rendered: '\n[@nuxt/robots]  WARN  You have disallowed robots\n\n' }
+    expect(log.attachRendered([before, own, after])).toEqual([before, after])
+    expect(log.recent(1)[0]!.rendered).toBe(own.rendered)
+  })
+
+  it('should pair a forwarded log with every printed log its message spans', () => {
+    const log = new DevEventLog()
+    log.push(event({ time: Date.now(), message: 'Found:\n[a] one\n[b] two', source: 'build' }))
+    const printed = [
+      { message: '\u2139 Found:', rendered: '\u2139 Found:\n' },
+      { message: '[a] one', rendered: '[a] one\n' },
+      { message: '[b] two', rendered: '[b] two\n' },
+    ]
+    const other = { message: '[c] \u2714 something else', rendered: '[c] \u2714 something else\n' }
+    expect(log.attachRendered([...printed, other])).toEqual([other])
+    expect(log.recent(1)[0]!.rendered).toBe('\u2139 Found:\n[a] one\n[b] two\n')
   })
 
   it('should not fold a boxed notice into a warning that said the same thing', () => {
@@ -3283,10 +3306,11 @@ describe('request failures on the panel', () => {
     })
   })
 
+  const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
+
   // In-process, the same log reaches the UI over the channel, through the
   // console wrapper and as the bytes it printed.
   async function logInProcess(ui: ReturnType<typeof setupDevUI>, message: string, reprint = false): Promise<void> {
-    const flush = () => new Promise(resolve => setImmediate(() => setImmediate(resolve)))
     const level = consola.level
     consola.level = 3
     try {
@@ -3302,6 +3326,77 @@ describe('request failures on the panel', () => {
       consola.level = level
     }
   }
+
+  it('should record logs printed in the same tick as separate entries', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdout.write('[nuxt:icon] \u2714 Nuxt Icon loaded local collection\n')
+      process.stdout.write('\n WARN  Nuxt Icon serverBundle is deprecated\n\n')
+      process.stdout.write('[@nuxtjs/mcp-toolkit] \u2139 Cursor detected\n[@nuxtjs/mcp-toolkit] \u2714 /mcp enabled\n')
+      await flush()
+
+      expect(session.events.recent(50).map(event => [event.level, event.message])).toEqual([
+        [2, '[nuxt:icon] \u2714 Nuxt Icon loaded local collection'],
+        [1, 'Nuxt Icon serverBundle is deprecated'],
+        [2, '[@nuxtjs/mcp-toolkit] \u2139 Cursor detected'],
+        [2, '[@nuxtjs/mcp-toolkit] \u2714 /mcp enabled'],
+      ])
+    })
+  })
+
+  it('should keep a stack and what follows it with the error printed above', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdout.write('\n ERROR  failed to resolve import\n\n    at load (file.ts:1:1)\n\nIs the package installed?\n\n')
+      await flush()
+
+      expect(session.events.recent(50).map(event => [event.level, event.message])).toEqual([
+        [0, 'failed to resolve import\n\n    at load (file.ts:1:1)\n\nIs the package installed?'],
+      ])
+    })
+  })
+
+  it('should keep what each split log was printed as', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      const printed = ['[a] \u2714 first printed log\n\n', '\n WARN  second printed log\n\n', '[b] \u2714 third printed log']
+      process.stdout.write(printed.join(''))
+      await flush()
+
+      expect(session.events.recent(50).map(event => event.rendered)).toEqual(printed)
+    })
+  })
+
+  it.each(['printed output', 'forwarded logs'])('should pair forwarded logs with their printed output (%s first)', async (first) => {
+    await withPanel(async (ui, _settle, session) => {
+      const printed = [
+        '[nuxt:icon] \u2714 Nuxt Icon loaded local collection\n',
+        '\n WARN  Nuxt Icon serverBundle is deprecated\n\n',
+        '\n[@nuxt/robots]  WARN  You have disallowed robots\n\n',
+        '[vite] printed without being forwarded\n',
+      ]
+      const forward = () => {
+        ui.pushServerLog({ level: 3, logType: 'success', tag: 'nuxt:icon', message: 'Nuxt Icon loaded local collection', origin: 'build', raw: true })
+        ui.pushServerLog({ level: 1, logType: 'warn', message: 'Nuxt Icon serverBundle is deprecated', origin: 'build', raw: true })
+        ui.pushServerLog({ level: 1, logType: 'warn', tag: '@nuxt/robots', message: 'You have disallowed robots', origin: 'build', raw: true })
+      }
+      if (first === 'forwarded logs') {
+        forward()
+      }
+      process.stdout.write(printed.join(''))
+      await flush()
+      if (first === 'printed output') {
+        forward()
+      }
+      process.stdout.write('[vite] printed later\n')
+      await flush()
+
+      expect(session.events.recent(50).map(({ level, tag, message, rendered }) => ({ level, tag, message, rendered }))).toEqual([
+        { level: 3, tag: 'nuxt:icon', message: 'Nuxt Icon loaded local collection', rendered: printed[0] },
+        { level: 1, tag: undefined, message: 'Nuxt Icon serverBundle is deprecated', rendered: printed[1] },
+        { level: 1, tag: '@nuxt/robots', message: 'You have disallowed robots', rendered: printed[2] },
+        { level: 2, tag: undefined, message: '[vite] printed without being forwarded', rendered: printed[3] },
+        { level: 2, tag: undefined, message: '[vite] printed later', rendered: '[vite] printed later\n' },
+      ])
+    })
+  })
 
   it('should record an app log the CLI serves itself once', async () => {
     await withPanel(async (ui, _settle, session) => {
