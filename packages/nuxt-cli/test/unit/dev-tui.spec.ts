@@ -914,20 +914,38 @@ describe('log overlay', () => {
   it('keeps the repeat marker when a long tag leaves little room', () => {
     const [line] = formatEvent(event({ tag: 'nuxt:devtools:config-retriever', message: 'defines Vite-specific options', repeats: 12 }), 38)
     expect(strip(line!).length).toBeLessThanOrEqual(38)
-    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:devtool… defines … ×12$/)
+    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:\S*…\] \S.* ×12$/)
+  })
+
+  it('keeps a long tag whole when the message leaves room for it', () => {
+    const [line] = formatEvent(event({ tag: 'nuxt:devtools:config-retriever', message: 'ok' }), 58)
+    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:devtools:config-retriever\] ok$/)
   })
 
   it('never paints a row wider than the terminal', () => {
     const events = new DevEventLog()
     events.push(event({ tag: 'a'.repeat(60), message: 'b'.repeat(60) }))
     events.push(event({ request: `GET /${'c'.repeat(120)}`, requestId: '1', message: 'boom' }))
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 20, configurable: true })
     const { overlay, lastFrame } = create(events)
-    overlay.open()
-    const columns = process.stdout.columns || 80
-    for (const row of strip(lastFrame()).split('\n')) {
-      expect(row.length).toBeLessThanOrEqual(columns)
+    try {
+      overlay.open()
+      overlay.handleKey({ name: 'y' })
+      expect(strip(lastFrame())).toContain('nothing selected')
+      for (const row of strip(lastFrame()).split('\n')) {
+        expect(row.length).toBeLessThanOrEqual(20)
+      }
     }
-    overlay.close()
+    finally {
+      overlay.handleKey({ name: 'q' })
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
   })
 
   it('opens focused on the newest error', () => {

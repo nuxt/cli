@@ -307,16 +307,15 @@ export abstract class ScreenOverlay {
     this.#top = Math.min(Math.max(0, top), maxTop)
     this.#offset = Math.max(0, rows.length - this.#top - bodyRows)
     this.#anchor = this.#rowAnchor(entries, this.#top)
-    // A row wider than the terminal wraps, which pushes the top of the frame off screen.
-    const visible = rows.slice(this.#top, this.#top + bodyRows).map(row => truncate(row, columns))
+    const visible = rows.slice(this.#top, this.#top + bodyRows)
 
     const frame = [
-      truncate(this.renderTitle(columns), columns),
+      this.renderTitle(columns),
       styleText(MUTED, '─'.repeat(Math.max(0, columns))),
       ...visible,
       ...Array.from({ length: bodyRows - visible.length }).fill('') as string[],
       this.#hintLine(),
-    ]
+    ].map(row => truncate(row, columns))
     this.#write(`\u001B[H\u001B[2J${frame.join('\n')}`)
   }
 

@@ -155,13 +155,15 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   const clock = [date.getHours(), date.getMinutes(), date.getSeconds()].map(part => String(part).padStart(2, '0')).join(':')
   const time = styleText(MUTED, clock)
   const budget = columns - messageColumn - 1
-  // A long tag gives way, so the message and its repeat marker keep their room.
-  const tag = event.tag && !event.request ? styleText(MUTED, `${truncate(`[${event.tag}]`, Math.max(1, Math.floor(budget / 2)))} `) : ''
-  const tagWidth = visibleWidth(tag)
   const indent = ' '.repeat(messageColumn)
 
   const marker = event.repeats && event.repeats > 1 ? styleText(MUTED, ` ×${event.repeats}`) : ''
   const markerWidth = event.repeats && event.repeats > 1 ? ` ×${event.repeats}`.length : 0
+
+  const firstLineWidth = visibleWidth(event.message.split('\n', 1)[0] ?? '')
+  const tagRoom = Math.max(Math.floor(budget / 2), budget - markerWidth - firstLineWidth - 1)
+  const tag = event.tag && !event.request ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `) : ''
+  const tagWidth = visibleWidth(tag)
 
   const lines = event.message
     .split('\n')
@@ -173,7 +175,7 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
 
   if (event.request) {
     return [
-      ...sameRequest ? [] : [truncate(`${time} ${styleText(['magenta', 'bold'], event.request)}`, columns - 1)],
+      ...sameRequest ? [] : [`${time} ${styleText(['magenta', 'bold'], event.request)}`],
       ...lines.map(line => `${indent}${line}`),
     ]
   }
