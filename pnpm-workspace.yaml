@@ -20,7 +20,7 @@ packages:
 overrides:
   '@nuxt/cli': workspace:*
   # scoped by range: `playground-nightly` resolves its own Nuxt 5 nightly schema
-  '@nuxt/schema@^4': 4.5.2
+  '@nuxt/schema@^4': 4.6.0
   create-nuxt: workspace:*
   create-nuxt-app: workspace:*
   eslint-plugin-jsdoc: 64.5.4
