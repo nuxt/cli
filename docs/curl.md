@@ -8,6 +8,8 @@ links:
     size: xs
 ---
 
+Another update here!
+
 <!--curl-cmd-->
 ```bash [Terminal]
 npx nuxt curl <URL> [ROOTDIR] [--cwd=<directory>] [-X, --method=<method>] [-H, --header=<header>...] [-d, --data=<data>] [-i, --include] [-I, --head] [-v, --verbose] [--pretty]
