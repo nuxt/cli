@@ -1,12 +1,16 @@
 ---
-title: "nuxt add"
-description: "Add Nuxt modules and layers to your application."
+title: nuxt add
+description: Add Nuxt modules and layers to your application.
 links:
   - label: Source
     icon: i-simple-icons-github
     to: https://github.com/nuxt/cli/blob/main/packages/nuxt-cli/src/commands/add.ts
     size: xs
 ---
+
+::tip
+Demo days!
+::
 
 <!--add-cmd-->
 ```bash [Terminal]
