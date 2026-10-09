@@ -1,4 +1,4 @@
-styles: bd638746e7494b36
+styles: fff6215b5b8d3de6
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    waiting for requests
@@ -19,4 +19,5 @@ styles: bd638746e7494b36
  o open · i info · l logs · n network · p routes · ? help · q quit
  r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  ⣠⣦⣠⡀  Nuxt x.y.z
- ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
+ ⣠⣦⣠⡀  Nuxt x.y.z  → x.y.z
+ ⣠⣦⣠⡀  Nuxt x.y.z  → x.y.z                                                       ready in 42 ms

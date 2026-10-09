@@ -1,4 +1,4 @@
-styles: 676a790aac9bd9d9
+styles: 0fb3db117d820e52
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    waiting for requests
@@ -26,7 +26,8 @@ styles: 676a790aac9bd9d9
  o open · i info · l logs · n network · p routes · ? help · q quit
  r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  ⣠⣦⣠⡀  Nuxt x.y.z
- ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
+ ⣠⣦⣠⡀  Nuxt x.y.z  → x.y.z
+ ⣠⣦⣠⡀  Nuxt x.y.z  → x.y.z                                                       ready in 42 ms
 Yes
 ● Yes / ○ No
 ✔ Do you want to install @nuxt/scripts package?
