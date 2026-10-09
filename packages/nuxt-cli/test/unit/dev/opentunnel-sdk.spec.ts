@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 
-import { join } from 'pathe'
+import { basename, join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { logger } from '../../../src/utils/logger'
@@ -34,13 +34,14 @@ let project: string
 
 /**
  * A package in the project's `node_modules`. Like `@opentunnel/client`, it does
- * not export its `package.json`, so it is found through its main entry.
+ * not export its `package.json`, so it is found through its main entry. Its
+ * `create` returns the URL of the module, so a test can tell which copy loaded.
  */
 function installPackage(name: string, version: string): void {
   const dir = join(project, 'node_modules', name)
   mkdirSync(join(dir, 'dist'), { recursive: true })
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, version, type: 'module', exports: { '.': { default: './dist/index.js' } } }))
-  writeFileSync(join(dir, 'dist/index.js'), `export const create = () => ${JSON.stringify(`${name}@${version}`)}\n`)
+  writeFileSync(join(dir, 'dist/index.js'), 'export const create = () => import.meta.url\n')
 }
 
 beforeEach(() => {
@@ -80,7 +81,9 @@ describe('loadOpenTunnelSDK', () => {
   it('should import the SDK from the project', async () => {
     installPackage(OPENTUNNEL_SDK, '0.4.0')
     const sdk = await loadOpenTunnelSDK(project)
-    expect((sdk!.create as unknown as () => string)()).toBe(`${OPENTUNNEL_SDK}@0.4.0`)
+    // Compared by its end: the resolver returns the real path, and the temporary
+    // directory sits behind a symlink on macOS.
+    expect((sdk!.create as unknown as () => string)()).toContain(`/${basename(project)}/node_modules/${OPENTUNNEL_SDK}/dist/index.js`)
   })
 
   it('should warn when the project has no usable SDK', async () => {
