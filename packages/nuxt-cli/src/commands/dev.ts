@@ -173,6 +173,7 @@ const command = defineCommand({
       hidden: true,
     },
   },
+  /** Resolve startup options and run the dev server, managing forks and restarts when enabled. */
   async run(ctx) {
     const requestedCwd = resolveRootDir(ctx.args)
     const cwd = await beforeServing(() => preflight({ cwd: requestedCwd }))
@@ -509,6 +510,7 @@ export function parsePositiveInteger(value: string | undefined): number | undefi
   return parsed
 }
 
+/** Build listener overrides from dev flags and host, port and TLS environment fallbacks. */
 export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
   const httpsOptions: HTTPSOptions = {
     cert: args['https.cert']

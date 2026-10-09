@@ -39,6 +39,7 @@ const _main = defineCommand({
     },
   },
   subCommands: commands,
+  /** Prepare the CLI environment and arguments, check flags and dispatch custom or legacy commands. */
   async setup(ctx) {
     const command = ctx.args._[0]
     setCurrentCommand(command)

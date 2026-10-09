@@ -46,6 +46,11 @@ export async function runMain(): Promise<void> {
   }
 }
 
+/**
+ * Run a registered command with a copy of `argv` and the supplied config
+ * overrides, normalizing optional dev tunnel values before argument parsing.
+ * Throws when `name` is not a registered command.
+ */
 export async function runCommand(
   name: string,
   argv: string[] = process.argv.slice(2),

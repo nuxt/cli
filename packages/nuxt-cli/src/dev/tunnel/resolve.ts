@@ -26,6 +26,7 @@ interface TunnelRC {
   }
 }
 
+/** Normalize a supported provider or its `cloudflared` alias, returning `undefined` for unknown values. */
 export function parseTunnelProvider(value: unknown): TunnelProvider | undefined {
   if (value === 'cloudflare' || value === 'cloudflared') {
     return 'cloudflare'
@@ -57,6 +58,11 @@ export async function resolveTunnelOptions(flag: string | boolean | undefined, r
   return provider ? { provider } : undefined
 }
 
+/**
+ * Use an explicit or saved provider, otherwise prompt and save the choice.
+ * Fall back to Cloudflare for unknown values or a non-interactive first run;
+ * return `undefined` when the prompt is cancelled.
+ */
 async function resolveTunnelProvider(flag: string | true): Promise<TunnelProvider | undefined> {
   if (flag !== true && flag !== '') {
     const provider = parseTunnelProvider(flag)
@@ -105,6 +111,7 @@ export function deriveRouteName(seed: string, rootDir: string): string {
   return createHash('sha256').update(`${seed}\0${resolve(rootDir)}`).digest('hex').slice(0, 16)
 }
 
+/** Reuse a valid saved seed or generate one, attempting to persist it for stable project URLs. */
 function resolveSeed(): string {
   const saved = readRC().tools?.opentunnel?.seed
   if (typeof saved === 'string' && SEED_RE.test(saved)) {
@@ -116,6 +123,7 @@ function resolveSeed(): string {
   return seed
 }
 
+/** Read the user tunnel settings, returning an empty object if reading fails. */
 function readRC(): TunnelRC {
   try {
     return readUser(RC_FILE) as TunnelRC
@@ -126,6 +134,7 @@ function readRC(): TunnelRC {
   }
 }
 
+/** Merge tunnel settings into the user `.nuxtrc`, returning whether the update succeeded. */
 function writeRC(config: TunnelRC): boolean {
   try {
     updateUser(config, RC_FILE)

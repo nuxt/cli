@@ -77,6 +77,7 @@ export async function startOpenTunnel(route: string, port: number, options: Open
   }
 }
 
+/** Return the handover URL immediately and attach the bridge when the route becomes available. */
 function attachInBackground(client: OpenTunnelPromiseClient, routes: Record<string, string>, url: string): Tunnel {
   let closing = false
   const connecting = client.tunnel.connect({ routes }).then(
@@ -107,6 +108,7 @@ function attachInBackground(client: OpenTunnelPromiseClient, routes: Record<stri
   }
 }
 
+/** Close any attached bridge and dispose the client, logging shutdown failures or timeouts. */
 async function closeConnection(client: OpenTunnelPromiseClient, connection: OpenTunnelConnection | undefined): Promise<void> {
   try {
     await withTimeout(
@@ -120,6 +122,7 @@ async function closeConnection(client: OpenTunnelPromiseClient, connection: Open
   }
 }
 
+/** Consume bridge events in the background, warning on failure and logging other events for debugging. */
 function watchEvents(connection: OpenTunnelConnection): void {
   void (async () => {
     for await (const event of connection.events) {
@@ -183,6 +186,7 @@ function provision(client: OpenTunnelPromiseClient): Promise<unknown> {
   }))
 }
 
+/** Reject with `message` after `ms`, clearing the timer without cancelling the underlying operation. */
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
   const timeout = new Promise<never>((_, reject) => {
@@ -191,6 +195,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+/** Format an error with its immediate cause, or stringify a non-Error value. */
 function describeError(error: unknown): string {
   if (error instanceof Error) {
     const cause = error.cause instanceof Error ? ` (${error.cause.message})` : ''

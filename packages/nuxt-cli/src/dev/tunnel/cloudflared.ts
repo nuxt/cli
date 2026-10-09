@@ -35,6 +35,11 @@ export function resolveCloudflaredVersion(version = process.env.CLOUDFLARED_VERS
 /** How long to wait for `cloudflared` to exit on `SIGINT` before `SIGKILL`. */
 const SHUTDOWN_TIMEOUT_MS = 5000
 
+/**
+ * Expose `localURL` through a Cloudflare quick tunnel, returning its URL and
+ * shutdown handler, or `undefined` if startup fails. `insecure` disables TLS
+ * verification of the local server's certificate.
+ */
 export async function startCloudflaredTunnel(localURL: string, insecure?: boolean): Promise<Tunnel | undefined> {
   const binary = await resolveCloudflared()
   if (!binary) {
@@ -175,6 +180,7 @@ const CLOUDFLARED_SHA256: Record<string, string> = {
   'cloudflared-windows-amd64.exe': '8635da433b6df8194746e88ed9d2589566c20e38bfc2a80e431a348b7c765841',
 }
 
+/** Find or download cloudflared for this platform, requesting consent when installation is needed. */
 async function resolveCloudflared(): Promise<string | undefined> {
   const CLOUDFLARED_VERSION = resolveCloudflaredVersion()
   const base = CLOUDFLARED_VERSION === 'latest'
