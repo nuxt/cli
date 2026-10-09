@@ -470,6 +470,9 @@ importers:
       '@nuxt/test-utils':
         specifier: ^4.3.3
         version: 4.3.3(@oxc-project/types@0.152.0)(esbuild@0.28.2)(h3@1.15.11)(magicast@0.5.5)(nuxt@4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7(supports-color@10.2.2)))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7(supports-color@10.2.2)))(@oxc-project/types@0.152.0)(@types/node@24.19.1)(@vitejs/devtools@0.7.6)(@vue/compiler-sfc@3.5.43)(db0@0.3.4)(esbuild@0.28.2)(eslint@10.12.0(jiti@2.7.0)(supports-color@10.2.2))(ioredis@5.11.1(supports-color@10.2.2))(lightningcss@1.33.0)(magicast@0.5.5)(optionator@0.9.4)(oxc-parser@0.150.0)(rolldown@1.2.12)(rollup-plugin-visualizer@7.1.1(rolldown@1.2.12)(rollup@4.63.5))(rollup@4.63.5)(srvx@1.0.5)(supports-color@10.2.2)(terser@5.50.0)(typescript@6.0.3)(vite@8.3.1)(vue-tsc@3.3.12(typescript@6.0.3))(yaml@2.9.1))(oxc-parser@0.150.0)(rolldown@1.2.12)(rollup@4.63.5)(vite@8.3.1)(vitest@4.1.11)(vue@3.5.43(typescript@6.0.3))
+      '@opentunnel/client':
+        specifier: 0.4.0
+        version: 0.4.0(effect@4.0.2)
       '@speed-highlight/core':
         specifier: ^2.1.0
         version: 2.1.0
@@ -479,6 +482,9 @@ importers:
       citty:
         specifier: ^0.2.2
         version: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
+      effect:
+        specifier: ^4.0.2
+        version: 4.0.2
       giget:
         specifier: ^3.3.1
         version: 3.3.1
@@ -1595,6 +1601,17 @@ packages:
     peerDependencies:
       nuxt: npm:nuxt-nightly@5.0.0-2610071710-0296ca4
       vite: ^8.3.1
+
+  '@opentunnel/client@0.4.0':
+    resolution: {integrity: sha512-Y6UiO/ouJ/vtdIy4QmCTRY2DPTRpHy2+jR0F6+AKXoD57ozd8W9ZTTP2J1KDqTb7ZfJmRTuqtx1ZR2TnejlZGQ==}
+    engines: {bun: '>=1.4.0', node: '>=22'}
+    peerDependencies:
+      effect: ^4.0.0
+
+  '@opentunnel/protocol@0.4.0':
+    resolution: {integrity: sha512-rxmfgJ5O1EYxgzawkOti9DyiM44l0Bkeue5KuHpCFaPAP2n9i4xDYCU8XQp9WAEFt7ifZZqI9giOyzJE61faaA==}
+    peerDependencies:
+      effect: ^4.0.0
 
   '@ota-meshi/ast-token-store@0.3.0':
     resolution: {integrity: sha512-XRO0zi2NIUKq2lUk3T1ecFSld1fMWRKE6naRFGkgkdeosx7IslyUKNv5Dcb5PJTja9tHJoFu0v/7yEpAkrkrTg==}
@@ -3494,6 +3511,9 @@ packages:
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
+
+  effect@4.0.2:
+    resolution: {integrity: sha512-YeYnLqSFrL4+tCOXRrfNP03w8FILoF/wDl+ukraJAGzXrjcS383W7LAAvGBbLatEyktmLxRq+9xJinx7QzXW5A==}
 
   electron-to-chromium@1.5.412:
     resolution: {integrity: sha512-z4rMe3esBzlzovKHj4gxJnsCGZRK5l4baUvm+gCGJBPE+gsyUMKsuU9tnEUtI1dOebXz1ytAPGjvXhmQ7rIPwA==}
@@ -8914,6 +8934,15 @@ snapshots:
       - rolldown
       - unplugin
 
+  '@opentunnel/client@0.4.0(effect@4.0.2)':
+    dependencies:
+      '@opentunnel/protocol': 0.4.0(effect@4.0.2)
+      effect: 4.0.2
+
+  '@opentunnel/protocol@0.4.0(effect@4.0.2)':
+    dependencies:
+      effect: 4.0.2
+
   '@ota-meshi/ast-token-store@0.3.0': {}
 
   '@oxc-parser/binding-android-arm-eabi@0.150.0':
@@ -10698,6 +10727,8 @@ snapshots:
   eastasianwidth@0.2.0: {}
 
   ee-first@1.1.1: {}
+
+  effect@4.0.2: {}
 
   electron-to-chromium@1.5.412: {}
 

@@ -8,6 +8,8 @@ minimumReleaseAgeExclude:
   - fuzzysort@4.0.1
   - errx
   - my-bad
+  - '@opentunnel/client@0.4.0'
+  - '@opentunnel/protocol@0.4.0'
 
 verifyDepsBeforeRun: install
 

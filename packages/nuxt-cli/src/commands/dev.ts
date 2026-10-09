@@ -113,8 +113,9 @@ const command = defineCommand({
       description: 'Print a QR code for the public URL (enabled by default when one is available)',
     },
     'tunnel': {
-      type: 'boolean',
-      description: 'Expose the server via a Cloudflare quick tunnel',
+      type: 'string',
+      description: 'Expose the server through a public tunnel (asks which one when no value is given)',
+      valueHint: 'cloudflare|opentunnel',
     },
     'public': {
       type: 'boolean',
@@ -172,6 +173,7 @@ const command = defineCommand({
       hidden: true,
     },
   },
+  /** Resolve startup options and run the dev server, managing forks and restarts when enabled. */
   async run(ctx) {
     const requestedCwd = resolveRootDir(ctx.args)
     const cwd = await beforeServing(() => preflight({ cwd: requestedCwd }))
@@ -180,6 +182,14 @@ const command = defineCommand({
     }
 
     const listenOverrides = resolveListenOverrides(ctx.args)
+    // Resolved here, once: a bare `--tunnel` may prompt, which has to happen
+    // before the dev UI takes the terminal, and every fork must reuse the answer.
+    // Imported on demand, as it reads and writes the user `.nuxtrc`.
+    const tunnelFlag = ctx.args.tunnel as string | boolean | undefined
+    if (tunnelFlag !== undefined && tunnelFlag !== false) {
+      const { resolveTunnelOptions } = await import('../dev/tunnel/resolve')
+      listenOverrides.tunnel = await resolveTunnelOptions(tunnelFlag, cwd)
+    }
 
     const buildDir = await beforeServing(() => resolveLockDir(cwd))
 
@@ -500,6 +510,7 @@ export function parsePositiveInteger(value: string | undefined): number | undefi
   return parsed
 }
 
+/** Build listener overrides from dev flags and host, port and TLS environment fallbacks. */
 export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverrides {
   const httpsOptions: HTTPSOptions = {
     cert: args['https.cert']
@@ -535,7 +546,6 @@ export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverri
     openURL: args['open.url'] || undefined,
     clipboard: args.clipboard,
     qr: args.qr,
-    tunnel: args.tunnel,
     public: args.public,
     publicURL: args.publicURL,
     httpsEnabled: args.https,
