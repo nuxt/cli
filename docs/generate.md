@@ -8,6 +8,12 @@ links:
     size: xs
 ---
 
+And a third update here!
+
+::warning
+Works pretty well 🚀
+::
+
 <!--generate-cmd-->
 ```bash [Terminal]
 npx nuxt generate [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--target=<target>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--profile=<verbose>]
