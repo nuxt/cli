@@ -8,8 +8,10 @@ import { runCommand as _runCommand, runMain as _runMain, renderUsage } from 'cit
 
 import { commands } from './commands'
 import { globalCwdArgs } from './commands/_shared'
+import { TUNNEL_FLAG_VALUES } from './dev/tunnel/types'
 import { main } from './main'
 import { warnOnHang } from './utils/hang'
+import { normalizeOptionalValueFlag } from './utils/optional-flag'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback
@@ -53,8 +55,13 @@ export async function runCommand(
     throw new Error(`Invalid command ${name}`)
   }
 
+  const rawArgs = [...argv]
+  if (name === 'dev') {
+    normalizeOptionalValueFlag(rawArgs, '--tunnel', TUNNEL_FLAG_VALUES)
+  }
+
   return await _runCommand(await commands[name as keyof typeof commands](), {
-    rawArgs: [...argv],
+    rawArgs,
     inheritedArgs: globalCwdArgs,
     data: {
       overrides: data.overrides || {},

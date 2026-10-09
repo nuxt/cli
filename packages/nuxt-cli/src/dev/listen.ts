@@ -1,7 +1,7 @@
 import type { Server as HttpServer, RequestListener } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { HTTPSOptions, ResolvedCertificate } from './cert'
-import type { Tunnel } from './tunnel'
+import type { Tunnel, TunnelOptions } from './tunnel'
 
 import { spawn } from 'node:child_process'
 import { createServer as createHttpServer } from 'node:http'
@@ -38,7 +38,7 @@ export interface ListenOptions {
   openURL?: string
   clipboard?: boolean
   qr?: boolean
-  tunnel?: boolean
+  tunnel?: false | TunnelOptions
   public?: boolean
   publicURL?: string
   https?: boolean | HTTPSOptions
@@ -247,7 +247,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
   const { server, address, hostname, https: certificate } = bound
 
   // Set before anything that can throw, so a failure after the tunnel is up can
-  // still tear down the cloudflared process rather than leaking it until exit.
+  // still tear it down rather than leaking it until exit.
   let tunnel: Tunnel | undefined
 
   try {
@@ -268,7 +268,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
 
     if (announce && options.tunnel) {
       const { startTunnel } = await import('./tunnel')
-      tunnel = await startTunnel(`${protocol}://localhost:${address.port}`, !!certificate)
+      tunnel = await startTunnel(options.tunnel, { protocol, port: address.port, handover: options.handover })
     }
 
     const tunnelURL = tunnel?.url && tunnel.url + baseURL

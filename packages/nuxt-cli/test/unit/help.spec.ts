@@ -234,7 +234,7 @@ describe('help', () => {
                    --open.url=<url|path>    Path or URL to open instead of the dev server root                                                                                                  
                              --clipboard    Copy the URL to the clipboard (Default: false)                                                                                                      
                                     --qr    Print a QR code for the public URL (enabled by default when one is available)                                                                       
-                                --tunnel    Expose the server via a Cloudflare quick tunnel                                                                                                     
+        --tunnel=<cloudflare|opentunnel>    Expose the server through a public tunnel (asks which one when no value is given)                                                                   
                                 --public    Listen on all network interfaces and allow any host to connect                                                                                      
                        --publicURL=<url>    Public URL to display (used for QR code and clipboard)                                                                                              
                                  --https    Enable HTTPS with a locally-trusted development certificate                                                                                         

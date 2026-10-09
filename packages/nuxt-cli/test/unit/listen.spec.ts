@@ -359,7 +359,7 @@ describe('listener.close', () => {
       }),
     }))
 
-    const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', baseURL: '/dashboard/', showURL: false, tunnel: true })
+    const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', baseURL: '/dashboard/', showURL: false, tunnel: { provider: 'cloudflare' } })
     expect(listener.publicURL).toBe('https://example.test/dashboard/')
     expect(listener.getURLs()).toContainEqual({ url: 'https://example.test/dashboard/', type: 'tunnel' })
 
@@ -369,6 +369,21 @@ describe('listener.close', () => {
     closeTunnel!()
     await closed
     vi.doUnmock('../../src/dev/tunnel')
+  })
+
+  it('should hand the provider, port and handover state to the tunnel', async () => {
+    const startTunnel = vi.fn(async () => ({ url: 'https://route.example.test', close: async () => {} }))
+    vi.doMock('../../src/dev/tunnel', () => ({ startTunnel }))
+
+    try {
+      const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', showURL: false, handover: true, tunnel: { provider: 'opentunnel', route: 'route', rootDir: '/app' } })
+      expect(startTunnel).toHaveBeenCalledWith({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', port: listener.address.port, handover: true })
+      expect(listener.publicURL).toBe('https://route.example.test/')
+      await listener.close()
+    }
+    finally {
+      vi.doUnmock('../../src/dev/tunnel')
+    }
   })
 
   it('should close the tunnel when setup fails after it started', async () => {
@@ -385,7 +400,7 @@ describe('listener.close', () => {
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
 
     try {
-      await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: true, qr: true })).rejects.toThrow('qr unavailable')
+      await expect(listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', tunnel: { provider: 'cloudflare' }, qr: true })).rejects.toThrow('qr unavailable')
 
       expect(closeTunnel).toHaveBeenCalledTimes(1)
     }
@@ -407,7 +422,7 @@ describe('listener.close', () => {
     const port = probe.address.port
     await probe.close()
 
-    await expect(listen((_req, res) => res.end('ok'), { port, hostname: '127.0.0.1', showURL: false, strictPort: true, tunnel: true })).rejects.toThrow('tunnel unavailable')
+    await expect(listen((_req, res) => res.end('ok'), { port, hostname: '127.0.0.1', showURL: false, strictPort: true, tunnel: { provider: 'cloudflare' } })).rejects.toThrow('tunnel unavailable')
     vi.doUnmock('../../src/dev/tunnel')
 
     const listener = await listen((_req, res) => res.end('ok'), { port, hostname: '127.0.0.1', showURL: false, strictPort: true })

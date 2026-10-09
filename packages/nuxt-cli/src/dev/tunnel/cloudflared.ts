@@ -1,11 +1,12 @@
 import type { Buffer } from 'node:buffer'
+import type { Tunnel } from './types'
 
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import process from 'node:process'
 
-import { debug, logger } from '../utils/logger'
-import { resolveTool } from './binaries'
+import { debug, logger } from '../../utils/logger'
+import { resolveTool } from '../binaries'
 
 const TUNNEL_URL_RE = /https:\/\/(?!api\.)[\w-]+\.trycloudflare\.com/
 
@@ -34,12 +35,7 @@ export function resolveCloudflaredVersion(version = process.env.CLOUDFLARED_VERS
 /** How long to wait for `cloudflared` to exit on `SIGINT` before `SIGKILL`. */
 const SHUTDOWN_TIMEOUT_MS = 5000
 
-export interface Tunnel {
-  url: string
-  close: () => Promise<void>
-}
-
-export async function startTunnel(localURL: string, insecure?: boolean): Promise<Tunnel | undefined> {
+export async function startCloudflaredTunnel(localURL: string, insecure?: boolean): Promise<Tunnel | undefined> {
   const binary = await resolveCloudflared()
   if (!binary) {
     logger.warn('Could not find or download `cloudflared`. Install it to use `--tunnel`: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/')

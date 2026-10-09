@@ -10,7 +10,7 @@ links:
 
 <!--dev-cmd-->
 ```bash [Terminal]
-npx nuxt dev [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--inspect] [--inspect-brk] [--tui] [--clear] [-f, --fork] [-p, --port=<port>] [--takeover] [--strictPort] [-h, --host=<host>] [-o, --open] [--open.url=<url|path>] [--clipboard] [--qr] [--tunnel] [--public] [--publicURL=<url>] [--https] [--https.cert=<path>] [--https.key=<path>] [--https.pfx=<path>] [--https.passphrase=<passphrase>] [--https.validityDays=<days>] [--https.domains=<domain>...] [--profile=<verbose>]
+npx nuxt dev [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv=<path>...] [--envName=<environment>] [-e, --extends=<layer-name>...] [--inspect] [--inspect-brk] [--tui] [--clear] [-f, --fork] [-p, --port=<port>] [--takeover] [--strictPort] [-h, --host=<host>] [-o, --open] [--open.url=<url|path>] [--clipboard] [--qr] [--tunnel=<cloudflare|opentunnel>] [--public] [--publicURL=<url>] [--https] [--https.cert=<path>] [--https.key=<path>] [--https.pfx=<path>] [--https.passphrase=<passphrase>] [--https.validityDays=<days>] [--https.domains=<domain>...] [--profile=<verbose>]
 ```
 <!--/dev-cmd-->
 
@@ -52,7 +52,7 @@ The `dev` command starts a development server with hot module replacement at [ht
 | `--open.url=<url\|path>`             |                   | Path or URL to open instead of the dev server root                                                                                                   |
 | `--clipboard`                        | `false`           | Copy the URL to the clipboard                                                                                                                        |
 | `--qr`                               |                   | Print a QR code for the public URL (enabled by default when one is available)                                                                        |
-| `--tunnel`                           |                   | Expose the server via a Cloudflare quick tunnel                                                                                                      |
+| `--tunnel=<cloudflare\|opentunnel>`  |                   | Expose the server through a public tunnel (asks which one when no value is given)                                                                    |
 | `--public`                           |                   | Listen on all network interfaces and allow any host to connect                                                                                       |
 | `--publicURL=<url>`                  |                   | Public URL to display (used for QR code and clipboard)                                                                                               |
 | `--https`                            |                   | Enable HTTPS with a locally-trusted development certificate                                                                                          |
@@ -120,6 +120,33 @@ The same lock file is how [`nuxt curl`](/docs/api/commands/curl) and [`nuxt task
 
 ::note
 Node does not read your system trust store, so requests made from Node to a server using a generated certificate will not trust it. Set `NODE_EXTRA_CA_CERTS` to the certificate authority that issued it.
+::
+
+## Tunnels
+
+`--tunnel` gives the dev server a public HTTPS URL, so you can open it on another device or share it. You can choose between two providers:
+
+| Provider     | URL                                                    | Notes                                                                                                                                                                        |
+|--------------|--------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `cloudflare` | A new `trycloudflare.com` URL on each run              | Downloads `cloudflared` the first time, once you accept the Cloudflare terms.                                                                                                |
+| `opentunnel` | The same `opentunnel.xyz` URL on each run, per project | TLS ends on your machine, so the relay can't read your traffic. Needs `@opentunnel/client` in your project. The first run creates your tunnel, which takes about 30 seconds. |
+
+```bash [Terminal]
+npx nuxt dev --tunnel=opentunnel
+```
+
+Without a value, `--tunnel` uses the provider you chose before. If you haven't chosen one yet, it asks and saves your answer as `tools.tunnel.provider` in `~/.nuxtrc`. When nobody can answer, for example in CI, it uses `cloudflare`.
+
+OpenTunnel needs its SDK, `@opentunnel/client`, and its peer `effect` in your project. If they're missing, `nuxt dev` offers to install them as dev dependencies with your package manager. To install them yourself:
+
+```bash [Terminal]
+npm install -D @opentunnel/client@^0.4.0 effect@^4.0.0
+```
+
+OpenTunnel uses the `default` profile of the [`opentunnel` CLI](https://github.com/anomalyco/opentunnel), so both share one hostname. Each project gets its own route on that hostname. The route name comes from a random seed saved as `tools.opentunnel.seed` in `~/.nuxtrc`, so nobody can guess it from the project path.
+
+::note
+Anyone who has the URL can reach your dev server, because a tunnel URL is not authentication. OpenTunnel can't forward to an HTTPS dev server, so with `--https`, `--tunnel=opentunnel` uses `cloudflare` instead.
 ::
 
 ## Debugging
