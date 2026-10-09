@@ -1,4 +1,4 @@
-import { BroadcastChannel } from 'node:worker_threads'
+import { openBroadcast } from './broadcast'
 
 /** A timed piece of work the app did while serving a request. */
 export interface DevRequestSpan {
@@ -29,10 +29,6 @@ const DEV_SPAN_CHANNEL = 'nuxt:dev:span'
 
 /** Receive the app's spans until the returned function is called. */
 export function openDevSpanChannel(sink: (span: DevRequestSpan) => void): () => void {
-  const channel = new BroadcastChannel(DEV_SPAN_CHANNEL)
-  channel.unref()
-  channel.onmessage = (event: { data: DevRequestSpan }) => {
-    sink(event.data)
-  }
-  return () => channel.close()
+  const channel = openBroadcast(DEV_SPAN_CHANNEL, sink)
+  return () => channel?.close()
 }

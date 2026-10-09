@@ -6,11 +6,10 @@ import type { ProgressSnapshot } from '../utils/progress-snapshot'
 
 import process from 'node:process'
 
-import { BroadcastChannel } from 'node:worker_threads'
-
 import { isAbsolute, join, relative } from 'pathe'
 
 import { debug } from '../utils/logger'
+import { openBroadcast } from './broadcast'
 import { isLoopbackAddress } from './host-check'
 import { DEV_INTERNAL_PREFIX } from './progress'
 
@@ -332,11 +331,7 @@ export interface ErrorBridgeHandlers {
  * until the returned function is called.
  */
 export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: ErrorChannelOptions = {}): () => void {
-  const broadcast = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
-  broadcast.unref()
-  broadcast.postMessage(SYNC_MESSAGE)
-  broadcast.onmessage = (event: { data: unknown }) => {
-    const message = event.data
+  const broadcast = openBroadcast(ERROR_BROADCAST_CHANNEL, (message: unknown) => {
     if (!isDevErrorMessage(message)) {
       return
     }
@@ -368,8 +363,9 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         }
       }
     }).catch(error => debug('Could not handle a forwarded error report:', error))
-  }
-  return () => broadcast.close()
+  })
+  broadcast?.postMessage(SYNC_MESSAGE)
+  return () => broadcast?.close()
 }
 
 export async function closeErrorChannel(): Promise<void> {

@@ -42,7 +42,7 @@ const realEnv = { ...process.env }
 /** Pretend to run on `platform`, with only the display variables in `env` set. */
 function stubEnvironment(platform: NodeJS.Platform, env: NodeJS.ProcessEnv = {}) {
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
-  process.env = { ...realEnv, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, ...env }
+  process.env = { ...realEnv, BROWSER: undefined, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, ...env }
 }
 
 function restoreEnvironment() {
@@ -515,5 +515,13 @@ describe('openBrowser', () => {
     openBrowser('http://localhost:3000/')
 
     expect(spawn).toHaveBeenCalledWith('xdg-open', ['http://localhost:3000/'], expect.anything())
+  })
+
+  it('should spawn `BROWSER` without a display server', () => {
+    stubEnvironment('linux', { BROWSER: '/home/user/.vscode-server/bin/helpers/browser.sh' })
+
+    openBrowser('http://localhost:3000/')
+
+    expect(spawn).toHaveBeenCalledWith('/home/user/.vscode-server/bin/helpers/browser.sh', ['http://localhost:3000/'], expect.anything())
   })
 })

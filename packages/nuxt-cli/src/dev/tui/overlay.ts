@@ -5,7 +5,7 @@ import type { OverlayEntry } from './screen'
 
 import { styleText } from 'node:util'
 
-import { truncate } from '../../utils/formatting'
+import { truncate, visibleWidth } from '../../utils/formatting'
 
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { formatHints, ScreenOverlay } from './screen'
@@ -154,16 +154,21 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   const date = new Date(event.time)
   const clock = [date.getHours(), date.getMinutes(), date.getSeconds()].map(part => String(part).padStart(2, '0')).join(':')
   const time = styleText(MUTED, clock)
-  const tag = event.tag ? styleText(MUTED, `[${event.tag}] `) : ''
+  const budget = columns - messageColumn - 1
   const indent = ' '.repeat(messageColumn)
 
   const marker = event.repeats && event.repeats > 1 ? styleText(MUTED, ` ×${event.repeats}`) : ''
   const markerWidth = event.repeats && event.repeats > 1 ? ` ×${event.repeats}`.length : 0
 
+  const firstLineWidth = visibleWidth(event.message.split('\n', 1)[0] ?? '')
+  const tagRoom = Math.max(Math.floor(budget / 2), budget - markerWidth - firstLineWidth - 1)
+  const tag = event.tag && !event.request ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `) : ''
+  const tagWidth = visibleWidth(tag)
+
   const lines = event.message
     .split('\n')
     .map((line, index) => {
-      const room = Math.max(20, columns - messageColumn - 1 - (index === 0 ? markerWidth : 0))
+      const room = Math.max(1, budget - (index === 0 ? markerWidth + tagWidth : 0))
       const text = colorBySeverity(truncate(line, room), event)
       return index === 0 ? `${text}${marker}` : text
     })

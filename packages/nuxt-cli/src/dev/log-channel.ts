@@ -1,4 +1,4 @@
-import { BroadcastChannel } from 'node:worker_threads'
+import { openBroadcast } from './broadcast'
 
 export interface ServerLogEvent {
   level: number
@@ -26,10 +26,6 @@ export const DEV_LOG_CHANNEL = 'nuxt:dev:log'
 
 /** Receive the app's logs until the returned function is called. */
 export function openDevLogChannel(sink: (log: ServerLogEvent) => void): () => void {
-  const channel = new BroadcastChannel(DEV_LOG_CHANNEL)
-  channel.unref()
-  channel.onmessage = (event: { data: ServerLogEvent }) => {
-    sink(event.data)
-  }
-  return () => channel.close()
+  const channel = openBroadcast(DEV_LOG_CHANNEL, sink)
+  return () => channel?.close()
 }

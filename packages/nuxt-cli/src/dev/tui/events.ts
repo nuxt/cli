@@ -146,6 +146,47 @@ function classify(event: DevLogEvent): DevLogEvent {
   return event
 }
 
+/** A log as printed: its plain text and its output. */
+export interface PrintedLog {
+  message: string
+  rendered: string
+}
+
+/** Indices of the first and last of the fewest consecutive `logs` that print `message`. */
+function printedSpan(logs: PrintedLog[], message: string): [start: number, end: number] | undefined {
+  const target = normaliseMessage(message)
+  const holds = (start: number, end: number) => {
+    const plain = logs.slice(start, end + 1).map(log => log.message).join('\n')
+    return normaliseMessage(plain).includes(target) || undecorate(plain).includes(target)
+  }
+  if (!target || !logs.length || !holds(0, logs.length - 1)) {
+    return undefined
+  }
+  let low = 0
+  let high = logs.length - 1
+  while (low < high) {
+    const mid = (low + high) >> 1
+    if (holds(0, mid)) {
+      high = mid
+    }
+    else {
+      low = mid + 1
+    }
+  }
+  const end = low
+  low = 0
+  while (low < high) {
+    const mid = (low + high + 1) >> 1
+    if (holds(mid, end)) {
+      low = mid
+    }
+    else {
+      high = mid - 1
+    }
+  }
+  return [low, end]
+}
+
 /** How far back a merge or pairing looks for a match. */
 const RECENT_SCAN = 20
 
@@ -205,35 +246,45 @@ export class DevEventLog {
   }
 
   /**
-   * Attach printed output to the event it belongs to, when one is waiting for
-   * it, returning whether a home was found for `chunk`.
+   * Attach printed logs to the events waiting for them, `owner` first,
+   * returning the rest.
    *
    * A log forwarded from a fork arrives over IPC while its output arrives down a
    * pipe, so the two cannot be paired by ordering alone.
    */
-  attachRendered(chunk: string, plain: string, withinMs = 500): boolean {
+  attachRendered(logs: PrintedLog[], owner?: DevLogEvent): PrintedLog[] {
+    const event = owner ?? (logs.length ? this.#awaitingOutput(logs.map(log => log.message).join('\n')) : undefined)
+    const span = event && printedSpan(logs, event.message)
+    if (!event || !span) {
+      return logs
+    }
+    const [start, end] = span
+    event.rendered ??= logs.slice(start, end + 1).map(log => log.rendered).join('')
+    noteRoute(event, 'output')
+    return [...this.attachRendered(logs.slice(0, start)), ...this.attachRendered(logs.slice(end + 1))]
+  }
+
+  #awaitingOutput(plain: string, withinMs = 500): DevLogEvent | undefined {
     const text = normaliseMessage(plain)
     if (!text) {
-      return false
+      return undefined
     }
     const boxed = undecorate(plain)
     const now = Date.now()
     for (let index = this.#events.length - 1; index >= 0 && index > this.#events.length - RECENT_SCAN; index--) {
       const event = this.#events[index]!
       if (now - event.time > withinMs) {
-        return false
+        return undefined
       }
       const message = normaliseMessage(event.message)
       // A boxed notice that has already been printed keeps the output it was
       // paired with: a repeat of it was collapsed into that entry, so its
       // second printing has no other home.
       if (message && (text.includes(message) || boxed.includes(message)) && (!event.rendered || isBoxedNotice(event))) {
-        event.rendered ??= chunk
-        noteRoute(event, 'output')
-        return true
+        return event
       }
     }
-    return false
+    return undefined
   }
 
   /**

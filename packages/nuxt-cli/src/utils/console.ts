@@ -42,6 +42,16 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
     if (projectConsola) {
       projectConsola.options.formatOptions.date = false
       interceptPrompts(projectConsola)
+      // Logs from a separate instance would otherwise bypass the dev UI's reporters.
+      if (projectConsola !== consola) {
+        projectConsola.setReporters([{
+          log(logObj, ctx) {
+            for (const reporter of consola.options.reporters) {
+              reporter.log(logObj, ctx)
+            }
+          },
+        }])
+      }
     }
   }
   catch (error) {
