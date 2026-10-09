@@ -40,20 +40,21 @@ export interface OpenTunnelOptions {
 }
 
 /**
- * Expose `localhost:<port>` as `https://<route>.<hostname>` through the user's
- * default OpenTunnel profile, the one the `opentunnel` CLI also uses.
+ * Expose the dev server at `target` (`host:port`) as `https://<route>.<hostname>`
+ * through the user's default OpenTunnel profile, the one the `opentunnel` CLI
+ * also uses.
  *
  * TLS terminates in this process, so the relay never sees plaintext. The route
  * only exists while the bridge is attached: nothing keeps running once the dev
  * server stops.
  */
-export async function startOpenTunnel(route: string, port: number, options: OpenTunnelOptions): Promise<Tunnel | undefined> {
+export async function startOpenTunnel(route: string, target: string, options: OpenTunnelOptions): Promise<Tunnel | undefined> {
   const sdk = await loadOpenTunnelSDK(options.rootDir)
   if (!sdk) {
     return undefined
   }
   const client = sdk.create()
-  const routes = { [route]: `localhost:${port}` }
+  const routes = { [route]: target }
   try {
     const identity = await client.tunnel.get()
     if (identity && options.handover) {

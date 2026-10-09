@@ -377,7 +377,7 @@ describe('listener.close', () => {
 
     try {
       const listener = await listen((_req, res) => res.end('ok'), { port: 0, hostname: '127.0.0.1', showURL: false, handover: true, tunnel: { provider: 'opentunnel', route: 'route', rootDir: '/app' } })
-      expect(startTunnel).toHaveBeenCalledWith({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', port: listener.address.port, handover: true })
+      expect(startTunnel).toHaveBeenCalledWith({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', hostname: '127.0.0.1', port: listener.address.port, handover: true })
       expect(listener.publicURL).toBe('https://route.example.test/')
       await listener.close()
     }

@@ -31,7 +31,7 @@ const startCloudflaredTunnel = vi.fn(async (url: string) => ({ url: `cloudflared
 vi.mock('../../../src/dev/tunnel/cloudflared', () => ({ startCloudflaredTunnel }))
 
 const { startOpenTunnel } = await import('../../../src/dev/tunnel/opentunnel')
-const { startTunnel } = await import('../../../src/dev/tunnel')
+const { formatTunnelTarget, startTunnel } = await import('../../../src/dev/tunnel')
 
 beforeEach(() => {
   client.tunnel.get.mockResolvedValue(identity)
@@ -50,7 +50,7 @@ afterEach(() => {
 
 describe('startOpenTunnel', () => {
   it('should route the project to the dev server and close the bridge on close', async () => {
-    const tunnel = await startOpenTunnel('route', 3000, { rootDir: '/app' })
+    const tunnel = await startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })
 
     expect(client.tunnel.connect).toHaveBeenCalledWith({ routes: { route: 'localhost:3000' } })
     expect(client.tunnel.create).not.toHaveBeenCalled()
@@ -72,7 +72,7 @@ describe('startOpenTunnel', () => {
       return identity
     })
 
-    const tunnel = await startOpenTunnel('route', 3000, { rootDir: '/app' })
+    const tunnel = await startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })
 
     expect(client.tunnel.create).toHaveBeenCalledTimes(1)
     expect(tunnel?.url).toBe('https://route.abc123.opentunnel.xyz')
@@ -84,7 +84,7 @@ describe('startOpenTunnel', () => {
     client.tunnel.pending.mockResolvedValue({ id: 'id', hostname: identity.hostname })
     client.tunnel.resume.mockResolvedValue(identity)
 
-    await startOpenTunnel('route', 3000, { rootDir: '/app' })
+    await startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })
 
     expect(client.tunnel.resume).toHaveBeenCalledTimes(1)
     expect(client.tunnel.create).not.toHaveBeenCalled()
@@ -93,7 +93,7 @@ describe('startOpenTunnel', () => {
   it('should keep serving without a tunnel when the client cannot be loaded', async () => {
     loadOpenTunnelSDK.mockResolvedValueOnce(undefined)
 
-    await expect(startOpenTunnel('route', 3000, { rootDir: '/app' })).resolves.toBeUndefined()
+    await expect(startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })).resolves.toBeUndefined()
 
     expect(client.tunnel.connect).not.toHaveBeenCalled()
   })
@@ -102,7 +102,7 @@ describe('startOpenTunnel', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     client.tunnel.connect.mockRejectedValue(new Error('invalid token'))
 
-    await expect(startOpenTunnel('route', 3000, { rootDir: '/app' })).resolves.toBeUndefined()
+    await expect(startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })).resolves.toBeUndefined()
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('invalid token'))
     expect(client.dispose).toHaveBeenCalledTimes(1)
@@ -113,7 +113,7 @@ describe('startOpenTunnel', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     client.tunnel.connect.mockReturnValue(new Promise(() => {}))
 
-    const started = startOpenTunnel('route', 3000, { rootDir: '/app' })
+    const started = startOpenTunnel('route', 'localhost:3000', { rootDir: '/app' })
     await vi.advanceTimersByTimeAsync(20_000)
 
     await expect(started).resolves.toBeUndefined()
@@ -126,7 +126,7 @@ describe('startOpenTunnel', () => {
       attach = resolve
     }))
 
-    const tunnel = await startOpenTunnel('route', 3000, { rootDir: '/app', handover: true })
+    const tunnel = await startOpenTunnel('route', 'localhost:3000', { rootDir: '/app', handover: true })
     expect(tunnel?.url).toBe('https://route.abc123.opentunnel.xyz')
 
     const connection = createConnection()
@@ -143,7 +143,7 @@ describe('startOpenTunnel', () => {
       attach = resolve
     }))
 
-    const tunnel = await startOpenTunnel('route', 3000, { rootDir: '/app', handover: true })
+    const tunnel = await startOpenTunnel('route', 'localhost:3000', { rootDir: '/app', handover: true })
     await tunnel!.close()
     expect(client.dispose).toHaveBeenCalledTimes(1)
 
@@ -155,12 +155,12 @@ describe('startOpenTunnel', () => {
 
 describe('startTunnel', () => {
   it('should start a Cloudflare quick tunnel', async () => {
-    await startTunnel({ provider: 'cloudflare' }, { protocol: 'https', port: 3000 })
+    await startTunnel({ provider: 'cloudflare' }, { protocol: 'https', hostname: '', port: 3000 })
     expect(startCloudflaredTunnel).toHaveBeenCalledWith('https://localhost:3000', true)
   })
 
   it('should start OpenTunnel with the resolved route', async () => {
-    const tunnel = await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', port: 3000 })
+    const tunnel = await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', hostname: '', port: 3000 })
     expect(tunnel?.url).toBe('https://route.abc123.opentunnel.xyz')
     expect(loadOpenTunnelSDK).toHaveBeenCalledWith('/app')
     expect(startCloudflaredTunnel).not.toHaveBeenCalled()
@@ -168,9 +168,33 @@ describe('startTunnel', () => {
 
   it('should fall back to Cloudflare for an HTTPS dev server, which OpenTunnel cannot forward to', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
-    await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'https', port: 3000 })
+    await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'https', hostname: '', port: 3000 })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot forward to an HTTPS dev server'))
     expect(startCloudflaredTunnel).toHaveBeenCalledWith('https://localhost:3000', true)
     expect(client.tunnel.connect).not.toHaveBeenCalled()
+  })
+
+  it('should reach a server bound to one address through that address', async () => {
+    await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', hostname: '192.168.1.5', port: 3000 })
+    expect(client.tunnel.connect).toHaveBeenCalledWith({ routes: { route: '192.168.1.5:3000' } })
+
+    await startTunnel({ provider: 'cloudflare' }, { protocol: 'http', hostname: '192.168.1.5', port: 3000 })
+    expect(startCloudflaredTunnel).toHaveBeenCalledWith('http://192.168.1.5:3000', false)
+  })
+})
+
+describe('formatTunnelTarget', () => {
+  it('should use localhost for a server on every interface', () => {
+    for (const hostname of ['', '0.0.0.0', '::']) {
+      expect(formatTunnelTarget({ hostname, port: 3000 }), hostname).toBe('localhost:3000')
+    }
+  })
+
+  it('should use the address a server is bound to, with IPv6 in brackets', () => {
+    expect(formatTunnelTarget({ hostname: 'localhost', port: 3000 })).toBe('localhost:3000')
+    expect(formatTunnelTarget({ hostname: '192.168.1.5', port: 3000 })).toBe('192.168.1.5:3000')
+    // `localhost` can resolve to 127.0.0.1, where a server bound to `::1` does not listen.
+    expect(formatTunnelTarget({ hostname: '::1', port: 3000 })).toBe('[::1]:3000')
+    expect(formatTunnelTarget({ hostname: 'fe80::1', port: 3000 })).toBe('[fe80::1]:3000')
   })
 })

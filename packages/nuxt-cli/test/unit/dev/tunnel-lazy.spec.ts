@@ -19,10 +19,10 @@ describe('tunnel module graph', () => {
     const { startTunnel } = await import('../../../src/dev/tunnel')
     expect([...evaluated]).toEqual([])
 
-    await startTunnel({ provider: 'cloudflare' }, { protocol: 'http', port: 3000 })
+    await startTunnel({ provider: 'cloudflare' }, { protocol: 'http', hostname: '', port: 3000 })
     expect([...evaluated]).toEqual(['cloudflared'])
 
-    await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', port: 3000 })
+    await startTunnel({ provider: 'opentunnel', route: 'route', rootDir: '/app' }, { protocol: 'http', hostname: '', port: 3000 })
     expect([...evaluated]).toEqual(['cloudflared', 'opentunnel'])
   })
 })

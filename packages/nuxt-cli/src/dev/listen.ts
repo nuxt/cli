@@ -268,7 +268,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
 
     if (announce && options.tunnel) {
       const { startTunnel } = await import('./tunnel')
-      tunnel = await startTunnel(options.tunnel, { protocol, port: address.port, handover: options.handover })
+      tunnel = await startTunnel(options.tunnel, { protocol, hostname, port: address.port, handover: options.handover })
     }
 
     const tunnelURL = tunnel?.url && tunnel.url + baseURL
