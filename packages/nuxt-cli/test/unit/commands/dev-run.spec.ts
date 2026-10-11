@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const {
   close,
   createFork,
+  ensureOpenTunnelSDK,
   getFork,
   initialize,
   onFileChange,
@@ -22,6 +23,7 @@ const {
 } = vi.hoisted(() => ({
   close: vi.fn(() => Promise.resolve()),
   createFork: vi.fn(),
+  ensureOpenTunnelSDK: vi.fn(async () => false),
   getFork: vi.fn(),
   initialize: vi.fn(),
   isReusePortSupported: vi.fn(() => Promise.resolve(true)),
@@ -35,6 +37,7 @@ const {
 }))
 
 vi.mock('../../../src/dev/index', () => ({ initialize }))
+vi.mock('../../../src/dev/tunnel/opentunnel-install', () => ({ ensureOpenTunnelSDK }))
 // Whether a restart hands over or is serialised depends on `SO_REUSEPORT`, which
 // Linux has and macOS and Windows do not, so the probe is stubbed rather than left
 // to whichever platform the suite runs on.
@@ -136,6 +139,16 @@ describe('dev command startup', () => {
     await runDev(['--no-fork', '--port=4000'])
 
     expect(initialize.mock.calls[0]![1].listenOverrides).toMatchObject({ port: '4000' })
+  })
+
+  it('should pass a Cloudflare tunnel to the listener for --https --tunnel=opentunnel without the SDK', async () => {
+    await runDev(['--no-fork', '--https', '--tunnel=opentunnel'])
+
+    expect(initialize.mock.calls[0]![1].listenOverrides).toMatchObject({
+      httpsEnabled: true,
+      tunnel: { provider: 'cloudflare' },
+    })
+    expect(ensureOpenTunnelSDK).not.toHaveBeenCalled()
   })
 
   it('should keep the port unresolved when none was requested', async () => {

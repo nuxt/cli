@@ -40,13 +40,18 @@ export function parseTunnelProvider(value: unknown): TunnelProvider | undefined 
 /**
  * Resolve `--tunnel` into the provider to start, prompting (once) when it is
  * passed without a value. Must run before the dev server takes the terminal.
+ * Choose the HTTPS fallback before preparing the OpenTunnel SDK.
  */
-export async function resolveTunnelOptions(flag: string | boolean | undefined, rootDir: string): Promise<TunnelOptions | undefined> {
+export async function resolveTunnelOptions(flag: string | boolean | undefined, rootDir: string, httpsEnabled = false): Promise<TunnelOptions | undefined> {
   if (flag === undefined || flag === false) {
     return undefined
   }
   const provider = await resolveTunnelProvider(flag)
   if (provider === 'opentunnel') {
+    if (httpsEnabled) {
+      logger.warn('OpenTunnel cannot forward to an HTTPS dev server. Using a Cloudflare quick tunnel instead.')
+      return { provider: 'cloudflare' }
+    }
     // The SDK lives in the project, and installing it may prompt. Imported on
     // demand, as it pulls in the package manager helpers.
     const { ensureOpenTunnelSDK } = await import('./opentunnel-install')

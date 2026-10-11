@@ -188,7 +188,7 @@ const command = defineCommand({
     const tunnelFlag = ctx.args.tunnel as string | boolean | undefined
     if (tunnelFlag !== undefined && tunnelFlag !== false) {
       const { resolveTunnelOptions } = await import('../dev/tunnel/resolve')
-      listenOverrides.tunnel = await resolveTunnelOptions(tunnelFlag, cwd)
+      listenOverrides.tunnel = await resolveTunnelOptions(tunnelFlag, cwd, listenOverrides.httpsEnabled)
     }
 
     const buildDir = await beforeServing(() => resolveLockDir(cwd))

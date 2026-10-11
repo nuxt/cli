@@ -117,6 +117,19 @@ describe('resolveTunnelOptions', () => {
     expect(ensureOpenTunnelSDK).not.toHaveBeenCalled()
   })
 
+  it.each(['opentunnel', '', true])('should resolve %s to Cloudflare for HTTPS before preparing the SDK', async (flag) => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    writeFileSync(join(home, '.nuxtrc'), 'tools.tunnel.provider="opentunnel"\n')
+    ensureOpenTunnelSDK.mockResolvedValue(false)
+
+    await expect(resolveTunnelOptions(flag, '/app', true)).resolves.toEqual({ provider: 'cloudflare' })
+
+    expect(ensureOpenTunnelSDK).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cannot forward to an HTTPS dev server'))
+    expect(readNuxtRC()).not.toContain('tools.opentunnel.seed')
+    expect(readNuxtRC()).toContain('tools.tunnel.provider="opentunnel"')
+  })
+
   it('should warn about an unknown provider and use Cloudflare', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     await expect(resolveTunnelOptions('./app', '/app')).resolves.toEqual({ provider: 'cloudflare' })
