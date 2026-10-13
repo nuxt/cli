@@ -1,4 +1,4 @@
-styles: 1dd116504606b5d1
+styles: 8060c8131f1b5f10
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    waiting for requests
@@ -8,6 +8,7 @@ styles: 1dd116504606b5d1
    ━━━━━━━━━━━━━━━━━━━━ 50% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
+   ⚠ 1 warning
   BUILDING   building server
   BUILDING   bundling app
   BUILDING   compiling changes
