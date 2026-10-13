@@ -1,13 +1,13 @@
-styles: bd638746e7494b36
+styles: fb976d6bd0fa7d02
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
-   waiting for requests
    ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 33% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 50% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
    ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
+   ⚠ 1 warning
   READY   watching for changes
   STARTING   building server
   STARTING   bundling app
