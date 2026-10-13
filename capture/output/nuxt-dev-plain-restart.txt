@@ -1,6 +1,6 @@
-styles: eed5a707d7b2e4bc
+styles: b9481c350ba0bd29
+  devtools updated
   press h + enter to see available shortcuts
-  undefined updated
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/
   ➜ Network:  use --host to expose
