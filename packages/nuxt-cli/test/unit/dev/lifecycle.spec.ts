@@ -428,7 +428,7 @@ describe('dev server restart', () => {
 
 describe('dev server config reload', () => {
   function stubConfigDiff(changedKeys: string[]) {
-    diffNuxtConfig.mockImplementation(() => changedKeys.map(key => ({ key })))
+    diffNuxtConfig.mockImplementation(() => changedKeys.map(label => ({ type: 'changed', path: label.split('.'), label })))
     loadNuxtConfig.mockImplementation(async (options: { onConfigResolved?: (ctx: { rawConfig: Record<string, unknown> }) => void }) => {
       await options.onConfigResolved?.({ rawConfig: { revision: changedKeys.length } })
       return {}
@@ -460,6 +460,18 @@ describe('dev server config reload', () => {
     server.scheduleReload({ type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
 
     await vi.waitFor(() => expect(loadNuxt).toHaveBeenCalledTimes(1))
+  })
+
+  it('should print the changed config keys after a config reload', async () => {
+    stubConfigDiff(['runtimeConfig.public.foo'])
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const server = createServer()
+    await server.init()
+
+    server.scheduleReload({ type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+
+    await vi.waitFor(() => expect(info).toHaveBeenCalledWith(expect.stringContaining('`runtimeConfig.public.foo` updated')))
+    info.mockRestore()
   })
 
   it('should collapse several changes in one debounce window into a single reload', async () => {

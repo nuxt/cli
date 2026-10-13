@@ -1,3 +1,4 @@
+import type { LoadNuxtOptions } from '@nuxt/kit'
 import type { Nuxt, NuxtConfig, NuxtOptions, ViteConfig } from '@nuxt/schema'
 import type { ErrorReport } from 'my-bad'
 import type { createDevServer } from 'nitro/builder'
@@ -163,22 +164,13 @@ export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpSe
   return path
 }
 
-interface NuxtConfigDiffEntry {
-  key: string
-}
-
 /**
- * `onConfigResolved` and `diffNuxtConfig` were added in a later `@nuxt/kit` than the one
- * whose types are pinned here, and the kit is resolved from the user's project, so both are
- * treated as optional capabilities. Older kits pass the unknown option through to `c12`,
- * which ignores it.
+ * `@nuxt/kit` is resolved from the user's project, so `diffNuxtConfig` (and the matching
+ * `onConfigResolved` load option) may be missing. Older kits pass the unknown option
+ * through to `c12`, which ignores it.
  */
-type LoadNuxtOptionsWithConfigDiff = Parameters<typeof import('@nuxt/kit').loadNuxt>[0] & {
-  onConfigResolved?: (ctx: { rawConfig: Record<string, unknown> }) => void | Promise<void>
-}
-
 function resolveConfigDiffer(kit: Awaited<ReturnType<typeof loadKit>>) {
-  const differ = (kit as { diffNuxtConfig?: (oldConfig: unknown, newConfig: unknown) => NuxtConfigDiffEntry[] }).diffNuxtConfig
+  const differ = (kit as Partial<typeof kit>).diffNuxtConfig
   return typeof differ === 'function' ? differ : undefined
 }
 
@@ -254,7 +246,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #lockCleanup?: () => void
   #lockedBuildDir?: string
   #pendingReason?: DevRestartReason
-  #rawConfig?: Record<string, unknown>
+  #rawConfig?: NuxtConfig
   #changedConfigKeys?: string[]
   #bound?: BoundServer
   #allowedHosts = new Set<string>()
@@ -722,9 +714,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('loading:error', error as Error)
   }
 
-  #createLoadOptions(urls?: string[]): LoadNuxtOptionsWithConfigDiff {
+  #createLoadOptions(urls?: string[]): LoadNuxtOptions {
     const captureUIEvents = this.options.captureUIEvents
-    const loadOptions: LoadNuxtOptionsWithConfigDiff = {
+    const loadOptions: LoadNuxtOptions = {
       cwd: this.options.cwd,
       dev: true,
       ready: false,
@@ -786,7 +778,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const loadOptions = this.#createLoadOptions(urls)
     loadOptions.onConfigResolved = ({ rawConfig }) => {
       try {
-        keys = diffNuxtConfig(previous, rawConfig).map(entry => entry.key)
+        keys = diffNuxtConfig(previous, rawConfig).map(entry => entry.label)
       }
       catch (error) {
         // `ohash`'s diff walks the config without a cycle guard
@@ -838,7 +830,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         this.#rawConfig = rawConfig
         if (previous) {
           try {
-            this.#changedConfigKeys = diffNuxtConfig(previous, rawConfig).map(entry => entry.key)
+            this.#changedConfigKeys = diffNuxtConfig(previous, rawConfig).map(entry => entry.label)
           }
           catch (error) {
             // `ohash`'s diff walks the config without a cycle guard
