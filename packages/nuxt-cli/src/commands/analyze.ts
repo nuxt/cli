@@ -37,6 +37,9 @@ const indexHtml = `
         <a href="/nitro">Nitro server bundle stats</a>
       </li>
       <li>
+        <a href="/ssr">Vue SSR bundle stats</a>
+      </li>
+      <li>
         <a href="/client">Client bundle stats</a>
       </li>
     </ul>
@@ -200,6 +203,7 @@ export default defineCommand({
       const reports = new Map([
         ['/client', await readReport('client.html')],
         ['/nitro', await readReport('nitro.html')],
+        ['/ssr', await readReport('ssr.html')],
       ])
 
       logger.step('Starting stats server...')
