@@ -50,7 +50,7 @@
     "nf3": "^0.4.0",
     "nuxt": "^4.6.1",
     "pkg-pr-new": "^0.0.88",
-    "rolldown": "^1.2.12",
+    "rolldown": "^1.2.14",
     "rollup-plugin-visualizer": "^7.1.1",
     "std-env": "^4.3.0",
     "tsdown": "^0.23.0",
