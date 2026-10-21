@@ -192,6 +192,10 @@ const command = defineCommand({
       logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
       process.exit(1)
     }
+    if (takeover.action === 'opened') {
+      await teardownDevUI()
+      process.exit(0)
+    }
     if (takeover.action === 'start-anyway') {
       process.env.NUXT_IGNORE_LOCK = '1'
     }

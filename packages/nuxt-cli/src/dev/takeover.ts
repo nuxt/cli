@@ -12,6 +12,7 @@ import { clearStaleLock, clearTakeover, isLockEnabled, isProcessAlive, markTaken
 import { logger } from '../utils/logger'
 import { withUserAttention } from '../utils/startup-clock'
 import { isInteractiveSession } from '../utils/stdout'
+import { openBrowser } from './listen'
 import { DEV_SHUTDOWN_TIMEOUT_MS } from './shutdown'
 
 /** How long a `SIGKILL`ed process has to disappear before we give up. */
@@ -39,8 +40,10 @@ export type TakeoverResult
     | { action: 'refused', existing: LockInfo, reason: TakeoverRefusalReason }
   /** The user chose to run a second server anyway, without the lock. */
     | { action: 'start-anyway', existing: LockInfo }
+  /** The user opened the running server in a browser; the caller should exit cleanly. */
+    | { action: 'opened', existing: LockInfo }
 
-export type TakeoverChoice = 'takeover' | 'abort' | 'start-anyway'
+export type TakeoverChoice = 'takeover' | 'abort' | 'open' | 'start-anyway'
 
 type ServerCommand = 'dev' | 'preview'
 
@@ -147,6 +150,10 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
       const choice = await withUserAttention(() => prompt(existing, existing.interactive ? 'abort' : 'takeover'))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
+      }
+      if (choice === 'open') {
+        openBrowser(existing.url!)
+        return { action: 'opened', existing }
       }
       if (choice === 'start-anyway') {
         if (existing.command === 'dev') {
@@ -301,6 +308,7 @@ async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoi
     options: [
       { value: 'takeover', label: `Take over port ${existing.port}`, hint: 'stops the running server (--takeover)' },
       { value: 'abort', label: 'Do not start', hint: '--no-takeover' },
+      ...(existing.url ? [{ value: 'open' as const, label: `Open ${existing.url} in browser`, hint: 'keeps the running server' }] : []),
       { value: 'start-anyway', label: 'Start anyway', hint: serverKind(existing).startAnywayHint },
     ],
   })
