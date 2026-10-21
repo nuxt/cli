@@ -56,7 +56,7 @@ A preview records itself in `node_modules/.cache/nuxt/preview`, so a second `nux
 | in a terminal | without a terminal | The new one exits, saying where the running one is. |
 | in a terminal | in a terminal | You are asked, defaulting to not starting. |
 
-Pass `--takeover` to always stop it and start in its place, or `--no-takeover` to never do so. Choosing "Start anyway" at the prompt, or passing a different `--port`, runs a second preview alongside it instead.
+Pass `--takeover` to always stop it and start in its place, or `--no-takeover` to never do so. Choosing "Start anyway" at the prompt, or passing a different `--port`, runs a second preview alongside it instead. Choosing "Open in browser" opens the running preview without stopping it.
 
 When another server, including `nuxt dev`, is using the requested port, the preview automatically uses another free port without stopping that server. Pass `--strictPort` to exit instead. The requested port comes from `--port`, `NUXT_PORT`, `NITRO_PORT`, or `PORT`, defaulting to `3000`.
 

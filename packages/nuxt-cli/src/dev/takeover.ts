@@ -8,10 +8,12 @@ import { checkPort } from 'get-port-please'
 import { isCI } from 'std-env'
 
 import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { lockAppURL } from '../utils/dev-server'
 import { clearStaleLock, clearTakeover, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
 import { withUserAttention } from '../utils/startup-clock'
 import { isInteractiveSession } from '../utils/stdout'
+import { canOpenBrowser, openBrowser, resolveOpenURL } from './listen'
 import { DEV_SHUTDOWN_TIMEOUT_MS } from './shutdown'
 
 /** How long a `SIGKILL`ed process has to disappear before we give up. */
@@ -39,8 +41,10 @@ export type TakeoverResult
     | { action: 'refused', existing: LockInfo, reason: TakeoverRefusalReason }
   /** The user chose to run a second server anyway, without the lock. */
     | { action: 'start-anyway', existing: LockInfo }
+  /** The user opened the running server in a browser; the caller should exit cleanly. */
+    | { action: 'opened', existing: LockInfo }
 
-export type TakeoverChoice = 'takeover' | 'abort' | 'start-anyway'
+export type TakeoverChoice = 'takeover' | 'abort' | 'open' | 'start-anyway'
 
 type ServerCommand = 'dev' | 'preview'
 
@@ -66,8 +70,15 @@ export interface TakeoverOptions {
   takeover?: boolean
   /** Whether this invocation can prompt. Defaults to the current terminal. */
   interactive?: boolean
-  /** Overridable so the decision table can be tested without a TTY. */
-  prompt?: (existing: LockInfo, defaultChoice: TakeoverChoice) => Promise<TakeoverChoice>
+  /** `--open`; makes opening the running server the default choice. */
+  open?: boolean
+  /** `--open.url`; resolved against the running server's URL. */
+  openURL?: string
+  /**
+   * Overridable so the decision table can be tested without a TTY. `openURL` is
+   * what the `open` choice would open, and is absent when it is unavailable.
+   */
+  prompt?: (existing: LockInfo, defaultChoice: TakeoverChoice, openURL: string | undefined) => Promise<TakeoverChoice>
   /** How long to wait for the outgoing server, in ms. Overridable for tests. */
   timeouts?: { graceful?: number, force?: number }
 }
@@ -142,11 +153,20 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
     }
     else {
       const prompt = options.prompt ?? promptForTakeover
+      const openURL = resolveBrowserURL(existing, options.openURL)
       // Nothing ends an interactive session on a bare enter, so the default
       // depends on whether a person is watching the other server.
-      const choice = await withUserAttention(() => prompt(existing, existing.interactive ? 'abort' : 'takeover'))
+      const defaultChoice = options.open && openURL ? 'open' : existing.interactive ? 'abort' : 'takeover'
+      const choice = await withUserAttention(() => prompt(existing, defaultChoice, openURL))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
+      }
+      if (choice === 'open') {
+        if (!openURL) {
+          return { action: 'refused', existing, reason: 'declined' }
+        }
+        await openBrowser(openURL)
+        return { action: 'opened', existing }
       }
       if (choice === 'start-anyway') {
         if (existing.command === 'dev') {
@@ -293,7 +313,12 @@ function describeLocation(existing: LockInfo): string {
   return existing.url || 'starting up (no URL yet)'
 }
 
-async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice): Promise<TakeoverChoice> {
+function resolveBrowserURL(existing: LockInfo, target: string | undefined): string | undefined {
+  const url = canOpenBrowser() ? lockAppURL(existing) : undefined
+  return url && target ? resolveOpenURL(target, url) : url
+}
+
+async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice, openURL: string | undefined): Promise<TakeoverChoice> {
   logger.info(`A Nuxt ${describeServer(existing)} is already running here (PID ${existing.pid}, ${describeLocation(existing)}).`)
   const choice = await select<TakeoverChoice>({
     message: 'What would you like to do?',
@@ -301,6 +326,7 @@ async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoi
     options: [
       { value: 'takeover', label: `Take over port ${existing.port}`, hint: 'stops the running server (--takeover)' },
       { value: 'abort', label: 'Do not start', hint: '--no-takeover' },
+      ...(openURL ? [{ value: 'open' as const, label: `Open ${openURL} in browser`, hint: 'keeps the running server' }] : []),
       { value: 'start-anyway', label: 'Start anyway', hint: serverKind(existing).startAnywayHint },
     ],
   })

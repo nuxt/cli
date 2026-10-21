@@ -5,7 +5,7 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
+import { canOpenBrowser, copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -492,6 +492,23 @@ describe('copyURL', () => {
     await copyURL('http://localhost:3000/')
 
     expect(writeText).toHaveBeenCalledWith('http://localhost:3000/')
+  })
+})
+
+describe('canOpenBrowser', () => {
+  afterEach(restoreEnvironment)
+
+  it('should be false only when `openBrowser` has nothing to launch', () => {
+    stubEnvironment('linux')
+    expect(canOpenBrowser()).toBe(false)
+    stubEnvironment('linux', { DISPLAY: ':0' })
+    expect(canOpenBrowser()).toBe(true)
+    stubEnvironment('linux', { BROWSER: '/home/user/.vscode-server/bin/helpers/browser.sh' })
+    expect(canOpenBrowser()).toBe(true)
+    stubEnvironment('darwin', { BROWSER: 'none' })
+    expect(canOpenBrowser()).toBe(false)
+    stubEnvironment('darwin')
+    expect(canOpenBrowser()).toBe(true)
   })
 })
 

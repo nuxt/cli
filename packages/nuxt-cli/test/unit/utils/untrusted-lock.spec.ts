@@ -78,6 +78,12 @@ describe('parseLockInfo', () => {
     expect(parseLockInfo(baseLock({ url: 'http://localhost:3000' }))?.url).toBe('http://localhost:3000')
   })
 
+  it('should drop a base url that is not a path', () => {
+    expect(parseLockInfo(baseLock({ baseURL: 'https://attacker.example/' }))?.baseURL).toBeUndefined()
+    expect(parseLockInfo(baseLock({ baseURL: '//attacker.example/' }))?.baseURL).toBeUndefined()
+    expect(parseLockInfo(baseLock({ baseURL: '/admin/' }))?.baseURL).toBe('/admin/')
+  })
+
   it('should strip control characters from displayed strings', () => {
     const info = parseLockInfo(baseLock({ cwd: '/tmp/\u001B[2Jproject\u0007' }))
     expect(info?.cwd).toBe('/tmp/[2Jproject')
