@@ -20,6 +20,8 @@ export interface LockInfo {
   port?: number
   hostname?: string
   url?: string
+  /** `app.baseURL` of a dev server, which `url` does not include. */
+  baseURL?: string
   /**
    * PID of the process supervising the holder, when the holder is a dev fork.
    * Signalling the holder alone would leave its supervisor running.
@@ -162,6 +164,11 @@ function lockURL(value: unknown): string | undefined {
   }
 }
 
+function lockURLPath(value: unknown): string | undefined {
+  const text = lockText(value)
+  return text?.startsWith('/') && !text.startsWith('//') ? text : undefined
+}
+
 /**
  * Validate a parsed `nuxt.lock` document.
  *
@@ -189,6 +196,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
 
   const port = input.port
   const hostname = lockText(input.hostname)
+  const baseURL = lockURLPath(input.baseURL)
   const parentPid = lockPid(input.parentPid)
   const serverPid = lockPid(input.serverPid)
   const takenOverBy = lockPid(input.takenOverBy)
@@ -202,6 +210,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
     ...typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65_535 ? { port } : {},
     ...hostname && LOCK_HOSTNAME_RE.test(hostname) ? { hostname } : {},
     ...lockURL(input.url) ? { url: lockURL(input.url) } : {},
+    ...baseURL ? { baseURL } : {},
     ...parentPid ? { parentPid } : {},
     ...serverPid ? { serverPid } : {},
     ...takenOverBy ? { takenOverBy } : {},

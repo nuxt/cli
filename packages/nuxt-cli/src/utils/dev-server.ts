@@ -1,3 +1,5 @@
+import type { LockInfo } from './lockfile'
+
 import { existsSync, readFileSync } from 'node:fs'
 import { isIP } from 'node:net'
 import { networkInterfaces } from 'node:os'
@@ -55,6 +57,16 @@ export async function findDevServer(cwd: string, buildDir?: string): Promise<Run
   const lock = readActiveLock(dir)
   if (lock?.command === 'dev' && lock.url && isOwnAddress(lock.url)) {
     return { url: toLoopback(lock.url), pid: lock.pid, cwd: lock.cwd }
+  }
+}
+
+/**
+ * Where to open the app served by the server recorded in `lock`, on loopback
+ * and under its `app.baseURL`. Nothing for a lock that names another machine.
+ */
+export function lockAppURL(lock: LockInfo): string | undefined {
+  if (lock.url && isOwnAddress(lock.url)) {
+    return toLoopback(lock.url) + (lock.baseURL || '/')
   }
 }
 

@@ -647,38 +647,59 @@ export function resolveOpenCommand(
 /** How long a launcher has to fail before we assume the browser did open. */
 const BROWSER_LAUNCH_TIMEOUT_MS = 3000
 
-export function openBrowser(url: string): void {
+/** Whether {@link openBrowser} has a browser to launch in this environment. */
+export function canOpenBrowser(): boolean {
+  const resolved = resolveOpenCommand('')
+  return !!resolved && (resolved[0] !== 'xdg-open' || hasDisplayServer())
+}
+
+/**
+ * Open `url` in a browser. The returned promise resolves once the launcher has
+ * exited or had time to fail, after any failure has been reported.
+ */
+export function openBrowser(url: string): Promise<void> {
   const resolved = resolveOpenCommand(url)
   if (!resolved) {
-    return
+    return Promise.resolve()
   }
   const [command, args] = resolved
   if (command === 'xdg-open' && !hasDisplayServer()) {
     logger.warn(`No browser is available in this environment. Open ${styleText('cyan', url)} manually.`)
-    return
+    return Promise.resolve()
   }
 
-  const onFailure = (error: unknown) => {
-    debug('Failed to open browser:', error)
-    logger.warn(`Could not open ${styleText('cyan', url)} in a browser.`)
-  }
-
-  try {
-    const child = spawn(command, args, { stdio: 'ignore', detached: true })
-    child.once('error', onFailure)
-    const onExit = (code: number | null) => {
-      if (code) {
-        onFailure(new Error(`\`${command}\` exited with code ${code}`))
-      }
+  return new Promise((resolve) => {
+    const onFailure = (error: unknown) => {
+      debug('Failed to open browser:', error)
+      logger.warn(`Could not open ${styleText('cyan', url)} in a browser.`)
+      resolve()
     }
-    child.once('exit', onExit)
-    // `BROWSER` may point at the browser itself rather than a launcher, in which
-    // case the process lives as long as the browser does and its eventual exit
-    // code says nothing about whether the URL opened.
-    setTimeout(() => child.off('exit', onExit), BROWSER_LAUNCH_TIMEOUT_MS).unref()
-    child.unref()
-  }
-  catch (error) {
-    onFailure(error)
-  }
+
+    try {
+      const child = spawn(command, args, { stdio: 'ignore', detached: true })
+      const onExit = (code: number | null) => {
+        if (code) {
+          onFailure(new Error(`\`${command}\` exited with code ${code}`))
+        }
+        settle()
+      }
+      function settle() {
+        child.off('exit', onExit)
+        child.unref()
+        resolve()
+      }
+      child.once('error', (error) => {
+        onFailure(error)
+        settle()
+      })
+      child.once('exit', onExit)
+      // `BROWSER` may point at the browser itself rather than a launcher, in which
+      // case the process lives as long as the browser does and its eventual exit
+      // code says nothing about whether the URL opened.
+      setTimeout(settle, BROWSER_LAUNCH_TIMEOUT_MS).unref()
+    }
+    catch (error) {
+      onFailure(error)
+    }
+  })
 }

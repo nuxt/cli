@@ -186,6 +186,8 @@ const command = defineCommand({
     const takeover = await beforeServing(() => takeOverServer(buildDir, {
       requestedPort: parsePort(listenOverrides.port),
       takeover: ctx.args.takeover,
+      open: listenOverrides.open,
+      openURL: listenOverrides.openURL,
     }))
     if (takeover.action === 'refused') {
       await teardownDevUI()
