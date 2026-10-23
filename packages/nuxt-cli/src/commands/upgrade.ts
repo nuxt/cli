@@ -95,7 +95,8 @@ export async function resolveCatalogSpecifier(spec: InstallSpec, current?: strin
 
 const nuxtVersionTags = {
   '3.x': '3x',
-  '4.x': 'latest',
+  '4.x': '4x',
+  '5.x': '5x',
 }
 
 type NuxtVersionTag = keyof typeof nuxtVersionTags
@@ -108,8 +109,8 @@ async function getNightlyVersion(packageNames: string[]): Promise<{ npmPackages:
   const nuxtVersion = await select({
     message: 'Which nightly Nuxt release channel do you want to install?',
     options: [
-      { value: '3.x' as const, label: '3.x' },
       { value: '4.x' as const, label: '4.x' },
+      { value: '5.x' as const, label: '5.x' },
     ],
     initialValue: '4.x' as const,
   })
@@ -130,12 +131,12 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
       return getNightlyVersion(packageNames)
     case 'v3':
       return { npmPackages: packageNames.map(p => `${p}@3`), nuxtVersion: '3.x' }
-    case 'v3-nightly':
-      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')), nuxtVersion: '3.x' }
     case 'v4':
       return { npmPackages: packageNames.map(p => `${p}@4`), nuxtVersion: '4.x' }
     case 'v4-nightly':
       return { npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')), nuxtVersion: '4.x' }
+    case 'v5-nightly':
+      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '5.x')), nuxtVersion: '5.x' }
     case 'stable':
     default:
       return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4.x' }
@@ -164,7 +165,7 @@ export default defineCommand({
       alias: 'ch',
       default: 'stable',
       description: 'Specify a channel to install from',
-      options: ['stable', 'nightly', 'v3', 'v4', 'v4-nightly', 'v3-nightly'],
+      options: ['stable', 'nightly', 'v3', 'v4', 'v4-nightly', 'v5-nightly'],
     },
   },
   async run(ctx) {
