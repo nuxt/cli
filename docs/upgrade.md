@@ -10,7 +10,7 @@ links:
 
 <!--upgrade-cmd-->
 ```bash [Terminal]
-npx nuxt upgrade [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dedupe] [-f, --force] [-ch, --channel=<stable|nightly|v3|v4|v4-nightly|v5-nightly>]
+npx nuxt upgrade [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dedupe] [-f, --force] [-ch, --channel=<stable|nightly|v4|v4-nightly|v5-nightly>]
 ```
 <!--/upgrade-cmd-->
 
@@ -33,11 +33,11 @@ A dependency pinned to a pnpm catalog (`"nuxt": "catalog:"`) is upgraded in `pnp
 ## Options
 
 <!--upgrade-opts-->
-| Option                                                             | Default  | Description                                         |
-|--------------------------------------------------------------------|----------|-----------------------------------------------------|
-| `--cwd=<directory>`                                                |          | Specify the root directory of your Nuxt project     |
-| `--logLevel=<silent\|info\|verbose>`                               |          | Specify build-time log level                        |
-| `--dedupe`                                                         |          | Dedupe dependencies after upgrading                 |
-| `-f, --force`                                                      |          | Force upgrade to recreate lockfile and node_modules |
-| `-ch, --channel=<stable\|nightly\|v3\|v4\|v4-nightly\|v5-nightly>` | `stable` | Specify a channel to install from                   |
+| Option                                                         | Default  | Description                                         |
+|----------------------------------------------------------------|----------|-----------------------------------------------------|
+| `--cwd=<directory>`                                            |          | Specify the root directory of your Nuxt project     |
+| `--logLevel=<silent\|info\|verbose>`                           |          | Specify build-time log level                        |
+| `--dedupe`                                                     |          | Dedupe dependencies after upgrading                 |
+| `-f, --force`                                                  |          | Force upgrade to recreate lockfile and node_modules |
+| `-ch, --channel=<stable\|nightly\|v4\|v4-nightly\|v5-nightly>` | `stable` | Specify a channel to install from                   |
 <!--/upgrade-opts-->
