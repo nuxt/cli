@@ -133,6 +133,8 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
       return { npmPackages: packageNames.map(p => `${p}@3`), nuxtVersion: '3.x' }
     case 'v4':
       return { npmPackages: packageNames.map(p => `${p}@4`), nuxtVersion: '4.x' }
+    case 'v3-nightly':
+      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')), nuxtVersion: '3.x' }
     case 'v4-nightly':
       return { npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')), nuxtVersion: '4.x' }
     case 'v5-nightly':
@@ -165,7 +167,8 @@ export default defineCommand({
       alias: 'ch',
       default: 'stable',
       description: 'Specify a channel to install from',
-      options: ['stable', 'nightly', 'v3', 'v4', 'v4-nightly', 'v5-nightly'],
+      options: ['stable', 'nightly', 'v3', 'v4', 'v3-nightly', 'v4-nightly', 'v5-nightly'],
+      valueHint: 'stable|nightly|v4|v4-nightly|v5-nightly',
     },
   },
   async run(ctx) {
