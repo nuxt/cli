@@ -9,7 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "nuxt": "npm:nuxt-nightly@5.0.0-2610192007-fe9ca5b",
+    "nuxt": "npm:nuxt-nightly@5.0.0-2610221052-8c52432",
     "vue": "^3.5.43",
     "vue-router": "^5.3.1"
   },
