@@ -52,7 +52,7 @@ interface NuxtServerBuild {
  * Nuxt fields the CLI reads optimistically: they exist in recent Nuxt only, and
  * the CLI supports a range of versions.
  */
-interface MaybeModernNuxt extends Nuxt {
+interface MaybeModernNuxt extends Omit<Nuxt, 'serverBuild'> {
   serverBuild?: NuxtServerBuild
   options: Nuxt['options'] & { server?: { builder?: unknown } }
 }
