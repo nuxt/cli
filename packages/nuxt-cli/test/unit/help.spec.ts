@@ -471,7 +471,7 @@ describe('help', () => {
                                    --logLevel=<silent|info|verbose>    Specify build-time log level                       
                                                            --dedupe    Dedupe dependencies after upgrading                
                                                         -f, --force    Force upgrade to recreate lockfile and node_modules
-        -ch, --channel=<stable|nightly|v3|v4|v4-nightly|v3-nightly>    Specify a channel to install from (Default: stable)
+        -ch, --channel=<stable|nightly|v3|v4|v4-nightly|v5-nightly>    Specify a channel to install from (Default: stable)
       "
     `)
   })
