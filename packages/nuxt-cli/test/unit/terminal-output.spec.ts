@@ -216,10 +216,7 @@ describe('dev server terminal output', () => {
     it('should say so when the browser launcher fails', async () => {
       const restore = stubDisplay({ browser: '/definitely/not/a/launcher' })
 
-      const renderer = await render(async ({ waitForOutput }) => {
-        openBrowser('http://localhost:3000/')
-        await waitForOutput('Could not open')
-      })
+      const renderer = await render(() => openBrowser('http://localhost:3000/'))
       restore()
 
       expect(screen(renderer)).toContain('Could not open http://localhost:<port>/ in a browser.')
@@ -229,10 +226,7 @@ describe('dev server terminal output', () => {
       // A launcher that fails, without depending on a platform-specific binary.
       const restore = stubDisplay({ browser: process.execPath, browserArgs: '-e process.exit(1)' })
 
-      const renderer = await render(async ({ waitForOutput }) => {
-        openBrowser('http://localhost:3000/')
-        await waitForOutput('Could not open')
-      })
+      const renderer = await render(() => openBrowser('http://localhost:3000/'))
       restore()
 
       expect(screen(renderer)).toContain('Could not open http://localhost:<port>/ in a browser.')
