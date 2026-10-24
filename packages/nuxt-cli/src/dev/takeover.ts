@@ -165,6 +165,10 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
         if (!openURL) {
           return { action: 'refused', existing, reason: 'declined' }
         }
+        const gone = await checkHolderGone(lockDir, existing)
+        if (gone) {
+          return gone
+        }
         await openBrowser(openURL)
         return { action: 'opened', existing }
       }
@@ -181,16 +185,12 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
 }
 
 async function performTakeover(lockDir: string, existing: LockInfo, timeouts: TakeoverOptions['timeouts'] = {}): Promise<TakeoverResult> {
-  const port = existing.port!
-  const portFree = await isPortFree(port, existing.hostname)
-  if (!matchesLock(readLock(lockDir), existing)) {
-    return { action: 'none' }
-  }
-  if (!isProcessAlive(existing.pid) || portFree) {
-    clearStaleLock(lockDir, existing)
-    return { action: 'stale' }
+  const gone = await checkHolderGone(lockDir, existing)
+  if (gone) {
+    return gone
   }
 
+  const port = existing.port!
   const label = describeServer(existing)
   const startedAt = new Date(existing.startedAt).toLocaleTimeString()
   const progress = startProgress(`Taking over the ${label} on port ${port} (PID ${existing.pid}, started ${startedAt})`)
@@ -231,6 +231,21 @@ async function performTakeover(lockDir: string, existing: LockInfo, timeouts: Ta
   progress.fail(`Could not stop the ${label} on port ${port}`)
   clearTakeover(lockDir, process.pid)
   return { action: 'refused', existing, reason: 'timeout' }
+}
+
+/**
+ * Recheck a holder after waiting on the user: `none` if its lock has been
+ * replaced, `stale` (with the lock dropped) if the server has gone.
+ */
+async function checkHolderGone(lockDir: string, existing: LockInfo): Promise<TakeoverResult | undefined> {
+  const portFree = await isPortFree(existing.port!, existing.hostname)
+  if (!matchesLock(readLock(lockDir), existing)) {
+    return { action: 'none' }
+  }
+  if (!isProcessAlive(existing.pid) || portFree) {
+    clearStaleLock(lockDir, existing)
+    return { action: 'stale' }
+  }
 }
 
 function matchesLock(current: LockInfo | undefined, existing: LockInfo): boolean {

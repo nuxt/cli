@@ -66,7 +66,7 @@ export async function findDevServer(cwd: string, buildDir?: string): Promise<Run
  */
 export function lockAppURL(lock: LockInfo): string | undefined {
   if (lock.url && isOwnAddress(lock.url)) {
-    return toLoopback(lock.url) + (lock.baseURL || '/')
+    return new URL(toLoopback(lock.url)).origin + (lock.baseURL || '/')
   }
 }
 

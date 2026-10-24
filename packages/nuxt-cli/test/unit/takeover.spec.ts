@@ -253,6 +253,26 @@ describe('takeOverServer', () => {
       expect(readLock(buildDir)?.pid).toBe(HOLDER_PID)
     })
 
+    it('opens only the origin and a plain base url from the lock', async () => {
+      writeLock(buildDir, { interactive: true, url: 'http://127.0.0.1:3000/x|calc', baseURL: '/"&calc' })
+      mockProcess()
+      await takeOverServer(buildDir, { interactive: true, open: true, prompt: async () => 'open' })
+      expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:3000/')
+    })
+
+    it('starts normally when the holder exits while the prompt is open', async () => {
+      writeLock(buildDir, { interactive: true })
+      const proc = mockProcess()
+      const prompt = vi.fn(async () => {
+        checkPort.mockResolvedValue(3000)
+        return 'open' as const
+      })
+      expect(await takeOverServer(buildDir, { interactive: true, open: true, prompt })).toEqual({ action: 'stale' })
+      expect(openBrowser).not.toHaveBeenCalled()
+      expect(proc.signals).toHaveLength(0)
+      expect(readLock(buildDir)).toBeUndefined()
+    })
+
     it('is the default for a holder started in a terminal, resolving `--open.url` against it', async () => {
       writeLock(buildDir, { interactive: true, baseURL: '/admin/' })
       const proc = mockProcess()

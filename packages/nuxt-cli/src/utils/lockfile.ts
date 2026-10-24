@@ -137,6 +137,8 @@ const MAX_LOCK_STRING_LENGTH = 1024
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F-\u009F]/g
 const LOCK_HOSTNAME_RE = /^[\w.:[\]-]{1,253}$/
+// Plain path segments only: the base URL ends up on a browser launcher's command line.
+const LOCK_URL_PATH_RE = /^\/(?:[\w.~@+-]+\/)*[\w.~@+-]*$/
 
 function lockPid(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 2 ** 31 - 1
@@ -166,7 +168,7 @@ function lockURL(value: unknown): string | undefined {
 
 function lockURLPath(value: unknown): string | undefined {
   const text = lockText(value)
-  return text?.startsWith('/') && !text.startsWith('//') ? text : undefined
+  return text && LOCK_URL_PATH_RE.test(text) ? text : undefined
 }
 
 /**
