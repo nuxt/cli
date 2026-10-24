@@ -1060,9 +1060,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const https = (httpsEnabled ?? !!nuxtConfig.devServer?.https)
       && defu(typeof overrides.https === 'object' ? overrides.https : {}, httpsFromConfig)
 
-    const baseURL = nuxtConfig.app?.baseURL?.startsWith?.('./')
-      ? nuxtConfig.app.baseURL.slice(1)
-      : nuxtConfig.app?.baseURL
+    const baseURL = resolveAppBaseURL(nuxtConfig.app?.baseURL)
 
     return {
       ...overrides,
@@ -1243,6 +1241,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       port: addr.port,
       hostname: addr.address,
       url: serverUrl,
+      baseURL: resolveAppBaseURL(this.#currentNuxt.options.app?.baseURL),
     })
 
     this.#progress.setReady()
@@ -1384,6 +1383,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 /** Whether anyone is watching this terminal, directly or through the panel. */
 function isInteractive(): boolean {
   return !!process.stdout.isTTY || !!process.env.__NUXT_DEV_PIPED_TTY__
+}
+
+function resolveAppBaseURL(baseURL: string | undefined): string | undefined {
+  return baseURL?.startsWith?.('./') ? baseURL.slice(1) : baseURL
 }
 
 function getAddressURL(addr: { address: string, port: number }, https: boolean) {

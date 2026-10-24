@@ -20,6 +20,8 @@ export interface LockInfo {
   port?: number
   hostname?: string
   url?: string
+  /** `app.baseURL` of a dev server, which `url` does not include. */
+  baseURL?: string
   /**
    * PID of the process supervising the holder, when the holder is a dev fork.
    * Signalling the holder alone would leave its supervisor running.
@@ -135,6 +137,8 @@ const MAX_LOCK_STRING_LENGTH = 1024
 // eslint-disable-next-line no-control-regex
 const CONTROL_CHARS_RE = /[\u0000-\u001F\u007F-\u009F]/g
 const LOCK_HOSTNAME_RE = /^[\w.:[\]-]{1,253}$/
+// Plain path segments only: the base URL ends up on a browser launcher's command line.
+const LOCK_URL_PATH_RE = /^\/(?:[\w.~@+-]+\/)*[\w.~@+-]*$/
 
 function lockPid(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 && value <= 2 ** 31 - 1
@@ -160,6 +164,11 @@ function lockURL(value: unknown): string | undefined {
   catch {
     return undefined
   }
+}
+
+function lockURLPath(value: unknown): string | undefined {
+  const text = lockText(value)
+  return text && LOCK_URL_PATH_RE.test(text) ? text : undefined
 }
 
 /**
@@ -189,6 +198,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
 
   const port = input.port
   const hostname = lockText(input.hostname)
+  const baseURL = lockURLPath(input.baseURL)
   const parentPid = lockPid(input.parentPid)
   const serverPid = lockPid(input.serverPid)
   const takenOverBy = lockPid(input.takenOverBy)
@@ -202,6 +212,7 @@ export function parseLockInfo(raw: unknown): LockInfo | undefined {
     ...typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65_535 ? { port } : {},
     ...hostname && LOCK_HOSTNAME_RE.test(hostname) ? { hostname } : {},
     ...lockURL(input.url) ? { url: lockURL(input.url) } : {},
+    ...baseURL ? { baseURL } : {},
     ...parentPid ? { parentPid } : {},
     ...serverPid ? { serverPid } : {},
     ...takenOverBy ? { takenOverBy } : {},
