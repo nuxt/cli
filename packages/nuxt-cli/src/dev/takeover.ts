@@ -70,7 +70,7 @@ export interface TakeoverOptions {
   takeover?: boolean
   /** Whether this invocation can prompt. Defaults to the current terminal. */
   interactive?: boolean
-  /** `--open`; makes opening the running server the default choice. */
+  /** `--open`; offers to open the running server instead of starting. */
   open?: boolean
   /** `--open.url`; resolved against the running server's URL. */
   openURL?: string
@@ -153,10 +153,10 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
     }
     else {
       const prompt = options.prompt ?? promptForTakeover
-      const openURL = resolveBrowserURL(existing, options.openURL)
+      const openURL = options.open ? resolveBrowserURL(existing, options.openURL) : undefined
       // Nothing ends an interactive session on a bare enter, so the default
       // depends on whether a person is watching the other server.
-      const defaultChoice = options.open && openURL ? 'open' : existing.interactive ? 'abort' : 'takeover'
+      const defaultChoice = !existing.interactive ? 'takeover' : openURL ? 'open' : 'abort'
       const choice = await withUserAttention(() => prompt(existing, defaultChoice, openURL))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
@@ -320,14 +320,15 @@ function resolveBrowserURL(existing: LockInfo, target: string | undefined): stri
 
 async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice, openURL: string | undefined): Promise<TakeoverChoice> {
   logger.info(`A Nuxt ${describeServer(existing)} is already running here (PID ${existing.pid}, ${describeLocation(existing)}).`)
+  const andOpen = openURL ? ' and open in browser' : ''
   const choice = await select<TakeoverChoice>({
     message: 'What would you like to do?',
     initialValue: defaultChoice,
     options: [
-      { value: 'takeover', label: `Take over port ${existing.port}`, hint: 'stops the running server (--takeover)' },
+      { value: 'takeover', label: `Take over port ${existing.port}${andOpen}`, hint: 'stops the running server (--takeover)' },
+      ...(openURL ? [{ value: 'open' as const, label: `Do not start, open ${openURL} in browser`, hint: 'keeps the running server' }] : []),
       { value: 'abort', label: 'Do not start', hint: '--no-takeover' },
-      ...(openURL ? [{ value: 'open' as const, label: `Open ${openURL} in browser`, hint: 'keeps the running server' }] : []),
-      { value: 'start-anyway', label: 'Start anyway', hint: serverKind(existing).startAnywayHint },
+      { value: 'start-anyway', label: `Start anyway${andOpen}`, hint: serverKind(existing).startAnywayHint },
     ],
   })
   restoreRawMode()

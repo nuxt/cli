@@ -187,7 +187,7 @@ describe('takeOverServer', () => {
       mockProcess()
       const prompt = vi.fn(async (_lock: LockInfo, fallback: TakeoverChoice) => fallback)
       const result = await takeOverServer(buildDir, { interactive: true, prompt })
-      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ pid: HOLDER_PID }), 'takeover', 'http://127.0.0.1:3000/')
+      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ pid: HOLDER_PID }), 'takeover', undefined)
       expect(result).toEqual({ action: 'taken', port: 3000, pid: HOLDER_PID })
     })
 
@@ -204,7 +204,7 @@ describe('takeOverServer', () => {
       const proc = mockProcess()
       const prompt = vi.fn(async (_lock: LockInfo, fallback: TakeoverChoice) => fallback)
       const result = await takeOverServer(buildDir, { interactive: true, prompt })
-      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ pid: HOLDER_PID }), 'abort', 'http://127.0.0.1:3000/')
+      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ pid: HOLDER_PID }), 'abort', undefined)
       expect(result).toMatchObject({ action: 'refused', reason: 'declined' })
       expect(proc.signals).toHaveLength(0)
     })
@@ -246,34 +246,44 @@ describe('takeOverServer', () => {
       writeLock(buildDir, { interactive: true, hostname: '0.0.0.0', url: 'http://0.0.0.0:3000', baseURL: '/admin/' })
       const proc = mockProcess()
       const prompt = vi.fn(async () => 'open' as const)
-      expect(await takeOverServer(buildDir, { interactive: true, prompt })).toMatchObject({ action: 'opened' })
+      expect(await takeOverServer(buildDir, { interactive: true, open: true, prompt })).toMatchObject({ action: 'opened' })
       expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:3000/admin/')
-      expect(prompt).toHaveBeenCalledWith(expect.anything(), 'abort', 'http://127.0.0.1:3000/admin/')
+      expect(prompt).toHaveBeenCalledWith(expect.anything(), 'open', 'http://127.0.0.1:3000/admin/')
       expect(proc.signals).toHaveLength(0)
       expect(readLock(buildDir)?.pid).toBe(HOLDER_PID)
     })
 
-    it('is the default with `--open`, resolving `--open.url` against the running server', async () => {
-      writeLock(buildDir, { interactive: false, baseURL: '/admin/' })
+    it('is the default for a holder started in a terminal, resolving `--open.url` against it', async () => {
+      writeLock(buildDir, { interactive: true, baseURL: '/admin/' })
       const proc = mockProcess()
       const prompt = vi.fn(async (_lock: LockInfo, fallback: TakeoverChoice) => fallback)
       const result = await takeOverServer(buildDir, { interactive: true, open: true, openURL: 'settings', prompt })
       expect(result).toMatchObject({ action: 'opened' })
       expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:3000/admin/settings')
-      expect(prompt).toHaveBeenCalledWith(expect.anything(), 'open', 'http://127.0.0.1:3000/admin/settings')
       expect(proc.signals).toHaveLength(0)
     })
 
+    it('leaves taking over the default for a holder started without a terminal', async () => {
+      writeLock(buildDir, { interactive: false })
+      mockProcess()
+      const prompt = vi.fn(async (_lock: LockInfo, fallback: TakeoverChoice) => fallback)
+      const result = await takeOverServer(buildDir, { interactive: true, open: true, prompt })
+      expect(result).toEqual({ action: 'taken', port: 3000, pid: HOLDER_PID })
+      expect(openBrowser).not.toHaveBeenCalled()
+      expect(prompt).toHaveBeenCalledWith(expect.anything(), 'takeover', 'http://127.0.0.1:3000/')
+    })
+
     it.each([
-      ['the server has no url yet', { url: undefined }, true],
-      ['the url names another machine', { url: 'http://203.0.113.7:3000' }, true],
-      ['there is no browser to open', {}, false],
-    ])('is not offered when %s', async (_, lock: Partial<LockInfo>, browser) => {
+      ['`--open` was not passed', {}, true, false],
+      ['the server has no url yet', { url: undefined }, true, true],
+      ['the url names another machine', { url: 'http://203.0.113.7:3000' }, true, true],
+      ['there is no browser to open', {}, false, true],
+    ])('is not offered when %s', async (_, lock: Partial<LockInfo>, browser, open) => {
       writeLock(buildDir, { interactive: true, ...lock })
       canOpenBrowser.mockReturnValue(browser)
       const proc = mockProcess()
       const prompt = vi.fn(async () => 'open' as const)
-      const result = await takeOverServer(buildDir, { interactive: true, open: true, prompt })
+      const result = await takeOverServer(buildDir, { interactive: true, open, prompt })
       expect(result).toMatchObject({ action: 'refused', reason: 'declined' })
       expect(openBrowser).not.toHaveBeenCalled()
       expect(proc.signals).toHaveLength(0)

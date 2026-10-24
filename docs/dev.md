@@ -112,7 +112,7 @@ When the dev server reloads or restarts it says what caused it, and a change to 
 
 A dev server records itself in `nuxt.lock` inside your [build directory](/docs/directory-structure/nuxt), so a second `nuxt dev` for the same project reports the one already running instead of racing it for the port. Pass `--takeover` to stop it and start in its place, or set `NUXT_IGNORE_LOCK=1` to run a second server anyway (unsupported).
 
-When you are asked what to do, you can also open the running server in your browser without stopping it. That is the default choice with `--open`, and `--open.url` is resolved against the running server's URL.
+With `--open`, the prompt also offers to open the running server in your browser without stopping it, which is the default when that server was started in a terminal. `--open.url` is resolved against the running server's URL.
 
 The same lock file is how [`nuxt curl`](/docs/api/commands/curl) and [`nuxt task`](/docs/api/commands/task) find the server to talk to.
 

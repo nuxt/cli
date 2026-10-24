@@ -136,9 +136,6 @@ const command = defineCommand({
         logger.error(formatTakeoverRefusal(takeover.existing, takeover.reason))
         process.exit(1)
       }
-      if (takeover.action === 'opened') {
-        process.exit(0)
-      }
       if (takeover.action === 'taken') {
         return takeover.port
       }
