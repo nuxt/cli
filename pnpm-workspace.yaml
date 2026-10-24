@@ -27,8 +27,8 @@ overrides:
   eslint-plugin-unicorn: 76.0.0
   # scoped by range: nitro v3 in `playground-nightly` needs h3 v2
   h3@^1: ^1.15.11
-  httpxy: 0.5.5
-  nitropack: 2.13.4
+  httpxy: 0.5.6
+  nitropack: 2.13.5
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.2.14
