@@ -18,7 +18,6 @@ import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
-import { writeTypes, writeTypesInChild } from '../utils/write-types'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
@@ -148,6 +147,7 @@ export default defineCommand({
 
     // Overrides may not be serialisable, so they are applied in this process.
     const hasOverrides = Object.keys(ctx.data?.overrides ?? {}).length > 0
+    const { writeTypes, writeTypesInChild } = await import('../utils/write-types')
     const [tsConfig] = await Promise.all([
       readTSConfig(cwd).catch(() => ({} as TSConfig)),
       (hasOverrides ? writeTypes : writeTypesInChild)({
