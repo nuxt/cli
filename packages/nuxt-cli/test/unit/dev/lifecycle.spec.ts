@@ -3,6 +3,7 @@ import type { AddressInfo, Socket } from 'node:net'
 import { EventEmitter } from 'node:events'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
+import { request } from 'node:http'
 import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
@@ -98,6 +99,20 @@ async function get(server: InstanceType<typeof NuxtDevServer>, path = '/'): Prom
   return { status: response.status, body: await response.text() }
 }
 
+/** Status of `path` for a `Host` header, which `fetch` does not let a caller set. */
+function statusForHost(server: InstanceType<typeof NuxtDevServer>, host: string, path = '/__nuxt_dev__/progress'): Promise<number | undefined> {
+  const { port } = server.listener.address as AddressInfo
+  return new Promise((resolve, reject) => {
+    const req = request({ host: '127.0.0.1', port, path, headers: { host } }, (res) => {
+      // The progress endpoint is a stream that does not end.
+      res.destroy()
+      resolve(res.statusCode)
+    })
+    req.once('error', reject)
+    req.end()
+  })
+}
+
 /** Drive `handler` without a socket, for a server that has not listened yet. */
 async function serveLocally(server: InstanceType<typeof NuxtDevServer>, path: string): Promise<{ status: number }> {
   const res = new EventEmitter() as any
@@ -159,6 +174,7 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
+  vi.unstubAllEnvs()
   for (const server of servers.splice(0)) {
     server.closeWatchers()
     server.releaseLock()
@@ -423,6 +439,97 @@ describe('dev server restart', () => {
     await nuxt.callHook('builder:watch')
 
     await expect(change).resolves.toBeUndefined()
+  })
+})
+
+describe('dev server host check', () => {
+  function createNuxtWithHosts(allowedHosts: unknown) {
+    return createNuxt({ vite: { server: { allowedHosts } } })
+  }
+
+  it('should allow the hosts in `vite.server.allowedHosts` on its own endpoints', async () => {
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxtWithHosts(['Alias.test'])))
+    const server = createServer()
+    await server.init()
+
+    await expect(statusForHost(server, 'alias.test:3000')).resolves.toBe(200)
+    await expect(statusForHost(server, 'other.test')).resolves.toBe(403)
+  })
+
+  it('should allow any host on its own endpoints for `vite.server.allowedHosts: true`', async () => {
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxtWithHosts(true)))
+    const server = createServer()
+    await server.init()
+
+    await expect(statusForHost(server, 'any.test')).resolves.toBe(200)
+  })
+
+  it('should leave `devServer.cors` unset for `vite.server.allowedHosts: true`', async () => {
+    const nuxt = createNuxtWithHosts(true)
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    expect(nuxt.options.devServer.cors).toBeUndefined()
+  })
+
+  it('should keep the string entries of `vite.server.allowedHosts` when others are not strings', async () => {
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxtWithHosts([42, null, 'alias.test'])))
+    const server = createServer()
+    await server.init()
+
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(200)
+  })
+
+  it('should reject a hostname the CLI added to `vite.server.allowedHosts` for an earlier listener', async () => {
+    // Only the listener bound before the config loads announces this hostname.
+    vi.stubEnv('PORTLESS_URL', 'https://stale.test')
+    loadNuxt.mockImplementation((options: { defaults?: { vite?: { server?: { allowedHosts?: string[] } } } }) => {
+      vi.stubEnv('PORTLESS_URL', '')
+      // c12 merges the CLI's defaults into the project's config.
+      return Promise.resolve(createNuxtWithHosts(['alias.test', ...options.defaults?.vite?.server?.allowedHosts ?? []]))
+    })
+    const server = createServer()
+    await server.init()
+
+    expect(loadNuxt.mock.calls[0]![0].defaults.vite.server.allowedHosts).toContain('stale.test')
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(200)
+    await expect(statusForHost(server, 'stale.test')).resolves.toBe(403)
+  })
+
+  it('should not extend a listener hostname with a leading dot to its subdomains', async () => {
+    vi.stubEnv('PORTLESS_URL', 'https://.example.test')
+    const server = createServer()
+    await server.init()
+
+    expect(server.listener.getURLs().map(({ url }) => new URL(url).hostname)).toContain('.example.test')
+    await expect(statusForHost(server, 'app.example.test')).resolves.toBe(403)
+  })
+
+  it('should follow `vite.server.allowedHosts` across config reloads', async () => {
+    const server = createServer()
+    await server.init()
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(403)
+
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxtWithHosts(['alias.test'])))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(200)
+
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxt()))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(403)
+  })
+
+  it('should keep the hosts of the last loaded config when a reload fails', async () => {
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxtWithHosts(['alias.test'])))
+    const server = createServer()
+    await server.init()
+
+    loadNuxt.mockImplementation(() => Promise.reject(new Error('broken on reload')))
+    await server.load(true, { type: 'config', files: [join(cwd, 'nuxt.config.ts')] })
+
+    // 500 is the load-failure page, so the host check let the request through.
+    await expect(statusForHost(server, 'alias.test', '/')).resolves.toBe(500)
   })
 })
 

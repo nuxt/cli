@@ -65,7 +65,7 @@ export function useErrorChannel(options: ErrorChannelOptions = {}): Promise<Chan
       // is not `process.cwd()` when `nuxt dev` was pointed elsewhere.
       root: options.cwd || process.cwd(),
       // The dev server's own `Host` check has already run, and knows what
-      // `--host` allowed.
+      // `--host` and `vite.server.allowedHosts` allowed.
       allowedHosts: true,
       sink: await resolveSink(options),
     }))

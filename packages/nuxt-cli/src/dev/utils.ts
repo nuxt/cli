@@ -251,6 +251,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #bound?: BoundServer
   #allowedHosts = new Set<string>()
   #allowAnyHost = false
+  /** Options of the bound listener, so a reload can rebuild the `Host` allowlist without a rebind. */
+  #listenOptions: ListenOptions = {}
+  /** Hostnames the CLI itself put in `vite.server.allowedHosts` on the last load. */
+  #injectedAllowedHosts = new Set<string>()
   #openedEagerly = false
   #progress = new DevProgress()
   #warmup = new WarmupGate()
@@ -366,30 +370,43 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       res.statusCode = 403
       res.setHeader('Content-Type', 'text/plain')
     }
-    res.end('Forbidden: this host is not allowed. Pass it to `--host`, or `--public` to allow any host.')
+    res.end('Forbidden: this host is not allowed. Pass it to `--host`, add it to `vite.server.allowedHosts` in `nuxt.config`, or use `--public` to allow any host.')
     return true
   }
 
   /**
-   * Record the hostnames this server answers on, for the `Host` check on the
-   * CLI's own endpoints. `--public` opts out of the check entirely.
+   * Record the hostnames this server answers on and the loaded config's
+   * `vite.server.allowedHosts`, for the `Host` check on the CLI's own endpoints.
+   * `--public` or `vite.server.allowedHosts: true` opts out of the check entirely.
    */
   #syncAllowedHosts(options: ListenOptions): void {
-    this.#allowAnyHost = !!options.public
+    this.#listenOptions = options
+    const configured = this.#currentNuxt?.options.vite?.server?.allowedHosts
+    this.#allowAnyHost = !!options.public || configured === true
     this.#allowedHosts.clear()
     if (this.#allowAnyHost) {
       return
     }
-    if (options.hostname) {
+    // A leading dot is a suffix pattern, not a hostname, so only config entries may carry it.
+    if (options.hostname && !options.hostname.startsWith('.')) {
       this.#allowedHosts.add(options.hostname.toLowerCase())
     }
     for (const { url } of this.listener?.getURLs() ?? []) {
       try {
         const hostname = new URL(url).hostname.toLowerCase()
-        this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
+        if (!hostname.startsWith('.')) {
+          this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
+        }
       }
       catch {
         // a malformed display URL is not a hostname to allow
+      }
+    }
+    if (Array.isArray(configured)) {
+      for (const host of configured) {
+        if (typeof host === 'string' && !this.#injectedAllowedHosts.has(host)) {
+          this.#allowedHosts.add(host.toLowerCase())
+        }
       }
     }
   }
@@ -841,6 +858,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
+    // Remember what the CLI added: c12 merges these defaults into the project's `vite.server.allowedHosts`.
+    const injectedAllowedHosts = loadOptions.defaults?.vite?.server?.allowedHosts
+    this.#injectedAllowedHosts = new Set(Array.isArray(injectedAllowedHosts) ? injectedAllowedHosts : [])
 
     if (this.options.captureUIEvents) {
       this.#collectRoutes(this.#currentNuxt)
@@ -1049,8 +1069,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
-    // Only `--public` (or a sandbox that fronts the server) drops the `Host` and
-    // CORS checks. A non-loopback `--host` widens who can reach the bind, not
+    // Only `--public` (or a sandbox that fronts the server) drops both the `Host`
+    // and CORS checks. A non-loopback `--host` widens who can reach the bind, not
     // which origins may read from it.
     const isPublic = provider === 'codesandbox' || overrides.public
 
@@ -1362,6 +1382,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         this.#reportReload(withConfigKeys(reason, this.#changedConfigKeys))
       }
     }
+
+    // A reload keeps the bound listener, so rebuild the `Host` allowlist from the new config.
+    this.#syncAllowedHosts(this.#listenOptions)
 
     await this.#initializeNuxt(!!reload)
   }
