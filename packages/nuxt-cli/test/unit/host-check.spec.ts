@@ -47,6 +47,25 @@ describe('isAllowedHost', () => {
     expect(isAllowedHost('DEV.example.com', allowed)).toBe(true)
   })
 
+  it('accepts a leading-dot entry for the domain and its subdomains', () => {
+    const allowed = new Set(['.example.com'])
+    expect(isAllowedHost('example.com:3000', allowed)).toBe(true)
+    expect(isAllowedHost('dev.example.com', allowed)).toBe(true)
+    expect(isAllowedHost('a.b.EXAMPLE.com', allowed)).toBe(true)
+  })
+
+  it('rejects other domains for a leading-dot entry', () => {
+    const allowed = new Set(['.example.com'])
+    expect(isAllowedHost('notexample.com', allowed)).toBe(false)
+    expect(isAllowedHost('example.com.evil.com', allowed)).toBe(false)
+  })
+
+  it('rejects subdomains for an entry without a leading dot', () => {
+    const allowed = new Set(['example.com'])
+    expect(isAllowedHost('example.com', allowed)).toBe(true)
+    expect(isAllowedHost('dev.example.com', allowed)).toBe(false)
+  })
+
   it('rejects hostnames not on the allowlist', () => {
     expect(isAllowedHost('rebinding-attacker.com:3000', none)).toBe(false)
     expect(isAllowedHost('localhost.evil.com', none)).toBe(false)
