@@ -40,7 +40,7 @@ import { resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
-import { isAllowedHost } from './host-check'
+import { isAllowedHost, resolveConfiguredAllowedHosts } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -251,6 +251,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #bound?: BoundServer
   #allowedHosts = new Set<string>()
   #allowAnyHost = false
+  /** Options of the bound listener, so a reload can rebuild the `Host` allowlist without a rebind. */
+  #listenOptions: ListenOptions = {}
+  /** `vite.server.allowedHosts` from the previous run, for the `Host` check before the config loads. */
+  #hintedAllowedHosts?: true | string[]
   #openedEagerly = false
   #progress = new DevProgress()
   #warmup = new WarmupGate()
@@ -366,16 +370,21 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       res.statusCode = 403
       res.setHeader('Content-Type', 'text/plain')
     }
-    res.end('Forbidden: this host is not allowed. Pass it to `--host`, or `--public` to allow any host.')
+    res.end('Forbidden: this host is not allowed. Pass it to `--host`, add it to `vite.server.allowedHosts` in `nuxt.config`, or use `--public` to allow any host.')
     return true
   }
 
   /**
-   * Record the hostnames this server answers on, for the `Host` check on the
-   * CLI's own endpoints. `--public` opts out of the check entirely.
+   * Record the hostnames this server answers on and the loaded config's
+   * `vite.server.allowedHosts`, for the `Host` check on the CLI's own endpoints.
+   * `--public` or `vite.server.allowedHosts: true` opts out of the check entirely.
    */
   #syncAllowedHosts(options: ListenOptions): void {
-    this.#allowAnyHost = !!options.public
+    this.#listenOptions = options
+    const configured = this.#currentNuxt
+      ? resolveConfiguredAllowedHosts(this.#currentNuxt.options.vite?.server?.allowedHosts)
+      : this.#hintedAllowedHosts
+    this.#allowAnyHost = !!options.public || configured === true
     this.#allowedHosts.clear()
     if (this.#allowAnyHost) {
       return
@@ -390,6 +399,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
       catch {
         // a malformed display URL is not a hostname to allow
+      }
+    }
+    if (Array.isArray(configured)) {
+      for (const host of configured) {
+        this.#allowedHosts.add(host.toLowerCase())
       }
     }
   }
@@ -964,6 +978,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.listener = await createListener(this.#bound, listenOptions, { announce: false })
+    this.#hintedAllowedHosts = resolveConfiguredAllowedHosts(hint?.allowedHosts)
     this.#syncAllowedHosts(listenOptions)
     this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: false })
 
@@ -1034,6 +1049,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname: devServer.host || undefined,
       https: !!devServer.https,
       baseURL,
+      allowedHosts: resolveConfiguredAllowedHosts(this.#currentNuxt?.options.vite?.server?.allowedHosts),
     })
   }
 
@@ -1049,8 +1065,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
 
-    // Only `--public` (or a sandbox that fronts the server) drops the `Host` and
-    // CORS checks. A non-loopback `--host` widens who can reach the bind, not
+    // Only `--public` (or a sandbox that fronts the server) drops both the `Host`
+    // and CORS checks. A non-loopback `--host` widens who can reach the bind, not
     // which origins may read from it.
     const isPublic = provider === 'codesandbox' || overrides.public
 
@@ -1362,6 +1378,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
         this.#reportReload(withConfigKeys(reason, this.#changedConfigKeys))
       }
     }
+
+    // A reload keeps the bound listener, so rebuild the `Host` allowlist from the new config.
+    this.#syncAllowedHosts(this.#listenOptions)
 
     await this.#initializeNuxt(!!reload)
   }
