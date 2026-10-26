@@ -1,9 +1,9 @@
 import type { AgentName, DetectResult } from 'package-manager-detector'
 import { execFile } from 'node:child_process'
-import process from 'node:process'
 
 import { LOCKS } from 'package-manager-detector/constants'
 import { detect } from 'package-manager-detector/detect'
+import { normalizeSpawnCommand } from 'tinyexec'
 
 const preferredOrder: AgentName[] = ['npm', 'pnpm', 'yarn', 'bun', 'deno']
 
@@ -33,11 +33,9 @@ export async function detectPackageManager(cwd: string, { includeParentDirs = tr
 }
 
 export function getPackageManagerVersion(command: string): Promise<string> {
-  // Package managers are `.cmd` shims on Windows, which cannot be spawned without a shell.
-  // An args array next to `shell: true` is deprecated (DEP0190), so the flag goes into the command string.
-  const isWindows = process.platform === 'win32'
+  const normalized = normalizeSpawnCommand(command, ['--version'])
   return new Promise((resolve) => {
-    const child = execFile(isWindows ? `"${command}" --version` : command, isWindows ? [] : ['--version'], { shell: isWindows }, (error, stdout) => {
+    const child = execFile(normalized.command, [...normalized.args], normalized.options, (error, stdout) => {
       resolve(error ? 'unknown' : stdout.trim())
     })
     child.stdin?.end()

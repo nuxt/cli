@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { describe, expect, it, onTestFinished } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../../../src/utils/package-managers'
+
+const SEMVER_RE = /^\d+\.\d+\.\d+/
 
 describe('detectPackageManager', () => {
   async function createNestedProject() {
@@ -38,31 +40,27 @@ describe('getLockFiles', () => {
 })
 
 describe('getPackageManagerVersion', () => {
-  // Node emits DEP0190 once per process, so this runs before any other shell spawn.
-  it('does not warn about shell arguments when the platform is win32', async () => {
-    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+  const warnings: unknown[] = []
+  beforeAll(() => {
     const original = process.emitWarning
-    const warnings: unknown[] = []
-    const recorder = (warning: string | Error, ...args: any[]) => {
+    process.emitWarning = (warning: string | Error, ...args: any[]) => {
       warnings.push(warning, ...args)
       return (original as any)(warning, ...args)
     }
-    onTestFinished(() => {
+    return () => {
       process.emitWarning = original
-      Object.defineProperty(process, 'platform', platform)
-    })
-    process.emitWarning = recorder
-    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
-
-    // Node spawns `cmd.exe` for `win32`, so the version is only readable on Windows.
-    const expected = platform.value === 'win32' ? process.version : 'unknown'
-    await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(expected)
-
+    }
+  })
+  afterEach(() => {
     expect(warnings).not.toContain('DEP0190')
   })
 
   it('returns the command version', async () => {
     await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(process.version)
+  })
+
+  it('returns the version of a package manager shim', async () => {
+    await expect(getPackageManagerVersion('npm')).resolves.toMatch(SEMVER_RE)
   })
 
   it('does not fail when the package manager is unavailable', async () => {
