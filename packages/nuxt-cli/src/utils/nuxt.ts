@@ -7,7 +7,7 @@ import { dirname, relative, resolve } from 'pathe'
 
 import { debug, logger } from '../utils/logger'
 
-const GIT_ID_RE = /\.([0-9a-f]{7,8})$/
+const GIT_ID_RE = /[.-]([0-9a-f]{7,8})$/
 
 interface NuxtProjectManifest {
   _hash: string | null
@@ -69,7 +69,7 @@ export async function clearDevCaches(rootDir: string, buildDir: string): Promise
 }
 
 export function nuxtVersionToGitIdentifier(version: string) {
-  // match the git identifier in the release, for example: 3.0.0-rc.8-27677607.a3a8706
+  // match the git identifier in the release, for example: 3.0.0-rc.8-27677607.a3a8706 or 4.6.2-2610261637-c655a32
   const id = GIT_ID_RE.exec(version)
   if (id?.[1]) {
     return id[1]
