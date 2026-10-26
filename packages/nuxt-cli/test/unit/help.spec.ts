@@ -452,6 +452,7 @@ describe('help', () => {
                --checker=<vue-tsc|golar>    Type checker to use                                                                                              
                              -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)                
                       --no-b, --no-build    Type-check without TypeScript project references                                                                 
+                           --per-project    Type-check each project reference in its own process, one after another, to lower peak memory usage              
       "
     `)
   })
