@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
 
@@ -276,5 +276,115 @@ describe('typecheck type generation', () => {
     expect(spawn).not.toHaveBeenCalled()
     expect(writeTypes).toHaveBeenCalledTimes(1)
     expect(tinyexec).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('typecheck incremental cache', () => {
+  const vueTscKey = 'vue-tsc@3.3.10+typescript@6.0.3'
+
+  /** Pretend the named packages are installed with the given versions and entry files. */
+  async function installedPackages(packages: Record<string, { version: string, entries: string[] }>): Promise<void> {
+    const entries = new Map<string, string>()
+    for (const [name, { version, entries: ids }] of Object.entries(packages)) {
+      const dir = join(cwd, 'node_modules', name)
+      await mkdir(dir, { recursive: true })
+      await writeFile(join(dir, 'package.json'), JSON.stringify({ name, version, bin: './bin.js' }))
+      for (const id of ids) {
+        entries.set(id, join(dir, id.slice(name.length + 1) || 'index.js'))
+      }
+    }
+    resolveModulePath.mockImplementation((id: string) => entries.get(id))
+  }
+
+  function installedVueTsc(version = '3.3.10') {
+    return installedPackages({
+      'typescript': { version: '6.0.3', entries: ['typescript'] },
+      'vue-tsc': { version, entries: ['vue-tsc/bin/vue-tsc.js'] },
+    })
+  }
+
+  async function writeFixture(path: string, contents: unknown) {
+    await mkdir(join(cwd, path, '..'), { recursive: true })
+    await writeFile(join(cwd, path), typeof contents === 'string' ? contents : JSON.stringify(contents))
+  }
+
+  async function writeProjects() {
+    await writeFixture('tsconfig.json', { files: [], references: [{ path: './.nuxt/tsconfig.app.json' }, { path: './layer' }] })
+    await writeFixture('.nuxt/tsconfig.app.json', { compilerOptions: { tsBuildInfoFile: './cache/typecheck/tsconfig.app.tsbuildinfo' } })
+    await writeFixture('layer/tsconfig.json', { compilerOptions: { tsBuildInfoFile: '../.nuxt/cache/typecheck/layer.tsbuildinfo' } })
+  }
+
+  it('should type-check incrementally when every referenced project sets `tsBuildInfoFile`', async () => {
+    await installedVueTsc()
+    await writeProjects()
+
+    await runTypecheck()
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit', '--incremental'], expect.anything())
+  })
+
+  it('should mark the referenced configs as newer than their build info', async () => {
+    await installedVueTsc()
+    await writeProjects()
+    await utimes(join(cwd, '.nuxt/tsconfig.app.json'), 0, 0)
+
+    await runTypecheck()
+
+    expect((await stat(join(cwd, '.nuxt/tsconfig.app.json'))).mtimeMs).toBeGreaterThan(0)
+  })
+
+  it('should discard build info written by a different checker', async () => {
+    const stamp = join(cwd, '.nuxt/cache/typecheck/checker.stamp')
+    const buildInfo = '.nuxt/cache/typecheck/tsconfig.app.tsbuildinfo'
+    await installedVueTsc('3.3.9')
+    await writeProjects()
+    await writeFixture(buildInfo, '{}')
+    await runTypecheck()
+    expect(await readFile(stamp, 'utf8')).toBe('vue-tsc@3.3.9+typescript@6.0.3')
+
+    await writeFixture(buildInfo, '{}')
+    await runTypecheck()
+    expect(await readFile(join(cwd, buildInfo), 'utf8')).toBe('{}')
+
+    await installedVueTsc()
+    await runTypecheck()
+    await expect(stat(join(cwd, buildInfo))).rejects.toThrow()
+    expect(await readFile(stamp, 'utf8')).toBe(vueTscKey)
+  })
+
+  it('should remove the build info with `--no-incremental`', async () => {
+    const buildInfo = '.nuxt/cache/typecheck/tsconfig.app.tsbuildinfo'
+    await installedVueTsc()
+    await writeProjects()
+    await writeFixture(buildInfo, '{}')
+
+    await runTypecheck(['--no-incremental'])
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit'], expect.anything())
+    await expect(stat(join(cwd, buildInfo))).rejects.toThrow()
+  })
+
+  it('should leave the build info alone when the checker version cannot be read', async () => {
+    const buildInfo = '.nuxt/cache/typecheck/tsconfig.app.tsbuildinfo'
+    await writeProjects()
+    await writeFixture(buildInfo, '{}')
+
+    await runTypecheck()
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['-b', '--noEmit'], expect.anything())
+    expect(await readFile(join(cwd, buildInfo), 'utf8')).toBe('{}')
+  })
+
+  it('should key the golar cache by golar and its vue plugin', async () => {
+    await installedPackages({
+      'golar': { version: '0.1.11', entries: ['golar/unstable'] },
+      '@golar/vue': { version: '0.1.12', entries: ['@golar/vue'] },
+    })
+    await writeProjects()
+
+    await runTypecheck(['--checker=golar'])
+
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['tsc', '--build', '--noEmit', '--incremental'], expect.anything())
+    expect(await readFile(join(cwd, '.nuxt/cache/typecheck/checker.stamp'), 'utf8')).toBe('golar@0.1.11+@golar/vue@0.1.12')
   })
 })

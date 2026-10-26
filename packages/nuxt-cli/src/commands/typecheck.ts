@@ -18,6 +18,7 @@ import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
+import { discardBuildInfo, resolveCacheKey, resolveIncrementalArgs } from '../utils/typecheck-cache'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
@@ -43,6 +44,8 @@ interface TypeCheckerBackend {
   configNote?: string
   resolve: (cwd: string, options?: { cache?: boolean }) => ResolvedTypeChecker
   args: (supportsProjects: boolean) => string[]
+  /** Entry files of the packages whose versions key the incremental build info cache. */
+  cachePackages: (cwd: string, bin: string) => Array<string | undefined>
   ensureConfig?: (cwd: string) => Promise<void>
 }
 
@@ -79,6 +82,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['-b', '--noEmit'] : ['--noEmit'],
+    cachePackages: (_cwd, bin) => [bin, resolveModulePath('typescript', { from: bin, try: true })],
   },
   'golar': {
     label: 'Golar',
@@ -99,6 +103,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['tsc', '--build', '--noEmit'] : ['tsc', '--noEmit'],
+    cachePackages: (cwd, bin) => [bin, resolveModulePath('@golar/vue', { from: withNodePath(cwd), try: true })],
     ensureConfig: ensureGolarConfig,
   },
 }
@@ -125,6 +130,12 @@ export default defineCommand({
       alias: 'b',
       description: 'Type-check in build mode, using TypeScript project references (detected automatically by default)',
       negativeDescription: 'Type-check without TypeScript project references',
+    },
+    incremental: {
+      type: 'boolean',
+      description: 'Reuse type information from previous runs',
+      negativeDescription: 'Type-check from scratch, without reusing type information from previous runs',
+      default: true,
     },
   },
   async run(ctx) {
@@ -167,8 +178,22 @@ export default defineCommand({
       logger.warn(`Your ${styleText('cyan', 'tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${styleText('cyan', '"files": []')} to your ${styleText('cyan', 'tsconfig.json')}, or pass ${styleText('cyan', '--build')} to override.`)
     }
 
+    const backend = TYPE_CHECKERS[typechecker.checker]
+    const args = backend.args(useProjectReferences)
+    if (useProjectReferences && supportsProjectReferences(tsConfig)) {
+      if (!ctx.args.incremental) {
+        await discardBuildInfo(cwd)
+      }
+      else {
+        const cacheKey = resolveCacheKey(backend.cachePackages(cwd, typechecker.bin))
+        if (cacheKey) {
+          args.push(...await resolveIncrementalArgs(cwd, cacheKey))
+        }
+      }
+    }
+
     const start = Date.now()
-    const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(useProjectReferences), {
+    const result = await x(typechecker.bin, args, {
       nodeOptions: { stdio: 'inherit', cwd },
     })
     const duration = formatDuration(Date.now() - start)
