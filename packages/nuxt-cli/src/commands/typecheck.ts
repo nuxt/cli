@@ -13,13 +13,12 @@ import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
-import { resolveDotenvFileNames } from '../utils/args'
 import { formatDuration } from '../utils/formatting'
-import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
+import { writeTypes, writeTypesInChild } from '../utils/write-types'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
@@ -147,11 +146,18 @@ export default defineCommand({
       return
     }
 
+    // Overrides may not be serialisable, so they are applied in this process.
+    const hasOverrides = Object.keys(ctx.data?.overrides ?? {}).length > 0
     const [tsConfig] = await Promise.all([
       readTSConfig(cwd).catch(() => ({} as TSConfig)),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
-        ...ctx.data?.overrides,
-        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
+      (hasOverrides ? writeTypes : writeTypesInChild)({
+        cwd,
+        dotenv: ctx.args.dotenv,
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        overrides: {
+          ...ctx.data?.overrides,
+          ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
+        },
       }),
     ])
 
@@ -369,25 +375,4 @@ async function installMissingPackages(options: {
   logger.error(result.error ?? result.output)
   logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${styleText('bold', installCommand)}\n`)
   return false
-}
-
-async function writeTypes(cwd: string, dotenv?: string[], logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
-  const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
-  const nuxt = await loadNuxt({
-    cwd,
-    dotenv: { cwd, fileName: resolveDotenvFileNames(dotenv) },
-    overrides: {
-      _prepare: true,
-      logLevel,
-      ...overrides,
-    },
-  })
-
-  try {
-    await writeTypes(nuxt)
-    await buildNuxt(nuxt)
-  }
-  finally {
-    await nuxt.close()
-  }
 }

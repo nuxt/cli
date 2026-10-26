@@ -10,7 +10,7 @@ export const packaging: PackagingContract = {
 }
 
 export default defineCliConfig({
-  entry: ['src/index.ts', 'src/boot.ts', 'src/dev/index.ts'],
+  entry: ['src/index.ts', 'src/boot.ts', 'src/dev/index.ts', 'src/write-types.ts'],
   deps: { onlyBundle: ['@bomb.sh/tab', 'citty', 'h3', '@speed-highlight/core'], neverBundle: PARSER_PACKAGES },
   ...packaging,
 })
