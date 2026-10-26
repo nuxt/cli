@@ -3,9 +3,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../../../src/utils/package-managers'
+
+const SEMVER_RE = /^\d+\.\d+\.\d+/
 
 describe('detectPackageManager', () => {
   async function createNestedProject() {
@@ -38,8 +40,27 @@ describe('getLockFiles', () => {
 })
 
 describe('getPackageManagerVersion', () => {
+  const warnings: unknown[] = []
+  beforeAll(() => {
+    const original = process.emitWarning
+    process.emitWarning = (warning: string | Error, ...args: any[]) => {
+      warnings.push(warning, ...args)
+      return (original as any)(warning, ...args)
+    }
+    return () => {
+      process.emitWarning = original
+    }
+  })
+  afterEach(() => {
+    expect(warnings).not.toContain('DEP0190')
+  })
+
   it('returns the command version', async () => {
     await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(process.version)
+  })
+
+  it('returns the version of a package manager shim', async () => {
+    await expect(getPackageManagerVersion('npm')).resolves.toMatch(SEMVER_RE)
   })
 
   it('does not fail when the package manager is unavailable', async () => {
