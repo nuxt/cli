@@ -55,7 +55,8 @@ describe('getPackageManagerVersion', () => {
     Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
 
     // Node spawns `cmd.exe` for `win32`, so the version is only readable on Windows.
-    await expect(getPackageManagerVersion(process.execPath)).resolves.toBeTypeOf('string')
+    const expected = platform.value === 'win32' ? process.version : 'unknown'
+    await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(expected)
 
     expect(warnings).not.toContain('DEP0190')
   })
