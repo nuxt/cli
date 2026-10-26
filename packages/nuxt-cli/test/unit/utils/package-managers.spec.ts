@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 
 import { detectPackageManager, getLockFiles, getPackageManagerVersion } from '../../../src/utils/package-managers'
 
@@ -38,6 +38,28 @@ describe('getLockFiles', () => {
 })
 
 describe('getPackageManagerVersion', () => {
+  // Node emits DEP0190 once per process, so this runs before any other shell spawn.
+  it('does not warn about shell arguments when the platform is win32', async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+    const original = process.emitWarning
+    const warnings: unknown[] = []
+    const recorder = (warning: string | Error, ...args: any[]) => {
+      warnings.push(warning, ...args)
+      return (original as any)(warning, ...args)
+    }
+    onTestFinished(() => {
+      process.emitWarning = original
+      Object.defineProperty(process, 'platform', platform)
+    })
+    process.emitWarning = recorder
+    Object.defineProperty(process, 'platform', { ...platform, value: 'win32' })
+
+    // Node spawns `cmd.exe` for `win32`, so the version is only readable on Windows.
+    await expect(getPackageManagerVersion(process.execPath)).resolves.toBeTypeOf('string')
+
+    expect(warnings).not.toContain('DEP0190')
+  })
+
   it('returns the command version', async () => {
     await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(process.version)
   })
