@@ -40,7 +40,7 @@ import { resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
-import { isAllowedHost } from './host-check'
+import { isAllowedHost, resolveConfiguredAllowedHosts } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -253,8 +253,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #allowAnyHost = false
   /** Options of the bound listener, so a reload can rebuild the `Host` allowlist without a rebind. */
   #listenOptions: ListenOptions = {}
-  /** Hostnames the CLI itself put in `vite.server.allowedHosts` on the last load. */
-  #injectedAllowedHosts = new Set<string>()
+  /** `vite.server.allowedHosts` from the previous run, for the `Host` check before the config loads. */
+  #hintedAllowedHosts?: true | string[]
   #openedEagerly = false
   #progress = new DevProgress()
   #warmup = new WarmupGate()
@@ -381,22 +381,21 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
    */
   #syncAllowedHosts(options: ListenOptions): void {
     this.#listenOptions = options
-    const configured = this.#currentNuxt?.options.vite?.server?.allowedHosts
+    const configured = this.#currentNuxt
+      ? resolveConfiguredAllowedHosts(this.#currentNuxt.options.vite?.server?.allowedHosts)
+      : this.#hintedAllowedHosts
     this.#allowAnyHost = !!options.public || configured === true
     this.#allowedHosts.clear()
     if (this.#allowAnyHost) {
       return
     }
-    // A leading dot is a suffix pattern, not a hostname, so only config entries may carry it.
-    if (options.hostname && !options.hostname.startsWith('.')) {
+    if (options.hostname) {
       this.#allowedHosts.add(options.hostname.toLowerCase())
     }
     for (const { url } of this.listener?.getURLs() ?? []) {
       try {
         const hostname = new URL(url).hostname.toLowerCase()
-        if (!hostname.startsWith('.')) {
-          this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
-        }
+        this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
       }
       catch {
         // a malformed display URL is not a hostname to allow
@@ -404,9 +403,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
     if (Array.isArray(configured)) {
       for (const host of configured) {
-        if (typeof host === 'string' && !this.#injectedAllowedHosts.has(host)) {
-          this.#allowedHosts.add(host.toLowerCase())
-        }
+        this.#allowedHosts.add(host.toLowerCase())
       }
     }
   }
@@ -858,9 +855,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
-    // Remember what the CLI added: c12 merges these defaults into the project's `vite.server.allowedHosts`.
-    const injectedAllowedHosts = loadOptions.defaults?.vite?.server?.allowedHosts
-    this.#injectedAllowedHosts = new Set(Array.isArray(injectedAllowedHosts) ? injectedAllowedHosts : [])
 
     if (this.options.captureUIEvents) {
       this.#collectRoutes(this.#currentNuxt)
@@ -984,6 +978,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
 
     this.listener = await createListener(this.#bound, listenOptions, { announce: false })
+    this.#hintedAllowedHosts = resolveConfiguredAllowedHosts(hint?.allowedHosts)
     this.#syncAllowedHosts(listenOptions)
     this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: false })
 
@@ -1054,6 +1049,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname: devServer.host || undefined,
       https: !!devServer.https,
       baseURL,
+      allowedHosts: resolveConfiguredAllowedHosts(this.#currentNuxt?.options.vite?.server?.allowedHosts),
     })
   }
 

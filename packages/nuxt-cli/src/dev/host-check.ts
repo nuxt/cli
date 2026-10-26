@@ -50,6 +50,20 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 }
 
 /**
+ * Normalise a `vite.server.allowedHosts` value: `true` allows any host, an
+ * array contributes its string entries, and anything else contributes nothing.
+ */
+export function resolveConfiguredAllowedHosts(value: unknown): true | string[] | undefined {
+  if (value === true) {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return value.filter((host): host is string => typeof host === 'string')
+  }
+  return undefined
+}
+
+/**
  * Whether a request's `Host` header names this dev server or is allowed by the
  * project, guarding the CLI's own endpoints (the progress stream, the loading
  * page and the error page) against DNS rebinding, where a hostname the

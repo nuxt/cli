@@ -24,7 +24,7 @@ function createHooks() {
   }
 }
 
-const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, releaseBuildLock, releaseOutputLock } = vi.hoisted(() => ({
+const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, releaseBuildLock, releaseOutputLock, serve } = vi.hoisted(() => ({
   acquireLock: vi.fn(),
   formatLockError: vi.fn(() => 'locked'),
   acquireOutputLock: vi.fn(),
@@ -32,7 +32,10 @@ const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, re
   loadNuxt: vi.fn(),
   releaseBuildLock: vi.fn(),
   releaseOutputLock: vi.fn(),
+  serve: vi.fn(),
 }))
+
+vi.mock('srvx', () => ({ serve }))
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({ loadNuxt, buildNuxt }),
@@ -46,7 +49,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
 
 let cwd: string
 
-async function runAnalyze({ args = [], routes = [] }: { args?: string[], routes?: string[] } = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {} }: { args?: string[], routes?: string[], vite?: Record<string, any> } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -62,6 +65,7 @@ async function runAnalyze({ args = [], routes = [] }: { args?: string[], routes?
         rootDir: cwd,
         nitro: {},
         build: {},
+        vite,
       },
     } as unknown as Nuxt)
   })
@@ -73,7 +77,7 @@ async function runAnalyze({ args = [], routes = [] }: { args?: string[], routes?
     await nitroHooks.callHook('prerender:routes', prerenderRoutes)
   })
 
-  const renderer = await render(() => runCommand(analyze, { rawArgs: [`--cwd=${cwd}`, '--no-serve', ...args] }))
+  const renderer = await render(() => runCommand(analyze, { rawArgs: [`--cwd=${cwd}`, ...args] }))
 
   const ignore: ((path: string) => unknown)[] = overrides.nitro?.prerender?.ignore || []
   return {
@@ -113,14 +117,14 @@ describe('nuxt analyze command', () => {
   })
 
   it('should prerender when the --prerender flag is passed', async () => {
-    const { prerendered, overrides, output } = await runAnalyze({ args: ['--prerender'], routes: ['/', '/about'] })
+    const { prerendered, overrides, output } = await runAnalyze({ args: ['--no-serve', '--prerender'], routes: ['/', '/about'] })
     expect(prerendered).toEqual(['/', '/about'])
     expect(overrides.nitro?.prerender).toBeUndefined()
     expect(output).not.toContain('Skipped prerendering')
   })
 
   it('should write metadata and fall back to a non-empty slug', async () => {
-    await runAnalyze({ args: ['--name=   '] })
+    await runAnalyze({ args: ['--no-serve', '--name=   '] })
 
     const meta = JSON.parse(await readFile(join(cwd, 'analyze/meta.json'), 'utf8'))
     expect(meta).toMatchObject({
@@ -162,5 +166,35 @@ describe('nuxt analyze command', () => {
     )
     expect(buildNuxt).not.toHaveBeenCalled()
     expect(releaseBuildLock).toHaveBeenCalledOnce()
+  })
+
+  describe('stats server', () => {
+    async function statusForHost(vite: Record<string, any>, host: string): Promise<number> {
+      vi.stubEnv('CI', '')
+      vi.stubEnv('HOST', '')
+      serve.mockReturnValue({ ready: () => Promise.resolve() })
+      await runAnalyze({ args: [], vite })
+      const { fetch } = serve.mock.calls[0]![0] as { fetch: (request: Request) => Response }
+      return fetch(new Request('http://localhost/', { headers: { host } })).status
+    }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('should reject a host it was not started on', async () => {
+      await expect(statusForHost({}, 'rebinding-attacker.com')).resolves.toBe(403)
+    })
+
+    it('should allow the hosts in `vite.server.allowedHosts`', async () => {
+      const vite = { server: { allowedHosts: ['.example.test'] } }
+      await expect(statusForHost(vite, 'app.example.test:3000')).resolves.toBe(200)
+      serve.mockClear()
+      await expect(statusForHost(vite, 'rebinding-attacker.com')).resolves.toBe(403)
+    })
+
+    it('should allow any host for `vite.server.allowedHosts: true`', async () => {
+      await expect(statusForHost({ server: { allowedHosts: true } }, 'rebinding-attacker.com')).resolves.toBe(200)
+    })
   })
 })
