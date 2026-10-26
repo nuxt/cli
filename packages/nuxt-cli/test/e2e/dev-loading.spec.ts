@@ -27,6 +27,7 @@ describe('dev server loading screen', () => {
     try {
       const token = randomUUID()
       const inflight = fetch(`${base}/api/hang?token=${token}`, { headers: { accept: 'text/html' } })
+        .then(async response => ({ response, html: await response.text() }))
 
       await vi.waitFor(async () => {
         const { started } = await fetch(`${base}/api/hang-state?token=${token}`).then(r => r.json()) as { started: boolean }
@@ -36,14 +37,14 @@ describe('dev server loading screen', () => {
       await reload({ type: 'shortcut' })
 
       const timer = new Promise<'hanging'>(resolve => setTimeout(resolve, 10_000, 'hanging').unref())
-      const response = await Promise.race([inflight, timer])
-      expect(response).not.toBe('hanging')
+      const settled = await Promise.race([inflight, timer])
+      expect(settled).not.toBe('hanging')
 
-      const html = await (response as Response).text()
-      expect((response as Response).status).toBe(503)
+      const { response, html } = settled as Awaited<typeof inflight>
+      expect(response.status).toBe(503)
       // The page polls for itself and the progress stream pushes to it, so a
       // reload header would only throw away what it is showing.
-      expect((response as Response).headers.get('refresh')).toBeNull()
+      expect(response.headers.get('refresh')).toBeNull()
       expect(html).toContain('Reloading Nuxt')
       expect(html).toContain('nuxt-loader-bar')
     }
@@ -104,14 +105,18 @@ describe('dev server loading screen', () => {
     // `fetch(location.href)` from the loading page sends `accept: *\/*`. Answered
     // with json, the page cannot find its own marker, decides the app is up and
     // reloads, which loops for as long as the build takes.
-    const polled = new Promise<Response>((resolve) => {
+    const polled = new Promise<{ contentType: string | null, html: string }>((resolve) => {
       const poll = async () => {
-        const response = await fetch(base, { headers: { accept: '*/*' } }).catch(() => undefined)
-        if (!response || response.status !== 503) {
+        const page = await fetch(base, { headers: { accept: '*/*' } })
+          .then(async response => response.status === 503
+            ? { contentType: response.headers.get('content-type'), html: await response.text() }
+            : undefined)
+          .catch(() => undefined)
+        if (!page) {
           setTimeout(poll, 5)
           return
         }
-        resolve(response)
+        resolve(page)
       }
       void poll()
     })
@@ -122,9 +127,9 @@ describe('dev server loading screen', () => {
     })
 
     try {
-      const response = await polled
-      expect(response.headers.get('content-type')).toContain('text/html')
-      expect(await response.text()).toContain('__NUXT_LOADING__')
+      const { contentType, html } = await polled
+      expect(contentType).toContain('text/html')
+      expect(html).toContain('__NUXT_LOADING__')
     }
     finally {
       await close()
