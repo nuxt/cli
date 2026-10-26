@@ -142,6 +142,27 @@ describe('upgrade install', () => {
     expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['nuxt@3'] }))
   })
 
+  it.each([
+    ['v3-nightly', '3x'],
+    ['v4-nightly', '4x'],
+    ['v5-nightly', '5x'],
+  ])('should install the %s channel from the %s nightly dist-tag', async (channel, tag) => {
+    await runUpgrade([`--channel=${channel}`])
+
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`nuxt@npm:nuxt-nightly@${tag}`] }))
+  })
+
+  it.each([
+    ['4.x', '4x'],
+    ['5.x', '5x'],
+  ])('should install the %s nightly picked from the prompt', async (answer, tag) => {
+    answers.select.push(answer)
+
+    await runUpgrade(['--channel=nightly'])
+
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`nuxt@npm:nuxt-nightly@${tag}`] }))
+  })
+
   it('should upgrade the core packages the project depends on', async () => {
     await writeProject({ 'package.json': JSON.stringify({ name: 'app', devDependencies: { 'nuxt': '^4.0.0', '@nuxt/kit': '^4.0.0' } }) })
 
