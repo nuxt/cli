@@ -1,18 +1,20 @@
 import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import os, { tmpdir } from 'node:os'
 import process from 'node:process'
+import v8 from 'node:v8'
 
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { runInstall, answers, resolveModulePath, spawn, tinyexec, writeTypes } = vi.hoisted(() => ({
+const { runInstall, answers, resolveModulePath, spawn, tinyexec, writeTypes, tty } = vi.hoisted(() => ({
   runInstall: vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })),
   answers: { select: [] as unknown[], confirm: [] as unknown[] },
   resolveModulePath: vi.fn(),
   spawn: vi.fn(),
   tinyexec: vi.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
   writeTypes: vi.fn(() => Promise.resolve()),
+  tty: { value: true },
 }))
 
 vi.mock('tinyexec', () => ({ x: tinyexec }))
@@ -48,7 +50,9 @@ vi.mock('../../../src/utils/kit', () => ({
 
 vi.mock('std-env', async importOriginal => ({
   ...await importOriginal<typeof import('std-env')>(),
-  hasTTY: true,
+  get hasTTY() {
+    return tty.value
+  },
 }))
 
 vi.mock('@clack/prompts', async (importOriginal) => {
@@ -97,10 +101,16 @@ async function runTypecheck(argv: string[] = [], data?: { overrides?: Record<str
   return { output: `${renderer.frames.join('\n')}\n${screen(renderer)}`, exitCode }
 }
 
+/** A checker process killed by `signal` before it could exit. */
+function killed(signal: string) {
+  return Object.assign(Promise.resolve({ exitCode: undefined as unknown as number, stdout: '', stderr: '' }), { signalCode: signal })
+}
+
 beforeEach(async () => {
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-typecheck-'))
   answers.select.length = 0
   answers.confirm.length = 0
+  tty.value = true
   vi.clearAllMocks()
   tinyexec.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' })
   typegenExits(0)
@@ -238,6 +248,135 @@ describe('typecheck results', () => {
 
     expect(output).toContain('Type check failed')
     expect(exitCode).toBe(2)
+  })
+
+  it('should report a checker killed by the OOM killer', async () => {
+    tinyexec.mockReturnValueOnce(killed('SIGKILL'))
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(output).toContain('Type-checking was killed by SIGKILL')
+    expect(output).toContain('out of memory')
+    expect(output).not.toContain('Type check failed')
+    expect(exitCode).toBe(137)
+  })
+
+  it('should treat SIGABRT as running out of memory', async () => {
+    tinyexec.mockReturnValueOnce(killed('SIGABRT'))
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(output).toContain('was killed by SIGABRT')
+    expect(output).toContain('out of memory')
+    expect(exitCode).toBe(134)
+  })
+
+  it('should report other signals without an out of memory hint', async () => {
+    tinyexec.mockReturnValueOnce(killed('SIGTERM'))
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(output).toContain('was killed by SIGTERM')
+    expect(output).not.toContain('out of memory')
+    expect(exitCode).toBe(143)
+  })
+
+  it('should report a killed checker without a TTY', async () => {
+    tty.value = false
+    tinyexec.mockReturnValueOnce(killed('SIGKILL'))
+
+    const { output, exitCode } = await runTypecheck()
+
+    expect(output).toContain('was killed by SIGKILL')
+    expect(exitCode).toBe(137)
+  })
+})
+
+describe('typecheck heap limit', () => {
+  const MB = 1024 ** 2
+  const GB = 1024 ** 3
+  const execArgv = process.execArgv
+
+  function memory({ total = 12 * GB, constrained = 2 ** 64, available = 10 * GB, heapLimit = 2240 * MB } = {}) {
+    vi.spyOn(os, 'totalmem').mockReturnValue(total)
+    vi.spyOn(process, 'constrainedMemory').mockReturnValue(constrained)
+    vi.spyOn(process, 'availableMemory').mockReturnValue(available)
+    vi.spyOn(v8, 'getHeapStatistics').mockReturnValue({ ...v8.getHeapStatistics(), heap_size_limit: heapLimit })
+  }
+
+  function checkerNodeOptions(): string | undefined {
+    const options = (tinyexec.mock.calls[0] as unknown[])[2] as { nodeOptions: { env?: Record<string, string> } }
+    return options.nodeOptions.env?.NODE_OPTIONS
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('NODE_OPTIONS', '')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    process.execArgv = execArgv
+  })
+
+  it.each([
+    ['half of the total memory', {}, 6144],
+    ['half of the memory limit of the process', { constrained: 6 * GB }, 3072],
+    ['the memory currently available', { available: 3 * GB }, 3072],
+    ['at most 8 GB', { total: 32 * GB, available: 30 * GB, heapLimit: 4144 * MB }, 8192],
+  ])('should raise the checker heap limit to %s', async (_, options, limit) => {
+    memory(options)
+
+    await runTypecheck()
+
+    expect(checkerNodeOptions()).toBe(`--max-old-space-size=${limit}`)
+  })
+
+  it('should keep existing node options', async () => {
+    memory()
+    vi.stubEnv('NODE_OPTIONS', '--enable-source-maps')
+
+    await runTypecheck()
+
+    expect(checkerNodeOptions()).toBe('--enable-source-maps --max-old-space-size=6144')
+  })
+
+  it('should pass on a heap limit set for the nuxt process', async () => {
+    memory()
+    process.execArgv = ['--max-old-space-size=3000']
+
+    await runTypecheck()
+
+    expect(checkerNodeOptions()).toBe('--max-old-space-size=3000')
+  })
+
+  it.each([
+    ['the raised heap limit', {}, '', 6144, '--max-old-space-size=6144'],
+    ['the heap limit set in NODE_OPTIONS', {}, '--max-old-space-size=3000', 3000, undefined],
+    ['V8\'s default heap limit', { total: 4 * GB }, '', 2240, undefined],
+  ])('should name %s when the checker runs out of heap', async (_, options, nodeOptions, limit, passed) => {
+    memory(options)
+    vi.stubEnv('NODE_OPTIONS', nodeOptions)
+    tinyexec.mockReturnValueOnce(killed('SIGABRT'))
+
+    const { output } = await runTypecheck()
+
+    expect(checkerNodeOptions()).toBe(passed)
+    expect(output).toContain(`Its heap was limited to ${limit} MB`)
+    expect(output).toContain('NODE_OPTIONS=--max-old-space-size=<MB>')
+  })
+
+  it('should leave the heap limit of golar alone', async () => {
+    memory()
+    await mkdir(join(cwd, 'node_modules/golar'), { recursive: true })
+    await writeFile(join(cwd, 'node_modules/golar/package.json'), JSON.stringify({ name: 'golar', bin: './bin.js' }))
+    installed('golar/unstable', '@golar/vue')
+    tinyexec.mockReturnValueOnce(killed('SIGABRT'))
+
+    const { output } = await runTypecheck(['--checker=golar'])
+
+    expect(checkerNodeOptions()).toBeUndefined()
+    expect(output).toContain('out of memory')
+    expect(output).not.toContain('heap was limited')
   })
 })
 
