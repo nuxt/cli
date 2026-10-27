@@ -50,7 +50,7 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 }
 
 /**
- * Normalise a `vite.server.allowedHosts` value: `true` allows any host, an
+ * Normalise an `allowedHosts` value: `true` allows any host, an
  * array contributes its string entries, and anything else contributes nothing.
  */
 export function resolveConfiguredAllowedHosts(value: unknown): true | string[] | undefined {
@@ -61,6 +61,27 @@ export function resolveConfiguredAllowedHosts(value: unknown): true | string[] |
     return value.filter((host): host is string => typeof host === 'string')
   }
   return undefined
+}
+
+interface AllowedHostsOptions {
+  devServer?: object
+  vite?: { server?: { allowedHosts?: unknown } }
+}
+
+/**
+ * The union of `devServer.allowedHosts` and `vite.server.allowedHosts` in a
+ * resolved Nuxt config. `true` in either allows any host.
+ */
+export function resolveNuxtAllowedHosts(options: AllowedHostsOptions | undefined): true | string[] | undefined {
+  const devServer = resolveConfiguredAllowedHosts((options?.devServer as { allowedHosts?: unknown } | undefined)?.allowedHosts)
+  const vite = resolveConfiguredAllowedHosts(options?.vite?.server?.allowedHosts)
+  if (devServer === true || vite === true) {
+    return true
+  }
+  if (!devServer && !vite) {
+    return undefined
+  }
+  return [...new Set([...devServer ?? [], ...vite ?? []])]
 }
 
 /**

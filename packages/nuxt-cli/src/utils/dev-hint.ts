@@ -7,7 +7,8 @@ import { debug } from './logger'
 /**
  * The address the last `nuxt dev` run resolved from `nuxt.config` for a given
  * project, so the next run can bind a socket before loading the config, and
- * the `vite.server.allowedHosts` that socket accepts until the config loads.
+ * the `allowedHosts` (`devServer` and `vite.server` combined) that socket
+ * accepts until the config loads.
  */
 export interface DevServerHint {
   port?: number

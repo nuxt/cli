@@ -464,6 +464,28 @@ describe('dev server host check', () => {
     await expect(statusForHost(server, 'any.test')).resolves.toBe(200)
   })
 
+  it('should allow the hosts in `devServer.allowedHosts` on its own endpoints', async () => {
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxt({ devServer: { allowedHosts: ['Alias.test'] } })))
+    const server = createServer()
+    await server.init()
+
+    await expect(statusForHost(server, 'alias.test')).resolves.toBe(200)
+    await expect(statusForHost(server, 'other.test')).resolves.toBe(403)
+  })
+
+  it('should allow any host on its own endpoints for `devServer.allowedHosts: true`', async () => {
+    const nuxt = createNuxt({
+      devServer: { allowedHosts: true },
+      vite: { server: { allowedHosts: ['vite.test'] } },
+    })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    await expect(statusForHost(server, 'any.test')).resolves.toBe(200)
+    expect(nuxt.options.devServer.allowedHosts).toBe(true)
+  })
+
   it('should leave `devServer.cors` unset for `vite.server.allowedHosts: true`', async () => {
     const nuxt = createNuxtWithHosts(true)
     loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
@@ -488,6 +510,18 @@ describe('dev server host check', () => {
     await server.init()
 
     expect(loadDevServerHint(cwd)?.allowedHosts).toEqual(['alias.test'])
+  })
+
+  it('should remember `devServer.allowedHosts` for the next run', async () => {
+    await mkdir(join(cwd, 'node_modules'))
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxt({
+      devServer: { allowedHosts: ['alias.test'] },
+      vite: { server: { allowedHosts: ['vite.test'] } },
+    })))
+    const server = createServer()
+    await server.init()
+
+    expect(loadDevServerHint(cwd)?.allowedHosts).toEqual(['alias.test', 'vite.test'])
   })
 
   it('should allow the remembered `vite.server.allowedHosts` before the config loads', async () => {
@@ -532,6 +566,41 @@ describe('dev server host check', () => {
 
     // 500 is the load-failure page, so the host check let the request through.
     await expect(statusForHost(server, 'alias.test', '/')).resolves.toBe(500)
+  })
+})
+
+describe('dev server allowed hosts', () => {
+  it('should add the listener hostnames to `devServer.allowedHosts` and `vite.server.allowedHosts`', async () => {
+    const nuxt = createNuxt({ devServer: { allowedHosts: ['alias.test'] } })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+
+    expect(nuxt.options.devServer.allowedHosts).toEqual(['alias.test', '127.0.0.1'])
+    expect(nuxt.options.vite.server.allowedHosts).toEqual(['127.0.0.1'])
+  })
+
+  it('should allow any host in `devServer.allowedHosts` and `vite.server.allowedHosts` for `--public`', async () => {
+    const nuxt = createNuxt({ devServer: { allowedHosts: ['alias.test'] }, vite: { server: {} } })
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer({
+      listenOverrides: { hostname: '127.0.0.1', port: 0, public: true, showURL: false, qr: false },
+    })
+    await server.init()
+
+    expect(nuxt.options.devServer.allowedHosts).toBe(true)
+    expect(nuxt.options.vite.server.allowedHosts).toBe(true)
+  })
+
+  it('should pass the listener hostnames as `devServer.allowedHosts` defaults on reload', async () => {
+    const server = createServer()
+    await server.init()
+
+    await server.load(true, { type: 'shortcut' })
+
+    const { defaults } = loadNuxt.mock.lastCall![0]
+    expect(defaults.devServer.allowedHosts).toEqual(['127.0.0.1'])
+    expect(defaults.vite.server.allowedHosts).toEqual(['127.0.0.1'])
   })
 })
 

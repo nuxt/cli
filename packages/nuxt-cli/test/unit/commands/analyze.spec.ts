@@ -49,7 +49,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
 
 let cwd: string
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {} }: { args?: string[], routes?: string[], vite?: Record<string, any> } = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {} }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any> } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -65,6 +65,7 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {} }: { a
         rootDir: cwd,
         nitro: {},
         build: {},
+        devServer,
         vite,
       },
     } as unknown as Nuxt)
@@ -169,11 +170,11 @@ describe('nuxt analyze command', () => {
   })
 
   describe('stats server', () => {
-    async function statusForHost(vite: Record<string, any>, host: string): Promise<number> {
+    async function statusForHost(vite: Record<string, any>, host: string, devServer: Record<string, any> = {}): Promise<number> {
       vi.stubEnv('CI', '')
       vi.stubEnv('HOST', '')
       serve.mockReturnValue({ ready: () => Promise.resolve() })
-      await runAnalyze({ args: [], vite })
+      await runAnalyze({ args: [], vite, devServer })
       const { fetch } = serve.mock.calls[0]![0] as { fetch: (request: Request) => Response }
       return fetch(new Request('http://localhost/', { headers: { host } })).status
     }
@@ -195,6 +196,14 @@ describe('nuxt analyze command', () => {
 
     it('should allow any host for `vite.server.allowedHosts: true`', async () => {
       await expect(statusForHost({ server: { allowedHosts: true } }, 'rebinding-attacker.com')).resolves.toBe(200)
+    })
+
+    it('should allow the hosts in `devServer.allowedHosts`', async () => {
+      await expect(statusForHost({}, 'app.example.test', { allowedHosts: ['app.example.test'] })).resolves.toBe(200)
+    })
+
+    it('should allow any host for `devServer.allowedHosts: true`', async () => {
+      await expect(statusForHost({ server: { allowedHosts: ['app.example.test'] } }, 'rebinding-attacker.com', { allowedHosts: true })).resolves.toBe(200)
     })
   })
 })

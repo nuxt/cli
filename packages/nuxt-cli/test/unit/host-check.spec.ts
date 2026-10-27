@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { isAllowedHost, isLoopbackAddress, parseHostHeader } from '../../src/dev/host-check'
+import { isAllowedHost, isLoopbackAddress, parseHostHeader, resolveNuxtAllowedHosts } from '../../src/dev/host-check'
 
 describe('parseHostHeader', () => {
   it('strips the port', () => {
@@ -73,6 +73,30 @@ describe('isAllowedHost', () => {
 
   it('rejects malformed Host values', () => {
     expect(isAllowedHost('[', none)).toBe(false)
+  })
+})
+
+describe('resolveNuxtAllowedHosts', () => {
+  it('combines `devServer.allowedHosts` and `vite.server.allowedHosts`', () => {
+    expect(resolveNuxtAllowedHosts({
+      devServer: { allowedHosts: ['a.test', 'b.test'] },
+      vite: { server: { allowedHosts: ['b.test', 'c.test'] } },
+    })).toEqual(['a.test', 'b.test', 'c.test'])
+  })
+
+  it('reads either option on its own', () => {
+    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: ['a.test'] } })).toEqual(['a.test'])
+    expect(resolveNuxtAllowedHosts({ vite: { server: { allowedHosts: ['a.test'] } } })).toEqual(['a.test'])
+  })
+
+  it('allows any host for `true` in either option', () => {
+    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: true }, vite: { server: { allowedHosts: ['a.test'] } } })).toBe(true)
+    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: ['a.test'] }, vite: { server: { allowedHosts: true } } })).toBe(true)
+  })
+
+  it('returns `undefined` when neither option is set', () => {
+    expect(resolveNuxtAllowedHosts({ devServer: {}, vite: {} })).toBeUndefined()
+    expect(resolveNuxtAllowedHosts(undefined)).toBeUndefined()
   })
 })
 
