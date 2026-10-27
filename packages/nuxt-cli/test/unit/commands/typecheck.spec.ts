@@ -1,3 +1,4 @@
+import { EventEmitter } from 'node:events'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
@@ -5,15 +6,21 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { runInstall, answers, resolveModulePath, tinyexec, writeTypes } = vi.hoisted(() => ({
+const { runInstall, answers, resolveModulePath, spawn, tinyexec, writeTypes } = vi.hoisted(() => ({
   runInstall: vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })),
   answers: { select: [] as unknown[], confirm: [] as unknown[] },
   resolveModulePath: vi.fn(),
+  spawn: vi.fn(),
   tinyexec: vi.fn(() => Promise.resolve({ exitCode: 0, stdout: '', stderr: '' })),
   writeTypes: vi.fn(() => Promise.resolve()),
 }))
 
 vi.mock('tinyexec', () => ({ x: tinyexec }))
+
+vi.mock('node:child_process', async importOriginal => ({
+  ...await importOriginal<typeof import('node:child_process')>(),
+  spawn,
+}))
 
 vi.mock('exsolve', async importOriginal => ({
   ...await importOriginal<typeof import('exsolve')>(),
@@ -71,10 +78,19 @@ function installed(...names: string[]): void {
   })
 }
 
-async function runTypecheck(argv: string[] = []): Promise<{ output: string, exitCode: number | undefined }> {
+/** Make the type generation process exit with the given code or signal. */
+function typegenExits(code: number | null, signal: NodeJS.Signals | null = null): void {
+  spawn.mockImplementation(() => {
+    const child = new EventEmitter()
+    setImmediate(() => child.emit('exit', code, signal))
+    return child
+  })
+}
+
+async function runTypecheck(argv: string[] = [], data?: { overrides?: Record<string, any> }): Promise<{ output: string, exitCode: number | undefined }> {
   process.exitCode = undefined
   const renderer = await render(async () => {
-    await runCommandDef(typecheck, [`--cwd=${cwd}`, ...argv])
+    await runCommandDef(typecheck, [`--cwd=${cwd}`, ...argv], data)
   })
   const exitCode = process.exitCode as number | undefined
   process.exitCode = 0
@@ -87,6 +103,7 @@ beforeEach(async () => {
   answers.confirm.length = 0
   vi.clearAllMocks()
   tinyexec.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' })
+  typegenExits(0)
   runInstall.mockImplementation(() => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] }))
   installed('typescript', 'vue-tsc/bin/vue-tsc.js')
   await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', type: 'module' }))
@@ -221,5 +238,43 @@ describe('typecheck results', () => {
 
     expect(output).toContain('Type check failed')
     expect(exitCode).toBe(2)
+  })
+})
+
+describe('typecheck type generation', () => {
+  it('should generate types in a separate node process', async () => {
+    await runTypecheck(['--dotenv=.env.test', '--logLevel=silent', '--extends=./layer'])
+
+    expect(spawn).toHaveBeenCalledWith(process.execPath, [expect.stringMatching(/write-types\.mjs$/), expect.any(String)], expect.objectContaining({ cwd, stdio: 'inherit' }))
+    expect(JSON.parse(spawn.mock.calls[0]![1][1])).toEqual({
+      cwd,
+      dotenv: ['.env.test'],
+      logLevel: 'silent',
+      overrides: { extends: ['./layer'] },
+    })
+    expect(writeTypes).not.toHaveBeenCalled()
+    expect(tinyexec).toHaveBeenCalledTimes(1)
+  })
+
+  it('should fail without type-checking when generating types fails', async () => {
+    typegenExits(1)
+
+    await expect(runTypecheck()).rejects.toThrow('Generating types failed with exit code 1')
+    expect(tinyexec).not.toHaveBeenCalled()
+  })
+
+  it('should report the signal that terminated type generation', async () => {
+    typegenExits(null, 'SIGKILL')
+
+    await expect(runTypecheck()).rejects.toThrow('Generating types was terminated by SIGKILL')
+    expect(tinyexec).not.toHaveBeenCalled()
+  })
+
+  it('should generate types in this process when called with overrides', async () => {
+    await runTypecheck([], { overrides: { hooks: { ready: () => {} } } })
+
+    expect(spawn).not.toHaveBeenCalled()
+    expect(writeTypes).toHaveBeenCalledTimes(1)
+    expect(tinyexec).toHaveBeenCalledTimes(1)
   })
 })
