@@ -268,7 +268,7 @@ describe('typecheck results', () => {
 
     expect(output).toContain('was killed by SIGABRT')
     expect(output).toContain('out of memory')
-    expect(exitCode).toBe(134)
+    expect(exitCode).toBe(128 + os.constants.signals.SIGABRT)
   })
 
   it('should report other signals without an out of memory hint', async () => {
