@@ -290,6 +290,24 @@ describe('typecheck results', () => {
     expect(output).toContain('was killed by SIGKILL')
     expect(exitCode).toBe(137)
   })
+
+  it('should treat exit code 134 on Windows as SIGABRT', async () => {
+    const platform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+    tinyexec.mockResolvedValueOnce({ exitCode: 134, stdout: '', stderr: '' })
+
+    try {
+      const { output, exitCode } = await runTypecheck()
+
+      expect(output).toContain('was killed by SIGABRT')
+      expect(output).toContain('out of memory')
+      expect(output).not.toContain('Type check failed')
+      expect(exitCode).toBe(134)
+    }
+    finally {
+      Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+    }
+  })
 })
 
 describe('typecheck heap limit', () => {

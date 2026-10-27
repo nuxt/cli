@@ -202,10 +202,12 @@ export default defineCommand({
     })
     const result = await proc
     const duration = formatDuration(Date.now() - start)
-    const signal = proc.signalCode
+    // On Windows, Node exits with code 134 instead of raising `SIGABRT`.
+    const signal = proc.signalCode ?? (process.platform === 'win32' && result.exitCode === 134 ? 'SIGABRT' : null)
 
     if (signal) {
-      process.exitCode = reportKilledChecker(signal, duration, heap?.limit)
+      const exitCode = reportKilledChecker(signal, duration, heap?.limit)
+      process.exitCode = result.exitCode ?? exitCode
       return
     }
 
