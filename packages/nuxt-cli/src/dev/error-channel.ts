@@ -27,6 +27,7 @@ export type DevErrorMessage
   = | { type: 'nuxt:dev:error:report', report: ErrorReport, requestId?: string, request?: string }
     | { type: 'nuxt:dev:error:clear', id?: string }
     | { type: 'nuxt:dev:error:warning', report: ErrorReport }
+    | { type: 'nuxt:dev:error:warning:clear', id?: string }
     | { type: 'nuxt:dev:error:log', entry: LogEntry }
     | { type: 'nuxt:dev:error:progress', progress: BuildProgress }
 
@@ -212,7 +213,7 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
   if (type === 'nuxt:dev:error:progress') {
     return isBuildProgress((message as { progress?: unknown }).progress)
   }
-  return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning'
+  return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
 }
 
 const LOG_LEVELS = new Set<string>(['trace', 'debug', 'info', 'log', 'warn', 'error', 'fatal'] satisfies LogLevel[])
@@ -354,6 +355,10 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         }
         case 'nuxt:dev:error:warning': {
           instance.warn(message.report)
+          break
+        }
+        case 'nuxt:dev:error:warning:clear': {
+          instance.clearWarning(message.id)
           break
         }
         case 'nuxt:dev:error:clear': {

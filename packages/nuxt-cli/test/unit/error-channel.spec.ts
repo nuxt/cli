@@ -136,6 +136,8 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:report', report: {} })).toBe(true)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:clear' })).toBe(true)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:warning', report: {} })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:warning:clear' })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:warning:clear', id: 'w1' })).toBe(true)
     expect(isDevErrorMessage({ type: 'nuxt:internal:dev:log' })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:sync' })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:report', report: {}, request: 'GET /ok' })).toBe(true)
@@ -388,6 +390,23 @@ describe('the CLI-owned error channel', () => {
     expect(cleared).toHaveLength(0)
   })
 
+  it('should retire the warnings the app clears', async () => {
+    createServer()
+    const instance = await useErrorChannel()
+    const clearWarning = vi.spyOn(instance, 'clearWarning')
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:warning:clear', id: 'w1' })
+    app.postMessage({ type: 'nuxt:dev:error:warning:clear' })
+    app.close()
+
+    await vi.waitUntil(() => clearWarning.mock.calls.length === 2)
+    close()
+    expect(clearWarning).toHaveBeenNthCalledWith(1, 'w1')
+    expect(clearWarning).toHaveBeenNthCalledWith(2, undefined)
+  })
+
   it('should keep the CLI\'s own progress apart from what the app forwards', async () => {
     createServer()
     const instance = await useErrorChannel()
@@ -611,5 +630,23 @@ describe('the CLI-owned error channel', () => {
     await server.handler(request(DEFAULT_ERROR_CHANNEL), res)
 
     expect(statusOf()).toBe(404)
+  })
+
+  it('should serve the badge and overlay assets the dev page loads', async () => {
+    const server = createServer()
+    const assets = [
+      ['badge.js', 'text/javascript'],
+      ['client.js', 'text/javascript'],
+      ['client.css', 'text/css'],
+    ] as const
+
+    for (const [asset, type] of assets) {
+      const { res, statusOf, headers, chunks } = createResponse()
+      await server.handler(request(`${DEFAULT_ERROR_CHANNEL}/${asset}?v=1`), res)
+
+      expect(statusOf()).toBe(200)
+      expect(headers['content-type']).toContain(type)
+      expect(chunks.join('')).not.toBe('')
+    }
   })
 })
