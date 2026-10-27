@@ -2,9 +2,11 @@ import type { DetectResult } from 'package-manager-detector'
 import type { TSConfig } from 'pkg-types'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
+import v8 from 'node:v8'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
@@ -192,11 +194,22 @@ export default defineCommand({
       }
     }
 
+    // Golar type-checks in Go, outside of the V8 heap.
+    const heap = typechecker.checker === 'vue-tsc' ? resolveCheckerHeap() : undefined
     const start = Date.now()
-    const result = await x(typechecker.bin, args, {
-      nodeOptions: { stdio: 'inherit', cwd },
+    const proc = x(typechecker.bin, args, {
+      nodeOptions: { stdio: 'inherit', cwd, ...(heap?.nodeOptions && { env: { NODE_OPTIONS: heap.nodeOptions } }) },
     })
+    const result = await proc
     const duration = formatDuration(Date.now() - start)
+    // On Windows, Node exits with code 134 instead of raising `SIGABRT`.
+    const signal = proc.signalCode ?? (process.platform === 'win32' && result.exitCode === 134 ? 'SIGABRT' : null)
+
+    if (signal) {
+      const exitCode = reportKilledChecker(signal, duration, heap?.limit)
+      process.exitCode = result.exitCode ?? exitCode
+      return
+    }
 
     if (result.exitCode === 0) {
       if (hasTTY) {
@@ -213,6 +226,51 @@ export default defineCommand({
 })
 
 const NUXT_PROJECT_REFERENCE_RE = /(?:^|[/\\])tsconfig\.(?:app|server|shared|node)\.json$/
+const MAX_OLD_SPACE_SIZE_RE = /--max[-_]old[-_]space[-_]size[=\s]+(\d+)/
+const MAX_CHECKER_HEAP_MB = 8192
+const MB = 1024 * 1024
+
+/**
+ * Report a checker killed by a signal, even without a TTY, and return the exit code to use:
+ * `128 + signal number`, following the shell convention.
+ */
+function reportKilledChecker(signal: string, duration: string, heapLimit?: number): number {
+  // `SIGKILL` is sent by the kernel OOM killer, `SIGABRT` by V8 when it reaches its heap limit.
+  const outOfMemory = signal === 'SIGKILL' || signal === 'SIGABRT' ? ', which usually means it ran out of memory' : ''
+  const heapHint = signal === 'SIGABRT' && heapLimit ? ` Its heap was limited to ${styleText('cyan', `${heapLimit} MB`)}. Set ${styleText('bold', 'NODE_OPTIONS=--max-old-space-size=<MB>')} to raise it.` : ''
+  logger.error(`Type-checking was killed by ${styleText('bold', signal)} after ${styleText('cyan', duration)}${outOfMemory}.${heapHint}`)
+
+  const signalNumber = os.constants.signals[signal as NodeJS.Signals] as number | undefined
+  return signalNumber ? 128 + signalNumber : 1
+}
+
+/**
+ * Heap limit of the checker in MB, with the `NODE_OPTIONS` that set it if they differ from the inherited ones.
+ *
+ * Unless set by the user, this is half of the memory of the machine or container, bounded by the memory
+ * currently available and by `MAX_CHECKER_HEAP_MB`, and never below V8's default.
+ */
+function resolveCheckerHeap(): { limit: number, nodeOptions?: string } {
+  const nodeOptions = process.env.NODE_OPTIONS
+  const inherited = nodeOptions?.match(MAX_OLD_SPACE_SIZE_RE)
+  if (inherited) {
+    return { limit: Number(inherited[1]) }
+  }
+
+  const withLimit = (limit: number) => ({ limit, nodeOptions: [nodeOptions, `--max-old-space-size=${limit}`].filter(Boolean).join(' ') })
+
+  const own = process.execArgv.join(' ').match(MAX_OLD_SPACE_SIZE_RE)
+  if (own) {
+    return withLimit(Number(own[1]))
+  }
+
+  const defaultLimit = Math.round(v8.getHeapStatistics().heap_size_limit / MB)
+  const total = os.totalmem()
+  const constrained = process.constrainedMemory()
+  const memory = constrained > 0 && constrained < total ? constrained : total
+  const limit = Math.floor(Math.min(memory / 2, process.availableMemory(), MAX_CHECKER_HEAP_MB * MB) / MB)
+  return limit > defaultLimit ? withLimit(limit) : { limit: defaultLimit }
+}
 
 /**
  * Whether a tsconfig is a solution-style config, as used by Nuxt's project references setup.
