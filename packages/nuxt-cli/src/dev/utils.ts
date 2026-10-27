@@ -40,7 +40,7 @@ import { resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
-import { isAllowedHost, resolveConfiguredAllowedHosts } from './host-check'
+import { isAllowedHost, resolveConfiguredAllowedHosts, resolveNuxtAllowedHosts } from './host-check'
 import { bindListener, createListener, matchesBoundTarget, openBrowser, resolveOpenURL } from './listen'
 import { RECOVERY_SCRIPT, withProgress } from './loading-page'
 import { resolveDefaultLoadingTemplate } from './loading-template'
@@ -253,7 +253,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #allowAnyHost = false
   /** Options of the bound listener, so a reload can rebuild the `Host` allowlist without a rebind. */
   #listenOptions: ListenOptions = {}
-  /** `vite.server.allowedHosts` from the previous run, for the `Host` check before the config loads. */
+  /** Allowed hosts of the previous run's config, for the `Host` check before the config loads. */
   #hintedAllowedHosts?: true | string[]
   #openedEagerly = false
   #progress = new DevProgress()
@@ -370,19 +370,20 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       res.statusCode = 403
       res.setHeader('Content-Type', 'text/plain')
     }
-    res.end('Forbidden: this host is not allowed. Pass it to `--host`, add it to `vite.server.allowedHosts` in `nuxt.config`, or use `--public` to allow any host.')
+    res.end('Forbidden: this host is not allowed. Pass it to `--host`, add it to `devServer.allowedHosts` or `vite.server.allowedHosts` in `nuxt.config`, or use `--public` to allow any host.')
     return true
   }
 
   /**
    * Record the hostnames this server answers on and the loaded config's
-   * `vite.server.allowedHosts`, for the `Host` check on the CLI's own endpoints.
-   * `--public` or `vite.server.allowedHosts: true` opts out of the check entirely.
+   * `devServer.allowedHosts` and `vite.server.allowedHosts`, for the `Host` check
+   * on the CLI's own endpoints. `--public` or `allowedHosts: true` in either opts
+   * out of the check entirely.
    */
   #syncAllowedHosts(options: ListenOptions): void {
     this.#listenOptions = options
     const configured = this.#currentNuxt
-      ? resolveConfiguredAllowedHosts(this.#currentNuxt.options.vite?.server?.allowedHosts)
+      ? resolveNuxtAllowedHosts(this.#currentNuxt.options)
       : this.#hintedAllowedHosts
     this.#allowAnyHost = !!options.public || configured === true
     this.#allowedHosts.clear()
@@ -1012,8 +1013,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#syncAllowedHosts(listenOptions)
     this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: true })
 
+    const devServer = this.#currentNuxt.options.devServer as NuxtOptions['devServer'] & DevServerAllowedHosts
+
     if (listenOptions.public) {
-      this.#currentNuxt.options.devServer.cors = { origin: '*' }
+      devServer.cors = { origin: '*' }
+      devServer.allowedHosts = true
       if (this.#currentNuxt.options.vite?.server) {
         this.#currentNuxt.options.vite.server.allowedHosts = true
       }
@@ -1022,9 +1026,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const urls = this.listener.getURLs().map(({ url }) => url)
     if (urls.length > 0) {
+      const hostnames = urls.map(u => new URL(u).hostname)
+      devServer.allowedHosts = devServer.allowedHosts === true
+        ? true
+        : dedupe([...Array.isArray(devServer.allowedHosts) ? devServer.allowedHosts : [], ...hostnames])
       this.#currentNuxt.options.vite = defu(this.#currentNuxt.options.vite, {
         server: {
-          allowedHosts: urls.map(u => new URL(u).hostname),
+          allowedHosts: hostnames,
         },
       })
       const allowedHosts = this.#currentNuxt.options.vite.server?.allowedHosts
@@ -1049,7 +1057,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname: devServer.host || undefined,
       https: !!devServer.https,
       baseURL,
-      allowedHosts: resolveConfiguredAllowedHosts(this.#currentNuxt?.options.vite?.server?.allowedHosts),
+      allowedHosts: resolveNuxtAllowedHosts(this.#currentNuxt?.options),
     })
   }
 
@@ -1432,6 +1440,11 @@ function dedupe<T>(values: T[]): T[] {
   return [...new Set(values)]
 }
 
+/** `devServer.allowedHosts`, which `@nuxt/schema` declares from Nuxt 4.7. */
+interface DevServerAllowedHosts {
+  allowedHosts?: true | string[]
+}
+
 /**
  * Config the CLI injects on behalf of the live listener.
  *
@@ -1468,6 +1481,7 @@ function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boo
   const allowedHosts = defaultConfig.vite?.server?.allowedHosts
   if (Array.isArray(allowedHosts)) {
     defaultConfig.vite!.server!.allowedHosts = dedupe(allowedHosts)
+    defaultConfig.devServer = { ...defaultConfig.devServer, allowedHosts: dedupe(allowedHosts) } as NuxtConfig['devServer']
   }
   const corsOrigin = defaultConfig.devServer?.cors?.origin
   if (Array.isArray(corsOrigin)) {
