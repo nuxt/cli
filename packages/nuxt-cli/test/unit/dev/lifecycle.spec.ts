@@ -7,6 +7,7 @@ import { request } from 'node:http'
 import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
+import { BroadcastChannel } from 'node:worker_threads'
 
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,6 +26,7 @@ vi.mock('../../../src/utils/kit', () => ({
 }))
 
 const { NuxtDevServer } = await import('../../../src/dev/utils')
+const { closeErrorChannel, createCliReport, ERROR_BROADCAST_CHANNEL, useErrorChannel } = await import('../../../src/dev/error-channel')
 const { loadDevServerHint, saveDevServerHint } = await import('../../../src/utils/dev-hint')
 
 type Hook = (...args: any[]) => unknown
@@ -363,6 +365,32 @@ describe('dev server reload', () => {
 
     expect(existsSync(join(cwd, '.other', 'nuxt.lock'))).toBe(true)
     expect(existsSync(join(cwd, '.nuxt', 'nuxt.lock'))).toBe(false)
+  })
+})
+
+describe('dev server error channel', () => {
+  afterEach(async () => {
+    await closeErrorChannel()
+  })
+
+  it('should clear every open error on a clean reload', async () => {
+    const server = createServer()
+    await server.init()
+
+    const compile = await createCliReport(new Error('compile broke'), { cwd })
+    const request = await createCliReport(new Error('route exploded'), { cwd })
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:report', report: compile })
+    app.postMessage({ type: 'nuxt:dev:error:report', report: request, requestId: 'open-page' })
+    app.close()
+
+    const instance = await useErrorChannel()
+    await vi.waitUntil(() => instance.current?.id === request.id)
+
+    await server.load(true, { type: 'shortcut' })
+
+    expect(instance.current).toBeUndefined()
   })
 })
 

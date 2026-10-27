@@ -75,7 +75,7 @@
     "exsolve": "^1.1.3",
     "fuzzysort": "^4.0.2",
     "get-port-please": "^3.2.0",
-    "my-bad": "^0.2.11",
+    "my-bad": "https://pkg.pr.new/danielroe/my-bad@0b6a186",
     "obug": "^3.0.0",
     "package-manager-detector": "^1.9.0",
     "pathe": "^2.0.3",

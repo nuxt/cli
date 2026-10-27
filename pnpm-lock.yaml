@@ -400,8 +400,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
       my-bad:
-        specifier: ^0.2.11
-        version: 0.2.11(vite@8.3.4)
+        specifier: https://pkg.pr.new/danielroe/my-bad@0b6a186
+        version: https://pkg.pr.new/danielroe/my-bad@0b6a186(vite@8.3.4)
       obug:
         specifier: ^3.0.0
         version: 3.0.0
@@ -4564,6 +4564,16 @@ packages:
 
   my-bad@0.2.11:
     resolution: {integrity: sha512-K1R6DRz31BR7YYaDDLRr97XWKWku3SQhHKpDgz7i/VS3O3pvphIzbJIrrEXupSEmPtZElY9UzCrDc0nWvG4HyA==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      vite: '>=6'
+    peerDependenciesMeta:
+      vite:
+        optional: true
+
+  my-bad@https://pkg.pr.new/danielroe/my-bad@0b6a186:
+    resolution: {integrity: sha512-6NCej92oSmtzlL8zJXOtOHsH/Oe1Vy8bZ+OfXK34enbcpIzooVO8Olc29UUFwTzAajhMl6lAAwSVDSN77291Uw==, tarball: https://pkg.pr.new/danielroe/my-bad@0b6a186}
+    version: 0.2.11
     engines: {node: '>=22.12.0'}
     peerDependencies:
       vite: '>=6'
@@ -11095,6 +11105,14 @@ snapshots:
   muggle-string@0.4.1: {}
 
   my-bad@0.2.11(vite@8.3.4):
+    dependencies:
+      clickable-path: 0.1.1
+      errx: 0.2.2
+      fnv1a-64: 0.1.2
+    optionalDependencies:
+      vite: 8.3.4(@types/node@24.19.2)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.1)
+
+  my-bad@https://pkg.pr.new/danielroe/my-bad@0b6a186(vite@8.3.4):
     dependencies:
       clickable-path: 0.1.1
       errx: 0.2.2
