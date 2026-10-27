@@ -10,7 +10,7 @@ import { defu } from 'defu'
 import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
-import { isAllowedHost, resolveConfiguredAllowedHosts } from '../dev/host-check'
+import { isAllowedHost, resolveNuxtAllowedHosts } from '../dev/host-check'
 import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
@@ -205,7 +205,7 @@ export default defineCommand({
       logger.step('Starting stats server...')
 
       const hostname = process.env.HOST || 'localhost'
-      const configuredHosts = resolveConfiguredAllowedHosts(nuxt.options.vite?.server?.allowedHosts)
+      const configuredHosts = resolveNuxtAllowedHosts(nuxt.options)
       const allowedHosts = new Set([hostname, ...Array.isArray(configuredHosts) ? configuredHosts : []].map(host => host.toLowerCase()))
 
       await serve({
