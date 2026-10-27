@@ -10,7 +10,7 @@ links:
 
 <!--typecheck-cmd-->
 ```bash [Terminal]
-npx nuxt typecheck [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv=<path>...] [-e, --extends=<layer-name>...] [--checker=<vue-tsc|golar>] [-b, --build]
+npx nuxt typecheck [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--dotenv=<path>...] [-e, --extends=<layer-name>...] [--checker=<vue-tsc|golar>] [-b, --build] [--incremental]
 ```
 <!--/typecheck-cmd-->
 
@@ -36,6 +36,8 @@ The `typecheck` command runs [`vue-tsc`](https://github.com/vuejs/language-tools
 | `--checker=<vue-tsc\|golar>`         |         | Type checker to use                                                                                               |
 | `-b, --build`                        |         | Type-check in build mode, using TypeScript project references (detected automatically by default)                 |
 | `--no-build`                         |         | Type-check without TypeScript project references                                                                  |
+| `--incremental`                      | `true`  | Reuse type information from previous runs                                                                         |
+| `--no-incremental`                   |         | Type-check from scratch, without reusing type information from previous runs                                      |
 <!--/typecheck-opts-->
 
 ## Type checkers
@@ -45,6 +47,10 @@ The `typecheck` command runs [`vue-tsc`](https://github.com/vuejs/language-tools
 ## Build mode
 
 A solution-style `tsconfig.json` (one that only lists `references`) is type-checked in build mode automatically. `--build` forces it, and `--no-build` turns it off.
+
+## Incremental type-checking
+
+In build mode, type information from each run is stored in the `tsBuildInfoFile` of every project referenced by `tsconfig.json`, so later runs only re-check what changed. From Nuxt v4.7, Nuxt's generated project configs store it in `.nuxt/cache/typecheck`, which is kept by `nuxt prepare` and `nuxt dev`. The cache is discarded when the type checker or TypeScript version changes, and is not used if any referenced project has no `tsBuildInfoFile`. Pass `--no-incremental` to remove the cached type information and type-check from scratch.
 
 ::note
 This command sets `process.env.NODE_ENV` to `production`. To override, define `NODE_ENV` in a [`.env`](/docs/directory-structure/env) file or as a command-line argument.
