@@ -48,7 +48,7 @@
     "fast-check": "^4.10.2",
     "knip": "^6.43.0",
     "nf3": "^0.4.2",
-    "nuxt": "^4.6.2",
+    "nuxt": "^4.6.3",
     "pkg-pr-new": "^0.0.92",
     "rolldown": "^1.2.15",
     "rollup-plugin-visualizer": "^7.1.1",
