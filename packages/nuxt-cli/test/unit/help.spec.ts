@@ -141,6 +141,7 @@ describe('help', () => {
                                  --serve    Serve the analysis results (Default: true)                                                                       
                               --no-serve    Skip serving the analysis results                                                                                
                              --prerender    Prerender routes while analyzing (Default: false)                                                                
+                                  --json    Write the client bundle analysis as JSON instead of HTML (implies --no-serve) (Default: false)                   
       "
     `)
   })

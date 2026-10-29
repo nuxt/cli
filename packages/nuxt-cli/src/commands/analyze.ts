@@ -70,6 +70,11 @@ export default defineCommand({
       description: 'Prerender routes while analyzing',
       default: false,
     },
+    json: {
+      type: 'boolean',
+      description: 'Write the client bundle analysis as JSON instead of HTML (implies --no-serve)',
+      default: false,
+    },
   },
   async run(ctx) {
     overrideEnv('production')
@@ -132,18 +137,28 @@ export default defineCommand({
       })
     }
 
+    // Each named run gets its own directory so earlier runs are kept for comparison.
+    // This has to happen before `ready()`, as modules and Nitro read `analyzeDir` while initialising.
+    const baseAnalyzeDir = nuxt.options.analyzeDir
+    const analyzeDir = join(baseAnalyzeDir, slug)
+    nuxt.options.analyzeDir = analyzeDir
+
+    const analyzeOptions = nuxt.options.build.analyze as Exclude<typeof nuxt.options.build.analyze, boolean> & { filename?: string, template?: string }
+    if (ctx.args.json) {
+      analyzeOptions.template = 'raw-data'
+    }
+    // Only move the default report location; a custom `build.analyze.filename` is kept as is.
+    if (!analyzeOptions.filename || analyzeOptions.filename === join(baseAnalyzeDir, '{name}.html')) {
+      analyzeOptions.filename = join(analyzeDir, ctx.args.json ? '{name}.json' : '{name}.html')
+    }
+
     await nuxt.ready()
 
-    const analyzeDir = nuxt.options.analyzeDir
     const buildDir = nuxt.options.buildDir
     const serverBuild = resolveServerBuild(kit, nuxt)
     // The lock has to be taken before the build, so it claims the output
     // directory as resolved now; `meta.json` records where the build landed.
     const outDir = serverBuild.dir
-
-    nuxt.options.build.analyze = defu(nuxt.options.build.analyze, {
-      filename: join(analyzeDir, 'client.html'),
-    })
 
     const lockInfo = { command: 'analyze' as const, cwd }
     const lock = acquireLock(buildDir, lockInfo)
@@ -194,7 +209,7 @@ export default defineCommand({
 
     note(`${relativeToProcess(analyzeDir)}\n\nDo not deploy analyze results! Use ${styleText('cyan', 'nuxt build')} before deploying.`, 'Build location')
 
-    if (ctx.args.serve !== false && !process.env.CI) {
+    if (ctx.args.serve !== false && !ctx.args.json && !process.env.CI) {
       const headers = { 'content-type': 'text/html' }
       const readReport = (name: string) => fsp.readFile(join(analyzeDir, name), 'utf8').catch(() => undefined)
       const reports = new Map([

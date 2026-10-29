@@ -1,10 +1,10 @@
 import type { Nuxt } from '@nuxt/schema'
 
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { runCommand } from 'citty'
-import { join } from 'pathe'
+import { dirname, join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import analyze from '../../../src/commands/analyze'
@@ -49,7 +49,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
 
 let cwd: string
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {} }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any> } = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {} }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any> } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -64,15 +64,20 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
         buildDir: join(cwd, '.nuxt'),
         rootDir: cwd,
         nitro: {},
-        build: {},
+        build: {
+          analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...buildAnalyze },
+        },
         devServer,
         vite,
       },
     } as unknown as Nuxt)
   })
 
-  buildNuxt.mockImplementation(async () => {
-    await mkdir(join(cwd, 'analyze'), { recursive: true })
+  buildNuxt.mockImplementation(async (nuxt: Nuxt) => {
+    // Stand in for rollup-plugin-visualizer writing the client report
+    const { filename, template } = nuxt.options.build.analyze as { filename: string, template: string }
+    await mkdir(dirname(filename), { recursive: true })
+    await writeFile(filename.replace('{name}', 'client'), template)
     const nitroHooks = createHooks()
     await nuxtHooks.callHook('nitro:init', { hooks: nitroHooks })
     await nitroHooks.callHook('prerender:routes', prerenderRoutes)
@@ -127,15 +132,39 @@ describe('nuxt analyze command', () => {
   it('should write metadata and fall back to a non-empty slug', async () => {
     await runAnalyze({ args: ['--no-serve', '--name=   '] })
 
-    const meta = JSON.parse(await readFile(join(cwd, 'analyze/meta.json'), 'utf8'))
+    const meta = JSON.parse(await readFile(join(cwd, 'analyze/default/meta.json'), 'utf8'))
     expect(meta).toMatchObject({
       name: '   ',
       slug: 'default',
-      analyzeDir: join(cwd, 'analyze'),
+      analyzeDir: join(cwd, 'analyze/default'),
       buildDir: join(cwd, '.nuxt'),
       outDir: join(cwd, '.output'),
     })
     expect(meta.endTime).toBeGreaterThanOrEqual(meta.startTime)
+  })
+
+  it('should keep the results of each named run', async () => {
+    await runAnalyze({ args: ['--no-serve', '--name=before'] })
+    await runAnalyze({ args: ['--no-serve', '--name=after/fix'] })
+
+    await expect(readFile(join(cwd, 'analyze/before/client.html'), 'utf8')).resolves.toBe('treemap')
+    await expect(readFile(join(cwd, 'analyze/after_fix/client.html'), 'utf8')).resolves.toBe('treemap')
+    const meta = JSON.parse(await readFile(join(cwd, 'analyze/before/meta.json'), 'utf8'))
+    expect(meta).toMatchObject({ name: 'before', slug: 'before' })
+  })
+
+  it('should keep a custom report filename', async () => {
+    await runAnalyze({ buildAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await expect(readFile(join(cwd, 'reports/client.html'), 'utf8')).resolves.toBe('treemap')
+  })
+
+  it('should write the client report as JSON with --json and not serve it', async () => {
+    vi.stubEnv('CI', '')
+    await runAnalyze({ args: ['--json'] })
+    vi.unstubAllEnvs()
+
+    await expect(readFile(join(cwd, 'analyze/default/client.json'), 'utf8')).resolves.toBe('raw-data')
+    expect(serve).not.toHaveBeenCalled()
   })
 
   it('should lock build directories and release both locks', async () => {
