@@ -28,8 +28,8 @@ import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 const NON_WORD_RE = /[^\w-]/g
 
 const REPORTS = [
-  { path: '/client', file: 'client.html', label: 'Client bundle stats' },
-  { path: '/nitro', file: 'nitro.html', label: 'Nitro server bundle stats' },
+  { path: '/client', name: 'client', label: 'Client bundle stats' },
+  { path: '/nitro', name: 'nitro', label: 'Nitro server bundle stats' },
 ]
 
 function renderIndexHtml(reports: { path: string, label: string }[]) {
@@ -266,10 +266,11 @@ export default defineCommand({
 
     if (ctx.args.serve !== false && !ctx.args.json && !process.env.CI) {
       const headers = { 'content-type': 'text/html' }
-      const reports = await Promise.all(REPORTS.map(async report => ({
-        ...report,
-        html: await fsp.readFile(join(analyzeDir, report.file), 'utf8').catch(() => undefined),
-      })))
+      const reports = await Promise.all(REPORTS.map(async (report) => {
+        // The client report follows `build.analyze.filename`, which can point outside `analyzeDir`.
+        const file = report.name === 'client' ? analyzeOptions.filename!.replace('{name}', 'client') : join(analyzeDir, `${report.name}.html`)
+        return { ...report, html: await fsp.readFile(file, 'utf8').catch(() => undefined) }
+      }))
       const contents = new Map(reports.map(report => [report.path, report.html]))
       const generated = reports.filter(report => report.html !== undefined)
       // With a single report, there is nothing to choose from, so serve it directly.

@@ -343,6 +343,12 @@ describe('nuxt analyze command', () => {
       expect(fetchPage('/nitro').status).toBe(404)
     })
 
+    it('should serve the client report from a custom report filename', async () => {
+      const fetchPage = await startStatsServer({ buildAnalyze: { template: 'client report', filename: join(cwd, 'reports/{name}.html') } })
+      await expect(fetchPage('/client').text()).resolves.toBe('client report')
+      expect(await fetchPage('/').text()).toContain('<a href="/client">')
+    })
+
     it('should reject a host it was not started on', async () => {
       await expect(statusForHost({}, 'rebinding-attacker.com')).resolves.toBe(403)
     })
