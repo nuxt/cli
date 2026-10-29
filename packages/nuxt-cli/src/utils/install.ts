@@ -36,12 +36,6 @@ function getInstallCommand({ packageManager: { agent }, dependencies = [], dev, 
   ], { ignoreWorkspaceRootCheck: true })!
 }
 
-/** The command {@link runInstall} would run, for display. */
-export function formatInstallCommand(options: Pick<InstallOptions, 'packageManager' | 'dependencies' | 'dev' | 'uninstall'>): string {
-  const { command, args } = getInstallCommand(options as InstallOptions)
-  return [command, ...args].join(' ')
-}
-
 export interface InstallOptions {
   cwd: string
   packageManager: DetectResult

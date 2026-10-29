@@ -24,11 +24,12 @@ function createHooks() {
   }
 }
 
-const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, releaseBuildLock, releaseOutputLock, serve } = vi.hoisted(() => ({
+const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, getPort, loadNuxt, releaseBuildLock, releaseOutputLock, serve } = vi.hoisted(() => ({
   acquireLock: vi.fn(),
   formatLockError: vi.fn(() => 'locked'),
   acquireOutputLock: vi.fn(),
   buildNuxt: vi.fn(),
+  getPort: vi.fn(),
   loadNuxt: vi.fn(),
   releaseBuildLock: vi.fn(),
   releaseOutputLock: vi.fn(),
@@ -36,6 +37,8 @@ const { acquireLock, acquireOutputLock, buildNuxt, formatLockError, loadNuxt, re
 }))
 
 vi.mock('srvx', () => ({ serve }))
+
+vi.mock('get-port-please', () => ({ getPort }))
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({ loadNuxt, buildNuxt }),
@@ -131,6 +134,7 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
 describe('nuxt analyze command', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
+    getPort.mockImplementation((options: { port: number }) => Promise.resolve(options.port))
     acquireLock.mockReturnValue({ release: releaseBuildLock })
     acquireOutputLock.mockReturnValue({ release: releaseOutputLock })
     cwd = await mkdtemp(join(tmpdir(), 'nuxt-analyze-'))
@@ -225,20 +229,13 @@ describe('nuxt analyze command', () => {
       await runAnalyze({ args: ['--json'], nitro: 'v3' })
       await expect(readFile(join(cwd, 'analyze/default/nitro.json'), 'utf8')).resolves.toBe('raw-data')
     })
-
-    it('should tell how to install rollup-plugin-visualizer as a dev dependency', async () => {
-      const { output } = await runAnalyze({ nitro: 'v3' })
-      expect(output).toContain('Install rollup-plugin-visualizer as a dev dependency to analyze the Nitro server bundle')
-      expect(output).toMatch(/-D rollup-plugin-visualizer/)
-    })
   })
 
   it('should not add a second Nitro report when Nitro made one', async () => {
     await installFakeVisualizer()
-    const { output } = await runAnalyze({ nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await runAnalyze({ nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
     await expect(readFile(join(cwd, 'reports/nitro.html'), 'utf8')).resolves.toBe('treemap')
     await expect(readFile(join(cwd, 'analyze/default/nitro.html'), 'utf8')).rejects.toThrow()
-    expect(output).not.toContain('rollup-plugin-visualizer')
   })
 
   it('should disable the DevTools Vite inspect output with --json', async () => {
@@ -315,6 +312,20 @@ describe('nuxt analyze command', () => {
 
     afterEach(() => {
       vi.unstubAllEnvs()
+    })
+
+    it('should listen on another port when the requested one is in use', async () => {
+      vi.stubEnv('PORT', '3000')
+      getPort.mockResolvedValue(3001)
+      serve.mockReturnValue({ ready: () => Promise.resolve() })
+      vi.stubEnv('CI', '')
+      vi.stubEnv('HOST', '')
+
+      const { output } = await runAnalyze({ args: [] })
+
+      expect(getPort).toHaveBeenCalledWith(expect.objectContaining({ port: 3000, host: 'localhost' }))
+      expect(serve).toHaveBeenCalledWith(expect.objectContaining({ port: 3001 }))
+      expect(output).toContain('Port 3000 is in use, using port 3001 instead.')
     })
 
     it('should link to each generated report', async () => {

@@ -9,6 +9,7 @@ import { note, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
 import { resolveModulePath } from 'exsolve'
+import { getPort } from 'get-port-please'
 import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
@@ -17,11 +18,9 @@ import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
 import { clearDir } from '../utils/fs'
-import { formatInstallCommand } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
-import { defaultPackageManager, detectPackageManager } from '../utils/package-managers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
@@ -184,7 +183,7 @@ export default defineCommand({
     }
 
     // Nitro v2 adds the visualizer from its `analyze` option, which Nitro v3 (Nuxt 5) no longer has.
-    let missingNitroVisualizer = false
+    // When it is missing, Nuxt's Vite builder already offers to install it for the client report.
     nuxt.hook('nitro:init', (nitro) => {
       nitro.hooks.hook('rollup:before', async (_nitro, config) => {
         const plugins = ([await config.plugins] as unknown[]).flat(Infinity).filter(Boolean) as { name?: string }[]
@@ -196,7 +195,6 @@ export default defineCommand({
           try: true,
         })
         if (!visualizerPath) {
-          missingNitroVisualizer = true
           return
         }
         const { visualizer } = await import(pathToFileURL(visualizerPath).href)
@@ -242,12 +240,6 @@ export default defineCommand({
       await buildNuxt(nuxt)
       tasklog.success('Build complete')
 
-      if (missingNitroVisualizer) {
-        const packageManager = await detectPackageManager(nuxt.options.rootDir) ?? defaultPackageManager
-        const command = formatInstallCommand({ packageManager, dependencies: ['rollup-plugin-visualizer'], dev: true })
-        logger.warn(`Install ${styleText('cyan', 'rollup-plugin-visualizer')} as a dev dependency to analyze the Nitro server bundle:\n\n  ${styleText('cyan', command)}`)
-      }
-
       if (skippedPrerenderRoutes > 0) {
         logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
       }
@@ -286,11 +278,17 @@ export default defineCommand({
       logger.step('Starting stats server...')
 
       const hostname = process.env.HOST || 'localhost'
+      const requestedPort = Number(process.env.PORT) || 3000
+      const port = await getPort({ port: requestedPort, alternativePortRange: [3000, 3100], host: hostname })
+      if (port !== requestedPort) {
+        logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
+      }
       const configuredHosts = resolveNuxtAllowedHosts(nuxt.options)
       const allowedHosts = new Set([hostname, ...Array.isArray(configuredHosts) ? configuredHosts : []].map(host => host.toLowerCase()))
 
       await serve({
         hostname,
+        port,
         fetch(request) {
           if (configuredHosts !== true && !isAllowedHost(request.headers.get('host') ?? undefined, allowedHosts)) {
             return new Response('Forbidden: this host is not allowed.', { status: 403, headers: { 'content-type': 'text/plain' } })
