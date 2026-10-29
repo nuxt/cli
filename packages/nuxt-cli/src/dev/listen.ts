@@ -16,6 +16,7 @@ import { isCI } from 'std-env'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
+import { isLoopbackAddress } from './host-check'
 import { resolvePortlessURLs } from './portless'
 import { resolveStackblitzURL } from './stackblitz'
 
@@ -335,7 +336,11 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
-    if (announce && (anyHost || !LOOPBACK_HOSTS.has(hostname))) {
+    // Decided by the address the server is bound to, not the configured name:
+    // a name can resolve to loopback without being one of `LOOPBACK_HOSTS`,
+    // such as `app.localhost` (RFC 6761 reserves `*.localhost` for it) or one
+    // from the hosts file. Binding all interfaces gives `::` or `0.0.0.0`.
+    if (announce && !isLoopbackAddress(address.address)) {
       logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
     }
 
