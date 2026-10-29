@@ -2,6 +2,7 @@
   "name": "nuxt-cli-playground",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "nuxt dev",
     "dev:https:certs": "nuxt dev --https --https.cert=certs/cert.dummy --https.key=certs/key.dummy",

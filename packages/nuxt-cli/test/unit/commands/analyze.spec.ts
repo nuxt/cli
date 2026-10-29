@@ -49,27 +49,29 @@ vi.mock('../../../src/utils/lockfile', () => ({
 
 let cwd: string
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {} }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any> } = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, nitroAnalyze = {}, devtools = {} }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any>, nitroAnalyze?: Record<string, any>, devtools?: boolean | Record<string, any> } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
+  const nuxtOptions = {
+    analyzeDir: join(cwd, 'analyze'),
+    buildDir: join(cwd, '.nuxt'),
+    rootDir: cwd,
+    nitro: {},
+    build: {
+      analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...buildAnalyze },
+    },
+    devServer,
+    devtools,
+    vite,
+  }
 
   loadNuxt.mockImplementation((options: { overrides: Record<string, any> }) => {
     overrides = options.overrides
     return Promise.resolve({
       ...nuxtHooks,
       ready: () => Promise.resolve(),
-      options: {
-        analyzeDir: join(cwd, 'analyze'),
-        buildDir: join(cwd, '.nuxt'),
-        rootDir: cwd,
-        nitro: {},
-        build: {
-          analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...buildAnalyze },
-        },
-        devServer,
-        vite,
-      },
+      options: nuxtOptions,
     } as unknown as Nuxt)
   })
 
@@ -78,6 +80,13 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
     const { filename, template } = nuxt.options.build.analyze as { filename: string, template: string }
     await mkdir(dirname(filename), { recursive: true })
     await writeFile(filename.replace('{name}', 'client'), template)
+    // Stand in for Nuxt's default Nitro analyze options and Nitro writing the server report
+    const nitroConfig = {
+      analyze: { template: 'treemap', filename: join(nuxt.options.analyzeDir, '{name}.html'), ...nitroAnalyze },
+    }
+    await nuxtHooks.callHook('nitro:config', nitroConfig)
+    await mkdir(dirname(nitroConfig.analyze.filename), { recursive: true })
+    await writeFile(nitroConfig.analyze.filename.replace('{name}', 'nitro'), nitroConfig.analyze.template)
     const nitroHooks = createHooks()
     await nuxtHooks.callHook('nitro:init', { hooks: nitroHooks })
     await nitroHooks.callHook('prerender:routes', prerenderRoutes)
@@ -88,6 +97,7 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
   const ignore: ((path: string) => unknown)[] = overrides.nitro?.prerender?.ignore || []
   return {
     output: screen(renderer),
+    nuxtOptions,
     overrides,
     prerendered: [...prerenderRoutes].filter(route => !ignore.some(matches => matches(route))),
   }
@@ -164,7 +174,34 @@ describe('nuxt analyze command', () => {
     vi.unstubAllEnvs()
 
     await expect(readFile(join(cwd, 'analyze/default/client.json'), 'utf8')).resolves.toBe('raw-data')
+    await expect(readFile(join(cwd, 'analyze/default/nitro.json'), 'utf8')).resolves.toBe('raw-data')
     expect(serve).not.toHaveBeenCalled()
+  })
+
+  it('should write the Nitro report as HTML without --json', async () => {
+    await runAnalyze()
+    await expect(readFile(join(cwd, 'analyze/default/nitro.html'), 'utf8')).resolves.toBe('treemap')
+  })
+
+  it('should disable the DevTools Vite inspect output with --json', async () => {
+    const { nuxtOptions, overrides } = await runAnalyze({ args: ['--json'], devtools: { componentInspector: false } })
+    expect(nuxtOptions.devtools).toEqual({ componentInspector: false, viteInspect: false })
+    expect(overrides.devtools).toBeUndefined()
+  })
+
+  it('should keep the DevTools enabled choice with --json', async () => {
+    const { nuxtOptions } = await runAnalyze({ args: ['--json'], devtools: false })
+    expect(nuxtOptions.devtools).toEqual({ enabled: false, viteInspect: false })
+  })
+
+  it('should leave DevTools options alone without --json', async () => {
+    const { nuxtOptions } = await runAnalyze({ devtools: true })
+    expect(nuxtOptions.devtools).toBe(true)
+  })
+
+  it('should keep a custom Nitro report filename with --json', async () => {
+    await runAnalyze({ args: ['--json'], nitroAnalyze: { filename: join(cwd, 'reports/{name}.data') } })
+    await expect(readFile(join(cwd, 'reports/nitro.data'), 'utf8')).resolves.toBe('raw-data')
   })
 
   it('should lock build directories and release both locks', async () => {

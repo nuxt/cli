@@ -72,7 +72,7 @@ export default defineCommand({
     },
     json: {
       type: 'boolean',
-      description: 'Write the client bundle analysis as JSON instead of HTML (implies --no-serve)',
+      description: 'Write the client and server bundle analysis as JSON instead of HTML (implies --no-serve)',
       default: false,
     },
   },
@@ -150,6 +150,24 @@ export default defineCommand({
     // Only move the default report location; a custom `build.analyze.filename` is kept as is.
     if (!analyzeOptions.filename || analyzeOptions.filename === join(baseAnalyzeDir, '{name}.html')) {
       analyzeOptions.filename = join(analyzeDir, ctx.args.json ? '{name}.json' : '{name}.html')
+    }
+
+    // Nitro gets its own analyze options, so the server report needs the same treatment.
+    if (ctx.args.json) {
+      // Nuxt DevTools adds `vite-plugin-inspect` to analyze builds for its own UI, which JSON consumers do not need.
+      // Set after `loadNuxt()` has decided whether to install DevTools, so the user's `enabled` choice is kept.
+      const devtools = nuxt.options.devtools
+      nuxt.options.devtools = typeof devtools === 'object' ? { ...devtools, viteInspect: false } : { enabled: devtools, viteInspect: false }
+
+      nuxt.hook('nitro:config', (nitroConfig) => {
+        if (!nitroConfig.analyze) {
+          return
+        }
+        nitroConfig.analyze.template = 'raw-data'
+        if (!nitroConfig.analyze.filename || nitroConfig.analyze.filename === join(analyzeDir, '{name}.html')) {
+          nitroConfig.analyze.filename = join(analyzeDir, '{name}.json')
+        }
+      })
     }
 
     await nuxt.ready()
