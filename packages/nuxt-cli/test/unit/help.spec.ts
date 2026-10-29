@@ -33,7 +33,7 @@ describe('help', () => {
 
       ARGUMENTS
 
-        COMMAND
+        COMMAND    
 
       OPTIONS
 
@@ -41,24 +41,24 @@ describe('help', () => {
 
       COMMANDS
 
-                 add    Add Nuxt modules and layers
-        add-template    Create a new template file.
-             analyze    Build Nuxt and analyze production bundle (experimental)
-               build    Build Nuxt for production deployment
-             cleanup    Clean up generated Nuxt files and caches
-                curl    Send an HTTP request to your running Nuxt dev server
-                 dev    Run Nuxt development server
-            devtools    Enable or disable devtools in a Nuxt project
-                docs    Search or open the Nuxt documentation
-            generate    Build Nuxt and prerender all routes
-                info    Get information about Nuxt project
-              module    Manage Nuxt modules
-             prepare    Prepare Nuxt for development/build
-             preview    Launches Nitro server for local testing after \`nuxt build\`.
-                task    List and run Nitro tasks on your dev server
-                test    Run tests
+                 add    Add Nuxt modules and layers                                     
+        add-template    Create a new template file.                                     
+             analyze    Build Nuxt and analyze production bundle (experimental)         
+               build    Build Nuxt for production deployment                            
+             cleanup    Clean up generated Nuxt files and caches                        
+                curl    Send an HTTP request to your running Nuxt dev server            
+                 dev    Run Nuxt development server                                     
+            devtools    Enable or disable devtools in a Nuxt project                    
+                docs    Search or open the Nuxt documentation                           
+            generate    Build Nuxt and prerender all routes                             
+                info    Get information about Nuxt project                              
+              module    Manage Nuxt modules                                             
+             prepare    Prepare Nuxt for development/build                              
+             preview    Launches Nitro server for local testing after \`nuxt build\`.     
+                task    List and run Nitro tasks on your dev server                     
+                test    Run tests                                                       
            typecheck    Runs type-checking throughout your app using \`vue-tsc\` or Golar.
-             upgrade    Upgrade Nuxt
+             upgrade    Upgrade Nuxt                                                    
 
       Use nuxt <command> --help for more information about a command."
     `)
@@ -77,11 +77,11 @@ describe('help', () => {
       OPTIONS
 
                                              --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                              --logLevel=<silent|info|verbose>    Specify build-time log level
-                                                 --skipInstall    Skip npm install
-                                                  --skipConfig    Skip nuxt.config.ts update
-                                                         --dev    Install modules as dev dependencies
-        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with
+                              --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                 --skipInstall    Skip npm install                                            
+                                                  --skipConfig    Skip nuxt.config.ts update                                  
+                                                         --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with                             
       "
     `)
   })
@@ -100,24 +100,24 @@ describe('help', () => {
       OPTIONS
 
                                                       --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                                       --logLevel=<silent|info|verbose>    Specify build-time log level
-                                                                --force    Overwrite the file if it already exists (Default: false)
-                                                 --mode=<client|server>    Add a client or server suffix to a component or plugin
-        --method=<connect|delete|get|head|options|patch|post|put|trace>    Add an HTTP method suffix to an API route
-                                                               --global    Create global route middleware
-                                                                  --api    Create a server route in the API directory
-                                                                --pages    Include NuxtPage and NuxtLayout in the app template
-                                                               --client    Shorthand for \`--mode client\`
-                                                               --server    Shorthand for \`--mode server\`
-                                                              --connect    Shorthand for \`--method connect\`
-                                                               --delete    Shorthand for \`--method delete\`
-                                                                  --get    Shorthand for \`--method get\`
-                                                                 --head    Shorthand for \`--method head\`
-                                                              --options    Shorthand for \`--method options\`
-                                                                 --post    Shorthand for \`--method post\`
-                                                                  --put    Shorthand for \`--method put\`
-                                                                --trace    Shorthand for \`--method trace\`
-                                                                --patch    Shorthand for \`--method patch\`
+                                       --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                                --force    Overwrite the file if it already exists (Default: false)    
+                                                 --mode=<client|server>    Add a client or server suffix to a component or plugin      
+        --method=<connect|delete|get|head|options|patch|post|put|trace>    Add an HTTP method suffix to an API route                   
+                                                               --global    Create global route middleware                              
+                                                                  --api    Create a server route in the API directory                  
+                                                                --pages    Include NuxtPage and NuxtLayout in the app template         
+                                                               --client    Shorthand for \`--mode client\`                               
+                                                               --server    Shorthand for \`--mode server\`                               
+                                                              --connect    Shorthand for \`--method connect\`                            
+                                                               --delete    Shorthand for \`--method delete\`                             
+                                                                  --get    Shorthand for \`--method get\`                                
+                                                                 --head    Shorthand for \`--method head\`                               
+                                                              --options    Shorthand for \`--method options\`                            
+                                                                 --post    Shorthand for \`--method post\`                               
+                                                                  --put    Shorthand for \`--method put\`                                
+                                                                --trace    Shorthand for \`--method trace\`                              
+                                                                --patch    Shorthand for \`--method patch\`                              
       "
     `)
   })
@@ -134,14 +134,14 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                     
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                           --name=<name>    Name of the analysis (Default: default)
-                                 --serve    Serve the analysis results (Default: true)
-                              --no-serve    Skip serving the analysis results
-                             --prerender    Prerender routes while analyzing (Default: false)
-                                  --json    Write the client and server bundle analysis as JSON instead of HTML (implies --no-serve) (Default: false)
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                         
+                           --name=<name>    Name of the analysis (Default: default)                                                                          
+                                 --serve    Serve the analysis results (Default: true)                                                                       
+                              --no-serve    Skip serving the analysis results                                                                                
+                             --prerender    Prerender routes while analyzing (Default: false)                                                                
+                                  --json    Write the client and server bundle analysis as JSON instead of HTML (implies --no-serve) (Default: false)        
       "
     `)
   })
@@ -158,13 +158,13 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
-                             --prerender    Build Nuxt and prerender static routes
-                       --target=<target>    Deploy target for the configured server builder (e.g. \`node-server\`, \`vercel\`, \`netlify\`)
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
+                             --prerender    Build Nuxt and prerender static routes                                                                                                              
+                       --target=<target>    Deploy target for the configured server builder (e.g. \`node-server\`, \`vercel\`, \`netlify\`)                                                           
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })
@@ -194,11 +194,11 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
-                                 --clear    Clear console on restart
-                              --no-clear    Disable clear console on restart
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+                                 --clear    Clear console on restart                                                                                                                            
+                              --no-clear    Disable clear console on restart                                                                                                                    
       "
     `)
   })
@@ -215,37 +215,37 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                               --inspect    Enable the Node.js inspector for server code (\`--inspect=[host:]port\`), and for the CLI process on the next port
-                           --inspect-brk    Like \`--inspect\`, and wait for a debugger to attach to the CLI process before loading Nuxt (\`--inspect-brk=[host:]port\`)
-                                   --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)
-                                --no-tui    Disable the interactive terminal UI and stream logs instead
-                                 --clear    Clear console on restart (Default: false)
-                              -f, --fork    Serve the app from a forked child process (on by default wherever the runtime supports it) (Default: false)
-                       --no-f, --no-fork    Disable forked mode
-                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)
-                              --takeover    Stop a dev server already running on this project and take its place
-                           --no-takeover    Never stop a dev server already running on this project
-                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)
-                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host\`)
-                              -o, --open    Open the URL in the browser (Default: false)
-                   --open.url=<url|path>    Path or URL to open instead of the dev server root
-                             --clipboard    Copy the URL to the clipboard (Default: false)
-                                    --qr    Print a QR code for the public URL (enabled by default when one is available)
-                                --tunnel    Expose the server via a Cloudflare quick tunnel
-                                --public    Listen on all network interfaces and allow any host to connect
-                       --publicURL=<url>    Public URL to display (used for QR code and clipboard)
-                                 --https    Enable HTTPS with a locally-trusted development certificate
-                     --https.cert=<path>    Path to TLS certificate
-                      --https.key=<path>    Path to TLS key
-                      --https.pfx=<path>    Path to PKCS#12 (.p12/.pfx) keystore
-         --https.passphrase=<passphrase>    Passphrase for the TLS key or keystore
-             --https.validityDays=<days>    Validity in days for a generated self-signed certificate
-             --https.domains=<domain>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.
-                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                               --inspect    Enable the Node.js inspector for server code (\`--inspect=[host:]port\`), and for the CLI process on the next port                                    
+                           --inspect-brk    Like \`--inspect\`, and wait for a debugger to attach to the CLI process before loading Nuxt (\`--inspect-brk=[host:]port\`)                            
+                                   --tui    Interactive terminal UI (pinned status panel, folded logs and single-key shortcuts) (Default: true)                                                 
+                                --no-tui    Disable the interactive terminal UI and stream logs instead                                                                                         
+                                 --clear    Clear console on restart (Default: false)                                                                                                           
+                              -f, --fork    Serve the app from a forked child process (on by default wherever the runtime supports it) (Default: false)                                         
+                       --no-f, --no-fork    Disable forked mode                                                                                                                                 
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT || nuxtOptions.devServer.port\`)                                                        
+                              --takeover    Stop a dev server already running on this project and take its place                                                                                
+                           --no-takeover    Never stop a dev server already running on this project                                                                                             
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST || nuxtOptions.devServer?.host\`)                                                       
+                              -o, --open    Open the URL in the browser (Default: false)                                                                                                        
+                   --open.url=<url|path>    Path or URL to open instead of the dev server root                                                                                                  
+                             --clipboard    Copy the URL to the clipboard (Default: false)                                                                                                      
+                                    --qr    Print a QR code for the public URL (enabled by default when one is available)                                                                       
+                                --tunnel    Expose the server via a Cloudflare quick tunnel                                                                                                     
+                                --public    Listen on all network interfaces and allow any host to connect                                                                                      
+                       --publicURL=<url>    Public URL to display (used for QR code and clipboard)                                                                                              
+                                 --https    Enable HTTPS with a locally-trusted development certificate                                                                                         
+                     --https.cert=<path>    Path to TLS certificate                                                                                                                             
+                      --https.key=<path>    Path to TLS key                                                                                                                                     
+                      --https.pfx=<path>    Path to PKCS#12 (.p12/.pfx) keystore                                                                                                                
+         --https.passphrase=<passphrase>    Passphrase for the TLS key or keystore                                                                                                              
+             --https.validityDays=<days>    Validity in days for a generated self-signed certificate                                                                                            
+             --https.domains=<domain>...    Domain for a generated certificate. Can be repeated, or given as a comma-separated list.                                                            
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })
@@ -258,7 +258,7 @@ describe('help', () => {
 
       ARGUMENTS
 
-        COMMAND=<enable|disable>    Command to run (Required)
+        COMMAND=<enable|disable>    Command to run (Required)                           
                          ROOTDIR    The root directory of your Nuxt project (default: .)
       "
     `)
@@ -277,8 +277,8 @@ describe('help', () => {
       OPTIONS
 
         --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                   --open    Open the best match in a browser (Default: true)
-                --no-open    Print the matching pages without opening a browser
+                   --open    Open the best match in a browser (Default: true)            
+                --no-open    Print the matching pages without opening a browser          
       "
     `)
   })
@@ -295,12 +295,12 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
-                       --target=<target>    Deploy target for the configured server builder (e.g. \`node-server\`, \`vercel\`, \`netlify\`)
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
+                       --target=<target>    Deploy target for the configured server builder (e.g. \`node-server\`, \`vercel\`, \`netlify\`)                                                           
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                     --profile=<verbose>    Profile performance, writing a V8 CPU profile and a JSON report on exit. Use \`--profile=verbose\` for a full console report.                         
       "
     `)
   })
@@ -326,7 +326,7 @@ describe('help', () => {
     expect(await usage(commands.init, main)).toMatchInlineSnapshot(`
       "Scaffold a fresh project (moved to create-nuxt) (nuxt init v0.0.0)
 
-      USAGE nuxt init
+      USAGE nuxt init 
       "
     `)
   })
@@ -339,8 +339,8 @@ describe('help', () => {
 
       COMMANDS
 
-           add    Add Nuxt modules
-        remove    Remove Nuxt modules
+           add    Add Nuxt modules      
+        remove    Remove Nuxt modules   
         search    Search in Nuxt modules
 
       Use nuxt module <command> --help for more information about a command."
@@ -359,10 +359,10 @@ describe('help', () => {
 
       OPTIONS
 
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
       "
     `)
   })
@@ -379,15 +379,15 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)
-                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)
-                              --takeover    Stop a preview server already running on this project and take its place
-                           --no-takeover    Never stop a preview server already running on this project
-                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
+                              --takeover    Stop a preview server already running on this project and take its place                                                                            
+                           --no-takeover    Never stop a preview server already running on this project                                                                                         
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)
   })
@@ -404,15 +404,15 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                                                        
                  --envName=<environment>    The environment to use when resolving configuration overrides (default is \`production\` when building, and \`development\` when running the dev server)
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)
-                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)
-                              --takeover    Stop a preview server already running on this project and take its place
-                           --no-takeover    Never stop a preview server already running on this project
-                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)
-                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                                                            
+                       -p, --port=<port>    Port to listen on (default: \`NUXT_PORT || NITRO_PORT || PORT\`)                                                                                      
+                       -h, --host=<host>    Host to listen on (default: \`NUXT_HOST || NITRO_HOST || HOST\`)                                                                                      
+                              --takeover    Stop a preview server already running on this project and take its place                                                                            
+                           --no-takeover    Never stop a preview server already running on this project                                                                                         
+                            --strictPort    Exit if the requested port is unavailable instead of using another one (Default: false)                                                             
+                      --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.                                   
       "
     `)
   })
@@ -447,14 +447,14 @@ describe('help', () => {
 
       OPTIONS
 
-        --logLevel=<silent|info|verbose>    Specify build-time log level
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                                                                     
                       --dotenv=<path>...    Path to \`.env\` file to load, relative to the root directory. Can be repeated, with later files taking precedence.
-           -e, --extends=<layer-name>...    Extend from a Nuxt layer
-               --checker=<vue-tsc|golar>    Type checker to use
-                             -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)
-                      --no-b, --no-build    Type-check without TypeScript project references
-                           --incremental    Reuse type information from previous runs (Default: true)
-                        --no-incremental    Type-check from scratch, without reusing type information from previous runs
+           -e, --extends=<layer-name>...    Extend from a Nuxt layer                                                                                         
+               --checker=<vue-tsc|golar>    Type checker to use                                                                                              
+                             -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)                
+                      --no-b, --no-build    Type-check without TypeScript project references                                                                 
+                           --incremental    Reuse type information from previous runs (Default: true)                                                        
+                        --no-incremental    Type-check from scratch, without reusing type information from previous runs                                     
       "
     `)
   })
@@ -471,8 +471,8 @@ describe('help', () => {
 
       OPTIONS
 
-                                              --logLevel=<silent|info|verbose>    Specify build-time log level
-                                                                      --dedupe    Dedupe dependencies after upgrading
+                                              --logLevel=<silent|info|verbose>    Specify build-time log level                       
+                                                                      --dedupe    Dedupe dependencies after upgrading                
                                                                    -f, --force    Force upgrade to recreate lockfile and node_modules
         -ch, --channel=<stable|nightly|v3|v4|v3-nightly|v4-nightly|v5-nightly>    Specify a channel to install from (Default: stable)
       "
@@ -492,11 +492,11 @@ describe('help', () => {
       OPTIONS
 
                                              --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-                              --logLevel=<silent|info|verbose>    Specify build-time log level
-                                                 --skipInstall    Skip npm install
-                                                  --skipConfig    Skip nuxt.config.ts update
-                                                         --dev    Install modules as dev dependencies
-        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with
+                              --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                                                 --skipInstall    Skip npm install                                            
+                                                  --skipConfig    Skip nuxt.config.ts update                                  
+                                                         --dev    Install modules as dev dependencies                         
+        --packageManager=<npm|pnpm|yarn|bun|deno|aube|nub|upm>    Package manager to install with                             
       "
     `)
   })
@@ -514,9 +514,9 @@ describe('help', () => {
       OPTIONS
 
                        --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
-        --logLevel=<silent|info|verbose>    Specify build-time log level
-                           --skipInstall    Skip dependency uninstall
-                            --skipConfig    Skip nuxt.config.ts update
+        --logLevel=<silent|info|verbose>    Specify build-time log level                                
+                           --skipInstall    Skip dependency uninstall                                   
+                            --skipConfig    Skip nuxt.config.ts update                                  
       "
     `)
   })
@@ -533,9 +533,9 @@ describe('help', () => {
 
       OPTIONS
 
-                --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)
+                --cwd=<directory>    Specify the root directory of your Nuxt project (Default: .)                      
         --nuxtVersion=<3|4|4.2.0>    Filter by Nuxt version and list compatible modules only (auto detected by default)
-                           --json    Print output as JSON
+                           --json    Print output as JSON                                                              
       "
     `)
   })
