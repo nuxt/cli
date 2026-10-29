@@ -2,11 +2,13 @@ import type { NuxtAnalyzeMeta } from '@nuxt/schema'
 
 import { promises as fsp } from 'node:fs'
 import process from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 import { styleText } from 'node:util'
 import { note, taskLog } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { defu } from 'defu'
+import { resolveModulePath } from 'exsolve'
 import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
@@ -15,16 +17,27 @@ import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
 import { clearDir } from '../utils/fs'
+import { formatInstallCommand } from '../utils/install'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
+import { defaultPackageManager, detectPackageManager } from '../utils/package-managers'
 import { relativeToProcess, resolveRootDir } from '../utils/paths'
 import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const NON_WORD_RE = /[^\w-]/g
 
-const indexHtml = `
+const REPORTS = [
+  { path: '/client', file: 'client.html', label: 'Client bundle stats' },
+  { path: '/nitro', file: 'nitro.html', label: 'Nitro server bundle stats' },
+]
+
+function renderIndexHtml(reports: { path: string, label: string }[]) {
+  const body = reports.length > 0
+    ? `<ul>\n${reports.map(report => `      <li>\n        <a href="${report.path}">${report.label}</a>\n      </li>`).join('\n')}\n    </ul>`
+    : '<p>The analyze build did not generate any bundle reports.</p>'
+  return `
 <!DOCTYPE html>
   <html lang="en">
   <head>
@@ -32,16 +45,10 @@ const indexHtml = `
   <title>Nuxt Bundle Stats (experimental)</title>
   </head>
     <h1>Nuxt Bundle Stats (experimental)</h1>
-    <ul>
-      <li>
-        <a href="/nitro">Nitro server bundle stats</a>
-      </li>
-      <li>
-        <a href="/client">Client bundle stats</a>
-      </li>
-    </ul>
+    ${body}
   </html>
 `.trim()
+}
 
 export default defineCommand({
   meta: {
@@ -104,6 +111,12 @@ export default defineCommand({
             enabled: true,
           },
         },
+        // The webpack and rspack builders open their report in a browser; the CLI serves it instead.
+        webpack: {
+          analyze: {
+            openAnalyzer: false,
+          },
+        },
         vite: {
           build: {
             rollupOptions: {
@@ -152,13 +165,13 @@ export default defineCommand({
       analyzeOptions.filename = join(analyzeDir, ctx.args.json ? '{name}.json' : '{name}.html')
     }
 
-    // Nitro gets its own analyze options, so the server report needs the same treatment.
     if (ctx.args.json) {
       // Nuxt DevTools adds `vite-plugin-inspect` to analyze builds for its own UI, which JSON consumers do not need.
       // Set after `loadNuxt()` has decided whether to install DevTools, so the user's `enabled` choice is kept.
       const devtools = nuxt.options.devtools
       nuxt.options.devtools = typeof devtools === 'object' ? { ...devtools, viteInspect: false } : { enabled: devtools, viteInspect: false }
 
+      // Nitro v2 gets its own analyze options, so the server report needs the same treatment.
       nuxt.hook('nitro:config', (nitroConfig) => {
         if (!nitroConfig.analyze) {
           return
@@ -169,6 +182,32 @@ export default defineCommand({
         }
       })
     }
+
+    // Nitro v2 adds the visualizer from its `analyze` option, which Nitro v3 (Nuxt 5) no longer has.
+    let missingNitroVisualizer = false
+    nuxt.hook('nitro:init', (nitro) => {
+      nitro.hooks.hook('rollup:before', async (_nitro, config) => {
+        const plugins = ([await config.plugins] as unknown[]).flat(Infinity).filter(Boolean) as { name?: string }[]
+        if (plugins.some(plugin => plugin.name === 'visualizer')) {
+          return
+        }
+        const visualizerPath = resolveModulePath('rollup-plugin-visualizer', {
+          from: [nuxt.options.rootDir, ...nuxt.options.modulesDir].map(dir => join(dir, '/')),
+          try: true,
+        })
+        if (!visualizerPath) {
+          missingNitroVisualizer = true
+          return
+        }
+        const { visualizer } = await import(pathToFileURL(visualizerPath).href)
+        config.plugins = [...plugins, visualizer({
+          template: ctx.args.json ? 'raw-data' : 'treemap',
+          projectRoot: nuxt.options.rootDir,
+          filename: join(analyzeDir, ctx.args.json ? 'nitro.json' : 'nitro.html'),
+          title: 'Nitro Server bundle stats',
+        })] as typeof config.plugins
+      })
+    })
 
     await nuxt.ready()
 
@@ -203,6 +242,12 @@ export default defineCommand({
       await buildNuxt(nuxt)
       tasklog.success('Build complete')
 
+      if (missingNitroVisualizer) {
+        const packageManager = await detectPackageManager(nuxt.options.rootDir) ?? defaultPackageManager
+        const command = formatInstallCommand({ packageManager, dependencies: ['rollup-plugin-visualizer'], dev: true })
+        logger.warn(`Install ${styleText('cyan', 'rollup-plugin-visualizer')} as a dev dependency to analyze the Nitro server bundle:\n\n  ${styleText('cyan', command)}`)
+      }
+
       if (skippedPrerenderRoutes > 0) {
         logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
       }
@@ -229,11 +274,14 @@ export default defineCommand({
 
     if (ctx.args.serve !== false && !ctx.args.json && !process.env.CI) {
       const headers = { 'content-type': 'text/html' }
-      const readReport = (name: string) => fsp.readFile(join(analyzeDir, name), 'utf8').catch(() => undefined)
-      const reports = new Map([
-        ['/client', await readReport('client.html')],
-        ['/nitro', await readReport('nitro.html')],
-      ])
+      const reports = await Promise.all(REPORTS.map(async report => ({
+        ...report,
+        html: await fsp.readFile(join(analyzeDir, report.file), 'utf8').catch(() => undefined),
+      })))
+      const contents = new Map(reports.map(report => [report.path, report.html]))
+      const generated = reports.filter(report => report.html !== undefined)
+      // With a single report, there is nothing to choose from, so serve it directly.
+      const indexHtml = generated.length === 1 ? generated[0]!.html! : renderIndexHtml(generated)
 
       logger.step('Starting stats server...')
 
@@ -248,8 +296,8 @@ export default defineCommand({
             return new Response('Forbidden: this host is not allowed.', { status: 403, headers: { 'content-type': 'text/plain' } })
           }
           const pathname = new URL(request.url).pathname.replace(/\/$/, '')
-          if (reports.has(pathname)) {
-            const report = reports.get(pathname)
+          if (contents.has(pathname)) {
+            const report = contents.get(pathname)
             return report === undefined
               ? new Response('This report was not generated by the analyze build.', { status: 404, headers })
               : new Response(report, { headers })
