@@ -43,7 +43,7 @@ Routes are not prerendered while analyzing, since prerendering runs the built ap
 | `--serve`                            | `true`    | Serve the analysis results                                                                                        |
 | `--no-serve`                         |           | Skip serving the analysis results                                                                                 |
 | `--prerender`                        | `false`   | Prerender routes while analyzing                                                                                  |
-| `--json`                             | `false`   | Write the client bundle analysis as JSON instead of HTML (implies --no-serve)                                     |
+| `--json`                             | `false`   | Write the client and server bundle analysis as JSON instead of HTML (implies --no-serve)                          |
 <!--/analyze-opts-->
 
 ::note
