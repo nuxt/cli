@@ -112,6 +112,8 @@ When the dev server reloads or restarts it says what caused it, and a change to 
 
 A dev server records itself in `nuxt.lock` inside your [build directory](/docs/directory-structure/nuxt), so a second `nuxt dev` for the same project reports the one already running instead of racing it for the port. Pass `--takeover` to stop it and start in its place, or set `NUXT_IGNORE_LOCK=1` to run a second server anyway (unsupported).
 
+With `--open`, the prompt also offers to open the running server in your browser without stopping it, which is the default when that server was started in a terminal. `--open.url` is resolved against the running server's URL.
+
 The same lock file is how [`nuxt curl`](/docs/api/commands/curl) and [`nuxt task`](/docs/api/commands/task) find the server to talk to.
 
 ## HTTPS
@@ -140,7 +142,7 @@ Without a value, `--tunnel` uses the provider you chose before. If you haven't c
 OpenTunnel needs its SDK, `@opentunnel/client`, and its peer `effect` in your project. If they're missing, `nuxt dev` offers to install them as dev dependencies with your package manager. To install them yourself:
 
 ```bash [Terminal]
-npm install -D @opentunnel/client@^0.4.0 effect@^4.0.0
+npm install -D @opentunnel/client@^0.6.0 effect@^4.0.0
 ```
 
 OpenTunnel uses the `default` profile of the [`opentunnel` CLI](https://github.com/anomalyco/opentunnel), so both share one hostname. Each project gets its own route on that hostname. The route name comes from a random seed saved as `tools.opentunnel.seed` in `~/.nuxtrc`, so nobody can guess it from the project path.

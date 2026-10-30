@@ -95,7 +95,7 @@
     "@nuxt/kit": "^4.6.2",
     "@nuxt/schema": "^4.6.2",
     "@nuxt/test-utils": "^4.3.4",
-    "@opentunnel/client": "0.4.0",
+    "@opentunnel/client": "0.6.1",
     "@speed-highlight/core": "^2.1.0",
     "@types/node": "^24.19.2",
     "citty": "^0.2.2",

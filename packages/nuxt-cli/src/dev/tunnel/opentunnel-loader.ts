@@ -18,7 +18,7 @@ import { debug, logger } from '../../utils/logger'
 export const OPENTUNNEL_SDK = '@opentunnel/client'
 
 /** The SDK releases this CLI works with. A `0.x` minor may break its API. */
-export const OPENTUNNEL_SDK_RANGE = '^0.4.0'
+export const OPENTUNNEL_SDK_RANGE = '^0.6.0'
 
 /** Required peers, installed with the SDK as `nuxt module add` does for modules. */
 export const OPENTUNNEL_SDK_PEERS: Readonly<Record<string, string>> = { effect: '^4.0.0' }

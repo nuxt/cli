@@ -65,21 +65,21 @@ describe('findOpenTunnelSDK', () => {
   })
 
   it('should find a compatible SDK through its main entry', () => {
-    installPackage(OPENTUNNEL_SDK, '0.4.3')
-    expect(findOpenTunnelSDK(project)).toMatchObject({ status: 'installed', version: '0.4.3' })
+    installPackage(OPENTUNNEL_SDK, '0.6.3')
+    expect(findOpenTunnelSDK(project)).toMatchObject({ status: 'installed', version: '0.6.3' })
   })
 
   it('should reject a release outside the supported range', () => {
-    installPackage(OPENTUNNEL_SDK, '0.3.0')
-    expect(findOpenTunnelSDK(project)).toEqual({ status: 'incompatible', version: '0.3.0' })
-    installPackage(OPENTUNNEL_SDK, '0.5.0')
-    expect(findOpenTunnelSDK(project)).toEqual({ status: 'incompatible', version: '0.5.0' })
+    installPackage(OPENTUNNEL_SDK, '0.5.5')
+    expect(findOpenTunnelSDK(project)).toEqual({ status: 'incompatible', version: '0.5.5' })
+    installPackage(OPENTUNNEL_SDK, '0.7.0')
+    expect(findOpenTunnelSDK(project)).toEqual({ status: 'incompatible', version: '0.7.0' })
   })
 })
 
 describe('loadOpenTunnelSDK', () => {
   it('should import the SDK from the project', async () => {
-    installPackage(OPENTUNNEL_SDK, '0.4.0')
+    installPackage(OPENTUNNEL_SDK, '0.6.1')
     const sdk = await loadOpenTunnelSDK(project)
     // Compared by its end: the resolver returns the real path, and the temporary
     // directory sits behind a symlink on macOS.
@@ -88,21 +88,21 @@ describe('loadOpenTunnelSDK', () => {
 
   it('should warn when the project has no usable SDK', async () => {
     await expect(loadOpenTunnelSDK(project)).resolves.toBeUndefined()
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(`needs \`${OPENTUNNEL_SDK}@^0.4.0\``))
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(`needs \`${OPENTUNNEL_SDK}@^0.6.0\``))
   })
 })
 
 describe('ensureOpenTunnelSDK', () => {
   function installSucceeds() {
     runInstall.mockImplementation(async () => {
-      installPackage(OPENTUNNEL_SDK, '0.4.0')
+      installPackage(OPENTUNNEL_SDK, '0.6.1')
       installPackage('effect', '4.0.2')
       return { success: true, output: '', command: 'pnpm add', ignoredBuilds: [] }
     })
   }
 
   it('should do nothing when the SDK is already installed', async () => {
-    installPackage(OPENTUNNEL_SDK, '0.4.0')
+    installPackage(OPENTUNNEL_SDK, '0.6.1')
     await expect(ensureOpenTunnelSDK(project)).resolves.toBe(true)
     expect(confirm).not.toHaveBeenCalled()
     expect(runInstall).not.toHaveBeenCalled()
@@ -111,7 +111,7 @@ describe('ensureOpenTunnelSDK', () => {
   it('should print the install command instead of installing when nobody can answer', async () => {
     await expect(ensureOpenTunnelSDK(project)).resolves.toBe(false)
     expect(runInstall).not.toHaveBeenCalled()
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('`pnpm add -D @opentunnel/client@^0.4.0 effect@^4.0.0`'))
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('`pnpm add -D @opentunnel/client@^0.6.0 effect@^4.0.0`'))
   })
 
   it('should install the SDK and its peer as dev dependencies once the user agrees', async () => {
@@ -123,7 +123,7 @@ describe('ensureOpenTunnelSDK', () => {
 
     expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
       cwd: project,
-      dependencies: [`${OPENTUNNEL_SDK}@^0.4.0`, 'effect@^4.0.0'],
+      dependencies: [`${OPENTUNNEL_SDK}@^0.6.0`, 'effect@^4.0.0'],
       dev: true,
     }))
     expect(logger.warn).not.toHaveBeenCalled()
@@ -132,11 +132,11 @@ describe('ensureOpenTunnelSDK', () => {
   it('should replace an incompatible SDK with a supported release', async () => {
     isInteractive.mockReturnValue(true)
     confirm.mockResolvedValue(true)
-    installPackage(OPENTUNNEL_SDK, '0.3.0')
+    installPackage(OPENTUNNEL_SDK, '0.5.5')
     installSucceeds()
 
     await expect(ensureOpenTunnelSDK(project)).resolves.toBe(true)
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`${OPENTUNNEL_SDK}@^0.4.0`, 'effect@^4.0.0'] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`${OPENTUNNEL_SDK}@^0.6.0`, 'effect@^4.0.0'] }))
   })
 
   it('should reuse an `effect` the project already has', async () => {
@@ -146,7 +146,7 @@ describe('ensureOpenTunnelSDK', () => {
     installSucceeds()
 
     await ensureOpenTunnelSDK(project)
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`${OPENTUNNEL_SDK}@^0.4.0`] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`${OPENTUNNEL_SDK}@^0.6.0`] }))
   })
 
   it('should not replace the `effect` the app uses with another major', async () => {

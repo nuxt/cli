@@ -461,8 +461,8 @@ importers:
         specifier: ^4.3.4
         version: 4.3.4(d885d728438e998d1c457564ea4210a9)
       '@opentunnel/client':
-        specifier: 0.4.0
-        version: 0.4.0(effect@4.1.0)
+        specifier: 0.6.1
+        version: 0.6.1(effect@4.1.0)(undici@8.12.3)
       '@speed-highlight/core':
         specifier: ^2.1.0
         version: 2.1.0
@@ -1559,14 +1559,18 @@ packages:
       nuxt: ^4.6.2
       vite: ^8.3.4
 
-  '@opentunnel/client@0.4.0':
-    resolution: {integrity: sha512-Y6UiO/ouJ/vtdIy4QmCTRY2DPTRpHy2+jR0F6+AKXoD57ozd8W9ZTTP2J1KDqTb7ZfJmRTuqtx1ZR2TnejlZGQ==}
+  '@opentunnel/client@0.6.1':
+    resolution: {integrity: sha512-OuVNlWywQebIXCtkixjVHebOsR3KFRxJ0DSZry6Dzj4hHaHIf3eTVmQ7VwLCjuVmw+ctU2qHIP6RxuAPr07WDw==}
     engines: {bun: '>=1.4.0', node: '>=22'}
     peerDependencies:
       effect: ^4.0.0
+      undici: '>=7.0.0'
+    peerDependenciesMeta:
+      undici:
+        optional: true
 
-  '@opentunnel/protocol@0.4.0':
-    resolution: {integrity: sha512-rxmfgJ5O1EYxgzawkOti9DyiM44l0Bkeue5KuHpCFaPAP2n9i4xDYCU8XQp9WAEFt7ifZZqI9giOyzJE61faaA==}
+  '@opentunnel/protocol@0.6.1':
+    resolution: {integrity: sha512-fdckKvQ4TEJSQ2Ia/M/GKmDbCTCw148Wc1zo6HcpUBjSwsFeKs6Tbql4Uih1oIVR8NVqtGrcPZukVVvWFyOEHA==}
     peerDependencies:
       effect: ^4.0.0
 
@@ -8136,12 +8140,14 @@ snapshots:
       - rolldown
       - unplugin
 
-  '@opentunnel/client@0.4.0(effect@4.1.0)':
+  '@opentunnel/client@0.6.1(effect@4.1.0)(undici@8.12.3)':
     dependencies:
-      '@opentunnel/protocol': 0.4.0(effect@4.1.0)
+      '@opentunnel/protocol': 0.6.1(effect@4.1.0)
       effect: 4.1.0
+    optionalDependencies:
+      undici: 8.12.3
 
-  '@opentunnel/protocol@0.4.0(effect@4.1.0)':
+  '@opentunnel/protocol@0.6.1(effect@4.1.0)':
     dependencies:
       effect: 4.1.0
 
