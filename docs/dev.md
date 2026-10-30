@@ -145,7 +145,7 @@ OpenTunnel needs its SDK, `@opentunnel/client`, and its peer `effect` in your pr
 npm install -D @opentunnel/client@^0.6.0 effect@^4.0.0
 ```
 
-OpenTunnel uses the `default` profile of the [`opentunnel` CLI](https://github.com/anomalyco/opentunnel), so both share one hostname. Each project gets its own route on that hostname. The route name comes from a random seed saved as `tools.opentunnel.seed` in `~/.nuxtrc`, so nobody can guess it from the project path.
+OpenTunnel uses the `default` profile of the [`opentunnel` CLI](https://github.com/anomalyco/opentunnel), so both share one hostname. Each project gets its own route on that hostname. The route name comes from a random seed saved as `tools.opentunnel.seed` in `~/.nuxtrc`, so nobody can guess it from the project path. A route serves one dev server at a time, so if another `nuxt dev` already serves the project, the second one starts without a tunnel.
 
 ::note
 Anyone who has the URL can reach your dev server, because a tunnel URL is not authentication. OpenTunnel can't forward to an HTTPS dev server, so with `--https`, `--tunnel=opentunnel` uses `cloudflare` instead.

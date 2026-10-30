@@ -1,4 +1,4 @@
-import type { OpenTunnelConnection, OpenTunnelPromiseClient, OpenTunnelProvisionStage } from '@opentunnel/client'
+import type { OpenTunnelClientEvent, OpenTunnelConnection, OpenTunnelIdentity, OpenTunnelPromiseClient, OpenTunnelProvisionStage, OpenTunnelRoutes } from '@opentunnel/client'
 import type { Tunnel } from './types'
 
 import process from 'node:process'
@@ -57,16 +57,13 @@ export async function startOpenTunnel(route: string, target: string, options: Op
   const routes = { [route]: target }
   try {
     const identity = await client.tunnel.get()
-    if (identity && options.handover) {
-      return attachInBackground(client, routes, `https://${route}.${identity.hostname}`)
+      ?? await withTimeout(provision(client), PROVISION_TIMEOUT_MS, 'Timed out waiting for the tunnel certificate')
+    if (options.handover) {
+      return attachInBackground(client, routes, sdk.publicUrl(route, identity.hostname))
     }
-    if (!identity) {
-      await withTimeout(provision(client), PROVISION_TIMEOUT_MS, 'Timed out waiting for the tunnel certificate')
-    }
-    const connection = await withTimeout(client.tunnel.connect({ routes }), CONNECT_TIMEOUT_MS, 'Timed out connecting to the OpenTunnel relay')
-    watchEvents(connection)
+    const connection = await connect(client, routes)
     return {
-      url: `https://${route}.${connection.tunnel.hostname}`,
+      url: connection.urls[route]!,
       close: () => closeConnection(client, connection),
     }
   }
@@ -78,21 +75,44 @@ export async function startOpenTunnel(route: string, target: string, options: Op
   }
 }
 
+/**
+ * Attach the bridge, giving up after {@link CONNECT_TIMEOUT_MS}. A route held by
+ * another bridge is retried forever by default, so the first conflict stops the
+ * attach: another `nuxt dev` serves this project. Conflicts on later reconnects
+ * still retry, as the server may hold this process's own previous bridge.
+ */
+async function connect(client: OpenTunnelPromiseClient, routes: OpenTunnelRoutes): Promise<OpenTunnelConnection> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(new Error('Timed out connecting to the OpenTunnel relay')), CONNECT_TIMEOUT_MS)
+  let attached = false
+  try {
+    return await client.tunnel.connect({
+      routes,
+      signal: controller.signal,
+      onEvent: (event) => {
+        attached ||= event.type === 'connected'
+        if (event.type === 'route-conflict' && !attached) {
+          controller.abort(new Error('its URL is in use by another process, probably another `nuxt dev` for this project'))
+        }
+        reportEvent(event)
+      },
+    })
+  }
+  finally {
+    clearTimeout(timer)
+  }
+}
+
 /** Return the handover URL immediately and attach the bridge when the route becomes available. */
-function attachInBackground(client: OpenTunnelPromiseClient, routes: Record<string, string>, url: string): Tunnel {
-  let closing = false
-  const connecting = client.tunnel.connect({ routes }).then(
+function attachInBackground(client: OpenTunnelPromiseClient, routes: OpenTunnelRoutes, url: string): Tunnel {
+  const controller = new AbortController()
+  const connecting = client.tunnel.connect({ routes, signal: controller.signal, onEvent: reportEvent }).then(
     (connection) => {
-      if (closing) {
-        void connection.close().catch(() => {})
-        return undefined
-      }
       debug('OpenTunnel attached after handover')
-      watchEvents(connection)
       return connection
     },
     (error) => {
-      if (!closing) {
+      if (!controller.signal.aborted) {
         logger.warn(`Could not reattach the OpenTunnel: ${describeError(error)}`)
       }
       return undefined
@@ -101,10 +121,9 @@ function attachInBackground(client: OpenTunnelPromiseClient, routes: Record<stri
   return {
     url,
     close: async () => {
-      closing = true
-      // A bridge still waiting for the route has nothing to close yet.
-      const connection = await Promise.race([connecting, new Promise<undefined>(resolve => setTimeout(resolve, 0))])
-      await closeConnection(client, connection)
+      // Stops a bridge still waiting for the route, or closes an attached one.
+      controller.abort()
+      await closeConnection(client, await connecting)
     },
   }
 }
@@ -123,25 +142,21 @@ async function closeConnection(client: OpenTunnelPromiseClient, connection: Open
   }
 }
 
-/** Consume bridge events in the background, warning on failure and logging other events for debugging. */
-function watchEvents(connection: OpenTunnelConnection): void {
-  void (async () => {
-    for await (const event of connection.events) {
-      if (event.type === 'stopped' && event.error) {
-        logger.warn(`OpenTunnel stopped: ${event.error}`)
-      }
-      else {
-        debug('OpenTunnel event:', event)
-      }
-    }
-  })().catch(error => debug('OpenTunnel event stream failed:', error))
+/** Warn when the bridge stops on an error, and log other events for debugging. */
+function reportEvent(event: OpenTunnelClientEvent): void {
+  if (event.type === 'stopped' && event.error) {
+    logger.warn(`OpenTunnel stopped: ${event.error}`)
+  }
+  else {
+    debug('OpenTunnel event:', event)
+  }
 }
 
 /**
  * Create the profile's tunnel, or finish one an earlier run left waiting for
  * its certificate, with progress, as a first run takes a while.
  */
-function provision(client: OpenTunnelPromiseClient): Promise<unknown> {
+function provision(client: OpenTunnelPromiseClient): Promise<OpenTunnelIdentity> {
   return withUserAttention(() => withDirectStdout(async () => {
     const interactive = !!process.stdout.isTTY
     const indicator = interactive ? spinner() : undefined
@@ -163,10 +178,8 @@ function provision(client: OpenTunnelPromiseClient): Promise<unknown> {
       last = message
     }
     try {
-      const identity = await client.tunnel.pending()
-        ? await client.tunnel.resume({ onProgress })
-        : await client.tunnel.create({ onProgress })
-      const done = identity ? `Created ${identity.hostname}` : 'Created your OpenTunnel'
+      const identity = await client.tunnel.ensure({ onProgress })
+      const done = `Created ${identity.hostname}`
       if (indicator && last) {
         indicator.stop(done)
       }

@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 
+import { ROUTE_LABEL_PATTERN } from '@opentunnel/client'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -27,8 +28,6 @@ vi.mock('../../../src/utils/stdout', async importOriginal => ({
 }))
 
 const { deriveRouteName, parseTunnelProvider, resolveTunnelOptions } = await import('../../../src/dev/tunnel/resolve')
-
-const ROUTE_LABEL_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/
 
 let home: string
 
@@ -88,7 +87,7 @@ describe('deriveRouteName', () => {
   it('should be a 16-character DNS label, as OpenTunnel routes must be', () => {
     const route = deriveRouteName(seed, '/projects/my.app')
     expect(route).toHaveLength(16)
-    expect(route).toMatch(ROUTE_LABEL_RE)
+    expect(route).toMatch(ROUTE_LABEL_PATTERN)
   })
 })
 
@@ -100,7 +99,7 @@ describe('resolveTunnelOptions', () => {
 
   it('should use an explicit provider', async () => {
     await expect(resolveTunnelOptions('cloudflare', '/app')).resolves.toEqual({ provider: 'cloudflare' })
-    await expect(resolveTunnelOptions('opentunnel', '/app')).resolves.toMatchObject({ provider: 'opentunnel', route: expect.stringMatching(ROUTE_LABEL_RE) })
+    await expect(resolveTunnelOptions('opentunnel', '/app')).resolves.toMatchObject({ provider: 'opentunnel', route: expect.stringMatching(ROUTE_LABEL_PATTERN) })
     expect(select).not.toHaveBeenCalled()
   })
 
