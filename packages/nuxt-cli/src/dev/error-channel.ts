@@ -64,8 +64,8 @@ export function useErrorChannel(options: ErrorChannelOptions = {}): Promise<Chan
       // Opening a file spawns an editor, so confine that to the project, which
       // is not `process.cwd()` when `nuxt dev` was pointed elsewhere.
       root: options.cwd || process.cwd(),
-      // The dev server's own `Host` check has already run, and knows what
-      // `--host` allowed.
+      // The dev server's own `Host` check, which covers `--host` and
+      // `vite.server.allowedHosts`, has already run.
       allowedHosts: true,
       sink: await resolveSink(options),
     }))

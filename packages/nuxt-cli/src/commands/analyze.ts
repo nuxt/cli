@@ -10,7 +10,7 @@ import { defu } from 'defu'
 import { join, relative } from 'pathe'
 import { serve } from 'srvx'
 
-import { isAllowedHost } from '../dev/host-check'
+import { isAllowedHost, resolveNuxtAllowedHosts } from '../dev/host-check'
 import { resolveDotenvFileNames } from '../utils/args'
 import { overrideEnv } from '../utils/env'
 import { ActionableError } from '../utils/errors'
@@ -205,12 +205,13 @@ export default defineCommand({
       logger.step('Starting stats server...')
 
       const hostname = process.env.HOST || 'localhost'
-      const allowedHosts = new Set([hostname.toLowerCase()])
+      const configuredHosts = resolveNuxtAllowedHosts(nuxt.options)
+      const allowedHosts = new Set([hostname, ...Array.isArray(configuredHosts) ? configuredHosts : []].map(host => host.toLowerCase()))
 
       await serve({
         hostname,
         fetch(request) {
-          if (!isAllowedHost(request.headers.get('host') ?? undefined, allowedHosts)) {
+          if (configuredHosts !== true && !isAllowedHost(request.headers.get('host') ?? undefined, allowedHosts)) {
             return new Response('Forbidden: this host is not allowed.', { status: 403, headers: { 'content-type': 'text/plain' } })
           }
           const pathname = new URL(request.url).pathname.replace(/\/$/, '')

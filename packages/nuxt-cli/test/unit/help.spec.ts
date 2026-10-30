@@ -452,6 +452,8 @@ describe('help', () => {
                --checker=<vue-tsc|golar>    Type checker to use                                                                                              
                              -b, --build    Type-check in build mode, using TypeScript project references (detected automatically by default)                
                       --no-b, --no-build    Type-check without TypeScript project references                                                                 
+                           --incremental    Reuse type information from previous runs (Default: true)                                                        
+                        --no-incremental    Type-check from scratch, without reusing type information from previous runs                                     
       "
     `)
   })
@@ -468,10 +470,10 @@ describe('help', () => {
 
       OPTIONS
 
-                                   --logLevel=<silent|info|verbose>    Specify build-time log level                       
-                                                           --dedupe    Dedupe dependencies after upgrading                
-                                                        -f, --force    Force upgrade to recreate lockfile and node_modules
-        -ch, --channel=<stable|nightly|v3|v4|v4-nightly|v3-nightly>    Specify a channel to install from (Default: stable)
+                                              --logLevel=<silent|info|verbose>    Specify build-time log level                       
+                                                                      --dedupe    Dedupe dependencies after upgrading                
+                                                                   -f, --force    Force upgrade to recreate lockfile and node_modules
+        -ch, --channel=<stable|nightly|v3|v4|v3-nightly|v4-nightly|v5-nightly>    Specify a channel to install from (Default: stable)
       "
     `)
   })

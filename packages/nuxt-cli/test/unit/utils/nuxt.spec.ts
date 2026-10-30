@@ -54,10 +54,13 @@ describe('cleanupNuxtDirs', () => {
 describe('nuxtVersionToGitIdentifier', () => {
   it('should use the git identifier of a nightly version', () => {
     expect(nuxtVersionToGitIdentifier('3.0.0-rc.8-27677607.a3a8706')).toBe('a3a8706')
+    expect(nuxtVersionToGitIdentifier('4.6.2-2610261637-c655a32')).toBe('c655a32')
+    expect(nuxtVersionToGitIdentifier('5.0.0-2610261743-edd1099')).toBe('edd1099')
   })
 
   it('should fall back to the release tag', () => {
     expect(nuxtVersionToGitIdentifier('3.0.0-rc.8')).toBe('v3.0.0-rc.8')
     expect(nuxtVersionToGitIdentifier('4.1.0')).toBe('v4.1.0')
+    expect(nuxtVersionToGitIdentifier('4.0.0-alpha.4')).toBe('v4.0.0-alpha.4')
   })
 })

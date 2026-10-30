@@ -2,9 +2,11 @@ import type { DetectResult } from 'package-manager-detector'
 import type { TSConfig } from 'pkg-types'
 import { existsSync, readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import process from 'node:process'
 
 import { styleText } from 'node:util'
+import v8 from 'node:v8'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
@@ -13,13 +15,12 @@ import { readPackageJSON, readTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
-import { resolveDotenvFileNames } from '../utils/args'
 import { formatDuration } from '../utils/formatting'
-import { loadKit } from '../utils/kit'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withNodePath } from '../utils/resolve-nuxt'
 import { createSpinner } from '../utils/spinner'
+import { discardBuildInfo, resolveCacheKey, resolveIncrementalArgs } from '../utils/typecheck-cache'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 type TypeChecker = 'vue-tsc' | 'golar'
@@ -45,6 +46,8 @@ interface TypeCheckerBackend {
   configNote?: string
   resolve: (cwd: string, options?: { cache?: boolean }) => ResolvedTypeChecker
   args: (supportsProjects: boolean) => string[]
+  /** Entry files of the packages whose versions key the incremental build info cache. */
+  cachePackages: (cwd: string, bin: string) => Array<string | undefined>
   ensureConfig?: (cwd: string) => Promise<void>
 }
 
@@ -81,6 +84,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['-b', '--noEmit'] : ['--noEmit'],
+    cachePackages: (_cwd, bin) => [bin, resolveModulePath('typescript', { from: bin, try: true })],
   },
   'golar': {
     label: 'Golar',
@@ -101,6 +105,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['tsc', '--build', '--noEmit'] : ['tsc', '--noEmit'],
+    cachePackages: (cwd, bin) => [bin, resolveModulePath('@golar/vue', { from: withNodePath(cwd), try: true })],
     ensureConfig: ensureGolarConfig,
   },
 }
@@ -128,6 +133,12 @@ export default defineCommand({
       description: 'Type-check in build mode, using TypeScript project references (detected automatically by default)',
       negativeDescription: 'Type-check without TypeScript project references',
     },
+    incremental: {
+      type: 'boolean',
+      description: 'Reuse type information from previous runs',
+      negativeDescription: 'Type-check from scratch, without reusing type information from previous runs',
+      default: true,
+    },
   },
   async run(ctx) {
     process.env.NODE_ENV = process.env.NODE_ENV || 'production'
@@ -147,11 +158,19 @@ export default defineCommand({
       return
     }
 
+    // Overrides may not be serialisable, so they are applied in this process.
+    const hasOverrides = Object.keys(ctx.data?.overrides ?? {}).length > 0
+    const { writeTypes, writeTypesInChild } = await import('../utils/write-types')
     const [tsConfig] = await Promise.all([
       readTSConfig(cwd).catch(() => ({} as TSConfig)),
-      writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
-        ...ctx.data?.overrides,
-        ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
+      (hasOverrides ? writeTypes : writeTypesInChild)({
+        cwd,
+        dotenv: ctx.args.dotenv,
+        logLevel: ctx.args.logLevel as 'silent' | 'info' | 'verbose',
+        overrides: {
+          ...ctx.data?.overrides,
+          ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
+        },
       }),
     ])
 
@@ -161,11 +180,36 @@ export default defineCommand({
       logger.warn(`Your ${styleText('cyan', 'tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${styleText('cyan', '"files": []')} to your ${styleText('cyan', 'tsconfig.json')}, or pass ${styleText('cyan', '--build')} to override.`)
     }
 
+    const backend = TYPE_CHECKERS[typechecker.checker]
+    const args = backend.args(useProjectReferences)
+    if (useProjectReferences && supportsProjectReferences(tsConfig)) {
+      if (!ctx.args.incremental) {
+        await discardBuildInfo(cwd)
+      }
+      else {
+        const cacheKey = resolveCacheKey(backend.cachePackages(cwd, typechecker.bin))
+        if (cacheKey) {
+          args.push(...await resolveIncrementalArgs(cwd, cacheKey))
+        }
+      }
+    }
+
+    // Golar type-checks in Go, outside of the V8 heap.
+    const heap = typechecker.checker === 'vue-tsc' ? resolveCheckerHeap() : undefined
     const start = Date.now()
-    const result = await x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].args(useProjectReferences), {
-      nodeOptions: { stdio: 'inherit', cwd },
+    const proc = x(typechecker.bin, args, {
+      nodeOptions: { stdio: 'inherit', cwd, ...(heap?.nodeOptions && { env: { NODE_OPTIONS: heap.nodeOptions } }) },
     })
+    const result = await proc
     const duration = formatDuration(Date.now() - start)
+    // On Windows, Node exits with code 134 instead of raising `SIGABRT`.
+    const signal = proc.signalCode ?? (process.platform === 'win32' && result.exitCode === 134 ? 'SIGABRT' : null)
+
+    if (signal) {
+      const exitCode = reportKilledChecker(signal, duration, heap?.limit)
+      process.exitCode = result.exitCode ?? exitCode
+      return
+    }
 
     if (result.exitCode === 0) {
       if (hasTTY) {
@@ -182,6 +226,51 @@ export default defineCommand({
 })
 
 const NUXT_PROJECT_REFERENCE_RE = /(?:^|[/\\])tsconfig\.(?:app|server|shared|node)\.json$/
+const MAX_OLD_SPACE_SIZE_RE = /--max[-_]old[-_]space[-_]size[=\s]+(\d+)/
+const MAX_CHECKER_HEAP_MB = 8192
+const MB = 1024 * 1024
+
+/**
+ * Report a checker killed by a signal, even without a TTY, and return the exit code to use:
+ * `128 + signal number`, following the shell convention.
+ */
+function reportKilledChecker(signal: string, duration: string, heapLimit?: number): number {
+  // `SIGKILL` is sent by the kernel OOM killer, `SIGABRT` by V8 when it reaches its heap limit.
+  const outOfMemory = signal === 'SIGKILL' || signal === 'SIGABRT' ? ', which usually means it ran out of memory' : ''
+  const heapHint = signal === 'SIGABRT' && heapLimit ? ` Its heap was limited to ${styleText('cyan', `${heapLimit} MB`)}. Set ${styleText('bold', 'NODE_OPTIONS=--max-old-space-size=<MB>')} to raise it.` : ''
+  logger.error(`Type-checking was killed by ${styleText('bold', signal)} after ${styleText('cyan', duration)}${outOfMemory}.${heapHint}`)
+
+  const signalNumber = os.constants.signals[signal as NodeJS.Signals] as number | undefined
+  return signalNumber ? 128 + signalNumber : 1
+}
+
+/**
+ * Heap limit of the checker in MB, with the `NODE_OPTIONS` that set it if they differ from the inherited ones.
+ *
+ * Unless set by the user, this is half of the memory of the machine or container, bounded by the memory
+ * currently available and by `MAX_CHECKER_HEAP_MB`, and never below V8's default.
+ */
+function resolveCheckerHeap(): { limit: number, nodeOptions?: string } {
+  const nodeOptions = process.env.NODE_OPTIONS
+  const inherited = nodeOptions?.match(MAX_OLD_SPACE_SIZE_RE)
+  if (inherited) {
+    return { limit: Number(inherited[1]) }
+  }
+
+  const withLimit = (limit: number) => ({ limit, nodeOptions: [nodeOptions, `--max-old-space-size=${limit}`].filter(Boolean).join(' ') })
+
+  const own = process.execArgv.join(' ').match(MAX_OLD_SPACE_SIZE_RE)
+  if (own) {
+    return withLimit(Number(own[1]))
+  }
+
+  const defaultLimit = Math.round(v8.getHeapStatistics().heap_size_limit / MB)
+  const total = os.totalmem()
+  const constrained = process.constrainedMemory()
+  const memory = constrained > 0 && constrained < total ? constrained : total
+  const limit = Math.floor(Math.min(memory / 2, process.availableMemory(), MAX_CHECKER_HEAP_MB * MB) / MB)
+  return limit > defaultLimit ? withLimit(limit) : { limit: defaultLimit }
+}
 
 /**
  * Whether a tsconfig is a solution-style config, as used by Nuxt's project references setup.
@@ -369,25 +458,4 @@ async function installMissingPackages(options: {
   logger.error(result.error ?? result.output)
   logger.info(`You can install ${plural ? 'them' : 'it'} manually with:\n\n  ${styleText('bold', installCommand)}\n`)
   return false
-}
-
-async function writeTypes(cwd: string, dotenv?: string[], logLevel?: 'silent' | 'info' | 'verbose', overrides?: Record<string, any>) {
-  const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
-  const nuxt = await loadNuxt({
-    cwd,
-    dotenv: { cwd, fileName: resolveDotenvFileNames(dotenv) },
-    overrides: {
-      _prepare: true,
-      logLevel,
-      ...overrides,
-    },
-  })
-
-  try {
-    await writeTypes(nuxt)
-    await buildNuxt(nuxt)
-  }
-  finally {
-    await nuxt.close()
-  }
 }

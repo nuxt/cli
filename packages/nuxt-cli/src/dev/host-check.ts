@@ -50,15 +50,52 @@ export function isLoopbackAddress(address: string | undefined): boolean {
 }
 
 /**
- * Whether a request's `Host` header names this dev server, guarding the CLI's
- * own endpoints (the progress stream, the loading page and the error page)
- * against DNS rebinding, where a hostname the attacker controls resolves to
- * this machine and a page in the developer's own browser becomes same-origin
- * with the dev server.
+ * Normalise an `allowedHosts` value: `true` allows any host, an
+ * array contributes its string entries, and anything else contributes nothing.
+ */
+export function resolveConfiguredAllowedHosts(value: unknown): true | string[] | undefined {
+  if (value === true) {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return value.filter((host): host is string => typeof host === 'string')
+  }
+  return undefined
+}
+
+interface AllowedHostsOptions {
+  devServer?: object
+  vite?: { server?: { allowedHosts?: unknown } }
+}
+
+/**
+ * The union of `devServer.allowedHosts` and `vite.server.allowedHosts` in a
+ * resolved Nuxt config. `true` in either allows any host.
+ */
+export function resolveNuxtAllowedHosts(options: AllowedHostsOptions | undefined): true | string[] | undefined {
+  const devServer = resolveConfiguredAllowedHosts((options?.devServer as { allowedHosts?: unknown } | undefined)?.allowedHosts)
+  const vite = resolveConfiguredAllowedHosts(options?.vite?.server?.allowedHosts)
+  if (devServer === true || vite === true) {
+    return true
+  }
+  if (!devServer && !vite) {
+    return undefined
+  }
+  return [...new Set([...devServer ?? [], ...vite ?? []])]
+}
+
+/**
+ * Whether a request's `Host` header names this dev server or is allowed by the
+ * project, guarding the CLI's own endpoints (the progress stream, the loading
+ * page and the error page) against DNS rebinding, where a hostname the
+ * attacker controls resolves to this machine and a page in the developer's
+ * own browser becomes same-origin with the dev server.
  *
  * IP literals are always accepted: rebinding needs a DNS name, and devices on
  * a permitted network reach a non-loopback bind by address. A missing `Host`
- * is accepted too, since it cannot come from a browser.
+ * is accepted too, since it cannot come from a browser. An entry with a
+ * leading dot, as in Vite's `server.allowedHosts`, also allows the domain and
+ * all its subdomains.
  */
 export function isAllowedHost(host: string | undefined, allowedHosts: ReadonlySet<string>): boolean {
   if (!host) {
@@ -74,5 +111,13 @@ export function isAllowedHost(host: string | undefined, allowedHosts: ReadonlySe
   if (isIP(hostname)) {
     return true
   }
-  return allowedHosts.has(hostname)
+  if (allowedHosts.has(hostname)) {
+    return true
+  }
+  for (const entry of allowedHosts) {
+    if (entry.startsWith('.') && (hostname === entry.slice(1) || hostname.endsWith(entry))) {
+      return true
+    }
+  }
+  return false
 }

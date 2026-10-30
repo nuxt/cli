@@ -5,12 +5,12 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^24.0.0",
+      "version": "^24.22.1",
       "onFail": "download"
     },
     "packageManager": {
       "name": "pnpm",
-      "version": "11.25.0",
+      "version": "11.28.8",
       "onFail": "download"
     }
   },
@@ -38,27 +38,27 @@
     "@antfu/eslint-config": "^9.5.1",
     "@codspeed/vitest-plugin": "^5.7.1",
     "@nuxt/eslint-config": "^1.17.0",
-    "@nuxt/nitro-server": "^4.5.2",
-    "@nuxt/test-utils": "^4.3.3",
-    "@types/node": "^24.19.1",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@nuxt/nitro-server": "^4.6.2",
+    "@nuxt/test-utils": "^4.3.4",
+    "@types/node": "^24.19.2",
+    "@vitest/coverage-v8": "^4.1.12",
     "ansivision": "^0.4.0",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "exsolve": "^1.1.3",
     "fast-check": "^4.10.2",
-    "knip": "^6.39.0",
-    "nf3": "^0.4.0",
+    "knip": "^6.43.0",
+    "nf3": "^0.4.2",
     "nuxt": "^4.6.2",
-    "pkg-pr-new": "^0.0.88",
-    "rolldown": "^1.2.14",
+    "pkg-pr-new": "^0.0.92",
+    "rolldown": "^1.2.15",
     "rollup-plugin-visualizer": "^7.1.1",
     "std-env": "^4.3.0",
-    "tsdown": "^0.23.0",
+    "tsdown": "^0.23.2",
     "typescript": "^6.0.3",
     "unplugin-purge-polyfills": "^0.1.0",
     "uqr": "^0.1.3",
-    "vitest": "^4.1.11",
-    "vue": "^3.5.43",
-    "vue-router": "^5.3.1"
+    "vitest": "^4.1.12",
+    "vue": "^3.5.44",
+    "vue-router": "^5.4.0"
   }
 }
