@@ -6,7 +6,7 @@ import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveTool } from '../../../src/dev/binaries'
-import { resolveCloudflaredVersion } from '../../../src/dev/tunnel'
+import { resolveCloudflaredVersion } from '../../../src/dev/tunnel/cloudflared'
 import { getCacheDir } from '../../../src/utils/cache'
 
 let cacheHome: string

@@ -11,10 +11,12 @@ import { provider } from 'std-env'
 import { description, name, version } from '../package.json'
 import { commands } from './commands'
 import { cwdArgs, globalCwdArgs } from './commands/_shared'
+import { TUNNEL_FLAG_VALUES } from './dev/tunnel/types'
 import { LONG_RUNNING_COMMANDS, runCommand, setCurrentCommand } from './run'
 import { setupGlobalConsole } from './utils/console'
 import { debug, logger } from './utils/logger'
 import { setupProxySupport } from './utils/network'
+import { normalizeOptionalValueFlag } from './utils/optional-flag'
 import { findInPath, withLocalBinPath } from './utils/path-env'
 import { suggestCommand } from './utils/suggest'
 import { templateNames } from './utils/templates/names'
@@ -37,6 +39,7 @@ const _main = defineCommand({
     },
   },
   subCommands: commands,
+  /** Prepare the CLI environment and arguments, check flags and dispatch custom or legacy commands. */
   async setup(ctx) {
     const command = ctx.args._[0]
     setCurrentCommand(command)
@@ -61,6 +64,10 @@ const _main = defineCommand({
         process.exit(1)
       })
       process.exit(0)
+    }
+
+    if (command === 'dev') {
+      normalizeOptionalValueFlag(ctx.rawArgs, '--tunnel', TUNNEL_FLAG_VALUES)
     }
 
     if (command && Object.hasOwn(commands, command)) {

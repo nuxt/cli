@@ -460,6 +460,9 @@ importers:
       '@nuxt/test-utils':
         specifier: ^4.3.4
         version: 4.3.4(d885d728438e998d1c457564ea4210a9)
+      '@opentunnel/client':
+        specifier: 0.6.1
+        version: 0.6.1(effect@4.1.0)(undici@8.12.3)
       '@speed-highlight/core':
         specifier: ^2.1.0
         version: 2.1.0
@@ -469,6 +472,9 @@ importers:
       citty:
         specifier: ^0.2.2
         version: 0.2.2(patch_hash=24c57c383378e5de0f0b955a987077b0d3ab2cc2f1d3919c5193e801c7afadac)
+      effect:
+        specifier: ^4.0.2
+        version: 4.1.0
       giget:
         specifier: ^3.3.1
         version: 3.3.1
@@ -1552,6 +1558,21 @@ packages:
     peerDependencies:
       nuxt: ^4.6.2
       vite: ^8.3.4
+
+  '@opentunnel/client@0.6.1':
+    resolution: {integrity: sha512-OuVNlWywQebIXCtkixjVHebOsR3KFRxJ0DSZry6Dzj4hHaHIf3eTVmQ7VwLCjuVmw+ctU2qHIP6RxuAPr07WDw==}
+    engines: {bun: '>=1.4.0', node: '>=22'}
+    peerDependencies:
+      effect: ^4.0.0
+      undici: '>=7.0.0'
+    peerDependenciesMeta:
+      undici:
+        optional: true
+
+  '@opentunnel/protocol@0.6.1':
+    resolution: {integrity: sha512-fdckKvQ4TEJSQ2Ia/M/GKmDbCTCw148Wc1zo6HcpUBjSwsFeKs6Tbql4Uih1oIVR8NVqtGrcPZukVVvWFyOEHA==}
+    peerDependencies:
+      effect: ^4.0.0
 
   '@ota-meshi/ast-token-store@0.3.0':
     resolution: {integrity: sha512-XRO0zi2NIUKq2lUk3T1ecFSld1fMWRKE6naRFGkgkdeosx7IslyUKNv5Dcb5PJTja9tHJoFu0v/7yEpAkrkrTg==}
@@ -3290,6 +3311,9 @@ packages:
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
+
+  effect@4.1.0:
+    resolution: {integrity: sha512-lGx2MJJyrXA8RZb2UpQ/0Nkb5Utaimby7oD92+18noBxLPE85IFOvptdzau8dvcxAOwfwHo9iqapbKeFzqQM/Q==}
 
   electron-to-chromium@1.5.452:
     resolution: {integrity: sha512-cVvk1YBSj6571VmV6hdJTqj94Y79xSu8cj6Y9t6ae4Y4431z8/7EJFvu3rVp90xhfuv9BpPKUmaLfTo4+FOGBg==}
@@ -8116,6 +8140,17 @@ snapshots:
       - rolldown
       - unplugin
 
+  '@opentunnel/client@0.6.1(effect@4.1.0)(undici@8.12.3)':
+    dependencies:
+      '@opentunnel/protocol': 0.6.1(effect@4.1.0)
+      effect: 4.1.0
+    optionalDependencies:
+      undici: 8.12.3
+
+  '@opentunnel/protocol@0.6.1(effect@4.1.0)':
+    dependencies:
+      effect: 4.1.0
+
   '@ota-meshi/ast-token-store@0.3.0': {}
 
   '@oxc-parser/binding-android-arm-eabi@0.155.0':
@@ -9598,6 +9633,8 @@ snapshots:
   eastasianwidth@0.2.0: {}
 
   ee-first@1.1.1: {}
+
+  effect@4.1.0: {}
 
   electron-to-chromium@1.5.452: {}
 
