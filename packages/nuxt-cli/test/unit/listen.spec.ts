@@ -5,7 +5,8 @@ import { networkInterfaces } from 'node:os'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { canOpenBrowser, copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
+import { canOpenBrowser, copyURL, createListener, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
+import { logger } from '../../src/utils/logger'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -153,17 +154,51 @@ describe('parsePort', () => {
   })
 })
 
-describe('matchesBoundTarget', () => {
-  function bound(overrides: Partial<BoundServer> = {}): BoundServer {
-    return {
-      server: undefined as never,
-      address: { address: '127.0.0.1', port: 3000, family: 'IPv4' },
-      https: false,
-      hostname: 'localhost',
-      ...overrides,
-    }
+function bound(overrides: Partial<BoundServer> = {}): BoundServer {
+  return {
+    server: undefined as never,
+    address: { address: '127.0.0.1', port: 3000, family: 'IPv4' },
+    https: false,
+    hostname: 'localhost',
+    ...overrides,
   }
+}
 
+describe('createListener', () => {
+  const networkWarning = 'reachable from the network'
+
+  // The reported case: RFC 6761 §6.3 keeps every `*.localhost` name on loopback.
+  it('should not warn for a `.localhost` name bound to loopback', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const listener = await createListener(bound({ hostname: 'my-app.localhost' }), {})
+      expect(listener.url).toBe('http://my-app.localhost:3000/')
+      expect(warn).not.toHaveBeenCalledWith(expect.stringContaining(networkWarning))
+    }
+    finally {
+      log.mockRestore()
+      warn.mockRestore()
+    }
+  })
+
+  it('should warn for a name bound to an address others can reach', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      await createListener(bound({ address: { address: '192.168.1.5', port: 3000, family: 'IPv4' }, hostname: '192.168.1.5' }), {})
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(networkWarning))
+    }
+    finally {
+      log.mockRestore()
+      warn.mockRestore()
+    }
+  })
+})
+
+describe('matchesBoundTarget', () => {
   it('should accept a listener bound to the resolved address', () => {
     expect(matchesBoundTarget(bound(), { port: 3000, hostname: 'localhost' })).toBe(true)
     expect(matchesBoundTarget(bound(), { port: '3000' })).toBe(true)
@@ -275,6 +310,18 @@ describe('listen', () => {
 
     expect(responses.every(response => response.endsWith('\r\n\r\nok'))).toBe(true)
     expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
+  })
+
+  it('should warn when the server can be reached from the network', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+    try {
+      await start({ port: 0, hostname: '0.0.0.0' })
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('reachable from the network'))
+    }
+    finally {
+      warn.mockRestore()
+    }
   })
 
   it('should reject an invalid port before binding', async () => {

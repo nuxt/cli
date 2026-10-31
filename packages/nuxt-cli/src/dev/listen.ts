@@ -16,6 +16,7 @@ import { isCI } from 'std-env'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
+import { isLoopbackAddress } from './host-check'
 import { resolvePortlessURLs } from './portless'
 import { resolveStackblitzURL } from './stackblitz'
 
@@ -73,7 +74,6 @@ export interface Listener {
 }
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const DEFAULT_PORTS = { http: 80, https: 443 } as const
 
 /** How long in-flight requests have to finish before their sockets are killed. */
@@ -264,6 +264,10 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
     const formatURL = (host: string) => formatDisplayURL(protocol, host, address.port, baseURL)
 
     const anyHost = ANY_HOSTS.has(hostname)
+    // Reachability is a property of the address the socket actually got: a `localhost`
+    // or `*.localhost` name (RFC 6761 §6.3) binds a loopback address, and a host that
+    // resolves to one of this machine's interfaces does not.
+    const loopback = isLoopbackAddress(address.address)
     const url = formatURL(anyHost ? 'localhost' : hostname)
 
     if (announce && options.tunnel) {
@@ -322,7 +326,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
         lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
       }
       if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
-        const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
+        const isolated = loopback ? detectIsolatedEnvironment() : undefined
         const hint = isolated
           ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
           : `use ${styleText('white', '--host')} to expose`
@@ -335,7 +339,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
-    if (announce && (anyHost || !LOOPBACK_HOSTS.has(hostname))) {
+    if (announce && (anyHost || !loopback)) {
       logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
     }
 

@@ -18,8 +18,9 @@ export function parseHostHeader(host: string | undefined): string | undefined {
 }
 
 /**
- * Whether a socket's peer address is on this machine: the `127.0.0.0/8` range
- * or `::1`, in bracketed, zone-suffixed or IPv4-mapped form.
+ * Whether an address is one of this machine's loopback addresses: the `127.0.0.0/8`
+ * range or `::1`, in bracketed, zone-suffixed or IPv4-mapped form. Used both for a
+ * socket's peer and for the address a server bound.
  */
 export function isLoopbackAddress(address: string | undefined): boolean {
   if (!address) {
