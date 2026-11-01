@@ -22,7 +22,6 @@ const HOOK_PHASES: Record<string, string> = {
   'builder:generateApp': 'app',
   'prepare:types': 'types',
   'build:before': 'client',
-  'nitro:build:before': 'nitro',
 }
 
 /** Nitro builds on its own hooks, which Nuxt's never see. */
@@ -45,8 +44,12 @@ interface HookableLike {
 }
 
 interface NuxtLike {
-  options?: { experimental?: { viteEnvironmentApi?: boolean } }
   hooks?: HookableLike
+}
+
+interface VitePluginContext {
+  /** Missing before Vite 6. */
+  environment?: { name: string }
 }
 
 /**
@@ -58,11 +61,10 @@ export class BuildProgress extends PhaseTimeline {
   #message = BUILD_PHASES[0]!.message
   #finished = false
   /**
-   * With the Vite environment API a single build covers both environments, so
-   * the client and server configs resolve up front and cannot mark the boundary
-   * between them.
+   * Vite can resolve every config, and start Nitro's build, before it bundles
+   * anything, so with Vite only its bundle hooks mark the phases.
    */
-  #splitBundles = true
+  #bundledByVite = false
 
   constructor() {
     super(BUILD_PHASES)
@@ -110,16 +112,19 @@ export class BuildProgress extends PhaseTimeline {
    * the project's own build rather than a schedule guessed by the CLI.
    */
   attachNuxt(nuxt: NuxtLike): void {
-    this.#splitBundles = !nuxt.options?.experimental?.viteEnvironmentApi
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
       if (phase) {
-        this.setPhase(phase, phase === 'client' && !this.#splitBundles ? 'Bundling app' : undefined)
+        this.setPhase(phase)
         return
       }
-      if (name === 'vite:configResolved' && this.#splitBundles) {
-        const ctx = args?.[1] as { isServer?: boolean } | undefined
-        this.setPhase(ctx?.isServer ? 'server' : 'client')
+      if (name === 'vite:extend') {
+        this.#bundledByVite = true
+        const { config } = args![0] as { config: { plugins?: unknown[] } }
+        ;(config.plugins ||= []).push(this.#vitePlugin())
+      }
+      else if (name === 'nitro:build:before' && !this.#bundledByVite) {
+        this.setPhase('nitro')
       }
       else if (name === 'webpack:compile') {
         const ctx = args?.[0] as { name?: string } | undefined
@@ -129,6 +134,27 @@ export class BuildProgress extends PhaseTimeline {
         this.#attachNitro((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks)
       }
     })
+  }
+
+  #vitePlugin() {
+    const setPhase = (id: string) => this.setPhase(id)
+    let ssr = false
+    const isServer = (ctx: VitePluginContext) => (ctx.environment?.name ?? (ssr ? 'ssr' : 'client')) === 'ssr'
+    return {
+      name: 'nuxt-cli:build-progress',
+      configResolved(config: { build?: { ssr?: unknown } }) {
+        ssr = !!config.build?.ssr
+      },
+      buildStart(this: VitePluginContext) {
+        setPhase(isServer(this) ? 'server' : 'client')
+      },
+      // Nitro copies public assets and prerenders before its own bundle starts.
+      closeBundle(this: VitePluginContext) {
+        if (isServer(this)) {
+          setPhase('nitro')
+        }
+      },
+    }
   }
 
   #attachNitro(hooks: HookableLike | undefined): void {

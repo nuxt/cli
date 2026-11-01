@@ -6,18 +6,28 @@ import { BuildProgress } from '../../src/utils/build-progress'
 
 type HookHandler = (event: { name: string, args?: unknown[] }) => void
 
-function nuxtStub(options: { viteEnvironmentApi?: boolean } = {}) {
+interface VitePlugin {
+  configResolved: (config: { build?: { ssr?: unknown } }) => void
+  buildStart: (this: { environment?: { name: string } }) => void
+  closeBundle: (this: { environment?: { name: string } }) => void
+}
+
+function nuxtStub() {
   const handlers: HookHandler[] = []
   const nitroHandlers: HookHandler[] = []
   return {
     nuxt: {
-      options: { experimental: { viteEnvironmentApi: options.viteEnvironmentApi } },
       hooks: { beforeEach: (fn: HookHandler) => void handlers.push(fn) },
     },
     call(name: string, ...args: unknown[]) {
       for (const handler of handlers) {
         handler({ name, args })
       }
+    },
+    extendVite() {
+      const config: { plugins?: VitePlugin[] } = {}
+      this.call('vite:extend', { config })
+      return config.plugins![0]!
     },
     nitro: { hooks: { beforeEach: (fn: HookHandler) => void nitroHandlers.push(fn) } },
     callNitro(name: string, ...args: unknown[]) {
@@ -45,8 +55,13 @@ describe('build progress', () => {
     stub.call('builder:generateApp')
     stub.call('prepare:types')
     stub.call('build:before')
-    stub.call('vite:configResolved', {}, { isClient: true, isServer: false })
-    stub.call('vite:configResolved', {}, { isClient: false, isServer: true })
+    const plugin = stub.extendVite()
+    plugin.configResolved({ build: {} })
+    plugin.buildStart.call({})
+    plugin.closeBundle.call({})
+    plugin.configResolved({ build: { ssr: true } })
+    plugin.buildStart.call({})
+    plugin.closeBundle.call({})
     stub.call('nitro:build:before', {})
     progress.finish()
 
@@ -62,17 +77,27 @@ describe('build progress', () => {
     expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'client', 'server', 'nitro'])
   })
 
-  it('should not split the bundle phase when a single build covers both environments', () => {
+  it('should time each bundle when Vite builds every environment in one run', () => {
     const progress = new BuildProgress()
-    const stub = nuxtStub({ viteEnvironmentApi: true })
+    const stub = nuxtStub()
     progress.attachNuxt(stub.nuxt)
     const seen = messages(progress)
 
     stub.call('build:before')
+    const plugin = stub.extendVite()
     stub.call('vite:configResolved', {}, { isClient: true, isServer: false })
     stub.call('vite:configResolved', {}, { isClient: false, isServer: true })
+    stub.call('nitro:build:before', {})
+    expect(seen).toEqual(['Loading Nuxt config', 'Bundling client'])
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Bundling app'])
+    for (const name of ['client', 'ssr', 'nitro']) {
+      plugin.buildStart.call({ environment: { name } })
+      plugin.closeBundle.call({ environment: { name } })
+    }
+    progress.finish()
+
+    expect(seen).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling server', 'Building Nitro server'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'client', 'server', 'nitro'])
   })
 
   it('should name what the Nitro phase is doing', () => {
