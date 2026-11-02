@@ -55,7 +55,7 @@ jobs:
 
       - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
         with:
-          runtime: node@24.22.1
+          runtime: node@24.22.2
           cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -139,7 +139,7 @@ jobs:
 
       - name: 📦 Pack nightly
         id: pack
-        uses: danielroe/uppt/pack@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
+        uses: danielroe/uppt/pack@6c1a9b480b0f02a3f535dedaf1a113f590aa56f2 # v0.6.12
         with:
           checkout: false
           install: false
@@ -160,7 +160,7 @@ jobs:
       id-token: write
     environment: nightly
     steps:
-      - uses: danielroe/uppt/publish@6ec27140623aa835e362f866d8ab0018ab057f4d # v0.6.11
+      - uses: danielroe/uppt/publish@6c1a9b480b0f02a3f535dedaf1a113f590aa56f2 # v0.6.12
         with:
           nightly: true
           files: ${{ needs.pack-nightly.outputs.files }}
