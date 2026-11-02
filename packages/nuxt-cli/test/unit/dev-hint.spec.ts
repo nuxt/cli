@@ -25,6 +25,15 @@ describe('dev server hint', () => {
     expect(loadDevServerHint(cwd)).toEqual({ port: 4000, hostname: '127.0.0.1', https: false, baseURL: '/app/' })
   })
 
+  it('should round-trip `allowedHosts`', () => {
+    mkdirSync(join(cwd, 'node_modules'))
+    saveDevServerHint(cwd, { allowedHosts: ['alias.test'] })
+    expect(loadDevServerHint(cwd)).toEqual({ allowedHosts: ['alias.test'] })
+
+    saveDevServerHint(cwd, { allowedHosts: true })
+    expect(loadDevServerHint(cwd)).toEqual({ allowedHosts: true })
+  })
+
   it('should not write outside an installed `node_modules`', () => {
     saveDevServerHint(cwd, { port: 4000 })
     expect(loadDevServerHint(cwd)).toBeUndefined()

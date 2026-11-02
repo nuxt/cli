@@ -43,6 +43,12 @@ function sanitizeDevServerHint(value: unknown): DevServerHint {
   if (typeof source.baseURL === 'string') {
     hint.baseURL = source.baseURL
   }
+  if (source.allowedHosts === true) {
+    hint.allowedHosts = true
+  }
+  else if (Array.isArray(source.allowedHosts)) {
+    hint.allowedHosts = source.allowedHosts.filter((host): host is string => typeof host === 'string')
+  }
   return hint
 }
 
