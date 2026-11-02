@@ -388,7 +388,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     if (this.#allowAnyHost) {
       return
     }
-    if (options.hostname) {
+    if (typeof options.hostname === 'string' && options.hostname) {
       this.#allowedHosts.add(options.hostname.toLowerCase())
     }
     for (const { url } of this.listener?.getURLs() ?? []) {
@@ -1039,7 +1039,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
     saveDevServerHint(this.options.cwd, {
       port: Number(devServer.port) || undefined,
-      hostname: devServer.host || undefined,
+      hostname: typeof devServer.host === 'string' ? devServer.host : undefined,
       https: !!devServer.https,
       baseURL,
     })
@@ -1055,7 +1055,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
 
-    const hostname = overrides.hostname ?? nuxtConfig.devServer?.host
+    const devServerHost = typeof nuxtConfig.devServer?.host === 'string' ? nuxtConfig.devServer.host : undefined
+    const hostname = overrides.hostname ?? devServerHost
 
     // Only `--public` (or a sandbox that fronts the server) drops the `Host` and
     // CORS checks. A non-loopback `--host` widens who can reach the bind, not

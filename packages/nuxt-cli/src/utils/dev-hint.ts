@@ -19,10 +19,35 @@ function hintPath(cwd: string): string {
   return join(cwd, 'node_modules/.cache/nuxt/dev-server.json')
 }
 
+/**
+ * Keep only fields of the expected type. The hint is written by this CLI but
+ * also read and written by other versions, so it cannot be trusted to match.
+ */
+function sanitizeDevServerHint(value: unknown): DevServerHint {
+  if (typeof value !== 'object' || value === null) {
+    return {}
+  }
+  const source = value as Record<string, unknown>
+  const hint: DevServerHint = {}
+  if (typeof source.port === 'number') {
+    hint.port = source.port
+  }
+  if (typeof source.hostname === 'string') {
+    hint.hostname = source.hostname
+  }
+  if (typeof source.https === 'boolean') {
+    hint.https = source.https
+  }
+  if (typeof source.baseURL === 'string') {
+    hint.baseURL = source.baseURL
+  }
+  return hint
+}
+
 export function loadDevServerHint(cwd: string): DevServerHint | undefined {
   try {
-    const hint = JSON.parse(readFileSync(hintPath(cwd), 'utf-8')) as DevServerHint
-    return typeof hint === 'object' && hint ? hint : undefined
+    const hint = JSON.parse(readFileSync(hintPath(cwd), 'utf-8'))
+    return typeof hint === 'object' && hint && !Array.isArray(hint) ? sanitizeDevServerHint(hint) : undefined
   }
   catch {
     return undefined
@@ -31,6 +56,7 @@ export function loadDevServerHint(cwd: string): DevServerHint | undefined {
 
 /** Persist the resolved address. Never throws: the hint is only an optimisation. */
 export function saveDevServerHint(cwd: string, hint: DevServerHint): void {
+  const sanitized = sanitizeDevServerHint(hint)
   const path = hintPath(cwd)
   // Writing outside an installed `node_modules` would create a directory tree
   // no tooling expects (and that nothing gitignores).
@@ -38,11 +64,11 @@ export function saveDevServerHint(cwd: string, hint: DevServerHint): void {
     return
   }
   try {
-    if (JSON.stringify(loadDevServerHint(cwd)) === JSON.stringify(hint)) {
+    if (JSON.stringify(loadDevServerHint(cwd)) === JSON.stringify(sanitized)) {
       return
     }
     mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, JSON.stringify(hint), 'utf-8')
+    writeFileSync(path, JSON.stringify(sanitized), 'utf-8')
   }
   catch (error) {
     debug('Could not persist dev server hint:', error)

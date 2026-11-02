@@ -10,6 +10,8 @@ import process from 'node:process'
 import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { logger } from '../../../src/utils/logger'
+
 const { buildNuxt, diffNuxtConfig, loadNuxt, loadNuxtConfig, writeTypes } = vi.hoisted(() => ({
   buildNuxt: vi.fn(),
   diffNuxtConfig: vi.fn(),
@@ -358,6 +360,18 @@ describe('dev server listen options', () => {
 
     expect((server.listener.address as AddressInfo).address).toBe('127.0.0.1')
     expect(server.listener.url).toMatch('http://127.0.0.1:')
+  })
+
+  it('should treat a non-string `devServer.host` as unset', async () => {
+    const warn = vi.spyOn(logger, 'warn')
+    loadNuxt.mockImplementation(() => Promise.resolve(createNuxt({ devServer: { host: {} } })))
+    const server = createServer({ listenOverrides: { port: 0, showURL: false, qr: false } })
+
+    await server.init()
+
+    expect(server.listener.url).toMatch(/^http:\/\/localhost:\d+\/$/)
+    expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('Invalid host'))
+    warn.mockRestore()
   })
 
   it('should fail with actionable advice when the port is taken and strict', async () => {
