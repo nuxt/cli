@@ -8,8 +8,8 @@ import { styleText } from 'node:util'
 import { cancel, confirm, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 import { resolveModulePath } from 'exsolve'
-import { dirname, resolve } from 'pathe'
-import { readPackageJSON, readTSConfig } from 'pkg-types'
+import { dirname, relative, resolve } from 'pathe'
+import { readPackageJSON, readTSConfig, resolveTSConfig } from 'pkg-types'
 import { hasTTY } from 'std-env'
 import { x } from 'tinyexec'
 
@@ -45,6 +45,8 @@ interface TypeCheckerBackend {
   configNote?: string
   resolve: (cwd: string, options?: { cache?: boolean }) => ResolvedTypeChecker
   args: (supportsProjects: boolean) => string[]
+  /** Arguments to type-check a single project, without building its references. */
+  projectArgs: (project: string) => string[]
   ensureConfig?: (cwd: string) => Promise<void>
 }
 
@@ -81,6 +83,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['-b', '--noEmit'] : ['--noEmit'],
+    projectArgs: project => ['-p', project, '--noEmit'],
   },
   'golar': {
     label: 'Golar',
@@ -101,6 +104,7 @@ const TYPE_CHECKERS: Record<TypeChecker, TypeCheckerBackend> = {
       }
     },
     args: supportsProjects => supportsProjects ? ['tsc', '--build', '--noEmit'] : ['tsc', '--noEmit'],
+    projectArgs: project => ['tsc', '-p', project, '--noEmit'],
     ensureConfig: ensureGolarConfig,
   },
 }
@@ -117,16 +121,20 @@ export default defineCommand({
     ...logLevelArgs,
     ...dotEnvArgs,
     ...extendsArgs,
-    checker: {
+    'checker': {
       type: 'string',
       description: 'Type checker to use',
       valueHint: CHECKER_PRIORITY.join('|'),
     },
-    build: {
+    'build': {
       type: 'boolean',
       alias: 'b',
       description: 'Type-check in build mode, using TypeScript project references (detected automatically by default)',
       negativeDescription: 'Type-check without TypeScript project references',
+    },
+    'per-project': {
+      type: 'boolean',
+      description: 'Type-check each project reference in its own process, one after another, to lower peak memory usage',
     },
   },
   async run(ctx) {
@@ -147,8 +155,8 @@ export default defineCommand({
       return
     }
 
-    const [tsConfig] = await Promise.all([
-      readTSConfig(cwd).catch(() => ({} as TSConfig)),
+    const [{ path: tsConfigPath, config: tsConfig }] = await Promise.all([
+      readRootTSConfig(cwd),
       writeTypes(cwd, ctx.args.dotenv, ctx.args.logLevel as 'silent' | 'info' | 'verbose', {
         ...ctx.data?.overrides,
         ...(ctx.args.extends.length > 0 && { extends: ctx.args.extends }),
@@ -159,6 +167,15 @@ export default defineCommand({
 
     if (ctx.args.build === undefined && !useProjectReferences && hasNuxtProjectReferences(tsConfig)) {
       logger.warn(`Your ${styleText('cyan', 'tsconfig.json')} references Nuxt's generated project configs but also includes source files of its own, so type-checking will not run in build mode. Add ${styleText('cyan', '"files": []')} to your ${styleText('cyan', 'tsconfig.json')}, or pass ${styleText('cyan', '--build')} to override.`)
+    }
+
+    if (ctx.args['per-project']) {
+      // Build mode only reads `tsconfig.json` in the root directory, not one found further up.
+      if (useProjectReferences && tsConfigPath === resolve(cwd, 'tsconfig.json') && supportsProjectReferences(tsConfig)) {
+        process.exitCode = await typecheckPerProject(cwd, typechecker, resolveProjectReferences(tsConfigPath, tsConfig))
+        return
+      }
+      logger.warn(`Ignoring ${styleText('cyan', '--per-project')}: it needs build mode and a ${styleText('cyan', 'tsconfig.json')} at the root of your project that only lists project references.`)
     }
 
     const start = Date.now()
@@ -180,6 +197,77 @@ export default defineCommand({
     process.exitCode = result.exitCode ?? 1
   },
 })
+
+async function readRootTSConfig(cwd: string): Promise<{ path?: string, config: TSConfig }> {
+  const path = await resolveTSConfig(cwd).catch(() => undefined)
+  const config = path ? await readTSConfig(path).catch(() => ({} as TSConfig)) : {}
+  return { path, config }
+}
+
+/**
+ * Resolve the `references` of a tsconfig to config file paths, the way TypeScript does: relative to
+ * the referencing config, with a path that does not end in `.json` pointing at a directory.
+ */
+function resolveProjectReferences(tsConfigPath: string, config: TSConfig): string[] {
+  const root = dirname(tsConfigPath)
+  return (config.references ?? [])
+    .filter(reference => reference.path)
+    .map((reference) => {
+      const path = resolve(root, reference.path)
+      return path.endsWith('.json') ? path : resolve(path, 'tsconfig.json')
+    })
+}
+
+/**
+ * Type-check each project in its own checker process, one after another, so peak memory stays at
+ * that of the largest project rather than all of them. Continues after a failing project so a
+ * single run reports every error, and resolves to the exit code to use.
+ */
+async function typecheckPerProject(cwd: string, typechecker: TypeCheckerSetup, projects: string[]): Promise<number> {
+  const start = Date.now()
+  let exitCode = 0
+  let failed = 0
+
+  for (const project of projects) {
+    const name = relative(cwd, project)
+    const projectStart = Date.now()
+    const proc = x(typechecker.bin, TYPE_CHECKERS[typechecker.checker].projectArgs(project), {
+      nodeOptions: { stdio: 'inherit', cwd },
+    })
+    const result = await proc
+    const duration = formatDuration(Date.now() - projectStart)
+    const signal = proc.signalCode ?? null
+
+    if (signal) {
+      const hint = signal === 'SIGKILL' ? ', which usually means it ran out of memory' : ''
+      logger.error(`Type-checking ${styleText('cyan', name)} was killed by ${styleText('bold', signal)} after ${styleText('cyan', duration)}${hint}.`)
+    }
+    else if (result.exitCode === 0) {
+      if (hasTTY) {
+        logger.success(`${styleText('cyan', name)} passed in ${styleText('cyan', duration)}.`)
+      }
+      continue
+    }
+    else if (hasTTY) {
+      logger.error(`${styleText('cyan', name)} failed in ${styleText('cyan', duration)}.`)
+    }
+
+    failed++
+    exitCode ||= result.exitCode || 1
+  }
+
+  if (hasTTY) {
+    const duration = styleText('cyan', formatDuration(Date.now() - start))
+    if (failed === 0) {
+      logger.success(`Type check passed in ${duration}.`)
+    }
+    else {
+      logger.error(`Type check failed in ${duration} (${failed} of ${projects.length} projects).`)
+    }
+  }
+
+  return exitCode
+}
 
 const NUXT_PROJECT_REFERENCE_RE = /(?:^|[/\\])tsconfig\.(?:app|server|shared|node)\.json$/
 
