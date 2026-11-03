@@ -2,7 +2,7 @@ name: translations
 
 on:
   push:
-    branches: ['main']
+    branches: [main]
     paths:
       - 'docs/**'
 
