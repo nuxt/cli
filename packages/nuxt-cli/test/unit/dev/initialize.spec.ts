@@ -113,6 +113,12 @@ describe('initialize', () => {
     expect(devServers[0].options.overrides).toMatchObject({ extends: ['../layer'] })
   })
 
+  it('should leave `extends` from nuxt.config alone when none is passed', async () => {
+    await initialize(context({ extends: [] }))
+
+    expect(devServers[0].options.overrides).not.toHaveProperty('extends')
+  })
+
   it('should not profile unless it was asked to', async () => {
     await initialize(context())
 
