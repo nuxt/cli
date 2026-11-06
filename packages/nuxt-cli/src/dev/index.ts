@@ -270,7 +270,8 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     cwd: devContext.cwd,
     overrides: defu(
       ctx.data?.overrides,
-      ({ extends: devContext.args.extends } satisfies NuxtConfig) as NuxtConfig,
+      // defu lets an empty array win over a string `extends` from nuxt.config, which drops the layer
+      (devContext.args.extends?.length ? { extends: devContext.args.extends } satisfies NuxtConfig : {}) as NuxtConfig,
       perfOverrides,
     ),
     logLevel: devContext.args.logLevel as 'silent' | 'info' | 'verbose',
