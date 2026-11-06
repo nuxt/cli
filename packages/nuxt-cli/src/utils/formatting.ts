@@ -14,6 +14,8 @@ export function terminalLink(label: string, url: string, options: { stream?: { i
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[0-9;]*m|\u001B\]8;[^\u0007]*\u0007/g
 // eslint-disable-next-line no-control-regex
+const CONTROL_RE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g
+// eslint-disable-next-line no-control-regex
 const NARROW_RE = /^[\u0000-\u02FF\u2010-\u2027\u2500-\u257F\u2800-\u28FF]*$/
 // `\p{}` literals are compiled at parse time, so these are built on first use.
 let widthPatterns: { zero: RegExp, wide: RegExp } | undefined
@@ -30,6 +32,11 @@ function getWidthPatterns(): { zero: RegExp, wide: RegExp } {
 /** Strip colour and hyperlink escapes. */
 export function stripAnsi(text: string): string {
   return text.replace(ANSI_RE, '')
+}
+
+/** Strip every control character but tab and newline, so no escape sequence survives in text from outside the CLI. */
+export function stripControlChars(text: string): string {
+  return text.replace(CONTROL_RE, '')
 }
 
 function charWidth(char: string): number {

@@ -3240,6 +3240,15 @@ describe('request failures on the panel', () => {
     })
   })
 
+  it('should keep a multi-line report message on the status line', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStatus('ready')
+      ui.pushReport({ id: 'abc', name: 'Error', message: 'module not found\nRequire stack:\n- /app/a.js', ansi: 'Error: module not found' })
+
+      expect(await settle()).toContain('module not found Require stack: - /app/a.js · press l to read it')
+    })
+  })
+
   it('should drop a report from the status line once the app recovers', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
