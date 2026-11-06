@@ -2,6 +2,7 @@ import type { Renderer } from 'ansivision'
 import type { Listener } from '../../src/dev/listen'
 import type { ShortcutContext } from '../../src/dev/shortcuts'
 
+import { networkInterfaces } from 'node:os'
 import { PassThrough } from 'node:stream'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -22,6 +23,9 @@ vi.mock('../../src/dev/environment', () => ({
 
 const { listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
 const { setupShortcuts } = await import('../../src/dev/shortcuts')
+
+/** A non-loopback IPv4 address of this machine, when it has one. */
+const networkAddress = Object.values(networkInterfaces()).flat().find(info => info && !info.internal && info.family === 'IPv4')?.address
 
 /** SGR foreground colour indexes, as reported by `ansivision`. */
 const GREEN = 2
@@ -109,6 +113,13 @@ describe('dev server terminal output', () => {
       const renderer = await render(() => start())
 
       expect(screen(renderer)).toContain('➜ Local:    http://localhost:<port>/')
+      expect(screen(renderer)).not.toContain('use --host')
+    })
+
+    it.skipIf(!networkAddress)('should not hint at `--host` when bound to a network address', async () => {
+      const renderer = await render(() => start({ hostname: networkAddress }))
+
+      expect(screen(renderer)).toContain(`➜ Local:    http://${networkAddress}:<port>/`)
       expect(screen(renderer)).not.toContain('use --host')
     })
 
