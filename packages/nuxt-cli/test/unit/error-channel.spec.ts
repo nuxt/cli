@@ -59,7 +59,7 @@ function request(url: string) {
   return {
     url,
     method: 'GET',
-    headers: { accept: 'text/html' },
+    headers: { accept: 'text/html', host: 'localhost:3000' },
     rawHeaders: [],
     socket: { remoteAddress: '127.0.0.1' },
     on: () => {},
@@ -228,7 +228,9 @@ describe('createCliReport', () => {
     const dir = await mkdtemp(join(tmpdir(), 'nuxi-config-'))
     const file = join(dir, 'nuxt.config.ts')
     await writeFile(file, 'export default defineNuxtConfig({\n  a: 1\n  b: 2\n})\n')
-    const report = await createCliReport(new Error(`ParseError: Unexpected token\n ${file}:3:2`), { cwd: dir })
+    const message = `ParseError: Unexpected token\n ${file}:3:2`
+    const error = Object.assign(new Error(message), { stack: `Error: ${message}\n    at parse (${join(dir, 'node_modules/oxc-parser/index.js')}:1:1)` })
+    const report = await createCliReport(error, { cwd: dir })
 
     expect(report.kind).toBe('compile')
     expect(report.name).toBe('ParseError')
@@ -287,6 +289,8 @@ describe('summariseReport', () => {
     const summary = await summariseReport(report, { request: 'GET /\u001B[2J' }, '/app')
 
     expect(summary).toMatchObject({ name: '[31mEvil', message: ']52;c;aGk=boom[2J', location: './[2Japp.vue:3:1', request: 'GET /[2J' })
+    expect(summary.ansi).not.toContain('\u001B]52')
+    expect(summary.ansi).not.toContain('\u001B[2J')
   })
 })
 
