@@ -626,7 +626,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     pushSpans: spans => requests.pushSpans(spans),
     pushReport: (report) => {
       reported = report.id
-      update({ status: 'error', note: `${report.message} · press l to read it` })
+      update({ status: 'error', note: `${normaliseMessage(report.message)} · press l to read it` })
       events.push({
         time: Date.now(),
         level: 0,

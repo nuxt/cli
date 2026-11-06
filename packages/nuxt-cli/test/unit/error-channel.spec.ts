@@ -224,12 +224,15 @@ function compileReport(file: string, line: number, column: number) {
 }
 
 describe('createCliReport', () => {
-  it('should render the source a config syntax error failed on', async () => {
+  it.each([
+    ['a parser frame', (dir: string) => `\n    at parse (${join(dir, 'node_modules/oxc-parser/index.js')}:1:1)`],
+    ['no frames', () => ''],
+  ])('should render the source a config syntax error failed on, with %s', async (_, frames) => {
     const dir = await mkdtemp(join(tmpdir(), 'nuxi-config-'))
     const file = join(dir, 'nuxt.config.ts')
     await writeFile(file, 'export default defineNuxtConfig({\n  a: 1\n  b: 2\n})\n')
     const message = `ParseError: Unexpected token\n ${file}:3:2`
-    const error = Object.assign(new Error(message), { stack: `Error: ${message}\n    at parse (${join(dir, 'node_modules/oxc-parser/index.js')}:1:1)` })
+    const error = Object.assign(new Error(message), { stack: `Error: ${message}${frames(dir)}` })
     const report = await createCliReport(error, { cwd: dir })
 
     expect(report.kind).toBe('compile')
