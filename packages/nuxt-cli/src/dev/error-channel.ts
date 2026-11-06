@@ -8,6 +8,7 @@ import process from 'node:process'
 
 import { isAbsolute, join, relative } from 'pathe'
 
+import { stripControlChars } from '../utils/formatting'
 import { debug } from '../utils/logger'
 import { openBroadcast } from './broadcast'
 import { isLoopbackAddress } from './host-check'
@@ -282,7 +283,10 @@ export interface ReportContext {
   request?: string
 }
 
-/** Everything the supervisor needs to present `report`, rendered for a terminal. */
+/**
+ * Everything the supervisor needs to present `report`, rendered for a terminal.
+ * Text fields are stripped of control characters, since the app may have built the report.
+ */
 export async function summariseReport(report: ErrorReport, context: ReportContext = {}, cwd: string = process.cwd()): Promise<DevReportSummary> {
   const { renderAnsi } = await import('my-bad')
   // A request that hit a compile error is described by the compile error.
@@ -291,13 +295,13 @@ export async function summariseReport(report: ErrorReport, context: ReportContex
   const frame = frames.find(frame => frame.type === 'app' && frame.file) ?? frames.find(frame => frame.file)
   return {
     id: report.id,
-    name: named.name,
-    message: named.message,
+    name: stripControlChars(named.name),
+    message: stripControlChars(named.message),
     file: frame?.file,
     line: frame?.line,
-    location: frame?.file && formatLocation(frame.file, frame.line, frame.column, cwd),
+    location: frame?.file && stripControlChars(formatLocation(frame.file, frame.line, frame.column, cwd)),
     requestId: context.requestId,
-    request: context.request,
+    request: context.request && stripControlChars(context.request),
     ansi: renderAnsi(report, { cwd }),
   }
 }

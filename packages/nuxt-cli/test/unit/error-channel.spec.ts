@@ -275,6 +275,19 @@ describe('summariseReport', () => {
     expect(summary.location).toMatch(/^\.\/packages\/nuxt-cli\/test\/unit\/error-channel\.spec\.ts:\d+:\d+$/)
     expect(summary.ansi).toContain('summarise me')
   })
+
+  it('should strip control characters from every field it prints', async () => {
+    const report = {
+      ...compileReport('/app/\u001B[2Japp.vue', 3, 1),
+      causes: [],
+      name: '\u001B[31mEvil',
+      message: '\u001B]52;c;aGk=\u0007boom\u001B[2J',
+      frames: [{ file: '/app/\u001B[2Japp.vue', line: 3, column: 1, type: 'app' }],
+    } as unknown as ErrorReport
+    const summary = await summariseReport(report, { request: 'GET /\u001B[2J' }, '/app')
+
+    expect(summary).toMatchObject({ name: '[31mEvil', message: ']52;c;aGk=boom[2J', location: './[2Japp.vue:3:1', request: 'GET /[2J' })
+  })
 })
 
 describe('the CLI-owned error channel', () => {

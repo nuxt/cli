@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDuration, truncate, visibleWidth } from '../../../src/utils/formatting'
+import { formatDuration, stripControlChars, truncate, visibleWidth } from '../../../src/utils/formatting'
+
+describe('stripControlChars', () => {
+  it('should leave no escape sequence behind, nested or not', () => {
+    expect(stripControlChars('\u001B\u001B[31m[31mRED')).not.toContain('\u001B')
+    expect(stripControlChars('\u001B]52;c;aGk=\u0007boom\u009B2J')).toBe(']52;c;aGk=boom2J')
+  })
+
+  it('should drop bell, carriage return and backspace but keep tabs and newlines', () => {
+    expect(stripControlChars('a\u0007b\rc\bd\te\nf\u007F')).toBe('abcd\te\nf')
+  })
+})
 
 describe('visibleWidth', () => {
   it('should ignore colour and hyperlink escapes', () => {
