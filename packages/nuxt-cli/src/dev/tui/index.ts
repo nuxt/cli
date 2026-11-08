@@ -8,6 +8,7 @@ import type { DevStatus, PanelState, PanelURL } from './panel'
 
 import type { DevUISupportOptions } from './support'
 import type { PanelSurface } from './surface'
+import type { MouseReport } from './terminal-replies'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import process from 'node:process'
@@ -439,7 +440,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     void shortcut?.action()
   }
 
-  let detach = attachKeys(onKey)
+  const onMouse = (report: MouseReport) => openOverlay()?.handleMouse(report)
+
+  let detach = attachKeys(onKey, { onMouse })
 
   let torn = false
   let resumeTerminal: (() => void) | undefined
@@ -457,7 +460,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         resumeSurface?.()
         resumeSurface = undefined
         if (!torn) {
-          detach = attachKeys(onKey, { ignoreBufferedInput: true })
+          detach = attachKeys(onKey, { ignoreBufferedInput: true, onMouse })
           render()
         }
       }

@@ -1023,6 +1023,35 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
+  it('claims the mouse only while open', () => {
+    const { overlay, output } = create()
+    overlay.open()
+    expect(output()).toContain('\u001B[?1000h\u001B[?1006h')
+    overlay.close()
+    expect(output()).toContain('\u001B[?1006l\u001B[?1000l')
+  })
+
+  it('moves the selection with the wheel as the arrow keys do', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 40; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const keys = create(events)
+    const wheel = create(events)
+    keys.overlay.open()
+    wheel.overlay.open()
+
+    for (const name of ['up', 'up', 'up', 'down']) {
+      keys.overlay.handleKey({ name })
+      wheel.overlay.handleMouse({ button: name === 'up' ? 64 : 65, row: 5, column: 5 })
+    }
+
+    expect(wheel.lastFrame()).toContain('\u258E')
+    expect(wheel.lastFrame()).toBe(keys.lastFrame())
+    keys.overlay.close()
+    wheel.overlay.close()
+  })
+
   it('reflows to the terminal when it is resized while open', async () => {
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })

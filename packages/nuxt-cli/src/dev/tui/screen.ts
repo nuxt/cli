@@ -1,4 +1,5 @@
 import type { Key } from './keys'
+import type { MouseReport } from './terminal-replies'
 
 import process from 'node:process'
 import { styleText } from 'node:util'
@@ -26,8 +27,13 @@ export interface OverlayEntry {
   copy?: string
 }
 
-const ENTER_ALT = '\u001B[?1049h\u001B[?25l'
-const LEAVE_ALT = '\u001B[?25h\u001B[?1049l'
+// Mouse reporting (SGR) only while a view covers the screen; the panel leaves
+// the mouse to the terminal, for its scrollback and text selection.
+const ENTER_ALT = '\u001B[?1049h\u001B[?25l\u001B[?1000h\u001B[?1006h'
+const LEAVE_ALT = '\u001B[?1006l\u001B[?1000l\u001B[?25h\u001B[?1049l'
+
+const WHEEL_UP = 64
+const WHEEL_DOWN = 65
 
 /** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
@@ -193,6 +199,16 @@ export abstract class ScreenOverlay {
         }
     }
     this.render()
+  }
+
+  /** The wheel moves the selection, as the arrow keys do. */
+  handleMouse({ button }: MouseReport): void {
+    if (button === WHEEL_UP) {
+      this.handleKey({ name: 'up' })
+    }
+    else if (button === WHEEL_DOWN) {
+      this.handleKey({ name: 'down' })
+    }
   }
 
   /** Rows available for content, once the title, rule and hints are taken. */
