@@ -1188,6 +1188,24 @@ describe('log overlay', () => {
     overlay.handleMouse({ button: 0, pressed: false, row: 2, column: 10 })
 
     expect(lastFrame()).not.toContain('\u258E')
+    expect(strip(lastFrame())).not.toContain('nothing selected')
+    overlay.close()
+  })
+
+  it('leaves the selection alone while a search is typed', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ sequence: '/' })
+
+    overlay.handleMouse({ button: 65, pressed: true, row: 4, column: 10 })
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+
+    expect(lastFrame()).not.toContain('\u258E')
+    expect(strip(lastFrame()).split('\n')[0]).toContain('search')
     overlay.close()
   })
 

@@ -28,8 +28,7 @@ export interface OverlayEntry {
   copy?: string
 }
 
-// Mouse reporting (SGR) only while a view covers the screen; the panel leaves
-// the mouse to the terminal, for its scrollback and text selection.
+// A view claims the mouse while it covers the screen; the panel only when asked.
 const ENTER_ALT = `\u001B[?1049h\u001B[?25l${ENABLE_MOUSE}`
 const LEAVE_ALT = `${DISABLE_MOUSE}\u001B[?25h\u001B[?1049l`
 
@@ -225,6 +224,10 @@ export abstract class ScreenOverlay {
    */
   handleMouse({ button, pressed, row, column }: MouseReport): void {
     if (button === WHEEL_UP || button === WHEEL_DOWN) {
+      // A search being typed keeps the selection, as it does for the arrow keys.
+      if (this.#searching) {
+        return
+      }
       const direction = button === WHEEL_UP ? -1 : 1
       const now = Date.now()
       const fast = this.#lastWheel?.direction === direction && now - this.#lastWheel.at < FAST_WHEEL_MS
@@ -232,9 +235,9 @@ export abstract class ScreenOverlay {
       this.#move(direction * (fast ? FAST_WHEEL_STEP : 1))
       this.render()
     }
-    else if (button === LEFT_BUTTON && pressed && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
+    else if (button === LEFT_BUTTON && pressed && !this.#searching && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
       const entry = this.#rowAnchor(this.#entries(), this.#top + row - HEADER_ROWS)
-      if (entry?.index === this.#selected) {
+      if (entry && entry.index === this.#selected) {
         this.handleKey({ name: 'return' })
       }
       else if (entry) {

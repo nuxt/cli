@@ -121,8 +121,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const release = () => {
     surface.screenMode = 'split-footer'
-    // Leaving the alternate screen gave the mouse back. Teardown and holding the
-    // terminal close views first and give it back for good afterwards.
+    // Closing a view released the mouse. Teardown and holding the terminal
+    // close the view first and release it again afterwards.
     if (mouse) {
       claimMouse(true)
     }
