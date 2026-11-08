@@ -63,19 +63,19 @@ async function readFirstFile(files: (string | undefined)[]) {
 
 function renderIndexHtml(reports: { path: string, label: string }[]) {
   const body = reports.length > 0
-    ? `<ul>\n${reports.map(report => `      <li>\n        <a href="${report.path}">${report.label}</a>\n      </li>`).join('\n')}\n    </ul>`
+    ? `<ul>${reports.map(report => `<li><a href="${report.path}">${report.label}</a></li>`).join('')}</ul>`
     : '<p>The analyze build did not generate any bundle reports.</p>'
-  return `
-<!DOCTYPE html>
-  <html lang="en">
-  <head>
-  <meta charset="utf-8">
-  <title>Nuxt Bundle Stats (experimental)</title>
-  </head>
-    <h1>Nuxt Bundle Stats (experimental)</h1>
-    ${body}
-  </html>
-`.trim()
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Nuxt Bundle Stats (experimental)</title>
+</head>
+<body>
+<h1>Nuxt Bundle Stats (experimental)</h1>
+${body}
+</body>
+</html>`
 }
 
 export default defineCommand({
