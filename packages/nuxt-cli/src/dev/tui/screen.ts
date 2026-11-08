@@ -71,6 +71,8 @@ export abstract class ScreenOverlay {
   #notice?: { text: string, until: number }
   #lastWheel?: { direction: number, at: number }
   #shownHints = ''
+  /** The entry on each body row as last painted, so a click hits what was seen. */
+  #shownEntries: Array<{ key?: object | string, index: number }> = []
 
   constructor(options: {
     write: (chunk: string) => void
@@ -245,12 +247,17 @@ export abstract class ScreenOverlay {
       this.render()
     }
     else if (button === LEFT_BUTTON && pressed && !this.#searching && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
-      const entry = this.#rowAnchor(this.#entries(), this.#top + row - HEADER_ROWS)
-      if (entry && entry.index === this.#selected) {
+      const shown = this.#shownEntries[row - HEADER_ROWS]
+      // Resolved by identity: the list may have changed since it was painted.
+      const index = shown?.key === undefined ? shown?.index : this.#entries().findIndex(entry => entry.key === shown.key)
+      if (index === undefined || index < 0) {
+        return
+      }
+      if (index === this.#selected) {
         this.handleKey({ name: 'return' })
       }
-      else if (entry) {
-        this.select(entry.index)
+      else {
+        this.select(index)
         this.render()
       }
     }
@@ -384,6 +391,7 @@ export abstract class ScreenOverlay {
     entries = this.#expandSelected(entries)
 
     const rows: string[] = []
+    const rowEntries: number[] = []
     let selectedRows: { start: number, end: number } | undefined
     for (const [index, entry] of entries.entries()) {
       const selected = index === this.#selected
@@ -392,6 +400,7 @@ export abstract class ScreenOverlay {
       }
       for (const line of entry.lines) {
         rows.push(`${selected ? styleText('green', SELECTED_GUTTER) : GUTTER}${line}`)
+        rowEntries.push(index)
       }
     }
 
@@ -418,6 +427,7 @@ export abstract class ScreenOverlay {
     this.#offset = Math.max(0, rows.length - this.#top - bodyRows)
     this.#anchor = this.#rowAnchor(entries, this.#top)
     const visible = rows.slice(this.#top, this.#top + bodyRows)
+    this.#shownEntries = rowEntries.slice(this.#top, this.#top + bodyRows).map(index => ({ key: entries[index]!.key, index }))
 
     const frame = [
       this.renderTitle(columns),
