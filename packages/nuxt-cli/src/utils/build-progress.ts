@@ -12,8 +12,8 @@ const BUILD_PHASES: readonly Phase[] = [
   { id: 'modules', message: 'Setting up modules' },
   { id: 'app', message: 'Preparing app' },
   { id: 'types', message: 'Generating types' },
-  { id: 'client', message: 'Building client app' },
-  { id: 'server', message: 'Building server app' },
+  { id: 'client app', message: 'Building client app' },
+  { id: 'server app', message: 'Building server app' },
   { id: 'nitro', message: 'Building Nitro server' },
 ]
 
@@ -21,7 +21,7 @@ const HOOK_PHASES: Record<string, string> = {
   'modules:before': 'modules',
   'builder:generateApp': 'app',
   'prepare:types': 'types',
-  'build:before': 'client',
+  'build:before': 'client app',
   'nitro:build:before': 'nitro',
 }
 
@@ -105,6 +105,11 @@ export class BuildProgress extends PhaseTimeline {
     if (!this.#finished) {
       this.closePhase()
       this.#finished = true
+      // A single build covered both, so the breakdown should not credit the client alone.
+      const bundle = this.#splitBundles ? undefined : this.timings.find(timing => timing.phase === 'client app')
+      if (bundle) {
+        bundle.phase = 'client + server app'
+      }
     }
   }
 
@@ -117,16 +122,16 @@ export class BuildProgress extends PhaseTimeline {
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
       if (phase) {
-        this.setPhase(phase, phase === 'client' && !this.#splitBundles ? 'Building client and server app' : undefined)
+        this.setPhase(phase, phase === 'client app' && !this.#splitBundles ? 'Building client and server app' : undefined)
         return
       }
       if (name === 'vite:configResolved' && this.#splitBundles) {
         const ctx = args?.[1] as { isServer?: boolean } | undefined
-        this.setPhase(ctx?.isServer ? 'server' : 'client')
+        this.setPhase(ctx?.isServer ? 'server app' : 'client app')
       }
       else if (name === 'webpack:compile') {
         const ctx = args?.[0] as { name?: string } | undefined
-        this.setPhase(ctx?.name === 'server' ? 'server' : 'client')
+        this.setPhase(ctx?.name === 'server' ? 'server app' : 'client app')
       }
       else if (name === NITRO_INIT_HOOK) {
         this.#attachNitro((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks)
