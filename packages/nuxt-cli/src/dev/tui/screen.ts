@@ -8,7 +8,7 @@ import { stripAnsi, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
 
 import { writeClipboard } from '../listen'
-import { DISABLE_MOUSE, ENABLE_MOUSE, LEFT_BUTTON, WHEEL_DOWN, WHEEL_UP } from './terminal-replies'
+import { LEFT_BUTTON, WHEEL_DOWN, WHEEL_UP } from './terminal-replies'
 
 const RENDER_DELAY_MS = 50
 
@@ -28,9 +28,8 @@ export interface OverlayEntry {
   copy?: string
 }
 
-// A view claims the mouse while it covers the screen; the panel only when asked.
-const ENTER_ALT = `\u001B[?1049h\u001B[?25l${ENABLE_MOUSE}`
-const LEAVE_ALT = `${DISABLE_MOUSE}\u001B[?25h\u001B[?1049l`
+const ENTER_ALT = '\u001B[?1049h\u001B[?25l'
+const LEAVE_ALT = '\u001B[?25h\u001B[?1049l'
 
 /** Wheel ticks this close together in one direction are a fast spin, which moves further per tick. */
 const FAST_WHEEL_MS = 40

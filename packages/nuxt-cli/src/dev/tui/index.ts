@@ -108,8 +108,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const write = (chunk: string) => surface.writeRaw(chunk)
 
-  // The panel claims the mouse only when asked: it takes scrolling and selecting
-  // text in the scrollback away from the terminal.
+  // The mouse is claimed only when asked, for the panel and its views alike: it
+  // takes scrolling and selecting text away from the terminal.
   let mouse = false
   let quitArmedUntil = 0
   const claimMouse = (on: boolean) => write(on ? ENABLE_MOUSE : DISABLE_MOUSE)
@@ -121,11 +121,6 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   const release = () => {
     surface.screenMode = 'split-footer'
-    // Closing a view released the mouse. Teardown and holding the terminal
-    // close the view first and release it again afterwards.
-    if (mouse) {
-      claimMouse(true)
-    }
   }
   const cwd = options.cwd || process.cwd()
   function acknowledgeLogs(): void {

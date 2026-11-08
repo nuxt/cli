@@ -1026,12 +1026,11 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
-  it('claims the mouse only while open', () => {
+  it('leaves claiming the mouse to the panel', () => {
     const { overlay, output } = create()
     overlay.open()
-    expect(output()).toContain('\u001B[?1000h\u001B[?1006h')
     overlay.close()
-    expect(output()).toContain('\u001B[?1006l\u001B[?1000l')
+    expect(output()).not.toContain('\u001B[?1000')
   })
 
   describe('wheel', () => {
@@ -3253,20 +3252,20 @@ describe('panel mouse', () => {
     })
   })
 
-  it('presses the key of a clicked hint, and takes the mouse back after a view', async () => {
+  it('presses the key of a clicked hint, and keeps the mouse through a view', async () => {
     await withPanel(async (_ui, settle, session) => {
       await clickHint(session, 'l logs')
       expect(session.surface.screenMode).toBe('split-footer')
 
       process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
       await settle()
+      const writes = vi.spyOn(session.surface, 'writeRaw')
       await clickHint(session, 'l logs')
       expect(session.surface.screenMode).toBe('alternate-screen')
 
-      const writes = vi.spyOn(session.surface, 'writeRaw')
       process.stdin.emit('keypress', '', { name: 'escape' })
       expect(session.surface.screenMode).toBe('split-footer')
-      expect(writes).toHaveBeenLastCalledWith(mouseOn)
+      expect(writes.mock.calls.some(([chunk]) => chunk.includes('\u001B[?1000'))).toBe(false)
     })
   })
 
