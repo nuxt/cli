@@ -322,8 +322,6 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       for (const { url: displayURL, type } of urls) {
         lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
       }
-      // A server bound to a network address is already exposed: `--host` only
-      // matters while it listens on loopback.
       if (isLoopbackAddress(address.address) && !tunnel && !portless.url && !stackblitzURL) {
         const isolated = detectIsolatedEnvironment()
         const hint = isolated

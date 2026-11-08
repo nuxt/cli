@@ -21,7 +21,7 @@ vi.mock('../../src/dev/environment', () => ({
   detectIsolatedEnvironment: () => isolatedEnvironment.current,
 }))
 
-const { listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
+const { createListener, listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
 const { setupShortcuts } = await import('../../src/dev/shortcuts')
 
 /** A non-loopback IPv4 address of this machine, when it has one. */
@@ -121,6 +121,16 @@ describe('dev server terminal output', () => {
 
       expect(screen(renderer)).toContain(`➜ Local:    http://${networkAddress}:<port>/`)
       expect(screen(renderer)).not.toContain('use --host')
+    })
+
+    it('should hint at `--host` from inside a container for a loopback name', async () => {
+      const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
+      isolatedEnvironment.current = 'the container'
+
+      const renderer = await render(() => createListener({ server, address, https, hostname: 'app.localhost' }, { qr: false }))
+
+      expect(screen(renderer)).toContain('➜ Local:    http://app.localhost:<port>/')
+      expect(screen(renderer)).toContain('➜ Network:  use --host to reach this server from outside the container')
     })
 
     it('should colour each url type differently', async () => {
