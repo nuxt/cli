@@ -4,7 +4,7 @@ import { intro as clackIntro, outro as clackOutro, log, S_ERROR, S_INFO, S_STEP_
 import { createDebug } from 'obug'
 import { isCI } from 'std-env'
 
-import { blankLineBefore, writeDirect } from './stdout'
+import { blankLineBefore, trackOutputSpacing, writeDirect } from './stdout'
 
 type LoggerImpl = Pick<typeof log, 'info' | 'warn' | 'error' | 'success' | 'step' | 'message'>
 
@@ -73,6 +73,22 @@ export const logger: LoggerImpl = {
   success: message => emit(() => (impl ?? defaultImpl()).success(message)),
   step: message => emit(() => (impl ?? defaultImpl()).step(message)),
   message: (message, options) => emit(() => (impl ?? defaultImpl()).message(message, options)),
+}
+
+/**
+ * Log a block of lines, such as a summary table, one blank line away from the
+ * output before and after it. In a terminal clack already puts its `│` spacer
+ * before every message, so a newline added here would double the gap.
+ */
+export function logBlock(block: string): void {
+  if (impl || (process.stdout.isTTY && !isCI)) {
+    logger.message(block)
+    return
+  }
+  // From here on the gap is measured, so a block straight after another one
+  // does not add a second blank line to the one the first left behind.
+  trackOutputSpacing()
+  emit(() => writeDirect(`${blankLineBefore()}${block}\n\n`))
 }
 
 /**

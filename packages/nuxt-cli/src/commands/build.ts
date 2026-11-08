@@ -7,6 +7,7 @@ import { relative } from 'pathe'
 import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
+import { collectClientBundle, formatClientBundle } from '../utils/client-bundle'
 import { overrideEnv } from '../utils/env'
 
 import { ActionableError } from '../utils/errors'
@@ -14,7 +15,7 @@ import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
-import { intro, logger, outro } from '../utils/logger'
+import { intro, logBlock, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
@@ -111,6 +112,7 @@ export default defineCommand({
         command: ctx.args.prerender ? 'generate' : 'build',
         onEnvironment: environment => progress.enterEnvironment(environment),
       })
+      const clientBundle = ctx.args.logLevel === 'silent' ? undefined : collectClientBundle(nuxt)
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -148,6 +150,11 @@ export default defineCommand({
 
       stopReporting()
       progress.finish()
+
+      const bundle = clientBundle?.()
+      if (bundle) {
+        logBlock(formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir)))
+      }
 
       const serverSummary = serverOutput.summary(progress.timings)
       if (serverSummary) {
