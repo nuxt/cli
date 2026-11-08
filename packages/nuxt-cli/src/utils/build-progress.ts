@@ -12,8 +12,8 @@ const BUILD_PHASES: readonly Phase[] = [
   { id: 'modules', message: 'Setting up modules' },
   { id: 'app', message: 'Preparing app' },
   { id: 'types', message: 'Generating types' },
-  { id: 'client', message: 'Bundling client' },
-  { id: 'server', message: 'Bundling server' },
+  { id: 'client', message: 'Building client app' },
+  { id: 'server', message: 'Building server app' },
   { id: 'nitro', message: 'Building Nitro server' },
 ]
 
@@ -117,7 +117,7 @@ export class BuildProgress extends PhaseTimeline {
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
       if (phase) {
-        this.setPhase(phase, phase === 'client' && !this.#splitBundles ? 'Bundling app' : undefined)
+        this.setPhase(phase, phase === 'client' && !this.#splitBundles ? 'Building client and server app' : undefined)
         return
       }
       if (name === 'vite:configResolved' && this.#splitBundles) {

@@ -55,8 +55,8 @@ describe('build progress', () => {
       'Setting up modules',
       'Preparing app',
       'Generating types',
-      'Bundling client',
-      'Bundling server',
+      'Building client app',
+      'Building server app',
       'Building Nitro server',
     ])
     expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'client', 'server', 'nitro'])
@@ -72,7 +72,7 @@ describe('build progress', () => {
     stub.call('vite:configResolved', {}, { isClient: true, isServer: false })
     stub.call('vite:configResolved', {}, { isClient: false, isServer: true })
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Bundling app'])
+    expect(seen).toEqual(['Loading Nuxt config', 'Building client and server app'])
   })
 
   it('should name what the Nitro phase is doing', () => {
