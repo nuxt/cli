@@ -163,6 +163,17 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress', progress: null })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:progress' })).toBe(false)
   })
+
+  it('should only accept a problem set the channel can show', () => {
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 'vite', reports: [] })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 'vite', reports: [{}], meta: { label: 'Vite' } })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems:clear' })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems:clear', source: 'vite' })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 7, reports: [{}] })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 'vite', reports: 'boom' })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 'vite' })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems:clear', source: 7 })).toBe(false)
+  })
 })
 
 const idleSnapshot = {
@@ -427,6 +438,40 @@ describe('the CLI-owned error channel', () => {
     expect(clearWarning).toHaveBeenNthCalledWith(2, undefined)
   })
 
+  it('should publish and retire the problem sets the app forwards', async () => {
+    createServer()
+    const instance = await useErrorChannel()
+    const close = openErrorBridge()
+
+    const vite = compileReport('/app/app.vue', 3, 1)
+    const newerVite = compileReport('/app/app.vue', 7, 1)
+    const typescript = compileReport('/app/pages/index.vue', 5, 2)
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:problems', source: 'vite', reports: [vite] })
+    app.postMessage({ type: 'nuxt:dev:error:problems', source: 'typescript', reports: [typescript], meta: { label: 'TypeScript', url: '/__nuxt_dev__/problems/typescript', devtoolsDock: 'typescript:problems' } })
+    app.postMessage({ type: 'nuxt:dev:error:problems', source: 'vite', reports: [newerVite] })
+
+    await vi.waitUntil(() => instance.problems.find(set => set.source === 'vite')?.reports[0]?.id === newerVite.id && instance.problems.length === 2)
+    expect(instance.problems).toEqual([
+      { source: 'vite', reports: [newerVite] },
+      { source: 'typescript', reports: [typescript], label: 'TypeScript', url: '/__nuxt_dev__/problems/typescript', devtoolsDock: 'typescript:problems' },
+    ])
+
+    app.postMessage({ type: 'nuxt:dev:error:problems:clear', source: 'vite' })
+    await vi.waitUntil(() => instance.problems.length === 1)
+    expect(instance.problems).toEqual([
+      { source: 'typescript', reports: [typescript], label: 'TypeScript', url: '/__nuxt_dev__/problems/typescript', devtoolsDock: 'typescript:problems' },
+    ])
+
+    app.postMessage({ type: 'nuxt:dev:error:problems:clear' })
+    await vi.waitUntil(() => instance.problems.length === 0)
+    expect(instance.problems).toEqual([])
+
+    close()
+    app.close()
+  })
+
   it('should keep the CLI\'s own progress apart from what the app forwards', async () => {
     createServer()
     const instance = await useErrorChannel()
@@ -658,6 +703,7 @@ describe('the CLI-owned error channel', () => {
       ['badge.js', 'text/javascript'],
       ['client.js', 'text/javascript'],
       ['client.css', 'text/css'],
+      ['devtools.js', 'text/javascript'],
     ] as const
 
     for (const [asset, type] of assets) {
@@ -668,5 +714,16 @@ describe('the CLI-owned error channel', () => {
       expect(headers['content-type']).toContain(type)
       expect(chunks.join('')).not.toBe('')
     }
+  })
+
+  it('should serve the dock panel the dev page loads', async () => {
+    const server = createServer()
+    const { res, statusOf, headers, chunks } = createResponse()
+
+    await server.handler(request(`${DEFAULT_ERROR_CHANNEL}/panel`), res)
+
+    expect(statusOf()).toBe(200)
+    expect(headers['content-type']).toContain('text/html')
+    expect(chunks.join('')).not.toBe('')
   })
 })

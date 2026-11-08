@@ -1,5 +1,5 @@
 import type { ErrorReport } from 'my-bad'
-import type { BuildProgress, Channel, LogEntry, LogLevel } from 'my-bad/channel'
+import type { BuildProgress, Channel, LogEntry, LogLevel, ProblemMeta } from 'my-bad/channel'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { ProgressSnapshot } from '../utils/progress-snapshot'
@@ -31,6 +31,8 @@ export type DevErrorMessage
     | { type: 'nuxt:dev:error:warning:clear', id?: string }
     | { type: 'nuxt:dev:error:log', entry: LogEntry }
     | { type: 'nuxt:dev:error:progress', progress: BuildProgress }
+    | { type: 'nuxt:dev:error:problems', source: string, reports: ErrorReport[], meta?: ProblemMeta }
+    | { type: 'nuxt:dev:error:problems:clear', source?: string }
 
 /** Asks whoever holds a current report to post it again. */
 const SYNC_MESSAGE = { type: 'nuxt:dev:error:sync' } as const
@@ -214,6 +216,14 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
   if (type === 'nuxt:dev:error:progress') {
     return isBuildProgress((message as { progress?: unknown }).progress)
   }
+  if (type === 'nuxt:dev:error:problems') {
+    const { source, reports } = message as { source?: unknown, reports?: unknown }
+    return typeof source === 'string' && Array.isArray(reports)
+  }
+  if (type === 'nuxt:dev:error:problems:clear') {
+    const { source } = message as { source?: unknown }
+    return source === undefined || typeof source === 'string'
+  }
   return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
 }
 
@@ -355,6 +365,14 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
           // Sourced, or the channel would broadcast it verbatim and let it
           // fight the CLI's own sequence for the bar.
           instance.progress({ ...message.progress, source: message.progress.source ?? APP_PROGRESS_SOURCE })
+          break
+        }
+        case 'nuxt:dev:error:problems': {
+          instance.setProblems(message.source, message.reports, message.meta)
+          break
+        }
+        case 'nuxt:dev:error:problems:clear': {
+          instance.clearProblems(message.source)
           break
         }
         case 'nuxt:dev:error:warning': {
