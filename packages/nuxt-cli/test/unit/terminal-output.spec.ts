@@ -123,6 +123,15 @@ describe('dev server terminal output', () => {
       expect(screen(renderer)).not.toContain('use --host')
     })
 
+    it('should not hint at `--host` when the bound address is not loopback', async () => {
+      const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
+
+      const renderer = await render(() => createListener({ server, address: { ...address, address: '192.168.1.20' }, https, hostname: '192.168.1.20' }, { qr: false }))
+
+      expect(screen(renderer)).toContain('➜ Local:    http://192.168.1.20:<port>/')
+      expect(screen(renderer)).not.toContain('use --host')
+    })
+
     it('should hint at `--host` from inside a container for a loopback name', async () => {
       const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
       isolatedEnvironment.current = 'the container'
