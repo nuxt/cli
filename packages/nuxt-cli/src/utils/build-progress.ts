@@ -46,9 +46,12 @@ interface HookableLike {
 }
 
 interface NuxtLike {
-  options?: { experimental?: { viteEnvironmentApi?: boolean } }
+  hook?: (name: 'vite:extendConfig', fn: (config: { plugins?: unknown[] }) => void) => unknown
   hooks?: HookableLike
 }
+
+/** Names the Vite plugin that reports which environment is being built, so it is added once per config. */
+const VITE_PLUGIN_NAME = 'nuxi:build-progress'
 
 /**
  * Tracks how far a production build has got, so the same transient phase line
@@ -58,12 +61,6 @@ interface NuxtLike {
 export class BuildProgress extends PhaseTimeline {
   #message = BUILD_PHASES[0]!.message
   #finished = false
-  /**
-   * With the Vite environment API a single build covers both environments, so
-   * the client and server configs resolve up front and cannot mark the boundary
-   * between them.
-   */
-  #splitBundles = true
   /** Routes written so far, the one measure of how far prerendering has got. */
   #prerendered = 0
 
@@ -105,11 +102,6 @@ export class BuildProgress extends PhaseTimeline {
     if (!this.#finished) {
       this.closePhase()
       this.#finished = true
-      // A single build covered both, so the breakdown should not credit the client alone.
-      const bundle = this.#splitBundles ? undefined : this.timings.find(timing => timing.phase === 'app (client)')
-      if (bundle) {
-        bundle.phase = 'app (client + server)'
-      }
     }
   }
 
@@ -118,18 +110,22 @@ export class BuildProgress extends PhaseTimeline {
    * the project's own build rather than a schedule guessed by the CLI.
    */
   attachNuxt(nuxt: NuxtLike): void {
-    this.#splitBundles = !nuxt.options?.experimental?.viteEnvironmentApi
+    // Vite configs resolve before anything is bundled, and with the environment
+    // API (which a server builder such as `@nuxt/vite-server` can switch on during
+    // setup) one config builds both environments. Only the build itself knows
+    // which environment it has reached.
+    nuxt.hook?.('vite:extendConfig', (config) => {
+      if (config.plugins && !config.plugins.some(plugin => (plugin as { name?: string } | null)?.name === VITE_PLUGIN_NAME)) {
+        config.plugins.push(this.#vitePlugin())
+      }
+    })
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
       if (phase) {
-        this.setPhase(phase, phase === 'app (client)' && !this.#splitBundles ? 'Building app (client + server)' : undefined)
+        this.setPhase(phase)
         return
       }
-      if (name === 'vite:configResolved' && this.#splitBundles) {
-        const ctx = args?.[1] as { isServer?: boolean } | undefined
-        this.setPhase(ctx?.isServer ? 'app (server)' : 'app (client)')
-      }
-      else if (name === 'webpack:compile') {
+      if (name === 'webpack:compile') {
         const ctx = args?.[0] as { name?: string } | undefined
         this.setPhase(ctx?.name === 'server' ? 'app (server)' : 'app (client)')
       }
@@ -137,6 +133,23 @@ export class BuildProgress extends PhaseTimeline {
         this.#attachNitro((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks)
       }
     })
+  }
+
+  #vitePlugin() {
+    let ssr = false
+    const setPhase = (id: string) => this.setPhase(id)
+    return {
+      name: VITE_PLUGIN_NAME,
+      apply: 'build' as const,
+      // Before Vite 6 each environment has a config of its own.
+      configResolved(config: { build?: { ssr?: unknown } }) {
+        ssr = !!config.build?.ssr
+      },
+      buildStart(this: { environment?: { config?: { consumer?: string } } }) {
+        const consumer = this.environment?.config?.consumer ?? (ssr ? 'server' : 'client')
+        setPhase(consumer === 'server' ? 'app (server)' : 'app (client)')
+      },
+    }
   }
 
   #attachNitro(hooks: HookableLike | undefined): void {
