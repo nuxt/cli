@@ -1194,6 +1194,25 @@ describe('log overlay', () => {
     overlay.close()
   })
 
+  it('opens only the entry that was selected, even when the list moved since', () => {
+    const events = new DevEventLog(5)
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    expect(selected()[0]).toContain('entry 1')
+    // Drops `entry 0`, so `entry 2` now sits where `entry 1` was in the list.
+    events.push(event({ message: 'entry 5' }))
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 2')
+    overlay.close()
+  })
+
   it('ignores clicks off the entries and button releases', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'only entry' }))
@@ -3303,6 +3322,29 @@ describe('panel mouse', () => {
 
         await clickHint(session, 'q quit')
         expect(interrupt).toHaveBeenCalledOnce()
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it('asks again when something else is clicked between the two', async () => {
+    adoptShutdown()
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (_ui, settle, session) => {
+        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+        await settle()
+        await clickHint(session, 'q quit')
+        await clickHint(session, 'l logs')
+        process.stdin.emit('keypress', '', { name: 'escape' })
+        await settle()
+
+        await clickHint(session, 'q quit')
+        expect(interrupt).not.toHaveBeenCalled()
+        expect(session.state.notice?.text).toContain('click quit again')
       })
     }
     finally {

@@ -238,16 +238,20 @@ export abstract class ScreenOverlay {
     }
     else if (button === LEFT_BUTTON && pressed && !this.#searching && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
       const shown = this.#shownEntries[row - HEADER_ROWS]
-      // Resolved by identity: the list may have changed since it was painted.
-      const index = shown?.key === undefined ? shown?.index : this.#entries().findIndex(entry => entry.key === shown.key)
-      if (index === undefined || index < 0) {
+      if (!shown) {
         return
       }
-      if (index === this.#selected) {
+      // Resolved by identity: the list may have changed since it was painted.
+      const index = shown.key === undefined ? shown.index : this.#entries().findIndex(entry => entry.key === shown.key)
+      if (index < 0) {
+        return
+      }
+      const again = shown.key === undefined ? index === this.#selected : shown.key === this.#selectedKey
+      this.select(index)
+      if (again) {
         this.handleKey({ name: 'return' })
       }
       else {
-        this.select(index)
         this.render()
       }
     }

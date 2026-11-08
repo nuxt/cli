@@ -469,13 +469,16 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       return
     }
     const key = hintKeyAt(surface.lines.at(-1) ?? '', report.column)
-    if (key?.name === 'q' && Date.now() > quitArmedUntil) {
+    if (key?.name !== 'q') {
+      // Anything else clicked in between asks again.
+      quitArmedUntil = 0
+      return key && onKey(key)
+    }
+    if (Date.now() > quitArmedUntil) {
       quitArmedUntil = Date.now() + NOTICE_MS
       return showNotice('click quit again to stop the dev server', 'info')
     }
-    if (key) {
-      onKey(key)
-    }
+    onKey(key)
   }
 
   let detach = attachKeys(onKey, { onMouse })
