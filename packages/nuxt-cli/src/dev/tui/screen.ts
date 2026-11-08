@@ -8,6 +8,7 @@ import { stripAnsi, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
 
 import { writeClipboard } from '../listen'
+import { DISABLE_MOUSE, ENABLE_MOUSE, LEFT_BUTTON, WHEEL_DOWN, WHEEL_UP } from './terminal-replies'
 
 const RENDER_DELAY_MS = 50
 
@@ -29,12 +30,8 @@ export interface OverlayEntry {
 
 // Mouse reporting (SGR) only while a view covers the screen; the panel leaves
 // the mouse to the terminal, for its scrollback and text selection.
-const ENTER_ALT = '\u001B[?1049h\u001B[?25l\u001B[?1000h\u001B[?1006h'
-const LEAVE_ALT = '\u001B[?1006l\u001B[?1000l\u001B[?25h\u001B[?1049l'
-
-const LEFT_BUTTON = 0
-const WHEEL_UP = 64
-const WHEEL_DOWN = 65
+const ENTER_ALT = `\u001B[?1049h\u001B[?25l${ENABLE_MOUSE}`
+const LEAVE_ALT = `${DISABLE_MOUSE}\u001B[?25h\u001B[?1049l`
 
 /** Wheel ticks this close together in one direction are a fast spin, which moves further per tick. */
 const FAST_WHEEL_MS = 40
@@ -489,12 +486,12 @@ export abstract class ScreenOverlay {
 }
 
 /** The key of the hint shown at `column`. Hints for several keys, like `↑/↓`, have none. */
-function hintKeyAt(line: string, column: number): Key | undefined {
+export function hintKeyAt(line: string, column: number): Key | undefined {
   let start = 0
   for (const hint of stripAnsi(line).split(HINT_SEPARATOR)) {
     const end = start + visibleWidth(hint)
     if (column >= start && column < end) {
-      const label = hint.split(' ')[0]!
+      const label = hint.trim().split(' ')[0]!
       return HINT_KEYS[label] ?? (label.length === 1 ? { name: label.toLowerCase(), sequence: label } : undefined)
     }
     start = end + HINT_SEPARATOR.length

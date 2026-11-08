@@ -3,6 +3,7 @@ import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
+import { Buffer } from 'node:buffer'
 import process from 'node:process'
 import { styleText } from 'node:util'
 import { consola } from 'consola'
@@ -3207,6 +3208,80 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
     }
   }
 }
+
+describe('panel mouse', () => {
+  const mouseOn = '\u001B[?1000h\u001B[?1006h'
+  const mouseOff = '\u001B[?1006l\u001B[?1000l'
+
+  /** Click the panel hint labelled `label`, on the last row, and let the report settle. */
+  async function clickHint(session: NonNullable<ReturnType<typeof beginDevUI>>, label: string): Promise<void> {
+    const column = strip(session.surface.lines.at(-1) ?? '').indexOf(label)
+    expect(column).toBeGreaterThanOrEqual(0)
+    process.stdin.emit('data', Buffer.from(`\u001B[<0;${column + 1};30M`, 'latin1'))
+    await new Promise(resolve => setImmediate(resolve))
+  }
+
+  it('claims the mouse only while switched on with m, and shows it on', async () => {
+    await withPanel(async (_ui, settle, session) => {
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      expect(writes).toHaveBeenLastCalledWith(mouseOn)
+      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(true)
+
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      expect(writes).toHaveBeenLastCalledWith(mouseOff)
+      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(false)
+      await settle()
+    })
+  })
+
+  it('presses the key of a clicked hint, and takes the mouse back after a view', async () => {
+    await withPanel(async (_ui, settle, session) => {
+      await clickHint(session, 'l logs')
+      expect(session.surface.screenMode).toBe('split-footer')
+
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      await settle()
+      await clickHint(session, 'l logs')
+      expect(session.surface.screenMode).toBe('alternate-screen')
+
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      process.stdin.emit('keypress', '', { name: 'escape' })
+      expect(session.surface.screenMode).toBe('split-footer')
+      expect(writes).toHaveBeenLastCalledWith(mouseOn)
+    })
+  })
+
+  it('quits only on a second click', async () => {
+    adoptShutdown()
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (_ui, settle, session) => {
+        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+        await settle()
+        await clickHint(session, 'q quit')
+        expect(interrupt).not.toHaveBeenCalled()
+        expect(session.state.notice?.text).toContain('click quit again')
+
+        await clickHint(session, 'q quit')
+        expect(interrupt).toHaveBeenCalledOnce()
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it('gives the mouse back on teardown', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      session.teardown()
+      expect(writes.mock.calls.map(([chunk]) => chunk).filter(chunk => chunk.includes('?1000')).at(-1)).toBe(mouseOff)
+    })
+  })
+})
 
 describe('panel shortcut routing', () => {
   it.each(['ready', 'starting', 'building', 'restarting', 'warming', 'error'] as const)('quits without confirmation while %s', async (status) => {
