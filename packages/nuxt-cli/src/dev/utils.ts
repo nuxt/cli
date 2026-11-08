@@ -1285,7 +1285,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   async #publishError(error: unknown): Promise<ErrorReport | undefined> {
     let report: ErrorReport
     try {
-      report = await createCliReport(error, { cwd: this.#rootDir() })
+      report = await createCliReport(error, { cwd: this.#rootDir(), workspaceDir: this.#currentNuxt?.options.workspaceDir })
     }
     catch (reportError) {
       debug('Could not build a report for the error:', reportError)
@@ -1365,6 +1365,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async #load(reload?: boolean, reason?: DevRestartReason): Promise<void> {
+    // The previous dev process's dock and problem producers are gone with it.
+    void withErrorChannel((channel) => {
+      channel.setDevTools(false)
+      channel.clearProblems()
+    })
     this.#loadingMessage = reload
       ? formatRestartReason(reason, { rootDir: this.#cwd, link: false })
       : 'Starting Nuxt...'
