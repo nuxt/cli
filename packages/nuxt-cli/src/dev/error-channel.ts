@@ -133,6 +133,8 @@ export async function handleErrorChannelRequest(req: IncomingMessage, res: Serve
 
 export interface CreateReportOptions {
   cwd?: string
+  /** Workspace root, when the project sits inside a monorepo. */
+  workspaceDir?: string
   /** Request the error was raised for, shown as the report's request section. */
   req?: IncomingMessage
 }
@@ -147,9 +149,11 @@ export async function createCliReport(error: unknown, options: CreateReportOptio
     import('my-bad'),
     import('my-bad/presets'),
   ])
+  const cwd = options.cwd || process.cwd()
+  const roots = [...new Set([cwd, options.workspaceDir].filter((root): root is string => typeof root === 'string'))]
   return createReport(error, {
-    cwd: options.cwd || process.cwd(),
-    loaders: [fsLoader()],
+    cwd,
+    loaders: [fsLoader({ roots })],
     presets: [nuxtPreset()],
     context: options.req ? { req: options.req } : undefined,
   })

@@ -1285,7 +1285,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   async #publishError(error: unknown): Promise<ErrorReport | undefined> {
     let report: ErrorReport
     try {
-      report = await createCliReport(error, { cwd: this.#rootDir() })
+      report = await createCliReport(error, { cwd: this.#rootDir(), workspaceDir: this.#currentNuxt?.options.workspaceDir })
     }
     catch (reportError) {
       debug('Could not build a report for the error:', reportError)

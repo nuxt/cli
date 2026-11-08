@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { ReportContext } from '../../src/dev/error-channel'
 
 import { existsSync } from 'node:fs'
-import { chmod, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -259,6 +259,38 @@ describe('createCliReport', () => {
     expect(report.name).toBe('ParseError')
     expect(report.frames[0]?.file).toBe(normalize(file))
     expect(report.frames[0]?.snippet?.lines.join('\n')).toContain('b: 2')
+  })
+
+  it('should read a source inside the workspace root but outside cwd', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'nuxi-workspace-'))
+    const cwd = join(workspace, 'app')
+    await mkdir(cwd, { recursive: true })
+    const file = join(workspace, 'packages', 'shared.ts')
+    await mkdir(join(workspace, 'packages'), { recursive: true })
+    await writeFile(file, 'export const shared = 1\n  broken\n')
+    const message = `ParseError: Unexpected token\n ${file}:2:3`
+    const error = Object.assign(new Error(message), {
+      stack: `Error: ${message}\n    at parse (${join(workspace, 'node_modules/oxc-parser/index.js')}:1:1)`,
+    })
+    const report = await createCliReport(error, { cwd, workspaceDir: workspace })
+
+    expect(report.kind).toBe('compile')
+    expect(report.frames[0]?.file).toBe(normalize(file))
+    expect(report.frames[0]?.snippet?.lines.join('\n')).toContain('broken')
+  })
+
+  it('should not read a source outside the project and workspace roots', async () => {
+    const workspace = await mkdtemp(join(tmpdir(), 'nuxi-workspace-'))
+    const cwd = join(workspace, 'app')
+    await mkdir(cwd, { recursive: true })
+    const outside = await mkdtemp(join(tmpdir(), 'nuxi-outside-'))
+    const file = join(outside, 'secret.ts')
+    await writeFile(file, 'export const secret = 1\n')
+
+    const error = Object.assign(new Error('boom'), { stack: `Error: boom\n    at app (${file}:1:10)` })
+    const report = await createCliReport(error, { cwd, workspaceDir: workspace })
+
+    expect(report.frames.find(frame => frame.file === normalize(file))?.snippet).toBeUndefined()
   })
 })
 
