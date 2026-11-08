@@ -15,19 +15,30 @@ const STRING_TERMINATOR_RE = /\u0007|\u001B\\/
 // eslint-disable-next-line no-control-regex
 const CSI_REPLY_RE = /^\u001B\[[\d;?]*[Rcnty]/
 
+/** A mouse report in SGR encoding: button, column and row. */
+// eslint-disable-next-line no-control-regex
+const MOUSE_REPORT_RE = /^\u001B\[<(\d+);(\d+);(\d+)M/i
+
 /**
  * A CSI report whose final byte has not arrived yet. A lone `ESC` is
  * deliberately not one of these: it is also the Escape key, and holding it back
  * on the chance that a report follows would cost more than it saves.
  */
 // eslint-disable-next-line no-control-regex
-const PARTIAL_CSI_RE = /^\u001B\[[\d;?]*$/
+const PARTIAL_CSI_RE = /^\u001B\[<?[\d;?]*$/
 
 /** How long an unterminated reply may swallow keys before it is dropped. */
 const REPLY_TIMEOUT_MS = 200
 
 /** Longest tail of an unfinished reply held while the rest is awaited. */
 const MAX_PENDING = 64
+
+/** Zero-based: row 0 is the top line of the screen. */
+export interface MouseReport {
+  button: number
+  row: number
+  column: number
+}
 
 export interface ReplyFilter {
   /** Whether the chunk being delivered is the terminal answering, not typing. */
@@ -43,7 +54,7 @@ export interface ReplyFilter {
  * Attach before the `keypress` listener, so each chunk is classified by the time
  * `readline` turns it into keys.
  */
-export function filterTerminalReplies(stdin: NodeJS.ReadableStream): ReplyFilter {
+export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (report: MouseReport) => void): ReplyFilter {
   let replying = false
   let pending = ''
   let timer: NodeJS.Timeout | undefined
@@ -93,6 +104,12 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream): ReplyFilter
     // matched together with what follows it.
     const buffered = pending + chunk.toString('latin1')
 
+    const mouse = MOUSE_REPORT_RE.exec(buffered)
+    if (mouse) {
+      replying = true
+      onMouse?.({ button: Number(mouse[1]), column: Number(mouse[2]) - 1, row: Number(mouse[3]) - 1 })
+      return endReply(buffered, mouse[0].length)
+    }
     const csi = CSI_REPLY_RE.exec(buffered)
     if (csi) {
       replying = true

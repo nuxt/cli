@@ -1,3 +1,5 @@
+import type { MouseReport } from '../../src/dev/tui/terminal-replies'
+
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
 import { PassThrough } from 'node:stream'
@@ -25,11 +27,13 @@ describe('panel keys', () => {
     restores.push(() => Object.defineProperty(process, 'stdin', original))
 
     const keys: Array<string | undefined> = []
-    const detach = attachKeys(key => keys.push(key.name), options)
+    const mouse: MouseReport[] = []
+    const detach = attachKeys(key => keys.push(key.name), { ...options, onMouse: report => mouse.push(report) })
     restores.push(detach)
 
     return {
       keys,
+      mouse,
       type: async (text: string) => {
         stdin.write(text)
         await new Promise(resolve => setImmediate(resolve))
@@ -128,6 +132,38 @@ describe('panel keys', () => {
     await type('q')
 
     expect(keys).toEqual(['up', 'f1', 'q'])
+  })
+
+  it('should read a mouse report as the mouse, not as keys', async () => {
+    const { keys, mouse, type } = attach()
+
+    await type('\u001B[<65;12;5M')
+    await type('o')
+
+    expect(keys).toEqual(['o'])
+    expect(mouse).toEqual([{ button: 65, row: 4, column: 11 }])
+  })
+
+  it('should read every report of a wheel burst, and the key after it', async () => {
+    const { keys, mouse, type } = attach()
+
+    await type('\u001B[<64;1;1M\u001B[<64;1;1Mo')
+    // Each report hands the rest back a tick later.
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(keys).toEqual(['o'])
+    expect(mouse).toHaveLength(2)
+  })
+
+  it('should read a mouse report that arrives in pieces', async () => {
+    const { keys, mouse, type } = attach()
+
+    await type('\u001B[<65;1')
+    await type(';1M')
+    await type('o')
+
+    expect(keys).toEqual(['o'])
+    expect(mouse).toHaveLength(1)
   })
 
   it('should drop input buffered before it took stdin, when asked to', async () => {
