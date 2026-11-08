@@ -86,8 +86,10 @@ describe('build progress', () => {
     stub.call('nitro:build:before', {})
     stub.callNitro('rollup:before')
     stub.callNitro('prerender:generate', { route: '/about' })
+    stub.callNitro('prerender:route', { route: '/about' })
+    stub.callNitro('prerender:generate', { route: '/blog' })
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Building Nitro server', 'Bundling Nitro server', 'Prerendering /about'])
+    expect(seen).toEqual(['Loading Nuxt config', 'Building Nitro server', 'Bundling Nitro server', 'Prerendering /about', 'Prerendering /blog (1 done)'])
   })
 
   it('should keep phase durations after the build is finished', () => {

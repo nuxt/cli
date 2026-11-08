@@ -39,6 +39,7 @@ const NITRO_MESSAGES: Record<string, string> = {
 }
 
 const PRERENDER_HOOK = 'prerender:generate'
+const PRERENDERED_HOOK = 'prerender:route'
 
 interface HookableLike {
   beforeEach?: (fn: (event: { name: string, args?: unknown[] }) => void) => void
@@ -63,6 +64,8 @@ export class BuildProgress extends PhaseTimeline {
    * between them.
    */
   #splitBundles = true
+  /** Routes written so far, the one measure of how far prerendering has got. */
+  #prerendered = 0
 
   constructor() {
     super(BUILD_PHASES)
@@ -145,8 +148,11 @@ export class BuildProgress extends PhaseTimeline {
       else if (name === PRERENDER_HOOK) {
         const route = (args?.[0] as { route?: string } | undefined)?.route
         if (route) {
-          this.setMessage(`Prerendering ${route}`)
+          this.setMessage(this.#prerendered ? `Prerendering ${route} (${this.#prerendered} done)` : `Prerendering ${route}`)
         }
+      }
+      else if (name === PRERENDERED_HOOK) {
+        this.#prerendered++
       }
     })
   }

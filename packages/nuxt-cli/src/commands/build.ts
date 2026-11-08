@@ -19,6 +19,7 @@ import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
+import { quietServerOutput } from '../utils/server-output'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -106,6 +107,7 @@ export default defineCommand({
       })
 
       progress.attachNuxt(nuxt)
+      const serverOutput = quietServerOutput(nuxt)
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -143,6 +145,11 @@ export default defineCommand({
 
       stopReporting()
       progress.finish()
+
+      const serverSummary = serverOutput.summary()
+      if (serverSummary) {
+        logger.success(serverSummary)
+      }
 
       const breakdown = formatPhaseBreakdown(progress.timings)
       if (breakdown) {
