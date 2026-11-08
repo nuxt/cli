@@ -2,6 +2,7 @@ import type { Renderer } from 'ansivision'
 import type { Listener } from '../../src/dev/listen'
 import type { ShortcutContext } from '../../src/dev/shortcuts'
 
+import { networkInterfaces } from 'node:os'
 import { PassThrough } from 'node:stream'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -20,8 +21,11 @@ vi.mock('../../src/dev/environment', () => ({
   detectIsolatedEnvironment: () => isolatedEnvironment.current,
 }))
 
-const { listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
+const { createListener, listen, openBrowser, printQRCode } = await import('../../src/dev/listen')
 const { setupShortcuts } = await import('../../src/dev/shortcuts')
+
+/** A non-loopback IPv4 address of this machine, when it has one. */
+const networkAddress = Object.values(networkInterfaces()).flat().find(info => info && !info.internal && info.family === 'IPv4')?.address
 
 /** SGR foreground colour indexes, as reported by `ansivision`. */
 const GREEN = 2
@@ -110,6 +114,32 @@ describe('dev server terminal output', () => {
 
       expect(screen(renderer)).toContain('➜ Local:    http://localhost:<port>/')
       expect(screen(renderer)).not.toContain('use --host')
+    })
+
+    it.skipIf(!networkAddress)('should not hint at `--host` when bound to a network address', async () => {
+      const renderer = await render(() => start({ hostname: networkAddress }))
+
+      expect(screen(renderer)).toContain(`➜ Local:    http://${networkAddress}:<port>/`)
+      expect(screen(renderer)).not.toContain('use --host')
+    })
+
+    it('should not hint at `--host` when the bound address is not loopback', async () => {
+      const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
+
+      const renderer = await render(() => createListener({ server, address: { ...address, address: '192.168.1.20' }, https, hostname: '192.168.1.20' }, { qr: false }))
+
+      expect(screen(renderer)).toContain('➜ Local:    http://192.168.1.20:<port>/')
+      expect(screen(renderer)).not.toContain('use --host')
+    })
+
+    it('should hint at `--host` from inside a container for a loopback name', async () => {
+      const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
+      isolatedEnvironment.current = 'the container'
+
+      const renderer = await render(() => createListener({ server, address, https, hostname: 'app.localhost' }, { qr: false }))
+
+      expect(screen(renderer)).toContain('➜ Local:    http://app.localhost:<port>/')
+      expect(screen(renderer)).toContain('➜ Network:  use --host to reach this server from outside the container')
     })
 
     it('should colour each url type differently', async () => {

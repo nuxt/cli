@@ -16,6 +16,7 @@ import { isCI } from 'std-env'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
+import { isLoopbackAddress } from './host-check'
 import { resolvePortlessURLs } from './portless'
 import { resolveStackblitzURL } from './stackblitz'
 
@@ -321,8 +322,8 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       for (const { url: displayURL, type } of urls) {
         lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
       }
-      if (!anyHost && !tunnel && !portless.url && !stackblitzURL) {
-        const isolated = LOOPBACK_HOSTS.has(hostname) ? detectIsolatedEnvironment() : undefined
+      if (isLoopbackAddress(address.address) && !tunnel && !portless.url && !stackblitzURL) {
+        const isolated = detectIsolatedEnvironment()
         const hint = isolated
           ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
           : `use ${styleText('white', '--host')} to expose`
