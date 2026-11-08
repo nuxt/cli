@@ -300,10 +300,8 @@ describe('listen', () => {
       expect(await warnsFor('127.0.0.1')).toBe(false)
     })
 
-    // Any `127.0.0.0/8` address is loopback, but only Linux answers on more
-    // than `127.0.0.1` without configuration. It stands in for a name such as
-    // `app.localhost` that resolves to loopback, which not every resolver does.
-    it.runIf(process.platform === 'linux')('should not warn for a loopback address it does not know by name', async () => {
+    // Only Linux binds `127.0.0.0/8` addresses beyond `127.0.0.1` without configuration.
+    it.runIf(process.platform === 'linux')('should not warn when bound to another loopback address', async () => {
       expect(await warnsFor('127.0.0.2')).toBe(false)
     })
   })
