@@ -42,7 +42,9 @@ import { formatReport } from './report-format'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
+import { hintKeyAt } from './screen'
 import { beginDevUI } from './session'
+import { DISABLE_MOUSE, ENABLE_MOUSE, LEFT_BUTTON } from './terminal-replies'
 
 export { beginDevUI } from './session'
 export type { DevUIController }
@@ -77,6 +79,8 @@ interface UIShortcut {
   sequence?: string
   description: string
   isArmed?: () => boolean
+  /** A mode that is switched on, shown highlighted. */
+  isActive?: () => boolean
   action: () => void
 }
 
@@ -114,8 +118,25 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   Object.assign(state, { version, versionLink: version ? linkVersion(version) : undefined })
 
   const write = (chunk: string) => surface.writeRaw(chunk)
+
+  // The panel claims the mouse only when asked: it takes scrolling and selecting
+  // text in the scrollback away from the terminal.
+  let mouse = false
+  let quitArmedUntil = 0
+  const claimMouse = (on: boolean) => write(on ? ENABLE_MOUSE : DISABLE_MOUSE)
+  function toggleMouse(): void {
+    mouse = !mouse
+    claimMouse(mouse)
+    syncHints()
+  }
+
   const release = () => {
     surface.screenMode = 'split-footer'
+    // Leaving the alternate screen gave the mouse back. Teardown and holding the
+    // terminal close views first and give it back for good afterwards.
+    if (mouse) {
+      claimMouse(true)
+    }
   }
   const cwd = options.cwd || process.cwd()
   function acknowledgeLogs(): void {
@@ -369,6 +390,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     { keys: ['n'], hint: 'network', priority: 60, description: 'browse served requests', action: () => openView(trafficOverlay) },
     { keys: ['p'], hint: 'routes', priority: 30, description: 'browse pages and server routes', action: () => openView(routeOverlay) },
     { keys: ['?', 'h'], hint: 'help', priority: 100, description: 'show this help', action: () => openView(helpOverlay) },
+    { keys: ['m'], hint: 'mouse', priority: 20, description: 'click the hints with the mouse', isActive: () => mouse, action: toggleMouse },
     { keys: ['q'], hint: 'quit', priority: 90, description: 'quit', action: () => quit() },
     { keys: [], ctrl: 'c', description: 'quit (press again during cleanup to force exit)', action: () => quit() },
     { keys: [], ctrl: 'd', description: 'quit', action: () => quit() },
@@ -406,11 +428,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     update({
       hints: shortcuts
         .filter((shortcut): shortcut is UIShortcut & { hint: string, priority: number } => !!shortcut.hint && shortcut.isAvailable?.() !== false)
-        .map(({ keys, hint, priority, isArmed }) => ({
+        .map(({ keys, hint, priority, isArmed, isActive }) => ({
           key: keys[0]!,
           label: hint,
-          priority,
+          // A mode that is on stays in sight, so it can be switched off again.
+          priority: isActive?.() ? Number.POSITIVE_INFINITY : priority,
           armed: isArmed?.(),
+          active: isActive?.(),
         })),
       hintsDimmed: false,
     })
@@ -453,7 +477,24 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     void shortcut?.action()
   }
 
-  const onMouse = (report: MouseReport) => openOverlay()?.handleMouse(report)
+  /** A click on a hint presses its key; quit asks for a second click. */
+  const onMouse = (report: MouseReport) => {
+    const active = openOverlay()
+    if (active) {
+      return active.handleMouse(report)
+    }
+    if (!mouse || report.button !== LEFT_BUTTON || !report.pressed || report.row !== (process.stdout.rows || 24) - 1) {
+      return
+    }
+    const key = hintKeyAt(surface.lines.at(-1) ?? '', report.column)
+    if (key?.name === 'q' && Date.now() > quitArmedUntil) {
+      quitArmedUntil = Date.now() + NOTICE_MS
+      return showNotice('click quit again to stop the dev server', 'info')
+    }
+    if (key) {
+      onKey(key)
+    }
+  }
 
   let detach = attachKeys(onKey, { onMouse })
 
@@ -465,6 +506,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   function holdTerminal(): () => void {
     if (terminalHolds++ === 0) {
       openOverlay()?.close()
+      if (mouse) {
+        claimMouse(false)
+      }
       detach()
       resumeSurface = surface.suspend()
     }
@@ -473,6 +517,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         resumeSurface?.()
         resumeSurface = undefined
         if (!torn) {
+          if (mouse) {
+            claimMouse(true)
+          }
           detach = attachKeys(onKey, { ignoreBufferedInput: true, onMouse })
           render()
         }
@@ -590,6 +637,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
     detach()
     openOverlay()?.close()
+    if (mouse) {
+      claimMouse(false)
+    }
   })
 
   refresh()

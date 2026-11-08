@@ -33,6 +33,14 @@ const REPLY_TIMEOUT_MS = 200
 /** Longest tail of an unfinished reply held while the rest is awaited. */
 const MAX_PENDING = 64
 
+/** Report presses, releases and the wheel, in SGR encoding. */
+export const ENABLE_MOUSE = '\u001B[?1000h\u001B[?1006h'
+export const DISABLE_MOUSE = '\u001B[?1006l\u001B[?1000l'
+
+export const LEFT_BUTTON = 0
+export const WHEEL_UP = 64
+export const WHEEL_DOWN = 65
+
 /** Zero-based: row 0 is the top line of the screen. */
 export interface MouseReport {
   button: number

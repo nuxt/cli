@@ -185,6 +185,11 @@ export class PanelSurface {
     }
   }
 
+  /** The panel as last rendered; its last line rests on the last row. */
+  get lines(): readonly string[] {
+    return this.#lines
+  }
+
   /** Replace the panel content and repaint whatever changed. */
   render(lines: string[]): void {
     const unchanged = this.#painted === lines.length && lines.every((line, index) => line === this.#lines[index])
