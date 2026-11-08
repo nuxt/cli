@@ -1031,25 +1031,113 @@ describe('log overlay', () => {
     expect(output()).toContain('\u001B[?1006l\u001B[?1000l')
   })
 
-  it('moves the selection with the wheel as the arrow keys do', () => {
+  describe('wheel', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function spin(overlay: LogOverlay, directions: Array<'up' | 'down'>, gapMs: number) {
+      for (const direction of directions) {
+        vi.setSystemTime(Date.now() + gapMs)
+        overlay.handleMouse({ button: direction === 'up' ? 64 : 65, pressed: true, row: 5, column: 5 })
+      }
+    }
+
+    function forty() {
+      const events = new DevEventLog()
+      for (let i = 0; i < 40; i++) {
+        events.push(event({ message: `entry ${i}` }))
+      }
+      return events
+    }
+
+    it('moves the selection as the arrow keys do when turned slowly', () => {
+      const events = forty()
+      const keys = create(events)
+      const wheel = create(events)
+      keys.overlay.open()
+      wheel.overlay.open()
+
+      for (const name of ['up', 'up', 'up', 'down']) {
+        keys.overlay.handleKey({ name })
+      }
+      spin(wheel.overlay, ['up', 'up', 'up', 'down'], 200)
+
+      expect(wheel.lastFrame()).toContain('\u258E')
+      expect(wheel.lastFrame()).toBe(keys.lastFrame())
+      keys.overlay.close()
+      wheel.overlay.close()
+    })
+
+    it('moves further per tick when spun fast, and starts slow again on turning back', () => {
+      const { overlay, lastFrame } = create(forty())
+      const selected = () => strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))
+      overlay.open()
+      overlay.handleKey({ name: 'home' })
+
+      spin(overlay, ['down', 'down', 'down'], 10)
+      expect(selected()).toContain('entry 7')
+
+      spin(overlay, ['up'], 10)
+      expect(selected()).toContain('entry 6')
+      overlay.close()
+    })
+  })
+
+  it('selects the entry under a click', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 2')
+
+    overlay.handleKey({ name: 'down' })
+    expect(selected()[0]).toContain('entry 3')
+    overlay.close()
+  })
+
+  it('selects the entry under a click in a scrolled view', () => {
     const events = new DevEventLog()
     for (let i = 0; i < 40; i++) {
       events.push(event({ message: `entry ${i}` }))
     }
-    const keys = create(events)
-    const wheel = create(events)
-    keys.overlay.open()
-    wheel.overlay.open()
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2)
+    overlay.open()
+    const first = body()[0]!.trim()
 
-    for (const name of ['up', 'up', 'up', 'down']) {
-      keys.overlay.handleKey({ name })
-      wheel.overlay.handleMouse({ button: name === 'up' ? 64 : 65, row: 5, column: 5 })
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+
+    expect(first).not.toContain('entry 0')
+    expect(body()[0]).toContain('\u258E')
+    expect(body()[0]).toContain(first)
+    overlay.close()
+  })
+
+  it('ignores clicks off the entries and button releases', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'only entry' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const rows = process.stdout.rows || 24
+
+    for (const row of [0, 1, 5, rows - 1]) {
+      overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
     }
+    overlay.handleMouse({ button: 0, pressed: false, row: 2, column: 10 })
 
-    expect(wheel.lastFrame()).toContain('\u258E')
-    expect(wheel.lastFrame()).toBe(keys.lastFrame())
-    keys.overlay.close()
-    wheel.overlay.close()
+    expect(lastFrame()).not.toContain('\u258E')
+    overlay.close()
   })
 
   it('reflows to the terminal when it is resized while open', async () => {

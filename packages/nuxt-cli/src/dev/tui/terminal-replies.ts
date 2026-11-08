@@ -15,9 +15,9 @@ const STRING_TERMINATOR_RE = /\u0007|\u001B\\/
 // eslint-disable-next-line no-control-regex
 const CSI_REPLY_RE = /^\u001B\[[\d;?]*[Rcnty]/
 
-/** A mouse report in SGR encoding: button, column and row. */
+/** A mouse report in SGR encoding: button, column, row, then `M` pressed or `m` released. */
 // eslint-disable-next-line no-control-regex
-const MOUSE_REPORT_RE = /^\u001B\[<(\d+);(\d+);(\d+)M/i
+const MOUSE_REPORT_RE = /^\u001B\[<(\d+);(\d+);(\d+)(M)/i
 
 /**
  * A CSI report whose final byte has not arrived yet. A lone `ESC` is
@@ -36,6 +36,7 @@ const MAX_PENDING = 64
 /** Zero-based: row 0 is the top line of the screen. */
 export interface MouseReport {
   button: number
+  pressed: boolean
   row: number
   column: number
 }
@@ -107,7 +108,7 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
     const mouse = MOUSE_REPORT_RE.exec(buffered)
     if (mouse) {
       replying = true
-      onMouse?.({ button: Number(mouse[1]), column: Number(mouse[2]) - 1, row: Number(mouse[3]) - 1 })
+      onMouse?.({ button: Number(mouse[1]), pressed: mouse[4] === 'M', column: Number(mouse[2]) - 1, row: Number(mouse[3]) - 1 })
       return endReply(buffered, mouse[0].length)
     }
     const csi = CSI_REPLY_RE.exec(buffered)

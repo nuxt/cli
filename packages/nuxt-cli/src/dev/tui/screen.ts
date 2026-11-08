@@ -32,8 +32,16 @@ export interface OverlayEntry {
 const ENTER_ALT = '\u001B[?1049h\u001B[?25l\u001B[?1000h\u001B[?1006h'
 const LEAVE_ALT = '\u001B[?1006l\u001B[?1000l\u001B[?25h\u001B[?1049l'
 
+const LEFT_BUTTON = 0
 const WHEEL_UP = 64
 const WHEEL_DOWN = 65
+
+/** Wheel ticks this close together in one direction are a fast spin, which moves further per tick. */
+const FAST_WHEEL_MS = 40
+const FAST_WHEEL_STEP = 3
+
+/** The title and the rule under it, above the entries. */
+const HEADER_ROWS = 2
 
 /** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
@@ -54,6 +62,7 @@ export abstract class ScreenOverlay {
   #selected?: number
   #selectedKey?: object | string
   #notice?: { text: string, until: number }
+  #lastWheel?: { direction: number, at: number }
 
   constructor(options: {
     write: (chunk: string) => void
@@ -201,13 +210,22 @@ export abstract class ScreenOverlay {
     this.render()
   }
 
-  /** The wheel moves the selection, as the arrow keys do. */
-  handleMouse({ button }: MouseReport): void {
-    if (button === WHEEL_UP) {
-      this.handleKey({ name: 'up' })
+  /** The wheel moves the selection like the arrow keys, further when spun fast; a click selects the entry under it. */
+  handleMouse({ button, pressed, row }: MouseReport): void {
+    if (button === WHEEL_UP || button === WHEEL_DOWN) {
+      const direction = button === WHEEL_UP ? -1 : 1
+      const now = Date.now()
+      const fast = this.#lastWheel?.direction === direction && now - this.#lastWheel.at < FAST_WHEEL_MS
+      this.#lastWheel = { direction, at: now }
+      this.#move(direction * (fast ? FAST_WHEEL_STEP : 1))
+      this.render()
     }
-    else if (button === WHEEL_DOWN) {
-      this.handleKey({ name: 'down' })
+    else if (button === LEFT_BUTTON && pressed && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
+      const entry = this.#rowAnchor(this.#entries(), this.#top + row - HEADER_ROWS)
+      if (entry) {
+        this.select(entry.index)
+        this.render()
+      }
     }
   }
 
