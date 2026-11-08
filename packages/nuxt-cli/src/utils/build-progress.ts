@@ -46,12 +46,16 @@ interface HookableLike {
 }
 
 interface NuxtLike {
+  options?: { experimental?: { nitroViteEnvironment?: boolean } }
   hook?: (name: 'vite:extendConfig', fn: (config: { plugins?: unknown[] }) => void) => unknown
   hooks?: HookableLike
 }
 
 /** Names the Vite plugin that reports which environment is being built, so it is added once per config. */
 const VITE_PLUGIN_NAME = 'nuxi:build-progress'
+
+/** The Vite environment Nitro 3 builds the server in. */
+const NITRO_ENVIRONMENT = 'nitro'
 
 /**
  * Tracks how far a production build has got, so the same transient phase line
@@ -121,8 +125,13 @@ export class BuildProgress extends PhaseTimeline {
     })
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
-      if (phase) {
+      // Nitro 3 can build as a Vite environment, after the app, and is then
+      // reported by the Vite plugin when its environment starts.
+      if (phase && !(name === 'nitro:build:before' && nuxt.options?.experimental?.nitroViteEnvironment)) {
         this.setPhase(phase)
+        return
+      }
+      if (phase) {
         return
       }
       if (name === 'webpack:compile') {
@@ -145,7 +154,11 @@ export class BuildProgress extends PhaseTimeline {
       configResolved(config: { build?: { ssr?: unknown } }) {
         ssr = !!config.build?.ssr
       },
-      buildStart(this: { environment?: { config?: { consumer?: string } } }) {
+      buildStart(this: { environment?: { name: string, config?: { consumer?: string } } }) {
+        if (this.environment?.name === NITRO_ENVIRONMENT) {
+          setPhase('server (nitro)')
+          return
+        }
         const consumer = this.environment?.config?.consumer ?? (ssr ? 'server' : 'client')
         setPhase(consumer === 'server' ? 'app (server)' : 'app (client)')
       },

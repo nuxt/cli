@@ -38,21 +38,47 @@ afterEach(async () => {
   }
 })
 
+/** Run `vite:extendConfig` and resolve the plugin the CLI added, against a logger that records what it lets through. */
+async function resolveVitePlugin(hooks: ReturnType<typeof createHooks>) {
+  const config = { plugins: [] as any[] }
+  await hooks.call('vite:extendConfig', config, { isClient: true, isServer: false })
+  const plugin = config.plugins[0]
+  const printed: string[] = []
+  const logger = { info: (message: string) => void printed.push(message) }
+  plugin.configResolved({ logger, environments: { client: { consumer: 'client' }, ssr: { consumer: 'server' }, nitro: { consumer: 'server' } } })
+  return { plugin, logger, printed }
+}
+
 describe('quietServerOutput', () => {
-  it('drops Nitro and the Vite server bundle to warnings only', async () => {
+  it('drops Nitro to warnings only', async () => {
     const { nuxt, hooks } = createNuxt()
     quietServerOutput(nuxt as any)
 
     const nitroConfig = { logLevel: 3 }
     await hooks.call('nitro:config', nitroConfig)
-    const serverConfig = { logLevel: 'info' }
-    const clientConfig = { logLevel: 'info' }
-    await hooks.call('vite:extendConfig', serverConfig, { isServer: true, isClient: false })
-    await hooks.call('vite:extendConfig', clientConfig, { isServer: false, isClient: true })
 
     expect(nitroConfig.logLevel).toBe(1)
-    expect(serverConfig.logLevel).toBe('warn')
-    expect(clientConfig.logLevel).toBe('info')
+  })
+
+  it('keeps Vite\'s output for the client environment only', async () => {
+    const { nuxt, hooks } = createNuxt()
+    quietServerOutput(nuxt as any)
+    const { plugin, logger, printed } = await resolveVitePlugin(hooks)
+
+    // Vite announces each environment before its plugins start.
+    logger.info('\u001B[36mvite v8.3.5 \u001B[32mbuilding client environment for production...\u001B[39m')
+    plugin.buildStart.call({ environment: { name: 'client', config: { consumer: 'client' } } })
+    logger.info('.output/public/_nuxt/entry.js')
+    logger.info('vite v8.3.5 building ssr environment for production...')
+    plugin.buildStart.call({ environment: { name: 'ssr', config: { consumer: 'server' } } })
+    logger.info('.nuxt/vite/services/ssr/server.mjs')
+    logger.info('vite v8.3.5 building nitro environment for production...')
+    logger.info('.output/server/index.mjs')
+
+    expect(printed.map(line => stripAnsi(line))).toEqual([
+      'vite v8.3.5 building client environment for production...',
+      '.output/public/_nuxt/entry.js',
+    ])
   })
 
   it('leaves log levels alone when verbose or set by the project', async () => {
@@ -71,8 +97,12 @@ describe('quietServerOutput', () => {
     await configured.hooks.call('nitro:config', configuredConfig)
 
     expect([verboseConfig.logLevel, silentConfig.logLevel, configuredConfig.logLevel]).toEqual([3, 0, 3])
-    expect(verbose.hooks.has('vite:extendConfig')).toBe(false)
-    expect(configured.hooks.has('vite:extendConfig')).toBe(false)
+    for (const { hooks } of [verbose, configured]) {
+      const { logger, printed } = await resolveVitePlugin(hooks)
+      logger.info('vite v8.3.5 building ssr environment for production...')
+      logger.info('.nuxt/vite/services/ssr/server.mjs')
+      expect(printed).toHaveLength(2)
+    }
   })
 
   it('summarises the server build and lists failed prerenders', async () => {
@@ -102,8 +132,28 @@ describe('quietServerOutput', () => {
     expect(lines[0]).toMatch(/^Prerendered 1 route in \S+$/)
     // Source maps are left out, as Nitro leaves them out of its own total.
     expect(lines[1]).toMatch(/^Server \(nitro\) built in \S+ · 2\.50 kB$/)
-    expect(lines[2]).toMatch(/^Preview: node \S*server\/index\.mjs$/)
+    expect(lines[2]).toBe('Preview: npx nuxt preview')
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n  /gone (404 Not Found)')
+  })
+
+  it('reports a server built by Vite when Nitro is not the server builder', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'nuxi-server-output-'))
+    await mkdir(join(dir, 'server'), { recursive: true })
+    await writeFile(join(dir, 'server/index.mjs'), 'x'.repeat(1200))
+    await writeFile(join(dir, 'server/index.mjs.map.json'), 'x'.repeat(40_000))
+
+    const { nuxt, hooks } = createNuxt()
+    Object.assign(nuxt, { serverBuild: { name: 'vite', output: { dir: () => dir } } })
+    const report = quietServerOutput(nuxt as any)
+    const { plugin } = await resolveVitePlugin(hooks)
+    plugin.buildStart.call({ environment: { name: 'client', config: { consumer: 'client' } } })
+    plugin.buildStart.call({ environment: { name: 'ssr', config: { consumer: 'server' } } })
+    await hooks.call('build:done')
+
+    expect(stripAnsi(report.summary()!).split('\n')).toEqual([
+      expect.stringMatching(/^Server \(vite\) built in \S+ · 1\.20 kB$/),
+      'Preview: npx nuxt preview',
+    ])
   })
 
   it('reports nothing about a server for a static build', async () => {
