@@ -179,6 +179,16 @@ describe('panel keys', () => {
     await live.type('ooo')
     expect(live.keys).toEqual(['o', 'o', 'o'])
   })
+
+  it('should drop a mouse report buffered before it took stdin, when asked to', async () => {
+    const buffered = attach({ ignoreBufferedInput: true })
+    await buffered.type('\u001B[<0;1;1M')
+    expect(buffered.mouse).toEqual([])
+
+    const live = attach()
+    await live.type('\u001B[<0;1;1M')
+    expect(live.mouse).toHaveLength(1)
+  })
 })
 
 describe('terminal replies', () => {

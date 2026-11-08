@@ -1174,6 +1174,26 @@ describe('log overlay', () => {
     }
   })
 
+  it('clicks the entry that was seen, even when the list moved since', () => {
+    const events = new DevEventLog(5)
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+    // Drops `entry 0` from the front before the view repaints.
+    events.push(event({ message: 'entry 5' }))
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    expect(selected()).toEqual([])
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 1')
+    overlay.close()
+  })
+
   it('ignores clicks off the entries and button releases', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'only entry' }))
