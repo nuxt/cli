@@ -69,7 +69,19 @@ async function installFakeVisualizer() {
   await writeFile(join(dir, 'index.js'), `export const visualizer = options => ({ name: 'visualizer', options })`)
 }
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, webpackAnalyze = {}, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any>, webpackAnalyze?: Record<string, any>, nitroAnalyze?: false | Record<string, any>, devtools?: boolean | Record<string, any>, nitro?: 'v2' | 'v3' } = {}) {
+interface AnalyzeOptions {
+  args?: string[]
+  routes?: string[]
+  vite?: Record<string, any>
+  devServer?: Record<string, any>
+  buildAnalyze?: Record<string, any>
+  webpackAnalyze?: Record<string, any>
+  nitroAnalyze?: false | Record<string, any>
+  devtools?: boolean | Record<string, any>
+  nitro?: 'v2' | 'v3'
+}
+
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, webpackAnalyze = {}, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: AnalyzeOptions = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -345,22 +357,19 @@ describe('nuxt analyze command', () => {
   })
 
   describe('stats server', () => {
-    async function statusForHost(vite: Record<string, any>, host: string, devServer: Record<string, any> = {}): Promise<number> {
+    async function startStatsServer(options: AnalyzeOptions = {}) {
       vi.stubEnv('CI', '')
       vi.stubEnv('HOST', '')
       serve.mockReturnValue({ ready: () => Promise.resolve() })
-      await runAnalyze({ args: [], vite, devServer })
-      const { fetch } = serve.mock.calls[0]![0] as { fetch: (request: Request) => Response }
-      return fetch(new Request('http://localhost/', { headers: { host } })).status
+      const { output } = await runAnalyze({ ...options, args: [] })
+      const { fetch } = serve.mock.lastCall![0] as { fetch: (request: Request) => Response }
+      const fetchPage = (path: string, headers?: Record<string, string>) => fetch(new Request(`http://localhost${path}`, { headers }))
+      return { fetchPage, output }
     }
 
-    async function startStatsServer(options: Parameters<typeof runAnalyze>[0] = {}): Promise<(path: string) => Response> {
-      vi.stubEnv('CI', '')
-      vi.stubEnv('HOST', '')
-      serve.mockReturnValue({ ready: () => Promise.resolve() })
-      await runAnalyze({ ...options, args: [] })
-      const { fetch } = serve.mock.calls[0]![0] as { fetch: (request: Request) => Response }
-      return path => fetch(new Request(`http://localhost${path}`))
+    async function statusForHost(vite: Record<string, any>, host: string, devServer: Record<string, any> = {}) {
+      const { fetchPage } = await startStatsServer({ vite, devServer })
+      return fetchPage('/', { host }).status
     }
 
     afterEach(() => {
@@ -370,11 +379,8 @@ describe('nuxt analyze command', () => {
     it('should listen on another port when the requested one is in use', async () => {
       vi.stubEnv('PORT', '3000')
       getPort.mockResolvedValue(3001)
-      serve.mockReturnValue({ ready: () => Promise.resolve() })
-      vi.stubEnv('CI', '')
-      vi.stubEnv('HOST', '')
 
-      const { output } = await runAnalyze({ args: [] })
+      const { output } = await startStatsServer()
 
       expect(getPort).toHaveBeenCalledWith(expect.objectContaining({ port: 3000, host: 'localhost' }))
       expect(serve).toHaveBeenCalledWith(expect.objectContaining({ port: 3001 }))
@@ -382,7 +388,7 @@ describe('nuxt analyze command', () => {
     })
 
     it('should link to each generated report', async () => {
-      const fetchPage = await startStatsServer()
+      const { fetchPage } = await startStatsServer()
       const html = await fetchPage('/').text()
       expect(html).toContain('<a href="/nitro">')
       expect(html).toContain('<a href="/client">')
@@ -390,20 +396,20 @@ describe('nuxt analyze command', () => {
 
     it('should serve the client report at / when it is the only report', async () => {
       vi.mocked(resolveModulePath).mockReturnValueOnce(undefined)
-      const fetchPage = await startStatsServer({ nitro: 'v3', buildAnalyze: { template: 'client report' } })
+      const { fetchPage } = await startStatsServer({ nitro: 'v3', buildAnalyze: { template: 'client report' } })
       await expect(fetchPage('/').text()).resolves.toBe('client report')
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
       expect(fetchPage('/nitro').status).toBe(404)
     })
 
     it('should serve the client report from a custom report filename', async () => {
-      const fetchPage = await startStatsServer({ buildAnalyze: { template: 'client report', filename: join(cwd, 'reports/{name}.html') } })
+      const { fetchPage } = await startStatsServer({ buildAnalyze: { template: 'client report', filename: join(cwd, 'reports/{name}.html') } })
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
       expect(await fetchPage('/').text()).toContain('<a href="/client">')
     })
 
     it('should serve the Nitro report from a custom report filename', async () => {
-      const fetchPage = await startStatsServer({ nitroAnalyze: { template: 'nitro report', filename: join(cwd, 'reports/{name}.html') } })
+      const { fetchPage } = await startStatsServer({ nitroAnalyze: { template: 'nitro report', filename: join(cwd, 'reports/{name}.html') } })
       await expect(fetchPage('/nitro').text()).resolves.toBe('nitro report')
     })
 
