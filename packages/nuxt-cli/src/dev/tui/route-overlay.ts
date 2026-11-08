@@ -104,9 +104,9 @@ export class RouteOverlay extends ScreenOverlay {
   protected renderHints(columns: number): string {
     return formatHints([
       ['↑/↓', 'select'],
-      ['w', 'pages'],
-      ['s', 'server'],
-      ['a', 'all'],
+      ['w', 'pages', this.#filter === 'page'],
+      ['s', 'server', this.#filter === 'server'],
+      ['a', 'all', this.#filter === 'all'],
       ['/', 'search'],
       ['y', 'copy'],
       ['Y', 'copy all'],
