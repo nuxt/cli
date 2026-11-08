@@ -58,6 +58,7 @@ vi.mock('../../../src/utils/logger', () => ({
     message: vi.fn(),
     success: vi.fn(),
   },
+  logBlock: vi.fn(),
   intro: vi.fn(),
   outro: vi.fn(),
 }))
