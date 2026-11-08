@@ -1,9 +1,10 @@
 import type { Nuxt } from '@nuxt/schema'
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 
 import { runCommand } from 'citty'
+import { resolveModulePath } from 'exsolve'
 import { dirname, join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -40,6 +41,11 @@ vi.mock('srvx', () => ({ serve }))
 
 vi.mock('get-port-please', () => ({ getPort }))
 
+vi.mock('exsolve', async (importOriginal) => {
+  const exsolve = await importOriginal<typeof import('exsolve')>()
+  return { ...exsolve, resolveModulePath: vi.fn(exsolve.resolveModulePath) }
+})
+
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({ loadNuxt, buildNuxt }),
 }))
@@ -56,7 +62,6 @@ function fakeVisualizer(options: Record<string, any>) {
   return { name: 'visualizer', options }
 }
 
-// A stand-in `rollup-plugin-visualizer`, installed in the project for the CLI to find
 async function installFakeVisualizer() {
   const dir = join(cwd, 'node_modules/rollup-plugin-visualizer')
   await mkdir(dir, { recursive: true })
@@ -64,7 +69,7 @@ async function installFakeVisualizer() {
   await writeFile(join(dir, 'index.js'), `export const visualizer = options => ({ name: 'visualizer', options })`)
 }
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any>, nitroAnalyze?: Record<string, any>, devtools?: boolean | Record<string, any>, nitro?: 'v2' | 'v3' } = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, webpackAnalyze = {}, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: { args?: string[], routes?: string[], vite?: Record<string, any>, devServer?: Record<string, any>, buildAnalyze?: Record<string, any>, webpackAnalyze?: Record<string, any>, nitroAnalyze?: false | Record<string, any>, devtools?: boolean | Record<string, any>, nitro?: 'v2' | 'v3' } = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -77,23 +82,25 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
     build: {
       analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...buildAnalyze },
     },
+    webpack: {
+      analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...webpackAnalyze } as Record<string, any>,
+    },
     devServer,
     devtools,
     vite,
   }
 
   // Nuxt 4 passes default analyze options to Nitro v2; Nuxt 5 (Nitro v3) has none
-  const nitroConfig: { analyze?: Record<string, string> } = {}
+  const nitroConfig: { analyze?: false | Record<string, string> } = {}
   const nitroHooks = createHooks()
 
   loadNuxt.mockImplementation((options: { overrides: Record<string, any> }) => {
     overrides = options.overrides
     return Promise.resolve({
       ...nuxtHooks,
-      // Nuxt creates Nitro while getting ready, before the build
       ready: async () => {
         if (nitro === 'v2') {
-          nitroConfig.analyze = { template: 'treemap', filename: join(nuxtOptions.analyzeDir, '{name}.html'), ...nitroAnalyze }
+          nitroConfig.analyze = nitroAnalyze && { template: 'treemap', filename: join(nuxtOptions.analyzeDir, '{name}.html'), ...nitroAnalyze }
         }
         await nuxtHooks.callHook('nitro:config', nitroConfig)
         await nuxtHooks.callHook('nitro:init', { hooks: nitroHooks })
@@ -103,16 +110,13 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
   })
 
   buildNuxt.mockImplementation(async (nuxt: Nuxt) => {
-    // Stand in for rollup-plugin-visualizer writing the client report
     const { filename, template } = nuxt.options.build.analyze as { filename: string, template: string }
     await mkdir(dirname(filename), { recursive: true })
     await writeFile(filename.replace('{name}', 'client'), template)
-    // Nitro v2 adds the visualizer from its `analyze` option before `rollup:before`
     const bundlerConfig: { plugins: any[] } = {
       plugins: nitroConfig.analyze ? [fakeVisualizer({ ...nitroConfig.analyze, filename: nitroConfig.analyze.filename!.replace('{name}', 'nitro') })] : [],
     }
     await nitroHooks.callHook('rollup:before', {}, bundlerConfig)
-    // Stand in for the visualizer writing the server report
     for (const plugin of bundlerConfig.plugins.filter(plugin => plugin.name === 'visualizer')) {
       await mkdir(dirname(plugin.options.filename), { recursive: true })
       await writeFile(plugin.options.filename, plugin.options.template)
@@ -144,9 +148,26 @@ describe('nuxt analyze command', () => {
     await rm(cwd, { recursive: true, force: true })
   })
 
-  it('should not let webpack-bundle-analyzer open a browser', async () => {
-    const { overrides } = await runAnalyze()
-    expect(overrides.webpack.analyze.openAnalyzer).toBe(false)
+  describe('webpack', () => {
+    it('should not let webpack-bundle-analyzer open a browser', async () => {
+      const { nuxtOptions } = await runAnalyze()
+      expect(nuxtOptions.webpack.analyze).toMatchObject({ openAnalyzer: false })
+      expect(nuxtOptions.webpack.analyze).not.toHaveProperty('analyzerMode')
+    })
+
+    it('should only write the webpack stats file with --json', async () => {
+      const { nuxtOptions } = await runAnalyze({ args: ['--json'] })
+      expect(nuxtOptions.webpack.analyze).toMatchObject({ openAnalyzer: false, analyzerMode: 'disabled', generateStatsFile: true })
+    })
+
+    it('should leave webpack analysis off when it is disabled', async () => {
+      const { nuxtOptions, overrides } = await runAnalyze({ args: ['--json'], webpackAnalyze: { enabled: false } })
+      expect(overrides.webpack).toBeUndefined()
+      expect(nuxtOptions.webpack.analyze).toMatchObject({ enabled: false })
+      expect(nuxtOptions.webpack.analyze).not.toHaveProperty('openAnalyzer')
+      expect(nuxtOptions.webpack.analyze).not.toHaveProperty('analyzerMode')
+      expect(nuxtOptions.webpack.analyze).not.toHaveProperty('generateStatsFile')
+    })
   })
 
   it('should not prerender any routes by default', async () => {
@@ -190,6 +211,10 @@ describe('nuxt analyze command', () => {
   it('should keep the results of each named run', async () => {
     await runAnalyze({ args: ['--no-serve', '--name=before'] })
     await runAnalyze({ args: ['--no-serve', '--name=after/fix'] })
+    await writeFile(join(cwd, 'analyze/after_fix/stale.html'), 'old')
+    await runAnalyze({ args: ['--no-serve', '--name=after/fix'] })
+
+    await expect(access(join(cwd, 'analyze/after_fix/stale.html'))).rejects.toThrow()
 
     await expect(readFile(join(cwd, 'analyze/before/client.html'), 'utf8')).resolves.toBe('treemap')
     await expect(readFile(join(cwd, 'analyze/after_fix/client.html'), 'utf8')).resolves.toBe('treemap')
@@ -197,9 +222,32 @@ describe('nuxt analyze command', () => {
     expect(meta).toMatchObject({ name: 'before', slug: 'before' })
   })
 
+  it('should remove reports left at the root of the analyze directory', async () => {
+    await mkdir(join(cwd, 'analyze/.vite-inspect'), { recursive: true })
+    await mkdir(join(cwd, 'analyze/before'), { recursive: true })
+    await writeFile(join(cwd, 'analyze/client.html'), 'old')
+    await writeFile(join(cwd, 'analyze/meta.json'), '{}')
+    await writeFile(join(cwd, 'analyze/before/meta.json'), '{}')
+
+    await runAnalyze()
+
+    await expect(readFile(join(cwd, 'analyze/client.html'), 'utf8')).rejects.toThrow()
+    await expect(readFile(join(cwd, 'analyze/meta.json'), 'utf8')).rejects.toThrow()
+    await expect(access(join(cwd, 'analyze/.vite-inspect'))).rejects.toThrow()
+    await expect(readFile(join(cwd, 'analyze/before/meta.json'), 'utf8')).resolves.toBe('{}')
+  })
+
   it('should keep a custom report filename', async () => {
-    await runAnalyze({ buildAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await runAnalyze({ args: ['--no-serve', '--name=custom'], buildAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
     await expect(readFile(join(cwd, 'reports/client.html'), 'utf8')).resolves.toBe('treemap')
+    await expect(access(join(cwd, 'analyze/custom/client.html'))).rejects.toThrow()
+    await expect(readFile(join(cwd, 'analyze/custom/meta.json'), 'utf8')).resolves.toContain('"slug": "custom"')
+  })
+
+  it('should use a .json extension for a custom report filename with --json', async () => {
+    await runAnalyze({ args: ['--json'], buildAnalyze: { filename: join(cwd, 'reports/{name}.html') }, nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await expect(readFile(join(cwd, 'reports/client.json'), 'utf8')).resolves.toBe('raw-data')
+    await expect(readFile(join(cwd, 'reports/nitro.json'), 'utf8')).resolves.toBe('raw-data')
   })
 
   it('should write the client report as JSON with --json and not serve it', async () => {
@@ -235,6 +283,12 @@ describe('nuxt analyze command', () => {
     await installFakeVisualizer()
     await runAnalyze({ nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
     await expect(readFile(join(cwd, 'reports/nitro.html'), 'utf8')).resolves.toBe('treemap')
+    await expect(readFile(join(cwd, 'analyze/default/nitro.html'), 'utf8')).rejects.toThrow()
+  })
+
+  it('should not add a Nitro report when `nitro.analyze` is disabled', async () => {
+    await installFakeVisualizer()
+    await runAnalyze({ nitroAnalyze: false })
     await expect(readFile(join(cwd, 'analyze/default/nitro.html'), 'utf8')).rejects.toThrow()
   })
 
@@ -300,7 +354,6 @@ describe('nuxt analyze command', () => {
       return fetch(new Request('http://localhost/', { headers: { host } })).status
     }
 
-    /** Run the analysis and return a way to request pages from its stats server. */
     async function startStatsServer(options: Parameters<typeof runAnalyze>[0] = {}): Promise<(path: string) => Response> {
       vi.stubEnv('CI', '')
       vi.stubEnv('HOST', '')
@@ -336,7 +389,7 @@ describe('nuxt analyze command', () => {
     })
 
     it('should serve the client report at / when it is the only report', async () => {
-      // Nitro v3 without rollup-plugin-visualizer installed: only the client report is written
+      vi.mocked(resolveModulePath).mockReturnValueOnce(undefined)
       const fetchPage = await startStatsServer({ nitro: 'v3', buildAnalyze: { template: 'client report' } })
       await expect(fetchPage('/').text()).resolves.toBe('client report')
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
@@ -347,6 +400,11 @@ describe('nuxt analyze command', () => {
       const fetchPage = await startStatsServer({ buildAnalyze: { template: 'client report', filename: join(cwd, 'reports/{name}.html') } })
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
       expect(await fetchPage('/').text()).toContain('<a href="/client">')
+    })
+
+    it('should serve the Nitro report from a custom report filename', async () => {
+      const fetchPage = await startStatsServer({ nitroAnalyze: { template: 'nitro report', filename: join(cwd, 'reports/{name}.html') } })
+      await expect(fetchPage('/nitro').text()).resolves.toBe('nitro report')
     })
 
     it('should reject a host it was not started on', async () => {

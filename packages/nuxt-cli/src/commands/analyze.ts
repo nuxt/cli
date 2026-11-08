@@ -26,11 +26,40 @@ import { resolveServerBuild } from '../utils/server-build'
 import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 
 const NON_WORD_RE = /[^\w-]/g
+const HTML_EXT_RE = /\.html$/
 
-const REPORTS = [
-  { path: '/client', name: 'client', label: 'Client bundle stats' },
-  { path: '/nitro', name: 'nitro', label: 'Nitro server bundle stats' },
-]
+const LEGACY_REPORT_FILES = ['client.html', 'client.json', 'nitro.html', 'meta.json', '.vite-inspect']
+
+interface ReportOptions {
+  filename?: string
+  template?: string
+}
+
+interface WebpackAnalyzeOptions {
+  enabled?: boolean
+  openAnalyzer?: boolean
+  analyzerMode?: string
+  generateStatsFile?: boolean
+}
+
+function resolveReportFilename(filename: string | undefined, defaultFilename: string, dir: string, json: boolean) {
+  if (!filename || filename === defaultFilename) {
+    return join(dir, json ? '{name}.json' : '{name}.html')
+  }
+  return json ? filename.replace(HTML_EXT_RE, '.json') : filename
+}
+
+async function readFirstFile(files: (string | undefined)[]) {
+  for (const file of files) {
+    if (!file) {
+      continue
+    }
+    const contents = await fsp.readFile(file, 'utf8').catch(() => undefined)
+    if (contents !== undefined) {
+      return contents
+    }
+  }
+}
 
 function renderIndexHtml(reports: { path: string, label: string }[]) {
   const body = reports.length > 0
@@ -110,12 +139,6 @@ export default defineCommand({
             enabled: true,
           },
         },
-        // The webpack and rspack builders open their report in a browser; the CLI serves it instead.
-        webpack: {
-          analyze: {
-            openAnalyzer: false,
-          },
-        },
         vite: {
           build: {
             rollupOptions: {
@@ -149,45 +172,54 @@ export default defineCommand({
       })
     }
 
-    // Each named run gets its own directory so earlier runs are kept for comparison.
-    // This has to happen before `ready()`, as modules and Nitro read `analyzeDir` while initialising.
+    // Modules and Nitro read `analyzeDir` while initialising, so it has to be set before `ready()`.
     const baseAnalyzeDir = nuxt.options.analyzeDir
     const analyzeDir = join(baseAnalyzeDir, slug)
     nuxt.options.analyzeDir = analyzeDir
 
-    const analyzeOptions = nuxt.options.build.analyze as Exclude<typeof nuxt.options.build.analyze, boolean> & { filename?: string, template?: string }
+    const analyzeOptions = nuxt.options.build.analyze as Exclude<typeof nuxt.options.build.analyze, boolean> & ReportOptions
     if (ctx.args.json) {
       analyzeOptions.template = 'raw-data'
     }
-    // Only move the default report location; a custom `build.analyze.filename` is kept as is.
-    if (!analyzeOptions.filename || analyzeOptions.filename === join(baseAnalyzeDir, '{name}.html')) {
-      analyzeOptions.filename = join(analyzeDir, ctx.args.json ? '{name}.json' : '{name}.html')
+    analyzeOptions.filename = resolveReportFilename(analyzeOptions.filename, join(baseAnalyzeDir, '{name}.html'), analyzeDir, ctx.args.json)
+
+    const webpackAnalyze = (nuxt.options as { webpack?: { analyze?: boolean | WebpackAnalyzeOptions } }).webpack?.analyze
+    if (webpackAnalyze && typeof webpackAnalyze === 'object' && webpackAnalyze.enabled !== false) {
+      webpackAnalyze.openAnalyzer = false
+      if (ctx.args.json) {
+        webpackAnalyze.analyzerMode = 'disabled'
+        webpackAnalyze.generateStatsFile = true
+      }
     }
 
     if (ctx.args.json) {
-      // Nuxt DevTools adds `vite-plugin-inspect` to analyze builds for its own UI, which JSON consumers do not need.
-      // Set after `loadNuxt()` has decided whether to install DevTools, so the user's `enabled` choice is kept.
+      // `loadNuxt()` has already decided whether to install DevTools, so the user's `enabled` choice is kept.
       const devtools = nuxt.options.devtools
       nuxt.options.devtools = typeof devtools === 'object' ? { ...devtools, viteInspect: false } : { enabled: devtools, viteInspect: false }
-
-      // Nitro v2 gets its own analyze options, so the server report needs the same treatment.
-      nuxt.hook('nitro:config', (nitroConfig) => {
-        if (!nitroConfig.analyze) {
-          return
-        }
-        nitroConfig.analyze.template = 'raw-data'
-        if (!nitroConfig.analyze.filename || nitroConfig.analyze.filename === join(analyzeDir, '{name}.html')) {
-          nitroConfig.analyze.filename = join(analyzeDir, '{name}.json')
-        }
-      })
     }
 
-    // Nitro v2 adds the visualizer from its `analyze` option, which Nitro v3 (Nuxt 5) no longer has.
-    // When it is missing, Nuxt's Vite builder already offers to install it for the client report.
+    let nitroAnalyzeDisabled = false
+    let nitroReportFile: string | undefined
+    nuxt.hook('nitro:config', (nitroConfig) => {
+      if (nitroConfig.analyze === false) {
+        nitroAnalyzeDisabled = true
+        return
+      }
+      if (!nitroConfig.analyze) {
+        return
+      }
+      if (ctx.args.json) {
+        nitroConfig.analyze.template = 'raw-data'
+        nitroConfig.analyze.filename = resolveReportFilename(nitroConfig.analyze.filename, join(analyzeDir, '{name}.html'), analyzeDir, true)
+      }
+      nitroReportFile = nitroConfig.analyze.filename?.replace('{name}', 'nitro')
+    })
+
+    // Nitro v3 has no `analyze` option, so the server report needs its own visualizer.
     nuxt.hook('nitro:init', (nitro) => {
       nitro.hooks.hook('rollup:before', async (_nitro, config) => {
         const plugins = ([await config.plugins] as unknown[]).flat(Infinity).filter(Boolean) as { name?: string }[]
-        if (plugins.some(plugin => plugin.name === 'visualizer')) {
+        if (nitroAnalyzeDisabled || plugins.some(plugin => plugin.name === 'visualizer')) {
           return
         }
         const visualizerPath = resolveModulePath('rollup-plugin-visualizer', {
@@ -198,10 +230,11 @@ export default defineCommand({
           return
         }
         const { visualizer } = await import(pathToFileURL(visualizerPath).href)
+        nitroReportFile = join(analyzeDir, ctx.args.json ? 'nitro.json' : 'nitro.html')
         config.plugins = [...plugins, visualizer({
           template: ctx.args.json ? 'raw-data' : 'treemap',
           projectRoot: nuxt.options.rootDir,
-          filename: join(analyzeDir, ctx.args.json ? 'nitro.json' : 'nitro.html'),
+          filename: nitroReportFile,
           title: 'Nitro Server bundle stats',
         })] as typeof config.plugins
       })
@@ -235,6 +268,7 @@ export default defineCommand({
       })
 
       tasklog.message('Clearing analyze directory...')
+      await Promise.all(LEGACY_REPORT_FILES.map(file => fsp.rm(join(baseAnalyzeDir, file), { recursive: true, force: true })))
       await clearDir(analyzeDir)
       tasklog.message('Building Nuxt...')
       await buildNuxt(nuxt)
@@ -266,14 +300,12 @@ export default defineCommand({
 
     if (ctx.args.serve !== false && !ctx.args.json && !process.env.CI) {
       const headers = { 'content-type': 'text/html' }
-      const reports = await Promise.all(REPORTS.map(async (report) => {
-        // The client report follows `build.analyze.filename`, which can point outside `analyzeDir`.
-        const file = report.name === 'client' ? analyzeOptions.filename!.replace('{name}', 'client') : join(analyzeDir, `${report.name}.html`)
-        return { ...report, html: await fsp.readFile(file, 'utf8').catch(() => undefined) }
-      }))
+      const reports = [
+        { path: '/client', label: 'Client bundle stats', html: await readFirstFile([analyzeOptions.filename.replace('{name}', 'client'), join(analyzeDir, 'client.html')]) },
+        { path: '/nitro', label: 'Nitro server bundle stats', html: await readFirstFile([nitroReportFile, join(analyzeDir, 'nitro.html')]) },
+      ]
       const contents = new Map(reports.map(report => [report.path, report.html]))
       const generated = reports.filter(report => report.html !== undefined)
-      // With a single report, there is nothing to choose from, so serve it directly.
       const indexHtml = generated.length === 1 ? generated[0]!.html! : renderIndexHtml(generated)
 
       logger.step('Starting stats server...')
