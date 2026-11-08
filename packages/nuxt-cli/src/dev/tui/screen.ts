@@ -43,6 +43,16 @@ const FAST_WHEEL_STEP = 3
 /** The title and the rule under it, above the entries. */
 const HEADER_ROWS = 2
 
+const HINT_SEPARATOR = ' · '
+
+/** Hint labels that are words rather than the key itself. */
+const HINT_KEYS: Record<string, Key> = {
+  'esc': { name: 'escape' },
+  'esc/q': { name: 'escape' },
+  'enter': { name: 'return' },
+  '⌫': { name: 'backspace' },
+}
+
 /** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
   #write: (chunk: string) => void
@@ -63,6 +73,7 @@ export abstract class ScreenOverlay {
   #selectedKey?: object | string
   #notice?: { text: string, until: number }
   #lastWheel?: { direction: number, at: number }
+  #shownHints = ''
 
   constructor(options: {
     write: (chunk: string) => void
@@ -210,8 +221,12 @@ export abstract class ScreenOverlay {
     this.render()
   }
 
-  /** The wheel moves the selection like the arrow keys, further when spun fast; a click selects the entry under it. */
-  handleMouse({ button, pressed, row }: MouseReport): void {
+  /**
+   * The wheel moves the selection like the arrow keys, further when spun fast.
+   * A click selects the entry under it; a click on the selected entry is enter.
+   * A click on a hint presses its key.
+   */
+  handleMouse({ button, pressed, row, column }: MouseReport): void {
     if (button === WHEEL_UP || button === WHEEL_DOWN) {
       const direction = button === WHEEL_UP ? -1 : 1
       const now = Date.now()
@@ -222,9 +237,18 @@ export abstract class ScreenOverlay {
     }
     else if (button === LEFT_BUTTON && pressed && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
       const entry = this.#rowAnchor(this.#entries(), this.#top + row - HEADER_ROWS)
-      if (entry) {
+      if (entry?.index === this.#selected) {
+        this.handleKey({ name: 'return' })
+      }
+      else if (entry) {
         this.select(entry.index)
         this.render()
+      }
+    }
+    else if (button === LEFT_BUTTON && pressed && row === HEADER_ROWS + this.bodyRows()) {
+      const key = hintKeyAt(this.#shownHints, column)
+      if (key) {
+        this.handleKey(key)
       }
     }
   }
@@ -350,6 +374,7 @@ export abstract class ScreenOverlay {
       ...Array.from({ length: bodyRows - visible.length }).fill('') as string[],
       this.#hintLine(),
     ].map(row => truncate(row, columns))
+    this.#shownHints = frame.at(-1)!
     this.#write(`\u001B[H\u001B[2J${frame.join('\n')}`)
   }
 
@@ -463,15 +488,37 @@ export abstract class ScreenOverlay {
   }
 }
 
-/** Format hints to fit, preserving the first and last. */
-export function formatHints(hints: Array<[key: string, description: string]>, columns = Number.POSITIVE_INFINITY): string {
+/** The key of the hint shown at `column`. Hints for several keys, like `↑/↓`, have none. */
+function hintKeyAt(line: string, column: number): Key | undefined {
+  let start = 0
+  for (const hint of stripAnsi(line).split(HINT_SEPARATOR)) {
+    const end = start + visibleWidth(hint)
+    if (column >= start && column < end) {
+      const label = hint.split(' ')[0]!
+      return HINT_KEYS[label] ?? (label.length === 1 ? { name: label.toLowerCase(), sequence: label } : undefined)
+    }
+    start = end + HINT_SEPARATOR.length
+  }
+}
+
+/**
+ * Format hints to fit, preserving the first, the last and the active ones: an
+ * active hint is the filter in effect, which must stay visible.
+ */
+export function formatHints(hints: Array<[key: string, description: string, active?: boolean]>, columns = Number.POSITIVE_INFINITY): string {
   const remaining = [...hints]
   const render = () => remaining
-    .map(([key, description]) => `${styleText('bold', key)} ${styleText(MUTED, description)}`)
-    .join(styleText(MUTED, ' · '))
+    .map(([key, description, active]) => active
+      ? styleText(['green', 'bold'], `${key} ${description}`)
+      : `${styleText('bold', key)} ${styleText(MUTED, description)}`)
+    .join(styleText(MUTED, HINT_SEPARATOR))
 
-  while (remaining.length > 2 && visibleWidth(render()) > columns) {
-    remaining.splice(remaining.length - 2, 1)
+  while (visibleWidth(render()) > columns) {
+    const droppable = remaining.findLastIndex(([, , active], index) => !active && index > 0 && index < remaining.length - 1)
+    if (droppable < 0) {
+      break
+    }
+    remaining.splice(droppable, 1)
   }
   return render()
 }

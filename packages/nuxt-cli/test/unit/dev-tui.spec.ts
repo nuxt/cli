@@ -4,6 +4,7 @@ import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
 import process from 'node:process'
+import { styleText } from 'node:util'
 import { consola } from 'consola'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +22,7 @@ import { DEFAULT_HINTS, renderPanel, renderPanelText } from '../../src/dev/tui/p
 import { RequestOverlay } from '../../src/dev/tui/request-overlay'
 import { RequestLog } from '../../src/dev/tui/requests'
 import { RouteOverlay } from '../../src/dev/tui/route-overlay'
+import { formatHints } from '../../src/dev/tui/screen'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
@@ -1124,6 +1126,54 @@ describe('log overlay', () => {
     overlay.close()
   })
 
+  it('presses the key of a clicked hint', () => {
+    const { overlay, lastFrame, output, closed } = create()
+    const hintRow = (process.stdout.rows || 24) - 1
+    const click = (label: string) => {
+      const column = strip(lastFrame()).split('\n').at(-1)!.indexOf(label)
+      expect(column).toBeGreaterThanOrEqual(0)
+      overlay.handleMouse({ button: 0, pressed: true, row: hintRow, column: column + 1 })
+    }
+    overlay.open()
+
+    const before = output()
+    click('↑/↓')
+    expect(output()).toBe(before)
+
+    const title = () => strip(lastFrame()).split('\n')[0]
+    overlay.handleKey({ sequence: '/' })
+    expect(title()).toContain('search')
+    click('esc cancel')
+    expect(title()).not.toContain('search')
+
+    click('q close')
+    expect(closed()).toBe(1)
+  })
+
+  it('keeps the active level filter visible in the hints', () => {
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 80, configurable: true })
+    try {
+      const { overlay, lastFrame } = create()
+      const hints = () => strip(lastFrame()).split('\n').at(-1)!
+      overlay.open()
+      expect(hints()).toContain('a all')
+      expect(hints()).not.toContain('w warnings')
+
+      overlay.handleKey({ name: 'w', sequence: 'w' })
+      expect(hints()).toContain('w warnings')
+      overlay.close()
+    }
+    finally {
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
   it('ignores clicks off the entries and button releases', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'only entry' }))
@@ -1709,6 +1759,17 @@ describe('log overlay', () => {
   })
 })
 
+describe('overlay hints', () => {
+  it('highlights an active hint and keeps it when the line is too narrow', () => {
+    const hints: Array<[string, string, boolean?]> = [['a', 'first'], ['b', 'dropped'], ['c', 'active', true], ['d', 'dropped too'], ['e', 'last']]
+
+    const line = formatHints(hints, 24)
+
+    expect(strip(line)).toBe('a first · c active · e last')
+    expect(line).toContain(styleText(['green', 'bold'], 'c active'))
+  })
+})
+
 describe('request log', () => {
   const request = (overrides: Partial<DevRequest> = {}): DevRequest => ({
     time: 0,
@@ -1890,6 +1951,23 @@ describe('request overlay', () => {
     overlay.handleKey({ name: 'escape' })
     expect(overlay.isOpen).toBe(true)
     expect(lastFrame()).toContain('traffic')
+  })
+
+  it('opens the trace of a request clicked a second time', () => {
+    const { log, overlay, lastFrame } = create()
+    log.push([{ time: 0, method: 'GET', url: '/clicked', status: 200, duration: 2 }])
+    overlay.open()
+    const row = lastFrame().split('\n').findIndex(line => line.includes('/clicked'))
+    const click = () => overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
+
+    const title = () => lastFrame().split('\n')[0]
+
+    click()
+    expect(lastFrame()).toContain('\u258E')
+    expect(title()).toContain('traffic')
+    click()
+    expect(title()).toContain('trace')
+    overlay.close()
   })
 
   it('keeps trace navigation keys inside search', () => {
