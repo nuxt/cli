@@ -1365,6 +1365,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   }
 
   async #load(reload?: boolean, reason?: DevRestartReason): Promise<void> {
+    // The previous dev process's dock and problem producers are gone with it.
+    void withErrorChannel((channel) => {
+      channel.setDevTools(false)
+      channel.clearProblems()
+    })
     this.#loadingMessage = reload
       ? formatRestartReason(reason, { rootDir: this.#cwd, link: false })
       : 'Starting Nuxt...'

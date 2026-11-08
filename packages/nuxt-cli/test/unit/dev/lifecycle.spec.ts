@@ -394,6 +394,33 @@ describe('dev server error channel', () => {
 
     expect(instance.current).toBeUndefined()
   })
+
+  it('should forget the devtools dock a previous process registered', async () => {
+    const server = createServer()
+    await server.init()
+
+    const instance = await useErrorChannel()
+    const setDevTools = vi.spyOn(instance, 'setDevTools')
+    instance.setDevTools(true)
+
+    await server.load(true, { type: 'shortcut' })
+
+    expect(setDevTools).toHaveBeenCalledWith(false)
+  })
+
+  it('should forget the problem sets a previous process published', async () => {
+    const server = createServer()
+    await server.init()
+
+    const instance = await useErrorChannel()
+    const report = await createCliReport(new Error('typecheck problem'), { cwd })
+    instance.setProblems('typecheck', [report])
+    expect(instance.problems).toHaveLength(1)
+
+    await server.load(true, { type: 'shortcut' })
+
+    expect(instance.problems).toHaveLength(0)
+  })
 })
 
 describe('dev server listen options', () => {

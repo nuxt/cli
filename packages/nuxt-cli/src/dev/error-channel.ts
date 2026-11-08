@@ -33,6 +33,8 @@ export type DevErrorMessage
     | { type: 'nuxt:dev:error:progress', progress: BuildProgress }
     | { type: 'nuxt:dev:error:problems', source: string, reports: ErrorReport[], meta?: ProblemMeta }
     | { type: 'nuxt:dev:error:problems:clear', source?: string }
+    /** Whether the app registered a my-bad dock with Vite DevTools. */
+    | { type: 'nuxt:dev:error:devtools', registered: boolean }
 
 /** Asks whoever holds a current report to post it again. */
 const SYNC_MESSAGE = { type: 'nuxt:dev:error:sync' } as const
@@ -224,6 +226,9 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
     const { source } = message as { source?: unknown }
     return source === undefined || typeof source === 'string'
   }
+  if (type === 'nuxt:dev:error:devtools') {
+    return typeof (message as { registered?: unknown }).registered === 'boolean'
+  }
   return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
 }
 
@@ -373,6 +378,10 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         }
         case 'nuxt:dev:error:problems:clear': {
           instance.clearProblems(message.source)
+          break
+        }
+        case 'nuxt:dev:error:devtools': {
+          instance.setDevTools(message.registered)
           break
         }
         case 'nuxt:dev:error:warning': {

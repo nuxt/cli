@@ -174,6 +174,13 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems', source: 'vite' })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:problems:clear', source: 7 })).toBe(false)
   })
+
+  it('should only accept a devtools registration with a boolean', () => {
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:devtools', registered: true })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:devtools', registered: false })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:devtools', registered: 1 })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:devtools' })).toBe(false)
+  })
 })
 
 const idleSnapshot = {
@@ -470,6 +477,23 @@ describe('the CLI-owned error channel', () => {
 
     close()
     app.close()
+  })
+
+  it('should publish the devtools registration the app reports', async () => {
+    createServer()
+    const instance = await useErrorChannel()
+    const setDevTools = vi.spyOn(instance, 'setDevTools')
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:devtools', registered: true })
+    app.postMessage({ type: 'nuxt:dev:error:devtools', registered: false })
+    app.close()
+
+    await vi.waitUntil(() => setDevTools.mock.calls.length === 2)
+    close()
+    expect(setDevTools).toHaveBeenNthCalledWith(1, true)
+    expect(setDevTools).toHaveBeenNthCalledWith(2, false)
   })
 
   it('should keep the CLI\'s own progress apart from what the app forwards', async () => {
