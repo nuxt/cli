@@ -137,11 +137,15 @@ describe('panel keys', () => {
   it('should read a mouse report as the mouse, not as keys', async () => {
     const { keys, mouse, type } = attach()
 
-    await type('\u001B[<65;12;5M')
+    await type('\u001B[<0;12;5M')
+    await type('\u001B[<0;12;5m')
     await type('o')
 
     expect(keys).toEqual(['o'])
-    expect(mouse).toEqual([{ button: 65, row: 4, column: 11 }])
+    expect(mouse).toEqual([
+      { button: 0, pressed: true, row: 4, column: 11 },
+      { button: 0, pressed: false, row: 4, column: 11 },
+    ])
   })
 
   it('should read every report of a wheel burst, and the key after it', async () => {
