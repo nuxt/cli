@@ -95,7 +95,7 @@ export function quietServerOutput(nuxt: Nuxt): ServerOutputReport {
         lines.push(`Prerendered ${prerender.count} route${prerender.count === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
       }
       if (!isStatic && duration !== undefined) {
-        lines.push(`Nitro server built in ${formatDuration(duration)}${size === undefined ? '' : styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
+        lines.push(`Server (nitro) built in ${formatDuration(duration)}${size === undefined ? '' : styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
       }
       if (!lines.length) {
         return

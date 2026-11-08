@@ -14,7 +14,7 @@ const BUILD_PHASES: readonly Phase[] = [
   { id: 'types', message: 'Generating types' },
   { id: 'app (client)', message: 'Building app (client)' },
   { id: 'app (server)', message: 'Building app (server)' },
-  { id: 'nitro', message: 'Building Nitro server' },
+  { id: 'server (nitro)', message: 'Building server (nitro)' },
 ]
 
 const HOOK_PHASES: Record<string, string> = {
@@ -22,7 +22,7 @@ const HOOK_PHASES: Record<string, string> = {
   'builder:generateApp': 'app',
   'prepare:types': 'types',
   'build:before': 'app (client)',
-  'nitro:build:before': 'nitro',
+  'nitro:build:before': 'server (nitro)',
 }
 
 /** Nitro builds on its own hooks, which Nuxt's never see. */
@@ -34,7 +34,7 @@ const NITRO_INIT_HOOK = 'nitro:init'
  * project is the longest silence of the build.
  */
 const NITRO_MESSAGES: Record<string, string> = {
-  'rollup:before': 'Bundling Nitro server',
+  'rollup:before': 'Bundling server (nitro)',
   'prerender:routes': 'Prerendering routes',
 }
 
@@ -143,7 +143,7 @@ export class BuildProgress extends PhaseTimeline {
     hooks?.beforeEach?.(({ name, args }) => {
       // Nitro's hooks also run while Nuxt is still bundling the app, and those
       // are not what the build is waiting on.
-      if (BUILD_PHASES[this.index]!.id !== 'nitro') {
+      if (BUILD_PHASES[this.index]!.id !== 'server (nitro)') {
         return
       }
       const message = NITRO_MESSAGES[name]

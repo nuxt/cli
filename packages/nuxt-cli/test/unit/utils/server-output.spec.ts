@@ -101,7 +101,7 @@ describe('quietServerOutput', () => {
     const lines = stripAnsi(report.summary()!).split('\n')
     expect(lines[0]).toMatch(/^Prerendered 1 route in \S+$/)
     // Source maps are left out, as Nitro leaves them out of its own total.
-    expect(lines[1]).toMatch(/^Nitro server built in \S+ · 2\.50 kB$/)
+    expect(lines[1]).toMatch(/^Server \(nitro\) built in \S+ · 2\.50 kB$/)
     expect(lines[2]).toMatch(/^Preview: node \S*server\/index\.mjs$/)
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n  /gone (404 Not Found)')
   })
