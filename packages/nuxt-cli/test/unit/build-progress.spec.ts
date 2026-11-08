@@ -55,11 +55,11 @@ describe('build progress', () => {
       'Setting up modules',
       'Preparing app',
       'Generating types',
-      'Building client app',
-      'Building server app',
+      'Building app (client)',
+      'Building app (server)',
       'Building Nitro server',
     ])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'client app', 'server app', 'nitro'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'app (client)', 'app (server)', 'nitro'])
   })
 
   it('should not split the bundle phase when a single build covers both environments', () => {
@@ -75,8 +75,8 @@ describe('build progress', () => {
     stub.call('nitro:build:before', {})
     progress.finish()
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Building client and server app', 'Building Nitro server'])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'client + server app', 'nitro'])
+    expect(seen).toEqual(['Loading Nuxt config', 'Building app (client + server)', 'Building Nitro server'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'app (client + server)', 'nitro'])
   })
 
   it('should name what the Nitro phase is doing', () => {
