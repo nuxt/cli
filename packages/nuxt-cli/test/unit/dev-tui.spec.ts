@@ -3,7 +3,9 @@ import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
+import { Buffer } from 'node:buffer'
 import process from 'node:process'
+import { styleText } from 'node:util'
 import { consola } from 'consola'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +23,7 @@ import { DEFAULT_HINTS, renderPanel, renderPanelText } from '../../src/dev/tui/p
 import { RequestOverlay } from '../../src/dev/tui/request-overlay'
 import { RequestLog } from '../../src/dev/tui/requests'
 import { RouteOverlay } from '../../src/dev/tui/route-overlay'
+import { formatHints } from '../../src/dev/tui/screen'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
@@ -1023,6 +1026,227 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
+  it('leaves claiming the mouse to the panel', () => {
+    const { overlay, output } = create()
+    overlay.open()
+    overlay.close()
+    expect(output()).not.toContain('\u001B[?1000')
+  })
+
+  describe('wheel', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function spin(overlay: LogOverlay, directions: Array<'up' | 'down'>, gapMs: number) {
+      for (const direction of directions) {
+        vi.setSystemTime(Date.now() + gapMs)
+        overlay.handleMouse({ button: direction === 'up' ? 64 : 65, pressed: true, row: 5, column: 5 })
+      }
+    }
+
+    function forty() {
+      const events = new DevEventLog()
+      for (let i = 0; i < 40; i++) {
+        events.push(event({ message: `entry ${i}` }))
+      }
+      return events
+    }
+
+    it('moves the selection as the arrow keys do when turned slowly', () => {
+      const events = forty()
+      const keys = create(events)
+      const wheel = create(events)
+      keys.overlay.open()
+      wheel.overlay.open()
+
+      for (const name of ['up', 'up', 'up', 'down']) {
+        keys.overlay.handleKey({ name })
+      }
+      spin(wheel.overlay, ['up', 'up', 'up', 'down'], 200)
+
+      expect(wheel.lastFrame()).toContain('\u258E')
+      expect(wheel.lastFrame()).toBe(keys.lastFrame())
+      keys.overlay.close()
+      wheel.overlay.close()
+    })
+
+    it('moves further per tick when spun fast, and starts slow again on turning back', () => {
+      const { overlay, lastFrame } = create(forty())
+      const selected = () => strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))
+      overlay.open()
+      overlay.handleKey({ name: 'home' })
+
+      spin(overlay, ['down', 'down', 'down'], 10)
+      expect(selected()).toContain('entry 7')
+
+      spin(overlay, ['up'], 10)
+      expect(selected()).toContain('entry 6')
+      overlay.close()
+    })
+  })
+
+  it('selects the entry under a click', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 2')
+
+    overlay.handleKey({ name: 'down' })
+    expect(selected()[0]).toContain('entry 3')
+    overlay.close()
+  })
+
+  it('selects the entry under a click in a scrolled view', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 40; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2)
+    overlay.open()
+    const first = body()[0]!.trim()
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+
+    expect(first).not.toContain('entry 0')
+    expect(body()[0]).toContain('\u258E')
+    expect(body()[0]).toContain(first)
+    overlay.close()
+  })
+
+  it('presses the key of a clicked hint', () => {
+    const { overlay, lastFrame, output, closed } = create()
+    const hintRow = (process.stdout.rows || 24) - 1
+    const click = (label: string) => {
+      const column = strip(lastFrame()).split('\n').at(-1)!.indexOf(label)
+      expect(column).toBeGreaterThanOrEqual(0)
+      overlay.handleMouse({ button: 0, pressed: true, row: hintRow, column: column + 1 })
+    }
+    overlay.open()
+
+    const before = output()
+    click('↑/↓')
+    expect(output()).toBe(before)
+
+    const title = () => strip(lastFrame()).split('\n')[0]
+    overlay.handleKey({ sequence: '/' })
+    expect(title()).toContain('search')
+    click('esc cancel')
+    expect(title()).not.toContain('search')
+
+    click('q close')
+    expect(closed()).toBe(1)
+  })
+
+  it('keeps the active level filter visible in the hints', () => {
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 80, configurable: true })
+    try {
+      const { overlay, lastFrame } = create()
+      const hints = () => strip(lastFrame()).split('\n').at(-1)!
+      overlay.open()
+      expect(hints()).toContain('a all')
+      expect(hints()).not.toContain('w warnings')
+
+      overlay.handleKey({ name: 'w', sequence: 'w' })
+      expect(hints()).toContain('w warnings')
+      overlay.close()
+    }
+    finally {
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
+  it('clicks the entry that was seen, even when the list moved since', () => {
+    const events = new DevEventLog(5)
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+    // Drops `entry 0` from the front before the view repaints.
+    events.push(event({ message: 'entry 5' }))
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    expect(selected()).toEqual([])
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 1')
+    overlay.close()
+  })
+
+  it('opens only the entry that was selected, even when the list moved since', () => {
+    const events = new DevEventLog(5)
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
+    overlay.open()
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    expect(selected()[0]).toContain('entry 1')
+    // Drops `entry 0`, so `entry 2` now sits where `entry 1` was in the list.
+    events.push(event({ message: 'entry 5' }))
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('entry 2')
+    overlay.close()
+  })
+
+  it('ignores clicks off the entries and button releases', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'only entry' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const rows = process.stdout.rows || 24
+
+    for (const row of [0, 1, 5, rows - 1]) {
+      overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
+    }
+    overlay.handleMouse({ button: 0, pressed: false, row: 2, column: 10 })
+
+    expect(lastFrame()).not.toContain('\u258E')
+    expect(strip(lastFrame())).not.toContain('nothing selected')
+    overlay.close()
+  })
+
+  it('leaves the selection alone while a search is typed', () => {
+    const events = new DevEventLog()
+    for (let i = 0; i < 5; i++) {
+      events.push(event({ message: `entry ${i}` }))
+    }
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ sequence: '/' })
+
+    overlay.handleMouse({ button: 65, pressed: true, row: 4, column: 10 })
+    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+
+    expect(lastFrame()).not.toContain('\u258E')
+    expect(strip(lastFrame()).split('\n')[0]).toContain('search')
+    overlay.close()
+  })
+
   it('reflows to the terminal when it is resized while open', async () => {
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
@@ -1592,6 +1816,17 @@ describe('log overlay', () => {
   })
 })
 
+describe('overlay hints', () => {
+  it('highlights an active hint and keeps it when the line is too narrow', () => {
+    const hints: Array<[string, string, boolean?]> = [['a', 'first'], ['b', 'dropped'], ['c', 'active', true], ['d', 'dropped too'], ['e', 'last']]
+
+    const line = formatHints(hints, 24)
+
+    expect(strip(line)).toBe('a first · c active · e last')
+    expect(line).toContain(styleText(['green', 'bold'], 'c active'))
+  })
+})
+
 describe('request log', () => {
   const request = (overrides: Partial<DevRequest> = {}): DevRequest => ({
     time: 0,
@@ -1773,6 +2008,23 @@ describe('request overlay', () => {
     overlay.handleKey({ name: 'escape' })
     expect(overlay.isOpen).toBe(true)
     expect(lastFrame()).toContain('traffic')
+  })
+
+  it('opens the trace of a request clicked a second time', () => {
+    const { log, overlay, lastFrame } = create()
+    log.push([{ time: 0, method: 'GET', url: '/clicked', status: 200, duration: 2 }])
+    overlay.open()
+    const row = lastFrame().split('\n').findIndex(line => line.includes('/clicked'))
+    const click = () => overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
+
+    const title = () => lastFrame().split('\n')[0]
+
+    click()
+    expect(lastFrame()).toContain('\u258E')
+    expect(title()).toContain('traffic')
+    click()
+    expect(title()).toContain('trace')
+    overlay.close()
   })
 
   it('keeps trace navigation keys inside search', () => {
@@ -3012,6 +3264,103 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
     }
   }
 }
+
+describe('panel mouse', () => {
+  const mouseOn = '\u001B[?1000h\u001B[?1006h'
+  const mouseOff = '\u001B[?1006l\u001B[?1000l'
+
+  /** Click the panel hint labelled `label`, on the last row, and let the report settle. */
+  async function clickHint(session: NonNullable<ReturnType<typeof beginDevUI>>, label: string): Promise<void> {
+    const column = strip(session.surface.lines.at(-1) ?? '').indexOf(label)
+    expect(column).toBeGreaterThanOrEqual(0)
+    process.stdin.emit('data', Buffer.from(`\u001B[<0;${column + 1};30M`, 'latin1'))
+    await new Promise(resolve => setImmediate(resolve))
+  }
+
+  it('claims the mouse only while switched on with m, and shows it on', async () => {
+    await withPanel(async (_ui, settle, session) => {
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      expect(writes).toHaveBeenLastCalledWith(mouseOn)
+      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(true)
+
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      expect(writes).toHaveBeenLastCalledWith(mouseOff)
+      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(false)
+      await settle()
+    })
+  })
+
+  it('presses the key of a clicked hint, and keeps the mouse through a view', async () => {
+    await withPanel(async (_ui, settle, session) => {
+      await clickHint(session, 'l logs')
+      expect(session.surface.screenMode).toBe('split-footer')
+
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      await settle()
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      await clickHint(session, 'l logs')
+      expect(session.surface.screenMode).toBe('alternate-screen')
+
+      process.stdin.emit('keypress', '', { name: 'escape' })
+      expect(session.surface.screenMode).toBe('split-footer')
+      expect(writes.mock.calls.some(([chunk]) => chunk.includes('\u001B[?1000'))).toBe(false)
+    })
+  })
+
+  it('quits only on a second click', async () => {
+    adoptShutdown()
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (_ui, settle, session) => {
+        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+        await settle()
+        await clickHint(session, 'q quit')
+        expect(interrupt).not.toHaveBeenCalled()
+        expect(session.state.notice?.text).toContain('click quit again')
+
+        await clickHint(session, 'q quit')
+        expect(interrupt).toHaveBeenCalledOnce()
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it('asks again when something else is clicked between the two', async () => {
+    adoptShutdown()
+    const interrupt = vi.fn()
+    process.on('SIGINT', interrupt)
+    try {
+      await withPanel(async (_ui, settle, session) => {
+        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+        await settle()
+        await clickHint(session, 'q quit')
+        await clickHint(session, 'l logs')
+        process.stdin.emit('keypress', '', { name: 'escape' })
+        await settle()
+
+        await clickHint(session, 'q quit')
+        expect(interrupt).not.toHaveBeenCalled()
+        expect(session.state.notice?.text).toContain('click quit again')
+      })
+    }
+    finally {
+      process.off('SIGINT', interrupt)
+    }
+  })
+
+  it('gives the mouse back on teardown', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
+      const writes = vi.spyOn(session.surface, 'writeRaw')
+      session.teardown()
+      expect(writes.mock.calls.map(([chunk]) => chunk).filter(chunk => chunk.includes('?1000')).at(-1)).toBe(mouseOff)
+    })
+  })
+})
 
 describe('panel shortcut routing', () => {
   it.each(['ready', 'starting', 'building', 'restarting', 'warming', 'error'] as const)('quits without confirmation while %s', async (status) => {

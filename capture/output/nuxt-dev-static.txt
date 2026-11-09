@@ -1,4 +1,4 @@
-styles: fb976d6bd0fa7d02
+styles: fe6f61bda4c56094
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
@@ -16,7 +16,8 @@ styles: fb976d6bd0fa7d02
   STARTING   preparing your app
   STARTING   setting up modules
   STARTING   starting Nuxt...
- o open · i info · l logs · n network · p routes · ? help · q quit
+ o open · i info · l logs · n network · p routes · ? help · m mouse · q quit
+ r restart · o open · i info · l logs · n network · p routes · ? help · m mouse · q quit
  r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  ⣠⣦⣠⡀  Nuxt x.y.z
  ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms

@@ -1,4 +1,5 @@
 import type { Key } from './keys'
+import type { MouseReport } from './terminal-replies'
 
 import process from 'node:process'
 import { styleText } from 'node:util'
@@ -7,6 +8,7 @@ import { stripAnsi, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
 
 import { writeClipboard } from '../listen'
+import { LEFT_BUTTON, WHEEL_DOWN, WHEEL_UP } from './terminal-replies'
 
 const RENDER_DELAY_MS = 50
 
@@ -29,6 +31,23 @@ export interface OverlayEntry {
 const ENTER_ALT = '\u001B[?1049h\u001B[?25l'
 const LEAVE_ALT = '\u001B[?25h\u001B[?1049l'
 
+/** Wheel ticks this close together in one direction are a fast spin, which moves further per tick. */
+const FAST_WHEEL_MS = 40
+const FAST_WHEEL_STEP = 3
+
+/** The title and the rule under it, above the entries. */
+const HEADER_ROWS = 2
+
+const HINT_SEPARATOR = ' · '
+
+/** Hint labels that are words rather than the key itself. */
+const HINT_KEYS: Record<string, Key> = {
+  'esc': { name: 'escape' },
+  'esc/q': { name: 'escape' },
+  'enter': { name: 'return' },
+  '⌫': { name: 'backspace' },
+}
+
 /** Alternate-screen view with navigation, search and copying. */
 export abstract class ScreenOverlay {
   #write: (chunk: string) => void
@@ -48,6 +67,10 @@ export abstract class ScreenOverlay {
   #selected?: number
   #selectedKey?: object | string
   #notice?: { text: string, until: number }
+  #lastWheel?: { direction: number, at: number }
+  #shownHints = ''
+  /** The entry on each body row as last painted, so a click hits what was seen. */
+  #shownEntries: Array<{ key?: object | string, index: number }> = []
 
   constructor(options: {
     write: (chunk: string) => void
@@ -195,6 +218,51 @@ export abstract class ScreenOverlay {
     this.render()
   }
 
+  /**
+   * The wheel moves the selection like the arrow keys, further when spun fast.
+   * A click selects the entry under it; a click on the selected entry is enter.
+   * A click on a hint presses its key.
+   */
+  handleMouse({ button, pressed, row, column }: MouseReport): void {
+    if (button === WHEEL_UP || button === WHEEL_DOWN) {
+      // A search being typed keeps the selection, as it does for the arrow keys.
+      if (this.#searching) {
+        return
+      }
+      const direction = button === WHEEL_UP ? -1 : 1
+      const now = Date.now()
+      const fast = this.#lastWheel?.direction === direction && now - this.#lastWheel.at < FAST_WHEEL_MS
+      this.#lastWheel = { direction, at: now }
+      this.#move(direction * (fast ? FAST_WHEEL_STEP : 1))
+      this.render()
+    }
+    else if (button === LEFT_BUTTON && pressed && !this.#searching && row >= HEADER_ROWS && row < HEADER_ROWS + this.bodyRows()) {
+      const shown = this.#shownEntries[row - HEADER_ROWS]
+      if (!shown) {
+        return
+      }
+      // Resolved by identity: the list may have changed since it was painted.
+      const index = shown.key === undefined ? shown.index : this.#entries().findIndex(entry => entry.key === shown.key)
+      if (index < 0) {
+        return
+      }
+      const again = shown.key === undefined ? index === this.#selected : shown.key === this.#selectedKey
+      this.select(index)
+      if (again) {
+        this.handleKey({ name: 'return' })
+      }
+      else {
+        this.render()
+      }
+    }
+    else if (button === LEFT_BUTTON && pressed && row === HEADER_ROWS + this.bodyRows()) {
+      const key = hintKeyAt(this.#shownHints, column)
+      if (key) {
+        this.handleKey(key)
+      }
+    }
+  }
+
   /** Rows available for content, once the title, rule and hints are taken. */
   protected bodyRows(): number {
     return Math.max(1, (process.stdout.rows || 24) - 3)
@@ -274,6 +342,7 @@ export abstract class ScreenOverlay {
     this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
 
     const rows: string[] = []
+    const rowEntries: number[] = []
     let selectedRows: { start: number, end: number } | undefined
     for (const [index, entry] of entries.entries()) {
       const selected = index === this.#selected
@@ -282,6 +351,7 @@ export abstract class ScreenOverlay {
       }
       for (const line of entry.lines) {
         rows.push(`${selected ? styleText('green', SELECTED_GUTTER) : GUTTER}${line}`)
+        rowEntries.push(index)
       }
     }
 
@@ -308,6 +378,7 @@ export abstract class ScreenOverlay {
     this.#offset = Math.max(0, rows.length - this.#top - bodyRows)
     this.#anchor = this.#rowAnchor(entries, this.#top)
     const visible = rows.slice(this.#top, this.#top + bodyRows)
+    this.#shownEntries = rowEntries.slice(this.#top, this.#top + bodyRows).map(index => ({ key: entries[index]!.key, index }))
 
     const frame = [
       this.renderTitle(columns),
@@ -316,6 +387,7 @@ export abstract class ScreenOverlay {
       ...Array.from({ length: bodyRows - visible.length }).fill('') as string[],
       this.#hintLine(),
     ].map(row => truncate(row, columns))
+    this.#shownHints = frame.at(-1)!
     this.#write(`\u001B[H\u001B[2J${frame.join('\n')}`)
   }
 
@@ -429,15 +501,37 @@ export abstract class ScreenOverlay {
   }
 }
 
-/** Format hints to fit, preserving the first and last. */
-export function formatHints(hints: Array<[key: string, description: string]>, columns = Number.POSITIVE_INFINITY): string {
+/** The key of the hint shown at `column`. Hints for several keys, like `↑/↓`, have none. */
+export function hintKeyAt(line: string, column: number): Key | undefined {
+  let start = 0
+  for (const hint of stripAnsi(line).split(HINT_SEPARATOR)) {
+    const end = start + visibleWidth(hint)
+    if (column >= start && column < end) {
+      const label = hint.trim().split(' ')[0]!
+      return HINT_KEYS[label] ?? (label.length === 1 ? { name: label.toLowerCase(), sequence: label } : undefined)
+    }
+    start = end + HINT_SEPARATOR.length
+  }
+}
+
+/**
+ * Format hints to fit, preserving the first, the last and the active ones: an
+ * active hint is the filter in effect, which must stay visible.
+ */
+export function formatHints(hints: Array<[key: string, description: string, active?: boolean]>, columns = Number.POSITIVE_INFINITY): string {
   const remaining = [...hints]
   const render = () => remaining
-    .map(([key, description]) => `${styleText('bold', key)} ${styleText(MUTED, description)}`)
-    .join(styleText(MUTED, ' · '))
+    .map(([key, description, active]) => active
+      ? styleText(['green', 'bold'], `${key} ${description}`)
+      : `${styleText('bold', key)} ${styleText(MUTED, description)}`)
+    .join(styleText(MUTED, HINT_SEPARATOR))
 
-  while (remaining.length > 2 && visibleWidth(render()) > columns) {
-    remaining.splice(remaining.length - 2, 1)
+  while (visibleWidth(render()) > columns) {
+    const droppable = remaining.findLastIndex(([, , active], index) => !active && index > 0 && index < remaining.length - 1)
+    if (droppable < 0) {
+      break
+    }
+    remaining.splice(droppable, 1)
   }
   return render()
 }

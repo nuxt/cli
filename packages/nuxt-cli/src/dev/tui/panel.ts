@@ -40,6 +40,8 @@ export interface PanelHint {
   priority: number
   /** The shortcut is waiting on the server, and fires as soon as it is up. */
   armed?: boolean
+  /** The shortcut is a mode that is switched on. */
+  active?: boolean
 }
 
 /**
@@ -391,9 +393,11 @@ function renderHints(state: PanelState, columns: number): string {
     ...state.hints ?? [],
   ]
   const render = (items: PanelHint[]) => ` ${items
-    .map(({ key, label, armed }) => armed
-      ? `${paint('brand', key, state.background)} ${paint('brand', label, state.background)}`
-      : `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
+    .map(({ key, label, armed, active }) => active
+      ? styleText(['green', 'bold'], `${key} ${label}`)
+      : armed
+        ? `${paint('brand', key, state.background)} ${paint('brand', label, state.background)}`
+        : `${styleText(state.hintsDimmed ? MUTED : 'bold', key)} ${styleText(MUTED, label)}`)
     .join(SEPARATOR)}`
 
   while (remaining.length > 1 && visibleWidth(render(remaining)) > columns) {

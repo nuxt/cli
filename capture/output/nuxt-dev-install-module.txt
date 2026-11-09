@@ -1,4 +1,4 @@
-styles: a057ea820f39fe11
+styles: 99c23275be4950c2
         '@vue/devtools-core',
       ]
       include: [
@@ -34,7 +34,8 @@ styles: a057ea820f39fe11
   STARTING   starting Nuxt...
   vite: {
   }
- o open · i info · l logs · n network · p routes · ? help · q quit
+ o open · i info · l logs · n network · p routes · ? help · m mouse · q quit
+ r restart · o open · i info · l logs · n network · p routes · ? help · m mouse · q quit
  r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  ⣠⣦⣠⡀  Nuxt x.y.z
  ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
