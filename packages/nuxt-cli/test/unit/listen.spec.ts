@@ -6,6 +6,7 @@ import { networkInterfaces } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { canOpenBrowser, copyURL, formatDisplayURL, getNetworkAddresses, isReusePortSupported, listen, matchesBoundTarget, openBrowser, parsePort, resolveOpenCommand, validateHostname, writeClipboard } from '../../src/dev/listen'
+import { logger } from '../../src/utils/logger'
 
 const writeText = vi.hoisted(() => vi.fn())
 const isolatedEnvironment = vi.hoisted(() => ({ current: undefined as string | undefined }))
@@ -275,6 +276,34 @@ describe('listen', () => {
 
     expect(responses.every(response => response.endsWith('\r\n\r\nok'))).toBe(true)
     expect(listener.url).toBe(`http://localhost:${listener.address.port}/`)
+  })
+
+  describe('network warning', () => {
+    const NETWORK_WARNING = 'The dev server is reachable from the network without authentication'
+
+    async function warnsFor(hostname: string) {
+      const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+      try {
+        await start({ port: 0, hostname })
+        return warn.mock.calls.some(([message]) => String(message).includes(NETWORK_WARNING))
+      }
+      finally {
+        warn.mockRestore()
+      }
+    }
+
+    it('should warn when bound to all interfaces', async () => {
+      expect(await warnsFor('0.0.0.0')).toBe(true)
+    })
+
+    it('should not warn when bound to loopback', async () => {
+      expect(await warnsFor('127.0.0.1')).toBe(false)
+    })
+
+    // Only Linux binds `127.0.0.0/8` addresses beyond `127.0.0.1` without configuration.
+    it.runIf(process.platform === 'linux')('should not warn when bound to another loopback address', async () => {
+      expect(await warnsFor('127.0.0.2')).toBe(false)
+    })
   })
 
   it('should reject an invalid port before binding', async () => {

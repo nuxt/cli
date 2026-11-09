@@ -74,7 +74,6 @@ export interface Listener {
 }
 
 const ANY_HOSTS = new Set(['', '0.0.0.0', '::'])
-const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
 const DEFAULT_PORTS = { http: 80, https: 443 } as const
 
 /** How long in-flight requests have to finish before their sockets are killed. */
@@ -336,7 +335,7 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       console.log(`${qr ? '' : '\n'}${lines.join('\n')}\n`)
     }
 
-    if (announce && (anyHost || !LOOPBACK_HOSTS.has(hostname))) {
+    if (announce && !isLoopbackAddress(address.address)) {
       logger.warn('The dev server is reachable from the network without authentication: anyone who can connect can read the app, build errors and source code.')
     }
 
