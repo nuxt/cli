@@ -28,7 +28,7 @@ overrides:
   # scoped by range: nitro v3 in `playground-nightly` needs h3 v2
   h3@^1: ^1.15.11
   httpxy: 0.5.6
-  nitropack: 2.13.5
+  nitropack: 2.13.6
   nuxi: workspace:*
   # upstream issue with MISSING_EXPORT warnings
   rolldown: 1.3.0
