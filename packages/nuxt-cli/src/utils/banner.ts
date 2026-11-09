@@ -5,7 +5,6 @@ import { styleText } from 'node:util'
 import { logger } from './logger'
 import { getNitroVersion } from './nitro'
 import { getNuxtPkgVersion, getPkgJSON, getPkgVersion } from './pkg'
-import { getServerBuilderName } from './server-build'
 
 export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] | NuxtConfig['builder'], NuxtBuilder>): { name: string, version: string, provider?: { name: string, version: string } } {
   switch (builder) {
@@ -31,12 +30,7 @@ export function getBuilder(cwd: string, builder: Exclude<NuxtOptions['builder'] 
 }
 
 export function showBanner(nuxt: Nuxt) {
-  logger.info(describeStack(nuxt.options.rootDir, {
-    nuxtVersion: nuxt._version,
-    builder: nuxt.options.builder,
-    // Nitro is installed with Nuxt whether or not it builds the server.
-    withNitro: getServerBuilderName(nuxt) === 'Nitro',
-  }))
+  logger.info(describeStack(nuxt.options.rootDir, { nuxtVersion: nuxt._version, builder: nuxt.options.builder }))
 }
 
 export interface StackVersions {
@@ -57,9 +51,8 @@ export function resolveStackVersions(cwd: string, options: { nuxtVersion?: strin
 }
 
 /** The `Nuxt x (with Nitro y, Vite z and Vue w)` line shown at startup. */
-function describeStack(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'], withNitro?: boolean } = {}): string {
-  const { nuxt: nuxtVersion, nitro, builder, vue: vueVersion } = resolveStackVersions(cwd, options)
-  const nitroVersion = options.withNitro === false ? undefined : nitro
+function describeStack(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'] } = {}): string {
+  const { nuxt: nuxtVersion, nitro: nitroVersion, builder, vue: vueVersion } = resolveStackVersions(cwd, options)
 
   const builderPart = `${builder.name} ${styleText('bold', builder.version)}${builder.provider ? ` via ${builder.provider.name} ${styleText('bold', builder.provider.version)}` : ''}`
 
