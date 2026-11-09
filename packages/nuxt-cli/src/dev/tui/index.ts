@@ -1,5 +1,7 @@
+import type { NuxtOptions } from '@nuxt/schema'
 import type { TerminalNotification } from '../../utils/terminal-host'
 import type { ShortcutContext } from '../shortcuts'
+import type { DevStack } from '../utils'
 import type { DevUIController } from './controller'
 import type { PanelStart } from './first-frame'
 import type { InfoSection } from './info-overlay'
@@ -122,12 +124,13 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     events,
   })
   let shortcuts: UIShortcut[] = []
+  let stack: DevStack | undefined
   let qrCode: string | undefined
   let armedOpen = false
   let ready = false
   const helpOverlay = new HelpOverlay(() => shortcuts.filter(shortcut => shortcut.isAvailable?.() !== false), write, release)
   const infoOverlay = new InfoOverlay(
-    () => describeSession(context, cwd, requests, sessionStart, state.update, state.updateLink),
+    () => describeSession(context, cwd, requests, sessionStart, stack, state.update, state.updateLink),
     write,
     release,
     () => qrCode,
@@ -647,6 +650,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       update({ note: undefined })
     },
     setRoutes: payload => routeOverlay.setRoutes(payload),
+    setStack: (payload) => {
+      stack = payload
+    },
     setRendering: (pending, awaiting) => {
       update({
         rendering: pending && { label: pending.label, startedAt: pending.startedAt },
@@ -716,10 +722,12 @@ function describeSession(
   cwd: string,
   requests: RequestLog,
   sessionStart: number,
+  stack?: DevStack,
   update?: string,
   updateLink?: string,
 ): InfoSection[] {
-  const versions = resolveStackVersions(cwd)
+  // Until Nuxt has loaded, the installed packages are all there is to go on.
+  const versions = resolveStackVersions(cwd, { builder: stack?.builder as NuxtOptions['builder'] | undefined })
   const { listener } = context
 
   return [
@@ -729,7 +737,7 @@ function describeSession(
         ['Nuxt', update
           ? `${linkVersion(versions.nuxt)} ${paint('warning', updateLink ?? `\u2192 ${update} available`)}`
           : linkVersion(versions.nuxt)],
-        ['Nitro', versions.nitro],
+        ['Nitro', stack?.nitro === false ? undefined : versions.nitro],
         [versions.builder.name, versions.builder.version],
         [versions.builder.provider?.name ?? 'via', versions.builder.provider?.version],
         ['Vue', versions.vue ?? undefined],

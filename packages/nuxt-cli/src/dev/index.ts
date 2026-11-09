@@ -6,7 +6,7 @@ import type { DevRestartReason } from './reason'
 import type { DevReportSummary } from './error-channel'
 import type { ServerLogEvent } from './log-channel'
 import type { DevRequestSpan } from './span-channel'
-import type { DevRequestEvent, DevRoutes, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
+import type { DevRequestEvent, DevRoutes, DevStack, NuxtDevContext, NuxtDevIPCMessage, NuxtParentIPCMessage } from './utils'
 
 import process from 'node:process'
 
@@ -242,6 +242,8 @@ interface InitializeReturn {
   onBuilding: (callback: (building: boolean) => void) => void
   /** Called whenever the app's routes are (re)discovered. */
   onRoutes: (callback: (routes: DevRoutes) => void) => void
+  /** Called with the builders the app uses, each time Nuxt loads. */
+  onStack: (callback: (stack: DevStack) => void) => void
   /** Called the first time a watched file changes, before Nuxt reloads. */
   onFileChange: (callback: () => void) => void
   onRestart: (callback: (reason?: DevRestartReason) => void) => void
@@ -318,6 +320,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
   const requests = createFeed<DevRequestEvent[]>(PENDING_REQUEST_BATCHES)
   const spans = createFeed<DevRequestSpan[]>(PENDING_REQUEST_BATCHES)
   const routes = createFeed<DevRoutes>(1)
+  const stack = createFeed<DevStack>(1)
   const building = createFeed<boolean>(0)
   const reports = createFeed<DevReportSummary>(PENDING_REPORTS)
   const reportsCleared = createFeed<string | undefined>(0)
@@ -386,6 +389,14 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
         return
       }
       building.emit(value)
+    })
+
+    devServer.on('stack', (payload) => {
+      if (ipc.enabled) {
+        ipc.send({ type: 'nuxt:internal:dev:stack', payload })
+        return
+      }
+      stack.emit(payload)
     })
 
     devServer.on('routes', (payload) => {
@@ -549,6 +560,7 @@ export async function initialize(devContext: NuxtDevContext, ctx: InitializeOpti
     onReport: reports.subscribe,
     onReportClear: reportsCleared.subscribe,
     onRoutes: routes.subscribe,
+    onStack: stack.subscribe,
     onFileChange: (callback: () => void) => {
       devServer.once('change', callback)
     },

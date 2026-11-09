@@ -109,6 +109,7 @@ beforeEach(() => {
     onRequests: vi.fn(),
     onSpans: vi.fn(),
     onRoutes: vi.fn(),
+    onStack: vi.fn(),
     onBuilding: vi.fn(),
     onReport: vi.fn(),
     onReportClear: vi.fn(),

@@ -3,7 +3,7 @@ import type { DevReportSummary } from '../error-channel'
 import type { ServerLogEvent } from '../log-channel'
 import type { ShortcutContext } from '../shortcuts'
 import type { DevRequestSpan } from '../span-channel'
-import type { DevRequestEvent, DevRoutes } from '../utils'
+import type { DevRequestEvent, DevRoutes, DevStack } from '../utils'
 import type { DevUIOptions } from './index'
 import type { DevStatus } from './panel'
 import type { DevUISession } from './session'
@@ -33,6 +33,8 @@ export interface DevUIController {
   clearReport: (id?: string) => void
   /** Replace the routes shown in the route view. */
   setRoutes: (routes: DevRoutes) => void
+  /** Name the builders the loaded app uses, for the versions in the info view. */
+  setStack: (stack: DevStack) => void
   /**
    * Report the render the server is busy with, or that it is busy with none.
    * `awaiting` says no page has been rendered yet, which is what makes it a
@@ -52,6 +54,7 @@ export const NOOP_CONTROLLER: DevUIController = {
   pushReport: () => {},
   clearReport: () => {},
   setRoutes: () => {},
+  setStack: () => {},
   setRendering: () => {},
 }
 

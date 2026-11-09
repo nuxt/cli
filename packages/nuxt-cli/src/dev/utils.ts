@@ -36,7 +36,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { resolveServerBuild } from '../utils/server-build'
+import { getServerBuilderName, resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
@@ -68,6 +68,7 @@ export type NuxtDevIPCMessage
     | { type: 'nuxt:internal:dev:requests', requests: DevRequestEvent[] }
     | { type: 'nuxt:internal:dev:spans', spans: DevRequestSpan[] }
     | { type: 'nuxt:internal:dev:routes', payload: DevRoutes }
+    | { type: 'nuxt:internal:dev:stack', payload: DevStack }
     | { type: 'nuxt:internal:dev:building', building: boolean }
     | { type: 'nuxt:internal:dev:rendering', pending?: PendingRender, awaiting?: boolean }
     | { type: 'nuxt:internal:dev:report', report: DevReportSummary }
@@ -181,6 +182,14 @@ export interface DevRoutes {
   errorComponent?: string
 }
 
+/** What the loaded app is built with, for the versions the dev UI lists. */
+export interface DevStack {
+  /** The configured app builder, e.g. `vite` or `@nuxt/webpack-builder`. */
+  builder?: string
+  /** Whether Nitro builds the server, rather than another server builder. */
+  nitro: boolean
+}
+
 /** A page or server route the app defines, as listed in the dev UI. */
 export interface DevRoute {
   kind: 'page' | 'server'
@@ -216,6 +225,7 @@ interface DevServerEventMap {
   /** Time spent serving a request that the app did not publish itself. */
   'span': [span: DevRequestSpan]
   'routes': [payload: DevRoutes]
+  'stack': [payload: DevStack]
   'building': [building: boolean]
   /** A report the app forwarded, rendered for a terminal. */
   'report': [report: DevReportSummary]
@@ -858,6 +868,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
 
     if (this.options.captureUIEvents) {
+      const builder = this.#currentNuxt.options.builder
+      this.emit('stack', {
+        builder: typeof builder === 'string' ? builder : undefined,
+        nitro: getServerBuilderName(this.#currentNuxt) === 'Nitro',
+      })
       this.#collectRoutes(this.#currentNuxt)
       this.#watchServerBuilds(this.#currentNuxt)
     }
