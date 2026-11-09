@@ -96,6 +96,22 @@ describe('info command', () => {
     }
   })
 
+  it('should name Nitro as the default server builder', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
+
+    expect((await runInfoJSON()).serverBuilder).toMatch(/^nitro@\d/)
+  })
+
+  it('should name the server builder a config chooses, with its version', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { '@nuxt/vite-server': '4.6.4' } }))
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: '@nuxt/vite-server' } }`)
+
+    const payload = await runInfoJSON()
+
+    expect(payload.serverBuilder).toMatch(/^@nuxt\/vite-server@\d/)
+    expect(payload).not.toHaveProperty('nitroVersion')
+  })
+
   it('should still report on a project with no config', async () => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
 

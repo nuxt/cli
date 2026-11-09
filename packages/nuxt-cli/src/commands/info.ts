@@ -1,4 +1,4 @@
-import type { NuxtModule } from '@nuxt/schema'
+import type { Nuxt, NuxtConfig, NuxtModule } from '@nuxt/schema'
 import type { PackageJson } from 'pkg-types'
 
 import os from 'node:os'
@@ -23,6 +23,7 @@ import { readDependencyPackageJson } from '../utils/package-json'
 import { detectPackageManager, getPackageManagerVersion } from '../utils/package-managers'
 import { resolveRootDir } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
+import { getServerBuilderName } from '../utils/server-build'
 import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
@@ -37,7 +38,7 @@ const JSON_KEYS: Record<string, string> = {
   'nuxt/cli version': 'cliVersion',
   'Package manager': 'packageManager',
   'Nuxt version': 'nuxtVersion',
-  'Nitro version': 'nitroVersion',
+  'Server builder': 'serverBuilder',
   'Builder': 'builder',
   'Config': 'config',
   'Modules': 'modules',
@@ -94,6 +95,7 @@ export default defineCommand({
     const configKeys = Object.keys(nuxtConfig).sort()
     const moduleNames = modules.filter(module => module !== null)
     const builder = nuxtConfig.builder || 'vite'
+    const serverBuilder = await describeServerBuilder(nuxtConfig, nitroVersion, getDepVersion)
     const osType = os.type()
     const cpus = os.cpus()
     const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
@@ -113,7 +115,7 @@ export default defineCommand({
       'nuxt/cli version': nuxiVersion,
       'Package manager': packageManager,
       'Nuxt version': nuxtVersion,
-      'Nitro version': nitroVersion,
+      'Server builder': serverBuilder,
       'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
       'Config': configKeys.map(key => `\`${key}\``).join(', '),
       'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
@@ -252,4 +254,27 @@ export function normalizeConfigModule(
     return normalizeConfigModule(module[0], rootDir)
   }
   return null
+}
+
+/**
+ * The server builder as `name@version`, like the app builder above it: Nitro by
+ * default, otherwise the package `server.builder` names, or `custom` for one
+ * defined inline.
+ */
+async function describeServerBuilder(
+  nuxtConfig: NuxtConfig,
+  nitroVersion: string | undefined,
+  getDepVersion: (name: string) => Promise<string | undefined>,
+): Promise<string> {
+  // Read from the config, without loading Nuxt, the same way as for a loaded app.
+  const name = getServerBuilderName({ options: nuxtConfig } as unknown as Nuxt)
+  if (name === 'Nitro') {
+    return nitroVersion ? `nitro@${nitroVersion}` : 'nitro'
+  }
+  const specifier = (nuxtConfig as { server?: { builder?: unknown } }).server?.builder
+  if (typeof specifier !== 'string') {
+    return name
+  }
+  const version = await getDepVersion(specifier)
+  return version ? `${specifier}@${version}` : specifier
 }
