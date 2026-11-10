@@ -400,8 +400,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0
       my-bad:
-        specifier: ^1.0.1
-        version: 1.0.1(vite@8.3.5)
+        specifier: ^1.2.0
+        version: 1.2.0(vite@8.3.5)
       obug:
         specifier: ^3.0.0
         version: 3.0.0
@@ -4575,8 +4575,8 @@ packages:
       vite:
         optional: true
 
-  my-bad@1.0.1:
-    resolution: {integrity: sha512-/1XWvawUM0EYtIOXE+3w09bbf3qeU9OcHTdJgJ0BTjbabW+C3PRY0CZl1SonAzpgYnic2WXc2rJKIQfDugPwyw==}
+  my-bad@1.2.0:
+    resolution: {integrity: sha512-y7Fh95PwxGlod59un5ASP1xgbG2YzpmRQ2twCHCUZT2mJXF4m+2dNwpbbkUXbiGq2CZu1A5D4xDVXhIB4yK+mw==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       vite: '>=6'
@@ -11268,7 +11268,7 @@ snapshots:
     optionalDependencies:
       vite: 8.3.5(@types/node@24.19.2)(@vitejs/devtools@0.7.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.50.0)(yaml@2.9.1)
 
-  my-bad@1.0.1(vite@8.3.5):
+  my-bad@1.2.0(vite@8.3.5):
     dependencies:
       clickable-path: 0.1.1
       errx: 0.2.2
