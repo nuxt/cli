@@ -96,8 +96,9 @@ describe('info command', () => {
     }
   })
 
+  // Versions are declared so the fixtures resolve one even where nothing is installed.
   it('should name Nitro as the default server builder', async () => {
-    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { nitropack: '2.13.6' } }))
 
     expect((await runInfoJSON()).serverBuilder).toMatch(/^nitro@\d/)
   })
@@ -113,7 +114,7 @@ describe('info command', () => {
   })
 
   it('should read the `vite` shorthand as the package it stands for', async () => {
-    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { '@nuxt/vite-server': '4.6.4' } }))
     await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: 'vite' } }`)
 
     expect((await runInfoJSON()).serverBuilder).toMatch(/^@nuxt\/vite-server@\d/)
