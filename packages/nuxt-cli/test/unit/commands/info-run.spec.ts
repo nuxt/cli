@@ -112,6 +112,13 @@ describe('info command', () => {
     expect(payload).not.toHaveProperty('nitroVersion')
   })
 
+  it('should read the `vite` shorthand as the package it stands for', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: 'vite' } }`)
+
+    expect((await runInfoJSON()).serverBuilder).toMatch(/^@nuxt\/vite-server@\d/)
+  })
+
   it('should still report on a project with no config', async () => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true }))
 

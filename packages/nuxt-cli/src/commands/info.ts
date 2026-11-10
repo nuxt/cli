@@ -28,6 +28,12 @@ import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
 
+/** The shorthands Nuxt accepts for `server.builder`, and the packages they stand for. */
+const SERVER_BUILDER_SHORTHANDS: Record<string, string> = {
+  nitro: '@nuxt/nitro-server',
+  vite: '@nuxt/vite-server',
+}
+
 /** JSON key for each display label, so `--json` output stays stable if a label is reworded. */
 const JSON_KEYS: Record<string, string> = {
   'Operating system': 'operatingSystem',
@@ -271,10 +277,11 @@ async function describeServerBuilder(
   if (name === 'Nitro') {
     return nitroVersion ? `nitro@${nitroVersion}` : 'nitro'
   }
-  const specifier = (nuxtConfig as { server?: { builder?: unknown } }).server?.builder
-  if (typeof specifier !== 'string') {
+  const configured = (nuxtConfig as { server?: { builder?: unknown } }).server?.builder
+  if (typeof configured !== 'string') {
     return name
   }
+  const specifier = SERVER_BUILDER_SHORTHANDS[configured] ?? configured
   const version = await getDepVersion(specifier)
   return version ? `${specifier}@${version}` : specifier
 }

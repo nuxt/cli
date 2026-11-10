@@ -868,11 +868,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#currentNuxt = await kit.loadNuxt(loadOptions)
 
     if (this.options.captureUIEvents) {
-      const builder = this.#currentNuxt.options.builder
-      this.emit('stack', {
-        builder: typeof builder === 'string' ? builder : undefined,
-        nitro: getServerBuilderName(this.#currentNuxt) === 'Nitro',
-      })
+      this.#emitStack(this.#currentNuxt)
       this.#collectRoutes(this.#currentNuxt)
       this.#watchServerBuilds(this.#currentNuxt)
     }
@@ -897,6 +893,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
           this.emit('building', false)
         })
       }
+    })
+  }
+
+  /** Report which builders the app uses, for the versions the dev UI lists. */
+  #emitStack(nuxt: Nuxt): void {
+    const builder = nuxt.options.builder
+    this.emit('stack', {
+      builder: typeof builder === 'string' ? builder : undefined,
+      nitro: getServerBuilderName(nuxt) === 'Nitro',
     })
   }
 
@@ -1231,6 +1236,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       : await kit.writeTypes(this.#currentNuxt).catch(console.error)
 
     await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
+
+    // A server builder defined inline describes itself only once it has built.
+    if (this.options.captureUIEvents) {
+      this.#emitStack(this.#currentNuxt)
+    }
 
     if (!this.#currentNuxt.server) {
       throw new ActionableError(noDevServerMessage(serverBuild.label, true))
