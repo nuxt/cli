@@ -70,7 +70,7 @@ describe('phase reporter', () => {
       startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
     })
 
-    expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 41\.0s$/)
+    expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
   })
 
   it('should redraw only the spinner while the rest of the line is unchanged', () => {
@@ -173,7 +173,7 @@ describe('phase reporter', () => {
       await waitForOutput('Generating server types')
     })
 
-    expect(screen(renderer)).toContain('Generating server types (33.0s \u00B7 41.0s)')
+    expect(screen(renderer)).toContain('Generating server types (33.0s \u00B7 total 41.0s)')
   })
 
   it('should leave foreign output intact', async () => {

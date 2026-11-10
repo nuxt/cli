@@ -37,7 +37,7 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
   const total = snapshot.elapsed + drift
   const phase = snapshot.phaseElapsed + drift
   return total - phase >= PHASE_ELAPSED_THRESHOLD
-    ? `${formatDuration(phase)} \u00B7 ${formatDuration(total)}`
+    ? `${formatDuration(phase)} \u00B7 total ${formatDuration(total)}`
     : formatDuration(total)
 }
 
