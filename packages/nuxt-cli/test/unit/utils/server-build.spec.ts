@@ -91,7 +91,7 @@ describe('resolveServerBuild', () => {
     })
     const build = resolveServerBuild(nitroKit, nuxt)
 
-    expect(build).toMatchObject({ label: 'Nitro', targetLabel: 'preset', declared: true, hasDevServer: true })
+    expect(build).toMatchObject({ label: 'Nitro', declared: true, hasDevServer: true })
     expect(build.target).toBe('vercel')
     expect(build.previewCommand).toBe('node ./server/index.mjs')
     expect(build.dir).toBe('/project/.vercel/output')

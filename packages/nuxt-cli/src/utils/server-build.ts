@@ -6,9 +6,6 @@ import { resolve } from 'pathe'
 const DEFAULT_OUTPUT_DIR = '.output'
 const DEFAULT_PUBLIC_DIR = '.output/public'
 
-/** What a deploy target is called when the builder does not say. */
-const DEFAULT_TARGET_LABEL = 'preset'
-
 /**
  * A server builder as the CLI sees it. Anything a builder can change during its
  * own init is a getter, so it is read when used rather than snapshotted.
@@ -16,8 +13,6 @@ const DEFAULT_TARGET_LABEL = 'preset'
 export interface ServerBuild {
   /** The builder's display name, e.g. `Nitro` or `Vite SPA`. */
   readonly label: string
-  /** What the builder calls its deploy target axis, e.g. `preset`. */
-  targetLabel: string
   /** Whether Nuxt described this build itself, rather than the CLI inferring it. */
   declared: boolean
   /** Whether this builder can serve `nuxt dev`. */
@@ -39,7 +34,6 @@ interface NuxtServerBuild {
   name: string
   label?: string
   target?: () => string | undefined
-  targetLabel?: string
   output: { dir: () => string, publicDir: () => string }
   capabilities: { server: boolean, dev: boolean }
   preview?: {
@@ -150,7 +144,6 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
   const getNitro = () => declared?.capabilities.server === false ? undefined : tryUseNitro(kit)
 
   return {
-    targetLabel: declared?.targetLabel ?? DEFAULT_TARGET_LABEL,
     declared: !!declared,
     hasDevServer: declared?.capabilities.dev ?? true,
     get label() {

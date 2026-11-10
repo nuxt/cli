@@ -157,7 +157,7 @@ describe('build', () => {
     }))
   })
 
-  it('names the deploy target as the builder does', async () => {
+  it('names the deploy target the server builder declares', async () => {
     mocks.buildNuxt.mockResolvedValue(undefined)
     mocks.loadNuxt.mockResolvedValue({
       hook: vi.fn(),
@@ -175,8 +175,7 @@ describe('build', () => {
 
     await run()
 
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Nitro preset:'))
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('vercel'))
+    expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/^Deploy target: .*vercel/))
   })
 
   it('builds without a server, locking the default output directory', async () => {

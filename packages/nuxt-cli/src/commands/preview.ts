@@ -73,7 +73,6 @@ const command = defineCommand({
     let declared: {
       label: string
       target: string | undefined
-      targetLabel: string
       dir: string
       previewCommand: string | undefined
       staticDir: string | undefined
@@ -106,7 +105,6 @@ const command = defineCommand({
         declared = {
           label: build.label,
           target: build.target,
-          targetLabel: build.targetLabel,
           dir: build.dir,
           previewCommand: build.previewCommand,
           staticDir: build.previewStaticDir,
@@ -162,7 +160,7 @@ const command = defineCommand({
         previewCommand = declared.previewCommand
         outputPath = declared.dir
         if (declared.target) {
-          target = [`${declared.label} ${declared.targetLabel}:`, declared.target]
+          target = ['Deploy target:', declared.target]
         }
       }
       if (declared.staticDir) {
@@ -184,7 +182,7 @@ const command = defineCommand({
         previewCommand = nitroJSON.commands?.preview
         outputPath = dirname(nitroJSONPath)
         if (nitroJSON.preset) {
-          target = ['Nitro preset:', nitroJSON.preset]
+          target = ['Deploy target:', nitroJSON.preset]
         }
       }
     }

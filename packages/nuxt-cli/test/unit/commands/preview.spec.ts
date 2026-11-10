@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import preview from '../../../src/commands/preview'
 import { previewLockDir, readLock } from '../../../src/utils/lockfile'
 import { logger } from '../../../src/utils/logger'
+import { render, screen } from '../../utils/terminal'
 
 const { checkPort, getPort, loadKit, loadNuxt, x } = vi.hoisted(() => ({
   checkPort: vi.fn<(port: number, host?: string) => Promise<number | false>>(),
@@ -127,6 +128,36 @@ describe('preview', () => {
         }),
       }),
     })
+  })
+
+  it('names the deploy target a Nitro build recorded', async () => {
+    await writeNitroJSON(join(cwd, '.output'), { preset: 'cloudflare-module' })
+
+    const terminal = await render(() => runCommand(preview, { rawArgs: [cwd] }))
+
+    expect(screen(terminal)).toMatch(/Deploy target:\s+cloudflare-module/)
+  })
+
+  it('names the deploy target the server builder declares', async () => {
+    const outputDir = join(cwd, '.output')
+    await mkdir(outputDir, { recursive: true })
+    loadNuxt.mockResolvedValue({
+      options: { srcDir: cwd },
+      hook: vi.fn(),
+      close: vi.fn(),
+      serverBuild: {
+        name: 'vite',
+        label: 'Vite server',
+        target: () => 'cloudflare',
+        capabilities: { server: true, dev: true },
+        output: { dir: () => outputDir, publicDir: () => join(outputDir, 'public') },
+        preview: { command: () => 'npx wrangler dev' },
+      },
+    })
+
+    const terminal = await render(() => runCommand(preview, { rawArgs: [cwd] }))
+
+    expect(screen(terminal)).toMatch(/Deploy target:\s+cloudflare/)
   })
 
   it('uses the configured output directory', async () => {
