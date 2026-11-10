@@ -142,6 +142,10 @@ describe('the forwarding protocol', () => {
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:sync' })).toBe(false)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:report', report: {}, request: 'GET /ok' })).toBe(true)
     expect(isDevErrorMessage({ type: 'nuxt:dev:error:report', report: {}, request: 7 })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:clear', requestId: 'page-a' })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:clear', request: 'GET /ok' })).toBe(true)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:clear', requestId: 7 })).toBe(false)
+    expect(isDevErrorMessage({ type: 'nuxt:dev:error:clear', request: 7 })).toBe(false)
     expect(isDevErrorMessage(undefined)).toBe(false)
   })
 
@@ -418,6 +422,57 @@ describe('the CLI-owned error channel', () => {
     close()
     expect(setError).toHaveBeenNthCalledWith(1, requestReport, 'r4', 'GET /broken?x=1')
     expect(setError).toHaveBeenNthCalledWith(2, buildReport, undefined, undefined)
+  })
+
+  it('should retire an error only for the request the app names when clearing', async () => {
+    const instance = await useErrorChannel()
+    const report = compileReport('/app/app.vue', 3, 1)
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    const pageA = createResponse()
+    const pageB = createResponse()
+    await instance.handler(request(`${DEFAULT_ERROR_CHANNEL}/events?requestId=page-a`), pageA.res)
+    await instance.handler(request(`${DEFAULT_ERROR_CHANNEL}/events?requestId=page-b`), pageB.res)
+
+    app.postMessage({ type: 'nuxt:dev:error:report', report, requestId: 'page-a' })
+    app.postMessage({ type: 'nuxt:dev:error:report', report, requestId: 'page-b' })
+    await vi.waitUntil(() => pageA.chunks.join('').includes('event: error:set') && pageB.chunks.join('').includes('event: error:set'))
+
+    app.postMessage({ type: 'nuxt:dev:error:clear', id: report.id, requestId: 'page-a' })
+    await vi.waitUntil(() => pageA.chunks.join('').includes('event: error:clear'))
+    close()
+    app.close()
+
+    expect(pageA.chunks.join('')).toContain('event: error:clear')
+    expect(pageB.chunks.join('')).not.toContain('event: error:clear')
+    expect(pageB.chunks.join('')).toContain(report.id)
+    expect(instance.current?.id).toBe(report.id)
+  })
+
+  it('should retire an error for every request when cleared without a scope', async () => {
+    const instance = await useErrorChannel()
+    const report = compileReport('/app/app.vue', 3, 1)
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    const pageA = createResponse()
+    const pageB = createResponse()
+    await instance.handler(request(`${DEFAULT_ERROR_CHANNEL}/events?requestId=page-a`), pageA.res)
+    await instance.handler(request(`${DEFAULT_ERROR_CHANNEL}/events?requestId=page-b`), pageB.res)
+
+    app.postMessage({ type: 'nuxt:dev:error:report', report, requestId: 'page-a' })
+    app.postMessage({ type: 'nuxt:dev:error:report', report, requestId: 'page-b' })
+    await vi.waitUntil(() => pageA.chunks.join('').includes('event: error:set') && pageB.chunks.join('').includes('event: error:set'))
+
+    app.postMessage({ type: 'nuxt:dev:error:clear', id: report.id })
+    await vi.waitUntil(() => pageA.chunks.join('').includes('event: error:clear') && pageB.chunks.join('').includes('event: error:clear'))
+    close()
+    app.close()
+
+    expect(pageA.chunks.join('')).toContain('event: error:clear')
+    expect(pageB.chunks.join('')).toContain('event: error:clear')
+    expect(instance.current).toBeUndefined()
   })
 
   it('should publish a log entry the app forwards, without telling the supervisor', async () => {
