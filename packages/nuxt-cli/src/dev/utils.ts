@@ -36,7 +36,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
-import { getServerBuilderName, resolveServerBuild } from '../utils/server-build'
+import { getServerBuilderId, resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
 import { createCliReport, DEFAULT_ERROR_CHANNEL, ERROR_CHANNEL_ENV, handleErrorChannelRequest, isErrorChannelRequest, isLocalPeer, isThreadRunner, openErrorBridge, publishCliProgress, renderErrorPage, resolveChannelPath, summariseReport, useErrorChannel, withErrorChannel } from './error-channel'
 import { sendErrorResponse } from './error-response'
@@ -186,8 +186,8 @@ export interface DevRoutes {
 export interface DevStack {
   /** The configured app builder, e.g. `vite` or `@nuxt/webpack-builder`. */
   builder?: string
-  /** Whether Nitro builds the server, rather than another server builder. */
-  nitro: boolean
+  /** The server builder's short name, e.g. `nitro` or `vite`, when Nuxt has one. */
+  server?: string
 }
 
 /** A page or server route the app defines, as listed in the dev UI. */
@@ -901,7 +901,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     const builder = nuxt.options.builder
     this.emit('stack', {
       builder: typeof builder === 'string' ? builder : undefined,
-      nitro: getServerBuilderName(nuxt) === 'Nitro',
+      server: getServerBuilderId(nuxt),
     })
   }
 

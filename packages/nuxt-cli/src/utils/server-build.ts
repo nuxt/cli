@@ -97,10 +97,7 @@ export function tryUseNitro(kit: MaybeModernKit): NitroLike | undefined {
  * reads as `vite`.
  */
 export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
-  const declared = (nuxt as MaybeModernNuxt).serverBuild
-  // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
-  // as its name, so it is read the same way as the `server.builder` option.
-  const name = declared ? declared.label || normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
+  const name = (nuxt as MaybeModernNuxt).serverBuild?.label || getServerBuilderId(nuxt)
   if (name === 'nitro') {
     return 'Nitro'
   }
@@ -109,6 +106,17 @@ export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
   }
   // Nuxt versions without `server.builder` only ever built with Nitro.
   return hasServer === false ? 'unknown' : 'Nitro'
+}
+
+/**
+ * The configured server builder's short name, such as `nitro`, `vite` or
+ * `custom`, or `undefined` for Nuxt versions without `server.builder`.
+ */
+export function getServerBuilderId(nuxt: Nuxt): string | undefined {
+  const declared = (nuxt as MaybeModernNuxt).serverBuild
+  // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
+  // as its name, so it is read the same way as the `server.builder` option.
+  return declared ? normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
 }
 
 /**

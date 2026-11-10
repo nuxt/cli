@@ -3017,16 +3017,16 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
 }
 
 describe('panel info view', () => {
-  it('lists Nitro until the app says another builder runs the server', async () => {
+  it('lists Nitro until the app names another server builder', async () => {
     await withPanel(async (_ui, settle) => {
       process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
-      expect(await settle()).toMatch(/Nitro\s+2\.13\.5/)
+      expect(await settle()).toMatch(/Server builder\s+Nitro 2\.13\.5/)
     })
     await withPanel(async (ui, settle) => {
-      ui.setStack({ builder: 'vite', nitro: false })
+      ui.setStack({ builder: 'vite', server: 'vite' })
       process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
       const frame = await settle()
-      expect(frame).toContain('versions')
+      expect(frame).toMatch(/Server builder\s+Vite\b/)
       expect(frame).not.toContain('Nitro')
     })
   })

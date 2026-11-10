@@ -100,24 +100,35 @@ describe('info command', () => {
   it('should name Nitro as the default server builder', async () => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { nitropack: '2.13.6' } }))
 
-    expect((await runInfoJSON()).serverBuilder).toMatch(/^nitro@\d/)
+    const payload = await runInfoJSON()
+
+    expect(payload.serverBuilder).toMatch(/^nitro@\d/)
+    expect(payload.nitroVersion).toMatch(/^\d/)
   })
 
-  it('should name the server builder a config chooses, with its version', async () => {
+  it.each(['@nuxt/vite-server', 'vite'])('should name the Vite server builder from `%s` without a version', async (builder) => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { '@nuxt/vite-server': '4.6.4' } }))
-    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: '@nuxt/vite-server' } }`)
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: '${builder}' } }`)
 
     const payload = await runInfoJSON()
 
-    expect(payload.serverBuilder).toMatch(/^@nuxt\/vite-server@\d/)
-    expect(payload).not.toHaveProperty('nitroVersion')
+    expect(payload.serverBuilder).toBe('vite')
+    expect(payload.nitroVersion).toBeNull()
   })
 
-  it('should read the `vite` shorthand as the package it stands for', async () => {
-    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { '@nuxt/vite-server': '4.6.4' } }))
-    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: 'vite' } }`)
+  it('should name a third-party server builder with its version', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { 'my-server-builder': '1.2.3' } }))
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: 'my-server-builder' } }`)
 
-    expect((await runInfoJSON()).serverBuilder).toMatch(/^@nuxt\/vite-server@\d/)
+    expect((await runInfoJSON()).serverBuilder).toBe('my-server-builder@1.2.3')
+  })
+
+  it('should name a local server builder by its path alone', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', version: '9.9.9', private: true }))
+    await writeFile(join(cwd, 'server-builder.mjs'), 'export async function bundle() {}')
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: './server-builder.mjs' } }`)
+
+    expect((await runInfoJSON()).serverBuilder).toBe('./server-builder.mjs')
   })
 
   it('should still report on a project with no config', async () => {

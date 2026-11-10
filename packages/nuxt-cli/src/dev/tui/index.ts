@@ -55,6 +55,12 @@ const NOTICE_MS = 4000
 
 const LOADING_STATUSES = new Set<DevStatus>(['starting', 'building', 'restarting'])
 
+/** Display names for the server builders released with Nuxt. */
+const SERVER_BUILDER_NAMES: Record<string, string> = {
+  nitro: 'Nitro',
+  vite: 'Vite',
+}
+
 interface UIShortcut {
   keys: string[]
   /** Short label for the hint line. Omitted shortcuts live only in the help view. */
@@ -729,6 +735,10 @@ function describeSession(
   // Until Nuxt has loaded, the installed packages are all there is to go on.
   const versions = resolveStackVersions(cwd, { builder: stack?.builder as NuxtOptions['builder'] | undefined })
   const { listener } = context
+  const server = stack?.server ?? 'nitro'
+  const serverName = SERVER_BUILDER_NAMES[server] ?? server
+  // The Vite server builder shares the app builder's version, listed below.
+  const serverVersion = server === 'nitro' ? versions.nitro : undefined
 
   return [
     {
@@ -737,7 +747,7 @@ function describeSession(
         ['Nuxt', update
           ? `${linkVersion(versions.nuxt)} ${paint('warning', updateLink ?? `\u2192 ${update} available`)}`
           : linkVersion(versions.nuxt)],
-        ['Nitro', stack?.nitro === false ? undefined : versions.nitro],
+        ['Server builder', serverVersion ? `${serverName} ${serverVersion}` : serverName],
         [versions.builder.name, versions.builder.version],
         [versions.builder.provider?.name ?? 'via', versions.builder.provider?.version],
         ['Vue', versions.vue ?? undefined],
