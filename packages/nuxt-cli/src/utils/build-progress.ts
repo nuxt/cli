@@ -12,17 +12,17 @@ const BUILD_PHASES: readonly Phase[] = [
   { id: 'modules', message: 'Setting up modules' },
   { id: 'app', message: 'Preparing app' },
   { id: 'types', message: 'Generating types' },
-  { id: 'app (client)', message: 'Building app (client)' },
-  { id: 'app (server)', message: 'Building app (server)' },
-  { id: 'server (nitro)', message: 'Building server (nitro)' },
+  { id: 'bundle (client)', message: 'Bundling client' },
+  { id: 'bundle (server)', message: 'Bundling server' },
+  { id: 'bundle (nitro)', message: 'Bundling nitro' },
 ]
 
 const HOOK_PHASES: Record<string, string> = {
   'modules:before': 'modules',
   'builder:generateApp': 'app',
   'prepare:types': 'types',
-  'build:before': 'app (client)',
-  'nitro:build:before': 'server (nitro)',
+  'build:before': 'bundle (client)',
+  'nitro:build:before': 'bundle (nitro)',
 }
 
 /** Nitro builds on its own hooks, which Nuxt's never see. */
@@ -34,7 +34,7 @@ const NITRO_INIT_HOOK = 'nitro:init'
  * project is the longest silence of the build.
  */
 const NITRO_MESSAGES: Record<string, string> = {
-  'rollup:before': 'Bundling server (nitro)',
+  'rollup:before': 'Bundling nitro',
   'prerender:routes': 'Prerendering routes',
 }
 
@@ -136,7 +136,7 @@ export class BuildProgress extends PhaseTimeline {
       }
       if (name === 'webpack:compile') {
         const ctx = args?.[0] as { name?: string } | undefined
-        this.setPhase(ctx?.name === 'server' ? 'app (server)' : 'app (client)')
+        this.setPhase(ctx?.name === 'server' ? 'bundle (server)' : 'bundle (client)')
       }
       else if (name === NITRO_INIT_HOOK) {
         this.#attachNitro((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks)
@@ -156,11 +156,11 @@ export class BuildProgress extends PhaseTimeline {
       },
       buildStart(this: { environment?: { name: string, config?: { consumer?: string } } }) {
         if (this.environment?.name === NITRO_ENVIRONMENT) {
-          setPhase('server (nitro)')
+          setPhase('bundle (nitro)')
           return
         }
         const consumer = this.environment?.config?.consumer ?? (ssr ? 'server' : 'client')
-        setPhase(consumer === 'server' ? 'app (server)' : 'app (client)')
+        setPhase(consumer === 'server' ? 'bundle (server)' : 'bundle (client)')
       },
     }
   }
@@ -169,7 +169,7 @@ export class BuildProgress extends PhaseTimeline {
     hooks?.beforeEach?.(({ name, args }) => {
       // Nitro's hooks also run while Nuxt is still bundling the app, and those
       // are not what the build is waiting on.
-      if (BUILD_PHASES[this.index]!.id !== 'server (nitro)') {
+      if (BUILD_PHASES[this.index]!.id !== 'bundle (nitro)') {
         return
       }
       const message = NITRO_MESSAGES[name]

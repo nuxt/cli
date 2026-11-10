@@ -74,11 +74,11 @@ describe('build progress', () => {
       'Setting up modules',
       'Preparing app',
       'Generating types',
-      'Building app (client)',
-      'Building app (server)',
-      'Building server (nitro)',
+      'Bundling client',
+      'Bundling server',
+      'Bundling nitro',
     ])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'app (client)', 'app (server)', 'server (nitro)'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'bundle (client)', 'bundle (server)', 'bundle (nitro)'])
   })
 
   it('should split the bundle phase when a single config builds both environments', () => {
@@ -93,15 +93,15 @@ describe('build progress', () => {
     stub.extendVite(config)
     const plugins = stub.extendVite(config)
     expect(plugins).toHaveLength(1)
-    expect(seen.at(-1)).toBe('Building app (client)')
+    expect(seen.at(-1)).toBe('Bundling client')
 
     plugins[0]!.configResolved({ build: {} })
     plugins[0]!.buildStart.call({ environment: { config: { consumer: 'client' } } })
     plugins[0]!.buildStart.call({ environment: { config: { consumer: 'server' } } })
     progress.finish()
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Building app (client)', 'Building app (server)'])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'app (client)', 'app (server)'])
+    expect(seen).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling server'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'bundle (client)', 'bundle (server)'])
   })
 
   it('should name what the Nitro phase is doing', () => {
@@ -118,7 +118,7 @@ describe('build progress', () => {
     stub.callNitro('prerender:route', { route: '/about' })
     stub.callNitro('prerender:generate', { route: '/blog' })
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Building server (nitro)', 'Bundling server (nitro)', 'Prerendering /about', 'Prerendering /blog (1 done)'])
+    expect(seen).toEqual(['Loading Nuxt config', 'Bundling nitro', 'Prerendering /about', 'Prerendering /blog (1 done)'])
   })
 
   it('should keep phase durations after the build is finished', () => {
