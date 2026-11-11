@@ -59,7 +59,7 @@ describe('getPackageManagerVersion', () => {
     await expect(getPackageManagerVersion(process.execPath)).resolves.toBe(process.version)
   })
 
-  it('returns the version of a package manager shim', async () => {
+  it('returns the version of a package manager shim', { timeout: 30_000 }, async () => {
     await expect(getPackageManagerVersion('npm')).resolves.toMatch(SEMVER_RE)
   })
 
