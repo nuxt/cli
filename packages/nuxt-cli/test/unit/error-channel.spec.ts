@@ -475,6 +475,24 @@ describe('the CLI-owned error channel', () => {
     expect(instance.current).toBeUndefined()
   })
 
+  it('should forward the request a clear names through to the channel', async () => {
+    const instance = await useErrorChannel()
+    const clearError = vi.spyOn(instance, 'clearError')
+    const close = openErrorBridge()
+
+    const app = new BroadcastChannel(ERROR_BROADCAST_CHANNEL)
+    app.postMessage({ type: 'nuxt:dev:error:clear', id: 'e1', request: 'GET /broken?x=1' })
+    app.postMessage({ type: 'nuxt:dev:error:clear', id: 'e1', requestId: 'page-a', request: 'GET /broken?x=1' })
+    app.postMessage({ type: 'nuxt:dev:error:clear', id: 'e1' })
+    app.close()
+
+    await vi.waitUntil(() => clearError.mock.calls.length === 3)
+    close()
+    expect(clearError).toHaveBeenNthCalledWith(1, 'e1', { request: 'GET /broken?x=1' })
+    expect(clearError).toHaveBeenNthCalledWith(2, 'e1', { requestId: 'page-a', request: 'GET /broken?x=1' })
+    expect(clearError).toHaveBeenNthCalledWith(3, 'e1')
+  })
+
   it('should publish a log entry the app forwards, without telling the supervisor', async () => {
     createServer()
     const instance = await useErrorChannel()
