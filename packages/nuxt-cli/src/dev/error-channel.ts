@@ -26,7 +26,7 @@ export const ERROR_BROADCAST_CHANNEL = 'nuxt:dev:error'
 /** Reports the app forwards; anything else on the wire is ignored. */
 export type DevErrorMessage
   = | { type: 'nuxt:dev:error:report', report: ErrorReport, requestId?: string, request?: string }
-    | { type: 'nuxt:dev:error:clear', id?: string }
+    | { type: 'nuxt:dev:error:clear', id?: string, requestId?: string, request?: string }
     | { type: 'nuxt:dev:error:warning', report: ErrorReport }
     | { type: 'nuxt:dev:error:warning:clear', id?: string }
     | { type: 'nuxt:dev:error:log', entry: LogEntry }
@@ -230,10 +230,14 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
     const { source } = message as { source?: unknown }
     return source === undefined || typeof source === 'string'
   }
+  if (type === 'nuxt:dev:error:clear') {
+    const { requestId } = message as { requestId?: unknown }
+    return requestId === undefined || typeof requestId === 'string'
+  }
   if (type === 'nuxt:dev:error:devtools') {
     return typeof (message as { registered?: unknown }).registered === 'boolean'
   }
-  return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:clear' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
+  return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
 }
 
 const LOG_LEVELS = new Set<string>(['trace', 'debug', 'info', 'log', 'warn', 'error', 'fatal'] satisfies LogLevel[])
@@ -397,7 +401,15 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
           break
         }
         case 'nuxt:dev:error:clear': {
-          instance.clearError(message.id)
+          if (message.requestId !== undefined || message.request !== undefined) {
+            instance.clearError(message.id, {
+              ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
+              ...(message.request !== undefined ? { request: message.request } : {}),
+            })
+          }
+          else {
+            instance.clearError(message.id)
+          }
           handlers.onClear?.(message.id)
           break
         }
