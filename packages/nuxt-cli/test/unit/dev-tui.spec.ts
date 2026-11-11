@@ -36,6 +36,9 @@ vi.mock('../../src/dev/listen', async importOriginal => ({
   openBrowser: (url: string) => void opened.push(url),
 }))
 
+// The info view resolves versions from what is installed; pinned so it lists Nitro.
+vi.mock('../../src/utils/nitro', () => ({ getNitroVersion: () => '2.13.5' }))
+
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
   writeText: (text: string) => {
@@ -3012,6 +3015,22 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
     }
   }
 }
+
+describe('panel info view', () => {
+  it('lists Nitro until the app names another server builder', async () => {
+    await withPanel(async (_ui, settle) => {
+      process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
+      expect(await settle()).toMatch(/Server builder\s+Nitro 2\.13\.5/)
+    })
+    await withPanel(async (ui, settle) => {
+      ui.setStack({ builder: 'vite', server: 'vite' })
+      process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
+      const frame = await settle()
+      expect(frame).toMatch(/Server builder\s+Vite\b/)
+      expect(frame).not.toContain('Nitro')
+    })
+  })
+})
 
 describe('panel shortcut routing', () => {
   it.each(['ready', 'starting', 'building', 'restarting', 'warming', 'error'] as const)('quits without confirmation while %s', async (status) => {

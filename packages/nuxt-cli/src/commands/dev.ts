@@ -260,7 +260,7 @@ const command = defineCommand({
       throw error
     })
 
-    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onSpans, onRoutes, onBuilding, onReport, onReportClear, onFileChange } = started
+    const { listener, close, reload, onRestart, onReady, onLoading, onEachReady, onLog, onRequests, onSpans, onRoutes, onStack, onBuilding, onReport, onReportClear, onFileChange } = started
 
     /** Feed the dev UI from the server running in this process. */
     function attachDevUI(devUI: DevUIController): DevUIController {
@@ -273,6 +273,7 @@ const command = defineCommand({
       onReport(report => devUI.pushReport(report))
       onReportClear(id => devUI.clearReport(id))
       onRoutes(payload => devUI.setRoutes(payload))
+      onStack(payload => devUI.setStack(payload))
       return devUI
     }
 
@@ -386,6 +387,9 @@ const command = defineCommand({
             }
             else if (message.type === 'nuxt:internal:dev:routes') {
               devUI.setRoutes(message.payload)
+            }
+            else if (message.type === 'nuxt:internal:dev:stack') {
+              devUI.setStack(message.payload)
             }
             else if (message.type === 'nuxt:internal:dev:building') {
               devUI.setStatus(message.building ? 'building' : 'ready')

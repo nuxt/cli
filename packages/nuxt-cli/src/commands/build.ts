@@ -122,7 +122,7 @@ export default defineCommand({
       const serverBuild = resolveServerBuild(kit, nuxt)
       const target = serverBuild.target
       if (target) {
-        logger.info(`${serverBuild.label} ${serverBuild.targetLabel}: ${styleText('cyan', target)}`)
+        logger.info(`Deploy target: ${styleText('cyan', target)}`)
       }
 
       const outputDir = serverBuild.dir

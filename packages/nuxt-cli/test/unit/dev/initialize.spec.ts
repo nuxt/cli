@@ -152,4 +152,19 @@ describe('initialize', () => {
     expect(changed).toHaveBeenCalledTimes(1)
     expect(restarted).toHaveBeenCalledWith({ type: 'hook' })
   })
+
+  it('should replay the latest stack and forward later ones', async () => {
+    const { onStack } = await initialize(context(), { captureUIEvents: true })
+    devServers[0].emit('stack', { builder: 'vite', server: 'nitro' })
+    devServers[0].emit('stack', { builder: 'vite', server: 'vite' })
+
+    const seen: unknown[] = []
+    onStack(stack => seen.push(stack))
+    devServers[0].emit('stack', { builder: 'webpack', server: 'nitro' })
+
+    expect(seen).toEqual([
+      { builder: 'vite', server: 'vite' },
+      { builder: 'webpack', server: 'nitro' },
+    ])
+  })
 })

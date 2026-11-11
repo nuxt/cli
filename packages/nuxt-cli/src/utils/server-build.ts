@@ -6,9 +6,6 @@ import { resolve } from 'pathe'
 const DEFAULT_OUTPUT_DIR = '.output'
 const DEFAULT_PUBLIC_DIR = '.output/public'
 
-/** What a deploy target is called when the builder does not say. */
-const DEFAULT_TARGET_LABEL = 'preset'
-
 /**
  * A server builder as the CLI sees it. Anything a builder can change during its
  * own init is a getter, so it is read when used rather than snapshotted.
@@ -16,8 +13,6 @@ const DEFAULT_TARGET_LABEL = 'preset'
 export interface ServerBuild {
   /** The builder's display name, e.g. `Nitro` or `Vite SPA`. */
   readonly label: string
-  /** What the builder calls its deploy target axis, e.g. `preset`. */
-  targetLabel: string
   /** Whether Nuxt described this build itself, rather than the CLI inferring it. */
   declared: boolean
   /** Whether this builder can serve `nuxt dev`. */
@@ -39,7 +34,6 @@ interface NuxtServerBuild {
   name: string
   label?: string
   target?: () => string | undefined
-  targetLabel?: string
   output: { dir: () => string, publicDir: () => string }
   capabilities: { server: boolean, dev: boolean }
   preview?: {
@@ -97,10 +91,7 @@ export function tryUseNitro(kit: MaybeModernKit): NitroLike | undefined {
  * reads as `vite`.
  */
 export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
-  const declared = (nuxt as MaybeModernNuxt).serverBuild
-  // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
-  // as its name, so it is read the same way as the `server.builder` option.
-  const name = declared ? declared.label || normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
+  const name = (nuxt as MaybeModernNuxt).serverBuild?.label || getServerBuilderId(nuxt)
   if (name === 'nitro') {
     return 'Nitro'
   }
@@ -109,6 +100,17 @@ export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
   }
   // Nuxt versions without `server.builder` only ever built with Nitro.
   return hasServer === false ? 'unknown' : 'Nitro'
+}
+
+/**
+ * The configured server builder's short name, such as `nitro`, `vite` or
+ * `custom`, or `undefined` for Nuxt versions without `server.builder`.
+ */
+export function getServerBuilderId(nuxt: Nuxt): string | undefined {
+  const declared = (nuxt as MaybeModernNuxt).serverBuild
+  // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
+  // as its name, so it is read the same way as the `server.builder` option.
+  return declared ? normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
 }
 
 /**
@@ -142,7 +144,6 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
   const getNitro = () => declared?.capabilities.server === false ? undefined : tryUseNitro(kit)
 
   return {
-    targetLabel: declared?.targetLabel ?? DEFAULT_TARGET_LABEL,
     declared: !!declared,
     hasDevServer: declared?.capabilities.dev ?? true,
     get label() {

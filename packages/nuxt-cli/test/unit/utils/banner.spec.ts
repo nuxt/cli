@@ -142,6 +142,16 @@ describe('showBanner', () => {
     `)
   })
 
+  it('should omit nitro when another server builder is configured', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.4.6', options: { rootDir: '/any', builder: 'vite', server: { builder: '@nuxt/vite-server' } } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.4.6 (with Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
   it('should identify Vite+ as the Vite provider', async () => {
     const renderer = await render(() =>
       showBanner({ _version: '4.4.6', options: { rootDir: '/vite-plus', builder: 'vite' } } as unknown as Nuxt))

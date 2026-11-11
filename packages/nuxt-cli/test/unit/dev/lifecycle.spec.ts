@@ -276,6 +276,26 @@ describe('dev server request feed', () => {
   })
 })
 
+describe('dev server stack', () => {
+  it('should report the server builder on load and again once it has built', async () => {
+    const nuxt = createNuxt({ builder: 'vite', server: { builder: { bundle: () => {} } } }) as FakeNuxt & { serverBuild?: unknown }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    buildNuxt.mockImplementation(async () => {
+      nuxt.serverBuild = { name: 'nitro', label: 'Nitro', capabilities: { server: true, dev: true } }
+    })
+    const server = createServer({ captureUIEvents: true })
+    const seen: unknown[] = []
+    server.on('stack', stack => seen.push(stack))
+
+    await server.init()
+
+    expect(seen).toEqual([
+      { builder: 'vite', server: 'custom' },
+      { builder: 'vite', server: 'nitro' },
+    ])
+  })
+})
+
 describe('dev server failures', () => {
   it('should surface a first-run failure to the caller', async () => {
     loadNuxt.mockImplementation(() => Promise.reject(new Error('config exploded')))

@@ -1,4 +1,4 @@
-import type { NuxtModule } from '@nuxt/schema'
+import type { Nuxt, NuxtConfig, NuxtModule } from '@nuxt/schema'
 import type { PackageJson } from 'pkg-types'
 
 import os from 'node:os'
@@ -23,9 +23,16 @@ import { readDependencyPackageJson } from '../utils/package-json'
 import { detectPackageManager, getPackageManagerVersion } from '../utils/package-managers'
 import { resolveRootDir } from '../utils/paths'
 import { tryResolveNuxt } from '../utils/resolve-nuxt'
+import { getServerBuilderName } from '../utils/server-build'
 import { rootDirArgs } from './_shared'
 
 const LEADING_SLASH_RE = /^\//
+
+/** Server builders other than Nitro released with Nuxt, by each `server.builder` value naming them. */
+const NUXT_SERVER_BUILDERS: Record<string, string> = {
+  'vite': 'vite',
+  '@nuxt/vite-server': 'vite',
+}
 
 /** JSON key for each display label, so `--json` output stays stable if a label is reworded. */
 const JSON_KEYS: Record<string, string> = {
@@ -37,7 +44,7 @@ const JSON_KEYS: Record<string, string> = {
   'nuxt/cli version': 'cliVersion',
   'Package manager': 'packageManager',
   'Nuxt version': 'nuxtVersion',
-  'Nitro version': 'nitroVersion',
+  'Server builder': 'serverBuilder',
   'Builder': 'builder',
   'Config': 'config',
   'Modules': 'modules',
@@ -94,6 +101,11 @@ export default defineCommand({
     const configKeys = Object.keys(nuxtConfig).sort()
     const moduleNames = modules.filter(module => module !== null)
     const builder = nuxtConfig.builder || 'vite'
+    // Read from the config, without loading Nuxt, the same way as for a loaded app.
+    const usesNitro = getServerBuilderName({ options: nuxtConfig } as unknown as Nuxt) === 'Nitro'
+    const serverBuilder = usesNitro
+      ? nitroVersion ? `nitro@${nitroVersion}` : 'nitro'
+      : await describeServerBuilder(nuxtConfig, getDepVersion)
     const osType = os.type()
     const cpus = os.cpus()
     const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
@@ -113,7 +125,7 @@ export default defineCommand({
       'nuxt/cli version': nuxiVersion,
       'Package manager': packageManager,
       'Nuxt version': nuxtVersion,
-      'Nitro version': nitroVersion,
+      'Server builder': serverBuilder,
       'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
       'Config': configKeys.map(key => `\`${key}\``).join(', '),
       'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
@@ -129,6 +141,7 @@ export default defineCommand({
           const key = JSON_KEYS[label]!
           return [key, lists[key] ?? (value?.replaceAll('`', '') || null)]
         })),
+        nitroVersion: (usesNitro && nitroVersion) || null,
       })
       return
     }
@@ -252,4 +265,26 @@ export function normalizeConfigModule(
     return normalizeConfigModule(module[0], rootDir)
   }
   return null
+}
+
+/**
+ * A server builder other than Nitro: its name when it is released with Nuxt,
+ * otherwise the package or path `server.builder` names (with the package's
+ * version), or `custom` for one defined inline.
+ */
+async function describeServerBuilder(
+  nuxtConfig: NuxtConfig,
+  getDepVersion: (name: string) => Promise<string | undefined>,
+): Promise<string> {
+  const configured = (nuxtConfig as { server?: { builder?: unknown } }).server?.builder
+  if (typeof configured !== 'string') {
+    return 'custom'
+  }
+  const nuxtBuilder = NUXT_SERVER_BUILDERS[configured]
+  if (nuxtBuilder) {
+    return nuxtBuilder
+  }
+  const packageName = getPackageName(configured)
+  const version = packageName && await getDepVersion(packageName)
+  return version ? `${configured}@${version}` : configured
 }
