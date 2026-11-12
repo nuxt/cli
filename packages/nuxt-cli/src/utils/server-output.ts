@@ -26,7 +26,7 @@ const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 export interface ServerOutputReport {
   /** The summary of the server build, from the build's phase timings, or nothing for a static-only build. */
   summary: (timings: PhaseTiming[]) => string | undefined
-  /** How to preview and deploy what was built, or nothing when no server was written. */
+  /** How to preview and deploy what was built: no preview when no server was written. */
   commands: () => string[]
 }
 
@@ -193,10 +193,11 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       return lines.length ? lines.join('\n') : undefined
     },
     commands() {
-      if (isStatic || size === undefined) {
-        return []
+      const commands: string[] = []
+      // A static preset writes no server to preview, but may still name a deploy command.
+      if (!isStatic && size !== undefined) {
+        commands.push(`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`)
       }
-      const commands = [`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`]
       if (deploy) {
         commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
       }

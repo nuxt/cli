@@ -193,16 +193,16 @@ describe('quietServerOutput', () => {
     expect(report.commands().map(stripAnsi)).toEqual(['You can preview this build using npx nuxt preview'])
   })
 
-  it('reports nothing about a server for a static build', async () => {
+  it('reports nothing about a server for a static build, but keeps its deploy command', async () => {
     const { nuxt, hooks } = createNuxt()
     const report = quietServerOutput(nuxt as any)
     const nitroHooks = createHooks()
-    const nitro = { options: { static: true, output: { serverDir: '/missing' } }, hooks: nitroHooks }
+    const nitro = { options: { static: true, output: { serverDir: '/missing' }, commands: { deploy: 'npx wrangler pages deploy' } }, hooks: nitroHooks }
     await hooks.call('nitro:init', nitro)
     await nitroHooks.call('compiled', nitro)
 
     expect(report.summary([{ phase: 'bundle (nitro)', message: '', duration: 100 }])).toBeUndefined()
-    expect(report.commands()).toEqual([])
+    expect(report.commands().map(stripAnsi)).toEqual(['You can deploy this build using npx wrangler pages deploy'])
   })
 })
 
