@@ -166,7 +166,7 @@ export default defineCommand({
         outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
       }
       else {
-        const complete = `✨ Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}!`
+        const complete = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}!`
         const commands = serverOutput.commands()
         if (commands.length) {
           logger.success(complete)
