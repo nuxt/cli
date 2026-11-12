@@ -154,30 +154,24 @@ export default defineCommand({
         logger.success(serverSummary)
       }
 
-      const breakdown = formatPhaseTable(progress.timings)
-      if (breakdown) {
-        logger.message(breakdown)
+      if (ctx.args.prerender && !nuxt.options.ssr) {
+        logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
+        logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
       }
 
-      if (ctx.args.prerender) {
-        if (!nuxt.options.ssr) {
-          logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
-          logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
-        }
-        const dir = serverBuild.publicDir
-        const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-        outro(`You can now deploy ${styleText('cyan', publicDir)} to any static hosting ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
+      // Where the time went sits right under the total it adds up to.
+      const breakdown = formatPhaseTable(progress.timings)
+      const total = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
+      const complete = breakdown ? `${total}\n${breakdown}` : total
+      const next = ctx.args.prerender
+        ? [`You can now deploy ${styleText('cyan', serverBuild.publicDir ? relative(process.cwd(), serverBuild.publicDir) : '.output/public')} to any static hosting`]
+        : serverOutput.commands()
+      if (next.length) {
+        logger.success(complete)
+        outro(next.join('\n'))
       }
       else {
-        const complete = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
-        const commands = serverOutput.commands()
-        if (commands.length) {
-          logger.success(complete)
-          outro(commands.join('\n'))
-        }
-        else {
-          outro(complete)
-        }
+        outro(complete)
       }
     }
     finally {

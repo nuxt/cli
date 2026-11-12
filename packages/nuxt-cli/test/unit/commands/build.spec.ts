@@ -37,7 +37,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
   formatLockError: mocks.formatLockError,
 }))
 vi.mock('../../../src/utils/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn(), success: vi.fn() },
   intro: vi.fn(),
   outro: vi.fn(),
 }))
