@@ -156,7 +156,7 @@ describe('quietServerOutput', () => {
     expect(lines[0]).toBe('Prerendered 1 route in 1.20s')
     // Source maps are left out, as Nitro leaves them out of its own total.
     expect(lines[1]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
-    expect(lines[2]).toBe('Preview: npx nuxt preview')
+    expect(lines[2]).toBe('You can preview this build using npx nuxt preview')
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n  /gone (404 Not Found)\n  /broken (500 Server Error)')
   })
 
@@ -188,7 +188,7 @@ describe('quietServerOutput', () => {
     const timings = [{ phase: 'bundle (client)', message: '', duration: 900 }, { phase: 'bundle (server)', message: '', duration: 400 }]
     expect(stripAnsi(report.summary(timings)!).split('\n')).toEqual([
       'Server (vite) built in 400ms · 1.20 kB',
-      'Preview: npx nuxt preview',
+      'You can preview this build using npx nuxt preview',
     ])
   })
 

@@ -187,9 +187,9 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       if (!isStatic && server && size !== undefined) {
         const builder = usesNitro ? 'nitro' : (nuxt as unknown as MaybeServerBuild).serverBuild?.name || 'server'
         lines.push(`Server (${builder}) built in ${formatDuration(server.duration)}${styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
-        lines.push(styleText('dim', `Preview: ${styleText('cyan', 'npx nuxt preview')}`))
+        lines.push(`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`)
         if (deploy) {
-          lines.push(styleText('dim', `Deploy: ${styleText('cyan', deploy)}`))
+          lines.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
         }
       }
       return lines.length ? lines.join('\n') : undefined
