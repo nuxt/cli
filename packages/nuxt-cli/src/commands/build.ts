@@ -16,7 +16,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
-import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
+import { createPhaseReporter, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
@@ -151,9 +151,9 @@ export default defineCommand({
         logger.success(serverSummary)
       }
 
-      const breakdown = formatPhaseBreakdown(progress.timings)
+      const breakdown = formatPhaseTable(progress.timings)
       if (breakdown) {
-        logger.message(styleText('dim', breakdown))
+        logger.message(breakdown)
       }
 
       if (ctx.args.prerender) {
