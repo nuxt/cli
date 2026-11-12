@@ -26,6 +26,8 @@ const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 export interface ServerOutputReport {
   /** The summary of the server build, from the build's phase timings, or nothing for a static-only build. */
   summary: (timings: PhaseTiming[]) => string | undefined
+  /** How to preview and deploy what was built, or nothing when no server was written. */
+  commands: () => string[]
 }
 
 interface ServerOutputOptions {
@@ -187,12 +189,18 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       if (!isStatic && server && size !== undefined) {
         const builder = usesNitro ? 'nitro' : (nuxt as unknown as MaybeServerBuild).serverBuild?.name || 'server'
         lines.push(`Server (${builder}) built in ${formatDuration(server.duration)}${styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
-        lines.push(`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`)
-        if (deploy) {
-          lines.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
-        }
       }
       return lines.length ? lines.join('\n') : undefined
+    },
+    commands() {
+      if (isStatic || size === undefined) {
+        return []
+      }
+      const commands = [`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`]
+      if (deploy) {
+        commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
+      }
+      return commands
     },
   }
 }

@@ -90,9 +90,11 @@ export function intro(message: string): void {
 /** {@link intro}, for the line a command finishes on. */
 export function outro(message: string): void {
   if (!process.stdout.isTTY || isCI) {
-    writeDirect(`${styleText('green', S_SUCCESS)} ${message}\n`)
+    writeDirect(`${styleText('green', S_SUCCESS)} ${message.replace(/\n/g, '\n  ')}\n`)
     return
   }
+  // Clack leaves the lines after the first unindented; line them up with it.
+  message = message.replace(/\n/g, '\n   ')
   // Nuxt 4 calls `consola.wrapAll()` while building, which trims each chunk
   // written to stdout and would drop the blank line clack ends the outro with.
   clackOutro(message, { output: { write: writeDirect } as unknown as NodeJS.WriteStream })
