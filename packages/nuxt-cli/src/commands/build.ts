@@ -107,7 +107,10 @@ export default defineCommand({
       })
 
       progress.attachNuxt(nuxt)
-      const serverOutput = quietServerOutput(nuxt, { onEnvironment: environment => progress.enterEnvironment(environment) })
+      const serverOutput = quietServerOutput(nuxt, {
+        command: ctx.args.prerender ? 'generate' : 'build',
+        onEnvironment: environment => progress.enterEnvironment(environment),
+      })
 
       showBanner(nuxt)
       await nuxt.ready()

@@ -7,8 +7,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { formatBytes, stripAnsi } from '../../../src/utils/formatting'
 import { quietServerOutput } from '../../../src/utils/server-output'
 
-const mocks = vi.hoisted(() => ({ error: vi.fn() }))
+const mocks = vi.hoisted(() => ({ error: vi.fn(), isCI: false }))
 vi.mock('../../../src/utils/logger', () => ({ logger: { error: mocks.error } }))
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  get isCI() { return mocks.isCI },
+}))
 
 type Handler = (...args: any[]) => unknown
 
@@ -33,6 +37,7 @@ function createNuxt(options: Record<string, any> = {}) {
 let dir: string | undefined
 afterEach(async () => {
   vi.clearAllMocks()
+  mocks.isCI = false
   if (dir) {
     await rm(dir, { recursive: true, force: true })
   }
@@ -137,7 +142,7 @@ describe('quietServerOutput', () => {
     }
     await hooks.call('nitro:config', { logLevel: 3 })
     await hooks.call('nitro:init', nitro)
-    await nitroHooks.call('prerender:route', { route: '/' })
+    await nitroHooks.call('prerender:route', { route: '/', generateTimeMS: 42 })
     await nitroHooks.call('prerender:route', { route: '/feed', skip: true })
     await nitroHooks.call('prerender:route', { route: '/gone', error: { statusCode: 404 } })
     // Nitro 2 and Nitro 3 name the HTTP status differently.
@@ -154,11 +159,42 @@ describe('quietServerOutput', () => {
     ]
     const lines = stripAnsi(report.summary(timings)!).split('\n')
     expect(lines[0]).toBe('Prerendered 1 route in 1.20s')
+    // Skipped and failed routes stay out of the list.
+    expect(lines[1]).toBe('  /  42ms')
     // Source maps are left out, as Nitro leaves them out of its own total.
-    expect(lines[1]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
-    expect(lines).toHaveLength(2)
+    expect(lines[2]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
+    expect(lines).toHaveLength(3)
     expect(report.commands().map(stripAnsi)).toEqual(['You can preview this build using npx nuxt preview'])
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n  /gone (404 Not Found)\n  /broken (500 Server Error)')
+  })
+
+  async function prerender(count: number, options: { command?: string } = {}) {
+    const { nuxt, hooks } = createNuxt()
+    const report = quietServerOutput(nuxt as any, options)
+    const nitroHooks = createHooks()
+    await hooks.call('nitro:config', { logLevel: 3 })
+    await hooks.call('nitro:init', { options: { output: { serverDir: '/missing' } }, hooks: nitroHooks })
+    for (let index = 0; index < count; index++) {
+      await nitroHooks.call('prerender:route', { route: `/post-${index}`, generateTimeMS: 5 })
+    }
+    await nitroHooks.call('prerender:route', { route: '/feed', skip: true })
+    return stripAnsi(report.summary([{ phase: 'prerender', message: '', duration: 900 }])!).split('\n')
+  }
+
+  it('lists the first 20 written routes in a terminal and says how to see the rest', async () => {
+    const lines = await prerender(23, { command: 'generate' })
+    expect(lines[0]).toBe('Prerendered 23 routes in 900ms')
+    expect(lines.slice(1, 3)).toEqual(['  /post-0   5ms', '  /post-1   5ms'])
+    expect(lines[20]).toBe('  /post-19  5ms')
+    expect(lines.slice(21)).toEqual(['  … and 3 more. Run npx nuxt generate --logLevel=verbose to see all prerendered routes.'])
+  })
+
+  it('lists every route in CI, skipped ones too', async () => {
+    mocks.isCI = true
+    const lines = await prerender(23)
+    expect(lines).toHaveLength(25)
+    expect(lines.at(-2)).toBe('  /post-22      5ms')
+    expect(lines.at(-1)).toBe('  /feed     skipped')
   })
 
   it('leaves failed prerenders to Nitro when the project sets its log level', async () => {

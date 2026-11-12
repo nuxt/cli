@@ -8,12 +8,16 @@ import process from 'node:process'
 import { styleText } from 'node:util'
 
 import { join, relative } from 'pathe'
+import { isCI } from 'std-env'
 
 import { formatBytes, formatDuration, stripAnsi } from './formatting'
 import { logger } from './logger'
 
 /** Nitro's `warn` level: warnings and errors still print, progress and file trees do not. */
 const NITRO_QUIET_LOG_LEVEL = 1
+
+/** How many prerendered routes a local build lists before pointing at verbose output. */
+const PRERENDER_ROUTE_LIMIT = 20
 
 const VITE_PLUGIN_NAME = 'nuxi:server-output'
 
@@ -31,6 +35,8 @@ export interface ServerOutputReport {
 }
 
 interface ServerOutputOptions {
+  /** The command to suggest for the full route list, such as `build` or `generate`. */
+  command?: string
   /** Called as each Vite environment starts building. */
   onEnvironment?: (environment: BuildEnvironment) => void
 }
@@ -63,7 +69,7 @@ interface MaybeServerBuild {
  * build it as a Vite environment, alongside the app. Either way the CLI keeps
  * Vite's file lists for the client only.
  *
- * Nothing changes at `--log-level verbose`, or when the project sets a log
+ * Nothing changes at `--logLevel=verbose`, or when the project sets a log
  * level for Nitro or Vite itself.
  */
 export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {}): ServerOutputReport {
@@ -71,6 +77,7 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
   let usesNitro = false
   let size: number | undefined
   let prerendered = 0
+  const routes: PrerenderRoute[] = []
   let deploy: string | undefined
   let isStatic = false
 
@@ -161,6 +168,9 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       if (!route.error && !route.skip) {
         prerendered++
       }
+      if (!route.error) {
+        routes.push(route)
+      }
     })
     nitro.hooks.hook('prerender:done', ({ failedRoutes }) => {
       // Nitro lists these at its `log` level, which the quiet build drops.
@@ -182,6 +192,10 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       const prerender = timings.find(timing => timing.phase === 'prerender')
       if (prerender && prerendered) {
         lines.push(`Prerendered ${prerendered} route${prerendered === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
+        // Nitro lists routes itself unless the CLI quieted it.
+        if (nitroQuieted) {
+          lines.push(...formatPrerenderedRoutes(routes, options.command ?? 'build'))
+        }
       }
       // Without Nitro, the Vite server bundle is the server output.
       const server = timings.find(timing => timing.phase === (usesNitro ? 'bundle (nitro)' : 'bundle (server)'))
@@ -204,6 +218,33 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       return commands
     },
   }
+}
+
+/**
+ * The routes a build wrote. CI logs are read after the fact to check what was
+ * deployed, so they list every route, skipped ones too; a terminal lists the
+ * first few and says how to see the rest.
+ */
+function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): string[] {
+  const listed = isCI ? routes : routes.filter(route => !route.skip)
+  const shown = isCI ? listed : listed.slice(0, PRERENDER_ROUTE_LIMIT)
+  const width = Math.min(Math.max(...shown.map(route => route.route.length)), 60)
+  const times = shown.map(route => route.skip ? 'skipped' : formatRouteTime(route.generateTimeMS))
+  const timeWidth = Math.max(...times.map(time => time.length))
+  const lines = shown.map((route, index) => `  ${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
+  const hidden = listed.length - shown.length
+  if (hidden) {
+    lines.push(styleText('dim', `  \u2026 and ${hidden} more. Run ${styleText('cyan', `npx nuxt ${command} --logLevel=verbose`)} to see all prerendered routes.`))
+  }
+  return lines
+}
+
+/** Whole milliseconds, as Nitro prints them, until a route takes seconds. */
+function formatRouteTime(ms: number | undefined): string {
+  if (ms === undefined) {
+    return ''
+  }
+  return ms < 1000 ? `${Math.round(ms)}ms` : formatDuration(ms)
 }
 
 function formatFailedRoute(route: PrerenderRoute): string {
