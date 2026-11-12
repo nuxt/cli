@@ -160,7 +160,7 @@ describe('quietServerOutput', () => {
     const lines = stripAnsi(report.summary(timings)!).split('\n')
     expect(lines[0]).toBe('Prerendered 1 route in 1.20s')
     // Skipped and failed routes stay out of the list.
-    expect(lines[1]).toBe('  /  42ms')
+    expect(lines[1]).toBe('/  42ms')
     // Source maps are left out, as Nitro leaves them out of its own total.
     expect(lines[2]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
     expect(lines).toHaveLength(3)
@@ -184,17 +184,17 @@ describe('quietServerOutput', () => {
   it('lists the first 20 written routes in a terminal and says how to see the rest', async () => {
     const lines = await prerender(23, { command: 'generate' })
     expect(lines[0]).toBe('Prerendered 23 routes in 900ms')
-    expect(lines.slice(1, 3)).toEqual(['  /post-0   5ms', '  /post-1   5ms'])
-    expect(lines[20]).toBe('  /post-19  5ms')
-    expect(lines.slice(21)).toEqual(['  … and 3 more. Run npx nuxt generate --logLevel=verbose to see all prerendered routes.'])
+    expect(lines.slice(1, 3)).toEqual(['/post-0   5ms', '/post-1   5ms'])
+    expect(lines[20]).toBe('/post-19  5ms')
+    expect(lines.slice(21)).toEqual(['… and 3 more. Run npx nuxt generate --logLevel=verbose to see all prerendered routes.'])
   })
 
   it('lists every route in CI, skipped ones too', async () => {
     mocks.isCI = true
     const lines = await prerender(23)
     expect(lines).toHaveLength(25)
-    expect(lines.at(-2)).toBe('  /post-22      5ms')
-    expect(lines.at(-1)).toBe('  /feed     skipped')
+    expect(lines.at(-2)).toBe('/post-22      5ms')
+    expect(lines.at(-1)).toBe('/feed     skipped')
   })
 
   it('leaves failed prerenders to Nitro when the project sets its log level', async () => {

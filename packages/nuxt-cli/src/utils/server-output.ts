@@ -231,10 +231,10 @@ function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): str
   const width = Math.min(Math.max(...shown.map(route => route.route.length)), 60)
   const times = shown.map(route => route.skip ? 'skipped' : formatRouteTime(route.generateTimeMS))
   const timeWidth = Math.max(...times.map(time => time.length))
-  const lines = shown.map((route, index) => `  ${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
+  const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
   const hidden = listed.length - shown.length
   if (hidden) {
-    lines.push(styleText('dim', `  \u2026 and ${hidden} more. Run ${styleText('cyan', `npx nuxt ${command} --logLevel=verbose`)} to see all prerendered routes.`))
+    lines.push(styleText('dim', `\u2026 and ${hidden} more. Run ${styleText('cyan', `npx nuxt ${command} --logLevel=verbose`)} to see all prerendered routes.`))
   }
   return lines
 }
