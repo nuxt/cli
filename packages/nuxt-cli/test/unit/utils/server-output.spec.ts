@@ -81,6 +81,21 @@ describe('quietServerOutput', () => {
     ])
   })
 
+  it('reports each Vite environment as it starts building, before Vite 6 too', async () => {
+    const { nuxt, hooks } = createNuxt()
+    const started: unknown[] = []
+    quietServerOutput(nuxt as any, { onEnvironment: environment => void started.push(environment) })
+    const { plugin } = await resolveVitePlugin(hooks)
+    plugin.buildStart.call({ environment: { name: 'nitro', config: { consumer: 'server' } } })
+
+    const legacy = { plugins: [] as any[] }
+    await hooks.call('vite:extendConfig', legacy, { isClient: false, isServer: true })
+    legacy.plugins[0].configResolved({ logger: { info: () => {} }, build: { ssr: true } })
+    legacy.plugins[0].buildStart.call({})
+
+    expect(started).toEqual([{ name: 'nitro', consumer: 'server' }, { name: undefined, consumer: 'server' }])
+  })
+
   it('leaves log levels alone when verbose or set by the project', async () => {
     const verbose = createNuxt({ logLevel: 'verbose' })
     quietServerOutput(verbose.nuxt as any)
@@ -121,17 +136,20 @@ describe('quietServerOutput', () => {
       hooks: nitroHooks,
     }
     await hooks.call('nitro:init', nitro)
-    await hooks.call('nitro:build:before', nitro)
     await nitroHooks.call('prerender:route', { route: '/' })
     await nitroHooks.call('prerender:route', { route: '/gone', error: { statusCode: 404 } })
     await nitroHooks.call('prerender:done', { failedRoutes: [{ route: '/gone', error: { statusCode: 404, statusMessage: 'Not Found' } }] })
-    await nitroHooks.call('rollup:before', nitro)
     await nitroHooks.call('compiled', nitro)
 
-    const lines = stripAnsi(report.summary()!).split('\n')
-    expect(lines[0]).toMatch(/^Prerendered 1 route in \S+$/)
+    const timings = [
+      { phase: 'bundle (server)', message: '', duration: 300 },
+      { phase: 'prerender', message: '', duration: 1200 },
+      { phase: 'bundle (nitro)', message: '', duration: 2500 },
+    ]
+    const lines = stripAnsi(report.summary(timings)!).split('\n')
+    expect(lines[0]).toBe('Prerendered 1 route in 1.20s')
     // Source maps are left out, as Nitro leaves them out of its own total.
-    expect(lines[1]).toMatch(/^Server \(nitro\) built in \S+ · 2\.50 kB$/)
+    expect(lines[1]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
     expect(lines[2]).toBe('Preview: npx nuxt preview')
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n  /gone (404 Not Found)')
   })
@@ -150,8 +168,9 @@ describe('quietServerOutput', () => {
     plugin.buildStart.call({ environment: { name: 'ssr', config: { consumer: 'server' } } })
     await hooks.call('build:done')
 
-    expect(stripAnsi(report.summary()!).split('\n')).toEqual([
-      expect.stringMatching(/^Server \(vite\) built in \S+ · 1\.20 kB$/),
+    const timings = [{ phase: 'bundle (client)', message: '', duration: 900 }, { phase: 'bundle (server)', message: '', duration: 400 }]
+    expect(stripAnsi(report.summary(timings)!).split('\n')).toEqual([
+      'Server (vite) built in 400ms · 1.20 kB',
       'Preview: npx nuxt preview',
     ])
   })
@@ -164,7 +183,7 @@ describe('quietServerOutput', () => {
     await hooks.call('nitro:init', nitro)
     await nitroHooks.call('compiled', nitro)
 
-    expect(report.summary()).toBeUndefined()
+    expect(report.summary([{ phase: 'bundle (nitro)', message: '', duration: 100 }])).toBeUndefined()
   })
 })
 

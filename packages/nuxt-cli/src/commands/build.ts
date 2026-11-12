@@ -107,7 +107,7 @@ export default defineCommand({
       })
 
       progress.attachNuxt(nuxt)
-      const serverOutput = quietServerOutput(nuxt)
+      const serverOutput = quietServerOutput(nuxt, { onEnvironment: environment => progress.enterEnvironment(environment) })
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -146,7 +146,7 @@ export default defineCommand({
       stopReporting()
       progress.finish()
 
-      const serverSummary = serverOutput.summary()
+      const serverSummary = serverOutput.summary(progress.timings)
       if (serverSummary) {
         logger.success(serverSummary)
       }

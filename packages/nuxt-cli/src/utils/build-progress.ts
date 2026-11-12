@@ -14,6 +14,7 @@ const BUILD_PHASES: readonly Phase[] = [
   { id: 'types', message: 'Generating types' },
   { id: 'bundle (client)', message: 'Bundling client' },
   { id: 'bundle (server)', message: 'Bundling server' },
+  { id: 'prerender', message: 'Prerendering routes' },
   { id: 'bundle (nitro)', message: 'Bundling nitro' },
 ]
 
@@ -22,24 +23,17 @@ const HOOK_PHASES: Record<string, string> = {
   'builder:generateApp': 'app',
   'prepare:types': 'types',
   'build:before': 'bundle (client)',
-  'nitro:build:before': 'bundle (nitro)',
 }
 
 /** Nitro builds on its own hooks, which Nuxt's never see. */
 const NITRO_INIT_HOOK = 'nitro:init'
-
-/**
- * Nitro's own hooks, relabelled. Without these the Nitro phase says nothing
- * between the bundle starting and the output being written, which on a large
- * project is the longest silence of the build.
- */
-const NITRO_MESSAGES: Record<string, string> = {
-  'rollup:before': 'Bundling nitro',
-  'prerender:routes': 'Prerendering routes',
-}
+const NITRO_BUILD_HOOK = 'nitro:build:before'
 
 const PRERENDER_HOOK = 'prerender:generate'
 const PRERENDERED_HOOK = 'prerender:route'
+
+/** The Vite environment Nitro 3 builds the server in. */
+const NITRO_ENVIRONMENT = 'nitro'
 
 interface HookableLike {
   beforeEach?: (fn: (event: { name: string, args?: unknown[] }) => void) => void
@@ -47,15 +41,14 @@ interface HookableLike {
 
 interface NuxtLike {
   options?: { experimental?: { nitroViteEnvironment?: boolean } }
-  hook?: (name: 'vite:extendConfig', fn: (config: { plugins?: unknown[] }) => void) => unknown
   hooks?: HookableLike
 }
 
-/** Names the Vite plugin that reports which environment is being built, so it is added once per config. */
-const VITE_PLUGIN_NAME = 'nuxi:build-progress'
-
-/** The Vite environment Nitro 3 builds the server in. */
-const NITRO_ENVIRONMENT = 'nitro'
+/** A Vite environment as it starts building. */
+export interface BuildEnvironment {
+  name?: string
+  consumer?: string
+}
 
 /**
  * Tracks how far a production build has got, so the same transient phase line
@@ -110,81 +103,63 @@ export class BuildProgress extends PhaseTimeline {
   }
 
   /**
+   * Move to the bundle phase of a Vite environment that has started building.
+   * Vite resolves every config before it bundles anything, and with the
+   * environment API one config builds them all, so only the build itself knows
+   * which one it has reached.
+   */
+  enterEnvironment({ name, consumer }: BuildEnvironment): void {
+    if (name === NITRO_ENVIRONMENT) {
+      this.setPhase('bundle (nitro)')
+      return
+    }
+    this.setPhase(consumer === 'server' ? 'bundle (server)' : 'bundle (client)')
+  }
+
+  /**
    * Derive phases from the hooks Nuxt and Nitro call, so the timeline follows
    * the project's own build rather than a schedule guessed by the CLI.
    */
   attachNuxt(nuxt: NuxtLike): void {
-    // Vite configs resolve before anything is bundled, and with the environment
-    // API (which a server builder such as `@nuxt/vite-server` can switch on during
-    // setup) one config builds both environments. Only the build itself knows
-    // which environment it has reached.
-    nuxt.hook?.('vite:extendConfig', (config) => {
-      if (config.plugins && !config.plugins.some(plugin => (plugin as { name?: string } | null)?.name === VITE_PLUGIN_NAME)) {
-        config.plugins.push(this.#vitePlugin())
-      }
-    })
+    let nitroBuilding = false
     nuxt.hooks?.beforeEach?.(({ name, args }) => {
       const phase = HOOK_PHASES[name]
-      // Nitro 3 can build as a Vite environment, after the app, and is then
-      // reported by the Vite plugin when its environment starts.
-      if (phase && !(name === 'nitro:build:before' && nuxt.options?.experimental?.nitroViteEnvironment)) {
-        this.setPhase(phase)
-        return
-      }
       if (phase) {
-        return
+        this.setPhase(phase)
       }
-      if (name === 'webpack:compile') {
+      else if (name === NITRO_BUILD_HOOK) {
+        nitroBuilding = true
+      }
+      else if (name === 'webpack:compile') {
         const ctx = args?.[0] as { name?: string } | undefined
         this.setPhase(ctx?.name === 'server' ? 'bundle (server)' : 'bundle (client)')
       }
       else if (name === NITRO_INIT_HOOK) {
-        this.#attachNitro((args?.[0] as { hooks?: HookableLike } | undefined)?.hooks)
+        // Nitro's hooks also run while Nuxt is still bundling the app, and those
+        // are not what the build is waiting on.
+        const hooks = (args?.[0] as { hooks?: HookableLike } | undefined)?.hooks
+        hooks?.beforeEach?.(event => nitroBuilding && this.#onNitroHook(event, !!nuxt.options?.experimental?.nitroViteEnvironment))
       }
     })
   }
 
-  #vitePlugin() {
-    let ssr = false
-    const setPhase = (id: string) => this.setPhase(id)
-    return {
-      name: VITE_PLUGIN_NAME,
-      apply: 'build' as const,
-      // Before Vite 6 each environment has a config of its own.
-      configResolved(config: { build?: { ssr?: unknown } }) {
-        ssr = !!config.build?.ssr
-      },
-      buildStart(this: { environment?: { name: string, config?: { consumer?: string } } }) {
-        if (this.environment?.name === NITRO_ENVIRONMENT) {
-          setPhase('bundle (nitro)')
-          return
-        }
-        const consumer = this.environment?.config?.consumer ?? (ssr ? 'server' : 'client')
-        setPhase(consumer === 'server' ? 'bundle (server)' : 'bundle (client)')
-      },
+  #onNitroHook({ name, args }: { name: string, args?: unknown[] }, viteEnvironment: boolean): void {
+    if (name === 'prerender:init') {
+      this.setPhase('prerender')
     }
-  }
-
-  #attachNitro(hooks: HookableLike | undefined): void {
-    hooks?.beforeEach?.(({ name, args }) => {
-      // Nitro's hooks also run while Nuxt is still bundling the app, and those
-      // are not what the build is waiting on.
-      if (BUILD_PHASES[this.index]!.id !== 'bundle (nitro)') {
-        return
+    // Nitro 2 bundles with Rollup; Nitro 3 as a Vite environment, reported
+    // through `enterEnvironment`, and runs its Rollup hooks early.
+    else if (name === 'rollup:before' && !viteEnvironment) {
+      this.setPhase('bundle (nitro)')
+    }
+    else if (name === PRERENDER_HOOK && BUILD_PHASES[this.index]!.id === 'prerender') {
+      const route = (args?.[0] as { route?: string } | undefined)?.route
+      if (route) {
+        this.setMessage(this.#prerendered ? `Prerendering ${route} (${this.#prerendered} done)` : `Prerendering ${route}`)
       }
-      const message = NITRO_MESSAGES[name]
-      if (message) {
-        this.setMessage(message)
-      }
-      else if (name === PRERENDER_HOOK) {
-        const route = (args?.[0] as { route?: string } | undefined)?.route
-        if (route) {
-          this.setMessage(this.#prerendered ? `Prerendering ${route} (${this.#prerendered} done)` : `Prerendering ${route}`)
-        }
-      }
-      else if (name === PRERENDERED_HOOK) {
-        this.#prerendered++
-      }
-    })
+    }
+    else if (name === PRERENDERED_HOOK) {
+      this.#prerendered++
+    }
   }
 }

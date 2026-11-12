@@ -1,5 +1,7 @@
 import type { Nuxt } from '@nuxt/schema'
 import type { Nitro, PrerenderRoute } from 'nitropack'
+import type { BuildEnvironment } from './build-progress'
+import type { PhaseTiming } from './progress-snapshot'
 
 import { readdir, stat } from 'node:fs/promises'
 import process from 'node:process'
@@ -13,9 +15,6 @@ import { logger } from './logger'
 /** Nitro's `warn` level: warnings and errors still print, progress and file trees do not. */
 const NITRO_QUIET_LOG_LEVEL = 1
 
-/** The Vite environment Nitro 3 builds the server in. */
-const NITRO_ENVIRONMENT = 'nitro'
-
 const VITE_PLUGIN_NAME = 'nuxi:server-output'
 
 /** The line Vite opens each environment's build with, e.g. `vite v8.3.5 building ssr environment for production...`. */
@@ -25,8 +24,13 @@ const ENVIRONMENT_BUILD_RE = /building (\S+) environment for/
 const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 
 export interface ServerOutputReport {
-  /** The one-line summary of the server build, or nothing for a static-only build. */
-  summary: () => string | undefined
+  /** The summary of the server build, from the build's phase timings, or nothing for a static-only build. */
+  summary: (timings: PhaseTiming[]) => string | undefined
+}
+
+interface ServerOutputOptions {
+  /** Called as each Vite environment starts building. */
+  onEnvironment?: (environment: BuildEnvironment) => void
 }
 
 interface ViteLogger {
@@ -39,6 +43,7 @@ interface ResolvedViteConfig {
 }
 
 interface ViteBuildContext {
+  /** Absent before Vite 6, where each environment has a config of its own. */
   environment?: { name: string, config: { consumer?: string } }
 }
 
@@ -59,21 +64,15 @@ interface MaybeServerBuild {
  * Nothing changes at `--log-level verbose`, or when the project sets a log
  * level for Nitro or Vite itself.
  */
-export function quietServerOutput(nuxt: Nuxt): ServerOutputReport {
+export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {}): ServerOutputReport {
   const quiet = nuxt.options.logLevel !== 'verbose'
   let usesNitro = false
-  let started: number | undefined
-  let duration: number | undefined
   let size: number | undefined
-  let prerender: { count: number, duration: number } | undefined
+  let prerendered = 0
   let deploy: string | undefined
   let isStatic = false
 
-  const finish = async (dir: string | undefined) => {
-    if (started === undefined || duration !== undefined) {
-      return
-    }
-    duration = Date.now() - started
+  const measure = async (dir: string | undefined) => {
     size = dir ? await directorySize(dir).catch(() => undefined) : undefined
   }
 
@@ -106,10 +105,12 @@ export function quietServerOutput(nuxt: Nuxt): ServerOutputReport {
   function createVitePlugin() {
     const servers = new Set<string>()
     let muted = false
+    let ssr = false
     return {
       name: VITE_PLUGIN_NAME,
       apply: 'build' as const,
-      configResolved(config: ResolvedViteConfig) {
+      configResolved(config: ResolvedViteConfig & { build?: { ssr?: unknown } }) {
+        ssr = !!config.build?.ssr
         for (const [name, environment] of Object.entries(config.environments ?? {})) {
           if (environment.consumer === 'server') {
             servers.add(name)
@@ -133,80 +134,55 @@ export function quietServerOutput(nuxt: Nuxt): ServerOutputReport {
         }
       },
       buildStart(this: ViteBuildContext) {
-        const environment = this.environment
-        if (!environment) {
-          return
-        }
-        muted = environment.config.consumer === 'server' && quietVite
-        // The Vite environment that writes the server output, where there is one.
-        // Nitro 3 also runs its Rollup hooks before the app is bundled, so its
-        // environment starting is what marks the server build.
-        if (environment.name === NITRO_ENVIRONMENT) {
-          started = Date.now()
-        }
-        else if (!usesNitro && environment.config.consumer === 'server') {
-          started ??= Date.now()
-        }
+        const consumer = this.environment?.config.consumer ?? (ssr ? 'server' : 'client')
+        muted = consumer === 'server' && quietVite
+        options.onEnvironment?.({ name: this.environment?.name, consumer })
       },
     }
   }
-
-  let buildStarted = Date.now()
-  nuxt.hook('nitro:build:before', () => {
-    buildStarted = Date.now()
-  })
-  let prerenderStarted: number | undefined
 
   // Without Nitro the Vite server build is the whole server output.
   nuxt.hook('build:done', async () => {
     if (!usesNitro) {
       const dir = (nuxt as unknown as MaybeServerBuild).serverBuild?.output.dir()
-      await finish(dir ? join(dir, 'server') : undefined)
+      await measure(dir ? join(dir, 'server') : undefined)
     }
   })
 
   nuxt.hook('nitro:init', (nitro) => {
     usesNitro = true
-    let prerendered = 0
-    // Nitro 3 prerenders after the app is bundled, so the clock starts with the prerenderer.
-    nitro.hooks.hook('prerender:init', () => {
-      prerenderStarted = Date.now()
-    })
     nitro.hooks.hook('prerender:route', (route) => {
       if (!route.error) {
         prerendered++
       }
     })
     nitro.hooks.hook('prerender:done', ({ failedRoutes }) => {
-      prerender = { count: prerendered, duration: Date.now() - (prerenderStarted ?? buildStarted) }
       // Nitro lists these at its `log` level, which the quiet build drops.
       if (failedRoutes.length && quiet) {
         logger.error(`Failed to prerender ${failedRoutes.length} route${failedRoutes.length === 1 ? '' : 's'}:\n${
           failedRoutes.map(formatFailedRoute).join('\n')}`)
       }
     })
-    // Nitro 2 bundles with its own Rollup build.
-    nitro.hooks.hook('rollup:before', () => {
-      started ??= Date.now()
-    })
     nitro.hooks.hook('compiled', async () => {
       isStatic = !!nitro.options.static
-      started ??= buildStarted
       deploy = nitro.options.commands?.deploy ? resolveDeployCommand(nitro) : undefined
-      await finish(nitro.options.output.serverDir)
+      await measure(nitro.options.output.serverDir)
     })
   })
 
   return {
-    summary() {
+    summary(timings) {
       const lines: string[] = []
-      if (prerender && prerender.count) {
-        lines.push(`Prerendered ${prerender.count} route${prerender.count === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
+      const prerender = timings.find(timing => timing.phase === 'prerender')
+      if (prerender && prerendered) {
+        lines.push(`Prerendered ${prerendered} route${prerendered === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
       }
+      // Without Nitro, the Vite server bundle is the server output.
+      const server = timings.find(timing => timing.phase === (usesNitro ? 'bundle (nitro)' : 'bundle (server)'))
       // No size means nothing was written, as in a static build.
-      if (!isStatic && duration !== undefined && size !== undefined) {
+      if (!isStatic && server && size !== undefined) {
         const builder = usesNitro ? 'nitro' : (nuxt as unknown as MaybeServerBuild).serverBuild?.name || 'server'
-        lines.push(`Server (${builder}) built in ${formatDuration(duration)}${size === undefined ? '' : styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
+        lines.push(`Server (${builder}) built in ${formatDuration(server.duration)}${styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
         lines.push(styleText('dim', `Preview: ${styleText('cyan', 'npx nuxt preview')}`))
         if (deploy) {
           lines.push(styleText('dim', `Deploy: ${styleText('cyan', deploy)}`))
