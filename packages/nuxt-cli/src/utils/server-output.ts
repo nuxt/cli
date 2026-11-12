@@ -1,0 +1,319 @@
+import type { Nuxt } from '@nuxt/schema'
+import type { Nitro, PrerenderRoute } from 'nitropack'
+import type { BuildEnvironment } from './build-progress'
+import type { PhaseTiming } from './progress-snapshot'
+
+import { readdir, stat } from 'node:fs/promises'
+import process from 'node:process'
+import { styleText } from 'node:util'
+
+import { join, relative } from 'pathe'
+import { isCI } from 'std-env'
+
+import { formatBytes, formatDuration, stripAnsi } from './formatting'
+import { logger } from './logger'
+
+/** Nitro's `warn` level: warnings and errors still print, progress and file trees do not. */
+const NITRO_QUIET_LOG_LEVEL = 1
+
+/** How many prerendered routes a local build lists before pointing at verbose output. */
+const PRERENDER_ROUTE_LIMIT = 20
+
+const VITE_PLUGIN_NAME = 'nuxi:server-output'
+
+/** Vite 8's build reporter, created once per environment. */
+const VITE_REPORTER_PLUGIN = 'native:reporter'
+
+/** The line Vite opens each environment's build with, e.g. `vite v8.3.5 building ssr environment for production...`. */
+const ENVIRONMENT_BUILD_RE = /building (\S+) environment for/
+
+/** Source maps, which `@nuxt/vite-server` writes as `*.map.json`. */
+const SOURCE_MAP_RE = /\.map(?:\.json)?$/
+
+export interface ServerOutputReport {
+  /** The summary of the server build, from the build's phase timings, or nothing for a static-only build. */
+  summary: (timings: PhaseTiming[]) => string | undefined
+  /** How to preview and deploy what was built: no preview when no server was written. */
+  commands: () => string[]
+  /** What to do with a prerendered build: where it can go, or the provider's own deploy command. */
+  staticCommands: (publicDir: string) => string[]
+}
+
+interface ServerOutputOptions {
+  /** The command to suggest for the full route list, such as `build` or `generate`. */
+  command?: string
+  /** Called as each Vite environment starts building. */
+  onEnvironment?: (environment: BuildEnvironment) => void
+}
+
+interface ViteLogger {
+  info: (message: string, options?: unknown) => void
+}
+
+interface ResolvedViteConfig {
+  logger: ViteLogger
+  environments?: Record<string, { consumer?: string }>
+  plugins: Array<{ name?: string, applyToEnvironment?: (environment: { config: { consumer?: string } }) => unknown }>
+}
+
+interface ViteBuildContext {
+  /** Absent before Vite 6, where each environment has a config of its own. */
+  environment?: { name: string, config: { consumer?: string } }
+}
+
+/** Nuxt fields read optimistically: the server build descriptor only exists in recent Nuxt. */
+interface MaybeServerBuild {
+  serverBuild?: { name: string, output: { dir: () => string } }
+}
+
+/**
+ * Take over what the server build prints during `nuxt build`, leaving warnings
+ * and errors in place, and report it as a single line with its time and size
+ * once it is written.
+ *
+ * Nitro 2 builds the server with its own bundler; Nitro 3 and `@nuxt/vite-server`
+ * build it as a Vite environment, alongside the app. Either way the CLI keeps
+ * Vite's file lists for the client only.
+ *
+ * Nothing changes at `--logLevel=verbose`, or when the project sets a log
+ * level for Nitro or Vite itself.
+ */
+export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {}): ServerOutputReport {
+  const quiet = nuxt.options.logLevel !== 'verbose'
+  let usesNitro = false
+  let size: number | undefined
+  let prerendered = 0
+  const routes: PrerenderRoute[] = []
+  let deploy: string | undefined
+  let isStatic = false
+  let preset: string | undefined
+  let outputDir: string | undefined
+
+  const measure = async (dir: string | undefined) => {
+    size = dir ? await directorySize(dir).catch(() => undefined) : undefined
+  }
+
+  // Whether the CLI took Nitro's output over, and so owes what it hid.
+  let nitroQuieted = false
+  if (quiet) {
+    nuxt.hook('nitro:config', (config) => {
+      if (nuxt.options.nitro?.logLevel === undefined && Number(config.logLevel ?? 3) > NITRO_QUIET_LOG_LEVEL) {
+        config.logLevel = NITRO_QUIET_LOG_LEVEL
+        nitroQuieted = true
+      }
+    })
+  }
+
+  const vite = nuxt.options.vite as { logLevel?: string, $server?: { logLevel?: string } } | undefined
+  const quietVite = quiet && !vite?.logLevel && !vite?.$server?.logLevel
+  nuxt.hook('vite:extendConfig', (config, { isServer }) => {
+    // A config of its own builds nothing but the server, so its log level can
+    // drop too, which also silences the progress lines Vite's native reporter
+    // writes straight to the terminal. With the environment API one config
+    // builds every environment, and is read at hook time because a server
+    // builder may switch the API on during setup.
+    if (quietVite && isServer && !nuxt.options.experimental?.viteEnvironmentApi && config.logLevel !== 'silent') {
+      (config as { logLevel?: string }).logLevel = 'warn'
+    }
+    // The environment API extends one shared config once per environment.
+    const plugins = config.plugins as unknown[] | undefined
+    if (plugins && !plugins.some(plugin => (plugin as { name?: string } | null)?.name === VITE_PLUGIN_NAME)) {
+      plugins.push(createVitePlugin())
+    }
+  })
+
+  function createVitePlugin() {
+    const servers = new Set<string>()
+    let muted = false
+    let ssr = false
+    return {
+      name: VITE_PLUGIN_NAME,
+      apply: 'build' as const,
+      configResolved(config: ResolvedViteConfig & { build?: { ssr?: unknown } }) {
+        ssr = !!config.build?.ssr
+        for (const [name, environment] of Object.entries(config.environments ?? {})) {
+          if (environment.consumer === 'server') {
+            servers.add(name)
+          }
+        }
+        if (!quietVite) {
+          return
+        }
+        // Vite's reporter is native and writes its progress lines (`N modules
+        // transformed.`, `computing gzip size...`) straight to the terminal, past
+        // the logger, so it is left out of server environments altogether.
+        const reporter = config.plugins.find(plugin => plugin.name === VITE_REPORTER_PLUGIN)
+        const applyToEnvironment = reporter?.applyToEnvironment
+        if (reporter && applyToEnvironment) {
+          reporter.applyToEnvironment = environment => environment.config.consumer === 'server' ? false : applyToEnvironment(environment)
+        }
+        // Vite reports each environment through the one logger, at a single log
+        // level. Muting its info messages while a server environment builds keeps
+        // the client's file list and every warning.
+        const info = config.logger.info.bind(config.logger)
+        config.logger.info = (message, options) => {
+          const environment = typeof message === 'string' ? stripAnsi(message).match(ENVIRONMENT_BUILD_RE)?.[1] : undefined
+          if (environment) {
+            muted = servers.has(environment)
+          }
+          if (!muted) {
+            info(message, options)
+          }
+        }
+      },
+      buildStart(this: ViteBuildContext) {
+        const consumer = this.environment?.config.consumer ?? (ssr ? 'server' : 'client')
+        muted = consumer === 'server' && quietVite
+        options.onEnvironment?.({ name: this.environment?.name, consumer })
+      },
+    }
+  }
+
+  // Without Nitro the Vite server build is the whole server output.
+  nuxt.hook('build:done', async () => {
+    if (!usesNitro) {
+      const dir = (nuxt as unknown as MaybeServerBuild).serverBuild?.output.dir()
+      await measure(dir ? join(dir, 'server') : undefined)
+    }
+  })
+
+  nuxt.hook('nitro:init', (nitro) => {
+    usesNitro = true
+    nitro.hooks.hook('prerender:route', (route) => {
+      // A skipped route fires the hook without being written.
+      if (!route.error && !route.skip) {
+        prerendered++
+      }
+      if (!route.error) {
+        routes.push(route)
+      }
+    })
+    nitro.hooks.hook('prerender:done', ({ failedRoutes }) => {
+      // Nitro lists these at its `log` level, which the quiet build drops.
+      if (failedRoutes.length && nitroQuieted) {
+        logger.error(`Failed to prerender ${failedRoutes.length} route${failedRoutes.length === 1 ? '' : 's'}:\n${
+          failedRoutes.map(formatFailedRoute).join('\n')}`)
+      }
+    })
+    nitro.hooks.hook('compiled', async () => {
+      isStatic = !!nitro.options.static
+      preset = nitro.options.preset
+      outputDir = nitro.options.output.dir
+      deploy = nitro.options.commands?.deploy ? resolveDeployCommand(nitro) : undefined
+      await measure(nitro.options.output.serverDir)
+    })
+  })
+
+  return {
+    summary(timings) {
+      const lines: string[] = []
+      const prerender = timings.find(timing => timing.phase === 'prerender')
+      if (prerender && prerendered) {
+        lines.push(`Prerendered ${prerendered} route${prerendered === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
+        // Nitro lists routes itself unless the CLI quieted it.
+        if (nitroQuieted) {
+          // Joined rather than spread: a CI build can list more routes than a call takes arguments.
+          lines.push(formatPrerenderedRoutes(routes, nuxtCommand(nuxt, options.command ?? 'build')).join('\n'))
+        }
+      }
+      // Without Nitro, the Vite server bundle is the server output.
+      const server = timings.find(timing => timing.phase === (usesNitro ? 'bundle (nitro)' : 'bundle (server)'))
+      // No size means nothing was written, as in a static build.
+      if (!isStatic && server && size !== undefined) {
+        const builder = usesNitro ? 'nitro' : (nuxt as unknown as MaybeServerBuild).serverBuild?.name || 'server'
+        lines.push(`Server (${builder}) built in ${formatDuration(server.duration)}${styleText('dim', ` \u00B7 ${formatBytes(size)}`)}`)
+      }
+      return lines.length ? lines.join('\n') : undefined
+    },
+    commands() {
+      const commands: string[] = []
+      // A static preset writes no server to preview, but may still name a deploy command.
+      if (!isStatic && size !== undefined) {
+        commands.push(`You can preview this build using ${styleText('cyan', nuxtCommand(nuxt, 'preview'))}`)
+      }
+      if (deploy) {
+        commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
+      }
+      return commands
+    },
+    staticCommands(publicDir) {
+      // Only the generic preset writes plain files that any static host serves.
+      if (!preset || preset === 'static') {
+        return [`You can now deploy ${styleText('cyan', publicDir)} to any static hosting`]
+      }
+      // A provider preset lays its output out for that provider.
+      if (deploy) {
+        return [`You can deploy this build using ${styleText('cyan', deploy)}`]
+      }
+      const dir = outputDir ? relative(process.cwd(), outputDir) || '.' : publicDir
+      return [`You can now deploy ${styleText('cyan', dir)} to ${styleText('cyan', preset)}`]
+    },
+  }
+}
+
+/**
+ * The routes a build wrote. CI logs are read after the fact to check what was
+ * deployed, so they list every route, skipped ones too; a terminal lists the
+ * first few and says how to see the rest.
+ */
+/** `npx nuxt <command>`, naming the project when it is not the current directory. */
+function nuxtCommand(nuxt: Nuxt, command: string): string {
+  const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
+  return `npx nuxt ${command}${dir ? ` ${/\s/.test(dir) ? JSON.stringify(dir) : dir}` : ''}`
+}
+
+function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): string[] {
+  const listed = isCI ? routes : routes.filter(route => !route.skip)
+  const shown = isCI ? listed : listed.slice(0, PRERENDER_ROUTE_LIMIT)
+  const width = Math.min(shown.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
+  const times = shown.map(route => route.skip ? 'skipped' : formatRouteTime(route.generateTimeMS))
+  const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
+  const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
+  const hidden = listed.length - shown.length
+  if (hidden) {
+    lines.push(styleText('dim', `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
+  }
+  return lines
+}
+
+/** Whole milliseconds, as Nitro prints them, until a route takes seconds. */
+function formatRouteTime(ms: number | undefined): string {
+  if (ms === undefined) {
+    return ''
+  }
+  return ms < 1000 ? `${Math.round(ms)}ms` : formatDuration(ms)
+}
+
+function formatFailedRoute(route: PrerenderRoute): string {
+  // Nitro 2 sets `statusCode` and `statusMessage`; Nitro 3 `status` and `statusText`.
+  const error = route.error as (PrerenderRoute['error'] & { status?: number, statusText?: string }) | undefined
+  const status = [error?.statusCode ?? error?.status, error?.statusMessage ?? error?.statusText].filter(Boolean).join(' ')
+  return `${route.route}${status ? styleText('dim', ` (${status})`) : ''}`
+}
+
+/**
+ * The deploy command Nitro would print. Nitro 2 fills `{{ output.dir }}`
+ * placeholders relative to the working directory; Nitro 3 names a command of
+ * its own.
+ */
+function resolveDeployCommand(nitro: Nitro): string {
+  const options = nitro.options as Nitro['options'] & { builder?: string, framework?: { deployCommand?: string } }
+  if (options.builder) {
+    return options.framework?.deployCommand || 'npx nitro deploy --prebuilt'
+  }
+  return options.commands.deploy!.replace(/\{\{ ?([\w.]+) ?\}\}/g, (match, key: string) => {
+    const value = key.split('.').reduce<any>((object, part) => object?.[part], options)
+    return typeof value === 'string' ? relative(process.cwd(), value) || '.' : match
+  })
+}
+
+/** Bytes on disk under `dir`, leaving out source maps as Nitro's own total does. */
+async function directorySize(dir: string): Promise<number> {
+  let total = 0
+  for (const entry of await readdir(dir, { withFileTypes: true, recursive: true })) {
+    if (entry.isFile() && !SOURCE_MAP_RE.test(entry.name)) {
+      total += (await stat(join(entry.parentPath, entry.name))).size
+    }
+  }
+  return total
+}

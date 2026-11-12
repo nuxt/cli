@@ -37,7 +37,7 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
   const total = snapshot.elapsed + drift
   const phase = snapshot.phaseElapsed + drift
   return total - phase >= PHASE_ELAPSED_THRESHOLD
-    ? `${formatDuration(phase)} \u00B7 ${formatDuration(total)}`
+    ? `${formatDuration(phase)} \u00B7 total ${formatDuration(total)}`
     : formatDuration(total)
 }
 
@@ -70,6 +70,27 @@ export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
     .filter(timing => timing.duration >= 10)
     .map(timing => `${timing.phase} ${formatDuration(timing.duration)}`)
     .join(' · ')
+}
+
+const PHASE_BAR_WIDTH = 20
+
+/**
+ * One phase per line with a bar for its share of the time all phases took, so
+ * the slow step stands out at a glance. Phases are listed in the order they ran.
+ */
+export function formatPhaseTable(timings: PhaseTiming[]): string {
+  const shown = timings.filter(timing => timing.duration >= 10)
+  const total = shown.reduce((sum, timing) => sum + timing.duration, 0)
+  const nameWidth = Math.max(...shown.map(timing => timing.phase.length))
+  const durations = shown.map(timing => formatDuration(timing.duration))
+  const durationWidth = Math.max(...durations.map(duration => duration.length))
+  return shown.map((timing, index) => {
+    const share = timing.duration / total
+    const filled = Math.max(1, Math.round(share * PHASE_BAR_WIDTH))
+    const bar = styleText('cyan', '█'.repeat(filled)) + styleText('dim', '░'.repeat(PHASE_BAR_WIDTH - filled))
+    const percent = `${Math.round(share * 100)}%`.padStart(4)
+    return `${timing.phase.padEnd(nameWidth)}  ${durations[index]!.padStart(durationWidth)}  ${bar}  ${styleText('dim', percent)}`
+  }).join('\n')
 }
 
 /**

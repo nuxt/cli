@@ -50,7 +50,7 @@ const RULES: Record<string, ScrubRule> = {
       { pattern: /\b\d+(?:\.\d+)?\s?s(?![a-z])/g, replacement: () => '42 ms' },
       // A phase clock is only printed beside the total once they differ, so
       // the pair is a function of machine speed and carries nothing once pinned.
-      { pattern: /42 ms \u00B7 42 ms/g, replacement: () => '42 ms' },
+      { pattern: /42 ms \u00B7 (?:total )?42 ms/g, replacement: () => '42 ms' },
     ],
   },
   versions: {

@@ -1,6 +1,8 @@
 import type { PhaseReporter } from '../../src/utils/phase-reporter'
 import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
+import { stripVTControlCharacters } from 'node:util'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
@@ -13,7 +15,7 @@ vi.mock('std-env', async importOriginal => ({
 
 process.env.FORCE_COLOR = '3'
 
-const { createPhaseReporter, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+const { createPhaseReporter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
 
 function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
@@ -70,7 +72,7 @@ describe('phase reporter', () => {
       startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
     })
 
-    expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 41\.0s$/)
+    expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
   })
 
   it('should redraw only the spinner while the rest of the line is unchanged', () => {
@@ -173,7 +175,7 @@ describe('phase reporter', () => {
       await waitForOutput('Generating server types')
     })
 
-    expect(screen(renderer)).toContain('Generating server types (33.0s \u00B7 41.0s)')
+    expect(screen(renderer)).toContain('Generating server types (33.0s \u00B7 total 41.0s)')
   })
 
   it('should leave foreign output intact', async () => {
@@ -379,5 +381,22 @@ describe('phase reporter', () => {
     process.env.NO_COLOR = '1'
     expect(isAnimationSupported({ isTTY: true } as NodeJS.WriteStream)).toBe(false)
     delete process.env.NO_COLOR
+  })
+})
+
+describe('formatPhaseTable', () => {
+  it('lines phases up with a bar for their share of the phases shown', () => {
+    const table = formatPhaseTable([
+      { phase: 'config', message: '', duration: 1000 },
+      { phase: 'types', message: '', duration: 5 },
+      { phase: 'bundle (client)', message: '', duration: 2900 },
+      { phase: 'prerender', message: '', duration: 100 },
+    ])
+    // `types` is too quick to list, so it is left out of the total as well.
+    expect(stripVTControlCharacters(table).split('\n')).toEqual([
+      'config           1.00s  █████░░░░░░░░░░░░░░░   25%',
+      'bundle (client)  2.90s  ███████████████░░░░░   73%',
+      'prerender        100ms  █░░░░░░░░░░░░░░░░░░░    3%',
+    ])
   })
 })

@@ -132,6 +132,19 @@ export function formatDuration(ms: number): string {
     : `${minutes}m ${seconds}s`
 }
 
+const BYTE_UNITS = ['B', 'kB', 'MB', 'GB']
+
+/** Format a byte count in decimal units, as Vite and Nitro report sizes (`812 B`, `4.36 kB`, `2.45 MB`). */
+export function formatBytes(bytes: number): string {
+  let value = Math.max(0, bytes)
+  let unit = 0
+  while (value >= 1000 && unit < BYTE_UNITS.length - 1) {
+    value /= 1000
+    unit++
+  }
+  return unit === 0 ? `${value} B` : `${value.toFixed(2)} ${BYTE_UNITS[unit]}`
+}
+
 const AT_MENTION_RE = /\b@([^, ]+)/g
 const BACKTICK_RE = /`([^`]*)`/g
 
