@@ -194,7 +194,8 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
         lines.push(`Prerendered ${prerendered} route${prerendered === 1 ? '' : 's'} in ${formatDuration(prerender.duration)}`)
         // Nitro lists routes itself unless the CLI quieted it.
         if (nitroQuieted) {
-          lines.push(...formatPrerenderedRoutes(routes, options.command ?? 'build'))
+          // Joined rather than spread: a CI build can list more routes than a call takes arguments.
+          lines.push(formatPrerenderedRoutes(routes, options.command ?? 'build').join('\n'))
         }
       }
       // Without Nitro, the Vite server bundle is the server output.
@@ -228,9 +229,9 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
 function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): string[] {
   const listed = isCI ? routes : routes.filter(route => !route.skip)
   const shown = isCI ? listed : listed.slice(0, PRERENDER_ROUTE_LIMIT)
-  const width = Math.min(Math.max(...shown.map(route => route.route.length)), 60)
+  const width = Math.min(shown.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
   const times = shown.map(route => route.skip ? 'skipped' : formatRouteTime(route.generateTimeMS))
-  const timeWidth = Math.max(...times.map(time => time.length))
+  const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
   const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
   const hidden = listed.length - shown.length
   if (hidden) {
