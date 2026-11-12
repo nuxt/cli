@@ -15,14 +15,13 @@ import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
-import { intro, logger, outro } from '../utils/logger'
+import { intro, logBlock, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { formatRouteRules } from '../utils/route-rules'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
-import { blankLineBefore } from '../utils/stdout'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -162,7 +161,7 @@ export default defineCommand({
 
       const bundle = clientBundle?.()
       if (bundle) {
-        logger.message(`${blankLineBefore()}${formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir))}\n`)
+        logBlock(formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir)))
       }
 
       const routeRules = nitroOptions && formatRouteRules(nitroOptions.routeRules, {
@@ -172,7 +171,7 @@ export default defineCommand({
         columns: (process.stdout.columns || 80) - 3,
       })
       if (routeRules) {
-        logger.message(`${routeRules}\n`)
+        logBlock(routeRules)
       }
 
       const serverSummary = serverOutput.summary(progress.timings)

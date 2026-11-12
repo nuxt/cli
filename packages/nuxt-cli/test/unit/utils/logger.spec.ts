@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { stripAnsi } from '../../../src/utils/formatting'
-import { logger } from '../../../src/utils/logger'
+import { logBlock, logger } from '../../../src/utils/logger'
 
 const environment = vi.hoisted(() => ({ isCI: false }))
 
@@ -68,5 +68,28 @@ describe('logger', () => {
     logger.info('Ready in 2.4s\nconfig 320ms')
 
     expect(written()).toBe('● Ready in 2.4s\n  config 320ms\n')
+  })
+
+  // Last in the file: the first block outside a terminal starts watching stdout for good.
+  it('should keep summary blocks one blank line apart in a terminal', () => {
+    const { written } = capture(true)
+
+    logBlock('Bundle (client)\n_nuxt/entry.js')
+    logBlock('Route rules\n/  prerender')
+    logger.success('Server built')
+
+    expect(written()).not.toMatch(/│\n│\n/)
+    expect(written()).toMatch(/│ {2}_nuxt\/entry\.js\n│\n│ {2}Route rules\n.*\n│\n◆ {2}Server built\n$/)
+  })
+
+  it('should keep summary blocks one blank line apart in redirected output', () => {
+    const { written } = capture(false)
+
+    logger.info('Bundling app')
+    logBlock('Bundle (client)\n_nuxt/entry.js')
+    logBlock('Route rules\n/  prerender')
+    logger.success('Server built')
+
+    expect(written()).toBe('● Bundling app\n\nBundle (client)\n_nuxt/entry.js\n\nRoute rules\n/  prerender\n\n◆ Server built\n')
   })
 })
