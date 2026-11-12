@@ -163,7 +163,7 @@ export default defineCommand({
         }
         const dir = serverBuild.publicDir
         const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-        outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
+        outro(`You can now deploy ${styleText('cyan', publicDir)} to any static hosting ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
       }
       else {
         const complete = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}!`
