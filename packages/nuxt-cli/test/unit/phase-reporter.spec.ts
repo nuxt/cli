@@ -15,7 +15,7 @@ vi.mock('std-env', async importOriginal => ({
 
 process.env.FORCE_COLOR = '3'
 
-const { createPhaseReporter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+const { createPhaseReporter, formatPhaseBar, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
 
 function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
@@ -384,19 +384,39 @@ describe('phase reporter', () => {
   })
 })
 
-describe('formatPhaseTable', () => {
-  it('lines phases up with a bar for their share of the phases shown', () => {
-    const table = formatPhaseTable([
-      { phase: 'config', message: '', duration: 1000 },
-      { phase: 'types', message: '', duration: 5 },
-      { phase: 'bundle (client)', message: '', duration: 2900 },
-      { phase: 'prerender', message: '', duration: 100 },
-    ])
+describe('formatPhaseBar', () => {
+  const timings = [
+    { phase: 'config', message: '', duration: 1000 },
+    { phase: 'types', message: '', duration: 5 },
+    { phase: 'bundle (client)', message: '', duration: 2900 },
+    { phase: 'prerender', message: '', duration: 20 },
+  ]
+
+  it('splits a 40-cell bar into one segment per phase, sized by its share', () => {
+    const [bar, ...legend] = formatPhaseBar(timings, 120).split('\n')
     // `types` is too quick to list, so it is left out of the total as well.
-    expect(stripVTControlCharacters(table).split('\n')).toEqual([
-      'config           1.00s  █████░░░░░░░░░░░░░░░   25%',
-      'bundle (client)  2.90s  ███████████████░░░░░   73%',
-      'prerender        100ms  █░░░░░░░░░░░░░░░░░░░    3%',
-    ])
+    // Of 3.92s: config rounds to 10 cells and bundle (client) to 30; prerender
+    // rounds to none but keeps one, which the largest segment gives back.
+    const segments = bar!.split('\u001B[').filter(part => part.includes('█')).map(part => [part.slice(0, part.indexOf('m')), part.split('█').length - 1])
+    expect(segments).toEqual([['34', 10], ['36', 29], ['32', 1]])
+    expect(legend.map(line => stripVTControlCharacters(line))).toEqual(['■ config 1.00s  ■ bundle (client) 2.90s  ■ prerender 20ms'])
+  })
+
+  it('wraps the legend between entries', () => {
+    const legend = formatPhaseBar(timings, 40).split('\n').slice(1).map(line => stripVTControlCharacters(line))
+    expect(legend).toEqual(['■ config 1.00s', '■ bundle (client) 2.90s', '■ prerender 20ms'])
+  })
+
+  it('falls back to one line without colours', () => {
+    process.env.NO_COLOR = '1'
+    const previous = process.env.FORCE_COLOR
+    delete process.env.FORCE_COLOR
+    try {
+      expect(formatPhaseBar(timings, 120)).toBe('config 1.00s · bundle (client) 2.90s · prerender 20ms')
+    }
+    finally {
+      delete process.env.NO_COLOR
+      process.env.FORCE_COLOR = previous
+    }
   })
 })

@@ -16,7 +16,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
-import { createPhaseReporter, formatPhaseTable } from '../utils/phase-reporter'
+import { createPhaseReporter, formatPhaseBar } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
@@ -160,7 +160,7 @@ export default defineCommand({
       }
 
       // Where the time went sits right under the total it adds up to.
-      const breakdown = formatPhaseTable(progress.timings)
+      const breakdown = formatPhaseBar(progress.timings)
       const total = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
       const complete = breakdown ? `${total}\n${breakdown}` : total
       const next = ctx.args.prerender
