@@ -10,7 +10,8 @@ links:
 
 <!--build-module-cmd-->
 ```bash [Terminal]
-npx nuxt build-module [ROOTDIR] [--cwd=<directory>] [--logLevel=<silent|info|verbose>] [--build] [--stub] [--sourcemap] [--prepare]
+npx nuxt build-module build [ROOTDIR] [--cwd=<directory>] [--outDir=<directory>] [--sourcemap] [--stub]
+npx nuxt build-module prepare [ROOTDIR] [--cwd=<directory>]
 ```
 <!--/build-module-cmd-->
 
@@ -27,16 +28,26 @@ The `build-module` command runs `@nuxt/module-builder` to generate `dist` direct
 ## Options
 
 <!--build-module-opts-->
-| Option                               | Default | Description                                                                      |
-|--------------------------------------|---------|----------------------------------------------------------------------------------|
-| `--cwd=<directory>`                  |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
-| `--logLevel=<silent\|info\|verbose>` |         | Specify build-time log level                                                     |
-| `--build`                            | `false` | Build module for distribution                                                    |
-| `--stub`                             | `false` | Stub dist instead of actually building it for development                        |
-| `--sourcemap`                        | `false` | Generate sourcemaps                                                              |
-| `--prepare`                          | `false` | Prepare module for local development                                             |
+### `build`
+
+| Option                 | Default | Description                                                                      |
+|------------------------|---------|----------------------------------------------------------------------------------|
+| `--cwd=<directory>`    |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
+| `--outDir=<directory>` | `dist`  | Build directory                                                                  |
+| `--sourcemap`          | `false` | Generate sourcemaps                                                              |
+| `--stub`               | `false` | Stub dist instead of actually building it for development                        |
+
+### `prepare`
+
+| Option              | Default | Description                                                                      |
+|---------------------|---------|----------------------------------------------------------------------------------|
+| `--cwd=<directory>` |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
 <!--/build-module-opts-->
 
-::read-more{to="https://github.com/nuxt/module-builder" icon="i-simple-icons-github" target="\_blank"}
+`--stub` skips the full build and writes a `dist` directory whose files re-export your module's source, so a consuming project sees changes without a rebuild. Read more about [stub builds](/docs/guide/modules/module-builder/commands#build-stub).
+
+Run `nuxt build-module prepare` to generate the `.nuxt` directory and module types you need while developing the module. Read more about [preparing a module](/docs/guide/modules/module-builder/commands#prepare).
+
+::read-more{to="/docs/guide/modules/module-builder"}
 Read more about `@nuxt/module-builder`.
 ::
