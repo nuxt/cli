@@ -195,7 +195,7 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
         // Nitro lists routes itself unless the CLI quieted it.
         if (nitroQuieted) {
           // Joined rather than spread: a CI build can list more routes than a call takes arguments.
-          lines.push(formatPrerenderedRoutes(routes, options.command ?? 'build').join('\n'))
+          lines.push(formatPrerenderedRoutes(routes, nuxtCommand(nuxt, options.command ?? 'build')).join('\n'))
         }
       }
       // Without Nitro, the Vite server bundle is the server output.
@@ -211,7 +211,7 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
       const commands: string[] = []
       // A static preset writes no server to preview, but may still name a deploy command.
       if (!isStatic && size !== undefined) {
-        commands.push(`You can preview this build using ${styleText('cyan', 'npx nuxt preview')}`)
+        commands.push(`You can preview this build using ${styleText('cyan', nuxtCommand(nuxt, 'preview'))}`)
       }
       if (deploy) {
         commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
@@ -226,6 +226,12 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
  * deployed, so they list every route, skipped ones too; a terminal lists the
  * first few and says how to see the rest.
  */
+/** `npx nuxt <command>`, naming the project when it is not the current directory. */
+function nuxtCommand(nuxt: Nuxt, command: string): string {
+  const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
+  return `npx nuxt ${command}${dir ? ` ${/\s/.test(dir) ? JSON.stringify(dir) : dir}` : ''}`
+}
+
 function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): string[] {
   const listed = isCI ? routes : routes.filter(route => !route.skip)
   const shown = isCI ? listed : listed.slice(0, PRERENDER_ROUTE_LIMIT)
@@ -235,7 +241,7 @@ function formatPrerenderedRoutes(routes: PrerenderRoute[], command: string): str
   const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
   const hidden = listed.length - shown.length
   if (hidden) {
-    lines.push(styleText('dim', `\u2026 and ${hidden} more. Run ${styleText('cyan', `npx nuxt ${command} --logLevel=verbose`)} to see all prerendered routes.`))
+    lines.push(styleText('dim', `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
   }
   return lines
 }

@@ -214,7 +214,8 @@ describe('quietServerOutput', () => {
     await writeFile(join(dir, 'server/index.mjs'), 'x'.repeat(1200))
     await writeFile(join(dir, 'server/index.mjs.map.json'), 'x'.repeat(40_000))
 
-    const { nuxt, hooks } = createNuxt()
+    // Built from the parent directory, as `nuxt build playground` does.
+    const { nuxt, hooks } = createNuxt({ rootDir: join(process.cwd(), 'playground') })
     Object.assign(nuxt, { serverBuild: { name: 'vite', output: { dir: () => dir } } })
     const report = quietServerOutput(nuxt as any)
     const { plugin } = await resolveVitePlugin(hooks)
@@ -226,7 +227,7 @@ describe('quietServerOutput', () => {
     expect(stripAnsi(report.summary(timings)!).split('\n')).toEqual([
       'Server (vite) built in 400ms · 1.20 kB',
     ])
-    expect(report.commands().map(stripAnsi)).toEqual(['You can preview this build using npx nuxt preview'])
+    expect(report.commands().map(stripAnsi)).toEqual(['You can preview this build using npx nuxt preview playground'])
   })
 
   it('reports nothing about a server for a static build, but keeps its deploy command', async () => {
