@@ -251,7 +251,7 @@ function formatFailedRoute(route: PrerenderRoute): string {
   // Nitro 2 sets `statusCode` and `statusMessage`; Nitro 3 `status` and `statusText`.
   const error = route.error as (PrerenderRoute['error'] & { status?: number, statusText?: string }) | undefined
   const status = [error?.statusCode ?? error?.status, error?.statusMessage ?? error?.statusText].filter(Boolean).join(' ')
-  return `  ${route.route}${status ? styleText('dim', ` (${status})`) : ''}`
+  return `${route.route}${status ? styleText('dim', ` (${status})`) : ''}`
 }
 
 /**

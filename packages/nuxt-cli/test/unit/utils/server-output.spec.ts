@@ -165,7 +165,7 @@ describe('quietServerOutput', () => {
     expect(lines[2]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
     expect(lines).toHaveLength(3)
     expect(report.commands().map(stripAnsi)).toEqual(['You can preview this build using npx nuxt preview'])
-    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n  /gone (404 Not Found)\n  /broken (500 Server Error)')
+    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n/gone (404 Not Found)\n/broken (500 Server Error)')
   })
 
   async function prerender(count: number, options: { command?: string } = {}) {
