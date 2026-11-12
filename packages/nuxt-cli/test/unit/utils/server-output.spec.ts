@@ -50,8 +50,10 @@ async function resolveVitePlugin(hooks: ReturnType<typeof createHooks>) {
   const plugin = config.plugins[0]
   const printed: string[] = []
   const logger = { info: (message: string) => void printed.push(message) }
-  plugin.configResolved({ logger, environments: { client: { consumer: 'client' }, ssr: { consumer: 'server' }, nitro: { consumer: 'server' } } })
-  return { plugin, logger, printed }
+  // Vite's reporter, which Vite builds per environment.
+  const reporter = { name: 'native:reporter', applyToEnvironment: (_environment: { config: { consumer: string } }) => ({ name: 'builtin:vite-reporter' }) as unknown }
+  plugin.configResolved({ logger, plugins: [reporter], environments: { client: { consumer: 'client' }, ssr: { consumer: 'server' }, nitro: { consumer: 'server' } } })
+  return { plugin, logger, printed, reporter }
 }
 
 describe('quietServerOutput', () => {
@@ -63,6 +65,15 @@ describe('quietServerOutput', () => {
     await hooks.call('nitro:config', nitroConfig)
 
     expect(nitroConfig.logLevel).toBe(1)
+  })
+
+  it('leaves Vite\'s native reporter out of server environments', async () => {
+    const { nuxt, hooks } = createNuxt()
+    quietServerOutput(nuxt as any)
+    const { reporter } = await resolveVitePlugin(hooks)
+
+    expect(reporter.applyToEnvironment({ config: { consumer: 'client' } })).toEqual({ name: 'builtin:vite-reporter' })
+    expect(reporter.applyToEnvironment({ config: { consumer: 'server' } })).toBe(false)
   })
 
   it('keeps Vite\'s output for the client environment only', async () => {
@@ -95,7 +106,7 @@ describe('quietServerOutput', () => {
 
     const legacy = { plugins: [] as any[] }
     await hooks.call('vite:extendConfig', legacy, { isClient: false, isServer: true })
-    legacy.plugins[0].configResolved({ logger: { info: () => {} }, build: { ssr: true } })
+    legacy.plugins[0].configResolved({ logger: { info: () => {} }, plugins: [], build: { ssr: true } })
     legacy.plugins[0].buildStart.call({})
 
     expect(started).toEqual([{ name: 'nitro', consumer: 'server' }, { name: undefined, consumer: 'server' }])

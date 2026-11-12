@@ -21,6 +21,9 @@ const PRERENDER_ROUTE_LIMIT = 20
 
 const VITE_PLUGIN_NAME = 'nuxi:server-output'
 
+/** Vite 8's build reporter, created once per environment. */
+const VITE_REPORTER_PLUGIN = 'native:reporter'
+
 /** The line Vite opens each environment's build with, e.g. `vite v8.3.5 building ssr environment for production...`. */
 const ENVIRONMENT_BUILD_RE = /building (\S+) environment for/
 
@@ -50,6 +53,7 @@ interface ViteLogger {
 interface ResolvedViteConfig {
   logger: ViteLogger
   environments?: Record<string, { consumer?: string }>
+  plugins: Array<{ name?: string, applyToEnvironment?: (environment: { config: { consumer?: string } }) => unknown }>
 }
 
 interface ViteBuildContext {
@@ -134,6 +138,14 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
         }
         if (!quietVite) {
           return
+        }
+        // Vite's reporter is native and writes its progress lines (`N modules
+        // transformed.`, `computing gzip size...`) straight to the terminal, past
+        // the logger, so it is left out of server environments altogether.
+        const reporter = config.plugins.find(plugin => plugin.name === VITE_REPORTER_PLUGIN)
+        const applyToEnvironment = reporter?.applyToEnvironment
+        if (reporter && applyToEnvironment) {
+          reporter.applyToEnvironment = environment => environment.config.consumer === 'server' ? false : applyToEnvironment(environment)
         }
         // Vite reports each environment through the one logger, at a single log
         // level. Muting its info messages while a server environment builds keeps
