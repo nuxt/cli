@@ -76,10 +76,13 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
     size = dir ? await directorySize(dir).catch(() => undefined) : undefined
   }
 
+  // Whether the CLI took Nitro's output over, and so owes what it hid.
+  let nitroQuieted = false
   if (quiet) {
     nuxt.hook('nitro:config', (config) => {
       if (nuxt.options.nitro?.logLevel === undefined && Number(config.logLevel ?? 3) > NITRO_QUIET_LOG_LEVEL) {
         config.logLevel = NITRO_QUIET_LOG_LEVEL
+        nitroQuieted = true
       }
     })
   }
@@ -152,13 +155,14 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
   nuxt.hook('nitro:init', (nitro) => {
     usesNitro = true
     nitro.hooks.hook('prerender:route', (route) => {
-      if (!route.error) {
+      // A skipped route fires the hook without being written.
+      if (!route.error && !route.skip) {
         prerendered++
       }
     })
     nitro.hooks.hook('prerender:done', ({ failedRoutes }) => {
       // Nitro lists these at its `log` level, which the quiet build drops.
-      if (failedRoutes.length && quiet) {
+      if (failedRoutes.length && nitroQuieted) {
         logger.error(`Failed to prerender ${failedRoutes.length} route${failedRoutes.length === 1 ? '' : 's'}:\n${
           failedRoutes.map(formatFailedRoute).join('\n')}`)
       }
@@ -194,7 +198,9 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
 }
 
 function formatFailedRoute(route: PrerenderRoute): string {
-  const status = [route.error?.statusCode, route.error?.statusMessage].filter(Boolean).join(' ')
+  // Nitro 2 sets `statusCode` and `statusMessage`; Nitro 3 `status` and `statusText`.
+  const error = route.error as (PrerenderRoute['error'] & { status?: number, statusText?: string }) | undefined
+  const status = [error?.statusCode ?? error?.status, error?.statusMessage ?? error?.statusText].filter(Boolean).join(' ')
   return `  ${route.route}${status ? styleText('dim', ` (${status})`) : ''}`
 }
 

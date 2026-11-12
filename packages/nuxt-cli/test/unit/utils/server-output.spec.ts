@@ -135,10 +135,16 @@ describe('quietServerOutput', () => {
       options: { output: { serverDir, dir }, commands: { preview: 'node {{ output.serverDir }}/index.mjs' } },
       hooks: nitroHooks,
     }
+    await hooks.call('nitro:config', { logLevel: 3 })
     await hooks.call('nitro:init', nitro)
     await nitroHooks.call('prerender:route', { route: '/' })
+    await nitroHooks.call('prerender:route', { route: '/feed', skip: true })
     await nitroHooks.call('prerender:route', { route: '/gone', error: { statusCode: 404 } })
-    await nitroHooks.call('prerender:done', { failedRoutes: [{ route: '/gone', error: { statusCode: 404, statusMessage: 'Not Found' } }] })
+    // Nitro 2 and Nitro 3 name the HTTP status differently.
+    await nitroHooks.call('prerender:done', { failedRoutes: [
+      { route: '/gone', error: { statusCode: 404, statusMessage: 'Not Found' } },
+      { route: '/broken', error: { status: 500, statusText: 'Server Error' } },
+    ] })
     await nitroHooks.call('compiled', nitro)
 
     const timings = [
@@ -151,7 +157,18 @@ describe('quietServerOutput', () => {
     // Source maps are left out, as Nitro leaves them out of its own total.
     expect(lines[1]).toBe('Server (nitro) built in 2.50s · 2.50 kB')
     expect(lines[2]).toBe('Preview: npx nuxt preview')
-    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n  /gone (404 Not Found)')
+    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n  /gone (404 Not Found)\n  /broken (500 Server Error)')
+  })
+
+  it('leaves failed prerenders to Nitro when the project sets its log level', async () => {
+    const { nuxt, hooks } = createNuxt({ nitro: { logLevel: 3 } })
+    quietServerOutput(nuxt as any)
+    const nitroHooks = createHooks()
+    await hooks.call('nitro:config', { logLevel: 3 })
+    await hooks.call('nitro:init', { options: { output: { serverDir: '/missing' } }, hooks: nitroHooks })
+    await nitroHooks.call('prerender:done', { failedRoutes: [{ route: '/gone', error: { statusCode: 404 } }] })
+
+    expect(mocks.error).not.toHaveBeenCalled()
   })
 
   it('reports a server built by Vite when Nitro is not the server builder', async () => {
