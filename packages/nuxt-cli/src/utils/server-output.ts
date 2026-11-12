@@ -32,6 +32,8 @@ export interface ServerOutputReport {
   summary: (timings: PhaseTiming[]) => string | undefined
   /** How to preview and deploy what was built: no preview when no server was written. */
   commands: () => string[]
+  /** What to do with a prerendered build: where it can go, or the provider's own deploy command. */
+  staticCommands: (publicDir: string) => string[]
 }
 
 interface ServerOutputOptions {
@@ -80,6 +82,8 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
   const routes: PrerenderRoute[] = []
   let deploy: string | undefined
   let isStatic = false
+  let preset: string | undefined
+  let outputDir: string | undefined
 
   const measure = async (dir: string | undefined) => {
     size = dir ? await directorySize(dir).catch(() => undefined) : undefined
@@ -181,6 +185,8 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
     })
     nitro.hooks.hook('compiled', async () => {
       isStatic = !!nitro.options.static
+      preset = nitro.options.preset
+      outputDir = nitro.options.output.dir
       deploy = nitro.options.commands?.deploy ? resolveDeployCommand(nitro) : undefined
       await measure(nitro.options.output.serverDir)
     })
@@ -217,6 +223,18 @@ export function quietServerOutput(nuxt: Nuxt, options: ServerOutputOptions = {})
         commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
       }
       return commands
+    },
+    staticCommands(publicDir) {
+      // Only the generic preset writes plain files that any static host serves.
+      if (!preset || preset === 'static') {
+        return [`You can now deploy ${styleText('cyan', publicDir)} to any static hosting`]
+      }
+      // A provider preset lays its output out for that provider.
+      if (deploy) {
+        return [`You can deploy this build using ${styleText('cyan', deploy)}`]
+      }
+      const dir = outputDir ? relative(process.cwd(), outputDir) || '.' : publicDir
+      return [`You can now deploy ${styleText('cyan', dir)} to ${styleText('cyan', preset)}`]
     },
   }
 }

@@ -166,7 +166,7 @@ export default defineCommand({
       const total = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
       const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText('dim', breakdown)}` : total
       const next = ctx.args.prerender
-        ? [`You can now deploy ${styleText('cyan', serverBuild.publicDir ? relative(process.cwd(), serverBuild.publicDir) : '.output/public')} to any static hosting`]
+        ? serverOutput.staticCommands(serverBuild.publicDir ? relative(process.cwd(), serverBuild.publicDir) : '.output/public')
         : serverOutput.commands()
       if (next.length) {
         logger.success(complete)

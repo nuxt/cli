@@ -243,6 +243,31 @@ describe('quietServerOutput', () => {
   })
 })
 
+describe('static build outro', () => {
+  async function staticBuild(options: Record<string, any>) {
+    const { nuxt, hooks } = createNuxt()
+    const report = quietServerOutput(nuxt as any)
+    const nitroHooks = createHooks()
+    const nitro = { options: { static: true, output: { serverDir: '/missing', dir: join(process.cwd(), 'dist') }, ...options }, hooks: nitroHooks }
+    await hooks.call('nitro:init', nitro)
+    await nitroHooks.call('compiled', nitro)
+    return report.staticCommands('.output/public').map(stripAnsi)
+  }
+
+  it('offers any static host only for the generic preset', async () => {
+    expect(await staticBuild({ preset: 'static' })).toEqual(['You can now deploy .output/public to any static hosting'])
+  })
+
+  it('gives a provider preset its own deploy command', async () => {
+    expect(await staticBuild({ preset: 'vercel-static', commands: { deploy: 'npx vercel deploy --prebuilt' } }))
+      .toEqual(['You can deploy this build using npx vercel deploy --prebuilt'])
+  })
+
+  it('names the provider when its preset has no deploy command', async () => {
+    expect(await staticBuild({ preset: 'netlify-static' })).toEqual(['You can now deploy dist to netlify-static'])
+  })
+})
+
 describe('formatBytes', () => {
   it('uses decimal units like Vite and Nitro', () => {
     expect([formatBytes(999), formatBytes(1000), formatBytes(2_454_000)]).toEqual(['999 B', '1.00 kB', '2.45 MB'])
