@@ -65,64 +65,32 @@ export function isAnimationSupported(stream: NodeJS.WriteStream = process.stdout
 }
 
 /** `config 40ms · modules 1.2s · …`, or nothing if every phase was trivial. */
-function formatPhaseBreakdown(timings: PhaseTiming[]): string {
+export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
   return timings
     .filter(timing => timing.duration >= 10)
     .map(timing => `${timing.phase} ${formatDuration(timing.duration)}`)
     .join(' · ')
 }
 
-const PHASE_BAR_WIDTH = 40
-
-/** One colour per phase, in the order phases run; a build has at most eight. */
-const PHASE_COLORS = ['blue', 'cyan', 'green', 'yellow', 'magenta', 'red', 'gray', 'blueBright'] as const
-
-/** Room the clack gutter (`│  `) takes in front of each line. */
-const GUTTER_WIDTH = 3
+const PHASE_BAR_WIDTH = 20
 
 /**
- * Where the build's time went in two lines: a bar split into one coloured
- * segment per phase, sized by its share of the time all phases took, and a
- * legend naming each colour. Without colours the segments cannot be told
- * apart, so it falls back to the one-line breakdown.
+ * One phase per line with a bar for its share of the time all phases took, so
+ * the slow step stands out at a glance. Phases are listed in the order they ran.
  */
-export function formatPhaseBar(timings: PhaseTiming[], columns = process.stdout.columns || 80): string {
+export function formatPhaseTable(timings: PhaseTiming[]): string {
   const shown = timings.filter(timing => timing.duration >= 10)
-  if (!shown.length) {
-    return ''
-  }
-  if (styleText('red', ' ') === ' ') {
-    return formatPhaseBreakdown(shown)
-  }
   const total = shown.reduce((sum, timing) => sum + timing.duration, 0)
-  // Every phase keeps at least one cell so its colour is on the bar; the
-  // rounding is settled on the largest segment.
-  const cells = shown.map(timing => Math.max(1, Math.round(timing.duration / total * PHASE_BAR_WIDTH)))
-  const largest = cells.indexOf(Math.max(...cells))
-  cells[largest]! += PHASE_BAR_WIDTH - cells.reduce((sum, count) => sum + count, 0)
-
-  const bar = shown.map((_, index) => styleText(PHASE_COLORS[index % PHASE_COLORS.length]!, '\u2588'.repeat(cells[index]!))).join('')
-  const entries = shown.map((timing, index) => ({
-    text: `\u25A0 ${timing.phase} ${formatDuration(timing.duration)}`,
-    styled: `${styleText(PHASE_COLORS[index % PHASE_COLORS.length]!, '\u25A0')} ${timing.phase} ${styleText('dim', formatDuration(timing.duration))}`,
-  }))
-
-  // Wrap the legend between entries rather than letting the terminal split one.
-  const width = Math.max(columns - GUTTER_WIDTH, 20)
-  const legend: string[] = []
-  let line = ''
-  let length = 0
-  for (const entry of entries) {
-    if (length && length + 2 + entry.text.length > width) {
-      legend.push(line)
-      line = ''
-      length = 0
-    }
-    line += length ? `  ${entry.styled}` : entry.styled
-    length += (length ? 2 : 0) + entry.text.length
-  }
-  legend.push(line)
-  return [bar, ...legend].join('\n')
+  const nameWidth = Math.max(...shown.map(timing => timing.phase.length))
+  const durations = shown.map(timing => formatDuration(timing.duration))
+  const durationWidth = Math.max(...durations.map(duration => duration.length))
+  return shown.map((timing, index) => {
+    const share = timing.duration / total
+    const filled = Math.max(1, Math.round(share * PHASE_BAR_WIDTH))
+    const bar = styleText('cyan', '█'.repeat(filled)) + styleText('dim', '░'.repeat(PHASE_BAR_WIDTH - filled))
+    const percent = `${Math.round(share * 100)}%`.padStart(4)
+    return `${timing.phase.padEnd(nameWidth)}  ${durations[index]!.padStart(durationWidth)}  ${bar}  ${styleText('dim', percent)}`
+  }).join('\n')
 }
 
 /**

@@ -16,7 +16,7 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
-import { createPhaseReporter, formatPhaseBar } from '../utils/phase-reporter'
+import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
@@ -159,10 +159,12 @@ export default defineCommand({
         logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
       }
 
-      // Where the time went sits right under the total it adds up to.
-      const breakdown = formatPhaseBar(progress.timings)
+      // Where the time went sits right under the total it adds up to: one line
+      // by default, a row per phase with a bar for its share when verbose.
+      const verbose = nuxt.options.logLevel === 'verbose'
+      const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.timings)
       const total = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
-      const complete = breakdown ? `${total}\n${breakdown}` : total
+      const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText('dim', breakdown)}` : total
       const next = ctx.args.prerender
         ? [`You can now deploy ${styleText('cyan', serverBuild.publicDir ? relative(process.cwd(), serverBuild.publicDir) : '.output/public')} to any static hosting`]
         : serverOutput.commands()
