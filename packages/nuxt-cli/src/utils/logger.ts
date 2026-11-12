@@ -93,7 +93,9 @@ export function outro(message: string): void {
     writeDirect(`${styleText('green', S_SUCCESS)} ${message}\n`)
     return
   }
-  clackOutro(message)
+  // Nuxt 4 calls `consola.wrapAll()` while building, which trims each chunk
+  // written to stdout and would drop the blank line clack ends the outro with.
+  clackOutro(message, { output: { write: writeDirect } as unknown as NodeJS.WriteStream })
 }
 
 export const debug = createDebug('nuxi')
