@@ -30,12 +30,12 @@ The `build-module` command runs `@nuxt/module-builder` to generate `dist` direct
 <!--build-module-opts-->
 ### `build`
 
-| Option                 | Default | Description                                                                      |
-|------------------------|---------|----------------------------------------------------------------------------------|
-| `--cwd=<directory>`    |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
-| `--outDir=<directory>` | `dist`  | Build directory                                                                  |
-| `--sourcemap`          | `false` | Generate sourcemaps                                                              |
-| `--stub`               | `false` | Stub dist instead of actually building it for development                        |
+| Option                 | Default | Description                                                                                     |
+|------------------------|---------|-------------------------------------------------------------------------------------------------|
+| `--cwd=<directory>`    |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`)                |
+| `--outDir=<directory>` | `dist`  | Build directory. The build empties it first, so do not use a directory that holds source files. |
+| `--sourcemap`          | `false` | Generate sourcemaps                                                                             |
+| `--stub`               | `false` | Stub dist instead of actually building it for development                                       |
 
 ### `prepare`
 
@@ -44,7 +44,7 @@ The `build-module` command runs `@nuxt/module-builder` to generate `dist` direct
 | `--cwd=<directory>` |         | Specify the working directory, this takes precedence over ROOTDIR (default: `.`) |
 <!--/build-module-opts-->
 
-`--stub` skips the full build and writes a `dist` directory whose files re-export your module's source, so a consuming project sees changes without a rebuild. Read more about [stub builds](/docs/guide/modules/module-builder/commands#build-stub).
+`--stub` skips the full build and writes a `dist` directory whose files re-export your module's source, so a consuming project sees changes without a rebuild. It does not populate `dist/runtime`, so subpath exports that point there need a full build. Read more about [stub builds](/docs/guide/modules/module-builder/commands#build-stub).
 
 Run `nuxt build-module prepare` to generate the `.nuxt` directory and module types you need while developing the module. Read more about [preparing a module](/docs/guide/modules/module-builder/commands#prepare).
 
