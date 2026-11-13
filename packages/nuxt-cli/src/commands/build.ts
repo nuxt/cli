@@ -7,6 +7,7 @@ import { relative } from 'pathe'
 import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
+import { collectClientBundle, formatClientBundle } from '../utils/client-bundle'
 import { overrideEnv } from '../utils/env'
 
 import { ActionableError } from '../utils/errors'
@@ -20,6 +21,7 @@ import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
+import { blankLineBefore } from '../utils/stdout'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -111,6 +113,7 @@ export default defineCommand({
         command: ctx.args.prerender ? 'generate' : 'build',
         onEnvironment: environment => progress.enterEnvironment(environment),
       })
+      const clientBundle = ctx.args.logLevel === 'silent' ? undefined : collectClientBundle(nuxt)
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -148,6 +151,11 @@ export default defineCommand({
 
       stopReporting()
       progress.finish()
+
+      const bundle = clientBundle?.()
+      if (bundle) {
+        logger.message(`${blankLineBefore()}${formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir))}\n`)
+      }
 
       const serverSummary = serverOutput.summary(progress.timings)
       if (serverSummary) {
