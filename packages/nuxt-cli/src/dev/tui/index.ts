@@ -18,6 +18,7 @@ import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
 import { withDirectStdout } from '../../utils/console'
 import { formatDuration, terminalLink } from '../../utils/formatting'
+import { resolveNitroMajor } from '../../utils/nitro'
 import { releaseNotesUrl } from '../../utils/release-notes'
 import { startupElapsedMs } from '../../utils/startup-clock'
 
@@ -733,7 +734,10 @@ function describeSession(
   updateLink?: string,
 ): InfoSection[] {
   // Until Nuxt has loaded, the installed packages are all there is to go on.
-  const versions = resolveStackVersions(cwd, { builder: stack?.builder as NuxtOptions['builder'] | undefined })
+  const versions = resolveStackVersions(cwd, {
+    builder: stack?.builder as NuxtOptions['builder'] | undefined,
+    nitroMajor: resolveNitroMajor(cwd, stack?.nitroMajor),
+  })
   const { listener } = context
   const server = stack?.server ?? 'nitro'
   const serverName = SERVER_BUILDER_NAMES[server] ?? server

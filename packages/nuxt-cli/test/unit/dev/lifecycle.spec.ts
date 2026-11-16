@@ -294,6 +294,24 @@ describe('dev server stack', () => {
       { builder: 'vite', server: 'nitro' },
     ])
   })
+
+  it('should report the nitro major Nuxt resolved', async () => {
+    const nuxt = createNuxt({ builder: 'vite', _nitroMajor: 3, server: { builder: { bundle: () => {} } } }) as FakeNuxt & { serverBuild?: unknown }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    buildNuxt.mockImplementation(async () => {
+      nuxt.serverBuild = { name: 'nitro', label: 'Nitro', capabilities: { server: true, dev: true } }
+    })
+    const server = createServer({ captureUIEvents: true })
+    const seen: unknown[] = []
+    server.on('stack', stack => seen.push(stack))
+
+    await server.init()
+
+    expect(seen).toEqual([
+      { builder: 'vite', server: 'custom', nitroMajor: 3 },
+      { builder: 'vite', server: 'nitro', nitroMajor: 3 },
+    ])
+  })
 })
 
 describe('dev server failures', () => {

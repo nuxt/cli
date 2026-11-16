@@ -1,4 +1,7 @@
+import type { PackageJson } from 'pkg-types'
 import { readFileSync } from 'node:fs'
+
+import { resolve } from 'node:path'
 import { resolveModulePath } from 'exsolve'
 
 import { NUXT_PACKAGES } from './nuxt-packages'
@@ -64,6 +67,16 @@ export function getPkgJSON(cwd: string, pkg: string, options?: PkgJSONOptions) {
   }
 
   return null
+}
+
+/** The project's own `package.json` in `cwd`. */
+export function getProjectPkgJSON(cwd: string): PackageJson | null {
+  try {
+    return JSON.parse(readFileSync(resolve(cwd, 'package.json'), 'utf-8'))
+  }
+  catch {
+    return null
+  }
 }
 
 /** The installed Nuxt version in `cwd`. */

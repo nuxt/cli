@@ -17,7 +17,7 @@ import { getBuilder } from '../utils/banner'
 import { printJson } from '../utils/console'
 import { formatInfoBox } from '../utils/formatting'
 import { logger } from '../utils/logger'
-import { resolveNitroVersion } from '../utils/nitro'
+import { readNitroMajor, resolveNitroMajor, resolveNitroVersion } from '../utils/nitro'
 import { getNuxtConfig } from '../utils/nuxt-config'
 import { readDependencyPackageJson } from '../utils/package-json'
 import { detectPackageManager, getPackageManagerVersion } from '../utils/package-managers'
@@ -95,7 +95,7 @@ export default defineCommand({
     const [modules, nuxtVersion = '-', nitroVersion, packageManager] = await Promise.all([
       modulesPromise,
       getDepVersion('nuxt').then(version => version || getDepVersion('nuxt-nightly')),
-      resolveNitroVersion(cwd, getDepVersion),
+      resolveNitroVersion(cwd, getDepVersion, resolveNitroMajor(cwd, readNitroMajor(nuxtConfig))),
       packageManagerPromise,
     ])
     const configKeys = Object.keys(nuxtConfig).sort()

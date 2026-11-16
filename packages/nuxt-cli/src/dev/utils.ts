@@ -35,6 +35,7 @@ import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
+import { readNitroMajor } from '../utils/nitro'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { getServerBuilderId, resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
@@ -188,6 +189,8 @@ export interface DevStack {
   builder?: string
   /** The server builder's short name, e.g. `nitro` or `vite`, when Nuxt has one. */
   server?: string
+  /** The Nitro major Nuxt resolved, when the installed Nuxt has `_nitroMajor`. */
+  nitroMajor?: 2 | 3
 }
 
 /** A page or server route the app defines, as listed in the dev UI. */
@@ -902,6 +905,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.emit('stack', {
       builder: typeof builder === 'string' ? builder : undefined,
       server: getServerBuilderId(nuxt),
+      nitroMajor: readNitroMajor(nuxt.options),
     })
   }
 

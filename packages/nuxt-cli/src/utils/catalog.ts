@@ -1,9 +1,12 @@
 import type { PackageJson } from 'pkg-types'
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 
 import { parseYAML } from 'confbox/yaml'
-import { dirname, join, resolve } from 'pathe'
+
+import { findPnpmWorkspaceYaml } from './workspace'
+
+export { findPnpmWorkspaceYaml }
 
 const CATALOG_SPECIFIER_RE = /^catalog:(.*)$/
 
@@ -28,19 +31,6 @@ export function parseCatalogSpecifier(specifier: string | undefined): string | u
     return undefined
   }
   return match[1] || DEFAULT_CATALOG
-}
-
-/** Nearest `pnpm-workspace.yaml` at or above `cwd`. */
-export function findPnpmWorkspaceYaml(cwd: string): string | undefined {
-  for (let dir = resolve(cwd); ; dir = dirname(dir)) {
-    const filePath = join(dir, 'pnpm-workspace.yaml')
-    if (existsSync(filePath)) {
-      return filePath
-    }
-    if (dir === dirname(dir)) {
-      return undefined
-    }
-  }
 }
 
 const configCache = new Map<string, Catalogs | undefined>()

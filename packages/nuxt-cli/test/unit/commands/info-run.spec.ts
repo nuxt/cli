@@ -106,6 +106,16 @@ describe('info command', () => {
     expect(payload.nitroVersion).toMatch(/^\d/)
   })
 
+  it('should honour an explicit `_nitroMajor` in `nuxt.config`', async () => {
+    await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { nitro: '3.0.0', nitropack: '2.13.6' } }))
+    await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { _nitroMajor: 2 }`)
+
+    const payload = await runInfoJSON()
+
+    expect(payload.serverBuilder).toBe('nitro@2.13.6')
+    expect(payload.nitroVersion).toBe('2.13.6')
+  })
+
   it.each(['@nuxt/vite-server', 'vite'])('should name the Vite server builder from `%s` without a version', async (builder) => {
     await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', private: true, dependencies: { '@nuxt/vite-server': '4.6.4' } }))
     await writeFile(join(cwd, 'nuxt.config.mjs'), `export default { server: { builder: '${builder}' } }`)

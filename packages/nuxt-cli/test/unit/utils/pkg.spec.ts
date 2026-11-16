@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url'
 
+import { join } from 'pathe'
 import { describe, expect, it } from 'vitest'
 
-import { getPkgJSON } from '../../../src/utils/pkg'
+import { getPkgJSON, getProjectPkgJSON } from '../../../src/utils/pkg'
 
 /** This package's own directory, where its dependencies resolve from. */
 const packageDir = fileURLToPath(new URL('../../../', import.meta.url))
@@ -26,5 +27,15 @@ describe('getPkgJSON', () => {
 
   it('should resolve from the project when strict without a chain', () => {
     expect(getPkgJSON(packageDir, 'nuxt', { strict: true })?.name).toBe('nuxt')
+  })
+})
+
+describe('getProjectPkgJSON', () => {
+  it('should read the project manifest in cwd', () => {
+    expect(getProjectPkgJSON(packageDir)?.name).toBe('@nuxt/cli')
+  })
+
+  it('should return null when cwd has no package.json', () => {
+    expect(getProjectPkgJSON(join(packageDir, 'missing'))).toBeNull()
   })
 })
