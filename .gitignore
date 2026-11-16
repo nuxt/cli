@@ -3,6 +3,7 @@ dist
 .vscode
 .idea
 .nuxt
+.output
 nuxt-app
 .pnpm-store
 coverage
