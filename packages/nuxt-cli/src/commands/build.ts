@@ -19,6 +19,7 @@ import { intro, logBlock, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
+import { formatRouteRules } from '../utils/route-rules'
 import { resolveServerBuild } from '../utils/server-build'
 import { quietServerOutput } from '../utils/server-output'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
@@ -114,6 +115,13 @@ export default defineCommand({
       })
       const clientBundle = ctx.args.logLevel === 'silent' ? undefined : collectClientBundle(nuxt)
 
+      // Route rules are read once the build is done: pages and modules keep
+      // changing them until then, and a config reload replaces the object.
+      let nitroOptions: { routeRules?: Record<string, object>, publicAssets?: { baseURL?: string, maxAge?: number }[] } | undefined
+      nuxt.hook('nitro:init', (nitro) => {
+        nitroOptions = nitro.options
+      })
+
       showBanner(nuxt)
       await nuxt.ready()
 
@@ -154,6 +162,16 @@ export default defineCommand({
       const bundle = clientBundle?.()
       if (bundle) {
         logBlock(formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir)))
+      }
+
+      const routeRules = nitroOptions && formatRouteRules(nitroOptions.routeRules, {
+        buildAssetsDir: nuxt.options.app.buildAssetsDir,
+        publicAssets: nitroOptions.publicAssets,
+        // Less the three columns of clack's `│  ` gutter, so no row wraps.
+        columns: (process.stdout.columns || 80) - 3,
+      })
+      if (routeRules) {
+        logBlock(routeRules)
       }
 
       const serverSummary = serverOutput.summary(progress.timings)
