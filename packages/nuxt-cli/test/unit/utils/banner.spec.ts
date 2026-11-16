@@ -26,13 +26,16 @@ const CWD_VERSIONS: Record<string, Record<string, string>> = {
 
 const NUXT_WITH_NITROPACK = { name: 'nuxt', version: '4.4.6', dependencies: { nitropack: '^2.13.4' } }
 const NUXT_WITH_NITRO_SERVER = { name: 'nuxt', version: '5.0.0', dependencies: { '@nuxt/nitro-server': '^5.0.0' } }
+const NUXT_WITH_NITROPACK_SERVER = { name: 'nuxt', version: '4.7.0', dependencies: { '@nuxt/nitro-server': '^4.7.0' } }
 const NITRO_SERVER = { name: '@nuxt/nitro-server', version: '5.0.0', dependencies: { nitro: '^3.0.0' } }
+const NITROPACK_SERVER = { name: '@nuxt/nitro-server', version: '4.7.0', dependencies: { nitropack: '^2.13.6' } }
 
 const MANIFESTS: Record<string, Record<string, unknown>> = {
   '/any': { nuxt: NUXT_WITH_NITROPACK },
   '/missing': { nuxt: NUXT_WITH_NITROPACK },
   '/vite-plus': { nuxt: NUXT_WITH_NITROPACK },
   '/nitro-v3': { 'nuxt': NUXT_WITH_NITRO_SERVER, '@nuxt/nitro-server': NITRO_SERVER },
+  '/nitro-v3-major': { 'nuxt': NUXT_WITH_NITROPACK_SERVER, '@nuxt/nitro-server': NITROPACK_SERVER },
   '/direct-server': { 'nuxt': NUXT_WITH_NITROPACK, '@nuxt/nitro-server': NITRO_SERVER },
   '/no-owner': {},
   '/no-nitro': {},
@@ -61,6 +64,7 @@ vi.mock('../../../src/utils/pkg', () => ({
     }
     return CWD_VERSIONS[cwd]?.[pkg] ?? VERSIONS[pkg] ?? ''
   }),
+  getProjectPkgJSON: vi.fn(() => null),
 }))
 
 const { getBuilder, showBanner } = await import('../../../src/utils/banner')
@@ -109,6 +113,36 @@ describe('showBanner', () => {
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
       ●  Nuxt 5.0.0 (with Nitro 3.0.0, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should follow nuxt\'s internal nitro major over its declared nitropack', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.7.0', options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 3 } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.7.0 (with Nitro 3.0.0, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should follow nuxt\'s internal nitro major 2 over its declared nitro', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '5.0.0', options: { rootDir: '/nitro-v3', builder: 'vite', _nitroMajor: 2 } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 5.0.0 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
+    `)
+  })
+
+  it('should keep the nuxt-declared nitropack when the nitro major is missing or invalid', async () => {
+    const renderer = await render(() =>
+      showBanner({ _version: '4.7.0', options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 4 } } as unknown as Nuxt))
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Nuxt 4.7.0 (with Nitro 2.13.4, Vite 7.3.1 and Vue 3.5.39)"
     `)
   })
 

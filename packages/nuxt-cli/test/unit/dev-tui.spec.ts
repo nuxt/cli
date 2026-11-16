@@ -37,7 +37,11 @@ vi.mock('../../src/dev/listen', async importOriginal => ({
 }))
 
 // The info view resolves versions from what is installed; pinned so it lists Nitro.
-vi.mock('../../src/utils/nitro', () => ({ getNitroVersion: () => '2.13.5' }))
+vi.mock('../../src/utils/nitro', () => ({
+  getNitroVersion: (_cwd: string, nitroMajor?: 2 | 3) => nitroMajor === 3 ? '3.0.0' : '2.13.5',
+  resolveNitroMajor: (_cwd: string, fromNuxt?: 2 | 3) => fromNuxt,
+  readNitroMajor: () => undefined,
+}))
 
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
@@ -3028,6 +3032,14 @@ describe('panel info view', () => {
       const frame = await settle()
       expect(frame).toMatch(/Server builder\s+Vite\b/)
       expect(frame).not.toContain('Nitro')
+    })
+  })
+
+  it('uses the stack nitro major when resolving the Nitro version', async () => {
+    await withPanel(async (ui, settle) => {
+      ui.setStack({ builder: 'vite', server: 'nitro', nitroMajor: 3 })
+      process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
+      expect(await settle()).toMatch(/Server builder\s+Nitro 3\.0\.0/)
     })
   })
 })

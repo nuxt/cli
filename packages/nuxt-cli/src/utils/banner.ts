@@ -3,7 +3,7 @@ import type { Nuxt, NuxtBuilder, NuxtConfig, NuxtOptions } from '@nuxt/schema'
 import { styleText } from 'node:util'
 
 import { logger } from './logger'
-import { getNitroVersion } from './nitro'
+import { getNitroVersion, readNitroMajor } from './nitro'
 import { getNuxtPkgVersion, getPkgJSON, getPkgVersion } from './pkg'
 import { getServerBuilderName } from './server-build'
 
@@ -34,6 +34,7 @@ export function showBanner(nuxt: Nuxt) {
   logger.info(describeStack(nuxt.options.rootDir, {
     nuxtVersion: nuxt._version,
     builder: nuxt.options.builder,
+    nitroMajor: readNitroMajor(nuxt.options),
     // Nitro is installed with Nuxt whether or not it builds the server.
     withNitro: getServerBuilderName(nuxt) === 'Nitro',
   }))
@@ -47,17 +48,17 @@ export interface StackVersions {
 }
 
 /** The versions of the framework packages in use, for the banner and the dev UI. */
-export function resolveStackVersions(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'] } = {}): StackVersions {
+export function resolveStackVersions(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'], nitroMajor?: 2 | 3 } = {}): StackVersions {
   return {
     nuxt: options.nuxtVersion || getNuxtPkgVersion(cwd),
-    nitro: getNitroVersion(cwd),
+    nitro: getNitroVersion(cwd, options.nitroMajor),
     builder: getBuilder(cwd, options.builder as Exclude<NuxtOptions['builder'], NuxtBuilder>),
     vue: getPkgVersion(cwd, 'vue', { via: ['nuxt'] }) || null,
   }
 }
 
 /** The `Nuxt x (with Nitro y, Vite z and Vue w)` line shown at startup. */
-function describeStack(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'], withNitro?: boolean } = {}): string {
+function describeStack(cwd: string, options: { nuxtVersion?: string, builder?: NuxtOptions['builder'] | NuxtConfig['builder'], nitroMajor?: 2 | 3, withNitro?: boolean } = {}): string {
   const { nuxt: nuxtVersion, nitro, builder, vue: vueVersion } = resolveStackVersions(cwd, options)
   const nitroVersion = options.withNitro === false ? undefined : nitro
 
