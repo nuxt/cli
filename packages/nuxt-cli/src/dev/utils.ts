@@ -201,6 +201,19 @@ export interface DevRoute {
   file?: string
 }
 
+/** The Nitro build hooks the dev server subscribes to when reporting rebuilds. */
+type NitroBuildHookName = 'dev:start' | 'rollup:before' | 'build:config' | 'compiled' | 'dev:reload' | 'dev:error'
+
+/**
+ * The subset of a Nitro instance the rebuild watcher registers on. Typed apart
+ * from `Nitro` because Nitro v3's `build:config` is not in nitropack's hook map.
+ */
+interface NitroBuildHooks {
+  hooks: {
+    hook: (name: NitroBuildHookName, fn: () => void) => () => void
+  }
+}
+
 /** A request served by the dev server, as shown in the dev UI. */
 export interface DevRequestEvent {
   /** Identity shared with the logs attributed to this request. */
@@ -882,17 +895,22 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
    * otherwise invisible: only full Nuxt reloads emit `loading`.
    *
    * In dev the rebuild is driven by rollup's watcher, which reports `dev:start`
-   * rather than the `rollup:before` of a one-shot build.
+   * rather than the `rollup:before` of a one-shot build. Nitro v3 deprecated
+   * `rollup:before` in favour of `build:config`, which every builder calls.
    */
   #watchServerBuilds(nuxt: Nuxt): void {
+    const started: NitroBuildHookName[] = readNitroMajor(nuxt.options) === 3
+      ? ['dev:start', 'build:config']
+      : ['dev:start', 'rollup:before']
     nuxt.hook('nitro:init', (nitro) => {
-      for (const started of ['dev:start', 'rollup:before'] as const) {
-        nitro.hooks.hook(started, () => {
+      const hooks = (nitro as unknown as NitroBuildHooks).hooks
+      for (const name of started) {
+        hooks.hook(name, () => {
           this.emit('building', true)
         })
       }
-      for (const finished of ['compiled', 'dev:reload', 'dev:error'] as const) {
-        nitro.hooks.hook(finished, () => {
+      for (const name of ['compiled', 'dev:reload', 'dev:error'] as const) {
+        hooks.hook(name, () => {
           this.emit('building', false)
         })
       }
