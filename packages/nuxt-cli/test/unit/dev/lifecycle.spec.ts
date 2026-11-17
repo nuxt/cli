@@ -314,6 +314,53 @@ describe('dev server stack', () => {
   })
 })
 
+describe('dev server nitro build hooks', () => {
+  async function registeredNitroHooks(nuxt: FakeNuxt): Promise<Array<{ name: string, building: boolean }>> {
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer({ captureUIEvents: true })
+    await server.init()
+    const registered: Array<{ name: string, building: boolean }> = []
+    await nuxt.callHook('nitro:init', {
+      hooks: {
+        hook: (name: string, fn: () => void) => {
+          const building: boolean[] = []
+          const listener = (value: boolean) => building.push(value)
+          server.on('building', listener)
+          fn()
+          server.off('building', listener)
+          registered.push({ name, building: building[0]! })
+          return () => {}
+        },
+      },
+    })
+    return registered
+  }
+
+  it('should watch `rollup:before` on Nitro v2', async () => {
+    const registered = await registeredNitroHooks(createNuxt())
+
+    expect(registered).toEqual([
+      { name: 'dev:start', building: true },
+      { name: 'rollup:before', building: true },
+      { name: 'compiled', building: false },
+      { name: 'dev:reload', building: false },
+      { name: 'dev:error', building: false },
+    ])
+  })
+
+  it('should watch `build:config` on Nitro v3', async () => {
+    const registered = await registeredNitroHooks(createNuxt({ _nitroMajor: 3 }))
+
+    expect(registered).toEqual([
+      { name: 'dev:start', building: true },
+      { name: 'build:config', building: true },
+      { name: 'compiled', building: false },
+      { name: 'dev:reload', building: false },
+      { name: 'dev:error', building: false },
+    ])
+  })
+})
+
 describe('dev server failures', () => {
   it('should surface a first-run failure to the caller', async () => {
     loadNuxt.mockImplementation(() => Promise.reject(new Error('config exploded')))
