@@ -47,7 +47,7 @@ async function createModule({ withBuilder, installed = [] }: { withBuilder: bool
 
 function run(args: string[], cwd: string) {
   return x('node', [nuxi, ...args], {
-    nodeOptions: { cwd, env: { ...process.env, NO_COLOR: '1', CI: '1' } },
+    nodeOptions: { cwd, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', CI: '1' } },
   })
 }
 
