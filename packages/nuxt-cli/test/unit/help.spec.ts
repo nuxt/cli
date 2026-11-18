@@ -335,13 +335,15 @@ describe('help', () => {
     expect(await usage(commands.module, main)).toMatchInlineSnapshot(`
       "Manage Nuxt modules (nuxt module v0.0.0)
 
-      USAGE nuxt module add|remove|search
+      USAGE nuxt module add|remove|search|build|prepare
 
       COMMANDS
 
-           add    Add Nuxt modules      
-        remove    Remove Nuxt modules   
-        search    Search in Nuxt modules
+            add    Add Nuxt modules              
+         remove    Remove Nuxt modules           
+         search    Search in Nuxt modules        
+          build    Build a module for publishing 
+        prepare    Generate the types of a module
 
       Use nuxt module <command> --help for more information about a command."
     `)

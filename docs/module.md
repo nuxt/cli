@@ -1,6 +1,6 @@
 ---
 title: "nuxt module"
-description: "Search, add and remove modules in your Nuxt application with the command line."
+description: "Search, add and remove modules in your Nuxt application, and build your own modules, with the command line."
 links:
   - label: Source
     icon: i-simple-icons-github
@@ -135,3 +135,71 @@ npx nuxt module search pinia
 ```
 
 Use `--json` to get the results as machine-readable JSON.
+
+## `nuxt module build`
+
+<!--module-build-cmd-->
+```bash [Terminal]
+npx nuxt module build [ROOTDIR] [--cwd=<directory>] [--outDir=<directory>] [--sourcemap]
+```
+<!--/module-build-cmd-->
+
+### Arguments
+
+<!--module-build-args-->
+| Argument  | Description                                         |
+|-----------|-----------------------------------------------------|
+| `ROOTDIR` | The root directory of your Nuxt module (default: .) |
+<!--/module-build-args-->
+
+### Options
+
+<!--module-build-opts-->
+| Option                 | Default | Description                                                                                              |
+|------------------------|---------|----------------------------------------------------------------------------------------------------------|
+| `--cwd=<directory>`    |         | Specify the root directory of your Nuxt module                                                           |
+| `--outDir=<directory>` |         | Output directory, relative to the module root. Overrides `outDir` in the tsdown config (default: `dist`) |
+| `--sourcemap`          |         | Emit source maps. Overrides `sourcemap` in the tsdown config                                             |
+<!--/module-build-opts-->
+
+The command builds the module in `ROOTDIR` for publishing. It runs the `build` command of [`@nuxt/module-builder`](/docs/guide/modules/module-builder/commands#build) and passes every argument through, so `nuxt module build` is the same as `nuxt-module-build build`.
+
+If the module does not have `@nuxt/module-builder` installed, the command offers to install it as a development dependency, together with the `tsdown` and `typescript` peer dependencies it builds with, at the versions the module builder requires. Outside an interactive terminal, it prints the install command instead.
+
+**Example:**
+
+```bash [Terminal]
+npx nuxt module build
+```
+
+## `nuxt module prepare`
+
+<!--module-prepare-cmd-->
+```bash [Terminal]
+npx nuxt module prepare [ROOTDIR] [--cwd=<directory>]
+```
+<!--/module-prepare-cmd-->
+
+### Arguments
+
+<!--module-prepare-args-->
+| Argument  | Description                                         |
+|-----------|-----------------------------------------------------|
+| `ROOTDIR` | The root directory of your Nuxt module (default: .) |
+<!--/module-prepare-args-->
+
+### Options
+
+<!--module-prepare-opts-->
+| Option              | Default | Description                                    |
+|---------------------|---------|------------------------------------------------|
+| `--cwd=<directory>` |         | Specify the root directory of your Nuxt module |
+<!--/module-prepare-opts-->
+
+The command generates the `.nuxt` directory in `ROOTDIR`, which the module's `tsconfig.json` extends. It runs the `prepare` command of [`@nuxt/module-builder`](/docs/guide/modules/module-builder/commands#prepare), and installs it first in the same way as `nuxt module build`.
+
+**Example:**
+
+```bash [Terminal]
+npx nuxt module prepare
+```
