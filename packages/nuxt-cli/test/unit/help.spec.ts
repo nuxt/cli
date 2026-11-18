@@ -339,11 +339,11 @@ describe('help', () => {
 
       COMMANDS
 
-            add    Add Nuxt modules              
-         remove    Remove Nuxt modules           
-         search    Search in Nuxt modules        
-          build    Build a module for publishing 
-        prepare    Generate the types of a module
+            add    Add Nuxt modules                
+         remove    Remove Nuxt modules             
+         search    Search in Nuxt modules          
+          build    Build a module for publishing   
+        prepare    Prepare a module for development
 
       Use nuxt module <command> --help for more information about a command."
     `)

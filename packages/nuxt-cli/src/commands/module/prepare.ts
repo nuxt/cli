@@ -1,3 +1,3 @@
 import { defineModuleBuilderCommand } from './_builder'
 
-export default defineModuleBuilderCommand('prepare', 'Generate the types of a module', {})
+export default defineModuleBuilderCommand('prepare', 'Prepare a module for development', {})

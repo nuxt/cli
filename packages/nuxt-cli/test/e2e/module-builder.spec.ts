@@ -22,8 +22,6 @@ async function createModule({ withBuilder, installed = [] }: { withBuilder: bool
   await writeFile(join(rootDir, 'package.json'), JSON.stringify({ name: 'my-module' }))
 
   if (withBuilder) {
-    // Stands in for `@nuxt/module-builder`: prints what it was run with, and
-    // exits with a code the CLI has to pass on.
     const packageDir = join(rootDir, 'node_modules/@nuxt/module-builder')
     await mkdir(packageDir, { recursive: true })
     await writeFile(join(packageDir, 'package.json'), JSON.stringify({
@@ -55,8 +53,6 @@ describe('nuxt module build', () => {
   it('forwards every argument, including a --cwd passed before the command', { timeout: 60_000 }, async () => {
     const { parent } = await createModule({ withBuilder: true, installed: ['tsdown', 'typescript'] })
 
-    // `--unknown` takes a value the CLI cannot know about, so it must not be
-    // read as ROOTDIR.
     const res = await run(['--cwd', 'my-module', 'module', 'build', '--unknown', 'value', '--sourcemap'], parent)
 
     expect(res.exitCode).toBe(3)

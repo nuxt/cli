@@ -24,7 +24,6 @@ import { isInteractive } from '../../utils/stdout'
 import { globalCwdArgs } from '../_shared'
 
 const MODULE_BUILDER = '@nuxt/module-builder'
-/** Peers of the module builder that `nuxt module` installs alongside it. */
 const PEERS = ['tsdown', 'typescript']
 const WHITESPACE_RE = /\s/
 
@@ -35,20 +34,13 @@ const moduleRootArgs = {
     required: false,
     default: undefined,
   },
-  // Overrides the description of the global `--cwd`, which names a Nuxt project.
   cwd: {
     ...globalCwdArgs.cwd,
     description: 'Specify the root directory of your Nuxt module',
   },
 } as const satisfies ArgsDef
 
-/**
- * A `nuxt module` subcommand that runs the same subcommand of the
- * `nuxt-module-build` CLI from the module's `@nuxt/module-builder`.
- *
- * Every argument is forwarded, so flags added to the module builder later work
- * without a CLI release; the ones declared here are for `--help` and the docs.
- */
+// `args` populate `--help` and generated docs; `ctx.rawArgs` forwards all flags to `nuxt-module-build`.
 export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'prepare', description: string, args: T) {
   return defineCommand({
     meta: { name, description },
@@ -57,9 +49,6 @@ export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'p
       const rootDir = resolveRootDir(ctx.args)
       const bin = await ensureModuleBuilder(rootDir, name)
 
-      // The arguments are forwarded as given, including a `--cwd` passed before
-      // `module`, so the module builder reads them exactly as
-      // `nuxt-module-build` would, even flags this CLI does not declare.
       const result = await x(process.execPath, [bin, name, ...ctx.rawArgs], {
         nodeOptions: { stdio: 'inherit' },
         throwOnError: false,
@@ -72,15 +61,11 @@ export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'p
 }
 
 interface ModuleBuilder {
-  /** The `nuxt-module-build` script. */
   bin: string
-  /** The package directory, where its own imports of the peers resolve from. */
   dir: string
-  /** The required peers out of {@link PEERS} that this version declares, with their ranges. */
   peers: Record<string, string>
 }
 
-/** The module's `@nuxt/module-builder`, if it has one with a `nuxt-module-build` command. */
 function resolveModuleBuilder(rootDir: string): ModuleBuilder | undefined {
   const manifest = resolveModulePath(`${MODULE_BUILDER}/package.json`, { from: withNodePath(rootDir), try: true, cache: false })
   if (!manifest) {
@@ -91,59 +76,43 @@ function resolveModuleBuilder(rootDir: string): ModuleBuilder | undefined {
   if (!script) {
     return
   }
+  const dir = dirname(manifest)
   const peers = Object.entries(pkg.peerDependencies ?? {})
     .filter(([name]) => PEERS.includes(name) && !pkg.peerDependenciesMeta?.[name]?.optional)
-  return { bin: resolve(dirname(manifest), script), dir: dirname(manifest), peers: Object.fromEntries(peers) }
+  return { bin: resolve(dir, script), dir, peers: Object.fromEntries(peers) }
 }
 
-/**
- * Whether `name` can be imported from `dir`. `NODE_PATH` is left out because
- * the builder imports its peers as ES modules, which ignore it.
- */
-function isResolvable(dir: string, name: string): boolean {
-  return Boolean(resolveModulePath(name, { from: dir, try: true, cache: false }))
-}
-
-/**
- * A package spec for `name` within `range`. A range of alternatives
- * (`^5.9.3 || ^6.0.0`) is narrowed to its last, conventionally the newest, so
- * the spec stays one shell-safe argument without leaving the range. A range
- * that still contains whitespace (`>=3 <5`) or is `*` falls back to the bare
- * name, as `nuxt module add` does for peer dependencies.
- */
+// Pick the last `||` branch (`^5.9.3 || ^6.0.0` -> `^6.0.0`) so union ranges stay a single argument,
+// and fall back to the bare name for `*` or ranges with spaces (`>=3 <5`).
 function packageSpec(name: string, range: string | undefined): string {
-  const alternative = range?.split('||').at(-1)?.trim()
-  return alternative && alternative !== '*' && !WHITESPACE_RE.test(alternative) ? `${name}@${alternative}` : name
+  const target = range?.split('||').at(-1)?.trim()
+  return target && target !== '*' && !WHITESPACE_RE.test(target) ? `${name}@${target}` : name
 }
 
-/**
- * The `nuxt-module-build` script of the module's `@nuxt/module-builder`, after
- * offering to install the builder and the `tsdown` and `typescript` peers it
- * builds with when the module is missing any of them.
- */
 async function ensureModuleBuilder(rootDir: string, command: string): Promise<string> {
   let builder = resolveModuleBuilder(rootDir)
-  // Until the builder is installed, the peers it declares are not known, so the
-  // ones the current release requires are checked. They are only installed
-  // below if the installed builder declares them.
-  const missingPeers = (builder ? Object.keys(builder.peers) : PEERS).filter(name => !isResolvable(builder?.dir ?? rootDir, name))
+  // Resolve without `NODE_PATH` because ESM imports in `@nuxt/module-builder` ignore it.
+  const resolveFrom = builder?.dir ?? rootDir
+  const missingPeers = (builder ? Object.keys(builder.peers) : PEERS)
+    .filter(name => !resolveModulePath(name, { from: resolveFrom, try: true, cache: false }))
   if (builder && missingPeers.length === 0) {
     return builder.bin
   }
 
   const packageManager = await detectPackageManager(rootDir) ?? defaultPackageManager
   if (!isInteractive()) {
-    // Without the builder, the ranges of its peers are not known yet, so only
-    // the builder is asked for; the next run asks for the peers it declares.
-    const deps = builder ? missingPeers.map(name => packageSpec(name, builder!.peers[name])) : [MODULE_BUILDER]
-    throw new ActionableError(`${describeMissing(command, builder ? missingPeers : [MODULE_BUILDER])} Install ${deps.length > 1 ? 'them' : 'it'} with ${formatInstallCommand(rootDir, packageManager, deps)}.`)
+    if (builder) {
+      const { peers } = builder
+      const deps = missingPeers.map(name => packageSpec(name, peers[name]))
+      throw new ActionableError(`${describeMissing(command, missingPeers)} Install ${deps.length > 1 ? 'them' : 'it'} with ${formatInstallCommand(rootDir, packageManager, deps)}.`)
+    }
+    throw new ActionableError(`${describeMissing(command, [MODULE_BUILDER])} Install it with ${formatInstallCommand(rootDir, packageManager, [MODULE_BUILDER])}.`)
   }
 
   const missing = [...builder ? [] : [MODULE_BUILDER], ...missingPeers]
   const list = formatList(missing)
-  const message = describeMissing(command, missing)
 
-  logger.warn(message)
+  logger.warn(describeMissing(command, missing))
   const answer = await confirm({ message: `Install ${list} as ${missing.length > 1 ? 'devDependencies' : 'a devDependency'}?`, initialValue: true })
   if (isCancel(answer) || !answer) {
     cancel('Skipping installation.')
@@ -158,8 +127,8 @@ async function ensureModuleBuilder(rootDir: string, command: string): Promise<st
     }
   }
 
-  // Peers are installed even when the builder's install pulled them into
-  // `node_modules`, so the module declares the tools its build runs.
+  // Reuse `missingPeers` from before installing the builder so auto-installed peers
+  // are still added to the module's own `devDependencies`.
   const { peers } = builder
   const peerSpecs = missingPeers.filter(name => name in peers).map(name => packageSpec(name, peers[name]))
   if (peerSpecs.length > 0) {
@@ -197,7 +166,6 @@ function describeMissing(command: string, missing: string[]): string {
   return `${styleText('cyan', `nuxt module ${command}`)} needs ${formatList(missing)}, which ${missing.length > 1 ? 'are' : 'is'} not installed in this module.`
 }
 
-/** The install command, and the directory to run it in when that is not the current one. */
 function formatInstallCommand(rootDir: string, packageManager: DetectResult, dependencies: string[]): string {
   const { command, args } = resolveCommand(packageManager.agent, 'add', ['-D', ...dependencies])!
   const install = styleText('bold', [command, ...args].join(' '))
