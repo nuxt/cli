@@ -17,7 +17,7 @@ import { ActionableError } from '../../utils/errors'
 import { createInstallLog, runInstall } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { defaultPackageManager, detectPackageManager } from '../../utils/package-managers'
-import { resolveRootDir } from '../../utils/paths'
+import { relativeToProcess, resolveRootDir } from '../../utils/paths'
 import { withNodePath } from '../../utils/resolve-nuxt'
 import { createSpinner } from '../../utils/spinner'
 import { isInteractive } from '../../utils/stdout'
@@ -74,6 +74,8 @@ export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'p
 interface ModuleBuilder {
   /** The `nuxt-module-build` script. */
   bin: string
+  /** The package directory, where its own imports of the peers resolve from. */
+  dir: string
   /** The required peers out of {@link PEERS} that this version declares, with their ranges. */
   peers: Record<string, string>
 }
@@ -91,20 +93,27 @@ function resolveModuleBuilder(rootDir: string): ModuleBuilder | undefined {
   }
   const peers = Object.entries(pkg.peerDependencies ?? {})
     .filter(([name]) => PEERS.includes(name) && !pkg.peerDependenciesMeta?.[name]?.optional)
-  return { bin: resolve(dirname(manifest), script), peers: Object.fromEntries(peers) }
-}
-
-function isResolvable(rootDir: string, name: string): boolean {
-  return Boolean(resolveModulePath(name, { from: withNodePath(rootDir), try: true, cache: false }))
+  return { bin: resolve(dirname(manifest), script), dir: dirname(manifest), peers: Object.fromEntries(peers) }
 }
 
 /**
- * A package spec for `name` at `range`. A range that cannot be part of a spec
- * (`*`, `^5.9.3 || ^6.0.0`) falls back to the bare name, as `nuxt module add`
- * does for peer dependencies.
+ * Whether `name` can be imported from `dir`. `NODE_PATH` is left out because
+ * the builder imports its peers as ES modules, which ignore it.
+ */
+function isResolvable(dir: string, name: string): boolean {
+  return Boolean(resolveModulePath(name, { from: dir, try: true, cache: false }))
+}
+
+/**
+ * A package spec for `name` within `range`. A range of alternatives
+ * (`^5.9.3 || ^6.0.0`) is narrowed to its last, conventionally the newest, so
+ * the spec stays one shell-safe argument without leaving the range. A range
+ * that still contains whitespace (`>=3 <5`) or is `*` falls back to the bare
+ * name, as `nuxt module add` does for peer dependencies.
  */
 function packageSpec(name: string, range: string | undefined): string {
-  return range && range !== '*' && !WHITESPACE_RE.test(range) ? `${name}@${range}` : name
+  const alternative = range?.split('||').at(-1)?.trim()
+  return alternative && alternative !== '*' && !WHITESPACE_RE.test(alternative) ? `${name}@${alternative}` : name
 }
 
 /**
@@ -117,7 +126,7 @@ async function ensureModuleBuilder(rootDir: string, command: string): Promise<st
   // Until the builder is installed, the peers it declares are not known, so the
   // ones the current release requires are checked. They are only installed
   // below if the installed builder declares them.
-  const missingPeers = (builder ? Object.keys(builder.peers) : PEERS).filter(name => !isResolvable(rootDir, name))
+  const missingPeers = (builder ? Object.keys(builder.peers) : PEERS).filter(name => !isResolvable(builder?.dir ?? rootDir, name))
   if (builder && missingPeers.length === 0) {
     return builder.bin
   }
@@ -127,7 +136,7 @@ async function ensureModuleBuilder(rootDir: string, command: string): Promise<st
     // Without the builder, the ranges of its peers are not known yet, so only
     // the builder is asked for; the next run asks for the peers it declares.
     const deps = builder ? missingPeers.map(name => packageSpec(name, builder!.peers[name])) : [MODULE_BUILDER]
-    throw new ActionableError(`${describeMissing(command, builder ? missingPeers : [MODULE_BUILDER])} Install ${deps.length > 1 ? 'them' : 'it'} with ${styleText('bold', formatInstallCommand(packageManager, deps))}.`)
+    throw new ActionableError(`${describeMissing(command, builder ? missingPeers : [MODULE_BUILDER])} Install ${deps.length > 1 ? 'them' : 'it'} with ${formatInstallCommand(rootDir, packageManager, deps)}.`)
   }
 
   const missing = [...builder ? [] : [MODULE_BUILDER], ...missingPeers]
@@ -163,7 +172,8 @@ async function ensureModuleBuilder(rootDir: string, command: string): Promise<st
 async function installDevDependencies(rootDir: string, packageManager: DetectResult, dependencies: string[]): Promise<void> {
   const list = formatList(dependencies)
   const installLog = createInstallLog()
-  const spinner = createSpinner({ indicator: 'timer' })
+  const controller = new AbortController()
+  const spinner = createSpinner({ indicator: 'timer', onCancel: () => controller.abort() })
   spinner.start(`Installing ${list} with ${styleText('cyan', packageManager.name)}`)
   const result = await runInstall({
     cwd: rootDir,
@@ -172,11 +182,12 @@ async function installDevDependencies(rootDir: string, packageManager: DetectRes
     dev: true,
     onOutput: installLog.onOutput,
     onStatus: message => spinner.message(message),
+    signal: controller.signal,
   })
   if (!result.success) {
     spinner.error(result.error ?? 'Install failed')
     installLog.finish(result)
-    throw new ActionableError(`Could not install ${list}. Install ${dependencies.length > 1 ? 'them' : 'it'} with ${styleText('bold', formatInstallCommand(packageManager, dependencies))}.`)
+    throw new ActionableError(`Could not install ${list}. Install ${dependencies.length > 1 ? 'them' : 'it'} with ${formatInstallCommand(rootDir, packageManager, dependencies)}.`)
   }
   spinner.stop(`Installed ${list}`)
   installLog.finish(result)
@@ -186,9 +197,11 @@ function describeMissing(command: string, missing: string[]): string {
   return `${styleText('cyan', `nuxt module ${command}`)} needs ${formatList(missing)}, which ${missing.length > 1 ? 'are' : 'is'} not installed in this module.`
 }
 
-function formatInstallCommand(packageManager: DetectResult, dependencies: string[]): string {
+/** The install command, and the directory to run it in when that is not the current one. */
+function formatInstallCommand(rootDir: string, packageManager: DetectResult, dependencies: string[]): string {
   const { command, args } = resolveCommand(packageManager.agent, 'add', ['-D', ...dependencies])!
-  return [command, ...args].join(' ')
+  const install = styleText('bold', [command, ...args].join(' '))
+  return rootDir === resolve('.') ? install : `${install} in ${styleText('cyan', relativeToProcess(rootDir))}`
 }
 
 function formatList(names: string[]): string {

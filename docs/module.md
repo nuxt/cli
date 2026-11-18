@@ -162,7 +162,7 @@ npx nuxt module build [ROOTDIR] [--cwd=<directory>] [--outDir=<directory>] [--so
 | `--sourcemap`          |         | Emit source maps. Overrides `sourcemap` in the tsdown config                                             |
 <!--/module-build-opts-->
 
-The command builds the module in `ROOTDIR` for publishing. It runs the `build` command of [`@nuxt/module-builder`](/docs/guide/modules/module-builder/commands#build) and passes every argument through, so `nuxt module build` is the same as `nuxt-module-build build`.
+The command builds the module in `ROOTDIR` for publishing. It runs the `build` command of [`@nuxt/module-builder`](/docs/api/module-builder/commands#build) and passes every argument through, so `nuxt module build` is the same as `nuxt-module-build build`.
 
 If the module does not have `@nuxt/module-builder` installed, the command offers to install it as a development dependency, together with the `tsdown` and `typescript` peer dependencies it builds with, at the versions the module builder requires. Outside an interactive terminal, it prints the install command instead.
 
@@ -196,7 +196,7 @@ npx nuxt module prepare [ROOTDIR] [--cwd=<directory>]
 | `--cwd=<directory>` |         | Specify the root directory of your Nuxt module |
 <!--/module-prepare-opts-->
 
-The command generates the `.nuxt` directory in `ROOTDIR`, which the module's `tsconfig.json` extends. It runs the `prepare` command of [`@nuxt/module-builder`](/docs/guide/modules/module-builder/commands#prepare), and installs it first in the same way as `nuxt module build`.
+The command generates the `.nuxt` directory in `ROOTDIR`, which the module's `tsconfig.json` extends. It runs the `prepare` command of [`@nuxt/module-builder`](/docs/api/module-builder/commands#prepare), and installs it first in the same way as `nuxt module build`.
 
 **Example:**
 

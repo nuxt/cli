@@ -47,8 +47,7 @@ async function createModule({ withBuilder, installed = [] }: { withBuilder: bool
 
 function run(args: string[], cwd: string) {
   return x('node', [nuxi, ...args], {
-    // `pnpm` points `NODE_PATH` at this repository's dependencies, which include `tsdown`.
-    nodeOptions: { cwd, env: { ...process.env, NO_COLOR: '1', CI: '1', NODE_PATH: '' } },
+    nodeOptions: { cwd, env: { ...process.env, NO_COLOR: '1', CI: '1' } },
   })
 }
 
@@ -74,12 +73,12 @@ describe('nuxt module build', () => {
     expect(res.stdout + res.stderr).toContain('nuxt module prepare needs @nuxt/module-builder, which is not installed in this module. Install it with npm i -D @nuxt/module-builder.')
   })
 
-  it('prints the install command for missing peers at the range the builder declares', { timeout: 60_000 }, async () => {
-    const { rootDir } = await createModule({ withBuilder: true, installed: ['typescript'] })
+  it('prints the install command for missing peers within the ranges the builder declares', { timeout: 60_000 }, async () => {
+    const { parent } = await createModule({ withBuilder: true })
 
-    const res = await run(['module', 'build'], rootDir)
+    const res = await run(['module', 'build', '--cwd', 'my-module'], parent)
 
     expect(res.exitCode).toBe(1)
-    expect(res.stdout + res.stderr).toContain('nuxt module build needs tsdown, which is not installed in this module. Install it with npm i -D tsdown@^0.23.7.')
+    expect(res.stdout + res.stderr).toContain('nuxt module build needs tsdown and typescript, which are not installed in this module. Install them with npm i -D tsdown@^0.23.7 typescript@^6.0.0 in my-module.')
   })
 })
