@@ -343,7 +343,7 @@ describe('help', () => {
          remove    Remove Nuxt modules             
          search    Search in Nuxt modules          
           build    Build a module for publishing   
-        prepare    Prepare a module for development
+        prepare    Prepare a module environment by writing types
 
       Use nuxt module <command> --help for more information about a command."
     `)
