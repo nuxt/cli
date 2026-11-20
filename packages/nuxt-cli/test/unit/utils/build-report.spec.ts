@@ -104,9 +104,21 @@ describe('createBuildReport', () => {
 
     expect(stripAnsi((await report.summary(true))!).split('\n')).toEqual([
       'Nitro (rollup) built in 100ms · 15.00 kB',
-      '.output/server/chunks/a.mjs  12.00 kB',
-      '.output/server/index.mjs      3.00 kB',
+      '  .output/server/chunks/a.mjs  12.00 kB',
+      '  .output/server/index.mjs      3.00 kB',
     ])
+  })
+
+  it('lists the gzip size of each client file when verbose', async () => {
+    const { report, call } = await setup()
+    const clientDir = join(root, '.output/public')
+    const files = await writeFiles(clientDir, { 'a.js': 'a'.repeat(4000), 'b.css': 'b'.repeat(1000) })
+    await call('build:environment:start', client)
+    await call('build:environment:done', client, { duration: 10, outDir: clientDir, files })
+
+    const lines = stripAnsi((await report.summary(true))!).split('\n')
+    expect(lines[1]).toMatch(/^ {2}\.output\/public\/a\.js {3}4\.00 kB +\d+ B gzip$/)
+    expect(lines[2]).toMatch(/^ {2}\.output\/public\/b\.css {2}1\.00 kB +\d+ B gzip$/)
   })
 
   it('drives the progress line from the bundles and prerendering', async () => {
@@ -182,9 +194,9 @@ describe('createBuildReport', () => {
 
     await call('build:environment:start', nitro)
     await call('build:environment:done', nitro, { duration: 1, outDir: join(output, 'server'), files: [] })
-    expect(report.commands(serverBuild(output, { deployCommand: 'npx wrangler deploy' })).map(stripAnsi)).toEqual([
+    expect(report.commands(serverBuild(output, { deployCommand: 'npx wrangler --cwd ./ deploy ./server/index.mjs' })).map(stripAnsi)).toEqual([
       'You can preview this build using npx nuxt preview',
-      'You can deploy this build using npx wrangler deploy',
+      'You can deploy this build using npx wrangler --cwd .output deploy .output/server/index.mjs',
     ])
   })
 

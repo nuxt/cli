@@ -68,8 +68,11 @@ interface BuildReportOptions {
 interface Bundle {
   environment: BuildEnvironment
   result: BuildEnvironmentResult
+  /** Without source maps. */
+  files: BuildFile[]
   size: number
-  gzip: Promise<number | undefined>
+  /** Gzip size of each of `files`, for bundles that are sent to the browser. */
+  gzip: Promise<number[] | undefined>
 }
 
 interface Entry {
@@ -93,6 +96,9 @@ const PRERENDER_ROUTE_LIMIT = 20
 const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 
 const GZIP_CONCURRENCY = 8
+
+/** A path in a deploy command relative to the build output, such as `--cwd ./`. */
+const OUTPUT_RELATIVE_RE = /(^|[\s:=])\.\/(\S*)/g
 
 const LABELS: Record<string, string> = { ssr: 'server' }
 
@@ -130,15 +136,16 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
     const bundle: Bundle = {
       environment,
       result,
+      files,
       size: files.reduce((sum, file) => sum + file.size, 0),
       gzip: environment.consumer === 'client'
-        ? Promise.all(files.map(file => gzipFile(() => gzipSize(join(result.outDir, file.path))))).then(sizes => sizes.reduce((sum, size) => sum + size, 0), () => undefined)
+        ? Promise.all(files.map(file => gzipFile(() => gzipSize(join(result.outDir, file.path))))).catch(() => undefined)
         : Promise.resolve(undefined),
     }
     bundles.push(bundle)
     entries.push({
       start: starts.get(environment.name) ?? Date.now() - result.duration,
-      render: verbose => formatBundle(bundle, files, verbose),
+      render: verbose => formatBundle(bundle, verbose),
     })
   })
 
@@ -189,7 +196,7 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
       if (hasServerOutput(serverBuild)) {
         commands.push(`You can preview this build using ${styleText('cyan', nuxtCommand(nuxt, 'preview'))}`)
       }
-      const deploy = serverBuild.deployCommand
+      const deploy = deployCommand(serverBuild)
       if (deploy) {
         commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
       }
@@ -202,7 +209,7 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
       if (!target || target === 'static') {
         return [`You can now deploy ${styleText('cyan', publicDir)} to any static hosting`]
       }
-      const deploy = serverBuild.deployCommand
+      const deploy = deployCommand(serverBuild)
       if (deploy) {
         return [`You can deploy this build using ${styleText('cyan', deploy)}`]
       }
@@ -212,20 +219,28 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
   }
 }
 
-async function formatBundle(bundle: Bundle, files: BuildFile[], verbose: boolean): Promise<string> {
-  const { environment, result } = bundle
-  const gzipped = await bundle.gzip
-  const size = `${formatBytes(bundle.size)}${gzipped === undefined ? '' : ` (${formatBytes(gzipped)} gzip)`}`
+/** The deploy command, with paths relative to the build output made relative to where the user is. */
+function deployCommand(serverBuild: ServerBuild): string | undefined {
+  const dir = relative(process.cwd(), serverBuild.dir) || '.'
+  return serverBuild.deployCommand?.replace(OUTPUT_RELATIVE_RE, (_, before: string, path: string) => `${before}${path ? `${dir}/${path}` : dir}`)
+}
+
+async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
+  const { environment, result, files } = bundle
+  const gzip = await bundle.gzip
+  const total = gzip?.reduce((sum, size) => sum + size, 0)
+  const size = `${formatBytes(bundle.size)}${total === undefined ? '' : ` (${formatBytes(total)} gzip)`}`
   const line = `${capitalise(bundleLabel(environment))} ${styleText('dim', `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText('dim', ` \u00B7 ${size}`)}`
   if (!verbose || !files.length) {
     return line
   }
-  const sorted = [...files].sort((a, b) => b.size - a.size)
-  const paths = sorted.map(file => relative(process.cwd(), join(result.outDir, file.path)))
-  const sizes = sorted.map(file => formatBytes(file.size))
-  const pathWidth = Math.max(...paths.map(path => path.length))
-  const sizeWidth = Math.max(...sizes.map(size => size.length))
-  return [line, ...paths.map((path, index) => `${path.padEnd(pathWidth)}  ${styleText('dim', sizes[index]!.padStart(sizeWidth))}`)].join('\n')
+  const rows = files
+    .map((file, index) => ({ path: relative(process.cwd(), join(result.outDir, file.path)), size: formatBytes(file.size), gzip: gzip && formatBytes(gzip[index]!), bytes: file.size }))
+    .sort((a, b) => b.bytes - a.bytes)
+  const pathWidth = Math.max(...rows.map(row => row.path.length))
+  const sizeWidth = Math.max(...rows.map(row => row.size.length))
+  const gzipWidth = Math.max(...rows.map(row => row.gzip?.length ?? 0))
+  return [line, ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText('dim', `${row.size.padStart(sizeWidth)}${row.gzip ? `  ${row.gzip.padStart(gzipWidth)} gzip` : ''}`)}`)].join('\n')
 }
 
 /** `npx nuxt <command>`, naming the project when it is not the current directory. */
