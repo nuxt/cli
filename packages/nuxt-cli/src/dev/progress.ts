@@ -558,15 +558,17 @@ export class DevProgress extends PhaseTimeline {
     if (path !== PROGRESS_PATH) {
       return false
     }
-    this.#subscribe(res)
+    this.#subscribe(req, res)
     return true
   }
 
-  #subscribe(res: ServerResponse): void {
+  #subscribe(req: IncomingMessage, res: ServerResponse): void {
     res.statusCode = 200
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-store')
-    res.setHeader('Connection', 'keep-alive')
+    if (req.httpVersionMajor === 1) {
+      res.setHeader('Connection', 'keep-alive')
+    }
     res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
     res.write('retry: 1000\n\n')

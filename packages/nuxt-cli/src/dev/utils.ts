@@ -5,6 +5,7 @@ import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { Http2SecureServer } from 'node:http2'
 import type { PendingRender } from '../utils/progress-snapshot'
 
 import type { ResolvedCertificate } from './cert'
@@ -144,7 +145,7 @@ type HmrOptions = Exclude<ViteServerOptions['hmr'], boolean>
  * vite >= 8.1 reads `server.ws`; older versions only read `server.hmr`.
  * Returns the websocket path, which is set on both.
  */
-export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer): string | undefined {
+export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer | Http2SecureServer): string | undefined {
   const target = server as Omit<ViteServerOptions, 'ws'> & { ws?: HmrOptions | boolean }
   const path = (target.ws as HmrOptions | undefined)?.path ?? (target.hmr as HmrOptions | undefined)?.path
   target.ws = {
@@ -320,6 +321,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this.handler = async (req, res) => {
+      // HTTP/2 clients send `:authority` instead of `Host`, which h3 v1 and
+      // other `IncomingMessage` consumers read.
+      req.headers.host ??= req.headers[':authority'] as string | undefined
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
@@ -386,7 +390,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
    * serves are not gated here: Vite applies its own `allowedHosts` check.
    */
   #rejectDisallowedHost(req: IncomingMessage, res: ServerResponse): boolean {
-    if (this.#allowAnyHost || isAllowedHost(req.headers.host, this.#allowedHosts)) {
+    const host = req.headers[':authority'] as string | undefined ?? req.headers.host
+    if (this.#allowAnyHost || isAllowedHost(host, this.#allowedHosts)) {
       return false
     }
     if (this.options.captureUIEvents) {
@@ -1226,6 +1231,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
     })
 
+    // @ts-expect-error the hook is typed for `http.Server`/`https.Server`
     await this.#currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
     // Sync internal server info to the internals BEFORE building
