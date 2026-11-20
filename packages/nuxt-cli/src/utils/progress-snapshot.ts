@@ -23,6 +23,8 @@ export interface PhaseTiming {
   phase: string
   message: string
   duration: number
+  /** When the phase started, in milliseconds since the command did. */
+  start?: number
 }
 
 export interface ProgressSnapshot {
@@ -106,7 +108,7 @@ export class PhaseTimeline {
 
   protected closePhase(): void {
     const phase = this.phases[this.index]!
-    this.timings.push({ phase: phase.id, message: phase.message, duration: Date.now() - this.phaseStartedAt })
+    this.timings.push({ phase: phase.id, message: phase.message, duration: Date.now() - this.phaseStartedAt, start: this.phaseStartedAt - this.startedAt })
     this.phaseStartedAt = Date.now()
   }
 

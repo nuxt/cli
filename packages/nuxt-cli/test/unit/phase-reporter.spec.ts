@@ -385,18 +385,30 @@ describe('phase reporter', () => {
 })
 
 describe('formatPhaseTable', () => {
-  it('lines phases up with a bar for their share of the phases shown', () => {
+  it('places each phase where it ran', () => {
+    const table = formatPhaseTable([
+      { phase: 'config', message: '', duration: 1000, start: 0 },
+      { phase: 'types', message: '', duration: 5, start: 1000 },
+      { phase: 'client', message: '', duration: 2000, start: 1005 },
+      { phase: 'server', message: '', duration: 1000, start: 1005 },
+      { phase: 'prerender', message: '', duration: 1000, start: 3005 },
+    ])
+    expect(stripVTControlCharacters(table).split('\n')).toEqual([
+      'config     1.00s  ██████░░░░░░░░░░░░░░░░░░',
+      'client     2.00s  ░░░░░░████████████░░░░░░',
+      'server     1.00s  ░░░░░░██████░░░░░░░░░░░░',
+      'prerender  1.00s  ░░░░░░░░░░░░░░░░░░██████',
+    ])
+  })
+
+  it('lays out phases one after the other when they carry no start', () => {
     const table = formatPhaseTable([
       { phase: 'config', message: '', duration: 1000 },
-      { phase: 'types', message: '', duration: 5 },
-      { phase: 'bundle (client)', message: '', duration: 2900 },
-      { phase: 'prerender', message: '', duration: 100 },
+      { phase: 'build', message: '', duration: 3000 },
     ])
-    // `types` is too quick to list, so it is left out of the total as well.
     expect(stripVTControlCharacters(table).split('\n')).toEqual([
-      'config           1.00s  █████░░░░░░░░░░░░░░░   25%',
-      'bundle (client)  2.90s  ███████████████░░░░░   73%',
-      'prerender        100ms  █░░░░░░░░░░░░░░░░░░░    3%',
+      'config  1.00s  ██████░░░░░░░░░░░░░░░░░░',
+      'build   3.00s  ░░░░░░██████████████████',
     ])
   })
 })

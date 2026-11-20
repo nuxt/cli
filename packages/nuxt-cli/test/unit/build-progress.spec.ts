@@ -1,120 +1,132 @@
 import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BuildProgress } from '../../src/utils/build-progress'
 
 type HookHandler = (event: { name: string, args?: unknown[] }) => void
 
-function nuxtStub(options: { nitroViteEnvironment?: boolean } = {}) {
+function nuxtStub() {
   const handlers: HookHandler[] = []
-  const nitroHandlers: HookHandler[] = []
   return {
-    nuxt: {
-      options: { experimental: { nitroViteEnvironment: options.nitroViteEnvironment } },
-      hooks: { beforeEach: (fn: HookHandler) => void handlers.push(fn) },
-    },
-    call(name: string, ...args: unknown[]) {
+    nuxt: { hooks: { beforeEach: (fn: HookHandler) => void handlers.push(fn) } },
+    call(name: string) {
       for (const handler of handlers) {
-        handler({ name, args })
-      }
-    },
-    nitro: { hooks: { beforeEach: (fn: HookHandler) => void nitroHandlers.push(fn) } },
-    callNitro(name: string, ...args: unknown[]) {
-      for (const handler of nitroHandlers) {
-        handler({ name, args })
+        handler({ name })
       }
     },
   }
 }
 
-function messages(progress: BuildProgress): string[] {
-  const seen: string[] = []
-  progress.onUpdate((snapshot: ProgressSnapshot) => seen.push(snapshot.message))
+function track(progress: BuildProgress): ProgressSnapshot[] {
+  const seen: ProgressSnapshot[] = []
+  progress.onUpdate(snapshot => seen.push(snapshot))
   return seen
 }
 
 describe('build progress', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: 0 })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('should follow the phases of a production build', () => {
     const progress = new BuildProgress()
     const stub = nuxtStub()
     progress.attachNuxt(stub.nuxt)
-    stub.call('nitro:init', stub.nitro)
-    const seen = messages(progress)
+    const seen = track(progress)
 
     stub.call('modules:before')
     stub.call('builder:generateApp')
     stub.call('prepare:types')
     stub.call('build:before')
-    progress.enterEnvironment({ name: 'client', consumer: 'client' })
-    progress.enterEnvironment({ name: 'ssr', consumer: 'server' })
-    stub.call('nitro:build:before', {})
-    stub.callNitro('prerender:init')
-    stub.callNitro('rollup:before')
+    progress.startBundle('client')
+    progress.endBundle('client')
+    progress.startBundle('server')
+    progress.endBundle('server')
+    progress.startPrerender()
+    progress.endPrerender()
+    progress.startBundle('nitro')
+    progress.endBundle('nitro')
     progress.finish()
 
-    expect(seen).toEqual([
+    expect(seen.map(snapshot => snapshot.message)).toEqual([
       'Loading Nuxt config',
       'Setting up modules',
       'Preparing app',
       'Generating types',
+      'Building',
       'Bundling client',
+      'Building',
       'Bundling server',
+      'Building',
       'Prerendering routes',
+      'Building',
       'Bundling nitro',
+      'Building',
     ])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'bundle (client)', 'bundle (server)', 'prerender', 'bundle (nitro)'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'client', 'server', 'prerender', 'nitro'])
   })
 
-  it('should ignore Nitro\'s hooks until Nuxt starts the Nitro build', () => {
+  it('should report bundles that build at the same time', () => {
     const progress = new BuildProgress()
-    const stub = nuxtStub()
-    progress.attachNuxt(stub.nuxt)
-    stub.call('nitro:init', stub.nitro)
-    const seen = messages(progress)
+    const seen = track(progress)
 
-    // Nitro runs its Rollup hooks while Nuxt is still bundling the app.
-    stub.call('build:before')
-    stub.callNitro('rollup:before')
-    progress.enterEnvironment({ name: 'ssr', consumer: 'server' })
-
-    expect(seen).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling server'])
-  })
-
-  it('should take the Nitro phase from its Vite environment when Nitro builds with Vite', () => {
-    const progress = new BuildProgress()
-    const stub = nuxtStub({ nitroViteEnvironment: true })
-    progress.attachNuxt(stub.nuxt)
-    stub.call('nitro:init', stub.nitro)
-    const seen = messages(progress)
-
-    // Nitro 3 starts its build before Vite bundles the app.
-    stub.call('nitro:build:before', {})
-    stub.callNitro('rollup:before')
-    progress.enterEnvironment({ name: 'client', consumer: 'client' })
-    progress.enterEnvironment({ name: 'ssr', consumer: 'server' })
-    stub.callNitro('prerender:init')
-    progress.enterEnvironment({ name: 'nitro', consumer: 'server' })
+    progress.startBundle('client')
+    vi.advanceTimersByTime(5)
+    progress.startBundle('server')
+    vi.advanceTimersByTime(200)
+    progress.endBundle('server')
+    vi.advanceTimersByTime(100)
+    progress.endBundle('client')
     progress.finish()
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling server', 'Prerendering routes', 'Bundling nitro'])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'bundle (client)', 'bundle (server)', 'prerender', 'bundle (nitro)'])
+    expect(seen.map(snapshot => snapshot.message)).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling client and server', 'Bundling client', 'Building'])
+    expect(progress.timings.filter(timing => timing.phase !== 'config')).toEqual([
+      { phase: 'client', message: 'client', start: 0, duration: 305 },
+      { phase: 'server', message: 'server', start: 5, duration: 200 },
+    ])
+  })
+
+  it('should keep the phase of the last task between tasks', () => {
+    const progress = new BuildProgress()
+    const seen = track(progress)
+
+    progress.startBundle('client')
+    progress.endBundle('client')
+
+    expect(seen.at(-1)).toMatchObject({ phase: 'bundle:client', message: 'Building' })
   })
 
   it('should count prerendered routes', () => {
     const progress = new BuildProgress()
+    const seen = track(progress)
+
+    progress.startPrerender()
+    progress.prerenderRoute('/about', true)
+    progress.prerenderRoute('/missing')
+    progress.prerenderRoute('/blog', true)
+
+    expect(seen.map(snapshot => snapshot.message)).toEqual([
+      'Loading Nuxt config',
+      'Prerendering routes',
+      'Prerendering /about (1 done)',
+      'Prerendering /missing (1 done)',
+      'Prerendering /blog (2 done)',
+    ])
+  })
+
+  it('should time the build as one phase when no bundles are reported', () => {
+    const progress = new BuildProgress()
     const stub = nuxtStub()
     progress.attachNuxt(stub.nuxt)
-    stub.call('nitro:init', stub.nitro)
-    const seen = messages(progress)
 
-    stub.call('nitro:build:before', {})
-    stub.callNitro('prerender:init')
-    stub.callNitro('prerender:generate', { route: '/about' })
-    stub.callNitro('prerender:route', { route: '/about' })
-    stub.callNitro('prerender:generate', { route: '/blog' })
+    stub.call('build:before')
+    progress.finish()
 
-    expect(seen).toEqual(['Loading Nuxt config', 'Prerendering routes', 'Prerendering /about', 'Prerendering /blog (1 done)'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'build'])
   })
 
   it('should keep phase durations after the build is finished', () => {
@@ -125,7 +137,7 @@ describe('build progress', () => {
     stub.call('modules:before')
     progress.finish()
     progress.finish()
-    progress.enterEnvironment({ name: 'client', consumer: 'client' })
+    progress.startBundle('client')
 
     expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules'])
     expect(progress.snapshot.phase).toBe('modules')

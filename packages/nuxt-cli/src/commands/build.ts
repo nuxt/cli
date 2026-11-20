@@ -7,6 +7,7 @@ import { relative } from 'pathe'
 import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
+import { createBuildReport } from '../utils/build-report'
 import { overrideEnv } from '../utils/env'
 
 import { ActionableError } from '../utils/errors'
@@ -19,7 +20,6 @@ import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
-import { quietServerOutput } from '../utils/server-output'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -107,9 +107,9 @@ export default defineCommand({
       })
 
       progress.attachNuxt(nuxt)
-      const serverOutput = quietServerOutput(nuxt, {
+      const report = createBuildReport(nuxt, {
+        progress,
         command: ctx.args.prerender ? 'generate' : 'build',
-        onEnvironment: environment => progress.enterEnvironment(environment),
       })
 
       showBanner(nuxt)
@@ -148,10 +148,12 @@ export default defineCommand({
 
       stopReporting()
       progress.finish()
+      const elapsed = Date.now() - start
 
-      const serverSummary = serverOutput.summary(progress.timings)
-      if (serverSummary) {
-        logger.success(serverSummary)
+      const verbose = nuxt.options.logLevel === 'verbose'
+      const summary = await report.summary(verbose)
+      if (summary) {
+        logger.success(summary)
       }
 
       if (ctx.args.prerender && !nuxt.options.ssr) {
@@ -159,15 +161,10 @@ export default defineCommand({
         logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
       }
 
-      // Where the time went sits right under the total it adds up to: one line
-      // by default, a row per phase with a bar for its share when verbose.
-      const verbose = nuxt.options.logLevel === 'verbose'
       const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.timings)
-      const total = `Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}`
+      const total = `Build complete in ${styleText('cyan', formatDuration(elapsed))}`
       const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText('dim', breakdown)}` : total
-      const next = ctx.args.prerender
-        ? serverOutput.staticCommands(serverBuild.publicDir ? relative(process.cwd(), serverBuild.publicDir) : '.output/public')
-        : serverOutput.commands()
+      const next = ctx.args.prerender ? report.staticCommands(serverBuild) : report.commands(serverBuild)
       if (next.length) {
         logger.success(complete)
         outro(next.join('\n'))

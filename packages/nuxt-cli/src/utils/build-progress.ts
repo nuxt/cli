@@ -1,53 +1,45 @@
-import type { Phase, ProgressSnapshot } from './progress-snapshot'
+import type { Phase, PhaseTiming, ProgressSnapshot } from './progress-snapshot'
 
 import { PhaseTimeline } from './progress-snapshot'
 
 /**
- * Build phases, in the order they are reached. A phase is never re-entered, so
- * the index only ever moves forward and the breakdown printed at the end lists
- * each phase once.
+ * The phases that run one after the other before anything is bundled. The last
+ * one covers the rest of the build, in which bundles and prerendering are
+ * tracked as tasks of their own, since they can overlap.
  */
 const BUILD_PHASES: readonly Phase[] = [
   { id: 'config', message: 'Loading Nuxt config' },
   { id: 'modules', message: 'Setting up modules' },
   { id: 'app', message: 'Preparing app' },
   { id: 'types', message: 'Generating types' },
-  { id: 'bundle (client)', message: 'Bundling client' },
-  { id: 'bundle (server)', message: 'Bundling server' },
-  { id: 'prerender', message: 'Prerendering routes' },
-  { id: 'bundle (nitro)', message: 'Bundling nitro' },
+  { id: 'build', message: 'Building' },
 ]
 
 const HOOK_PHASES: Record<string, string> = {
   'modules:before': 'modules',
   'builder:generateApp': 'app',
   'prepare:types': 'types',
-  'build:before': 'bundle (client)',
+  'build:before': 'build',
 }
 
-/** Nitro builds on its own hooks, which Nuxt's never see. */
-const NITRO_INIT_HOOK = 'nitro:init'
-const NITRO_BUILD_HOOK = 'nitro:build:before'
-
-const PRERENDER_HOOK = 'prerender:generate'
-const PRERENDERED_HOOK = 'prerender:route'
-
-/** The Vite environment Nitro 3 builds the server in. */
-const NITRO_ENVIRONMENT = 'nitro'
+const BUILD_PHASE = 'build'
+const PRERENDER_TASK = 'prerender'
 
 interface HookableLike {
   beforeEach?: (fn: (event: { name: string, args?: unknown[] }) => void) => void
 }
 
 interface NuxtLike {
-  options?: { experimental?: { nitroViteEnvironment?: boolean } }
   hooks?: HookableLike
 }
 
-/** A Vite environment as it starts building. */
-export interface BuildEnvironment {
-  name?: string
-  consumer?: string
+interface Task {
+  start: number
+  end?: number
+}
+
+function listLabels(labels: string[]): string {
+  return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}` : labels[0]!
 }
 
 /**
@@ -58,7 +50,10 @@ export interface BuildEnvironment {
 export class BuildProgress extends PhaseTimeline {
   #message = BUILD_PHASES[0]!.message
   #finished = false
-  /** Routes written so far, the one measure of how far prerendering has got. */
+  #tasks = new Map<string, Task>()
+  #active: string[] = []
+  #key = BUILD_PHASE
+  #route: string | undefined
   #prerendered = 0
 
   constructor() {
@@ -66,7 +61,7 @@ export class BuildProgress extends PhaseTimeline {
   }
 
   override get snapshot(): ProgressSnapshot {
-    return { ...super.snapshot, message: this.#message }
+    return { ...super.snapshot, phase: this.#key, message: this.#message }
   }
 
   override onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
@@ -75,19 +70,40 @@ export class BuildProgress extends PhaseTimeline {
     return off
   }
 
-  setPhase(id: string, message?: string): void {
-    if (this.#finished || this.enter(id) === undefined) {
+  setPhase(id: string): void {
+    if (this.#finished || !this.enter(id)) {
       return
     }
-    this.setMessage(message || BUILD_PHASES[this.index]!.message)
+    this.#key = id
+    this.#setMessage(BUILD_PHASES[this.index]!.message)
   }
 
-  setMessage(message: string): void {
-    if (this.#finished || message === this.#message) {
-      return
+  /** Start bundling `label`, such as `client`, alongside anything else in flight. */
+  startBundle(label: string): void {
+    this.#startTask(label)
+  }
+
+  endBundle(label: string): void {
+    this.#endTask(label)
+  }
+
+  startPrerender(): void {
+    this.#route = undefined
+    this.#prerendered = 0
+    this.#startTask(PRERENDER_TASK)
+  }
+
+  /** Report the route being prerendered, or one that has just been written. */
+  prerenderRoute(route: string, written = false): void {
+    if (written) {
+      this.#prerendered++
     }
-    this.#message = message
-    this.emit()
+    this.#route = route
+    this.#update()
+  }
+
+  endPrerender(): void {
+    this.#endTask(PRERENDER_TASK)
   }
 
   /**
@@ -96,70 +112,85 @@ export class BuildProgress extends PhaseTimeline {
    * what is said about it finishing.
    */
   finish(): void {
-    if (!this.#finished) {
-      this.closePhase()
-      this.#finished = true
-    }
-  }
-
-  /**
-   * Move to the bundle phase of a Vite environment that has started building.
-   * Vite resolves every config before it bundles anything, and with the
-   * environment API one config builds them all, so only the build itself knows
-   * which one it has reached.
-   */
-  enterEnvironment({ name, consumer }: BuildEnvironment): void {
-    if (name === NITRO_ENVIRONMENT) {
-      this.setPhase('bundle (nitro)')
+    if (this.#finished) {
       return
     }
-    this.setPhase(consumer === 'server' ? 'bundle (server)' : 'bundle (client)')
+    const now = Date.now()
+    const building = BUILD_PHASES[this.index]!.id === BUILD_PHASE
+    this.closePhase()
+    this.#finished = true
+    if (!building || !this.#tasks.size) {
+      return
+    }
+    // The build phase is only the span the tasks ran in; each task reports its own.
+    this.timings.pop()
+    const tasks: PhaseTiming[] = [...this.#tasks].map(([id, task]) => ({
+      phase: id,
+      message: id,
+      start: task.start - this.startedAt,
+      duration: (task.end ?? now) - task.start,
+    }))
+    this.timings.push(...tasks.sort((a, b) => a.start! - b.start!))
   }
 
   /**
-   * Derive phases from the hooks Nuxt and Nitro call, so the timeline follows
-   * the project's own build rather than a schedule guessed by the CLI.
+   * Derive phases from the hooks Nuxt calls, so the timeline follows the
+   * project's own build rather than a schedule guessed by the CLI.
    */
   attachNuxt(nuxt: NuxtLike): void {
-    let nitroBuilding = false
-    nuxt.hooks?.beforeEach?.(({ name, args }) => {
+    nuxt.hooks?.beforeEach?.(({ name }) => {
       const phase = HOOK_PHASES[name]
       if (phase) {
         this.setPhase(phase)
       }
-      else if (name === NITRO_BUILD_HOOK) {
-        nitroBuilding = true
-      }
-      else if (name === 'webpack:compile') {
-        const ctx = args?.[0] as { name?: string } | undefined
-        this.setPhase(ctx?.name === 'server' ? 'bundle (server)' : 'bundle (client)')
-      }
-      else if (name === NITRO_INIT_HOOK) {
-        // Nitro's hooks also run while Nuxt is still bundling the app, and those
-        // are not what the build is waiting on.
-        const hooks = (args?.[0] as { hooks?: HookableLike } | undefined)?.hooks
-        hooks?.beforeEach?.(event => nitroBuilding && this.#onNitroHook(event, !!nuxt.options?.experimental?.nitroViteEnvironment))
-      }
     })
   }
 
-  #onNitroHook({ name, args }: { name: string, args?: unknown[] }, viteEnvironment: boolean): void {
-    if (name === 'prerender:init') {
-      this.setPhase('prerender')
+  #startTask(id: string): void {
+    if (this.#finished) {
+      return
     }
-    // Nitro 2 bundles with Rollup; Nitro 3 as a Vite environment, reported
-    // through `enterEnvironment`, and runs its Rollup hooks early.
-    else if (name === 'rollup:before' && !viteEnvironment) {
-      this.setPhase('bundle (nitro)')
+    if (this.enter(BUILD_PHASE)) {
+      this.#key = BUILD_PHASE
     }
-    else if (name === PRERENDER_HOOK && BUILD_PHASES[this.index]!.id === 'prerender') {
-      const route = (args?.[0] as { route?: string } | undefined)?.route
-      if (route) {
-        this.setMessage(this.#prerendered ? `Prerendering ${route} (${this.#prerendered} done)` : `Prerendering ${route}`)
-      }
+    this.#tasks.set(id, { start: Date.now() })
+    this.#active = [...this.#active.filter(active => active !== id), id]
+    this.#update()
+  }
+
+  #endTask(id: string): void {
+    const task = this.#tasks.get(id)
+    if (this.#finished || !task || task.end !== undefined) {
+      return
     }
-    else if (name === PRERENDERED_HOOK) {
-      this.#prerendered++
+    task.end = Date.now()
+    this.#active = this.#active.filter(active => active !== id)
+    this.#update()
+  }
+
+  #update(): void {
+    if (this.#finished || !this.#active.length) {
+      // Between tasks the line keeps its phase, so a pipe is not handed a
+      // line for every gap between one bundle and the next.
+      this.#setMessage(BUILD_PHASES.at(-1)!.message)
+      return
     }
+    if (this.#active.includes(PRERENDER_TASK)) {
+      this.#key = PRERENDER_TASK
+      this.#setMessage(this.#route
+        ? `Prerendering ${this.#route}${this.#prerendered ? ` (${this.#prerendered} done)` : ''}`
+        : 'Prerendering routes')
+      return
+    }
+    this.#key = `bundle:${this.#active.join('+')}`
+    this.#setMessage(`Bundling ${listLabels(this.#active)}`)
+  }
+
+  #setMessage(message: string): void {
+    if (this.#finished || message === this.#message) {
+      return
+    }
+    this.#message = message
+    this.emit()
   }
 }
