@@ -13,6 +13,7 @@ export function terminalLink(label: string, url: string, options: { stream?: { i
 
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[0-9;]*m|\u001B\]8;[^\u0007]*\u0007/g
+const ANSI_AT_RE = new RegExp(ANSI_RE.source, 'y')
 // eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g
 // eslint-disable-next-line no-control-regex
@@ -122,9 +123,9 @@ function atomise(line: string): Atom[] {
   const atoms: Atom[] = []
   let index = 0
   while (index < line.length) {
-    ANSI_RE.lastIndex = index
-    const match = ANSI_RE.exec(line)
-    if (match?.index === index) {
+    ANSI_AT_RE.lastIndex = index
+    const match = ANSI_AT_RE.exec(line)
+    if (match) {
       atoms.push({ text: match[0] })
       index += match[0].length
       continue
