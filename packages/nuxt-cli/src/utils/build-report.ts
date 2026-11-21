@@ -109,17 +109,15 @@ const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 
 const GZIP_CONCURRENCY = 8
 
-const LABELS: Record<string, string> = { ssr: 'server' }
+const LABELS: Record<string, string> = { client: 'Client', server: 'Server', ssr: 'Server', nitro: 'Nitro' }
 
 /** What a bundle is called on the progress line and in the breakdown. */
 function bundleLabel(environment: BuildEnvironment): string {
-  return LABELS[environment.name] ?? environment.name
+  return LABELS[environment.name]?.toLowerCase() ?? environment.name
 }
 
-const DISPLAY_LABELS: Record<string, string> = { client: 'Client', server: 'Server', ssr: 'Server', nitro: 'Nitro' }
-
 function displayLabel(environment: BuildEnvironment): string {
-  return DISPLAY_LABELS[environment.name] ?? environment.name
+  return LABELS[environment.name] ?? environment.name
 }
 
 /**
