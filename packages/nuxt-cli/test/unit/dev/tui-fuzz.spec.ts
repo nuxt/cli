@@ -4,7 +4,7 @@ import fc from 'fast-check'
 import { describe, expect, it } from 'vitest'
 
 import { renderPanel } from '../../../src/dev/tui/panel'
-import { stripAnsi, truncate, visibleWidth } from '../../../src/utils/formatting'
+import { stripAnsi, truncate, visibleWidth, wrapText } from '../../../src/utils/formatting'
 
 const RUNS = Number(process.env.NUXT_CLI_FUZZ_RUNS) || 500
 
@@ -65,6 +65,34 @@ describe('truncate', () => {
       const result = truncate(text, columns)
       fc.pre(result !== text && result.includes(SGR))
       expect(result.endsWith(RESET)).toBe(true)
+    }), { numRuns: RUNS })
+  })
+})
+
+describe('wrapText', () => {
+  const lines = fc.array(fc.tuple(fc.constantFrom('', '  ', '    '), styledText).map(([indent, text]) => indent + text), { maxLength: 4 }).map(parts => parts.join('\n'))
+
+  it('should never exceed the requested number of columns', () => {
+    fc.assert(fc.property(lines, fc.integer({ min: 2, max: 40 }), (text, columns) => {
+      for (const row of wrapText(text, columns)) {
+        expect(visibleWidth(row)).toBeLessThanOrEqual(columns)
+      }
+    }), { numRuns: RUNS })
+  })
+
+  it('should keep every visible character', () => {
+    fc.assert(fc.property(lines, fc.integer({ min: 2, max: 40 }), (text, columns) => {
+      const visible = (value: string) => stripAnsi(value).replace(/\s+/g, '')
+      expect(visible(wrapText(text, columns).join('\n'))).toBe(visible(text))
+    }), { numRuns: RUNS })
+  })
+
+  it('should close a hyperlink on every row it breaks', () => {
+    fc.assert(fc.property(styledText, fc.integer({ min: 2, max: 40 }), (text, columns) => {
+      fc.pre(!leavesLinkOpen(text))
+      for (const row of wrapText(text, columns)) {
+        expect(leavesLinkOpen(row)).toBe(false)
+      }
     }), { numRuns: RUNS })
   })
 })

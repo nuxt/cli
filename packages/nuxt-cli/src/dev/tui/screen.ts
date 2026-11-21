@@ -20,6 +20,8 @@ const GUTTER_WIDTH = 2
 
 export interface OverlayEntry {
   lines: string[]
+  /** Lines shown in place of `lines` while the entry is selected. */
+  expand?: () => string[]
   /** Stable entry identity. */
   key?: object | string
   /** Plain text put on the clipboard when this entry is copied. */
@@ -70,6 +72,11 @@ export abstract class ScreenOverlay {
 
   /** Handle a view-specific key; return `true` if it changed anything. */
   protected handleViewKey(_key: Key): boolean {
+    return false
+  }
+
+  /** Arrow and page keys scroll rows instead of moving a selection. */
+  protected get scrollsByRow(): boolean {
     return false
   }
 
@@ -131,7 +138,7 @@ export abstract class ScreenOverlay {
     if (this.#searching) {
       return this.#handleSearchKey(key)
     }
-    if (key.sequence === '/') {
+    if (key.sequence === '/' && !this.scrollsByRow) {
       this.#searching = true
       return this.render()
     }
@@ -141,6 +148,9 @@ export abstract class ScreenOverlay {
     }
 
     const page = Math.max(1, this.bodyRows() - 1)
+    if (this.scrollsByRow && this.#handleScrollKey(key, page)) {
+      return this.render()
+    }
     switch (key.name) {
       case 'q':
       case 'escape':
@@ -195,6 +205,41 @@ export abstract class ScreenOverlay {
     this.render()
   }
 
+  #handleScrollKey(key: Key, page: number): boolean {
+    switch (key.name) {
+      case 'up':
+      case 'k':
+        this.#scroll(-1)
+        return true
+      case 'down':
+      case 'j':
+        this.#scroll(1)
+        return true
+      case 'pageup':
+        this.#scroll(-page)
+        return true
+      case 'pagedown':
+        this.#scroll(page)
+        return true
+      case 'home':
+        this.#scroll(Number.NEGATIVE_INFINITY)
+        return true
+      case 'end':
+        this.resetScroll()
+        return true
+      case 'g':
+        if (key.sequence === 'G') {
+          this.resetScroll()
+        }
+        else {
+          this.#scroll(Number.NEGATIVE_INFINITY)
+        }
+        return true
+      default:
+        return false
+    }
+  }
+
   /** Rows available for content, once the title, rule and hints are taken. */
   protected bodyRows(): number {
     return Math.max(1, (process.stdout.rows || 24) - 3)
@@ -247,6 +292,13 @@ export abstract class ScreenOverlay {
     this.#revealSelection = false
   }
 
+  /** Stop following and show the first row. */
+  protected scrollToTop(): void {
+    this.#following = false
+    this.#top = 0
+    this.#anchor = undefined
+  }
+
   protected resetSelection(): void {
     this.#selected = undefined
     this.#selectedKey = undefined
@@ -263,7 +315,7 @@ export abstract class ScreenOverlay {
     const columns = process.stdout.columns || 80
     const bodyRows = this.bodyRows()
 
-    const entries = this.#entries()
+    let entries = this.#entries()
     if (!this.#revealSelection && this.#selectedKey !== undefined) {
       const index = entries.findIndex(entry => entry.key === this.#selectedKey)
       this.#selected = index < 0 ? undefined : index
@@ -272,6 +324,7 @@ export abstract class ScreenOverlay {
       this.#selected = entries.length ? Math.min(this.#selected, entries.length - 1) : undefined
     }
     this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
+    entries = this.#expandSelected(entries)
 
     const rows: string[] = []
     let selectedRows: { start: number, end: number } | undefined
@@ -333,8 +386,17 @@ export abstract class ScreenOverlay {
     return this.renderEntries((process.stdout.columns || 80) - GUTTER_WIDTH)
   }
 
+  /** The entries with the selected one in its expanded form. */
+  #expandSelected(entries: OverlayEntry[]): OverlayEntry[] {
+    const selected = this.#selected === undefined ? undefined : entries[this.#selected]
+    if (!selected?.expand) {
+      return entries
+    }
+    return entries.with(this.#selected!, { ...selected, lines: selected.expand() })
+  }
+
   #move(delta: number): void {
-    const entries = this.#entries()
+    const entries = this.#expandSelected(this.#entries())
     if (!entries.length) {
       return
     }
@@ -346,12 +408,26 @@ export abstract class ScreenOverlay {
     this.select(Math.min(Math.max(this.#selected + delta, 0), entries.length - 1))
   }
 
-  #page(delta: number): void {
-    const entries = this.#entries()
+  #scroll(delta: number, entries = this.#entries()): number {
     const rows = entries.reduce((total, entry) => total + entry.lines.length, 0)
     this.#following = false
     this.#top = Math.min(Math.max(0, this.#top + delta), Math.max(0, rows - this.bodyRows()))
     this.#anchor = this.#rowAnchor(entries, this.#top)
+    return rows
+  }
+
+  #page(delta: number): void {
+    const entries = this.#expandSelected(this.#entries())
+    const rows = this.#scroll(delta, entries)
+    if (this.#selected !== undefined) {
+      const start = entries.slice(0, this.#selected).reduce((total, entry) => total + entry.lines.length, 0)
+      const end = start + (entries[this.#selected]?.lines.length ?? 0)
+      const visible = start < this.#top + this.bodyRows() && end > this.#top
+      if (visible && end - start > this.bodyRows()) {
+        this.#revealSelection = false
+        return
+      }
+    }
     this.#selected = this.#rowAnchor(entries, delta < 0 ? this.#top : Math.min(rows - 1, this.#top + this.bodyRows() - 1))?.index
     this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
     this.#revealSelection = false
@@ -374,7 +450,7 @@ export abstract class ScreenOverlay {
       this.notify('nothing selected to copy')
       return
     }
-    await this.#copy(text, 'copied')
+    await this.copy(text, 'copied')
   }
 
   async #copyAll(): Promise<void> {
@@ -387,7 +463,7 @@ export abstract class ScreenOverlay {
       return
     }
     if (custom) {
-      return this.#copy(custom.slice(0, COPY_ALL_MAX_CHARS), 'copied')
+      return this.copy(custom.slice(0, COPY_ALL_MAX_CHARS), 'copied')
     }
     const texts = this.#entries().map(entry => entry.copy).filter(text => !!text) as string[]
     if (!texts.length) {
@@ -401,10 +477,11 @@ export abstract class ScreenOverlay {
     }
     const kept = start === texts.length ? [texts.at(-1)!.slice(0, COPY_ALL_MAX_CHARS)] : texts.slice(start)
     const count = kept.length === texts.length ? `${kept.length}` : `the last ${kept.length} of ${texts.length}`
-    await this.#copy(kept.join('\n'), `copied ${count} ${texts.length === 1 ? 'entry' : 'entries'}`)
+    await this.copy(kept.join('\n'), `copied ${count} ${texts.length === 1 ? 'entry' : 'entries'}`)
   }
 
-  async #copy(text: string, done: string): Promise<void> {
+  /** Put `text` on the clipboard and report `done` in the hint line. */
+  protected async copy(text: string, done: string): Promise<void> {
     this.notify(await writeClipboard(stripAnsi(text)) ? `${done} to clipboard` : 'no clipboard available')
   }
 

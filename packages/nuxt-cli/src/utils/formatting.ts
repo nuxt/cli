@@ -102,6 +102,109 @@ export function truncate(text: string, columns: number): string {
   return `${text.slice(0, index)}\u2026${linked ? LINK_TERMINATOR : ''}${styled ? '\u001B[0m' : ''}`
 }
 
+/**
+ * Wrap each line of `text` to `columns`, breaking at spaces where possible.
+ * Continuation rows keep the line's own indentation, and styling or a link
+ * that spans a break is closed at the end of the row and reopened on the next.
+ */
+export function wrapText(text: string, columns: number): string[] {
+  const width = Math.max(1, columns)
+  return text.split('\n').flatMap(line => wrapLine(line, width))
+}
+
+interface Atom {
+  text: string
+  /** Absent on an escape sequence. */
+  width?: number
+}
+
+function atomise(line: string): Atom[] {
+  const atoms: Atom[] = []
+  let index = 0
+  while (index < line.length) {
+    ANSI_RE.lastIndex = index
+    const match = ANSI_RE.exec(line)
+    if (match?.index === index) {
+      atoms.push({ text: match[0] })
+      index += match[0].length
+      continue
+    }
+    const char = String.fromCodePoint(line.codePointAt(index)!)
+    atoms.push({ text: char, width: char.charCodeAt(0) < 0x300 ? 1 : charWidth(char) })
+    index += char.length
+  }
+  return atoms
+}
+
+function wrapLine(line: string, columns: number): string[] {
+  if (visibleWidth(line) <= columns) {
+    return [line]
+  }
+  const leading = /^\s*/.exec(stripAnsi(line))![0].length
+  const hanging = ' '.repeat(leading < columns / 2 ? leading : 0)
+
+  const rows: string[] = []
+  let sgr: string[] = []
+  let link: string | undefined
+  let row = ''
+  let used = 0
+  /** The row holds something other than spaces, so breaking it makes progress. */
+  let worded = false
+  /** Where the row can be broken at its last space, and the state to resume with. */
+  let breakpoint: { at: number, used: number, atom: number, sgr: string[], link?: string } | undefined
+
+  const atoms = atomise(line)
+  const close = () => `${link ? LINK_TERMINATOR : ''}${sgr.length ? '\u001B[0m' : ''}`
+  const reopen = (state: { sgr: string[], link?: string }) => `${hanging}${state.sgr.join('')}${state.link ?? ''}`
+
+  for (let index = 0; index < atoms.length; index++) {
+    const atom = atoms[index]!
+    if (atom.width === undefined) {
+      if (atom.text.startsWith('\u001B]8;')) {
+        link = atom.text === LINK_TERMINATOR ? undefined : atom.text
+      }
+      else {
+        sgr = atom.text === '\u001B[0m' || atom.text === '\u001B[m' ? [] : [...sgr, atom.text]
+      }
+      row += atom.text
+      continue
+    }
+    if (used + atom.width > columns && used > hanging.length) {
+      if (atom.text !== ' ' && breakpoint && breakpoint.used > hanging.length) {
+        const state = { sgr: breakpoint.sgr, link: breakpoint.link }
+        const closing = `${state.link ? LINK_TERMINATOR : ''}${state.sgr.length ? '\u001B[0m' : ''}`
+        rows.push(row.slice(0, breakpoint.at).trimEnd() + closing)
+        row = reopen(state)
+        used = hanging.length
+        worded = false
+        sgr = state.sgr
+        link = state.link
+        index = breakpoint.atom
+        breakpoint = undefined
+        continue
+      }
+      rows.push(row.trimEnd() + close())
+      row = reopen({ sgr, link })
+      used = hanging.length
+      worded = false
+      breakpoint = undefined
+      if (atom.text === ' ') {
+        continue
+      }
+    }
+    row += atom.text
+    used += atom.width
+    if (atom.text !== ' ') {
+      worded = true
+    }
+    else if (worded) {
+      breakpoint = { at: row.length, used, atom: index, sgr, link }
+    }
+  }
+  rows.push(row)
+  return rows
+}
+
 /** Lower-case a leading capital, leaving acronyms alone. */
 export function decapitalise(text: string): string {
   return /^[A-Z][a-z]/.test(text) ? text[0]!.toLowerCase() + text.slice(1) : text

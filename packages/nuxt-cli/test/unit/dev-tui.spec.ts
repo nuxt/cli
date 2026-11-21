@@ -613,6 +613,16 @@ describe('dev event log', () => {
     expect(log.recent(10)).toHaveLength(1)
   })
 
+  it('should keep the layout of the longer wording a repeated error is folded into', () => {
+    const log = new DevEventLog()
+    const now = Date.now()
+    const format = () => 'laid out'
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Failed to apply the discount code', source: 'runtime' }))
+    log.push(event({ time: now, level: 0, type: 'error', message: 'Failed to apply the discount code\n    at handler (server/api/x.ts:3:9)', source: 'runtime', format, styled: true }))
+    expect(log.recent(10)).toHaveLength(1)
+    expect(log.recent(10)[0]).toMatchObject({ format, styled: true })
+  })
+
   it('should pair a forwarded log with its own printed log and leave the rest', () => {
     const log = new DevEventLog()
     log.push(event({ time: Date.now(), level: 0, type: 'error', message: 'boom happened here today', source: 'build' }))
@@ -938,7 +948,47 @@ describe('log overlay', () => {
   it('counts the tag against the width a message is cut to', () => {
     const [line] = formatEvent(event({ tag: '@nuxt/content', message: 'Processed 2 collections and 0 files in 59.89ms (0 cached, 0 parsed)' }), 60)
     expect(strip(line!).length).toBeLessThanOrEqual(60)
-    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[@nuxt\/content\] Processed .*…$/)
+    expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[@nuxt\/content\] Processed .*… \+2 lines$/)
+  })
+
+  it('collapses a log to one row that says how many more it has', () => {
+    const lines = formatEvent(event({ message: `${'word '.repeat(20)}\n  second\n  third\n` }), 60)
+    expect(lines).toHaveLength(1)
+    expect(strip(lines[0]!).length).toBeLessThanOrEqual(60)
+    expect(strip(lines[0]!)).toMatch(/^\d{2}:\d{2}:\d{2} word .*… \+3 lines$/)
+  })
+
+  it('wraps every line of an expanded log instead of cutting it', () => {
+    const message = `${'word '.repeat(20).trim()}\n  ${'more '.repeat(20).trim()}`
+    const lines = formatEvent(event({ message }), 60, false, { expanded: true }).map(strip)
+    expect(lines.length).toBeGreaterThan(2)
+    expect(lines.join('')).not.toContain('…')
+    expect(lines.join(' ').replace(/\s+/g, ' ')).toContain(message.replace(/\s+/g, ' '))
+    for (const line of lines) {
+      expect(line.length).toBeLessThanOrEqual(60)
+    }
+  })
+
+  it('lays out a log for the width it is shown at, when it can be', () => {
+    const widths: number[] = []
+    const format = (columns: number) => {
+      widths.push(columns)
+      return `laid out for ${columns}`
+    }
+    const [line] = formatEvent(event({ message: 'laid out for 80', format }), 60)
+    expect(strip(line!)).toContain(`laid out for ${widths[0]}`)
+    expect(widths[0]).toBeLessThan(60)
+  })
+
+  it('lays an error report out again for the width it is shown at', async () => {
+    const { createCliReport, summariseReport } = await import('../../src/dev/error-channel')
+    const { formatReport } = await import('../../src/dev/tui/report-format')
+    const summary = await summariseReport(await createCliReport(new Error(`Failed to apply discount code SUMMER-2026: ${'the pricing service declined it '.repeat(6)}`)))
+    const format = formatReport(summary)
+    await vi.waitFor(() => expect(format(120)).not.toBe(summary.ansi))
+    const rows = (columns: number) => format(columns).split('\n').length
+    expect(rows(50)).toBeGreaterThan(rows(120))
+    expect(strip(format(50))).toContain('SUMMER-2026')
   })
 
   it('keeps the repeat marker when a long tag leaves little room', () => {
@@ -978,16 +1028,146 @@ describe('log overlay', () => {
     }
   })
 
-  it('opens focused on the newest error', () => {
+  it('opens on the newest error in full', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'all fine' }))
     events.push(event({ message: 'boom', level: 0, type: 'error' }))
     events.push(event({ message: 'afterwards' }))
     const { overlay, lastFrame } = create(events)
     overlay.openAtLastError()
+    expect(strip(lastFrame()).split('\n')[0]).toContain('2 of 3 · error')
+    expect(strip(lastFrame())).toContain('boom')
+    expect(strip(lastFrame())).not.toContain('afterwards')
+
+    overlay.handleKey({ name: 'escape' })
     const selected = strip(lastFrame()).split('\n').filter(line => line.startsWith('▎'))
     expect(selected.join('\n')).toContain('boom')
-    expect(selected.join('\n')).not.toContain('afterwards')
+    expect(overlay.isOpen).toBe(true)
+
+    overlay.handleKey({ name: 'return' })
+    overlay.handleKey({ name: 'l' })
+    expect(overlay.isOpen).toBe(false)
+    overlay.open()
+    expect(strip(lastFrame())).toContain('afterwards')
+    overlay.close()
+  })
+
+  it('keeps a tall selected entry expanded while paging through it', () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: 'short' }))
+    events.push(event({ message: Array.from({ length: rows * 3 }, (_, i) => `stack ${i}`).join('\n') }))
+    events.push(event({ message: 'last' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'down' })
+    for (let page = 0; page < 3; page++) {
+      overlay.handleKey({ name: 'pagedown' })
+    }
+    const body = strip(lastFrame()).split('\n').slice(2, 2 + rows)
+    expect(body.at(-2)).toContain(`stack ${rows * 3 - 1}`)
+    expect(body.at(-1)).toContain('last')
+    overlay.close()
+  })
+
+  it('shows a time only where it differs from the row above', () => {
+    const events = new DevEventLog()
+    events.push(event({ time: 1000, message: 'first' }))
+    events.push(event({ time: 1500, message: 'same second', request: 'GET /x', requestId: 'r1' }))
+    events.push(event({ time: 3000, message: 'still in request', request: 'GET /x', requestId: 'r1' }))
+    events.push(event({ time: 3000, message: 'later' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    const rows = strip(lastFrame()).split('\n').slice(2, 7)
+    expect(rows[0]).toMatch(/^ {2}\d{2}:\d{2}:01 first$/)
+    expect(rows.slice(1, 4)).toEqual([`${' '.repeat(11)}GET /x`, `${' '.repeat(11)}same second`, `${' '.repeat(11)}still in request`])
+    expect(rows[4]).toMatch(/^ {2}\d{2}:\d{2}:03 later$/)
+    overlay.close()
+  })
+
+  it('hides timestamps with shift-t and keeps t for cli logs', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'plain' }))
+    events.push(event({ message: 'handled', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    overlay.handleKey({ name: 't', sequence: 'T' })
+    const rows = strip(lastFrame()).split('\n').slice(2, 5)
+    expect(rows).toEqual(['  plain', '  GET /x', '    handled'])
+    expect(strip(lastFrame()).split('\n')[0]).toContain('cli+build+runtime')
+
+    overlay.handleKey({ name: 't', sequence: 'T' })
+    expect(strip(lastFrame()).split('\n')[2]).toMatch(/^ {2}\d{2}:\d{2}:\d{2} plain$/)
+    overlay.close()
+  })
+
+  it('expands only the selected entry', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'first\nfirst more' }))
+    events.push(event({ message: 'second\nsecond more' }))
+    const { overlay, lastFrame } = create(events)
+    overlay.open()
+    expect(strip(lastFrame())).not.toContain(' more')
+    overlay.handleKey({ name: 'up' })
+    expect(strip(lastFrame())).toContain('second more')
+    expect(strip(lastFrame())).toContain('first +1 line')
+    overlay.handleKey({ name: 'up' })
+    expect(strip(lastFrame())).toContain('first more')
+    expect(strip(lastFrame())).toContain('second +1 line')
+    overlay.close()
+  })
+
+  it('shows a log in full on enter, scrolling by row and stepping between logs', async () => {
+    const events = new DevEventLog()
+    const rows = (process.stdout.rows || 24) - 3
+    events.push(event({ message: 'before' }))
+    events.push(event({ message: Array.from({ length: rows * 2 }, (_, i) => `row ${i}`).join('\n'), request: 'GET /tall', requestId: 'r1' }))
+    events.push(event({ message: 'after' }))
+    const { overlay, lastFrame } = create(events)
+    const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows)
+    overlay.open()
+    overlay.handleKey({ name: 'up' })
+    overlay.handleKey({ name: 'up' })
+    overlay.handleKey({ name: 'return' })
+    expect(strip(lastFrame()).split('\n')[0]).toContain('2 of 3')
+    expect(body()[0]).toContain('GET /tall')
+    expect(body()).toContain('  row 0')
+
+    overlay.handleKey({ name: 'down' })
+    overlay.handleKey({ name: 'down' })
+    expect(body()[0]).toBe('  row 0')
+    overlay.handleKey({ name: 'up' })
+    expect(body()[0]).toBe('  ')
+    overlay.handleKey({ name: 'pagedown' })
+    expect(body()[0]).toBe(`  row ${rows - 2}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(body()[0]).toBe('  ')
+    overlay.handleKey({ sequence: '/' })
+    overlay.handleKey({ name: 'x', sequence: 'x' })
+    expect(strip(lastFrame())).not.toContain('search')
+    expect(body()[0]).toBe('  ')
+    overlay.handleKey({ name: 'end' })
+    expect(body().at(-1)).toBe(`  row ${rows * 2 - 1}`)
+    overlay.handleKey({ name: 'home' })
+    expect(body()[0]).toContain('GET /tall')
+    expect(lastFrame()).not.toContain('\u258E')
+
+    overlay.handleKey({ name: 'right' })
+    expect(strip(lastFrame()).split('\n')[0]).toContain('3 of 3')
+    expect(body()[0]).toContain('after')
+    overlay.handleKey({ name: 'right' })
+    expect(strip(lastFrame()).split('\n')[0]).toContain('3 of 3')
+
+    overlay.handleKey({ name: 'y' })
+    await vi.waitFor(() => expect(copied).toEqual([expect.stringContaining('after')]))
+
+    overlay.handleKey({ name: 'left' })
+    overlay.handleKey({ name: 'escape' })
+    const selected = strip(lastFrame()).split('\n').filter(line => line.startsWith('▎'))
+    expect(selected.join('\n')).toContain('GET /tall')
+    expect(selected.join('\n')).toContain('row 1')
+    overlay.close()
   })
 
   it('closes a hyperlink cut in half, so the rest of the line is not linked', () => {
@@ -1002,8 +1182,8 @@ describe('log overlay', () => {
     const [line] = formatEvent(styled as any, 40)
     expect(strip(line!).length).toBeLessThanOrEqual(40)
     // The cut must not swallow the reset, or everything after stays green.
-    expect(line!.endsWith('\u001B[0m')).toBe(true)
-    expect(strip(line!)).toContain('DevTools: press Shift')
+    expect(line).toContain('…\u001B[0m')
+    expect(strip(line!)).toContain('DevTools: press')
   })
 
   function create(events = new DevEventLog()) {
@@ -1285,7 +1465,7 @@ describe('log overlay', () => {
     overlay.handleKey({ name: 'pageup' })
     expect(body()[0]).toContain(`row ${rows - 1}`)
     overlay.handleKey({ name: 'end' })
-    expect(body().at(-1)).toContain(`row ${rows * 3 - 1}`)
+    expect(body().filter(Boolean)).toEqual([expect.stringMatching(new RegExp(`row 0 \\+${rows * 3 - 1} lines$`))])
     expect(strip(lastFrame())).not.toContain('paused')
     overlay.close()
   })
@@ -1299,8 +1479,12 @@ describe('log overlay', () => {
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'home' })
+    overlay.handleKey({ name: 'down' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain('stack 0')
     overlay.handleKey({ name: 'pagedown' })
-    expect(strip(lastFrame()).split('\n')[2]).toContain(`stack ${rows - 2}`)
+    expect(strip(lastFrame()).split('\n')[2]).toContain(`stack ${rows - 1}`)
+    overlay.handleKey({ name: 'pageup' })
+    expect(strip(lastFrame()).split('\n')[2]).toContain('stack 0')
     overlay.handleKey({ name: 'pageup' })
     expect(strip(lastFrame()).split('\n')[2]).toContain('short')
     overlay.close()
@@ -1318,7 +1502,7 @@ describe('log overlay', () => {
     overlay.handleKey({ name: 'pageup' })
     const before = body()
     events.push(event({ message: 'new arrival\nsecond row' }))
-    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows + 1} rows below`))
+    await vi.waitFor(() => expect(strip(lastFrame())).toContain(`↓${rows} rows below`))
     expect(body()).toBe(before)
     overlay.handleKey({ name: 'end' })
     expect(body()).toContain('new arrival')
@@ -1521,7 +1705,7 @@ describe('log overlay', () => {
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'up' })
-    overlay.handleKey({ name: 'return' })
+    overlay.handleKey({ name: 'y' })
 
     await vi.waitFor(() => expect(copied).toHaveLength(1))
     expect(copied[0]).toContain('GET /x')
@@ -1765,7 +1949,7 @@ describe('request overlay', () => {
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
     events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 'r7' })
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
+    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.\n  at index.vue:1:1', source: 'runtime', request: 'GET /', requestId: 'r7' })
     events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 'r8' })
     log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
     overlay.open()
@@ -1773,7 +1957,10 @@ describe('request overlay', () => {
     overlay.handleKey({ name: 'down' })
     overlay.handleKey({ name: 'return' })
     expect(lastFrame()).toContain('trace')
-    expect(lastFrame()).toContain('Invalid end tag.')
+    expect(strip(lastFrame())).toContain('Invalid end tag. +1 line')
+    expect(strip(lastFrame())).not.toContain('at index.vue:1:1')
+    overlay.handleKey({ name: 'up' })
+    expect(strip(lastFrame())).toContain('at index.vue:1:1')
     expect(lastFrame()).toContain('rendering /')
     expect(lastFrame()).not.toContain('unrelated')
 

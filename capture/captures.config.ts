@@ -24,6 +24,8 @@ export interface Capture {
   animated?: boolean
   /** Rules from `lib/scrub.ts` applied to the captured bytes. */
   scrub?: string[]
+  /** Rules from `lib/scrub.ts` applied only when deciding whether the committed SVG is stale. */
+  fingerprint?: string[]
   /** Drives the session: waits, keystrokes, file edits. */
   drive?: (context: CaptureContext) => Promise<void>
   /** Extra environment for the pty. */
@@ -186,6 +188,40 @@ export const captures: Capture[] = [
           renameSync(savedCli, projectCli)
         }
       }
+    },
+  },
+  {
+    id: 'nuxt-dev-logs',
+    title: 'nuxt dev (browsing logs)',
+    command: '$NUXT dev --no-clear --takeover',
+    cwd: 'app',
+    animated: true,
+    rows: 26,
+    scrub: DEV_SCRUB,
+    fingerprint: ['clock'],
+    stopAfterDrive: true,
+    env: TUI_ENV,
+    async drive({ session }) {
+      await session.waitFor(/ready in \d/, 180_000)
+      const port = session.output().match(/localhost:(\d+)/)?.[1] ?? '3000'
+      for (const cart of ['c_8f3a21', 'c_19be07']) {
+        await fetch(`http://127.0.0.1:${port}/api/checkout?cart=${cart}`).catch(() => {})
+        await session.wait(500)
+      }
+      await session.wait(1500)
+      // Relative to the last error: other logs can still arrive after it.
+      session.send('e')
+      await session.wait(3500)
+      session.send('\u001B')
+      await session.wait(2000)
+      for (const key of ['\u001B[A', '\u001B[A', '\u001B[B', '\u001B[B']) {
+        session.send(key)
+        await session.wait(1500)
+      }
+      session.send('T')
+      await session.wait(2500)
+      session.send('q')
+      await session.wait(1000)
     },
   },
   {

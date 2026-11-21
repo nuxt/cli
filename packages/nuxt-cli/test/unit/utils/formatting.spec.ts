@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatBytes, formatDuration, stripControlChars, truncate, visibleWidth } from '../../../src/utils/formatting'
+import { formatBytes, formatDuration, stripControlChars, truncate, visibleWidth, wrapText } from '../../../src/utils/formatting'
 
 describe('stripControlChars', () => {
   it('should leave no escape sequence behind, nested or not', () => {
@@ -47,6 +47,28 @@ describe('truncate', () => {
 describe('formatBytes', () => {
   it('uses decimal units', () => {
     expect([formatBytes(999), formatBytes(1000), formatBytes(2_454_000)]).toEqual(['999 B', '1.00 kB', '2.45 MB'])
+  })
+})
+
+describe('wrapText', () => {
+  it('should break at spaces and keep the line\'s indentation', () => {
+    expect(wrapText('    at handler (server/api/checkout.ts:9:1)', 24)).toEqual([
+      '    at handler',
+      '    (server/api/checkout',
+      '    .ts:9:1)',
+    ])
+  })
+
+  it('should break continuation rows at spaces when the indentation is too deep to keep', () => {
+    expect(wrapText('      aa bbbbb cccccc', 10)).toEqual(['      aa', 'bbbbb', 'cccccc'])
+  })
+
+  it('should reopen styling and links on the next row', () => {
+    const link = '\u001B]8;;file:///a.ts\u0007'
+    expect(wrapText(`\u001B[31m${link}one two\u001B]8;;\u0007\u001B[39m`, 4)).toEqual([
+      `\u001B[31m${link}one\u001B]8;;\u0007\u001B[0m`,
+      `\u001B[31m${link}two\u001B]8;;\u0007\u001B[39m`,
+    ])
   })
 })
 

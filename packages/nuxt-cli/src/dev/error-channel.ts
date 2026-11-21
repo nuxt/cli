@@ -267,9 +267,9 @@ function isBuildProgress(progress: unknown): progress is BuildProgress {
 }
 
 /**
- * A report as it crosses to the supervisor: the rendering to show it with, plus
- * enough to summarise it on a status line. The report itself stays in the
- * channel, which serves it from `/history/<id>`.
+ * A report as it crosses to the supervisor: the rendering to show it with,
+ * enough to summarise it on a status line, and the report itself so it can be
+ * laid out again for another width.
  */
 export interface DevReportSummary {
   id: string
@@ -286,6 +286,9 @@ export interface DevReportSummary {
   request?: string
   /** The report rendered for a terminal. */
   ansi: string
+  report?: ErrorReport
+  /** The `cwd` paths in `ansi` are relative to. */
+  cwd?: string
 }
 
 /** The compile error a report was caused by, when there is one. */
@@ -327,6 +330,8 @@ export async function summariseReport(report: ErrorReport, context: ReportContex
     requestId: context.requestId,
     request: context.request && stripControlChars(context.request),
     ansi: renderAnsi(report, { cwd }),
+    report,
+    cwd,
   }
 }
 

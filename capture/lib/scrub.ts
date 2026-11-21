@@ -4,6 +4,8 @@ import { homedir } from 'node:os'
 interface ScrubStep {
   pattern: RegExp
   replacement: (match: RegExpMatchArray) => string
+  /** Leave the replacement unstyled instead of inheriting the first replaced character's style. */
+  unstyled?: boolean
 }
 
 interface ScrubRule {
@@ -76,6 +78,15 @@ const RULES: Record<string, ScrubRule> = {
       { pattern: /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT\b/g, replacement: () => 'Thu, 01 Jan 2026 12:00:00 GMT' },
       { pattern: /\b\d{4}-\d{2}-\d{2}\b/g, replacement: () => '2026-01-01' },
       { pattern: /\b\d{2}:\d{2}:\d{2}\b/g, replacement: () => '12:00:00' },
+    ],
+  },
+  clock: {
+    id: 'clock',
+    description: 'log view clock column blanked',
+    steps: [
+      // The log view only prints a time that differs from the row above, so
+      // which rows carry one depends on where the seconds fell.
+      { pattern: /(?<=^.{2})(?:\d{2}:\d{2}:\d{2}| {8}) (?=\S)/g, replacement: () => ' '.repeat(9), unstyled: true },
     ],
   },
   spinner: {
@@ -172,7 +183,7 @@ function applyStep(line: string, styles: (Style | undefined)[], step: ScrubStep)
     const replacement = step.replacement(match)
     out += replacement
     for (let index = 0; index < replacement.length; index++) {
-      outStyles.push(styles[start])
+      outStyles.push(step.unstyled ? undefined : styles[start])
     }
     last = start + match[0].length
   }

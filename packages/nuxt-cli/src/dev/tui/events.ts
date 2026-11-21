@@ -20,6 +20,8 @@ export interface DevLogEvent {
   rendered?: string
   /** The message carries its own colours, so severity styling must not be applied. */
   styled?: boolean
+  /** The message laid out for `columns`, for a message its producer wraps to a width. */
+  format?: (columns: number) => string
   /**
    * Arrivals by each route. One occurrence is one arrival from each, so a log
    * heard three ways is one entry and two logs that say the same thing stay
@@ -359,6 +361,8 @@ export class DevEventLog {
       if (normaliseMessage(candidate.message).length < normaliseMessage(event.message).length) {
         candidate.message = event.message
         candidate.rendered = event.rendered ?? candidate.rendered
+        candidate.format = event.format
+        candidate.styled = event.styled
       }
       candidate.requestId ??= event.requestId
       candidate.request ??= event.request
