@@ -997,6 +997,11 @@ describe('log overlay', () => {
     expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:\S*…\] \S.* ×12$/)
   })
 
+  it('keeps the styling of blank rows it trims', () => {
+    const styled = event({ message: '\u001B[31m\nboom\n\u001B[39m', styled: true })
+    expect(formatEvent(styled, 40, false, { timestamp: 'hidden' })).toEqual(['\u001B[31mboom\u001B[39m'])
+  })
+
   it('keeps a long tag whole when the message leaves room for it', () => {
     const [line] = formatEvent(event({ tag: 'nuxt:devtools:config-retriever', message: 'ok' }), 58)
     expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:devtools:config-retriever\] ok$/)

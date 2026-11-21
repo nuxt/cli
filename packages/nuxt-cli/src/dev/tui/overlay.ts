@@ -280,7 +280,11 @@ function trimBlankLines(message: string): string {
   const blank = (line: string) => !stripAnsi(line).trim()
   const start = lines.findIndex(line => !blank(line))
   const end = lines.findLastIndex(line => !blank(line))
-  return start < 0 ? '' : lines.slice(start, end + 1).join('\n')
+  if (start < 0) {
+    return ''
+  }
+  const escapes = (rows: string[]) => rows.join('').replace(/\s/g, '')
+  return escapes(lines.slice(0, start)) + lines.slice(start, end + 1).join('\n') + escapes(lines.slice(end + 1))
 }
 
 export interface FormatEventOptions {
