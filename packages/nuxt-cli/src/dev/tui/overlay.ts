@@ -313,7 +313,7 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
 
   const [first = '', ...rest] = trimBlankLines(event.format?.(Math.max(1, budget)) ?? event.message).split('\n')
   const tagRoom = Math.max(Math.floor(budget / 2), budget - markerWidth - visibleWidth(first) - 1)
-  const tag = event.tag && !event.request ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `) : ''
+  let tag = event.tag && !event.request ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `) : ''
   const tagWidth = visibleWidth(tag)
 
   const firstRoom = Math.max(1, budget - markerWidth - tagWidth)
@@ -329,8 +329,17 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   }
   else {
     const hidden = head.length - 1 + body.length
-    const more = hidden ? ` +${hidden} ${hidden === 1 ? 'line' : 'lines'}` : ''
-    const text = colorBySeverity(truncate(first, Math.max(1, firstRoom - more.length)), event)
+    let more = hidden ? ` +${hidden} ${hidden === 1 ? 'line' : 'lines'}` : ''
+    if (more && firstRoom - more.length < 1) {
+      more = ` +${hidden}`
+    }
+    const shortfall = 1 - (firstRoom - more.length)
+    if (shortfall > 0 && tag) {
+      const room = tagWidth - shortfall - 3
+      tag = room >= 1 ? styleText(MUTED, `[${truncate(event.tag!, room)}] `) : ''
+    }
+    const textRoom = Math.max(1, budget - markerWidth - visibleWidth(tag) - more.length)
+    const text = colorBySeverity(truncate(first, textRoom), event)
     lines = [`${text}${more ? styleText(MUTED, more) : ''}${marker}`]
   }
 

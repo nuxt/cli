@@ -997,6 +997,14 @@ describe('log overlay', () => {
     expect(strip(line!)).toMatch(/^\d{2}:\d{2}:\d{2} \[nuxt:\S*…\] \S.* ×12$/)
   })
 
+  it('fits the hidden line count and repeat marker on a narrow collapsed row', () => {
+    for (let columns = 22; columns <= 40; columns++) {
+      const [line] = formatEvent(event({ tag: 'nuxt:devtools:config-retriever', message: 'defines Vite-specific options', repeats: 12 }), columns)
+      expect(strip(line!).length).toBeLessThanOrEqual(columns)
+      expect(strip(line!)).toMatch(/ \+\d.* ×12$/)
+    }
+  })
+
   it('keeps the styling of blank rows it trims', () => {
     const styled = event({ message: '\u001B[31m\nboom\n\u001B[39m', styled: true })
     expect(formatEvent(styled, 40, false, { timestamp: 'hidden' })).toEqual(['\u001B[31mboom\u001B[39m'])
