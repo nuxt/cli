@@ -155,22 +155,24 @@ npx nuxt module build [ROOTDIR] [--cwd=<directory>] [--outDir=<directory>] [--so
 ### Options
 
 <!--module-build-opts-->
-| Option                 | Default | Description                                                                                              |
-|------------------------|---------|----------------------------------------------------------------------------------------------------------|
-| `--cwd=<directory>`    |         | Specify the root directory of your Nuxt module                                                           |
-| `--outDir=<directory>` |         | Output directory, relative to the module root. Overrides `outDir` in the tsdown config (default: `dist`) |
-| `--sourcemap`          |         | Emit source maps. Overrides `sourcemap` in the tsdown config                                             |
+| Option                 | Default | Description                                                     |
+|------------------------|---------|-----------------------------------------------------------------|
+| `--cwd=<directory>`    |         | Specify the root directory of your Nuxt module                  |
+| `--outDir=<directory>` |         | Output directory, relative to the module root (default: `dist`) |
+| `--sourcemap`          |         | Emit source maps                                                |
 <!--/module-build-opts-->
 
-The command builds your module for publishing with [`@nuxt/module-builder`](/docs/api/module-builder/commands#build) and passes all arguments to `nuxt-module-build build`.
-
-If `@nuxt/module-builder`, `tsdown`, or `typescript` aren't installed, it prompts you to install them as dev dependencies. In non-interactive environments, it prints the install command instead.
+The command builds your module for publishing by running `nuxt-module-build build` from `@nuxt/module-builder` with all arguments passed through. `@nuxt/module-builder` must be installed in your module.
 
 **Example:**
 
 ```bash [Terminal]
 npx nuxt module build
 ```
+
+::read-more{to="https://github.com/nuxt/module-builder/blob/main/docs/2.commands.md#build" icon="i-simple-icons-github" target="\_blank"}
+Read more about `nuxt-module-build build`.
+::
 
 ## `nuxt module prepare`
 
@@ -196,10 +198,14 @@ npx nuxt module prepare [ROOTDIR] [--cwd=<directory>]
 | `--cwd=<directory>` |         | Specify the root directory of your Nuxt module |
 <!--/module-prepare-opts-->
 
-The command creates the `.nuxt` directory and generates types for your module with [`@nuxt/module-builder`](/docs/api/module-builder/commands#prepare). Like `nuxt module build`, it prompts you to install any missing build dependencies.
+The command creates the `.nuxt` directory and generates types for your module by running `nuxt-module-build prepare` from `@nuxt/module-builder` with all arguments passed through.
 
 **Example:**
 
 ```bash [Terminal]
 npx nuxt module prepare
 ```
+
+::read-more{to="https://github.com/nuxt/module-builder/blob/main/docs/2.commands.md#prepare" icon="i-simple-icons-github" target="\_blank"}
+Read more about `nuxt-module-build prepare`.
+::

@@ -14,7 +14,7 @@ afterEach(async () => {
   await Promise.all(tempDirs.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
 })
 
-async function createModule({ withBuilder, installed = [] }: { withBuilder: boolean, installed?: string[] }) {
+async function createModule({ withBuilder, bin = 'nuxt-module-build' }: { withBuilder: boolean, bin?: string }) {
   const parent = await mkdtemp(join(tmpdir(), 'nuxt-module-builder-'))
   tempDirs.push(parent)
   const rootDir = join(parent, 'my-module')
@@ -26,18 +26,10 @@ async function createModule({ withBuilder, installed = [] }: { withBuilder: bool
     await mkdir(packageDir, { recursive: true })
     await writeFile(join(packageDir, 'package.json'), JSON.stringify({
       name: '@nuxt/module-builder',
-      bin: { 'nuxt-build-module': './cli.mjs', 'nuxt-module-build': './cli.mjs' },
+      bin: { [bin]: './cli.mjs' },
       exports: { './package.json': './package.json' },
-      peerDependencies: { tsdown: '^0.23.7', typescript: '^5.9.3 || ^6.0.0' },
     }))
     await writeFile(join(packageDir, 'cli.mjs'), 'console.log(JSON.stringify(process.argv.slice(2))); process.exit(3)')
-  }
-
-  for (const name of installed) {
-    const packageDir = join(rootDir, 'node_modules', name)
-    await mkdir(packageDir, { recursive: true })
-    await writeFile(join(packageDir, 'package.json'), JSON.stringify({ name, main: './index.js' }))
-    await writeFile(join(packageDir, 'index.js'), '')
   }
 
   return { parent, rootDir }
@@ -45,13 +37,13 @@ async function createModule({ withBuilder, installed = [] }: { withBuilder: bool
 
 function run(args: string[], cwd: string) {
   return x('node', [nuxi, ...args], {
-    nodeOptions: { cwd, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', CI: '1' } },
+    nodeOptions: { cwd, env: { ...process.env, NODE_PATH: undefined, NO_COLOR: '1', FORCE_COLOR: '0', CI: '1' } },
   })
 }
 
 describe('nuxt module build', () => {
   it('forwards every argument, including a --cwd passed before the command', { timeout: 60_000 }, async () => {
-    const { parent } = await createModule({ withBuilder: true, installed: ['tsdown', 'typescript'] })
+    const { parent } = await createModule({ withBuilder: true })
 
     const res = await run(['--cwd', 'my-module', 'module', 'build', '--unknown', 'value', '--sourcemap'], parent)
 
@@ -60,21 +52,31 @@ describe('nuxt module build', () => {
     expect(forwarded).toEqual(['build', '--cwd', 'my-module', '--unknown', 'value', '--sourcemap'])
   })
 
-  it('prints the install command when the module builder is missing', { timeout: 60_000 }, async () => {
+  it('resolves the module builder from ROOTDIR', { timeout: 60_000 }, async () => {
+    const { parent } = await createModule({ withBuilder: true })
+
+    const res = await run(['module', 'prepare', 'my-module'], parent)
+
+    expect(res.exitCode).toBe(3)
+    const forwarded = JSON.parse(res.stdout.trim().split('\n').at(-1)!)
+    expect(forwarded).toEqual(['prepare', 'my-module'])
+  })
+
+  it('reports a missing module builder', { timeout: 60_000 }, async () => {
     const { rootDir } = await createModule({ withBuilder: false })
 
     const res = await run(['module', 'prepare'], rootDir)
 
     expect(res.exitCode).toBe(1)
-    expect(res.stdout + res.stderr).toContain('nuxt module prepare needs @nuxt/module-builder, which is not installed in this module. Install it with npm i -D @nuxt/module-builder.')
+    expect(res.stdout + res.stderr).toContain('`@nuxt/module-builder` is not installed in this module. Install it as a development dependency to use `nuxt module prepare`.')
   })
 
-  it('prints the install command for missing peers within the ranges the builder declares', { timeout: 60_000 }, async () => {
-    const { parent } = await createModule({ withBuilder: true })
+  it('reports a module builder without the nuxt-module-build binary', { timeout: 60_000 }, async () => {
+    const { rootDir } = await createModule({ withBuilder: true, bin: 'nuxt-build-module' })
 
-    const res = await run(['module', 'build', '--cwd', 'my-module'], parent)
+    const res = await run(['module', 'build'], rootDir)
 
     expect(res.exitCode).toBe(1)
-    expect(res.stdout + res.stderr).toContain('nuxt module build needs tsdown and typescript, which are not installed in this module. Install them with npm i -D tsdown@^0.23.7 typescript@^6.0.0 in my-module.')
+    expect(res.stdout + res.stderr).toContain('The installed version of `@nuxt/module-builder` does not support `nuxt module build`.')
   })
 })
