@@ -86,7 +86,7 @@ const RULES: Record<string, ScrubRule> = {
     steps: [
       // The log view only prints a time that differs from the row above, so
       // which rows carry one depends on where the seconds fell.
-      { pattern: /(?<=^.{2})(?:\d{2}:\d{2}:\d{2}| {8}) (?=\S)/g, replacement: () => ' '.repeat(9), unstyled: true },
+      { pattern: /(?<=^.{2})(?:\d{2}:\d{2}:\d{2}| {8}) (?= *\S)/g, replacement: () => ' '.repeat(9), unstyled: true },
     ],
   },
   spinner: {

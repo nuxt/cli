@@ -1,4 +1,4 @@
-styles: cd6ead029f1c0eba
+styles: 838e7a7422ef5aa8
              ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
            GET /api/checkout?cart=c_19be07
            GET /api/checkout?cart=c_8f3a21

@@ -70,6 +70,10 @@ describe('scrubbing the log view clock', () => {
     expect(blank).toBe(shown)
   })
 
+  it('should blank the time before an indented message', () => {
+    expect(log([`  ${muted}14:42:32${reset}   ➜ DevTools`])).toBe(log([`${' '.repeat(13)}➜ DevTools`]))
+  })
+
   it('should keep the gutter and indentation of continuation rows', () => {
     const lines = log([`\u001B[32m▎ \u001B[39m${muted}14:42:32${reset} selected`, `${' '.repeat(13)}continued`]).split('\n')
     expect(lines).toContain(`▎${' '.repeat(10)}selected`)
