@@ -51,6 +51,8 @@ function stubDisplay({ browser, browserArgs }: { browser?: string, browserArgs?:
     WSL_DISTRO_NAME: undefined,
     BROWSER: browser,
     BROWSER_ARGS: browserArgs,
+    TERM: undefined,
+    TERM_PROGRAM: undefined,
   }
   return () => {
     Object.defineProperty(process, 'platform', { value: platform, configurable: true })
@@ -214,6 +216,18 @@ describe('dev server terminal output', () => {
       restore()
 
       expect(screen(renderer)).toContain('No clipboard is available in this environment.')
+    })
+
+    it('should copy through the terminal where no clipboard tool can reach it', async () => {
+      const restore = stubDisplay()
+      process.env.TERM = 'tmux-256color'
+      const { press } = await withShortcuts()
+
+      const renderer = await render(() => press('copy'))
+      restore()
+
+      expect(screen(renderer)).toContain('URL copied to clipboard.')
+      expect(screen(renderer)).not.toContain('No clipboard is available')
     })
 
     it('should list the available shortcuts', async () => {

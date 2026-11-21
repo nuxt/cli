@@ -16,6 +16,7 @@ import process from 'node:process'
 
 import { styleText } from 'node:util'
 import { resolveStackVersions } from '../../utils/banner'
+import { writeClipboard } from '../../utils/clipboard'
 import { withDirectStdout } from '../../utils/console'
 import { formatDuration, terminalLink } from '../../utils/formatting'
 import { resolveNitroMajor } from '../../utils/nitro'
@@ -24,7 +25,7 @@ import { startupElapsedMs } from '../../utils/startup-clock'
 
 import { registerTerminalHost } from '../../utils/terminal-host'
 import { MUTED, paint } from '../../utils/terminal-theme'
-import { openBrowser, writeClipboard } from '../listen'
+import { openBrowser } from '../listen'
 import { setupShortcuts } from '../shortcuts'
 import { isShutdownAdopted } from '../shutdown'
 import { NOOP_CONTROLLER } from './controller'
@@ -355,7 +356,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     { keys: ['r'], isAvailable: () => !!context.restart, hint: 'restart', priority: 80, description: 'restart the dev server', action: () => void restart() },
     { keys: ['R'], sequence: 'R', isAvailable: () => !!context.restart && !!context.clearCaches, description: 'restart with a cleared cache', action: () => void restart({ clearCache: true }) },
     { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', isArmed: () => armedOpen, action: () => open() },
-    { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice) },
+    { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice, write) },
     { keys: ['c'], description: 'clear the console without deleting history', action: () => clearConsole(surface) },
     { keys: ['x'], description: 'delete log and request history', action: clearHistory },
     { keys: ['e'], description: 'show the last error in full', action: () => {
@@ -701,13 +702,13 @@ function clearConsole(surface: PanelSurface): void {
     })
 }
 
-async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'info' | 'warn' | 'success') => void): Promise<void> {
+async function copyURL(context: ShortcutContext, notify: (text: string, tone: 'info' | 'warn' | 'success') => void, write: (chunk: string) => void): Promise<void> {
   const url = context.listener?.publicURL || context.listener?.url
   if (!url) {
     notify('no server to copy the url of yet', 'warn')
     return
   }
-  if (await writeClipboard(url)) {
+  if (await writeClipboard(url, { write })) {
     notify(`copied ${url} to the clipboard`, 'success')
   }
   else {

@@ -3,10 +3,9 @@ import type { Key } from './keys'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
+import { writeClipboard } from '../../utils/clipboard'
 import { stripAnsi, truncate, visibleWidth } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
-
-import { writeClipboard } from '../listen'
 
 const RENDER_DELAY_MS = 50
 
@@ -482,7 +481,7 @@ export abstract class ScreenOverlay {
 
   /** Put `text` on the clipboard and report `done` in the hint line. */
   protected async copy(text: string, done: string): Promise<void> {
-    this.notify(await writeClipboard(stripAnsi(text)) ? `${done} to clipboard` : 'no clipboard available')
+    this.notify(await writeClipboard(stripAnsi(text), { write: this.#write }) ? `${done} to clipboard` : 'no clipboard available')
   }
 
   /** Replace the hint line with `text` for a moment. */

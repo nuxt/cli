@@ -13,6 +13,8 @@ import { styleText } from 'node:util'
 import { getPort } from 'get-port-please'
 import { isCI } from 'std-env'
 
+import { writeClipboard } from '../utils/clipboard'
+import { hasDisplayServer } from '../utils/display'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { detectIsolatedEnvironment, isWsl } from './environment'
@@ -547,22 +549,6 @@ export async function printQRCode(url: string, { showURL = false }: { showURL?: 
   console.log(`\n${centerBlock(renderUnicodeCompact(url))}${caption}\n`)
 }
 
-/** Write `text` to the system clipboard, resolving whether it succeeded. */
-export async function writeClipboard(text: string): Promise<boolean> {
-  if (!hasDisplayServer()) {
-    return false
-  }
-  try {
-    const { writeText } = await import('tinyclip')
-    await writeText(text)
-    return true
-  }
-  catch (error) {
-    debug('Failed to write to the clipboard:', error)
-    return false
-  }
-}
-
 export async function copyURL(url: string): Promise<void> {
   if (await writeClipboard(url)) {
     logger.info('URL copied to clipboard.')
@@ -570,21 +556,6 @@ export async function copyURL(url: string): Promise<void> {
   else {
     logger.warn('No clipboard is available in this environment.')
   }
-}
-
-const DISPLAY_REQUIRED_PLATFORMS = new Set<NodeJS.Platform>(['linux', 'freebsd', 'openbsd'])
-
-/**
- * Whether a graphical session exists to receive a clipboard write or a browser
- * launch. The tools involved on Linux and BSD (`wl-copy`, `xsel`, `xclip`,
- * `xdg-open`) all need one, and fail in unhelpful ways without it: clipboard
- * tools exit before reading their input, so the write fails with `EPIPE`.
- */
-function hasDisplayServer(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (!DISPLAY_REQUIRED_PLATFORMS.has(process.platform)) {
-    return true
-  }
-  return !!(env.WSL_DISTRO_NAME || env.WAYLAND_DISPLAY || env.DISPLAY)
 }
 
 function centerBlock(block: string, blockWidth?: number): string {
