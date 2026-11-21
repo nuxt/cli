@@ -70,6 +70,17 @@ describe('wrapText', () => {
       `\u001B[31m${link}two\u001B]8;;\u0007\u001B[39m`,
     ])
   })
+
+  it('should reopen only the styling still active at the break', () => {
+    expect(wrapText('\u001B[1m\u001B[31mone\u001B[39m two', 4)).toEqual([
+      '\u001B[1m\u001B[31mone\u001B[39m\u001B[0m',
+      '\u001B[1mtwo',
+    ])
+    expect(wrapText('\u001B[38;5;208;4mone two', 4)).toEqual([
+      '\u001B[38;5;208;4mone\u001B[0m',
+      '\u001B[38;5;208;4mtwo',
+    ])
+  })
 })
 
 describe('formatDuration', () => {
