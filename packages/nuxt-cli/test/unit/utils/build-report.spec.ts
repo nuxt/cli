@@ -156,12 +156,12 @@ describe('createBuildReport', () => {
     ])
   })
 
-  it('lists the first 20 pages in a terminal and says how to see the rest', async () => {
+  it('lists the first 20 pages in natural order in a terminal and says how to see the rest', async () => {
     const { report, call } = await setup()
     await call('build:prerender:start', { routes: 27 })
-    await call('build:prerender:route', { route: '/page-00/_payload.json?123', duration: 1, skipped: false })
+    await call('build:prerender:route', { route: '/page-0/_payload.json?123', duration: 1, skipped: false })
     for (let index = 24; index >= 0; index--) {
-      await call('build:prerender:route', { route: `/page-${String(index).padStart(2, '0')}`, duration: 5, skipped: false })
+      await call('build:prerender:route', { route: `/page-${index}`, duration: 5, skipped: false })
     }
     await call('build:prerender:route', { route: '/skipped', duration: 1, skipped: true })
     await call('build:prerender:done', { duration: 900, written: 26, failed: [] })
@@ -169,7 +169,7 @@ describe('createBuildReport', () => {
     const lines = stripAnsi((await report.summary(false))!).split('\n')
     expect(lines[0]).toBe('Prerendered 26 routes in 900ms')
     expect(lines[1]).toBe('Routes:')
-    expect(lines.slice(2, 22)).toEqual(Array.from({ length: 20 }, (_, index) => `/page-${String(index).padStart(2, '0')}`))
+    expect(lines.slice(2, 22)).toEqual(Array.from({ length: 20 }, (_, index) => `/page-${index}`))
     expect(lines.at(-1)).toBe('… and 6 more. Run npx nuxt build --logLevel=verbose to see all prerendered routes.')
     expect(lines).toHaveLength(23)
   })

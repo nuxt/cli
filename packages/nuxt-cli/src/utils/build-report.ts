@@ -289,7 +289,7 @@ function formatPrerenderedRoutes(routes: PrerenderedRoute[], command: string, ve
   }
 
   const pages = listed.filter(route => !isPayloadRoute(route))
-  const shown = [...pages].sort((a, b) => a.route.localeCompare(b.route)).slice(0, PRERENDER_ROUTE_LIMIT)
+  const shown = pages.sort((a, b) => a.route.localeCompare(b.route, 'en', { numeric: true })).slice(0, PRERENDER_ROUTE_LIMIT)
   const lines = shown.length ? [styleText(MUTED, 'Routes:'), ...shown.map(route => route.route)] : []
   const hidden = listed.length - shown.length
   if (hidden) {
