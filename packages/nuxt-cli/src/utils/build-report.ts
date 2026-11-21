@@ -265,19 +265,34 @@ function nuxtCommand(nuxt: Nuxt, command: string): string {
   return `npx nuxt ${command}${dir ? ` ${quote(dir)}` : ''}`
 }
 
+function routePath(route: string): string {
+  const query = route.indexOf('?')
+  return query === -1 ? route : route.slice(0, query)
+}
+
+function isPayloadRoute(route: PrerenderedRoute): boolean {
+  return routePath(route.route).endsWith('/_payload.json')
+}
+
 /**
  * The routes a build wrote. CI logs are read after the fact to check what was
  * deployed, so they list every route, skipped ones too, as does verbose output;
- * a terminal lists the first few and says how to see the rest.
+ * a terminal lists a sample of the pages and says how to see the rest.
  */
 function formatPrerenderedRoutes(routes: PrerenderedRoute[], command: string, verbose: boolean): string[] {
   const all = isCI || verbose
   const listed = routes.filter(route => !route.error && (all || !route.skipped))
-  const shown = all ? listed : listed.slice(0, PRERENDER_ROUTE_LIMIT)
-  const width = Math.min(shown.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
-  const times = shown.map(route => route.skipped ? 'skipped' : formatRouteTime(route.duration))
-  const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
-  const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText(MUTED, times[index]!.padStart(timeWidth))}`.trimEnd())
+
+  if (all) {
+    const width = Math.min(listed.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
+    const times = listed.map(route => route.skipped ? 'skipped' : formatRouteTime(route.duration))
+    const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
+    return listed.map((route, index) => `${route.route.padEnd(width)}  ${styleText(MUTED, times[index]!.padStart(timeWidth))}`.trimEnd())
+  }
+
+  const pages = listed.filter(route => !isPayloadRoute(route))
+  const shown = [...pages].sort((a, b) => a.route.localeCompare(b.route)).slice(0, PRERENDER_ROUTE_LIMIT)
+  const lines = shown.length ? [styleText(MUTED, 'Routes:'), ...shown.map(route => route.route)] : []
   const hidden = listed.length - shown.length
   if (hidden) {
     lines.push(styleText(MUTED, `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
