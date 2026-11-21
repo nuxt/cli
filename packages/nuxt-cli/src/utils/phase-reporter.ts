@@ -68,6 +68,10 @@ function fit(text: string, width: number): string {
   return width >= METER_DETAIL_MIN ? `\u2026${text.slice(text.length - width + 1)}` : ''
 }
 
+function bundlePhaseLabels(phase: string): string[] | undefined {
+  return phase.startsWith('bundle:') ? phase.slice('bundle:'.length).split('+') : undefined
+}
+
 export interface PhaseReporter {
   update: (snapshot: ProgressSnapshot) => void
   /** The URL to print alongside the summary, once one is known. */
@@ -343,9 +347,19 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
         }
 
         if (next.phase !== lastPhase) {
+          const previous = lastPhase === undefined ? undefined : bundlePhaseLabels(lastPhase)
+          const current = bundlePhaseLabels(next.phase)
+          // A bundle finishing only shrinks the active set, which the line that
+          // announced the bundle starting has already covered.
+          const finishing = previous !== undefined
+            && current !== undefined
+            && current.length < previous.length
+            && current.every(label => previous.includes(label))
           lastPhase = next.phase
-          log(next.message, next.message)
-          schedulePulse()
+          if (!finishing) {
+            log(next.message, next.message)
+            schedulePulse()
+          }
           return
         }
 

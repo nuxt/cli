@@ -227,6 +227,25 @@ describe('phase reporter', () => {
     `)
   })
 
+  it('should only report a bundle when it starts, not when one finishes', async () => {
+    const renderer = await render(() => {
+      const startup = reporter(false)
+      startup.update(snapshot({ phase: 'build', message: 'Building' }))
+      startup.update(snapshot({ phase: 'bundle:client', message: 'Bundling client' }))
+      startup.update(snapshot({ phase: 'bundle:client+server', message: 'Bundling client and server' }))
+      startup.update(snapshot({ phase: 'bundle:server', message: 'Bundling server' }))
+    })
+
+    expect(screen(renderer)).toMatchInlineSnapshot(`
+      "│
+      ●  Building
+      │
+      ●  Bundling client
+      │
+      ●  Bundling client and server"
+    `)
+  })
+
   it('should repeat a long phase when there is no animated line', async () => {
     const renderer = await render(async ({ waitForOutput }) => {
       const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
