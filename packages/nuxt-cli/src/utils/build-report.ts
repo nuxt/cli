@@ -48,7 +48,13 @@ interface PrerenderedRoute {
 interface PrerenderResult {
   duration: number
   written: number
-  failed: Array<{ route: string, status?: number, message: string }>
+  failed: Array<{
+    route: string
+    status?: number
+    message: string
+    /** The pages that link to the route, where the prerenderer reports them. */
+    linkedFrom?: string[]
+  }>
 }
 
 /** The hooks Nuxt reports a production build through. */
@@ -94,6 +100,9 @@ export interface BuildReport {
 
 /** How many prerendered routes a local build lists before pointing at verbose output. */
 const PRERENDER_ROUTE_LIMIT = 20
+
+/** How many linking pages a local build names for each failed route. */
+const LINKED_FROM_LIMIT = 3
 
 /** Source maps, which some builders write as `*.map.json`. */
 const SOURCE_MAP_RE = /\.map(?:\.json)?$/
@@ -164,7 +173,7 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
     progress.endPrerender()
     if (result.failed.length) {
       logger.error(`Failed to prerender ${result.failed.length} route${result.failed.length === 1 ? '' : 's'}:\n${
-        result.failed.map(formatFailedRoute).join('\n')}`)
+        result.failed.map(route => formatFailedRoute(route, isCI || nuxt.options.logLevel === 'verbose')).join('\n')}`)
     }
     if (!result.written) {
       return
@@ -279,9 +288,16 @@ function formatRouteTime(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)}ms` : formatDuration(ms)
 }
 
-function formatFailedRoute(route: PrerenderResult['failed'][number]): string {
+function formatFailedRoute(route: PrerenderResult['failed'][number], all: boolean): string {
   const detail = [route.status, route.message].filter(Boolean).join(' ')
-  return `${route.route}${detail ? styleText(MUTED, ` (${detail})`) : ''}`
+  const line = `${route.route}${detail ? styleText(MUTED, ` (${detail})`) : ''}`
+  const parents = route.linkedFrom ?? []
+  if (!parents.length) {
+    return line
+  }
+  const shown = all ? parents : parents.slice(0, LINKED_FROM_LIMIT)
+  const hidden = parents.length - shown.length
+  return `${line}\n${styleText(MUTED, `  linked from ${shown.join(', ')}${hidden ? ` and ${hidden} more` : ''}`)}`
 }
 
 async function gzipSize(path: string): Promise<number> {

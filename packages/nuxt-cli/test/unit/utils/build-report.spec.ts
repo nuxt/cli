@@ -187,6 +187,24 @@ describe('createBuildReport', () => {
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n/missing (404 Page not found: /missing)\n/broken (Boom)')
   })
 
+  it('names the pages that link to a failed route, the first few in a terminal', async () => {
+    const { call } = await setup()
+    const linkedFrom = ['/', '/about', '/blog', '/blog/a', '/blog/b']
+    await call('build:prerender:start', { routes: 1 })
+    await call('build:prerender:done', { duration: 50, written: 0, failed: [{ route: '/missing', status: 404, message: 'Page not found', linkedFrom }] })
+
+    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n/missing (404 Page not found)\n  linked from /, /about, /blog and 2 more')
+  })
+
+  it('names every page that links to a failed route in CI', async () => {
+    mocks.isCI = true
+    const { call } = await setup()
+    await call('build:prerender:start', { routes: 1 })
+    await call('build:prerender:done', { duration: 50, written: 0, failed: [{ route: '/missing', message: 'Boom', linkedFrom: ['/', '/about', '/blog', '/blog/a'] }] })
+
+    expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n/missing (Boom)\n  linked from /, /about, /blog, /blog/a')
+  })
+
   it('offers a preview only when a server bundle was written into the output', async () => {
     const { report, call } = await setup()
     const output = join(root, '.output')
