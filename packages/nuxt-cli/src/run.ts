@@ -10,6 +10,7 @@ import { commands } from './commands'
 import { globalCwdArgs } from './commands/_shared'
 import { main } from './main'
 import { warnOnHang } from './utils/hang'
+import { setRunningMain } from './utils/running-main'
 
 globalThis.__nuxt_cli__ = globalThis.__nuxt_cli__ || {
   // Programmatic usage fallback
@@ -37,7 +38,13 @@ export async function runMain(): Promise<void> {
     const { initCompletions } = await import('./completions')
     await initCompletions(main)
   }
-  await _runMain(main, { showUsage })
+  setRunningMain(true)
+  try {
+    await _runMain(main, { showUsage })
+  }
+  finally {
+    setRunningMain(false)
+  }
 
   if (!currentCommand || !LONG_RUNNING_COMMANDS.has(currentCommand)) {
     warnOnHang({ action: currentCommand ? `\`nuxt ${currentCommand}\`` : 'command' })

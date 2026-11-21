@@ -5,6 +5,7 @@ import process from 'node:process'
 import { consola } from 'consola'
 
 import { asActionableError } from '../utils/errors'
+import { isRunningMain } from '../utils/running-main'
 
 type Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>)
 
@@ -53,8 +54,11 @@ export function withRemedy(command: CommandDef): CommandDef {
           consola.wrapConsole()
           const actionable = asActionableError(error)
           if (actionable === undefined) {
-            // Exit by hand so citty does not print the reported diagnostic again.
-            process.exit(1)
+            // The CLI entry exits without reprinting; programmatic callers reject instead.
+            if (isRunningMain()) {
+              process.exit(1)
+            }
+            throw error
           }
           throw actionable
         }
