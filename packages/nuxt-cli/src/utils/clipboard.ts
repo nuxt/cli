@@ -12,7 +12,7 @@ import { useTerminalHost } from './terminal-host'
  * Terminals known to honour OSC 52. Support cannot be queried, and a terminal
  * that ignores the sequence stays silent, so anything unlisted is left alone.
  * Behind a multiplexer the real terminal is hidden, so the multiplexer is
- * trusted to relay the sequence (`set-clipboard` in tmux).
+ * trusted to relay the sequence (`set-clipboard on` in tmux).
  */
 const OSC52_TERMS = /^(?:xterm-kitty|xterm-ghostty|foot|alacritty|wezterm|tmux|screen)/i
 const OSC52_PROGRAMS = new Set(['iterm.app', 'wezterm', 'ghostty'])
