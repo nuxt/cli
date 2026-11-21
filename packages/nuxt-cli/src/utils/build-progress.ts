@@ -1,4 +1,4 @@
-import type { Phase, PhaseTiming, ProgressSnapshot } from './progress-snapshot'
+import type { Phase, PhaseTiming, ProgressMeter, ProgressSnapshot } from './progress-snapshot'
 
 import { PhaseTimeline } from './progress-snapshot'
 
@@ -53,15 +53,16 @@ export class BuildProgress extends PhaseTimeline {
   #tasks = new Map<string, Task>()
   #active: string[] = []
   #key = BUILD_PHASE
-  #route: string | undefined
-  #prerendered = 0
+  #prerender: ProgressMeter = { done: 0, total: 0 }
+  #phaseTimings: PhaseTiming[] = []
 
   constructor() {
     super(BUILD_PHASES)
   }
 
   override get snapshot(): ProgressSnapshot {
-    return { ...super.snapshot, phase: this.#key, message: this.#message }
+    const snapshot = { ...super.snapshot, phase: this.#key, message: this.#message }
+    return this.#prerendering ? { ...snapshot, meter: { ...this.#prerender } } : snapshot
   }
 
   override onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
@@ -87,19 +88,22 @@ export class BuildProgress extends PhaseTimeline {
     this.#endTask(label)
   }
 
-  startPrerender(): void {
-    this.#route = undefined
-    this.#prerendered = 0
+  /** Start prerendering the `total` routes known up front. */
+  startPrerender(total = 0): void {
+    this.#prerender = { done: 0, total }
     this.#startTask(PRERENDER_TASK)
   }
 
-  /** Report the route being prerendered, or one that has just been written. */
-  prerenderRoute(route: string, written = false): void {
-    if (written) {
-      this.#prerendered++
+  /** Count a route as done, out of the `total` known so far. */
+  prerenderRoute(route: string, total = 0): void {
+    if (this.#finished) {
+      return
     }
-    this.#route = route
-    this.#update()
+    const done = this.#prerender.done + 1
+    this.#prerender = { done, total: Math.max(total, this.#prerender.total, done), detail: route }
+    if (this.#prerendering) {
+      this.emit()
+    }
   }
 
   endPrerender(): void {
@@ -119,6 +123,7 @@ export class BuildProgress extends PhaseTimeline {
     const building = BUILD_PHASES[this.index]!.id === BUILD_PHASE
     this.closePhase()
     this.#finished = true
+    this.#phaseTimings = [...this.timings]
     if (!building || !this.#tasks.size) {
       return
     }
@@ -134,6 +139,14 @@ export class BuildProgress extends PhaseTimeline {
   }
 
   /**
+   * The phases alone once the build has finished, with bundling and
+   * prerendering as the one `build` span they ran in.
+   */
+  get phaseTimings(): PhaseTiming[] {
+    return this.#phaseTimings
+  }
+
+  /**
    * Derive phases from the hooks Nuxt calls, so the timeline follows the
    * project's own build rather than a schedule guessed by the CLI.
    */
@@ -144,6 +157,10 @@ export class BuildProgress extends PhaseTimeline {
         this.setPhase(phase)
       }
     })
+  }
+
+  get #prerendering(): boolean {
+    return !this.#finished && this.#active.includes(PRERENDER_TASK)
   }
 
   #startTask(id: string): void {
@@ -177,9 +194,7 @@ export class BuildProgress extends PhaseTimeline {
     }
     if (this.#active.includes(PRERENDER_TASK)) {
       this.#key = PRERENDER_TASK
-      this.#setMessage(this.#route
-        ? `Prerendering ${this.#route}${this.#prerendered ? ` (${this.#prerendered} done)` : ''}`
-        : 'Prerendering routes')
+      this.#setMessage('Prerendering routes')
       return
     }
     this.#key = `bundle:${this.#active.join('+')}`

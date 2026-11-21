@@ -19,6 +19,15 @@ export interface PendingRender {
   startedAt: number
 }
 
+/** How far a task that works through a list has got. */
+export interface ProgressMeter {
+  done: number
+  /** How many items are known so far. Can grow while the task runs. */
+  total: number
+  /** The item last finished, such as a route. */
+  detail?: string
+}
+
 export interface PhaseTiming {
   phase: string
   message: string
@@ -55,6 +64,8 @@ export interface ProgressSnapshot {
    * whole load. Never set by a command that only builds.
    */
   pending?: PendingRender
+  /** Set while the phase in flight counts through a list, such as prerendered routes. */
+  meter?: ProgressMeter
   timings: PhaseTiming[]
   error?: { name: string, message: string }
 }

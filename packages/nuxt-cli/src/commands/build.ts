@@ -161,7 +161,7 @@ export default defineCommand({
         logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
       }
 
-      const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.timings)
+      const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.phaseTimings)
       const total = `Build complete in ${styleText('cyan', formatDuration(elapsed))}`
       const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText('dim', breakdown)}` : total
       const next = ctx.args.prerender ? report.staticCommands(serverBuild) : report.commands(serverBuild)

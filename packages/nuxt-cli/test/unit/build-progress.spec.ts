@@ -88,6 +88,7 @@ describe('build progress', () => {
       { phase: 'client', message: 'client', start: 0, duration: 305 },
       { phase: 'server', message: 'server', start: 5, duration: 200 },
     ])
+    expect(progress.phaseTimings.map(timing => [timing.phase, timing.duration])).toEqual([['config', 0], ['build', 305]])
   })
 
   it('should keep the phase of the last task between tasks', () => {
@@ -100,22 +101,43 @@ describe('build progress', () => {
     expect(seen.at(-1)).toMatchObject({ phase: 'bundle:client', message: 'Building' })
   })
 
-  it('should count prerendered routes', () => {
+  it('should count prerendered routes against the routes found so far', () => {
+    const progress = new BuildProgress()
+    const seen = track(progress)
+
+    progress.startPrerender(1)
+    progress.prerenderRoute('/', 4)
+    progress.prerenderRoute('/about', 4)
+    progress.prerenderRoute('/blog', 2)
+
+    expect(seen.slice(1).map(snapshot => [snapshot.message, snapshot.meter])).toEqual([
+      ['Prerendering routes', { done: 0, total: 1 }],
+      ['Prerendering routes', { done: 1, total: 4, detail: '/' }],
+      ['Prerendering routes', { done: 2, total: 4, detail: '/about' }],
+      ['Prerendering routes', { done: 3, total: 4, detail: '/blog' }],
+    ])
+  })
+
+  it('should never count more routes done than known', () => {
     const progress = new BuildProgress()
     const seen = track(progress)
 
     progress.startPrerender()
-    progress.prerenderRoute('/about', true)
-    progress.prerenderRoute('/missing')
-    progress.prerenderRoute('/blog', true)
+    progress.prerenderRoute('/')
+    progress.prerenderRoute('/about')
 
-    expect(seen.map(snapshot => snapshot.message)).toEqual([
-      'Loading Nuxt config',
-      'Prerendering routes',
-      'Prerendering /about (1 done)',
-      'Prerendering /missing (1 done)',
-      'Prerendering /blog (2 done)',
-    ])
+    expect(seen.at(-1)!.meter).toEqual({ done: 2, total: 2, detail: '/about' })
+  })
+
+  it('should only carry a meter while prerendering', () => {
+    const progress = new BuildProgress()
+    const seen = track(progress)
+
+    progress.startBundle('client')
+    progress.startPrerender(3)
+    progress.endPrerender()
+
+    expect(seen.map(snapshot => snapshot.meter)).toEqual([undefined, undefined, { done: 0, total: 3 }, undefined])
   })
 
   it('should time the build as one phase when no bundles are reported', () => {

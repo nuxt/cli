@@ -1,7 +1,7 @@
 import type { PhaseReporter } from '../../src/utils/phase-reporter'
 import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
-import { stripVTControlCharacters } from 'node:util'
+import { stripVTControlCharacters, styleText } from 'node:util'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,7 +15,7 @@ vi.mock('std-env', async importOriginal => ({
 
 process.env.FORCE_COLOR = '3'
 
-const { createPhaseReporter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+const { createPhaseReporter, formatMeter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
 
 function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
@@ -73,6 +73,78 @@ describe('phase reporter', () => {
     })
 
     expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
+  })
+
+  describe('with a meter', () => {
+    const prerendering = (meter: ProgressSnapshot['meter']) => snapshot({ phase: 'prerender', message: 'Prerendering routes', index: 4, meter })
+
+    function terminal(columns: number) {
+      const chunks: string[] = []
+      const stream = { isTTY: true, columns, write: (chunk: string) => {
+        chunks.push(chunk)
+        return true
+      } } as unknown as NodeJS.WriteStream
+      const startup = createPhaseReporter({ animated: true, stream })
+      reporters.push(startup)
+      const line = () => stripVTControlCharacters(chunks.join('').split('\r').at(-1)!).slice(2)
+      return { startup, chunks, line }
+    }
+
+    it('should draw a bar with the count and the last item', () => {
+      freezeClock()
+      const { startup, line } = terminal(120)
+      startup.update(prerendering({ done: 5, total: 20, detail: '/blog/hello' }))
+
+      expect(line()).toBe(`Prerendering routes ${'━'.repeat(20)} 5/20 0.0ms /blog/hello`)
+    })
+
+    it('should cut the last item to fit the terminal', () => {
+      freezeClock()
+      const { startup, line } = terminal(64)
+      startup.update(prerendering({ done: 1, total: 2, detail: '/a/very/long/route/that/does/not/fit' }))
+
+      expect(line()).toMatch(/^Prerendering routes \S+ 1\/2 0\.0ms …\S+\/not\/fit$/)
+      expect(line().length + 2).toBeLessThan(64)
+    })
+
+    it('should leave the last item out when there is no room for it', () => {
+      freezeClock()
+      const { startup, line } = terminal(40)
+      startup.update(prerendering({ done: 1, total: 2, detail: '/about' }))
+
+      expect(line()).toBe(`Prerendering routes ${'━'.repeat(20)} 1/2 0.0ms`)
+    })
+
+    it('should leave a moving meter to the next frame', () => {
+      vi.useFakeTimers()
+      freezeClock()
+      try {
+        const { startup, chunks, line } = terminal(120)
+        startup.update(prerendering({ done: 0, total: 2 }))
+        chunks.length = 0
+        startup.update(prerendering({ done: 1, total: 2, detail: '/' }))
+
+        expect(chunks).toEqual([])
+        vi.advanceTimersByTime(80)
+        expect(line()).toContain('1/2 0.0ms /')
+      }
+      finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('should repeat the count when there is no animated line', async () => {
+      const renderer = await render(async ({ waitForOutput }) => {
+        const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+        reporters.push(startup)
+        startup.update(prerendering({ done: 0, total: 3 }))
+        startup.update(prerendering({ done: 2, total: 3, detail: '/about' }))
+        await waitForOutput(/Prerendering routes 2\/3/)
+      })
+
+      expect(screen(renderer)).toMatch(/Prerendering routes 2\/3 \(/)
+      expect(screen(renderer)).not.toContain('━')
+    })
   })
 
   it('should redraw only the spinner while the rest of the line is unchanged', () => {
@@ -381,6 +453,16 @@ describe('phase reporter', () => {
     process.env.NO_COLOR = '1'
     expect(isAnimationSupported({ isTTY: true } as NodeJS.WriteStream)).toBe(false)
     delete process.env.NO_COLOR
+  })
+})
+
+describe('formatMeter', () => {
+  it('should fill the bar in proportion to what is done', () => {
+    expect(formatMeter({ done: 3, total: 4 }, 8)).toBe(`${styleText('magenta', '━'.repeat(6))}${styleText('dim', '━'.repeat(2))} 3/4`)
+  })
+
+  it('should draw an empty bar when nothing is known yet', () => {
+    expect(formatMeter({ done: 0, total: 0 }, 4)).toBe(`${styleText('magenta', '')}${styleText('dim', '━'.repeat(4))} 0/0`)
   })
 })
 

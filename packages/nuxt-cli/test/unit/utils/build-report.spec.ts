@@ -124,15 +124,16 @@ describe('createBuildReport', () => {
   it('drives the progress line from the bundles and prerendering', async () => {
     const { progress, call } = await setup()
     const seen: string[] = []
-    progress.onUpdate(snapshot => seen.push(snapshot.message))
+    progress.onUpdate(snapshot => seen.push(`${snapshot.message}${snapshot.meter ? ` ${snapshot.meter.done}/${snapshot.meter.total}` : ''}`))
 
     await call('build:environment:start', client)
     await call('build:environment:start', ssr)
     await call('build:environment:done', ssr, { duration: 1, outDir: root, files: [] })
     await call('build:environment:done', client, { duration: 1, outDir: root, files: [] })
     await call('build:prerender:start', { routes: 1 })
-    await call('build:prerender:route', { route: '/', duration: 10, skipped: false })
-    await call('build:prerender:done', { duration: 10, written: 1, failed: [] })
+    await call('build:prerender:route', { route: '/', duration: 10, skipped: false, total: 2 })
+    await call('build:prerender:route', { route: '/about', duration: 10, skipped: false, total: 2 })
+    await call('build:prerender:done', { duration: 10, written: 2, failed: [] })
 
     expect(seen).toEqual([
       'Loading Nuxt config',
@@ -140,8 +141,9 @@ describe('createBuildReport', () => {
       'Bundling client and server',
       'Bundling client',
       'Building',
-      'Prerendering routes',
-      'Prerendering / (1 done)',
+      'Prerendering routes 0/1',
+      'Prerendering routes 1/2',
+      'Prerendering routes 2/2',
       'Building',
     ])
   })

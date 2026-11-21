@@ -40,6 +40,8 @@ interface PrerenderedRoute {
   fileName?: string
   skipped: boolean
   error?: { status?: number, message: string }
+  /** How many routes are known so far, including those found by crawling. */
+  total: number
 }
 
 interface PrerenderResult {
@@ -149,15 +151,15 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
     })
   })
 
-  hook('build:prerender:start', () => {
+  hook('build:prerender:start', (info) => {
     prerenderStart = Date.now()
     routes.length = 0
-    progress.startPrerender()
+    progress.startPrerender(info.routes)
   })
 
   hook('build:prerender:route', (route) => {
     routes.push(route)
-    progress.prerenderRoute(route.route, !route.skipped && !route.error)
+    progress.prerenderRoute(route.route, route.total)
   })
 
   hook('build:prerender:done', (result) => {

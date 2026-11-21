@@ -1,7 +1,7 @@
-import type { PhaseTiming, ProgressSnapshot } from './progress-snapshot'
+import type { PhaseTiming, ProgressMeter, ProgressSnapshot } from './progress-snapshot'
 
 import process from 'node:process'
-import { styleText } from 'node:util'
+import { stripVTControlCharacters, styleText } from 'node:util'
 
 import { isCI } from 'std-env'
 
@@ -21,6 +21,12 @@ const COLUMN_ONE = '\r'
  */
 const PHASE_ELAPSED_THRESHOLD = 100
 
+const METER_WIDTH = 20
+const METER_GLYPH = '━'
+
+/** The shortest a meter's detail is cut to before it is left out. */
+const METER_DETAIL_MIN = 8
+
 const HIDE_CURSOR = '\u001B[?25l'
 const SHOW_CURSOR = '\u001B[?25h'
 
@@ -39,6 +45,25 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
   return total - phase >= PHASE_ELAPSED_THRESHOLD
     ? `${formatDuration(phase)} \u00B7 total ${formatDuration(total)}`
     : formatDuration(total)
+}
+
+/** `42/180`, for output that has no room for a bar. */
+function formatCount(meter: ProgressMeter | undefined): string {
+  return meter ? ` ${meter.done}/${meter.total}` : ''
+}
+
+/** `━━━━━━━━ 42/180`, in the style of the `progress()` bar from `@clack/prompts`. */
+export function formatMeter(meter: ProgressMeter, width: number = METER_WIDTH): string {
+  const filled = meter.total ? Math.min(width, Math.floor(meter.done / meter.total * width)) : 0
+  return `${styleText('magenta', METER_GLYPH.repeat(filled))}${styleText('dim', METER_GLYPH.repeat(width - filled))} ${meter.done}/${meter.total}`
+}
+
+/** Cut `text` to `width` columns, or drop it when too little of it would be left. */
+function fit(text: string, width: number): string {
+  if (text.length <= width) {
+    return text
+  }
+  return width >= METER_DETAIL_MIN ? `\u2026${text.slice(text.length - width + 1)}` : ''
 }
 
 export interface PhaseReporter {
@@ -189,9 +214,18 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
    */
   function describe(): string {
     const pending = summarised ? snapshot!.pending : undefined
-    return pending
-      ? `rendering ${pending.label} ${styleText('dim', formatDuration(Date.now() - pending.startedAt))}`
-      : `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    if (pending) {
+      return `rendering ${pending.label} ${styleText('dim', formatDuration(Date.now() - pending.startedAt))}`
+    }
+    const { meter } = snapshot!
+    const line = `${snapshot!.message}${meter ? ` ${formatMeter(meter)}` : ''} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    if (!meter?.detail) {
+      return line
+    }
+    // A line that wraps cannot be cleared in place, so the detail gives way to the terminal width.
+    const room = (stream.columns || 80) - stripVTControlCharacters(line).length - 4
+    const detail = fit(meter.detail, room)
+    return detail ? `${line} ${styleText('dim', detail)}` : line
   }
 
   function render() {
@@ -244,7 +278,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
         log(announce(pending.label, Date.now() - pending.startedAt), `rendering ${pending.label}`)
         return
       }
-      log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
+      log(`${snapshot.message}${formatCount(snapshot.meter)} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
     }, options.heartbeat)
     pulse.unref?.()
   }
@@ -298,7 +332,11 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
       if (next.status !== 'ready') {
         if (animated) {
-          render()
+          // A meter can move hundreds of times a second; the next frame picks it up.
+          if (!next.meter || next.phase !== lastPhase) {
+            lastPhase = next.phase
+            render()
+          }
           return
         }
 
