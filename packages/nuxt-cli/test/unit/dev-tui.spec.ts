@@ -44,6 +44,17 @@ vi.mock('../../src/utils/nitro', () => ({
   readNitroMajor: () => undefined,
 }))
 
+const ci = vi.hoisted(() => ({ override: undefined as boolean | undefined }))
+vi.mock('std-env', async (importOriginal) => {
+  const original = await importOriginal<typeof import('std-env')>()
+  return {
+    ...original,
+    get isCI() {
+      return ci.override ?? original.isCI
+    },
+  }
+})
+
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
   writeText: (text: string) => {
@@ -68,10 +79,12 @@ async function withTerminalClipboardOnly(run: () => Promise<void>): Promise<void
   Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
   vi.stubEnv('DISPLAY', '')
   vi.stubEnv('TERM', 'tmux-256color')
+  ci.override = false
   try {
     await run()
   }
   finally {
+    ci.override = undefined
     Object.defineProperty(process, 'platform', platform)
     if (isTTY) {
       Object.defineProperty(process.stdout, 'isTTY', isTTY)
