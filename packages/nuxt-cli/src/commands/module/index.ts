@@ -10,5 +10,7 @@ export default defineCommand({
     add: () => import('./add').then(r => r.default || r),
     remove: () => import('./remove').then(r => r.default || r),
     search: () => import('./search').then(r => r.default || r),
+    build: () => import('./build').then(r => r.default || r),
+    prepare: () => import('./prepare').then(r => r.default || r),
   },
 })

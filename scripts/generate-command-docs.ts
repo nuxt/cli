@@ -79,6 +79,8 @@ const DOCS: DocEntry[] = [
   { id: 'module-add', file: 'module.md', command: ['module', 'add'] },
   { id: 'module-remove', file: 'module.md', command: ['module', 'remove'] },
   { id: 'module-search', file: 'module.md', command: ['module', 'search'] },
+  { id: 'module-build', file: 'module.md', command: ['module', 'build'] },
+  { id: 'module-prepare', file: 'module.md', command: ['module', 'prepare'] },
   { id: 'prepare', file: 'prepare.md', command: ['prepare'] },
   { id: 'preview', file: 'preview.md', command: ['preview'] },
   { id: 'task-list', file: 'task.md', command: ['task', 'list'] },
