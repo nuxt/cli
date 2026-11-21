@@ -7,6 +7,7 @@ import { relative } from 'pathe'
 import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
+import { createBuildReport } from '../utils/build-report'
 import { overrideEnv } from '../utils/env'
 
 import { ActionableError } from '../utils/errors'
@@ -16,9 +17,10 @@ import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
 import { intro, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
-import { createPhaseReporter, formatPhaseBreakdown } from '../utils/phase-reporter'
+import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
+import { MUTED } from '../utils/terminal-theme'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -106,6 +108,10 @@ export default defineCommand({
       })
 
       progress.attachNuxt(nuxt)
+      const report = createBuildReport(nuxt, {
+        progress,
+        command: ctx.args.prerender ? 'generate' : 'build',
+      })
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -143,23 +149,29 @@ export default defineCommand({
 
       stopReporting()
       progress.finish()
+      const elapsed = Date.now() - start
 
-      const breakdown = formatPhaseBreakdown(progress.timings)
-      if (breakdown) {
-        logger.message(styleText('dim', breakdown))
+      const verbose = nuxt.options.logLevel === 'verbose'
+      const summary = nuxt.options.logLevel === 'silent' ? undefined : await report.summary(verbose)
+      if (summary) {
+        logger.success(summary)
       }
 
-      if (ctx.args.prerender) {
-        if (!nuxt.options.ssr) {
-          logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
-          logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
-        }
-        const dir = serverBuild.publicDir
-        const publicDir = dir ? relative(process.cwd(), dir) : '.output/public'
-        outro(`✨ You can now deploy ${styleText('cyan', publicDir)} to any static hosting! ${styleText('gray', `(${formatDuration(Date.now() - start)})`)}`)
+      if (ctx.args.prerender && !nuxt.options.ssr) {
+        logger.warn(`HTML content not prerendered because ${styleText('cyan', 'ssr: false')} was set.`)
+        logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
+      }
+
+      const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.phaseTimings)
+      const total = `Build complete in ${styleText('cyan', formatDuration(elapsed))}`
+      const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText(MUTED, breakdown)}` : total
+      const next = ctx.args.prerender ? report.staticCommands(serverBuild) : report.commands(serverBuild)
+      if (next.length) {
+        logger.success(complete)
+        outro(next.join('\n'))
       }
       else {
-        outro(`✨ Build complete in ${styleText('cyan', formatDuration(Date.now() - start))}!`)
+        outro(complete)
       }
     }
     finally {
