@@ -78,6 +78,8 @@ async function withTerminalClipboardOnly(run: () => Promise<void>): Promise<void
   Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
   Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
   vi.stubEnv('DISPLAY', '')
+  vi.stubEnv('WAYLAND_DISPLAY', '')
+  vi.stubEnv('WSL_DISTRO_NAME', '')
   vi.stubEnv('TERM', 'tmux-256color')
   ci.override = false
   try {
