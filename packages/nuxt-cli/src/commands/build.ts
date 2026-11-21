@@ -20,6 +20,7 @@ import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
 import { resolveServerBuild } from '../utils/server-build'
+import { MUTED } from '../utils/terminal-theme'
 import { dotEnvArgs, envNameArgs, extendsArgs, logLevelArgs, profileArgs, rootDirArgs, targetArgs } from './_shared'
 
 /** How often a phase repeats itself where there is no animated line. */
@@ -163,7 +164,7 @@ export default defineCommand({
 
       const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.phaseTimings)
       const total = `Build complete in ${styleText('cyan', formatDuration(elapsed))}`
-      const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText('dim', breakdown)}` : total
+      const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText(MUTED, breakdown)}` : total
       const next = ctx.args.prerender ? report.staticCommands(serverBuild) : report.commands(serverBuild)
       if (next.length) {
         logger.success(complete)

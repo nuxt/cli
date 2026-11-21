@@ -1,14 +1,16 @@
 import type { PhaseTiming, ProgressMeter, ProgressSnapshot } from './progress-snapshot'
 
 import process from 'node:process'
-import { stripVTControlCharacters, styleText } from 'node:util'
+import { styleText } from 'node:util'
 
 import { isCI } from 'std-env'
 
-import { decapitalise, formatDuration, terminalLink } from './formatting'
+import { supportsUnicode } from '../dev/tui/support'
+import { decapitalise, formatDuration, terminalLink, visibleWidth } from './formatting'
 import { logger } from './logger'
 import { READY_MESSAGE } from './progress-snapshot'
 import { tapOutput } from './stdout'
+import { MUTED } from './terminal-theme'
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
@@ -22,7 +24,6 @@ const COLUMN_ONE = '\r'
 const PHASE_ELAPSED_THRESHOLD = 100
 
 const METER_WIDTH = 20
-const METER_GLYPH = '━'
 
 /** The shortest a meter's detail is cut to before it is left out. */
 const METER_DETAIL_MIN = 8
@@ -52,10 +53,11 @@ function formatCount(meter: ProgressMeter | undefined): string {
   return meter ? ` ${meter.done}/${meter.total}` : ''
 }
 
-/** `━━━━━━━━ 42/180`, in the style of the `progress()` bar from `@clack/prompts`. */
+/** `━━━━━━━━ 42/180`, drawn like the progress bar in the `nuxt dev` panel. */
 export function formatMeter(meter: ProgressMeter, width: number = METER_WIDTH): string {
   const filled = meter.total ? Math.min(width, Math.floor(meter.done / meter.total * width)) : 0
-  return `${styleText('magenta', METER_GLYPH.repeat(filled))}${styleText('dim', METER_GLYPH.repeat(width - filled))} ${meter.done}/${meter.total}`
+  const glyph = supportsUnicode() ? '━' : '='
+  return `${styleText('green', glyph.repeat(filled))}${styleText(MUTED, glyph.repeat(width - filled))} ${styleText(MUTED, `${meter.done}/${meter.total}`)}`
 }
 
 /** Cut `text` to `width` columns, or drop it when too little of it would be left. */
@@ -122,8 +124,8 @@ export function formatPhaseTable(timings: PhaseTiming[]): string {
   return shown.map((timing, index) => {
     const left = Math.min(PHASE_BAR_WIDTH - 1, Math.floor((timing.start - from) / span * PHASE_BAR_WIDTH))
     const right = Math.max(left + 1, Math.round((timing.start - from + timing.duration) / span * PHASE_BAR_WIDTH))
-    const bar = styleText('dim', '░'.repeat(left)) + styleText('cyan', '█'.repeat(right - left)) + styleText('dim', '░'.repeat(PHASE_BAR_WIDTH - right))
-    return `${timing.phase.padEnd(nameWidth)}  ${durations[index]!.padStart(durationWidth)}  ${bar}`
+    const bar = `${' '.repeat(left)}${styleText('cyan', '█'.repeat(right - left))}${' '.repeat(PHASE_BAR_WIDTH - right)}`
+    return `${timing.phase.padEnd(nameWidth)}  ${bar}  ${styleText(MUTED, durations[index]!.padStart(durationWidth))}`
   }).join('\n')
 }
 
@@ -215,17 +217,17 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   function describe(): string {
     const pending = summarised ? snapshot!.pending : undefined
     if (pending) {
-      return `rendering ${pending.label} ${styleText('dim', formatDuration(Date.now() - pending.startedAt))}`
+      return `rendering ${pending.label} ${styleText(MUTED, formatDuration(Date.now() - pending.startedAt))}`
     }
     const { meter } = snapshot!
-    const line = `${snapshot!.message}${meter ? ` ${formatMeter(meter)}` : ''} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    const line = `${snapshot!.message}${meter ? ` ${formatMeter(meter)}` : ''} ${styleText(MUTED, formatElapsed(snapshot!, Date.now() - receivedAt))}`
     if (!meter?.detail) {
       return line
     }
     // A line that wraps cannot be cleared in place, so the detail gives way to the terminal width.
-    const room = (stream.columns || 80) - stripVTControlCharacters(line).length - 4
+    const room = (stream.columns || 80) - visibleWidth(line) - 4
     const detail = fit(meter.detail, room)
-    return detail ? `${line} ${styleText('dim', detail)}` : line
+    return detail ? `${line} ${styleText(MUTED, detail)}` : line
   }
 
   function render() {

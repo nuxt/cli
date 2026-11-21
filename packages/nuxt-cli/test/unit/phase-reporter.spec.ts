@@ -457,12 +457,23 @@ describe('phase reporter', () => {
 })
 
 describe('formatMeter', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('should fill the bar in proportion to what is done', () => {
-    expect(formatMeter({ done: 3, total: 4 }, 8)).toBe(`${styleText('magenta', '━'.repeat(6))}${styleText('dim', '━'.repeat(2))} 3/4`)
+    vi.stubEnv('LC_ALL', 'en_GB.UTF-8')
+    expect(formatMeter({ done: 3, total: 4 }, 8)).toBe(`${styleText('green', '━'.repeat(6))}${styleText('gray', '━'.repeat(2))} ${styleText('gray', '3/4')}`)
   })
 
   it('should draw an empty bar when nothing is known yet', () => {
-    expect(formatMeter({ done: 0, total: 0 }, 4)).toBe(`${styleText('magenta', '')}${styleText('dim', '━'.repeat(4))} 0/0`)
+    vi.stubEnv('LC_ALL', 'en_GB.UTF-8')
+    expect(stripVTControlCharacters(formatMeter({ done: 0, total: 0 }, 4))).toBe('━━━━ 0/0')
+  })
+
+  it('should fall back to ascii where the terminal cannot draw the bar', () => {
+    vi.stubEnv('LC_ALL', 'C')
+    expect(stripVTControlCharacters(formatMeter({ done: 1, total: 2 }, 4))).toBe('==== 1/2')
   })
 })
 
@@ -476,10 +487,10 @@ describe('formatPhaseTable', () => {
       { phase: 'prerender', message: '', duration: 1000, start: 3005 },
     ])
     expect(stripVTControlCharacters(table).split('\n')).toEqual([
-      'config     1.00s  ██████░░░░░░░░░░░░░░░░░░',
-      'client     2.00s  ░░░░░░████████████░░░░░░',
-      'server     1.00s  ░░░░░░██████░░░░░░░░░░░░',
-      'prerender  1.00s  ░░░░░░░░░░░░░░░░░░██████',
+      `config     ${'█'.repeat(6)}${' '.repeat(18)}  1.00s`,
+      `client     ${' '.repeat(6)}${'█'.repeat(12)}${' '.repeat(6)}  2.00s`,
+      `server     ${' '.repeat(6)}${'█'.repeat(6)}${' '.repeat(12)}  1.00s`,
+      `prerender  ${' '.repeat(18)}${'█'.repeat(6)}  1.00s`,
     ])
   })
 
@@ -489,8 +500,8 @@ describe('formatPhaseTable', () => {
       { phase: 'build', message: '', duration: 3000 },
     ])
     expect(stripVTControlCharacters(table).split('\n')).toEqual([
-      'config  1.00s  ██████░░░░░░░░░░░░░░░░░░',
-      'build   3.00s  ░░░░░░██████████████████',
+      `config  ${'█'.repeat(6)}${' '.repeat(18)}  1.00s`,
+      `build   ${' '.repeat(6)}${'█'.repeat(18)}  3.00s`,
     ])
   })
 })

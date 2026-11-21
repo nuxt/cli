@@ -12,6 +12,7 @@ import { isCI } from 'std-env'
 
 import { formatBytes, formatDuration } from './formatting'
 import { logger } from './logger'
+import { MUTED } from './terminal-theme'
 
 /** A bundle Nuxt reports building, from any app or server builder. */
 interface BuildEnvironment {
@@ -232,7 +233,7 @@ async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
   const gzip = await bundle.gzip
   const total = gzip?.reduce((sum, size) => sum + size, 0)
   const size = `${formatBytes(bundle.size)}${total === undefined ? '' : ` (${formatBytes(total)} gzip)`}`
-  const line = `${capitalise(bundleLabel(environment))} ${styleText('dim', `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText('dim', ` \u00B7 ${size}`)}`
+  const line = `${capitalise(bundleLabel(environment))} ${styleText(MUTED, `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText(MUTED, ` \u00B7 ${size}`)}`
   if (!verbose || !files.length) {
     return line
   }
@@ -242,7 +243,7 @@ async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
   const pathWidth = Math.max(...rows.map(row => row.path.length))
   const sizeWidth = Math.max(...rows.map(row => row.size.length))
   const gzipWidth = Math.max(...rows.map(row => row.gzip?.length ?? 0))
-  return [line, ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText('dim', `${row.size.padStart(sizeWidth)}${row.gzip ? `  ${row.gzip.padStart(gzipWidth)} gzip` : ''}`)}`)].join('\n')
+  return [line, ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText(MUTED, `${row.size.padStart(sizeWidth)}${row.gzip ? `  ${row.gzip.padStart(gzipWidth)} gzip` : ''}`)}`)].join('\n')
 }
 
 /** `npx nuxt <command>`, naming the project when it is not the current directory. */
@@ -263,10 +264,10 @@ function formatPrerenderedRoutes(routes: PrerenderedRoute[], command: string, ve
   const width = Math.min(shown.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
   const times = shown.map(route => route.skipped ? 'skipped' : formatRouteTime(route.duration))
   const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
-  const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText('dim', times[index]!.padStart(timeWidth))}`.trimEnd())
+  const lines = shown.map((route, index) => `${route.route.padEnd(width)}  ${styleText(MUTED, times[index]!.padStart(timeWidth))}`.trimEnd())
   const hidden = listed.length - shown.length
   if (hidden) {
-    lines.push(styleText('dim', `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
+    lines.push(styleText(MUTED, `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
   }
   return lines
 }
@@ -278,7 +279,7 @@ function formatRouteTime(ms: number): string {
 
 function formatFailedRoute(route: PrerenderResult['failed'][number]): string {
   const detail = [route.status, route.message].filter(Boolean).join(' ')
-  return `${route.route}${detail ? styleText('dim', ` (${detail})`) : ''}`
+  return `${route.route}${detail ? styleText(MUTED, ` (${detail})`) : ''}`
 }
 
 async function gzipSize(path: string): Promise<number> {
