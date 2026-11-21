@@ -24,7 +24,7 @@ const realIsTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
 
 function stubEnvironment(platform: NodeJS.Platform, env: NodeJS.ProcessEnv = {}) {
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
-  process.env = { ...realEnv, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, TERM: undefined, TERM_PROGRAM: undefined, ...env }
+  process.env = { ...realEnv, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, TERM: undefined, TERM_PROGRAM: undefined, TMUX: undefined, ...env }
 }
 
 function stubTTY(isTTY: boolean) {
@@ -96,13 +96,25 @@ describe('writeClipboard', () => {
     expect(write).toHaveBeenCalledWith(osc52('text'))
   })
 
-  it.each(['tmux-256color', 'screen-256color'])('should leave relaying to a multiplexer (%s)', async (term) => {
-    stubEnvironment('linux', { TERM: term })
+  it.each([
+    { TERM: 'tmux-256color' },
+    { TERM: 'screen-256color', TMUX: '/tmp/tmux-501/default,123,0' },
+  ])('should leave relaying to tmux (%o)', async (env) => {
+    stubEnvironment('linux', env)
     const write = vi.fn()
 
     await expect(writeClipboard('text', { write })).resolves.toBe(true)
 
     expect(write).toHaveBeenCalledWith(osc52('text'))
+  })
+
+  it('should leave GNU screen alone', async () => {
+    stubEnvironment('linux', { TERM: 'screen-256color', STY: '123.pts-0.host' })
+    const write = vi.fn()
+
+    await expect(writeClipboard('text', { write })).resolves.toBe(false)
+
+    expect(write).not.toHaveBeenCalled()
   })
 
   it('should recognise a supporting terminal by TERM_PROGRAM', async () => {

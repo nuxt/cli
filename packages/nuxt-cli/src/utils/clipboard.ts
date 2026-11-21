@@ -11,10 +11,11 @@ import { useTerminalHost } from './terminal-host'
 /**
  * Terminals known to honour OSC 52. Support cannot be queried, and a terminal
  * that ignores the sequence stays silent, so anything unlisted is left alone.
- * Behind a multiplexer the real terminal is hidden, so the multiplexer is
- * trusted to relay the sequence (`set-clipboard on` in tmux).
+ * Behind tmux the real terminal is hidden, so tmux is trusted to relay the
+ * sequence (`set-clipboard on`). A `screen` TERM counts only inside tmux, as
+ * GNU screen drops OSC 52.
  */
-const OSC52_TERMS = /^(?:xterm-kitty|xterm-ghostty|foot|alacritty|wezterm|tmux|screen)/i
+const OSC52_TERMS = /^(?:xterm-kitty|xterm-ghostty|foot|alacritty|wezterm|tmux)/i
 const OSC52_PROGRAMS = new Set(['iterm.app', 'wezterm', 'ghostty'])
 
 export interface ClipboardOptions {
@@ -59,5 +60,6 @@ function canReachTerminal(): boolean {
   if (!process.stdout.isTTY || isCI) {
     return false
   }
-  return OSC52_TERMS.test(process.env.TERM ?? '') || OSC52_PROGRAMS.has(process.env.TERM_PROGRAM?.toLowerCase() ?? '')
+  const { TERM = '', TERM_PROGRAM = '', TMUX } = process.env
+  return OSC52_TERMS.test(TERM) || (!!TMUX && /^screen/i.test(TERM)) || OSC52_PROGRAMS.has(TERM_PROGRAM.toLowerCase())
 }
