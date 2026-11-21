@@ -205,7 +205,7 @@ export const captures: Capture[] = [
       await session.waitFor(/ready in \d/, 180_000)
       const port = session.output().match(/localhost:(\d+)/)?.[1] ?? '3000'
       for (const cart of ['c_8f3a21', 'c_19be07']) {
-        await fetch(`http://127.0.0.1:${port}/api/checkout?cart=${cart}`)
+        await fetch(`http://localhost:${port}/api/checkout?cart=${cart}`)
         await session.wait(500)
       }
       await session.waitFor(/✖ 2 errors/, 30_000)
