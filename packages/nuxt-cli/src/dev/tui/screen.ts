@@ -125,7 +125,7 @@ export abstract class ScreenOverlay {
   }
 
   handleKey(key: Key): void {
-    if (key.ctrl || key.meta) {
+    if (key.ctrl || (key.meta && key.name !== 'escape')) {
       return
     }
     if (this.#searching) {

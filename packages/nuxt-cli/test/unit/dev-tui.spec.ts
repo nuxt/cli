@@ -3061,6 +3061,17 @@ describe('panel shortcut routing', () => {
     }
   })
 
+  it('closes a view with escape as the terminal reports it', async () => {
+    await withPanel(async (_ui, settle) => {
+      const leaves = (frame: string) => frame.split('\u001B[?1049l').length - 1
+      process.stdin.emit('keypress', 'l', { name: 'l', sequence: 'l' })
+      const open = await settle()
+      expect(open).toContain('cli+build+runtime')
+      process.stdin.emit('keypress', '\u001B', { name: 'escape', meta: true, sequence: '\u001B' })
+      expect(leaves(await settle())).toBe(leaves(open) + 1)
+    })
+  })
+
   it('quits with Ctrl-D from search inside a view', async () => {
     const interrupt = vi.fn()
     process.on('SIGINT', interrupt)

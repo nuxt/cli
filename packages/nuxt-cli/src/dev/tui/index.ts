@@ -425,7 +425,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     for (const held of [...heldNotices]) {
       dismissHeld(held)
     }
-    if (key.meta) {
+    // Node reports a lone escape with `meta` set.
+    if (key.meta && key.name !== 'escape') {
       return
     }
     if (key.ctrl) {
