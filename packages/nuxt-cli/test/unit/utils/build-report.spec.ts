@@ -51,8 +51,8 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-async function setup() {
-  const { nuxt, call } = createNuxt(root)
+async function setup(rootDir = root) {
+  const { nuxt, call } = createNuxt(rootDir)
   const progress = new BuildProgress()
   const report = createBuildReport(nuxt as any, { progress, command: 'build' })
   return { report, progress, call }
@@ -196,9 +196,18 @@ describe('createBuildReport', () => {
 
     await call('build:environment:start', nitro)
     await call('build:environment:done', nitro, { duration: 1, outDir: join(output, 'server'), files: [] })
-    expect(report.commands(serverBuild(output, { deployCommand: 'npx wrangler --cwd ./ deploy ./server/index.mjs' })).map(stripAnsi)).toEqual([
+    expect(report.commands(serverBuild(output, { deployCommand: 'npx wrangler --cwd .output deploy' })).map(stripAnsi)).toEqual([
       'You can preview this build using npx nuxt preview',
-      'You can deploy this build using npx wrangler --cwd .output deploy .output/server/index.mjs',
+      'You can deploy this build using npx wrangler --cwd .output deploy',
+    ])
+  })
+
+  it('runs the deploy command from the project when it is not the current directory', async () => {
+    const project = join(root, 'my app')
+    const { report } = await setup(project)
+
+    expect(report.staticCommands(serverBuild(join(project, '.output'), { target: 'vercel-static', deployCommand: 'npx vercel deploy --prebuilt' })).map(stripAnsi)).toEqual([
+      'You can deploy this build using cd "my app" && npx vercel deploy --prebuilt',
     ])
   })
 

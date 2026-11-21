@@ -25,7 +25,7 @@ export interface ServerBuild {
   readonly publicDir: string
   /** Command that runs this build locally, when it has a server to run. */
   readonly previewCommand: string | undefined
-  /** Command that deploys this build to its target, when the target has one. */
+  /** Command that deploys this build to its target from the project root, when the target has one. */
   readonly deployCommand: string | undefined
   /** Directory to serve when this build is static only. */
   readonly previewStaticDir: string | undefined

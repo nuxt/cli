@@ -100,9 +100,6 @@ const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 
 const GZIP_CONCURRENCY = 8
 
-/** A path in a deploy command relative to the build output, such as `--cwd ./`. */
-const OUTPUT_RELATIVE_RE = /(^|[\s:=])\.\/(\S*)/g
-
 const LABELS: Record<string, string> = { ssr: 'server' }
 
 /** What a bundle is called on the progress line and in the breakdown. */
@@ -199,7 +196,7 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
       if (hasServerOutput(serverBuild)) {
         commands.push(`You can preview this build using ${styleText('cyan', nuxtCommand(nuxt, 'preview'))}`)
       }
-      const deploy = deployCommand(serverBuild)
+      const deploy = deployCommand(nuxt, serverBuild)
       if (deploy) {
         commands.push(`You can deploy this build using ${styleText('cyan', deploy)}`)
       }
@@ -212,7 +209,7 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
       if (!target || target === 'static') {
         return [`You can now deploy ${styleText('cyan', publicDir)} to any static hosting`]
       }
-      const deploy = deployCommand(serverBuild)
+      const deploy = deployCommand(nuxt, serverBuild)
       if (deploy) {
         return [`You can deploy this build using ${styleText('cyan', deploy)}`]
       }
@@ -222,10 +219,15 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
   }
 }
 
-/** The deploy command, with paths relative to the build output made relative to where the user is. */
-function deployCommand(serverBuild: ServerBuild): string | undefined {
-  const dir = relative(process.cwd(), serverBuild.dir) || '.'
-  return serverBuild.deployCommand?.replace(OUTPUT_RELATIVE_RE, (_, before: string, path: string) => `${before}${path ? `${dir}/${path}` : dir}`)
+/** The deploy command, which runs from the project root, prefixed with a `cd` there when that is not the current directory. */
+function deployCommand(nuxt: Nuxt, serverBuild: ServerBuild): string | undefined {
+  const command = serverBuild.deployCommand
+  const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
+  return command && dir ? `cd ${quote(dir)} && ${command}` : command
+}
+
+function quote(path: string): string {
+  return /\s/.test(path) ? JSON.stringify(path) : path
 }
 
 async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
@@ -249,7 +251,7 @@ async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
 /** `npx nuxt <command>`, naming the project when it is not the current directory. */
 function nuxtCommand(nuxt: Nuxt, command: string): string {
   const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
-  return `npx nuxt ${command}${dir ? ` ${/\s/.test(dir) ? JSON.stringify(dir) : dir}` : ''}`
+  return `npx nuxt ${command}${dir ? ` ${quote(dir)}` : ''}`
 }
 
 /**
