@@ -269,7 +269,7 @@ function copyText(event: DevLogEvent): string {
 function renderDetail(event: DevLogEvent, columns: number): OverlayEntry[] {
   const width = Math.max(1, columns - 1)
   const lines = [
-    ...event.request ? [styleText(['magenta', 'bold'], event.request), ''] : [],
+    ...event.request ? [...wrapText(event.request, width).map(line => styleText(['magenta', 'bold'], line)), ''] : [],
     ...wrapText(trimBlankLines(event.format?.(width) ?? event.message), width).map(line => colorBySeverity(line, event)),
   ]
   return lines.map(line => ({ lines: [line] }))

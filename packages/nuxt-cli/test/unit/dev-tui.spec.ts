@@ -1052,6 +1052,27 @@ describe('log overlay', () => {
     overlay.close()
   })
 
+  it('wraps a long request in the detail view', () => {
+    const events = new DevEventLog()
+    events.push(event({ request: `GET /api/${'c'.repeat(60)}?cart=last`, requestId: '1', message: 'boom', level: 0, type: 'error' }))
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true })
+    const { overlay, lastFrame } = create(events)
+    try {
+      overlay.openAtLastError()
+      expect(strip(lastFrame()).replace(/\n\s*/g, '')).toContain(`GET/api/${'c'.repeat(60)}?cart=last`)
+    }
+    finally {
+      overlay.close()
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
   it('keeps a tall selected entry expanded while paging through it', () => {
     const events = new DevEventLog()
     const rows = (process.stdout.rows || 24) - 3
