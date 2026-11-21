@@ -251,9 +251,9 @@ async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
   const rows = files
     .map((file, index) => ({ path: relative(process.cwd(), join(result.outDir, file.path)), size: formatBytes(file.size), gzip: gzip && formatBytes(gzip[index]!), bytes: file.size }))
     .sort((a, b) => b.bytes - a.bytes)
-  const pathWidth = Math.max(...rows.map(row => row.path.length))
-  const sizeWidth = Math.max(...rows.map(row => row.size.length))
-  const gzipWidth = Math.max(...rows.map(row => row.gzip?.length ?? 0))
+  const pathWidth = rows.reduce((max, row) => Math.max(max, row.path.length), 0)
+  const sizeWidth = rows.reduce((max, row) => Math.max(max, row.size.length), 0)
+  const gzipWidth = rows.reduce((max, row) => Math.max(max, row.gzip?.length ?? 0), 0)
   return [line, ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText(MUTED, `${row.size.padStart(sizeWidth)}${row.gzip ? `  ${row.gzip.padStart(gzipWidth)} gzip` : ''}`)}`)].join('\n')
 }
 
