@@ -1,7 +1,9 @@
 import type { CommandDef } from 'citty'
 
+import process from 'node:process'
+
 import { consola } from 'consola'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { withRemedy } from '../../src/commands'
 import { ActionableError } from '../../src/utils/errors'
@@ -44,6 +46,24 @@ describe('command error boundary', () => {
     const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(parse) })
 
     await expect(run(command)).rejects.toBe(parse)
+  })
+
+  it('should exit without rethrowing a diagnostic Nuxt has already reported', async () => {
+    const error = Object.assign(new Error('2 routes failed to prerender.'), { code: 'NUXT_B1024' })
+    Object.defineProperty(error, Symbol.for('nuxt.diagnostic.reported'), { value: true })
+    const exited = new Error('process.exit')
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw exited
+    })
+    const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(error) })
+
+    try {
+      await expect(run(command)).rejects.toBe(exited)
+      expect(exit).toHaveBeenCalledWith(1)
+    }
+    finally {
+      exit.mockRestore()
+    }
   })
 
   it('should report a failed command through consola after the console was unwrapped', async () => {

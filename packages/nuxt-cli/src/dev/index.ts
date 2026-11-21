@@ -18,7 +18,7 @@ import defu from 'defu'
 import { resolveDotenvFileNames } from '../utils/args'
 import { configureProjectConsola } from '../utils/console'
 import { overrideEnv } from '../utils/env.ts'
-import { isRemotePeerError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
+import { isRemotePeerError, isReportedError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
 import { debug } from '../utils/logger'
 import { blankLineBefore, writeDirect } from '../utils/stdout'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile.ts'
@@ -76,6 +76,9 @@ function createFeed<T>(limit: number) {
 }
 
 function formatErrorMessage(error: unknown): string {
+  if (isReportedError(error)) {
+    return ''
+  }
   return error instanceof Error ? error.toString() : 'Unhandled Rejection'
 }
 

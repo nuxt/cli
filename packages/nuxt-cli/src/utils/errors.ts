@@ -21,26 +21,72 @@ export class ActionableError extends Error {
 }
 
 /**
+ * Set on a diagnostic once Nuxt's reporter has printed it, so the CLI does not
+ * print it a second time when the same error reaches a command's handler.
+ */
+const NUXT_DIAGNOSTIC_REPORTED: unique symbol = Symbol.for('nuxt.diagnostic.reported')
+
+type NuxtDiagnostic = Error & {
+  name?: unknown
+  code?: unknown
+  pluginCode?: unknown
+  fix?: unknown
+  docs?: unknown
+}
+
+/**
  * Re-raise a Nuxt error by the remedy it carries rather than by its stack.
  *
  * Nuxt tags the errors it raises with `fix`, the command that resolves it, and
  * `docs`, where the rest is explained. Those frames are all inside
  * `node_modules` or this CLI's own `dist`, so the remedy is the whole of what a
- * reader can act on. An untagged error is returned as it came.
+ * reader can act on. An error Nuxt has already printed is dropped, and an
+ * untagged error is returned as it came.
  */
 export function asActionableError(error: unknown): unknown {
+  if (isReportedError(error)) {
+    return undefined
+  }
   if (!(error instanceof Error)) {
     return error
   }
-  const { fix, docs } = error as Error & { fix?: unknown, docs?: unknown }
-  if (typeof fix !== 'string' || !fix.trim()) {
+  const diagnostic = error as NuxtDiagnostic
+  const code = getNuxtDiagnosticCode(diagnostic)
+  const fix = typeof diagnostic.fix === 'string' && diagnostic.fix.trim() ? diagnostic.fix : undefined
+  const docs = typeof diagnostic.docs === 'string' && diagnostic.docs.trim() ? diagnostic.docs : undefined
+  if (!code && !fix && !docs) {
     return error
   }
-  const lines = [error.message, fix]
-  if (typeof docs === 'string' && docs.trim()) {
+  const lines = [code ? `[${code}] ${error.message}` : error.message]
+  if (fix) {
+    lines.push(fix)
+  }
+  if (docs) {
     lines.push(`See ${docs}`)
   }
   return new ActionableError(lines.join('\n'))
+}
+
+function getNuxtDiagnosticCode(diagnostic: NuxtDiagnostic): string | undefined {
+  return [diagnostic.name, diagnostic.code, diagnostic.pluginCode]
+    .find((value): value is string => typeof value === 'string' && value.startsWith('NUXT_'))
+}
+
+/**
+ * Whether Nuxt has already printed the diagnostic, or, for a bundler that
+ * rewrapped it, whether every one of the wrapped diagnostics has.
+ */
+export function isReportedError(error: unknown): boolean {
+  if (isReportedDiagnostic(error)) {
+    return true
+  }
+  const errors = (error as { errors?: unknown } | undefined)?.errors
+  return Array.isArray(errors) && errors.length > 0 && errors.every(isReportedDiagnostic)
+}
+
+function isReportedDiagnostic(error: unknown): boolean {
+  return typeof error === 'object' && error !== null
+    && (error as Record<PropertyKey, unknown>)[NUXT_DIAGNOSTIC_REPORTED] === true
 }
 
 /**

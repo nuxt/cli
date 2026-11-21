@@ -56,7 +56,7 @@ export function formatRestartCause(reason: DevRestartReason, options: FormatRest
     case 'shortcut':
       return 'Restart requested'
     case 'error':
-      return `Unhandled error: ${reason.message}`
+      return reason.message ? `Unhandled error: ${reason.message}` : 'Unhandled error'
   }
 }
 

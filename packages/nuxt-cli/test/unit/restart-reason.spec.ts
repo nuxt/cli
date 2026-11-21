@@ -49,6 +49,10 @@ describe('formatRestartCause', () => {
     expect(formatRestartCause({ type: 'shortcut' }, options)).toBe('Restart requested')
     expect(formatRestartCause({ type: 'error', message: 'Error: boom' }, options)).toBe('Unhandled error: Error: boom')
   })
+
+  it('should drop the message for an error that was already reported', () => {
+    expect(formatRestartCause({ type: 'error', message: '' }, options)).toBe('Unhandled error')
+  })
 })
 
 describe('formatRestartReason', () => {
