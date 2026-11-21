@@ -61,7 +61,7 @@ interface DocEntry {
  *
  * `build-module.md` is absent: `nuxt build-module` is not a registered command,
  * it resolves the `@nuxt/module-builder` binary through the `nuxt-<command>`
- * fallback, so its flags are declared in another repository.
+ * fallback, and that repository now owns the command page.
  */
 const DOCS: DocEntry[] = [
   { id: 'add', file: 'add.md', command: ['add'] },
