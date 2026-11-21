@@ -37,7 +37,7 @@ vi.mock('../../../src/utils/lockfile', () => ({
   formatLockError: mocks.formatLockError,
 }))
 vi.mock('../../../src/utils/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn(), success: vi.fn() },
   intro: vi.fn(),
   outro: vi.fn(),
 }))
@@ -176,6 +176,28 @@ describe('build', () => {
     await run()
 
     expect(logger.info).toHaveBeenCalledWith(expect.stringMatching(/^Deploy target: .*vercel/))
+  })
+
+  it.each([
+    ['info', 1],
+    ['silent', 0],
+  ])('prints the bundle summary at log level %s %i times', async (logLevel, times) => {
+    const hooks = new Map<string, (...args: any[]) => unknown>()
+    mocks.loadNuxt.mockImplementation(({ overrides }) => Promise.resolve({
+      hook: (name: string, fn: (...args: any[]) => unknown) => hooks.set(name, fn),
+      ready: vi.fn(),
+      options: { buildDir, rootDir: cwd, ssr: true, logLevel: overrides.logLevel },
+    }))
+    mocks.buildNuxt.mockImplementation(async () => {
+      await hooks.get('build:environment:done')!(
+        { name: 'client', consumer: 'client', builder: 'vite' },
+        { duration: 10, outDir: `${outputDir}/public`, files: [] },
+      )
+    })
+
+    await run([`--logLevel=${logLevel}`])
+
+    expect(vi.mocked(logger.success).mock.calls.filter(([message]) => String(message).includes('Client (vite) built'))).toHaveLength(times)
   })
 
   it('builds without a server, locking the default output directory', async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDuration, stripControlChars, truncate, visibleWidth } from '../../../src/utils/formatting'
+import { formatBytes, formatDuration, stripControlChars, truncate, visibleWidth } from '../../../src/utils/formatting'
 
 describe('stripControlChars', () => {
   it('should leave no escape sequence behind, nested or not', () => {
@@ -41,6 +41,12 @@ describe('truncate', () => {
   it('should cut by columns rather than characters', () => {
     expect(truncate('日本語テキスト', 7)).toBe('日本語…')
     expect(truncate('日本語テキスト', 8)).toBe('日本語…')
+  })
+})
+
+describe('formatBytes', () => {
+  it('uses decimal units', () => {
+    expect([formatBytes(999), formatBytes(1000), formatBytes(2_454_000)]).toEqual(['999 B', '1.00 kB', '2.45 MB'])
   })
 })
 

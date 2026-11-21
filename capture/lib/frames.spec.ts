@@ -110,6 +110,12 @@ describe('scrubbing a right-aligned tag', () => {
     expect(result.styles).toHaveLength(result.line.length)
   })
 
+  it.each(['⠋ Setting up modules 1.2s · total 3.4s', '⠋ Setting up modules 1.2s · 3.4s', '⠋ Setting up modules 3.4s'])('should pin a phase line however the clocks differed: %s', (line) => {
+    const styles = Array.from({ length: line.length }).fill(undefined) as never
+
+    expect(scrubLine(line, styles, resolveRules(['timings'])).line).toBe('⠋ Setting up modules 42 ms')
+  })
+
   it('should leave a line without padding alone', () => {
     expect(scrub('42 ms').trimEnd()).not.toBe('')
     const plain = '✔ Vite client built in 1085 ms'

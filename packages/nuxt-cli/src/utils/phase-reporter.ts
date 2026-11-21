@@ -1,14 +1,16 @@
-import type { PhaseTiming, ProgressSnapshot } from './progress-snapshot'
+import type { PhaseTiming, ProgressMeter, ProgressSnapshot } from './progress-snapshot'
 
 import process from 'node:process'
 import { styleText } from 'node:util'
 
 import { isCI } from 'std-env'
 
-import { decapitalise, formatDuration, terminalLink } from './formatting'
+import { supportsUnicode } from '../dev/tui/support'
+import { decapitalise, formatDuration, terminalLink, visibleWidth } from './formatting'
 import { logger } from './logger'
 import { READY_MESSAGE } from './progress-snapshot'
 import { tapOutput } from './stdout'
+import { MUTED } from './terminal-theme'
 
 const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const FRAME_INTERVAL = 80
@@ -20,6 +22,11 @@ const COLUMN_ONE = '\r'
  * showing. During the first phase they are the same number twice.
  */
 const PHASE_ELAPSED_THRESHOLD = 100
+
+const METER_WIDTH = 20
+
+/** The shortest a meter's detail is cut to before it is left out. */
+const METER_DETAIL_MIN = 8
 
 const HIDE_CURSOR = '\u001B[?25l'
 const SHOW_CURSOR = '\u001B[?25h'
@@ -37,8 +44,32 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
   const total = snapshot.elapsed + drift
   const phase = snapshot.phaseElapsed + drift
   return total - phase >= PHASE_ELAPSED_THRESHOLD
-    ? `${formatDuration(phase)} \u00B7 ${formatDuration(total)}`
+    ? `${formatDuration(phase)} \u00B7 total ${formatDuration(total)}`
     : formatDuration(total)
+}
+
+/** `42/180`, for output that has no room for a bar. */
+function formatCount(meter: ProgressMeter | undefined): string {
+  return meter ? ` ${meter.done}/${meter.total}` : ''
+}
+
+/** `━━━━━━━━ 42/180`, drawn like the progress bar in the `nuxt dev` panel. */
+export function formatMeter(meter: ProgressMeter, width: number = METER_WIDTH): string {
+  const filled = meter.total ? Math.min(width, Math.floor(meter.done / meter.total * width)) : 0
+  const glyph = supportsUnicode() ? '━' : '='
+  return `${styleText('green', glyph.repeat(filled))}${styleText(MUTED, glyph.repeat(width - filled))} ${styleText(MUTED, `${meter.done}/${meter.total}`)}`
+}
+
+/** Cut `text` to `width` columns, or drop it when too little of it would be left. */
+function fit(text: string, width: number): string {
+  if (text.length <= width) {
+    return text
+  }
+  return width >= METER_DETAIL_MIN ? `\u2026${text.slice(text.length - width + 1)}` : ''
+}
+
+function bundlePhaseLabels(phase: string): string[] | undefined {
+  return phase.startsWith('bundle:') ? phase.slice('bundle:'.length).split('+') : undefined
 }
 
 export interface PhaseReporter {
@@ -70,6 +101,36 @@ export function formatPhaseBreakdown(timings: PhaseTiming[]): string {
     .filter(timing => timing.duration >= 10)
     .map(timing => `${timing.phase} ${formatDuration(timing.duration)}`)
     .join(' · ')
+}
+
+const PHASE_BAR_WIDTH = 24
+
+/**
+ * One phase per line with a bar placed where it ran within the command, so the
+ * slow step stands out and phases that overlapped are seen to.
+ */
+export function formatPhaseTable(timings: PhaseTiming[]): string {
+  let elapsed = 0
+  const placed = timings.map((timing) => {
+    const start = timing.start ?? elapsed
+    elapsed = Math.max(elapsed, start + timing.duration)
+    return { ...timing, start }
+  })
+  const shown = placed.filter(timing => timing.duration >= 10)
+  if (!shown.length) {
+    return ''
+  }
+  const from = Math.min(...shown.map(timing => timing.start))
+  const span = Math.max(1, Math.max(...shown.map(timing => timing.start + timing.duration)) - from)
+  const nameWidth = Math.max(...shown.map(timing => timing.phase.length))
+  const durations = shown.map(timing => formatDuration(timing.duration))
+  const durationWidth = Math.max(...durations.map(duration => duration.length))
+  return shown.map((timing, index) => {
+    const left = Math.min(PHASE_BAR_WIDTH - 1, Math.floor((timing.start - from) / span * PHASE_BAR_WIDTH))
+    const right = Math.max(left + 1, Math.round((timing.start - from + timing.duration) / span * PHASE_BAR_WIDTH))
+    const bar = `${' '.repeat(left)}${styleText('cyan', '█'.repeat(right - left))}${' '.repeat(PHASE_BAR_WIDTH - right)}`
+    return `${timing.phase.padEnd(nameWidth)}  ${bar}  ${styleText(MUTED, durations[index]!.padStart(durationWidth))}`
+  }).join('\n')
 }
 
 /**
@@ -159,9 +220,18 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
    */
   function describe(): string {
     const pending = summarised ? snapshot!.pending : undefined
-    return pending
-      ? `rendering ${pending.label} ${styleText('dim', formatDuration(Date.now() - pending.startedAt))}`
-      : `${snapshot!.message} ${styleText('dim', formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    if (pending) {
+      return `rendering ${pending.label} ${styleText(MUTED, formatDuration(Date.now() - pending.startedAt))}`
+    }
+    const { meter } = snapshot!
+    const line = `${snapshot!.message}${meter ? ` ${formatMeter(meter)}` : ''} ${styleText(MUTED, formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    if (!meter?.detail) {
+      return line
+    }
+    // A line that wraps cannot be cleared in place, so the detail gives way to the terminal width.
+    const room = (stream.columns || 80) - visibleWidth(line) - 4
+    const detail = fit(meter.detail, room)
+    return detail ? `${line} ${styleText(MUTED, detail)}` : line
   }
 
   function render() {
@@ -214,7 +284,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
         log(announce(pending.label, Date.now() - pending.startedAt), `rendering ${pending.label}`)
         return
       }
-      log(`${snapshot.message} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
+      log(`${snapshot.message}${formatCount(snapshot.meter)} ${styleText('dim', `(${formatElapsed(snapshot, Date.now() - receivedAt)})`)}`, snapshot.message)
     }, options.heartbeat)
     pulse.unref?.()
   }
@@ -268,14 +338,28 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
       if (next.status !== 'ready') {
         if (animated) {
-          render()
+          // A meter can move hundreds of times a second; the next frame picks it up.
+          if (!next.meter || next.phase !== lastPhase) {
+            lastPhase = next.phase
+            render()
+          }
           return
         }
 
         if (next.phase !== lastPhase) {
+          const previous = lastPhase === undefined ? undefined : bundlePhaseLabels(lastPhase)
+          const current = bundlePhaseLabels(next.phase)
+          // A bundle finishing only shrinks the active set, which the line that
+          // announced the bundle starting has already covered.
+          const finishing = previous !== undefined
+            && current !== undefined
+            && current.length < previous.length
+            && current.every(label => previous.includes(label))
           lastPhase = next.phase
-          log(next.message, next.message)
-          schedulePulse()
+          if (!finishing) {
+            log(next.message, next.message)
+            schedulePulse()
+          }
           return
         }
 

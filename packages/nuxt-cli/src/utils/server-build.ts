@@ -25,6 +25,8 @@ export interface ServerBuild {
   readonly publicDir: string
   /** Command that runs this build locally, when it has a server to run. */
   readonly previewCommand: string | undefined
+  /** Command that deploys this build to its target from the project root, when the target has one. */
+  readonly deployCommand: string | undefined
   /** Directory to serve when this build is static only. */
   readonly previewStaticDir: string | undefined
 }
@@ -39,6 +41,9 @@ interface NuxtServerBuild {
   preview?: {
     command?: () => string | undefined
     staticDir?: () => string
+  }
+  deploy?: {
+    command?: () => string | undefined
   }
 }
 
@@ -164,6 +169,9 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
     },
     get previewCommand() {
       return declared?.preview?.command?.() ?? getNitro()?.options.commands?.preview
+    },
+    get deployCommand() {
+      return declared?.deploy?.command?.()
     },
     get previewStaticDir() {
       const dir = declared?.preview?.staticDir?.()
