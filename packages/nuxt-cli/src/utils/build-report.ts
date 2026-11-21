@@ -116,8 +116,10 @@ function bundleLabel(environment: BuildEnvironment): string {
   return LABELS[environment.name] ?? environment.name
 }
 
-function capitalise(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1)
+const DISPLAY_LABELS: Record<string, string> = { client: 'Client', server: 'Server', ssr: 'Server', nitro: 'Nitro' }
+
+function displayLabel(environment: BuildEnvironment): string {
+  return DISPLAY_LABELS[environment.name] ?? environment.name
 }
 
 /**
@@ -244,7 +246,7 @@ async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
   const gzip = await bundle.gzip
   const total = gzip?.reduce((sum, size) => sum + size, 0)
   const size = `${formatBytes(bundle.size)}${total === undefined ? '' : ` (${formatBytes(total)} gzip)`}`
-  const line = `${capitalise(bundleLabel(environment))} ${styleText(MUTED, `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText(MUTED, ` \u00B7 ${size}`)}`
+  const line = `${displayLabel(environment)} ${styleText(MUTED, `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText(MUTED, ` \u00B7 ${size}`)}`
   if (!verbose || !files.length) {
     return line
   }

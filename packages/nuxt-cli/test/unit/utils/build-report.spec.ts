@@ -72,6 +72,14 @@ const ssr = { name: 'ssr', consumer: 'server', builder: 'vite' }
 const nitro = { name: 'nitro', consumer: 'server', builder: 'rollup' }
 
 describe('createBuildReport', () => {
+  it('shows environments with other names verbatim rather than capitalising them', async () => {
+    const { report, call } = await setup()
+    await call('build:environment:start', { name: 'nuxt_vite_server_cloudflare', consumer: 'server', builder: 'vite' })
+    await call('build:environment:done', { name: 'nuxt_vite_server_cloudflare', consumer: 'server', builder: 'vite' }, { duration: 384, outDir: root, files: [{ path: 'worker.js', size: 584_560 }] })
+
+    expect(stripAnsi((await report.summary(false))!)).toBe('nuxt_vite_server_cloudflare (vite) built in 384ms · 584.56 kB')
+  })
+
   it('summarises each bundle in the order they started, with gzip sizes for the client', async () => {
     const { report, call } = await setup()
     const clientDir = join(root, '.output/public')
