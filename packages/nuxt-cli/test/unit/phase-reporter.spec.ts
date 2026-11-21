@@ -3,7 +3,7 @@ import type { ProgressSnapshot } from '../../src/utils/progress-snapshot'
 
 import { stripVTControlCharacters, styleText } from 'node:util'
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { blankLineBefore, observeOutput, trackOutputSpacing } from '../../src/utils/stdout'
 import { render, screen } from '../utils/terminal'
@@ -16,6 +16,16 @@ vi.mock('std-env', async importOriginal => ({
 process.env.FORCE_COLOR = '3'
 
 const { createPhaseReporter, formatMeter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+
+function stubUnicode(supported: boolean): void {
+  vi.stubEnv('LC_ALL', supported ? 'en_GB.UTF-8' : 'C')
+  for (const name of ['WT_SESSION', 'TERMINUS_SUBLIME', 'ConEmuTask', 'TERM_PROGRAM']) {
+    vi.stubEnv(name, '')
+  }
+  if (supported) {
+    vi.stubEnv('WT_SESSION', '1')
+  }
+}
 
 function snapshot(overrides: Partial<ProgressSnapshot> = {}): ProgressSnapshot {
   return {
@@ -76,6 +86,11 @@ describe('phase reporter', () => {
   })
 
   describe('with a meter', () => {
+    beforeEach(() => stubUnicode(true))
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
     const prerendering = (meter: ProgressSnapshot['meter']) => snapshot({ phase: 'prerender', message: 'Prerendering routes', index: 4, meter })
 
     function terminal(columns: number) {
@@ -462,17 +477,17 @@ describe('formatMeter', () => {
   })
 
   it('should fill the bar in proportion to what is done', () => {
-    vi.stubEnv('LC_ALL', 'en_GB.UTF-8')
+    stubUnicode(true)
     expect(formatMeter({ done: 3, total: 4 }, 8)).toBe(`${styleText('green', '━'.repeat(6))}${styleText('gray', '━'.repeat(2))} ${styleText('gray', '3/4')}`)
   })
 
   it('should draw an empty bar when nothing is known yet', () => {
-    vi.stubEnv('LC_ALL', 'en_GB.UTF-8')
+    stubUnicode(true)
     expect(stripVTControlCharacters(formatMeter({ done: 0, total: 0 }, 4))).toBe('━━━━ 0/0')
   })
 
   it('should fall back to ascii where the terminal cannot draw the bar', () => {
-    vi.stubEnv('LC_ALL', 'C')
+    stubUnicode(false)
     expect(stripVTControlCharacters(formatMeter({ done: 1, total: 2 }, 4))).toBe('==== 1/2')
   })
 })

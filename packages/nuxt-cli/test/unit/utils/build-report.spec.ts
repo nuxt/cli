@@ -1,7 +1,7 @@
 import type { ServerBuild } from '../../../src/utils/server-build'
 
 import { Buffer } from 'node:buffer'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import process from 'node:process'
 
@@ -40,7 +40,7 @@ function serverBuild(dir: string, overrides: Partial<ServerBuild> = {}): ServerB
 let root: string
 let cwd: string
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), 'nuxi-build-report-'))
+  root = await realpath(await mkdtemp(join(tmpdir(), 'nuxi-build-report-')))
   cwd = process.cwd()
   process.chdir(root)
 })
