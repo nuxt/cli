@@ -10,7 +10,10 @@ setupGlobalConsole()
 
 writeTypes(JSON.parse(process.argv[2]!) as WriteTypesOptions)
   .catch((error) => {
-    console.error(asActionableError(error), '\n')
+    const actionable = asActionableError(error)
+    if (actionable !== undefined) {
+      console.error(actionable, '\n')
+    }
     process.exitCode = 1
   })
   // Handles left open after `nuxt.close()` must not keep the parent waiting.

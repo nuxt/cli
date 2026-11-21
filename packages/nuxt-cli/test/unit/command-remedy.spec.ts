@@ -1,10 +1,13 @@
 import type { CommandDef } from 'citty'
 
+import process from 'node:process'
+
 import { consola } from 'consola'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { withRemedy } from '../../src/commands'
 import { ActionableError } from '../../src/utils/errors'
+import { setRunningMain } from '../../src/utils/running-main'
 
 function tagged(): Error {
   return Object.assign(new Error('The module `@nuxt/image` could not be loaded. It may not be installed.'), {
@@ -44,6 +47,41 @@ describe('command error boundary', () => {
     const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(parse) })
 
     await expect(run(command)).rejects.toBe(parse)
+  })
+
+  it('should reject without exiting when a reported diagnostic reaches a programmatic caller', async () => {
+    const error = Object.assign(new Error('2 routes failed to prerender.'), { code: 'NUXT_B1024' })
+    Object.defineProperty(error, Symbol.for('nuxt.diagnostic.reported'), { value: true })
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+    const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(error) })
+
+    try {
+      await expect(run(command)).rejects.toBe(error)
+      expect(exit).not.toHaveBeenCalled()
+    }
+    finally {
+      exit.mockRestore()
+    }
+  })
+
+  it('should exit without rethrowing a reported diagnostic when the CLI entry runs it', async () => {
+    const error = Object.assign(new Error('2 routes failed to prerender.'), { code: 'NUXT_B1024' })
+    Object.defineProperty(error, Symbol.for('nuxt.diagnostic.reported'), { value: true })
+    setRunningMain(true)
+    const exited = new Error('process.exit')
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw exited
+    })
+    const command = withRemedy({ meta: { name: 'build' }, run: () => Promise.reject(error) })
+
+    try {
+      await expect(run(command)).rejects.toBe(exited)
+      expect(exit).toHaveBeenCalledWith(1)
+    }
+    finally {
+      setRunningMain(false)
+      exit.mockRestore()
+    }
   })
 
   it('should report a failed command through consola after the console was unwrapped', async () => {

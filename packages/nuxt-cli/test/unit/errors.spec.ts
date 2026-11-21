@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { ActionableError, asActionableError, isRemotePeerError } from '../../src/utils/errors'
+import { ActionableError, asActionableError, isRemotePeerError, isReportedError } from '../../src/utils/errors'
+
+const REPORTED = Symbol.for('nuxt.diagnostic.reported')
+
+function markReported(error: object): void {
+  Object.defineProperty(error, REPORTED, { value: true })
+}
 
 describe('actionableError', () => {
   it('should print its advice instead of a stack trace', () => {
@@ -22,7 +28,7 @@ describe('asActionableError', () => {
 
     expect(actionable).toBeInstanceOf(ActionableError)
     expect(actionable.stack).toBe(actionable.message)
-    expect(actionable.message).toBe('The module `@nuxt/image` could not be loaded. It may not be installed.\nRun `npm install @nuxt/image` to install it.')
+    expect(actionable.message).toBe('[NUXT_B8017] The module `@nuxt/image` could not be loaded. It may not be installed.\nRun `npm install @nuxt/image` to install it.')
     expect(actionable.stack).not.toContain('    at ')
   })
 
@@ -43,6 +49,80 @@ describe('asActionableError', () => {
     expect(asActionableError(error)).toBe(error)
     expect(asActionableError(blank)).toBe(blank)
     expect(asActionableError('not an error')).toBe('not an error')
+  })
+
+  it('should skip a diagnostic Nuxt has already reported', () => {
+    const error = Object.assign(new Error('2 routes failed to prerender: `/broken` (500), `/missing` (404).'), {
+      code: 'NUXT_B1024',
+      fix: 'Fix the errors logged above, skip the routes with `prerender.ignore`.',
+      docs: 'https://nuxt.com/docs/getting-started/deployment',
+    })
+    markReported(error)
+
+    expect(asActionableError(error)).toBeUndefined()
+  })
+
+  it('should skip a bundler wrapper whose diagnostics are all already reported', () => {
+    const diagnostic = Object.assign(new Error('Build failed with 1 error: boom'), {
+      name: 'NUXT_B7021',
+      code: 'PLUGIN_ERROR',
+      pluginCode: 'NUXT_B7021',
+    })
+    markReported(diagnostic)
+    const wrapper = Object.assign(new Error('Build failed with 1 error: boom'), {
+      code: 'PLUGIN_ERROR',
+      errors: [diagnostic],
+    })
+
+    expect(isReportedError(wrapper)).toBe(true)
+    expect(asActionableError(wrapper)).toBeUndefined()
+  })
+
+  it('should not skip a wrapper unless every wrapped diagnostic was reported', () => {
+    const diagnostic = Object.assign(new Error('boom'), { name: 'NUXT_B7021' })
+    markReported(diagnostic)
+    const partial = Object.assign(new Error('Build failed with 2 errors'), {
+      code: 'PLUGIN_ERROR',
+      errors: [diagnostic, new Error('unreported')],
+    })
+    const empty = Object.assign(new Error('Build failed'), { errors: [] })
+
+    expect(isReportedError(partial)).toBe(false)
+    expect(asActionableError(partial)).toBe(partial)
+    expect(isReportedError(empty)).toBe(false)
+    expect(asActionableError(empty)).toBe(empty)
+  })
+
+  it('should prefix an unmarked diagnostic with its code', () => {
+    const error = Object.assign(new Error('2 routes failed to prerender: `/broken` (500), `/missing` (404).'), {
+      name: 'NUXT_B1024',
+      fix: 'Fix the errors logged above, skip the routes with `prerender.ignore`.',
+      docs: 'https://nuxt.com/docs/getting-started/deployment',
+    })
+
+    const actionable = asActionableError(error) as Error
+
+    expect(actionable).toBeInstanceOf(ActionableError)
+    expect(actionable.message).toBe(
+      '[NUXT_B1024] 2 routes failed to prerender: `/broken` (500), `/missing` (404).\n'
+      + 'Fix the errors logged above, skip the routes with `prerender.ignore`.\n'
+      + 'See https://nuxt.com/docs/getting-started/deployment',
+    )
+  })
+
+  it('should prefix a diagnostic whose code was moved to pluginCode', () => {
+    const error = Object.assign(new Error('Transform failed'), {
+      code: 'PLUGIN_ERROR',
+      pluginCode: 'NUXT_B7021',
+    })
+
+    expect((asActionableError(error) as Error).message).toBe('[NUXT_B7021] Transform failed')
+  })
+
+  it('should prefix a code-only diagnostic without a remedy', () => {
+    const error = Object.assign(new Error('2 routes failed to prerender.'), { name: 'NUXT_B1024' })
+
+    expect((asActionableError(error) as Error).message).toBe('[NUXT_B1024] 2 routes failed to prerender.')
   })
 })
 

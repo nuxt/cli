@@ -1,8 +1,11 @@
 import type { CommandDef, SubCommandsDef } from 'citty'
 
+import process from 'node:process'
+
 import { consola } from 'consola'
 
 import { asActionableError } from '../utils/errors'
+import { isRunningMain } from '../utils/running-main'
 
 type Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>)
 
@@ -49,7 +52,15 @@ export function withRemedy(command: CommandDef): CommandDef {
         catch (error) {
           // `@nuxt/vite-builder` can leave the console unwrapped when a build throws.
           consola.wrapConsole()
-          throw asActionableError(error)
+          const actionable = asActionableError(error)
+          if (actionable === undefined) {
+            // The CLI entry exits without reprinting; programmatic callers reject instead.
+            if (isRunningMain()) {
+              process.exit(1)
+            }
+            throw error
+          }
+          throw actionable
         }
       },
     },
