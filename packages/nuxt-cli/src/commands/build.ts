@@ -152,7 +152,7 @@ export default defineCommand({
       const elapsed = Date.now() - start
 
       const verbose = nuxt.options.logLevel === 'verbose'
-      const summary = await report.summary(verbose)
+      const summary = nuxt.options.logLevel === 'silent' ? undefined : await report.summary(verbose)
       if (summary) {
         logger.success(summary)
       }
