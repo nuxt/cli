@@ -213,6 +213,16 @@ describe('panel keys', () => {
     expect(mouse).toHaveLength(2)
   })
 
+  it('should read a report cut short behind a typed key once the rest arrives', async () => {
+    const { order, type } = attach()
+
+    await type('o\u001B[<65;1;1M\u001B[<65;1')
+    await type(';1M')
+    await type('p')
+
+    expect(order).toEqual(['o', 'mouse', 'mouse', 'p'])
+  })
+
   it('should read a mouse report that arrives in pieces', async () => {
     const { keys, mouse, type } = attach()
 

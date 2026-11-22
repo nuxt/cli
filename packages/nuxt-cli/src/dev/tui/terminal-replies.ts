@@ -86,9 +86,9 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
    * The whole chunk is suppressed, since `readline` has not turned it into keys
    * yet and there is no way to drop only part of it. Anything the reply did not
    * account for was typed, so it is put back to be read as keys of its own,
-   * ahead of the mouse reports that came `after` it.
+   * ahead of the mouse reports that came `after` it and a report `cut` short.
    */
-  function endReply(buffered: string, length: number, after: MouseReport[] = []): void {
+  function endReply(buffered: string, length: number, after: MouseReport[] = [], cut = ''): void {
     const typed = buffered.slice(length)
     clearTimeout(timer)
     timer = undefined
@@ -100,8 +100,15 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
       if (typed) {
         stdin.unshift(Buffer.from(typed, 'latin1'))
       }
-      for (const report of stopped ? [] : after) {
+      if (stopped) {
+        return
+      }
+      for (const report of after) {
         onMouse?.(report)
+      }
+      if (cut) {
+        replying = true
+        awaitRest(cut)
       }
     })
   }
@@ -139,9 +146,12 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
       }
     }
     if (end) {
-      typed += buffered.slice(end)
+      const rest = buffered.slice(end)
       replying = true
-      return PARTIAL_CSI_RE.test(typed) && !after.length ? awaitRest(typed) : endReply(typed, 0, after)
+      if (!PARTIAL_CSI_RE.test(rest)) {
+        return endReply(typed + rest, 0, after)
+      }
+      return typed ? endReply(typed, 0, after, rest) : awaitRest(rest)
     }
     const csi = CSI_REPLY_RE.exec(buffered)
     if (csi) {
