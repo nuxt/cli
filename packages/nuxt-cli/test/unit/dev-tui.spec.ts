@@ -3,6 +3,7 @@ import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
 import type { DevRoute } from '../../src/dev/utils'
 
+import { Buffer } from 'node:buffer'
 import process from 'node:process'
 import { consola } from 'consola'
 
@@ -43,6 +44,17 @@ vi.mock('../../src/utils/nitro', () => ({
   readNitroMajor: () => undefined,
 }))
 
+const ci = vi.hoisted(() => ({ override: undefined as boolean | undefined }))
+vi.mock('std-env', async (importOriginal) => {
+  const original = await importOriginal<typeof import('std-env')>()
+  return {
+    ...original,
+    get isCI() {
+      return ci.override ?? original.isCI
+    },
+  }
+})
+
 const copied: string[] = []
 vi.mock('tinyclip', () => ({
   writeText: (text: string) => {
@@ -57,6 +69,33 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs()
 })
+
+const OSC52_URL = `\u001B]52;c;${Buffer.from('http://localhost:3000/').toString('base64')}\u0007`
+
+async function withTerminalClipboardOnly(run: () => Promise<void>): Promise<void> {
+  const platform = Object.getOwnPropertyDescriptor(process, 'platform')!
+  const isTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
+  Object.defineProperty(process, 'platform', { value: 'linux', configurable: true })
+  Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+  vi.stubEnv('DISPLAY', '')
+  vi.stubEnv('WAYLAND_DISPLAY', '')
+  vi.stubEnv('WSL_DISTRO_NAME', '')
+  vi.stubEnv('TERM', 'tmux-256color')
+  ci.override = false
+  try {
+    await run()
+  }
+  finally {
+    ci.override = undefined
+    Object.defineProperty(process, 'platform', platform)
+    if (isTTY) {
+      Object.defineProperty(process.stdout, 'isTTY', isTTY)
+    }
+    else {
+      Reflect.deleteProperty(process.stdout, 'isTTY')
+    }
+  }
+}
 
 // eslint-disable-next-line no-control-regex
 const strip = (text: string) => text.replaceAll(/\u001B\[[0-9;]*m|\u001B\]8;[^\u0007]*\u0007/g, '')
@@ -1618,6 +1657,21 @@ describe('log overlay', () => {
     await vi.waitFor(() => expect(copied).toHaveLength(1))
     expect(copied[0]).toBe(`${new Date(time).toLocaleTimeString()} ${message}`)
     overlay.close()
+  })
+
+  it('copies through the terminal when no clipboard tool can be reached', async () => {
+    await withTerminalClipboardOnly(async () => {
+      const events = new DevEventLog()
+      events.push(event({ message: 'http://localhost:3000/' }))
+      const { overlay, output, lastFrame } = create(events)
+      overlay.open()
+      overlay.handleKey({ name: 'up' })
+      overlay.handleKey({ name: 'y' })
+      await vi.waitFor(() => expect(strip(lastFrame())).toContain('copied to clipboard'))
+      expect(output()).toContain(']52;c;')
+      expect(copied).toHaveLength(0)
+      overlay.close()
+    })
   })
 
   it('resumes following and clears the selection when filters change', () => {
@@ -3323,6 +3377,14 @@ describe('panel shortcut routing', () => {
     finally {
       process.off('SIGQUIT', quit)
     }
+  })
+
+  it('copies the server URL through the terminal when no clipboard tool can be reached', async () => {
+    await withTerminalClipboardOnly(() => withPanel(async (_ui, settle, session) => {
+      process.stdin.emit('keypress', 'y', { name: 'y', sequence: 'y' })
+      await vi.waitFor(() => expect(session.state.notice?.text).toBe('copied http://localhost:3000/ to the clipboard'))
+      expect(await settle()).toContain(OSC52_URL)
+    }))
   })
 
   it('hides unavailable restart shortcuts and reports their use', async () => {

@@ -10,10 +10,10 @@ import { defineCommand } from 'citty'
 
 import { readPackageJSON } from 'pkg-types'
 import { isBun, isDeno, isMinimal } from 'std-env'
-import { writeText } from 'tinyclip'
 import { version as nuxiVersion } from '../../package.json'
 
 import { getBuilder } from '../utils/banner'
+import { writeClipboard } from '../utils/clipboard'
 import { printJson } from '../utils/console'
 import { formatInfoBox } from '../utils/formatting'
 import { logger } from '../utils/logger'
@@ -151,7 +151,7 @@ export default defineCommand({
     const boxStr = formatInfoBox(infoObj)
 
     const copyStr = formatMarkdownTable(infoObj)
-    const copied = !isMinimal && await writeText(copyStr).then(() => true).catch(() => false)
+    const copied = !isMinimal && await writeClipboard(copyStr)
 
     if (copied) {
       box(
