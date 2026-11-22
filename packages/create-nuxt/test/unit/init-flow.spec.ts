@@ -261,6 +261,15 @@ describe('package manager selection', () => {
     expect(runInstall).not.toHaveBeenCalled()
   })
 
+  it('should suggest installing with the template\'s package manager after a conflict', async () => {
+    stubTemplate({ 'pnpm-lock.yaml': '' })
+
+    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+
+    expect(output).toContain('› pnpm install')
+    expect(output).toContain('› pnpm run dev')
+  })
+
   it('should opt a yarn project out of plug and play', async () => {
     const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=yarn', '--gitInit=false', '--no-modules'])
 

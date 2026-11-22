@@ -748,9 +748,12 @@ export default defineCommand({
       dir: projectDir,
       shell: !!ctx.args.shell,
       installFailure,
-      installSkipped: !installRequested && !skipInstallOnConflict,
+      installSkipped: !installRequested || skipInstallOnConflict,
       recoveryCommands,
-      packageManager: selectedPackageManager,
+      // the requested package manager would run against the template's lockfile and config
+      packageManager: skipInstallOnConflict
+        ? (templatePackageManager?.name ?? selectedPackageManager)
+        : selectedPackageManager,
     })
 
     logger.message([
