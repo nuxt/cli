@@ -566,7 +566,6 @@ export class DevProgress extends PhaseTimeline {
     res.statusCode = 200
     res.setHeader('Content-Type', 'text/event-stream')
     res.setHeader('Cache-Control', 'no-store')
-    res.setHeader('Connection', 'keep-alive')
     res.setHeader('X-Accel-Buffering', 'no')
     res.flushHeaders?.()
     res.write('retry: 1000\n\n')

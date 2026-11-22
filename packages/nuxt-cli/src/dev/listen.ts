@@ -1,10 +1,12 @@
-import type { Server as HttpServer, RequestListener } from 'node:http'
-import type { AddressInfo } from 'node:net'
+import type { Server as HttpServer, IncomingHttpHeaders, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { Http2SecureServer, ServerHttp2Session } from 'node:http2'
+import type { AddressInfo, Socket } from 'node:net'
 import type { HTTPSOptions, ResolvedCertificate } from './cert'
 import type { Tunnel } from './tunnel'
 
 import { spawn } from 'node:child_process'
 import { createServer as createHttpServer } from 'node:http'
+import { createSecureServer as createHttp2SecureServer } from 'node:http2'
 import { createServer as createHttpsServer } from 'node:https'
 import { networkInterfaces } from 'node:os'
 import process from 'node:process'
@@ -45,6 +47,11 @@ export interface ListenOptions {
   public?: boolean
   publicURL?: string
   https?: boolean | HTTPSOptions
+  /**
+   * Serve `https` over HTTP/2, with HTTP/1.1 for clients that do not negotiate it.
+   * @default true
+   */
+  http2?: boolean
 }
 
 export interface ListenURL {
@@ -67,7 +74,7 @@ export interface Listener {
   /** URL the startup QR code was (or would have been) rendered for. */
   qrURL?: string
   address: AddressInfo
-  server: HttpServer
+  server: HttpServer | Http2SecureServer
   https: false | ResolvedCertificate
   close: () => Promise<void>
   getURLs: () => ListenURL[]
@@ -181,9 +188,9 @@ function isNetworkBaseAddress(address: string, cidr: string | null | undefined):
  * into the legacy provider, which Node does not load, so such keystores fail
  * with `ERR_CRYPTO_UNSUPPORTED_OPERATION`.
  */
-function createSecureServer(certificate: ResolvedCertificate, handler: RequestListener): HttpServer {
+function createSecureServer(certificate: ResolvedCertificate, handler: RequestListener, http2: boolean): HttpServer | Http2SecureServer {
   try {
-    return createHttpsServer(certificate, handler)
+    return http2 ? createHttp2Server(certificate, handler) : createHttpsServer(certificate, handler)
   }
   catch (error) {
     if (certificate.pfx && (error as NodeJS.ErrnoException)?.code === 'ERR_CRYPTO_UNSUPPORTED_OPERATION') {
@@ -199,9 +206,70 @@ function createSecureServer(certificate: ResolvedCertificate, handler: RequestLi
   }
 }
 
+interface Http2Connections {
+  sessions: Set<ServerHttp2Session>
+  sockets: Set<Socket>
+}
+
+/** Open sessions and sockets of each HTTP/2 server, which Node does not expose. */
+const http2Connections = new WeakMap<HttpServer | Http2SecureServer, Http2Connections>()
+
+function createHttp2Server(certificate: ResolvedCertificate, handler: RequestListener): Http2SecureServer {
+  const server = createHttp2SecureServer({
+    // A page in development requests hundreds of modules at once, which
+    // exceeds Node's default session memory (`ENHANCE_YOUR_CALM`) and stream
+    // reset limits (`ERR_HTTP2_PROTOCOL_ERROR`).
+    maxSessionMemory: 1000,
+    streamResetBurst: 100_000,
+    streamResetRate: 33,
+    ...certificate,
+    allowHTTP1: true,
+  }, (request, response) => {
+    const req = request as unknown as IncomingMessage
+    if (req.httpVersionMajor >= 2) {
+      hidePseudoHeaders(req)
+    }
+    handler(req, response as unknown as ServerResponse)
+  })
+
+  const sessions = new Set<ServerHttp2Session>()
+  const sockets = new Set<Socket>()
+  server.on('session', (session) => {
+    sessions.add(session)
+    session.once('close', () => sessions.delete(session))
+  })
+  server.on('connection', (socket: Socket) => {
+    sockets.add(socket)
+    socket.once('close', () => sockets.delete(socket))
+  })
+  http2Connections.set(server, { sessions, sockets })
+
+  return server
+}
+
+/**
+ * HTTP/2 requests list `:method`, `:path`, `:scheme` and `:authority` among
+ * their headers. These are not valid header names for `Headers` or for an
+ * HTTP/1.1 request, so they are left out of `req.headers`, with `:authority`
+ * provided as `host`.
+ */
+function hidePseudoHeaders(req: IncomingMessage): void {
+  const headers: IncomingHttpHeaders = Object.create(null)
+  for (const name in req.headers) {
+    if (!name.startsWith(':')) {
+      headers[name] = req.headers[name]
+    }
+  }
+  const authority = req.headers[':authority']
+  if (typeof authority === 'string') {
+    headers.host = authority
+  }
+  Object.defineProperty(req, 'headers', { value: headers, configurable: true, writable: true })
+}
+
 /** A bound socket, before any URL resolution, tunnel or console output. */
 export interface BoundServer {
-  server: HttpServer
+  server: HttpServer | Http2SecureServer
   address: AddressInfo
   https: false | ResolvedCertificate
   hostname: string
@@ -228,7 +296,7 @@ export async function bindListener(handler: RequestListener, options: ListenOpti
     ? await import('./cert').then(({ resolveCertificate }) => resolveCertificate(httpsOptions))
     : false
   const server = certificate
-    ? createSecureServer(certificate, handler)
+    ? createSecureServer(certificate, handler, options.http2 !== false)
     : createHttpServer(handler)
 
   await bindServer(server, port, hostname, !!options.reusePort).catch((error) => {
@@ -388,7 +456,7 @@ export async function listen(handler: RequestListener, options: ListenOptions = 
   }
 }
 
-function closeServer(server: HttpServer): Promise<void> {
+function closeServer(server: HttpServer | Http2SecureServer): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let forceClose: NodeJS.Timeout | undefined
     server.close((error) => {
@@ -402,15 +470,27 @@ function closeServer(server: HttpServer): Promise<void> {
         resolve()
       }
     })
-    // Sockets waiting on keep-alive are closed at once, so shutdown is only
-    // delayed while a request is actually being served.
-    server.closeIdleConnections?.()
-    forceClose = setTimeout(() => server.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+    // Sockets waiting on keep-alive and HTTP/2 sessions without open streams
+    // are closed at once, so shutdown is only delayed while a request is
+    // actually being served.
+    const http2 = http2Connections.get(server)
+    if (http2) {
+      // `close()` has closed the idle HTTP/1.1 sockets of an HTTP/2 server.
+      for (const session of http2.sessions) {
+        session.close()
+      }
+      forceClose = setTimeout(() => http2.sockets.forEach(socket => socket.destroy()), CONNECTION_DRAIN_TIMEOUT_MS)
+    }
+    else {
+      const http1 = server as HttpServer
+      http1.closeIdleConnections?.()
+      forceClose = setTimeout(() => http1.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+    }
     forceClose.unref()
   })
 }
 
-function bindServer(server: HttpServer, port: number, hostname: string, reusePort: boolean): Promise<void> {
+function bindServer(server: HttpServer | Http2SecureServer, port: number, hostname: string, reusePort: boolean): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const onError = (error: NodeJS.ErrnoException) => {
       if (reusePort && isUnsupportedOptionError(error)) {

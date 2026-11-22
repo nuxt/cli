@@ -128,6 +128,8 @@ The same lock file is how [`nuxt curl`](/docs/api/commands/curl) and [`nuxt task
 
 `--https` serves over TLS, generating a locally-trusted certificate with `mkcert` when it is installed and a self-signed one otherwise. `--https.cert` and `--https.key` use a certificate you already have, and `--https.pfx` with `--https.passphrase` a PKCS#12 keystore.
 
+Requests are served over HTTP/2, so the browser loads the modules of a page in parallel on a single connection. HTTP/1.1 remains available for WebSockets and for clients without HTTP/2. Projects on Nitro older than 2.13.3 are served over HTTP/1.1 only.
+
 ::note
 Node does not read your system trust store, so requests made from Node to a server using a generated certificate will not trust it. Set `NODE_EXTRA_CA_CERTS` to the certificate authority that issued it.
 ::

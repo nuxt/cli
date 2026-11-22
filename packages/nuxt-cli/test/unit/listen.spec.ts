@@ -1,7 +1,13 @@
-import type { BoundServer, Listener } from '../../src/dev/listen'
+import type { IncomingHttpHeaders, RequestListener } from 'node:http'
+import type { ClientHttp2Session, ClientHttp2Stream } from 'node:http2'
+import type { BoundServer, Listener, ListenOptions } from '../../src/dev/listen'
 
+import { connect as connectHttp2 } from 'node:http2'
+import { Agent as HttpsAgent, request as requestHttps } from 'node:https'
 import { connect } from 'node:net'
 import { networkInterfaces } from 'node:os'
+import { connect as connectTls } from 'node:tls'
+import { fileURLToPath } from 'node:url'
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -469,6 +475,181 @@ describe('listener.close', () => {
     await listener.close()
 
     expect(Date.now() - start).toBeLessThan(500)
+  })
+})
+
+describe('listen over https', () => {
+  const certs = fileURLToPath(new URL('../../../../playground/certs/', import.meta.url))
+  const https = { cert: `${certs}cert.dummy`, key: `${certs}key.dummy` }
+
+  const listeners: Listener[] = []
+  const sessions: ClientHttp2Session[] = []
+
+  afterEach(async () => {
+    for (const session of sessions.splice(0)) {
+      session.destroy()
+    }
+    await Promise.all(listeners.splice(0).filter(listener => listener.server.listening).map(listener => listener.close()))
+  })
+
+  async function start(handler: RequestListener, options: ListenOptions = {}) {
+    const listener = await listen(handler, { port: 0, hostname: '127.0.0.1', showURL: false, https, ...options })
+    listeners.push(listener)
+    return listener
+  }
+
+  function openSession(listener: Listener): Promise<ClientHttp2Session> {
+    return new Promise((resolve, reject) => {
+      const session = connectHttp2(listener.url, { rejectUnauthorized: false })
+      sessions.push(session)
+      session.once('connect', () => resolve(session))
+      session.once('error', reject)
+    })
+  }
+
+  function readStream(stream: ClientHttp2Stream): Promise<string> {
+    return new Promise((resolve, reject) => {
+      let body = ''
+      stream.setEncoding('utf8')
+      stream.on('data', chunk => body += chunk)
+      stream.once('end', () => resolve(body))
+      stream.once('error', reject)
+    })
+  }
+
+  function requestHttp1(listener: Listener, agent: HttpsAgent | false = false): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const req = requestHttps(listener.url, { rejectUnauthorized: false, agent }, (res) => {
+        let body = ''
+        res.setEncoding('utf8')
+        res.on('data', chunk => body += chunk)
+        res.once('end', () => resolve(body))
+      })
+      req.once('error', reject)
+      req.end()
+    })
+  }
+
+  function negotiateProtocol(listener: Listener): Promise<string | false | null> {
+    return new Promise((resolve, reject) => {
+      const socket = connectTls({ host: '127.0.0.1', port: listener.address.port, rejectUnauthorized: false, ALPNProtocols: ['h2', 'http/1.1'] }, () => {
+        resolve(socket.alpnProtocol)
+        socket.destroy()
+      })
+      socket.once('error', reject)
+    })
+  }
+
+  it('should serve HTTP/2 and HTTP/1.1 requests', async () => {
+    const listener = await start((req, res) => res.end(req.httpVersion))
+    const session = await openSession(listener)
+
+    await expect(readStream(session.request({ ':path': '/' }))).resolves.toBe('2.0')
+    await expect(requestHttp1(listener)).resolves.toBe('1.1')
+  })
+
+  it('should provide `:authority` as `host` without the other pseudo-headers', async () => {
+    const listener = await start((req, res) => res.end(JSON.stringify({ method: req.method, url: req.url, headers: req.headers })))
+    const session = await openSession(listener)
+    const authority = `127.0.0.1:${listener.address.port}`
+
+    const request = async (headers: IncomingHttpHeaders) => JSON.parse(await readStream(session.request({ ':method': 'POST', ':path': '/path?query', ...headers }).end()))
+
+    await expect(request({ 'x-test': 'value' })).resolves.toEqual({
+      method: 'POST',
+      url: '/path?query',
+      headers: { 'host': authority, 'x-test': 'value' },
+    })
+    await expect(request({ ':authority': authority, 'host': 'other.test' })).resolves.toMatchObject({ headers: { host: authority } })
+  })
+
+  it('should serve HTTP/1.1 only when `http2` is disabled', async () => {
+    const listener = await start((req, res) => res.end(req.httpVersion), { http2: false })
+
+    await expect(negotiateProtocol(listener)).resolves.not.toBe('h2')
+    await expect(requestHttp1(listener)).resolves.toBe('1.1')
+    await expect(negotiateProtocol(await start((_req, res) => res.end('ok')))).resolves.toBe('h2')
+  })
+
+  it('should let an in-flight HTTP/2 request finish', async () => {
+    let respond: (() => void) | undefined
+    const listener = await start((_req, res) => {
+      respond = () => res.end('done')
+    })
+    const session = await openSession(listener)
+
+    const body = readStream(session.request({ ':path': '/' }))
+    await vi.waitFor(() => expect(respond).toBeDefined())
+
+    const closed = listener.close()
+    respond!()
+
+    await expect(body).resolves.toBe('done')
+    await closed
+  })
+
+  it('should pass HTTP/1.1 upgrade requests to `upgrade` listeners', async () => {
+    const listener = await start((_req, res) => res.end('ok'))
+    listener.server.on('upgrade', (_req, socket) => {
+      socket.end('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')
+    })
+
+    const status = new Promise((resolve, reject) => {
+      const req = requestHttps(listener.url, { rejectUnauthorized: false, agent: false, headers: { connection: 'Upgrade', upgrade: 'websocket' } })
+      req.once('upgrade', (res, socket) => {
+        socket.destroy()
+        resolve(res.statusCode)
+      })
+      req.once('error', reject)
+      req.end()
+    })
+
+    await expect(status).resolves.toBe(101)
+  })
+
+  it('should not wait for idle keep-alive connections', async () => {
+    const listener = await start((_req, res) => res.end('ok'))
+    const agent = new HttpsAgent({ keepAlive: true })
+
+    try {
+      await requestHttp1(listener, agent)
+
+      const closing = Date.now()
+      await listener.close()
+
+      expect(Date.now() - closing).toBeLessThan(500)
+    }
+    finally {
+      agent.destroy()
+    }
+  })
+
+  it('should not wait for idle HTTP/2 sessions', async () => {
+    const listener = await start((_req, res) => res.end('ok'))
+    const session = await openSession(listener)
+    await readStream(session.request({ ':path': '/' }))
+
+    const closing = Date.now()
+    await listener.close()
+
+    expect(Date.now() - closing).toBeLessThan(500)
+  })
+
+  it('should end HTTP/2 streams that outlive the drain timeout', async () => {
+    const listener = await start((_req, res) => {
+      res.write('open')
+    })
+    const session = await openSession(listener)
+    session.on('error', () => {})
+    const stream = session.request({ ':path': '/' })
+    stream.on('error', () => {})
+    const ended = new Promise(resolve => stream.once('close', resolve))
+    await new Promise(resolve => stream.once('data', resolve))
+
+    await listener.close()
+    await ended
+
+    expect(stream.destroyed).toBe(true)
   })
 })
 

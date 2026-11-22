@@ -5,6 +5,7 @@ import type { createDevServer } from 'nitro/builder'
 import type { NitroDevServer } from 'nitropack'
 import type { FSWatcher } from 'node:fs'
 import type { Server as HttpServer, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { Http2SecureServer } from 'node:http2'
 import type { PendingRender } from '../utils/progress-snapshot'
 
 import type { ResolvedCertificate } from './cert'
@@ -35,7 +36,7 @@ import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
-import { readNitroMajor } from '../utils/nitro'
+import { readNitroMajor, supportsHttp2 } from '../utils/nitro'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { getServerBuilderId, resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
@@ -144,7 +145,7 @@ type HmrOptions = Exclude<ViteServerOptions['hmr'], boolean>
  * vite >= 8.1 reads `server.ws`; older versions only read `server.hmr`.
  * Returns the websocket path, which is set on both.
  */
-export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer): string | undefined {
+export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpServer | Http2SecureServer): string | undefined {
   const target = server as Omit<ViteServerOptions, 'ws'> & { ws?: HmrOptions | boolean }
   const path = (target.ws as HmrOptions | undefined)?.path ?? (target.hmr as HmrOptions | undefined)?.path
   target.ws = {
@@ -1001,6 +1002,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname: overrides.hostname ?? hint?.hostname,
       baseURL: hint?.baseURL,
       https: httpsEnabled ? overrides.https : undefined,
+      http2: httpsEnabled && this.#supportsHttp2(),
       showURL: false,
       open: false,
       clipboard: false,
@@ -1103,6 +1105,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
   }
 
+  #supportsHttp2(): boolean {
+    return this.options.listenOverrides?.http2 !== false && supportsHttp2(this.options.cwd)
+  }
+
   #resolveListenOptions(): ListenOptions {
     if (!this.#currentNuxt) {
       throw new Error('Nuxt must be loaded before resolving listen options')
@@ -1135,6 +1141,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname,
       public: isPublic,
       https: https || undefined,
+      http2: !!https && this.#supportsHttp2(),
       baseURL,
     }
   }
@@ -1226,6 +1233,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       }
     })
 
+    // @ts-expect-error the hook is typed for `http.Server`/`https.Server`
     await this.#currentNuxt.hooks.callHook('listen', this.listener.server, this.listener)
 
     // Sync internal server info to the internals BEFORE building

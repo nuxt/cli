@@ -1,8 +1,12 @@
+import type { Nuxt } from '@nuxt/schema'
+import type { ClientHttp2Session } from 'node:http2'
 import { readFile, rm } from 'node:fs/promises'
+import { connect as connectHttp2 } from 'node:http2'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { getPort } from 'get-port-please'
+import { eventHandler } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { runCommand } from '../../src'
 import { NuxtDevServer } from '../../src/dev/utils'
@@ -16,6 +20,45 @@ const certsDir = fileURLToPath(new URL('../../../../playground/certs', import.me
 const httpsCert = join(certsDir, 'cert.dummy')
 const httpsKey = join(certsDir, 'key.dummy')
 const httpsPfx = join(certsDir, 'pfx.dummy')
+
+/** Request `path` as JSON over `session`, retrying while the server is still starting. */
+async function requestHttp2(session: ClientHttp2Session, path: string, timeout = 30_000): Promise<unknown> {
+  const deadline = Date.now() + timeout
+  let failure: unknown
+  do {
+    try {
+      return JSON.parse(await new Promise<string>((resolve, reject) => {
+        const stream = session.request({ ':path': path })
+        let status: number | undefined
+        let body = ''
+        stream.setEncoding('utf8')
+        stream.once('response', (headers) => {
+          status = headers[':status']
+        })
+        stream.on('data', chunk => body += chunk)
+        stream.once('error', reject)
+        stream.once('end', () => status === 200 ? resolve(body) : reject(new Error(`${path} responded with ${status}: ${body}`)))
+      }))
+    }
+    catch (error) {
+      failure = error
+      await sleep(100)
+    }
+  } while (Date.now() < deadline)
+  throw failure
+}
+
+/** Request `path` over `session` for `authority`, resolving with the response status. */
+function requestHttp2Status(session: ClientHttp2Session, path: string, authority: string): Promise<number | undefined> {
+  return new Promise((resolve, reject) => {
+    const stream = session.request({ ':path': path, ':authority': authority })
+    stream.once('response', (headers) => {
+      resolve(headers[':status'])
+      stream.close()
+    })
+    stream.once('error', reject)
+  })
+}
 
 describe('dev server', () => {
   afterEach(() => {
@@ -320,6 +363,64 @@ describe('dev server', () => {
       expect(https).toBeTruthy()
       expect(https.cert.split(NEWLINE_RE)).toEqual(httpsCertValue)
       expect(https.key.split(NEWLINE_RE)).toEqual(httpsKeyValue)
+    })
+
+    it('should serve the app and dev server handlers over HTTP/2', { timeout: 50_000 }, async () => {
+      await rm(join(fixtureDir, '.nuxt'), { recursive: true, force: true })
+      const host = '127.0.0.1'
+      const port = await getPort({ host, port: 3605 })
+      const { result: { close } } = await runCommand('dev', [
+        `--https`,
+        `--https.cert=${httpsCert}`,
+        `--https.key=${httpsKey}`,
+        `--host=${host}`,
+        `--port=${port}`,
+        `--cwd=${fixtureDir}`,
+      ], {
+        overrides: {
+          modules: [
+            (_: unknown, nuxt: Nuxt) => {
+              nuxt.options.devServerHandlers.push({
+                route: '/__test/host',
+                handler: eventHandler(event => ({ host: event.headers.get('host') })),
+              })
+            },
+          ],
+        },
+      }) as any
+
+      const session = connectHttp2(`https://${host}:${port}`, { rejectUnauthorized: false })
+      try {
+        await expect(requestHttp2(session, '/__test/host')).resolves.toEqual({ host: `${host}:${port}` })
+        await expect(requestHttp2(session, '/api/test-cookies')).resolves.toEqual({ ok: true, cookies: 3 })
+      }
+      finally {
+        session.destroy()
+        await close()
+      }
+    })
+
+    it('should reject internal endpoints for an unknown `:authority`', { timeout: 50_000 }, async () => {
+      const host = '127.0.0.1'
+      const port = await getPort({ host, port: 3606 })
+      const { result: { close } } = await runCommand('dev', [
+        `--https`,
+        `--https.cert=${httpsCert}`,
+        `--https.key=${httpsKey}`,
+        `--host=${host}`,
+        `--port=${port}`,
+        `--cwd=${fixtureDir}`,
+      ]) as any
+
+      const session = connectHttp2(`https://${host}:${port}`, { rejectUnauthorized: false })
+      try {
+        await expect(requestHttp2Status(session, '/__nuxt_dev__/progress', 'rebinding-attacker.com')).resolves.toBe(403)
+        await expect(requestHttp2Status(session, '/__nuxt_dev__/progress', `${host}:${port}`)).resolves.toBe(200)
+      }
+      finally {
+        session.destroy()
+        await close()
+      }
     })
 
     it('should be disabled from commandline', { timeout: 50_000 }, async () => {

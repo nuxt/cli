@@ -30,6 +30,9 @@ const NITRO_MAJOR_PKGS: Record<2 | 3, string> = { 2: 'nitropack', 3: 'nitro' }
 /** The first Nuxt minor to resolve `_nitroMajor`. */
 const NITRO_MAJOR_NUXT_VERSION = '4.7.0'
 
+/** The first Nitro release whose dev server proxies HTTP/2 requests to its worker. */
+const HTTP2_NITRO_VERSION = '2.13.3'
+
 interface NitroCandidate {
   /** The name Nitro is installed under. */
   name: string
@@ -177,6 +180,15 @@ function getInstalledVersion(cwd: string, candidates: NitroCandidate[]): string 
  */
 export function getNitroVersion(cwd: string, nitroMajor?: 2 | 3): string {
   return getInstalledVersion(cwd, getNitroCandidates(cwd, nitroMajor))
+}
+
+/**
+ * Whether the project's Nitro can sit behind an HTTP/2 dev server, which is
+ * assumed when no Nitro version can be read.
+ */
+export function supportsHttp2(cwd: string): boolean {
+  const version = coerce(getNitroVersion(cwd, resolveNitroMajor(cwd)))
+  return !version || compare(version, HTTP2_NITRO_VERSION) >= 0
 }
 
 /**
