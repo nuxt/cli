@@ -59,6 +59,28 @@ describe('capture fingerprint', () => {
   }
 })
 
+describe('scrubbing the log view clock', () => {
+  const muted = '\u001B[90m'
+  const reset = '\u001B[39m'
+  const log = (rows: string[]) => buildFingerprint([{ at: 0, data: rows.join('\r\n') }], { rows: 24, scrubRules: ['dates', 'clock'] })
+
+  it('should not depend on which rows the time was printed on', () => {
+    const shown = log([`  ${muted}14:42:32${reset} Vite server built`, `  ${muted}14:42:33${reset} [nitro] built`])
+    const blank = log([`  ${muted}14:42:32${reset} Vite server built`, `${' '.repeat(11)}[nitro] built`])
+    expect(blank).toBe(shown)
+  })
+
+  it('should blank the time before an indented message', () => {
+    expect(log([`  ${muted}14:42:32${reset}   ➜ DevTools`])).toBe(log([`${' '.repeat(13)}➜ DevTools`]))
+  })
+
+  it('should keep the gutter and indentation of continuation rows', () => {
+    const lines = log([`\u001B[32m▎ \u001B[39m${muted}14:42:32${reset} selected`, `${' '.repeat(13)}continued`]).split('\n')
+    expect(lines).toContain(`▎${' '.repeat(10)}selected`)
+    expect(lines).toContain(`${' '.repeat(13)}continued`)
+  })
+})
+
 describe('scrubbing a right-aligned tag', () => {
   const TAG = 'nitro'
   const WIDTH = 96

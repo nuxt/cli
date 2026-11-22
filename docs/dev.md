@@ -81,7 +81,7 @@ In an interactive terminal, `nuxt dev` renders a pinned panel: the server URLs, 
 | `y`         | Copy the server URL to the clipboard          |
 | `i`         | Show versions, URLs, QR code and session info |
 | `l`         | Browse the log history                        |
-| `e`         | Open the logs at the last error               |
+| `e`         | Show the last error in full                   |
 | `n`         | Browse served requests                        |
 | `p`         | Browse pages and server routes                |
 | `c`         | Clear logs, requests and the console          |
@@ -89,6 +89,14 @@ In an interactive terminal, `nuxt dev` renders a pinned panel: the server URLs, 
 | `q`         | Quit                                          |
 
 Inside a view, `y` copies the selected row and `shift-y` copies every row the filters and search leave, keeping the newest when there is too much to paste. In the info view, `shift-y` copies the [`nuxt info`](/docs/api/commands/info) table instead.
+
+### Reading logs
+
+In the log view (`l`), each log takes one row, ending with how many more rows it has. The selected log expands in place, wrapped to the terminal, so moving through the list with `↑`/`↓` reads each one in full. Press `enter` to show the selected log on its own: `↑`/`↓` scroll it, `←`/`→` step to the previous or next log, and `esc` goes back to the list.
+
+A log's time is shown when it differs from the row above. Press `shift-t` to hide timestamps and give the logs the full width.
+
+![nuxt dev browsing logs](/capture/output/nuxt-dev-logs.svg)
 
 ### Tracing a request
 

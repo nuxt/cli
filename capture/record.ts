@@ -158,7 +158,7 @@ async function runCapture(capture: Capture): Promise<void> {
   // the SVG deliberately keeps real, so a re-recording only replaces the SVG
   // when the CLI's actual content changed.
   if (!values['no-scrub']) {
-    const fingerprintRules = [...new Set([...scrubRules, ...FINGERPRINT_RULES])]
+    const fingerprintRules = [...new Set([...scrubRules, ...FINGERPRINT_RULES, ...capture.fingerprint ?? []])]
     const fingerprint = buildFingerprint(session.chunks, { rows, scrubRules: fingerprintRules })
     const fingerprintTarget = join(values.out!, `${capture.id}.txt`)
     let existing: string | undefined

@@ -36,6 +36,7 @@ import { LOGO_FRAME_MS } from './logo'
 import { LogOverlay } from './overlay'
 import { describeListenURLs, URL_LABELS, URL_STYLES } from './panel'
 import { readProjectReport } from './project-report'
+import { formatReport } from './report-format'
 import { RequestOverlay } from './request-overlay'
 import { RequestLog } from './requests'
 import { RouteOverlay } from './route-overlay'
@@ -357,7 +358,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice) },
     { keys: ['c'], description: 'clear the console without deleting history', action: () => clearConsole(surface) },
     { keys: ['x'], description: 'delete log and request history', action: clearHistory },
-    { keys: ['e'], description: 'open the logs at the last error', action: () => {
+    { keys: ['e'], description: 'show the last error in full', action: () => {
       surface.screenMode = 'alternate-screen'
       overlay.openAtLastError()
     } },
@@ -425,7 +426,8 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     for (const held of [...heldNotices]) {
       dismissHeld(held)
     }
-    if (key.meta) {
+    // Node reports a lone escape with `meta` set.
+    if (key.meta && key.name !== 'escape') {
       return
     }
     if (key.ctrl) {
@@ -643,6 +645,7 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         type: 'error',
         message: report.ansi,
         rendered: report.ansi,
+        format: formatReport(report),
         styled: true,
         source: 'runtime',
         request: report.request,

@@ -174,6 +174,7 @@ export class RequestOverlay extends ScreenOverlay {
     return [...summary, ...events.map(event => ({
       key: event,
       lines: formatEvent(event, columns, true),
+      expand: () => formatEvent(event, columns, true, { expanded: true }),
       copy: [formatTime(event.time), event.message].filter(Boolean).join(' '),
     }))]
   }

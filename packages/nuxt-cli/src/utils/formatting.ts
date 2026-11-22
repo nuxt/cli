@@ -13,6 +13,7 @@ export function terminalLink(label: string, url: string, options: { stream?: { i
 
 // eslint-disable-next-line no-control-regex
 const ANSI_RE = /\u001B\[[0-9;]*m|\u001B\]8;[^\u0007]*\u0007/g
+const ANSI_AT_RE = new RegExp(ANSI_RE.source, 'y')
 // eslint-disable-next-line no-control-regex
 const CONTROL_RE = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g
 // eslint-disable-next-line no-control-regex
@@ -100,6 +101,146 @@ export function truncate(text: string, columns: number): string {
     visible += width
   }
   return `${text.slice(0, index)}\u2026${linked ? LINK_TERMINATOR : ''}${styled ? '\u001B[0m' : ''}`
+}
+
+/**
+ * Wrap each line of `text` to `columns`, breaking at spaces where possible.
+ * Continuation rows keep the line's own indentation, and styling or a link
+ * that spans a break is closed at the end of the row and reopened on the next.
+ */
+export function wrapText(text: string, columns: number): string[] {
+  const width = Math.max(1, columns)
+  return text.split('\n').flatMap(line => wrapLine(line, width))
+}
+
+interface Atom {
+  text: string
+  /** Absent on an escape sequence. */
+  width?: number
+}
+
+function atomise(line: string): Atom[] {
+  const atoms: Atom[] = []
+  let index = 0
+  while (index < line.length) {
+    ANSI_AT_RE.lastIndex = index
+    const match = ANSI_AT_RE.exec(line)
+    if (match) {
+      atoms.push({ text: match[0] })
+      index += match[0].length
+      continue
+    }
+    const char = String.fromCodePoint(line.codePointAt(index)!)
+    atoms.push({ text: char, width: char.charCodeAt(0) < 0x300 ? 1 : charWidth(char) })
+    index += char.length
+  }
+  return atoms
+}
+
+type SgrState = ReadonlyMap<string, string>
+
+const SGR_ON: Record<number, string> = { 1: 'bold', 2: 'dim', 3: 'italic', 4: 'underline', 5: 'blink', 7: 'inverse', 8: 'hidden', 9: 'strike' }
+const SGR_OFF: Record<number, string[]> = { 22: ['bold', 'dim'], 23: ['italic'], 24: ['underline'], 25: ['blink'], 27: ['inverse'], 28: ['hidden'], 29: ['strike'], 39: ['fg'], 49: ['bg'] }
+
+/** The attributes still active after `sequence`, keyed by what each one sets. */
+function applySgr(state: SgrState, sequence: string): SgrState {
+  const params = sequence.slice(2, -1).split(';').map(param => Number(param || 0))
+  const next = new Map(state)
+  for (let index = 0; index < params.length; index++) {
+    const code = params[index]!
+    if (code === 0) {
+      next.clear()
+    }
+    else if (SGR_ON[code]) {
+      next.set(SGR_ON[code], String(code))
+    }
+    else if (SGR_OFF[code]) {
+      SGR_OFF[code].forEach(slot => next.delete(slot))
+    }
+    else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) {
+      next.set('fg', String(code))
+    }
+    else if ((code >= 40 && code <= 47) || (code >= 100 && code <= 107)) {
+      next.set('bg', String(code))
+    }
+    else if ((code === 38 || code === 48) && (params[index + 1] === 5 || params[index + 1] === 2)) {
+      const length = params[index + 1] === 5 ? 3 : 5
+      next.set(code === 38 ? 'fg' : 'bg', params.slice(index, index + length).join(';'))
+      index += length - 1
+    }
+    else {
+      next.set(`other:${code}`, String(code))
+    }
+  }
+  return next
+}
+
+function wrapLine(line: string, columns: number): string[] {
+  if (visibleWidth(line) <= columns) {
+    return [line]
+  }
+  const leading = /^\s*/.exec(stripAnsi(line))![0].length
+  const hanging = ' '.repeat(leading < columns / 2 ? leading : 0)
+
+  const rows: string[] = []
+  let sgr: SgrState = new Map()
+  let link: string | undefined
+  let row = ''
+  let used = 0
+  /** The row holds something other than spaces, so breaking it makes progress. */
+  let worded = false
+  /** Where the row can be broken at its last space, and the state to resume with. */
+  let breakpoint: { at: number, used: number, atom: number, sgr: SgrState, link?: string } | undefined
+
+  const atoms = atomise(line)
+  const closing = (state: { sgr: SgrState, link?: string }) => `${state.link ? LINK_TERMINATOR : ''}${state.sgr.size ? '\u001B[0m' : ''}`
+  const reopen = (state: { sgr: SgrState, link?: string }) => `${hanging}${state.sgr.size ? `\u001B[${[...state.sgr.values()].join(';')}m` : ''}${state.link ?? ''}`
+
+  for (let index = 0; index < atoms.length; index++) {
+    const atom = atoms[index]!
+    if (atom.width === undefined) {
+      if (atom.text.startsWith('\u001B]8;')) {
+        link = atom.text === LINK_TERMINATOR ? undefined : atom.text
+      }
+      else {
+        sgr = applySgr(sgr, atom.text)
+      }
+      row += atom.text
+      continue
+    }
+    if (used + atom.width > columns && used > hanging.length) {
+      if (atom.text !== ' ' && breakpoint && breakpoint.used > hanging.length) {
+        const state = { sgr: breakpoint.sgr, link: breakpoint.link }
+        rows.push(row.slice(0, breakpoint.at).trimEnd() + closing(state))
+        row = reopen(state)
+        used = hanging.length
+        worded = false
+        sgr = state.sgr
+        link = state.link
+        index = breakpoint.atom
+        breakpoint = undefined
+        continue
+      }
+      rows.push(row.trimEnd() + closing({ sgr, link }))
+      row = reopen({ sgr, link })
+      used = hanging.length
+      worded = false
+      breakpoint = undefined
+      if (atom.text === ' ') {
+        continue
+      }
+    }
+    row += atom.text
+    used += atom.width
+    if (atom.text !== ' ') {
+      worded = true
+    }
+    else if (worded) {
+      breakpoint = { at: row.length, used, atom: index, sgr, link }
+    }
+  }
+  rows.push(row)
+  return rows
 }
 
 /** Lower-case a leading capital, leaving acronyms alone. */

@@ -1,0 +1,108 @@
+styles: 9b9e87c47014c335
+             ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
+           GET /api/checkout?cart=c_19be07
+           GET /api/checkout?cart=c_8f3a21
+           Plugin "nuxt:devtools:config-retriever" defines Vite-specific hooks (co… +2 lines ×2
+           Re-optimizing dependencies because vite config has changed
+           Vite client built in 42 ms
+           Vite server built in 42 ms
+           [checkout] loading cart c_19be07 with options {"currency":"EUR","locale":"… +2 lines
+           [checkout] loading cart c_8f3a21 with options {"currency":"EUR","locale":"… +2 lines
+           [checkout] prices for cart c_19be07 were cached more than 10 minutes ago, … +2 lines
+           [checkout] prices for cart c_8f3a21 were cached more than 10 minutes ago, … +2 lines
+           [nitro] Nuxt Nitro server built in 42 ms
+           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07… +13 lines
+           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21… +13 lines
+        │ ^
+      1 │ function applyDiscount(cart: string, code: string) {
+      3 │ }
+      4 │
+    [checkout] loading cart c_19be07 with options {"currency":"EUR","locale":"en-GB",… +2 lines
+    [checkout] loading cart c_8f3a21 with options {"currency":"EUR","locale":"en-GB",… +2 lines
+    [checkout] prices for cart c_19be07 were cached more than 10 minutes ago, recalcu… +2 lines
+    [checkout] prices for cart c_8f3a21 were cached more than 10 minutes ago, recalcu… +2 lines
+    at Object.handler server/api/checkout.ts:9:1
+    at applyDiscount server/api/checkout.ts:2:1
+    items already on sale)
+    with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with
+    … 5 framework frames
+    › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: the pricin…
+    ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21: the p… +13 lines
+   Local   http://localhost:3000/
+   Local   http://localhost:3000/ ⠋
+   ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 17% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 33% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 50% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 67% · 42 ms
+   ━━━━━━━━━━━━━━━━━━━━ 83% · 42 ms
+   ⚠ 1 warning
+   ⚠ 2 warnings
+   ⚠ 2 warnings   ✖ 1 error
+   ✔ 1 request   42 ms median   ⚠ 2 warnings   ✖ 1 error   ✖ 1 failed request
+   ✔ 1 request   42 ms median   ⚠ 3 warnings   ✖ 1 error   ✖ 1 failed request
+   ✔ 1 request   42 ms median   ⚠ 3 warnings   ✖ 2 errors   ✖ 1 failed request
+   ✔ 2 requests   42 ms median   ⚠ 3 warnings   ✖ 2 errors   ✖ 2 failed requests
+   ✔ 2 requests   42 ms median   ✖ 2 failed requests
+  ERROR   a request failed · press n to trace it · GET /api/checkout?cart=c_19be07 · 500 · 42 ms
+  ERROR   a request failed · press n to trace it · GET /api/checkout?cart=c_8f3a21 · 500 · 42 ms
+  ERROR   failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing service respo…
+  ERROR   failed to apply discount code SUMMER-2026 to cart c_8f3a21: the pricing service respo…
+  GET /api/checkout?cart=c_19be07
+  GET /api/checkout?cart=c_8f3a21
+  READY   watching for changes
+  STARTING   building server
+  STARTING   bundling app
+  STARTING   generating types
+  STARTING   preparing app
+  STARTING   preparing your app
+  STARTING   setting up modules
+  STARTING   starting Nuxt...
+  Vite server built in 42 ms
+  [nitro] Nuxt Nitro server built in 42 ms
+  service responded
+  ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing
+ e last error · r restart · o open · i info · l logs · n network · p routes · ? help · q quit
+ logs · cli+build+runtime · all levels
+ logs · follow paused · cli+build+runtime · all levels
+ logs › 12 of 12 · error · runtime · 12:00:00
+ o open · i info · l logs · n network · p routes · ? help · q quit
+ r restart · o open · i info · l logs · n network · p routes · ? help · q quit
+ ⣠⣦⣠⡀  Nuxt x.y.z
+ ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
+↑/↓ scroll · ←/→ previous/next · y copy · esc back
+↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · q close
+↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · q close ⣠⣦⣠⡀  Nuxt x.y.z
+────────────────────────────────────────────────────────────────────────────────────────────────
+▎
+▎                │ ^
+▎              1 │ function applyDiscount(cart: string, code: string) {
+▎              3 │ }
+▎              4 │
+▎            at Object.handler server/api/checkout.ts:9:1
+▎            at applyDiscount server/api/checkout.ts:2:1
+▎            be combined with items already on sale)
+▎            responded with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot
+▎            … 5 framework frames
+▎            › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: t…
+▎          "expand":true}
+▎          GET /api/checkout?cart=c_19be07
+▎          [checkout] loading cart c_19be07 with options
+▎          [checkout] prices for cart c_19be07 were cached more than 10 minutes ago,
+▎          https://pricing.example.com/v2/carts/c_19be07/recalculate?currency=EUR&include=tax
+▎          pricing service
+▎          recalculating totals against
+▎          {"currency":"EUR","locale":"en-GB","include":["items","discounts","shipping","tax"],
+▎          ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the
+▎         │ ^
+▎       1 │ function applyDiscount(cart: string, code: string) {
+▎       3 │ }
+▎       4 │
+▎     at Object.handler server/api/checkout.ts:9:1
+▎     at applyDiscount server/api/checkout.ts:2:1
+▎     items already on sale)
+▎     with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with
+▎     … 5 framework frames
+▎     › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: the pric…
+▎   service responded
+▎   ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing
