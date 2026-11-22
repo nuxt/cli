@@ -148,7 +148,7 @@ async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string
 
 async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath: string, name: string) {
   for (const packageJsonPath of await findPackageJsonFiles(rootDir, rootPackageJsonPath)) {
-    const pkg = await readPackageJSON(packageJsonPath, { try: true })
+    const pkg = await readPackageJSON(packageJsonPath, { try: true }).catch(() => null)
     if (!pkg) {
       continue
     }
