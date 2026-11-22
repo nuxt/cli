@@ -5,7 +5,7 @@ import type { InstallResult } from '../../nuxt-cli/src/utils/install'
 import type { TemplateData } from '../../nuxt-cli/src/utils/starter-templates'
 
 import { existsSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { readdir, writeFile } from 'node:fs/promises'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
@@ -117,6 +117,51 @@ export function getNextSteps(options: {
     ...recoveryCommands,
     `${packageManager} ${runCmd} dev`,
   ].filter((step): step is string => typeof step === 'string')
+}
+
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
+
+async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string) {
+  const packageJsonFiles: string[] = []
+  const queue = [rootDir]
+
+  while (queue.length > 0) {
+    const dir = queue.pop()!
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries) {
+      if (entry.name === 'node_modules') {
+        continue
+      }
+      const entryPath = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        queue.push(entryPath)
+      }
+      else if (entry.isFile() && entry.name === 'package.json' && resolve(entryPath) !== resolve(rootPackageJsonPath)) {
+        packageJsonFiles.push(entryPath)
+      }
+    }
+  }
+
+  return packageJsonFiles
+}
+
+async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath: string, name: string) {
+  for (const packageJsonPath of await findPackageJsonFiles(rootDir, rootPackageJsonPath)) {
+    const pkg = await readPackageJSON(packageJsonPath, { try: true })
+    if (!pkg) {
+      continue
+    }
+
+    for (const field of DEPENDENCY_FIELDS) {
+      const specifier = pkg[field]?.[name]
+      if (typeof specifier === 'string' && specifier.startsWith('workspace:')) {
+        return true
+      }
+    }
+  }
+
+  return false
 }
 
 export default defineCommand({
@@ -392,8 +437,12 @@ export default defineCommand({
               .replace(MULTI_DASH_RE, '-')
               .replace(LEADING_TRAILING_DASH_RE, '')
             if (slug) {
-              pkg.name = slug
-              await writePackageJSON(path, pkg)
+              const originalName = pkg.name
+              const hasDependent = slug !== originalName && await hasWorkspaceDependentOnName(template.dir, path, originalName)
+              if (!hasDependent) {
+                pkg.name = slug
+                await writePackageJSON(path, pkg)
+              }
             }
           }
         }

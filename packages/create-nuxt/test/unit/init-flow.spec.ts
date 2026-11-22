@@ -277,6 +277,62 @@ describe('package manager selection', () => {
   })
 })
 
+describe('renaming when a workspace depends on the package name', () => {
+  it('should keep the original name when a workspace package depends on it', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        devDependencies: { template: 'workspace:*' },
+      }),
+    })
+
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('template')
+  })
+
+  it('should keep the original name when the workspace specifier is a path', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { template: 'workspace:..' },
+      }),
+    })
+
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('template')
+  })
+
+  it('should rename the package when no workspace package depends on it', async () => {
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
+
+  it('should rename the package when a workspace package references it without the workspace protocol', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { template: 'link:..' },
+      }),
+    })
+
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    const playgroundPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'playground', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('cool-thing')
+    expect(playgroundPackageJson.dependencies.template).toBe('link:..')
+  })
+})
+
 describe('recovery advice', () => {
   it('should tell the user to install by hand when the install fails', async () => {
     runInstall.mockResolvedValue({ success: false, error: 'npm ERR! network timeout', output: 'npm ERR! network timeout', command: 'npm install', ignoredBuilds: [] })
