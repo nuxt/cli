@@ -9,9 +9,9 @@ import { resolveModulePath } from 'exsolve'
 import { isRemotePeerError } from './errors'
 import { debug } from './logger'
 import { tryResolveNuxt } from './resolve-nuxt'
-import { withStartupClockPaused } from './startup-clock'
+import { holdScreen, isScreenHeld } from './screen'
+import { withUserAttention } from './startup-clock'
 import { isInteractiveSession, trackOutputSpacing } from './stdout'
-import { useTerminalHost } from './terminal-host'
 
 function wrapReporter(reporter: ConsolaReporter) {
   return ({
@@ -86,9 +86,12 @@ export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
  * `Enter` arrives as a bare `\r`, which `readline` never treats as end of line,
  * so a long-lived command such as `nuxt dev` is left with dead Ctrl-C and dead
  * keyboard shortcuts.
+ *
+ * A question on screen owns the keyboard, so this does nothing while one is
+ * up: its teardown puts the mode back.
  */
 export function restoreRawMode(): void {
-  if (!process.stdin.isTTY) {
+  if (isScreenHeld() || !process.stdin.isTTY) {
     return
   }
   if (process.stdin.isPaused()) {
@@ -156,6 +159,24 @@ export async function withDirectStdout<T>(fn: () => T | Promise<T>): Promise<T> 
   }
 }
 
+/**
+ * Ask a question with the terminal to itself: nothing else paints while it is
+ * on screen, the keys typed belong to it, and raw mode is handed back before the
+ * terminal returns to its owner.
+ */
+export function askQuestion<T>(question: () => Promise<T>): Promise<T> {
+  return withUserAttention(() => withDirectStdout(async () => {
+    const release = holdScreen()
+    try {
+      return await question()
+    }
+    finally {
+      release()
+      restoreRawMode()
+    }
+  }))
+}
+
 export function printJson(value: unknown): Promise<unknown> {
   return withDirectStdout(() => process.stdout.write(`${JSON.stringify(value, null, 2)}\n`))
 }
@@ -174,9 +195,8 @@ const wrappedPrompts = new WeakSet<PromptFn>()
  * install itself, arrives long after the CLI's own prompts are done with the
  * terminal: the interactive UI is folding output away into its log view and
  * holding stdin for its shortcuts, so the question would be filed away as a
- * log and the keystroke meant for it taken as a shortcut. When a terminal
- * host is published the question is asked inside its `withTerminal`, and
- * through {@link withDirectStdout} like the CLI's own prompts either way.
+ * log and the keystroke meant for it taken as a shortcut. It is asked through
+ * {@link askQuestion}, like the CLI's own prompts.
  *
  * Prompts are serialised, since two of them redrawing over each other can be
  * neither read nor answered.
@@ -192,11 +212,7 @@ export function interceptPrompts(instance: { options: { prompt?: PromptFn } }): 
       debug(`Not asking, with no terminal to answer on: ${message}`)
       return Promise.resolve(declinedAnswer(opts))
     }
-    const answer = promptQueue.then(() => withStartupClockPaused(() => {
-      const ask = () => withDirectStdout(() => prompt(message, opts))
-      const host = useTerminalHost()
-      return host ? host.withTerminal(ask) : ask()
-    }))
+    const answer = promptQueue.then(() => askQuestion(() => prompt(message, opts)))
     promptQueue = answer.catch(() => {})
     return answer
   }) as PromptFn

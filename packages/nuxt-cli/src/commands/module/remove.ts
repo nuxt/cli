@@ -14,6 +14,7 @@ import { readPackageJSON } from 'pkg-types'
 import { runCommandDef as runCommand } from '../../run-command'
 import { readNuxtConfig, removeNuxtConfigEntries } from '../../utils/config'
 import { CONFIG_KEYS } from '../../utils/config-parse'
+import { askQuestion } from '../../utils/console'
 import { createInstallLog, runInstall } from '../../utils/install'
 import { logger } from '../../utils/logger'
 import { logNetworkError } from '../../utils/network'
@@ -108,11 +109,11 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
     let toRemove = new Set(modules)
     if (config && modules.length === 0 && present.length > 0) {
-      const picked = await multiselect({
+      const picked = await askQuestion(() => multiselect({
         message: 'Select modules to remove:',
         options: present.map(m => ({ value: m, label: m })),
         required: true,
-      })
+      }))
 
       if (isCancel(picked)) {
         cancel('No modules selected.')
@@ -188,10 +189,10 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
       logger.info(`The following peer ${peerDep} ${orphanedPeers.length > 1 ? 'are' : 'is'} no longer used by any other dependency: ${peersList}`)
 
-      const alsoRemove = await confirm({
+      const alsoRemove = await askQuestion(() => confirm({
         message: `Do you also want to remove ${them}?`,
         initialValue: false,
-      })
+      }))
 
       if (isCancel(alsoRemove)) {
         cancel('Aborted.')

@@ -9,6 +9,7 @@ import { supportsUnicode } from '../dev/tui/support'
 import { decapitalise, formatDuration, terminalLink, visibleWidth } from './formatting'
 import { logger } from './logger'
 import { READY_MESSAGE } from './progress-snapshot'
+import { onScreenHeld } from './screen'
 import { tapOutput } from './stdout'
 import { MUTED } from './terminal-theme'
 
@@ -179,6 +180,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   let hidden = false
   let timer: NodeJS.Timeout | undefined
   let stopped = false
+  let withheld = false
+  /** The latest line that was due while a question held the screen. */
+  let missed: [line: string, message: string] | undefined
   let receivedAt = Date.now()
   let pulse: NodeJS.Timeout | undefined
   let url: string | undefined
@@ -200,6 +204,10 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   const write = tap?.write ?? stream.write.bind(stream)
 
   function log(line: string, message: string) {
+    if (withheld) {
+      missed = [line, message]
+      return
+    }
     lastMessage = message
     lastLoggedAt = Date.now()
     logger.info(line)
@@ -235,7 +243,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   }
 
   function render() {
-    if (!snapshot || stopped) {
+    if (!snapshot || stopped || withheld) {
       return
     }
     const glyph = styleText('cyan', FRAMES[frame = (frame + 1) % FRAMES.length]!)
@@ -253,7 +261,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   }
 
   function animate() {
-    if (!animated || timer) {
+    if (!animated || timer || withheld) {
       return
     }
     hidden = true
@@ -264,6 +272,15 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
   animate()
 
+  const offScreen = onScreenHeld((held) => {
+    if (held) {
+      withhold()
+    }
+    else {
+      resumePainting()
+    }
+  })
+
   /**
    * Repeat whatever is in flight, with the time it has taken so far, so a long
    * silent stretch in a piped log still shows something is alive. A render is
@@ -272,7 +289,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   function schedulePulse() {
     clearInterval(pulse)
     pulse = undefined
-    if (!options.heartbeat || animated) {
+    if (!options.heartbeat || animated || withheld) {
       return
     }
     pulse = setInterval(() => {
@@ -311,8 +328,37 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
   function finish() {
     stopped = true
+    offScreen()
     restore()
     tap?.dispose()
+  }
+
+  function withhold(): void {
+    if (stopped || withheld) {
+      return
+    }
+    withheld = true
+    restore()
+  }
+
+  function resumePainting(): void {
+    if (stopped || !withheld) {
+      return
+    }
+    withheld = false
+    if (missed) {
+      log(...missed)
+      missed = undefined
+    }
+    if (summarised && !snapshot?.pending) {
+      return
+    }
+    if (!animated) {
+      schedulePulse()
+      return
+    }
+    animate()
+    render()
   }
 
   return {
@@ -376,6 +422,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       if (!summarised) {
         restore()
         summarised = true
+        missed = undefined
         narrated = !next.serving && next.message !== READY_MESSAGE
         logger.success(formatSummary(next, url))
       }

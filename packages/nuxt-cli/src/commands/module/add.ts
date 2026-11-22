@@ -14,6 +14,7 @@ import { findMaxSatisfying, satisfies } from 'verkit'
 
 import { runCommandDef as runCommand } from '../../run-command'
 import { addNuxtConfigEntries, createNuxtConfig, readNuxtConfig } from '../../utils/config'
+import { askQuestion } from '../../utils/console'
 import { fetchJson } from '../../utils/fetch'
 import { createInstallLog, isVerboseInstall, runInstall, takeUnreportedIgnoredBuilds } from '../../utils/install'
 import { logger } from '../../utils/logger'
@@ -362,10 +363,10 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
       logger.warn(
         `The module ${styleText('cyan', pkgName)} is not compatible with Nuxt ${styleText('cyan', nuxtVersion)} (requires ${styleText('cyan', matchedModule.compatibility.nuxt)})`,
       )
-      const shouldContinue = await confirm({
+      const shouldContinue = await askQuestion(() => confirm({
         message: 'Do you want to continue installing incompatible version?',
         initialValue: false,
-      })
+      }))
       if (isCancel(shouldContinue) || !shouldContinue) {
         return false
       }
@@ -379,16 +380,18 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
             pkgVersion = _moduleVersion
           }
           else {
+            // Narrowing does not reach into a callback.
+            const requested = pkgVersion
             logger.warn(
               `Recommended version of ${styleText('cyan', pkgName)} for Nuxt ${styleText('cyan', nuxtVersion)} is ${styleText('cyan', _moduleVersion)} but you have requested ${styleText('cyan', pkgVersion)}.`,
             )
-            const result = await select({
+            const result = await askQuestion(() => select({
               message: 'Choose a version:',
               options: [
                 { value: _moduleVersion, label: _moduleVersion },
-                { value: pkgVersion, label: pkgVersion },
+                { value: requested, label: requested },
               ],
-            })
+            }))
             if (isCancel(result)) {
               return false
             }
@@ -443,10 +446,10 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     && !pkgDependencies['@nuxt/kit']
   ) {
     logger.warn(`It seems that ${styleText('cyan', pkgName)} is not a Nuxt module.`)
-    const shouldContinue = await confirm({
+    const shouldContinue = await askQuestion(() => confirm({
       message: `Do you want to continue installing ${styleText('cyan', pkgName)} anyway?`,
       initialValue: false,
-    })
+    }))
     if (isCancel(shouldContinue) || !shouldContinue) {
       return false
     }

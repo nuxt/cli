@@ -16,6 +16,7 @@ vi.mock('std-env', async importOriginal => ({
 process.env.FORCE_COLOR = '3'
 
 const { createPhaseReporter, formatMeter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+const { holdScreen } = await import('../../src/utils/screen')
 
 function stubUnicode(supported: boolean): void {
   vi.stubEnv('LC_ALL', supported ? 'en_GB.UTF-8' : 'C')
@@ -83,6 +84,119 @@ describe('phase reporter', () => {
     })
 
     expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
+  })
+
+  it('should take its line down while a question is on screen, and put it back after', () => {
+    vi.useFakeTimers()
+    freezeClock()
+    let release = () => {}
+    try {
+      const chunks: string[] = []
+      const stream = { isTTY: true, columns: 100, write: (chunk: string) => {
+        chunks.push(chunk)
+        return true
+      } } as unknown as NodeJS.WriteStream
+      const startup = createPhaseReporter({ animated: true, stream })
+      reporters.push(startup)
+      startup.update(snapshot())
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+
+      const painted = chunks.length
+      release = holdScreen()
+      expect(chunks.slice(painted)).toEqual(['\r\u001B[2K', '\u001B[?25h'])
+
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      vi.advanceTimersByTime(240)
+      expect(chunks.length).toBe(painted + 2)
+
+      release()
+      expect(chunks.slice(painted + 2)).toEqual(['\u001B[?25l', expect.stringContaining('Building server')])
+      vi.advanceTimersByTime(80)
+      expect(chunks.length).toBe(painted + 5)
+    }
+    finally {
+      release()
+      vi.useRealTimers()
+    }
+  })
+
+  it('should say nothing while a question is on screen, and give the latest line after', () => {
+    vi.useFakeTimers()
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      written.push(stripVTControlCharacters(String(chunk)))
+      return true
+    })
+    let release = () => {}
+    try {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3 }))
+      written.length = 0
+
+      release = holdScreen()
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      vi.advanceTimersByTime(100)
+      expect(written).toEqual([])
+
+      release()
+      expect(written.join('')).toContain('Building server')
+      expect(written.join('')).not.toContain('Bundling app')
+    }
+    finally {
+      release()
+      vi.useRealTimers()
+    }
+  })
+
+  it('should not give a startup line after the summary it was overtaken by', () => {
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      written.push(stripVTControlCharacters(String(chunk)))
+      return true
+    })
+    let release = () => {}
+    try {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3 }))
+
+      release = holdScreen()
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      written.length = 0
+
+      release()
+      expect(written.join('')).not.toContain('Building server')
+    }
+    finally {
+      release()
+    }
+  })
+
+  it('should leave an idle line down once a question is answered', () => {
+    vi.useFakeTimers()
+    vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    try {
+      const chunks: string[] = []
+      const stream = { isTTY: true, columns: 100, write: (chunk: string) => {
+        chunks.push(chunk)
+        return true
+      } } as unknown as NodeJS.WriteStream
+      const startup = createPhaseReporter({ animated: true, stream })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      const settled = chunks.length
+
+      holdScreen()()
+      vi.advanceTimersByTime(240)
+      expect(chunks.length).toBe(settled)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   describe('with a meter', () => {

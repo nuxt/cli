@@ -142,8 +142,7 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
   }
 
   const { cancel, confirm, isCancel } = await import('@clack/prompts')
-  const { restoreRawMode, withDirectStdout } = await import('./utils/console')
-  const { withUserAttention } = await import('./utils/startup-clock')
+  const { askQuestion } = await import('./utils/console')
   for (const { flag, suggestion } of suggestions) {
     // A negated unknown flag is matched against its bare name, so the offered
     // replacement has to restore the negation the user asked for.
@@ -151,8 +150,7 @@ async function warnUnknownFlags(command: string, rawArgs: string[]): Promise<voi
       ? `--no-${suggestion.slice(2)}`
       : suggestion
     logger.warn(`Unknown option ${styleText('cyan', flag)}.`)
-    const answer = await withUserAttention(() => withDirectStdout(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true })))
-    restoreRawMode()
+    const answer = await askQuestion(() => confirm({ message: `Use ${styleText('cyan', replacement)} instead?`, initialValue: true }))
     // Ctrl-C at the prompt must abort, not fall through to running the command
     // with the flag the user was told is unknown.
     if (isCancel(answer)) {
@@ -188,10 +186,8 @@ async function reportUnknownCommand(command: string, rawArgs: string[]): Promise
   if (isInteractive()) {
     logger.warn(`Unknown command ${styleText('cyan', command)}.`)
     const { confirm, isCancel } = await import('@clack/prompts')
-    const { restoreRawMode, withDirectStdout } = await import('./utils/console')
-    const { withUserAttention } = await import('./utils/startup-clock')
-    const answer = await withUserAttention(() => withDirectStdout(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true })))
-    restoreRawMode()
+    const { askQuestion } = await import('./utils/console')
+    const answer = await askQuestion(() => confirm({ message: `Run ${styleText('cyan', `nuxt ${suggestion}`)} instead?`, initialValue: true }))
 
     if (isCancel(answer)) {
       process.exit(130)

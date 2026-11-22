@@ -8,6 +8,7 @@ import { autocompleteMultiselect, isCancel } from '@clack/prompts'
 import fuzzysort from 'fuzzysort'
 import { hasTTY } from 'std-env'
 
+import { askQuestion } from '../../utils/console'
 import { logger } from '../../utils/logger'
 
 const TRAILING_DOT_RE = /\.$/
@@ -99,14 +100,14 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
     return results.has(option.value)
   }
 
-  const result = await autocompleteMultiselect({
+  const result = await askQuestion(() => autocompleteMultiselect({
     message,
     options() {
       return buildOptions(currentSearch(this))
     },
     filter,
     required: false,
-  })
+  }))
 
   return isCancel(result)
     ? { selected: [], cancelled: true }

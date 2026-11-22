@@ -4,6 +4,7 @@ import { styleText } from 'node:util'
 import { confirm, isCancel } from '@clack/prompts'
 import { satisfies } from 'verkit'
 
+import { askQuestion } from '../../utils/console'
 import { fetchJson } from '../../utils/fetch'
 import { logger } from '../../utils/logger'
 import { relativeToProcess } from '../../utils/paths'
@@ -228,10 +229,10 @@ export async function ensureNuxtDependency(cwd: string, projectPkg: PackageJson)
 
   logger.warn(`No ${styleText('cyan', 'nuxt')} dependency detected in ${styleText('cyan', relativeToProcess(cwd))}.`)
 
-  const shouldContinue = await confirm({
+  const shouldContinue = await askQuestion(() => confirm({
     message: `Do you want to continue anyway?`,
     initialValue: false,
-  })
+  }))
 
   return !isCancel(shouldContinue) && shouldContinue === true
 }
