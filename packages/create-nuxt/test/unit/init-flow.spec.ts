@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join as pathJoin } from 'node:path'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -292,6 +293,138 @@ describe('package manager selection', () => {
     expect(exitCode).toBe(2)
     expect(output).toContain('Invalid package manager')
     expect(downloadTemplate).not.toHaveBeenCalled()
+  })
+})
+
+describe('renaming when a workspace depends on the package name', () => {
+  it('should keep the original name when a workspace package depends on it', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        devDependencies: { template: 'workspace:*' },
+      }),
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('template')
+  })
+
+  it('should keep the original name when the workspace specifier is a path', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { template: 'workspace:..' },
+      }),
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('template')
+  })
+
+  it('should keep the original name when a workspace alias targets it', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { 'root-alias': 'workspace:template@*' },
+      }),
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('template')
+  })
+
+  it('should rename the package when no workspace package depends on it', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { other: 'workspace:*' },
+      }),
+    })
+
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
+
+  it('should rename the package when a workspace package references it without the workspace protocol', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - playground\n',
+      'playground/package.json': JSON.stringify({
+        name: 'template-playground',
+        dependencies: { template: 'link:..' },
+      }),
+    })
+
+    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    const playgroundPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'playground', 'package.json'), 'utf8'))
+    expect(rootPackageJson.name).toBe('cool-thing')
+    expect(playgroundPackageJson.dependencies.template).toBe('link:..')
+  })
+
+  it('should rename the package when a nested manifest is unreadable', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      'packages/broken/package.json': '{ not json',
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
+
+  it('should rename the package when a nested manifest has non-string dependency values', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      'packages/example/package.json': JSON.stringify({
+        name: 'example',
+        dependencies: { example: null },
+      }),
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
+
+  it('should rename the package when a template has a backslash-named directory', async () => {
+    downloadTemplate.mockImplementation(async (_template, options: { dir: string }) => {
+      await mkdir(options.dir, { recursive: true })
+      await writeFile(join(options.dir, 'package.json'), JSON.stringify({ name: 'template', dependencies: { nuxt: '^4.0.0' } }, null, 2))
+      await mkdir(pathJoin(options.dir, '..\\'), { recursive: true })
+      return { dir: options.dir, name: 'minimal', source: 'github' }
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('cool-thing')
   })
 })
 

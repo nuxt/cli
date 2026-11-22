@@ -5,7 +5,8 @@ import type { InstallResult } from '../../nuxt-cli/src/utils/install'
 import type { TemplateData } from '../../nuxt-cli/src/utils/starter-templates'
 
 import { existsSync } from 'node:fs'
-import { writeFile } from 'node:fs/promises'
+import { readdir, writeFile } from 'node:fs/promises'
+import { join as pathJoin, resolve as pathResolve } from 'node:path'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
@@ -117,6 +118,79 @@ export function getNextSteps(options: {
     ...recoveryCommands,
     `${packageManager} ${runCmd} dev`,
   ].filter((step): step is string => typeof step === 'string')
+}
+
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
+
+async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string) {
+  const packageJsonFiles: string[] = []
+  const rootPackageResolved = pathResolve(rootPackageJsonPath)
+  const visited = new Set<string>()
+  const queue = [pathResolve(rootDir)]
+
+  while (queue.length > 0) {
+    const dir = queue.pop()!
+    if (visited.has(dir)) {
+      continue
+    }
+    visited.add(dir)
+
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries) {
+      if (entry.name === 'node_modules') {
+        continue
+      }
+      const entryPath = pathJoin(dir, entry.name)
+      if (entry.isDirectory()) {
+        queue.push(entryPath)
+      }
+      else if (entry.isFile() && entry.name === 'package.json' && pathResolve(entryPath) !== rootPackageResolved) {
+        packageJsonFiles.push(entryPath)
+      }
+    }
+  }
+
+  return packageJsonFiles
+}
+
+function workspaceTargetName(specifier: string): string | undefined {
+  if (!specifier.startsWith('workspace:')) {
+    return
+  }
+  const rest = specifier.slice('workspace:'.length)
+  if (rest.startsWith('.')) {
+    return
+  }
+  const at = rest.lastIndexOf('@')
+  return at === -1 ? undefined : rest.slice(0, at)
+}
+
+async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath: string, name: string) {
+  for (const packageJsonPath of await findPackageJsonFiles(rootDir, rootPackageJsonPath)) {
+    const pkg = await readPackageJSON(packageJsonPath, { try: true }).catch(() => null)
+    if (!pkg) {
+      continue
+    }
+
+    for (const field of DEPENDENCY_FIELDS) {
+      const dependencies = pkg[field]
+      if (!dependencies) {
+        continue
+      }
+      const specifier = dependencies[name]
+      if (typeof specifier === 'string' && specifier.startsWith('workspace:')) {
+        return true
+      }
+      for (const value of Object.values(dependencies)) {
+        if (typeof value === 'string' && workspaceTargetName(value) === name) {
+          return true
+        }
+      }
+    }
+  }
+
+  return false
 }
 
 export default defineCommand({
@@ -392,8 +466,12 @@ export default defineCommand({
               .replace(MULTI_DASH_RE, '-')
               .replace(LEADING_TRAILING_DASH_RE, '')
             if (slug) {
-              pkg.name = slug
-              await writePackageJSON(path, pkg)
+              const originalName = pkg.name
+              const hasDependent = slug !== originalName && await hasWorkspaceDependentOnName(template.dir, path, originalName)
+              if (!hasDependent) {
+                pkg.name = slug
+                await writePackageJSON(path, pkg)
+              }
             }
           }
         }
