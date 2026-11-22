@@ -1,12 +1,13 @@
-import type { RequestListener } from 'node:http'
-import type { Http2SecureServer, Http2ServerRequest, Http2ServerResponse, ServerHttp2Session } from 'node:http2'
+import type { Server as HttpServer, IncomingHttpHeaders, IncomingMessage, RequestListener, ServerResponse } from 'node:http'
+import type { Http2SecureServer, ServerHttp2Session } from 'node:http2'
 import type { AddressInfo, Socket } from 'node:net'
 import type { HTTPSOptions, ResolvedCertificate } from './cert'
 import type { Tunnel } from './tunnel'
 
 import { spawn } from 'node:child_process'
-import { createServer as createHttpServer, Server as HttpServer } from 'node:http'
+import { createServer as createHttpServer } from 'node:http'
 import { createSecureServer as createHttp2SecureServer } from 'node:http2'
+import { createServer as createHttpsServer } from 'node:https'
 import { networkInterfaces } from 'node:os'
 import process from 'node:process'
 
@@ -46,6 +47,11 @@ export interface ListenOptions {
   public?: boolean
   publicURL?: string
   https?: boolean | HTTPSOptions
+  /**
+   * Serve `https` over HTTP/2, with HTTP/1.1 for clients that do not negotiate it.
+   * @default true
+   */
+  http2?: boolean
 }
 
 export interface ListenURL {
@@ -182,17 +188,9 @@ function isNetworkBaseAddress(address: string, cidr: string | null | undefined):
  * into the legacy provider, which Node does not load, so such keystores fail
  * with `ERR_CRYPTO_UNSUPPORTED_OPERATION`.
  */
-function createSecureServer(certificate: ResolvedCertificate, handler: RequestListener): Http2SecureServer {
+function createSecureServer(certificate: ResolvedCertificate, handler: RequestListener, http2: boolean): HttpServer | Http2SecureServer {
   try {
-    const server = createHttp2SecureServer({
-      maxSessionMemory: 1000,
-      streamResetBurst: 100_000,
-      streamResetRate: 33,
-      ...certificate,
-      allowHTTP1: true,
-    }, handler as unknown as (request: Http2ServerRequest, response: Http2ServerResponse<Http2ServerRequest>) => void)
-    trackSecureConnections(server)
-    return server
+    return http2 ? createHttp2Server(certificate, handler) : createHttpsServer(certificate, handler)
   }
   catch (error) {
     if (certificate.pfx && (error as NodeJS.ErrnoException)?.code === 'ERR_CRYPTO_UNSUPPORTED_OPERATION') {
@@ -208,12 +206,34 @@ function createSecureServer(certificate: ResolvedCertificate, handler: RequestLi
   }
 }
 
-const secureConnections = new WeakMap<Http2SecureServer, { sessions: Set<ServerHttp2Session>, sockets: Set<Socket> }>()
+interface Http2Connections {
+  sessions: Set<ServerHttp2Session>
+  sockets: Set<Socket>
+}
 
-function trackSecureConnections(server: Http2SecureServer): void {
+/** Open sessions and sockets of each HTTP/2 server, which Node does not expose. */
+const http2Connections = new WeakMap<HttpServer | Http2SecureServer, Http2Connections>()
+
+function createHttp2Server(certificate: ResolvedCertificate, handler: RequestListener): Http2SecureServer {
+  const server = createHttp2SecureServer({
+    // A page in development requests hundreds of modules at once, which
+    // exceeds Node's default session memory (`ENHANCE_YOUR_CALM`) and stream
+    // reset limits (`ERR_HTTP2_PROTOCOL_ERROR`).
+    maxSessionMemory: 1000,
+    streamResetBurst: 100_000,
+    streamResetRate: 33,
+    ...certificate,
+    allowHTTP1: true,
+  }, (request, response) => {
+    const req = request as unknown as IncomingMessage
+    if (req.httpVersionMajor >= 2) {
+      hidePseudoHeaders(req)
+    }
+    handler(req, response as unknown as ServerResponse)
+  })
+
   const sessions = new Set<ServerHttp2Session>()
   const sockets = new Set<Socket>()
-
   server.on('session', (session) => {
     sessions.add(session)
     session.once('close', () => sessions.delete(session))
@@ -222,8 +242,29 @@ function trackSecureConnections(server: Http2SecureServer): void {
     sockets.add(socket)
     socket.once('close', () => sockets.delete(socket))
   })
+  http2Connections.set(server, { sessions, sockets })
 
-  secureConnections.set(server, { sessions, sockets })
+  return server
+}
+
+/**
+ * HTTP/2 requests list `:method`, `:path`, `:scheme` and `:authority` among
+ * their headers. These are not valid header names for `Headers` or for an
+ * HTTP/1.1 request, so they are left out of `req.headers`, with `:authority`
+ * provided as `host`.
+ */
+function hidePseudoHeaders(req: IncomingMessage): void {
+  const headers: IncomingHttpHeaders = Object.create(null)
+  for (const name in req.headers) {
+    if (!name.startsWith(':')) {
+      headers[name] = req.headers[name]
+    }
+  }
+  const authority = req.headers[':authority']
+  if (typeof authority === 'string') {
+    headers.host = authority
+  }
+  Object.defineProperty(req, 'headers', { value: headers, configurable: true, writable: true })
 }
 
 /** A bound socket, before any URL resolution, tunnel or console output. */
@@ -255,7 +296,7 @@ export async function bindListener(handler: RequestListener, options: ListenOpti
     ? await import('./cert').then(({ resolveCertificate }) => resolveCertificate(httpsOptions))
     : false
   const server = certificate
-    ? createSecureServer(certificate, handler)
+    ? createSecureServer(certificate, handler, options.http2 !== false)
     : createHttpServer(handler)
 
   await bindServer(server, port, hostname, !!options.reusePort).catch((error) => {
@@ -429,20 +470,24 @@ function closeServer(server: HttpServer | Http2SecureServer): Promise<void> {
         resolve()
       }
     })
-    // Sockets waiting on keep-alive are closed at once, so shutdown is only
-    // delayed while a request is actually being served.
+    // Sockets waiting on keep-alive and HTTP/2 sessions without open streams
+    // are closed at once, so shutdown is only delayed while a request is
+    // actually being served.
     // @ts-expect-error `Http2SecureServer.closeIdleConnections` is not typed
     server.closeIdleConnections?.()
-    if (server instanceof HttpServer) {
-      forceClose = setTimeout(() => server.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+    const http2 = http2Connections.get(server)
+    for (const session of http2?.sessions ?? []) {
+      session.close()
     }
-    else {
-      const { sessions, sockets } = secureConnections.get(server)!
-      for (const session of sessions) {
-        session.close()
+    forceClose = setTimeout(() => {
+      if (!http2) {
+        (server as HttpServer).closeAllConnections?.()
+        return
       }
-      forceClose = setTimeout(() => sockets.forEach(socket => socket.destroy()), CONNECTION_DRAIN_TIMEOUT_MS)
-    }
+      for (const socket of http2.sockets) {
+        socket.destroy()
+      }
+    }, CONNECTION_DRAIN_TIMEOUT_MS)
     forceClose.unref()
   })
 }

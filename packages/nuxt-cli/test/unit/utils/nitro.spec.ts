@@ -2,7 +2,7 @@ import type { PackageJson } from 'pkg-types'
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { getNitroVersion, getProjectNitroMajor, readNitroMajor, resolveNitroMajor, resolveNitroVersion, supportsNitroMajor } from '../../../src/utils/nitro'
+import { getNitroVersion, getProjectNitroMajor, readNitroMajor, resolveNitroMajor, resolveNitroVersion, supportsHttp2, supportsNitroMajor } from '../../../src/utils/nitro'
 import { getNuxtPkgVersion, getPkgJSON, getPkgVersion, getProjectPkgJSON } from '../../../src/utils/pkg'
 import { findPnpmWorkspaceYaml } from '../../../src/utils/workspace'
 
@@ -310,6 +310,38 @@ describe('getNitroVersion', () => {
     project({ dependencies: { nitro: '^3.0.0' } })
 
     expect(getNitroVersion('/project')).toBe('2.13.4')
+  })
+})
+
+describe('supportsHttp2', () => {
+  it.each([
+    ['2.12.9', false],
+    ['2.13.2', false],
+    ['2.13.3', true],
+    ['2.14.0-nightly', true],
+  ])('should report nitropack %s as %s', (version, supported) => {
+    installed({
+      nuxt: { dependencies: { nitropack: '^2.12.0' } },
+      nitropack: { version },
+    })
+
+    expect(supportsHttp2('/project')).toBe(supported)
+  })
+
+  it('should support Nitro 3', () => {
+    installed({
+      'nuxt': { dependencies: { '@nuxt/nitro-server': '^5.0.0' } },
+      '@nuxt/nitro-server': { dependencies: { nitro: '^3.0.0' } },
+      'nitro': { version: '3.0.260903-beta' },
+    })
+
+    expect(supportsHttp2('/project')).toBe(true)
+  })
+
+  it('should assume support when no Nitro version can be read', () => {
+    installed({})
+
+    expect(supportsHttp2('/project')).toBe(true)
   })
 })
 

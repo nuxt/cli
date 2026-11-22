@@ -36,7 +36,7 @@ import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, formatLockError, getTakeoverPid, updateLock } from '../utils/lockfile'
 import { debug, logger, writeNotice } from '../utils/logger'
-import { readNitroMajor } from '../utils/nitro'
+import { readNitroMajor, supportsHttp2 } from '../utils/nitro'
 import { loadNuxtManifest, resolveNuxtManifest, writeNuxtManifest } from '../utils/nuxt'
 import { getServerBuilderId, resolveServerBuild } from '../utils/server-build'
 import { createConfigWatcher, FileChangeTracker, getLocalLayerDirs } from './config-watcher'
@@ -321,9 +321,6 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     this.handler = async (req, res) => {
-      // HTTP/2 clients send `:authority` instead of `Host`, which h3 v1 and
-      // other `IncomingMessage` consumers read.
-      req.headers.host ??= req.headers[':authority'] as string | undefined
       // Internal endpoints answer before Nuxt exists, so they are matched ahead
       // of anything that waits on the first successful load, and they stay out
       // of the request feed.
@@ -390,8 +387,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
    * serves are not gated here: Vite applies its own `allowedHosts` check.
    */
   #rejectDisallowedHost(req: IncomingMessage, res: ServerResponse): boolean {
-    const host = req.headers[':authority'] as string | undefined ?? req.headers.host
-    if (this.#allowAnyHost || isAllowedHost(host, this.#allowedHosts)) {
+    if (this.#allowAnyHost || isAllowedHost(req.headers.host, this.#allowedHosts)) {
       return false
     }
     if (this.options.captureUIEvents) {
@@ -1006,6 +1002,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname: overrides.hostname ?? hint?.hostname,
       baseURL: hint?.baseURL,
       https: httpsEnabled ? overrides.https : undefined,
+      http2: httpsEnabled && this.#supportsHttp2(),
       showURL: false,
       open: false,
       clipboard: false,
@@ -1108,6 +1105,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
   }
 
+  #supportsHttp2(): boolean {
+    return this.options.listenOverrides?.http2 !== false && supportsHttp2(this.options.cwd)
+  }
+
   #resolveListenOptions(): ListenOptions {
     if (!this.#currentNuxt) {
       throw new Error('Nuxt must be loaded before resolving listen options')
@@ -1140,6 +1141,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       hostname,
       public: isPublic,
       https: https || undefined,
+      http2: !!https && this.#supportsHttp2(),
       baseURL,
     }
   }
