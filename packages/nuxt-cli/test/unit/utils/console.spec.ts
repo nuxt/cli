@@ -6,11 +6,11 @@ import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
 
-import { consola } from 'consola'
+import { consola, createConsola } from 'consola'
 import { resolveModulePath } from 'exsolve'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { askQuestion, configureProjectConsola, interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
+import { askQuestion, configureProjectConsola, interceptPrompts, restoreRawMode, routeProcessWarnings, withDirectStdout } from '../../../src/utils/console'
 import { holdScreen, onScreenHeld, registerUnseenOutput } from '../../../src/utils/screen'
 import { registerTerminalHost } from '../../../src/utils/terminal-host'
 
@@ -374,6 +374,27 @@ describe('interceptPrompts', () => {
     interceptPrompts(instance)
 
     expect(instance.options.prompt).toBeUndefined()
+  })
+})
+
+describe('routeProcessWarnings', () => {
+  it('should log a process warning printed through the console as a warning', () => {
+    const logs: LogObject[] = []
+    const instance = createConsola({ reporters: [{ log: logObj => void logs.push(logObj) }] })
+    routeProcessWarnings(instance)
+    instance.wrapConsole()
+    try {
+      console.error('(node:1234) [DEP0000] DeprecationWarning: deprecated')
+      console.error('boom')
+    }
+    finally {
+      instance.restoreConsole()
+    }
+
+    expect(logs).toMatchObject([
+      { type: 'warn', level: 1, args: ['(node:1234) [DEP0000] DeprecationWarning: deprecated'] },
+      { type: 'error', level: 0, args: ['boom'] },
+    ])
   })
 })
 

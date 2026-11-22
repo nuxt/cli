@@ -1,4 +1,3 @@
-import type { Buffer } from 'node:buffer'
 import type { ChildProcess } from 'node:child_process'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
@@ -81,8 +80,8 @@ export function record(command: string, options: PtyOptions): PtySession {
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
-  child.stdout!.on('data', (chunk: Buffer) => {
-    const data = chunk.toString()
+  child.stdout!.setEncoding('utf8')
+  child.stdout!.on('data', (data: string) => {
     chunks.push({ at: performance.now() - started, data })
     buffer += data
     for (let i = waiters.length - 1; i >= 0; i--) {
@@ -93,8 +92,9 @@ export function record(command: string, options: PtyOptions): PtySession {
   })
 
   let stderr = ''
-  child.stderr!.on('data', (chunk: Buffer) => {
-    stderr += chunk.toString()
+  child.stderr!.setEncoding('utf8')
+  child.stderr!.on('data', (data: string) => {
+    stderr += data
   })
 
   const exited = new Promise<number | null>((resolve) => {

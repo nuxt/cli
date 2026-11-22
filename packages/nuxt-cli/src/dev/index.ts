@@ -16,7 +16,7 @@ import { formatWithOptions } from 'node:util'
 import { consola } from 'consola'
 import defu from 'defu'
 import { resolveDotenvFileNames } from '../utils/args'
-import { configureProjectConsola } from '../utils/console'
+import { configureProjectConsola, routeProcessWarnings } from '../utils/console'
 import { overrideEnv } from '../utils/env.ts'
 import { isRemotePeerError, isReportedError, KEEPS_PROCESS_ALIVE } from '../utils/errors'
 import { debug } from '../utils/logger'
@@ -202,6 +202,7 @@ const ipc = new IPC()
 // over the log channel; `raw` is what lets the UI pair the two.
 if (ipc.enabled && process.env.__NUXT_DEV_PIPED_TTY__) {
   consola.options.formatOptions.date = false
+  routeProcessWarnings(consola)
   consola.wrapAll()
   consola.addReporter({
     log(logObj) {
