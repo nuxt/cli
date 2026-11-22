@@ -730,4 +730,12 @@ describe('openBrowser', () => {
 
     expect(spawn).toHaveBeenCalledWith('/home/user/.vscode-server/bin/helpers/browser.sh', ['http://localhost:3000/'], expect.anything())
   })
+
+  it('should not flash a console window for the launcher on Windows', () => {
+    stubEnvironment('win32')
+
+    openBrowser('http://localhost:3000/')
+
+    expect(spawn).toHaveBeenCalledWith('cmd.exe', ['/c', 'start', '""', 'http://localhost:3000/'], expect.objectContaining({ windowsHide: true }))
+  })
 })

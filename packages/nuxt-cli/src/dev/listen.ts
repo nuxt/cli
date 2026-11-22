@@ -727,7 +727,8 @@ export function openBrowser(url: string): Promise<void> {
     }
 
     try {
-      const child = spawn(command, args, { stdio: 'ignore', detached: true })
+      // `windowsHide` keeps `cmd.exe` from flashing a console window on Windows.
+      const child = spawn(command, args, { stdio: 'ignore', detached: true, windowsHide: true })
       const onExit = (code: number | null) => {
         if (code) {
           onFailure(new Error(`\`${command}\` exited with code ${code}`))
