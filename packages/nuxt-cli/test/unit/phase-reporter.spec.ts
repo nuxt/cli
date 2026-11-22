@@ -120,6 +120,36 @@ describe('phase reporter', () => {
     }
   })
 
+  it('should say nothing while a question is on screen, and give the latest line after', () => {
+    vi.useFakeTimers()
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      written.push(stripVTControlCharacters(String(chunk)))
+      return true
+    })
+    let release = () => {}
+    try {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3 }))
+      written.length = 0
+
+      release = holdScreen()
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      vi.advanceTimersByTime(100)
+      expect(written).toEqual([])
+
+      release()
+      expect(written.join('')).toContain('Building server')
+      expect(written.join('')).not.toContain('Bundling app')
+    }
+    finally {
+      release()
+      vi.useRealTimers()
+    }
+  })
+
   it('should leave an idle line down once a question is answered', () => {
     vi.useFakeTimers()
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)

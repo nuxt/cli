@@ -181,6 +181,8 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   let timer: NodeJS.Timeout | undefined
   let stopped = false
   let withheld = false
+  /** The latest line that was due while a question held the screen. */
+  let missed: [line: string, message: string] | undefined
   let receivedAt = Date.now()
   let pulse: NodeJS.Timeout | undefined
   let url: string | undefined
@@ -202,6 +204,10 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   const write = tap?.write ?? stream.write.bind(stream)
 
   function log(line: string, message: string) {
+    if (withheld) {
+      missed = [line, message]
+      return
+    }
     lastMessage = message
     lastLoggedAt = Date.now()
     logger.info(line)
@@ -283,7 +289,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   function schedulePulse() {
     clearInterval(pulse)
     pulse = undefined
-    if (!options.heartbeat || animated) {
+    if (!options.heartbeat || animated || withheld) {
       return
     }
     pulse = setInterval(() => {
@@ -340,6 +346,10 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       return
     }
     withheld = false
+    if (missed) {
+      log(...missed)
+      missed = undefined
+    }
     if (summarised && !snapshot?.pending) {
       return
     }
