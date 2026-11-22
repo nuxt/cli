@@ -7,7 +7,7 @@ import { fork } from 'node:child_process'
 import process from 'node:process'
 import { debug, logger } from '../utils/logger'
 import { writeDirectTo } from '../utils/stdout'
-import { DEV_SHUTDOWN_TIMEOUT_MS, FORCE_KILL_TIMEOUT_MS } from './shutdown'
+import { DEV_SHUTDOWN_TIMEOUT_MS, FORCE_KILL_TIMEOUT_MS, settlesWithin } from './shutdown'
 
 interface ForkPoolOptions {
   rawArgs: string[]
@@ -275,17 +275,5 @@ function waitForExit(child: ChildProcess): Promise<void> {
   return new Promise<void>((resolve) => {
     child.once('exit', () => resolve())
     child.once('close', () => resolve())
-  })
-}
-
-/** Resolves `true` if the promise settles before the timeout, `false` otherwise. */
-function settlesWithin(promise: Promise<void>, timeout: number): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    const timer = setTimeout(resolve, timeout, false)
-    timer.unref?.()
-    void promise.then(() => {
-      clearTimeout(timer)
-      resolve(true)
-    })
   })
 }

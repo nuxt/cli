@@ -52,6 +52,7 @@ import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeResta
 import { isBundlerRequest, isDocumentRequest } from './request-kind'
 import { registerDevPlugins } from './runtime-plugins'
 import { attachRequest, currentRequest, runWithRequest } from './serving-state'
+import { DEV_SHUTDOWN_TIMEOUT_MS, settlesWithin } from './shutdown'
 import { WarmupGate } from './warmup-gate'
 
 export type NuxtParentIPCMessage
@@ -1331,8 +1332,8 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
   async close(): Promise<void> {
     this.#closeWebSocketConnections()
-    if (this.#currentNuxt) {
-      await this.#currentNuxt.close()
+    if (this.#currentNuxt && !await settlesWithin(this.#currentNuxt.close(), DEV_SHUTDOWN_TIMEOUT_MS)) {
+      logger.warn(`Nuxt \`close\` hooks did not finish within ${DEV_SHUTDOWN_TIMEOUT_MS / 1000}s. Continuing without waiting for them.`)
     }
   }
 

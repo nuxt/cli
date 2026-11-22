@@ -443,6 +443,43 @@ describe('dev server reload', () => {
     expect(loadNuxt).toHaveBeenCalledTimes(2)
   })
 
+  it('should finish a reload when a `close` hook never settles', async () => {
+    const nuxt = createNuxt()
+    nuxt.close = () => new Promise<void>(() => {})
+    loadNuxt.mockImplementationOnce(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const reload = server.load(true, { type: 'shortcut' })
+      await vi.advanceTimersByTimeAsync(10_000)
+      await reload
+    }
+    finally {
+      vi.useRealTimers()
+    }
+
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('`close` hooks did not finish within 10s'))
+    expect(loadNuxt).toHaveBeenCalledTimes(2)
+    await expect(get(server)).resolves.toMatchObject({ status: 200, body: 'app' })
+    warn.mockRestore()
+  })
+
+  it('should report a `close` hook that throws', async () => {
+    const nuxt = createNuxt()
+    nuxt.close = () => Promise.reject(new Error('close exploded'))
+    loadNuxt.mockImplementationOnce(() => Promise.resolve(nuxt))
+    const server = createServer()
+    await server.init()
+    const failure = new Promise<Error>(resolve => server.once('loading:error', resolve))
+
+    await server.load(true, { type: 'shortcut' })
+
+    await expect(failure).resolves.toMatchObject({ message: 'close exploded' })
+  })
+
   it('should update the lock file when the build directory moves', async () => {
     const server = createServer()
     await server.init()

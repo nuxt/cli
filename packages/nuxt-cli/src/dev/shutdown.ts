@@ -19,6 +19,15 @@ const SUPERVISOR_SHUTDOWN_TIMEOUT_MS = 15_000
 /** How long a signalled process has to disappear before we give up on it. */
 export const FORCE_KILL_TIMEOUT_MS = 2000
 
+/** Resolves `true` if the promise fulfils before the timeout and `false` otherwise. Rejects if the promise rejects first. */
+export function settlesWithin(promise: Promise<unknown>, timeout: number): Promise<boolean> {
+  return new Promise<boolean>((resolve, reject) => {
+    const timer = setTimeout(resolve, timeout, false)
+    timer.unref?.()
+    void promise.then(() => resolve(true), reject).finally(() => clearTimeout(timer))
+  })
+}
+
 let adopted = false
 
 /** Whether the dev command has taken interrupts over from the panel's stop-gap. */
