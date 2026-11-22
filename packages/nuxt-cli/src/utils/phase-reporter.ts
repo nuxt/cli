@@ -340,6 +340,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       return
     }
     withheld = false
+    if (summarised && !snapshot?.pending) {
+      return
+    }
     if (!animated) {
       schedulePulse()
       return
