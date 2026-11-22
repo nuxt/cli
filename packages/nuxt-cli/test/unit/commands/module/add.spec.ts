@@ -7,7 +7,12 @@ import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 
 const { readNuxtConfig, addNuxtConfigEntries, detectPackageManager } = vi.hoisted(() => ({
-  readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+  readNuxtConfig: vi.fn(() => Promise.resolve({
+    file: '/fake-dir/nuxt.config.ts',
+    cwd: '/fake-dir',
+    modules: [],
+    extends: [],
+  })),
   addNuxtConfigEntries: vi.fn(() => Promise.resolve()),
   detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', agent: 'npm' })),
 }))
@@ -86,7 +91,12 @@ describe('module add', () => {
     v3 = json['dist-tags'].latest
   })
   applyMocks()
-  const runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
+  const runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({
+    success: true,
+    output: '',
+    command: 'npm install',
+    ignoredBuilds: [],
+  })
   vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   vi.spyOn(utils, 'fetchModules').mockResolvedValue([

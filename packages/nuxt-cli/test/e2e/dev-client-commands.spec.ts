@@ -43,7 +43,13 @@ let port: number
 let close: (() => Promise<void>) | undefined
 
 function run(args: string[], cwd = fixtureDir) {
-  return x(nuxi, args, { nodeOptions: { stdio: 'pipe', cwd, env: { ...process.env, NO_COLOR: '1' } } })
+  return x(nuxi, args, {
+    nodeOptions: {
+      stdio: 'pipe',
+      cwd,
+      env: { ...process.env, NO_COLOR: '1' },
+    },
+  })
 }
 
 function output(result: { stdout: string, stderr: string }) {
@@ -72,7 +78,15 @@ describe('commands that talk to a running dev server', () => {
     const result = await run(['curl', '/api/greeting'])
 
     expect(result.exitCode).toBe(0)
-    expect(JSON.parse(output(result))).toMatchObject({ hello: 'world', nested: { list: [1, 2, 3] }, method: 'GET', test: null, body: null })
+    expect(JSON.parse(output(result))).toMatchObject({
+      hello: 'world',
+      nested: {
+        list: [1, 2, 3],
+      },
+      method: 'GET',
+      test: null,
+      body: null,
+    })
   })
 
   it('should report the status and headers when asked to', async () => {
@@ -83,7 +97,16 @@ describe('commands that talk to a running dev server', () => {
   })
 
   it('should pass a method, headers and a body through', async () => {
-    const result = await run(['curl', '-X', 'POST', '-H', 'x-test: 1', '-d', '{"a":1}', '/api/greeting'])
+    const result = await run([
+      'curl',
+      '-X',
+      'POST',
+      '-H',
+      'x-test: 1',
+      '-d',
+      '{"a":1}',
+      '/api/greeting',
+    ])
 
     expect(result.exitCode).toBe(0)
     expect(JSON.parse(output(result))).toMatchObject({ method: 'POST', test: '1', body: '{"a":1}' })

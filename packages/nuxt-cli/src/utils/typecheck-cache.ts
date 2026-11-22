@@ -97,7 +97,9 @@ async function discardStaleBuildInfo(buildInfoFiles: string[], key: string) {
 
 function resolveReference(dir: string, path: string) {
   const resolved = resolve(dir, path)
-  return resolved.endsWith('.json') ? resolved : resolve(resolved, 'tsconfig.json')
+  return resolved.endsWith('.json')
+    ? resolved
+    : resolve(resolved, 'tsconfig.json')
 }
 
 async function readConfig(path: string): Promise<ProjectConfig> {

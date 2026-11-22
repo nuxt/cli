@@ -40,7 +40,11 @@ describe('setupShortcuts', () => {
 
   function setup(context: Partial<ShortcutContext> = {}, { isTTY = true, isRaw = false, stdoutIsTTY = true } = {}) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
-    Object.assign(stdin, { isTTY, isRaw, setRawMode: vi.fn((raw: boolean) => Object.assign(stdin, { isRaw: raw })) })
+    Object.assign(stdin, {
+      isTTY,
+      isRaw,
+      setRawMode: vi.fn((raw: boolean) => Object.assign(stdin, { isRaw: raw })),
+    })
 
     const original = process.stdin
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
@@ -54,7 +58,9 @@ describe('setupShortcuts', () => {
 
     const listener = {
       url: 'http://localhost:3000/',
-      getURLs: () => [{ url: 'http://localhost:3000/', type: 'local' as const }],
+      getURLs: () => [
+        { url: 'http://localhost:3000/', type: 'local' as const },
+      ],
       showURLs: vi.fn(),
     } as unknown as Listener
 
@@ -196,9 +202,12 @@ describe('setupShortcuts', () => {
 
   it('should queue opening the browser until ready', async () => {
     let ready!: (address: string) => void
-    const { context, listener, press } = setup({ listener: undefined, onReady: (callback) => {
-      ready = callback
-    } })
+    const { context, listener, press } = setup({
+      listener: undefined,
+      onReady: (callback) => {
+        ready = callback
+      },
+    })
     await press('o')
     expect(openBrowser).not.toHaveBeenCalled()
     context.listener = listener
@@ -208,9 +217,12 @@ describe('setupShortcuts', () => {
 
   it('should cancel a queued browser opening', async () => {
     let ready!: (address: string) => void
-    const { context, listener, press } = setup({ listener: undefined, onReady: (callback) => {
-      ready = callback
-    } })
+    const { context, listener, press } = setup({
+      listener: undefined,
+      onReady: (callback) => {
+        ready = callback
+      },
+    })
     await press('o')
     context.listener = listener
     await press('o')

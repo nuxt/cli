@@ -29,7 +29,12 @@ describe('previewStaticOutput', () => {
   it('should serve files from disk and answer unknown paths with the client entry', async () => {
     const dir = makeOutput({ 'index.html': 'home', 'app.js': 'console.log(1)' })
 
-    const server = await previewStaticOutput({ dir, entry: join(dir, 'index.html'), port: '0', hostname: '127.0.0.1' })
+    const server = await previewStaticOutput({
+      dir,
+      entry: join(dir, 'index.html'),
+      port: '0',
+      hostname: '127.0.0.1',
+    })
     try {
       const origin = server.url!.replace(/\/$/, '')
       await expect(fetch(`${origin}/app.js`).then(r => r.text())).resolves.toBe('console.log(1)')

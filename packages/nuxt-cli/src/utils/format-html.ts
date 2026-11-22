@@ -1,6 +1,52 @@
 /** Phrasing content, kept on the line of its surrounding text. */
-const INLINE = new Set(['a', 'abbr', 'b', 'bdi', 'bdo', 'br', 'cite', 'code', 'data', 'dfn', 'em', 'i', 'img', 'kbd', 'mark', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'small', 'span', 'strong', 'sub', 'sup', 'time', 'u', 'var', 'wbr'])
-const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'param', 'source', 'track', 'wbr'])
+const INLINE = new Set([
+  'a',
+  'abbr',
+  'b',
+  'bdi',
+  'bdo',
+  'br',
+  'cite',
+  'code',
+  'data',
+  'dfn',
+  'em',
+  'i',
+  'img',
+  'kbd',
+  'mark',
+  'q',
+  'rp',
+  'rt',
+  'ruby',
+  's',
+  'samp',
+  'small',
+  'span',
+  'strong',
+  'sub',
+  'sup',
+  'time',
+  'u',
+  'var',
+  'wbr',
+])
+const VOID = new Set([
+  'area',
+  'base',
+  'br',
+  'col',
+  'embed',
+  'hr',
+  'img',
+  'input',
+  'link',
+  'meta',
+  'param',
+  'source',
+  'track',
+  'wbr',
+])
 /** Elements whose content is text rather than markup, and so is never reindented. */
 const RAW = new Set(['pre', 'textarea', 'script', 'style'])
 
@@ -51,7 +97,9 @@ export function formatHtml(html: string, indent = '  '): string {
     if (RAW.has(name) && !closing && !selfClosing) {
       const rest = html.slice(position)
       const end = new RegExp(`</${name}\\s*>`, 'i').exec(rest)
-      const body = end ? rest.slice(0, end.index + end[0].length) : rest
+      const body = end
+        ? rest.slice(0, end.index + end[0].length)
+        : rest
       flush()
       lines.push(pad() + node + body)
       position += body.length

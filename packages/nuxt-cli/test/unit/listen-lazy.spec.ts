@@ -4,12 +4,19 @@ const evaluated = vi.hoisted(() => new Set<string>())
 
 vi.mock('../../src/dev/cert', () => {
   evaluated.add('cert')
-  return { resolveCertificate: vi.fn(async () => false) }
+  return {
+    resolveCertificate: vi.fn(async () => false),
+  }
 })
 
 vi.mock('../../src/dev/tunnel', () => {
   evaluated.add('tunnel')
-  return { startTunnel: vi.fn(async () => ({ url: 'https://example.test', close: async () => {} })) }
+  return {
+    startTunnel: vi.fn(async () => ({
+      url: 'https://example.test',
+      close: async () => {},
+    })),
+  }
 })
 
 describe('listen module graph', () => {

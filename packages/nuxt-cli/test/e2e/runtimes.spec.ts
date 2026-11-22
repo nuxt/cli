@@ -40,7 +40,9 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
     await rm(cwd, { recursive: true, force: true }).catch(() => null)
   })
 
-  it('should start dev server', { timeout: isCI ? 120_000 : 30_000 }, async () => {
+  it('should start dev server', {
+    timeout: isCI ? 120_000 : 30_000,
+  }, async () => {
     rmSync(cwd, { recursive: true, force: true })
     cpSync(playgroundDir, cwd, {
       recursive: true,
@@ -116,7 +118,9 @@ describe.sequential.each(runtimes)('dev server (%s)', (runtimeName) => {
   })
 
   it('should handle large request payloads', { timeout: requestTimeout }, async () => {
-    const largePayload = { data: 'x'.repeat(10_000) }
+    const largePayload = {
+      data: 'x'.repeat(10_000),
+    }
     const response = await fetch(`${server.url}/api/echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -254,7 +258,9 @@ async function startDevServer(options: {
       if (res.status === 503) {
         throw new Error('Server not ready')
       }
-    }, { timeout: isCI ? 60_000 : 30_000 })
+    }, {
+      timeout: isCI ? 60_000 : 30_000,
+    })
   }
   catch (error) {
     child.kill()
@@ -363,7 +369,9 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
           : ws.readyState === WebSocket.CLOSING
             ? 'closing'
             : 'closed'
-      completeTest(new Error(`WebSocket test timeout${testId ? ` for ${testId}` : ''} (state: ${state})`))
+      completeTest(new Error(`WebSocket test timeout${testId
+        ? ` for ${testId}`
+        : ''} (state: ${state})`))
     }, timeout)
 
     ws.addEventListener('open', async () => {
@@ -373,7 +381,9 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
           onOpen(ws)
         }
         catch (error) {
-          completeTest(error instanceof Error ? error : new Error(String(error)))
+          completeTest(error instanceof Error
+            ? error
+            : new Error(String(error)))
         }
       }
     })
@@ -384,7 +394,9 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
           onMessage(ws, event)
         }
         catch (error) {
-          completeTest(error instanceof Error ? error : new Error(String(error)))
+          completeTest(error instanceof Error
+            ? error
+            : new Error(String(error)))
         }
       }
     })
@@ -397,11 +409,15 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
             completeTest()
           }
           else {
-            completeTest(new Error(`WebSocket test failed${testId ? ` for ${testId}` : ''} (close code: ${event.code})`))
+            completeTest(new Error(`WebSocket test failed${testId
+              ? ` for ${testId}`
+              : ''} (close code: ${event.code})`))
           }
         }
         catch (error) {
-          completeTest(error instanceof Error ? error : new Error(String(error)))
+          completeTest(error instanceof Error
+            ? error
+            : new Error(String(error)))
         }
       }
       else {
@@ -415,11 +431,15 @@ function createWebSocketTest(options: WebSocketTestOptions): Promise<void> {
           onError(ws, error)
         }
         catch (err) {
-          completeTest(err instanceof Error ? err : new Error(String(err)))
+          completeTest(err instanceof Error
+            ? err
+            : new Error(String(err)))
         }
       }
       else {
-        completeTest(new Error(`WebSocket error${testId ? ` for ${testId}` : ''}: ${error}`))
+        completeTest(new Error(`WebSocket error${testId
+          ? ` for ${testId}`
+          : ''}: ${error}`))
       }
     })
   })

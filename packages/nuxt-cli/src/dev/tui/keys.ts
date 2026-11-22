@@ -31,7 +31,9 @@ export function attachKeys(onKey: (key: Key) => void, { ignoreBufferedInput = fa
     const wasRaw = stdin.isRaw
     stdin.setRawMode(true)
 
-    const isReplayedInput = ignoreBufferedInput ? guardReplayedInput() : () => false
+    const isReplayedInput = ignoreBufferedInput
+      ? guardReplayedInput()
+      : () => false
     const replies = filterTerminalReplies(stdin, report => !isReplayedInput() && onMouse?.(report))
 
     emitKeypressEvents(stdin)

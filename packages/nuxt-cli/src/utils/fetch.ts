@@ -32,7 +32,9 @@ export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}):
     try {
       const response = await fetch(url, {
         headers: options.headers,
-        signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
+        signal: options.timeout
+          ? AbortSignal.timeout(options.timeout)
+          : undefined,
       })
       if (response.ok) {
         return await response.json() as T

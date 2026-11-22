@@ -64,30 +64,129 @@ interface DocEntry {
  * fallback, so its flags are declared in another repository.
  */
 const DOCS: DocEntry[] = [
-  { id: 'add', file: 'add.md', command: ['add'] },
-  { id: 'add-template', file: 'add-template.md', command: ['add-template'] },
-  { id: 'analyze', file: 'analyze.md', command: ['analyze'] },
-  { id: 'build', file: 'build.md', command: ['build'] },
-  { id: 'cleanup', file: 'cleanup.md', command: ['cleanup'] },
-  { id: 'curl', file: 'curl.md', command: ['curl'] },
-  { id: 'dev', file: 'dev.md', command: ['dev'] },
-  { id: 'devtools', file: 'devtools.md', command: ['devtools'] },
-  { id: 'docs', file: 'docs.md', command: ['docs'] },
-  { id: 'generate', file: 'generate.md', command: ['generate'] },
-  { id: 'info', file: 'info.md', command: ['info'] },
-  { id: 'init', file: 'init.md', command: [], cli: 'create-nuxt', usage: 'npm create nuxt@latest', separator: true },
-  { id: 'module-add', file: 'module.md', command: ['module', 'add'] },
-  { id: 'module-remove', file: 'module.md', command: ['module', 'remove'] },
-  { id: 'module-search', file: 'module.md', command: ['module', 'search'] },
-  { id: 'module-build', file: 'module.md', command: ['module', 'build'] },
-  { id: 'module-prepare', file: 'module.md', command: ['module', 'prepare'] },
-  { id: 'prepare', file: 'prepare.md', command: ['prepare'] },
-  { id: 'preview', file: 'preview.md', command: ['preview'] },
-  { id: 'task-list', file: 'task.md', command: ['task', 'list'] },
-  { id: 'task-run', file: 'task.md', command: ['task', 'run'] },
-  { id: 'test', file: 'test.md', command: ['test'] },
-  { id: 'typecheck', file: 'typecheck.md', command: ['typecheck'] },
-  { id: 'upgrade', file: 'upgrade.md', command: ['upgrade'] },
+  {
+    id: 'add',
+    file: 'add.md',
+    command: ['add'],
+  },
+  {
+    id: 'add-template',
+    file: 'add-template.md',
+    command: ['add-template'],
+  },
+  {
+    id: 'analyze',
+    file: 'analyze.md',
+    command: ['analyze'],
+  },
+  {
+    id: 'build',
+    file: 'build.md',
+    command: ['build'],
+  },
+  {
+    id: 'cleanup',
+    file: 'cleanup.md',
+    command: ['cleanup'],
+  },
+  {
+    id: 'curl',
+    file: 'curl.md',
+    command: ['curl'],
+  },
+  {
+    id: 'dev',
+    file: 'dev.md',
+    command: ['dev'],
+  },
+  {
+    id: 'devtools',
+    file: 'devtools.md',
+    command: ['devtools'],
+  },
+  {
+    id: 'docs',
+    file: 'docs.md',
+    command: ['docs'],
+  },
+  {
+    id: 'generate',
+    file: 'generate.md',
+    command: ['generate'],
+  },
+  {
+    id: 'info',
+    file: 'info.md',
+    command: ['info'],
+  },
+  {
+    id: 'init',
+    file: 'init.md',
+    command: [],
+    cli: 'create-nuxt',
+    usage: 'npm create nuxt@latest',
+    separator: true,
+  },
+  {
+    id: 'module-add',
+    file: 'module.md',
+    command: ['module', 'add'],
+  },
+  {
+    id: 'module-remove',
+    file: 'module.md',
+    command: ['module', 'remove'],
+  },
+  {
+    id: 'module-search',
+    file: 'module.md',
+    command: ['module', 'search'],
+  },
+  {
+    id: 'module-build',
+    file: 'module.md',
+    command: ['module', 'build'],
+  },
+  {
+    id: 'module-prepare',
+    file: 'module.md',
+    command: ['module', 'prepare'],
+  },
+  {
+    id: 'prepare',
+    file: 'prepare.md',
+    command: ['prepare'],
+  },
+  {
+    id: 'preview',
+    file: 'preview.md',
+    command: ['preview'],
+  },
+  {
+    id: 'task-list',
+    file: 'task.md',
+    command: ['task', 'list'],
+  },
+  {
+    id: 'task-run',
+    file: 'task.md',
+    command: ['task', 'run'],
+  },
+  {
+    id: 'test',
+    file: 'test.md',
+    command: ['test'],
+  },
+  {
+    id: 'typecheck',
+    file: 'typecheck.md',
+    command: ['typecheck'],
+  },
+  {
+    id: 'upgrade',
+    file: 'upgrade.md',
+    command: ['upgrade'],
+  },
 ]
 
 /**
@@ -102,11 +201,15 @@ const RUNTIME_DEFAULTS = new Set(['dev.fork'])
 const docsDir = new URL('../docs/', import.meta.url)
 
 async function resolveLazy<T>(value: Resolvable<T>): Promise<T> {
-  return typeof value === 'function' ? (value as () => T | Promise<T>)() : value
+  return typeof value === 'function'
+    ? (value as () => T | Promise<T>)()
+    : value
 }
 
 async function loadCli(name: 'nuxt' | 'create-nuxt'): Promise<CommandDef> {
-  const pkg = name === 'nuxt' ? 'nuxt-cli' : 'create-nuxt'
+  const pkg = name === 'nuxt'
+    ? 'nuxt-cli'
+    : 'create-nuxt'
   const entry = new URL(`../packages/${pkg}/dist/index.mjs`, import.meta.url)
   const module = await import(pathToFileURL(entry.pathname).href).catch(() => {
     throw new Error(`Could not import ${pkg}. Run \`pnpm build\` first.`)
@@ -128,7 +231,9 @@ async function resolveCommand(root: CommandDef, path: string[]): Promise<Command
 }
 
 function aliases(arg: ArgDef): string[] {
-  return typeof arg.alias === 'string' ? [arg.alias] : arg.alias ?? []
+  return typeof arg.alias === 'string'
+    ? [arg.alias]
+    : arg.alias ?? []
 }
 
 function escapeCell(value: string): string {
@@ -141,15 +246,22 @@ function code(value: string): string {
 
 /** `-p, --port=<port>`, without escaping, for reuse in the usage line. */
 function flagSignature(name: string, arg: ArgDef): string {
-  const prefixes = [...aliases(arg).map(alias => `-${alias}`), `--${name}`]
+  const prefixes = [
+    ...aliases(arg).map(alias => `-${alias}`),
+    `--${name}`,
+  ]
   const hint = arg.valueHint ?? arg.options?.join('|')
-  const value = hint ? `=<${hint}>${arg.multiple ? '...' : ''}` : ''
+  const value = hint
+    ? `=<${hint}>${arg.multiple ? '...' : ''}`
+    : ''
   return `${prefixes.join(', ')}${value}`
 }
 
 function positionalSignature(name: string, arg: ArgDef): string {
   const label = name.toUpperCase()
-  return arg.multiple ? `${label}...` : label
+  return arg.multiple
+    ? `${label}...`
+    : label
 }
 
 function renderDefault(id: string, name: string, arg: ArgDef): string {
@@ -159,7 +271,9 @@ function renderDefault(id: string, name: string, arg: ArgDef): string {
   if (arg.default === undefined || arg.default === null) {
     return ''
   }
-  return code(typeof arg.default === 'string' ? arg.default : String(arg.default))
+  return code(typeof arg.default === 'string'
+    ? arg.default
+    : String(arg.default))
 }
 
 function renderTable(headers: string[], rows: string[][]): string {
@@ -192,9 +306,13 @@ function render(entry: DocEntry, args: ArgsDef, inherited: ArgsDef): Blocks {
     entry.usage ?? ['npx nuxt', ...entry.command].join(' '),
     ...positionals.map(([name, arg]) => {
       const signature = positionalSignature(name, arg)
-      return arg.required === false || arg.default !== undefined ? `[${signature}]` : `<${signature}>`
+      return arg.required === false || arg.default !== undefined
+        ? `[${signature}]`
+        : `<${signature}>`
     }),
-    ...entry.separator && options.length ? ['--'] : [],
+    ...entry.separator && options.length
+      ? ['--']
+      : [],
     ...options.map(([name, arg]) => `[${flagSignature(name, arg)}]`),
   ].join(' ')
 
@@ -203,26 +321,41 @@ function render(entry: DocEntry, args: ArgsDef, inherited: ArgsDef): Blocks {
     const hint = arg.valueHint ?? arg.options?.join('|')
     const label = hint
       ? `${signature}=<${hint}>`
-      : typeof arg.default === 'string' ? `${signature}="${arg.default}"` : signature
-    return [code(label), escapeCell(arg.description ?? '')]
+      : typeof arg.default === 'string'
+        ? `${signature}="${arg.default}"`
+        : signature
+    return [
+      code(label),
+      escapeCell(arg.description ?? ''),
+    ]
   })
 
   const optionRows = options.flatMap(([name, arg]) => {
-    const rows = [[
-      code(flagSignature(name, arg)),
-      renderDefault(entry.id, name, arg),
-      escapeCell(arg.description ?? ''),
-    ]]
+    const rows = [
+      [
+        code(flagSignature(name, arg)),
+        renderDefault(entry.id, name, arg),
+        escapeCell(arg.description ?? ''),
+      ],
+    ]
     if (arg.negativeDescription) {
-      rows.push([code(`--no-${name}`), '', escapeCell(arg.negativeDescription)])
+      rows.push([
+        code(`--no-${name}`),
+        '',
+        escapeCell(arg.negativeDescription),
+      ])
     }
     return rows
   })
 
   return {
     cmd: `\`\`\`bash [Terminal]\n${usage}\n\`\`\``,
-    args: argRows.length > 0 ? renderTable(['Argument', 'Description'], argRows) : undefined,
-    opts: optionRows.length > 0 ? renderTable(['Option', 'Default', 'Description'], optionRows) : undefined,
+    args: argRows.length > 0
+      ? renderTable(['Argument', 'Description'], argRows)
+      : undefined,
+    opts: optionRows.length > 0
+      ? renderTable(['Option', 'Default', 'Description'], optionRows)
+      : undefined,
   }
 }
 
@@ -310,7 +443,9 @@ async function main(): Promise<void> {
     const root = clis[entry.cli ?? 'nuxt']
     const command = await resolveCommand(root, entry.command)
     const args = await resolveLazy(command.args) ?? {}
-    const blocks = render(entry, args, entry.cli === 'create-nuxt' ? {} : inherited)
+    const blocks = render(entry, args, entry.cli === 'create-nuxt'
+      ? {}
+      : inherited)
 
     const source = pages.get(entry.file) ?? await readFile(new URL(entry.file, docsDir), 'utf8')
     let updated = replaceBlock(source, `${entry.id}-cmd`, blocks.cmd, entry.file)
@@ -347,6 +482,8 @@ async function main(): Promise<void> {
 }
 
 await main().catch((error) => {
-  console.error(`generate-command-docs: ${error instanceof Error ? error.message : error}`)
+  console.error(`generate-command-docs: ${error instanceof Error
+    ? error.message
+    : error}`)
   process.exit(1)
 })

@@ -20,7 +20,10 @@ export async function writeTypes(options: WriteTypesOptions): Promise<void> {
   const { loadNuxt, buildNuxt, writeTypes } = await loadKit(cwd)
   const nuxt = await loadNuxt({
     cwd,
-    dotenv: { cwd, fileName: resolveDotenvFileNames(dotenv) },
+    dotenv: {
+      cwd,
+      fileName: resolveDotenvFileNames(dotenv),
+    },
     overrides: {
       _prepare: true,
       logLevel,
@@ -43,7 +46,10 @@ export async function writeTypes(options: WriteTypesOptions): Promise<void> {
  */
 export async function writeTypesInChild(options: WriteTypesOptions): Promise<void> {
   const entry = fileURLToPath(new URL('./write-types.mjs', import.meta.url))
-  const child = spawn(process.execPath, [entry, JSON.stringify(options)], {
+  const child = spawn(process.execPath, [
+    entry,
+    JSON.stringify(options),
+  ], {
     cwd: options.cwd,
     stdio: 'inherit',
   })

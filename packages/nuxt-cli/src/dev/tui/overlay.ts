@@ -33,7 +33,11 @@ export class LogOverlay extends ScreenOverlay {
   #timestamps = true
 
   constructor(events: DevEventLog, write: (chunk: string) => void, onClose: () => void) {
-    super({ write, onClose, subscribe: listener => events.onEvent(listener) })
+    super({
+      write,
+      onClose,
+      subscribe: listener => events.onEvent(listener),
+    })
     this.#events = events
   }
 
@@ -62,7 +66,9 @@ export class LogOverlay extends ScreenOverlay {
   }
 
   protected override activate(index: number): boolean {
-    const event = this.#detail ? undefined : this.#matching()[index]
+    const event = this.#detail
+      ? undefined
+      : this.#matching()[index]
     if (!event) {
       return false
     }
@@ -91,7 +97,11 @@ export class LogOverlay extends ScreenOverlay {
       case 'right': {
         const matching = this.#matching()
         const index = matching.indexOf(this.#detail)
-        const next = index < 0 ? undefined : matching[index + (key.name === 'left' ? -1 : 1)]
+        const next = index < 0
+          ? undefined
+          : matching[index + (key.name === 'left'
+            ? -1
+            : 1)]
         if (!next) {
           return true
         }
@@ -151,11 +161,17 @@ export class LogOverlay extends ScreenOverlay {
       return this.#renderDetailTitle(this.#detail)
     }
     const sources = (['cli', 'build', 'runtime'] as const)
-      .map(source => this.#sources[source] ? styleText('bold', source) : styleText([MUTED, 'strikethrough'], source))
+      .map(source => this.#sources[source]
+        ? styleText('bold', source)
+        : styleText([MUTED, 'strikethrough'], source))
       .join(styleText(MUTED, '+'))
-    const level = this.#level === 'all' ? 'all levels' : `${this.#level}+ only`
+    const level = this.#level === 'all'
+      ? 'all levels'
+      : `${this.#level}+ only`
     const hidden = this.#events.recent(SCAN_LIMIT).length - this.#matching().length
-    const hiddenNote = hidden > 0 ? ` · ${styleText(MUTED, `${hidden} hidden`)}` : ''
+    const hiddenNote = hidden > 0
+      ? ` · ${styleText(MUTED, `${hidden} hidden`)}`
+      : ''
     return ` ${styleText('bold', 'logs')}${this.renderPosition()} · ${sources} · ${level}${hiddenNote}${this.renderSearch()}`
   }
 
@@ -172,7 +188,9 @@ export class LogOverlay extends ScreenOverlay {
       let timestamp: FormatEventOptions['timestamp'] = 'hidden'
       if (this.#timestamps) {
         const clock = formatClock(event.time)
-        timestamp = clock === shownClock ? 'blank' : 'shown'
+        timestamp = clock === shownClock
+          ? 'blank'
+          : 'shown'
         if (!repeated) {
           shownClock = clock
         }
@@ -200,13 +218,29 @@ export class LogOverlay extends ScreenOverlay {
       ['enter', 'details'],
       ['Home/End', 'top/live'],
       ['PgUp/PgDn', 'scroll'],
-      ['e', 'errors', { active: this.#level === 'error' }],
-      ['w', 'warnings', { active: this.#level === 'warn' }],
-      ['a', 'all', { active: this.#level === 'all' }],
+      [
+        'e',
+        'errors',
+        { active: this.#level === 'error' },
+      ],
+      [
+        'w',
+        'warnings',
+        { active: this.#level === 'warn' },
+      ],
+      [
+        'a',
+        'all',
+        { active: this.#level === 'all' },
+      ],
       ['t/b/r', 'cli/build/runtime'],
       ['T', 'timestamps'],
       ['/', 'search'],
-      ['x', 'delete logs', { confirm: true }],
+      [
+        'x',
+        'delete logs',
+        { confirm: true },
+      ],
       ['y', 'copy'],
       ['Y', 'copy all'],
       ['q', 'close'],
@@ -216,9 +250,21 @@ export class LogOverlay extends ScreenOverlay {
   #renderDetailTitle(event: DevLogEvent): string {
     const matching = this.#matching()
     const index = matching.indexOf(event)
-    const position = index < 0 ? '' : ` ${styleText(MUTED, `› ${index + 1} of ${matching.length}`)}`
+    const position = index < 0
+      ? ''
+      : ` ${styleText(MUTED, `› ${index + 1} of ${matching.length}`)}`
     const level = colorBySeverity(event.type, { ...event, styled: false })
-    const parts = [level, event.source, formatClock(event.time), ...event.tag ? [event.tag] : [], ...event.repeats && event.repeats > 1 ? [`×${event.repeats}`] : []]
+    const parts = [
+      level,
+      event.source,
+      formatClock(event.time),
+      ...event.tag
+        ? [event.tag]
+        : [],
+      ...event.repeats && event.repeats > 1
+        ? [`×${event.repeats}`]
+        : [],
+    ]
     return ` ${styleText('bold', 'logs')}${position} · ${parts.join(styleText(MUTED, ' · '))}`
   }
 
@@ -234,7 +280,9 @@ export class LogOverlay extends ScreenOverlay {
   }
 
   #setLevel(level: LevelFilter): boolean {
-    this.#level = this.#level === level ? 'all' : level
+    this.#level = this.#level === level
+      ? 'all'
+      : level
     this.resetSelection()
     this.resetScroll()
     return true
@@ -258,21 +306,36 @@ export function formatTime(time: number): string {
 
 function formatClock(time: number): string {
   const date = new Date(time)
-  return [date.getHours(), date.getMinutes(), date.getSeconds()].map(part => String(part).padStart(2, '0')).join(':')
+  return [
+    date.getHours(),
+    date.getMinutes(),
+    date.getSeconds(),
+  ].map(part => String(part).padStart(2, '0')).join(':')
 }
 
 function copyText(event: DevLogEvent): string {
-  return [formatTime(event.time), event.request, event.message].filter(Boolean).join(' ')
+  return [
+    formatTime(event.time),
+    event.request,
+    event.message,
+  ].filter(Boolean).join(' ')
 }
 
 /** One log in full, wrapped to the view: its request, then every line of the message. */
 function renderDetail(event: DevLogEvent, columns: number): OverlayEntry[] {
   const width = Math.max(1, columns - 1)
   const lines = [
-    ...event.request ? [...wrapText(event.request, width).map(line => styleText(['magenta', 'bold'], line)), ''] : [],
+    ...event.request
+      ? [
+          ...wrapText(event.request, width).map(line => styleText(['magenta', 'bold'], line)),
+          '',
+        ]
+      : [],
     ...wrapText(trimBlankLines(event.format?.(width) ?? event.message), width).map(line => colorBySeverity(line, event)),
   ]
-  return lines.map(line => ({ lines: [line] }))
+  return lines.map(line => ({
+    lines: [line],
+  }))
 }
 
 function trimBlankLines(message: string): string {
@@ -302,18 +365,30 @@ export interface FormatEventOptions {
  */
 export function formatEvent(event: DevLogEvent, columns: number, sameRequest = false, options: FormatEventOptions = {}): string[] {
   const timestamp = options.timestamp ?? 'shown'
-  const messageColumn = timestamp !== 'hidden' ? 9 : event.request ? 2 : 0
+  const messageColumn = timestamp !== 'hidden'
+    ? 9
+    : event.request ? 2 : 0
   const clock = formatClock(event.time)
-  const time = timestamp === 'hidden' ? '' : timestamp === 'blank' ? `${' '.repeat(clock.length)} ` : `${styleText(MUTED, clock)} `
+  const time = timestamp === 'hidden'
+    ? ''
+    : timestamp === 'blank'
+      ? `${' '.repeat(clock.length)} `
+      : `${styleText(MUTED, clock)} `
   const budget = columns - messageColumn - 1
   const indent = ' '.repeat(messageColumn)
 
-  const marker = event.repeats && event.repeats > 1 ? styleText(MUTED, ` ×${event.repeats}`) : ''
-  const markerWidth = event.repeats && event.repeats > 1 ? ` ×${event.repeats}`.length : 0
+  const marker = event.repeats && event.repeats > 1
+    ? styleText(MUTED, ` ×${event.repeats}`)
+    : ''
+  const markerWidth = event.repeats && event.repeats > 1
+    ? ` ×${event.repeats}`.length
+    : 0
 
   const [first = '', ...rest] = trimBlankLines(event.format?.(Math.max(1, budget)) ?? event.message).split('\n')
   const tagRoom = Math.max(Math.floor(budget / 2), budget - markerWidth - visibleWidth(first) - 1)
-  let tag = event.tag && !event.request ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `) : ''
+  let tag = event.tag && !event.request
+    ? styleText(MUTED, `[${truncate(event.tag, Math.max(1, tagRoom - 2))}] `)
+    : ''
   const tagWidth = visibleWidth(tag)
 
   const firstRoom = Math.max(1, budget - markerWidth - tagWidth)
@@ -323,34 +398,48 @@ export function formatEvent(event: DevLogEvent, columns: number, sameRequest = f
   let lines: string[]
   if (options.expanded) {
     lines = [
-      ...head.map((row, index) => index === 0 ? `${colorBySeverity(row, event)}${marker}` : ' '.repeat(tagWidth) + colorBySeverity(row, event)),
+      ...head.map((row, index) => index === 0
+        ? `${colorBySeverity(row, event)}${marker}`
+        : ' '.repeat(tagWidth) + colorBySeverity(row, event)),
       ...body.map(row => colorBySeverity(row, event)),
     ]
   }
   else {
     const hidden = head.length - 1 + body.length
-    let more = hidden ? ` +${hidden} ${hidden === 1 ? 'line' : 'lines'}` : ''
+    let more = hidden
+      ? ` +${hidden} ${hidden === 1
+        ? 'line'
+        : 'lines'}`
+      : ''
     if (more && firstRoom - more.length < 1) {
       more = ` +${hidden}`
     }
     const shortfall = 1 - (firstRoom - more.length)
     if (shortfall > 0 && tag) {
       const room = tagWidth - shortfall - 3
-      tag = room >= 1 ? styleText(MUTED, `[${truncate(event.tag!, room)}] `) : ''
+      tag = room >= 1
+        ? styleText(MUTED, `[${truncate(event.tag!, room)}] `)
+        : ''
     }
     const textRoom = Math.max(1, budget - markerWidth - visibleWidth(tag) - more.length)
     const text = colorBySeverity(truncate(first, textRoom), event)
-    lines = [`${text}${more ? styleText(MUTED, more) : ''}${marker}`]
+    lines = [`${text}${more
+      ? styleText(MUTED, more)
+      : ''}${marker}`]
   }
 
   if (event.request) {
     return [
-      ...sameRequest ? [] : [`${time}${styleText(['magenta', 'bold'], event.request)}`],
+      ...sameRequest
+        ? []
+        : [`${time}${styleText(['magenta', 'bold'], event.request)}`],
       ...lines.map(line => `${indent}${line}`),
     ]
   }
 
-  return lines.map((line, index) => index === 0 ? `${time}${tag}${line}` : `${indent}${line}`)
+  return lines.map((line, index) => index === 0
+    ? `${time}${tag}${line}`
+    : `${indent}${line}`)
 }
 
 /** Colour a message by its level, unless it already carries its own colour. */
@@ -361,5 +450,7 @@ function colorBySeverity(line: string, event: DevLogEvent): string {
   if (event.level <= 0) {
     return styleText('red', line)
   }
-  return event.level <= 1 ? paint('warning', line) : line
+  return event.level <= 1
+    ? paint('warning', line)
+    : line
 }

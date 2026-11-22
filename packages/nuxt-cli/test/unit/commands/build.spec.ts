@@ -19,9 +19,16 @@ const mocks = vi.hoisted(() => ({
   writeTypes: vi.fn(),
 }))
 
-vi.mock('@clack/prompts', () => ({ intro: vi.fn(), outro: vi.fn() }))
-vi.mock('../../../src/utils/banner', () => ({ showBanner: vi.fn() }))
-vi.mock('../../../src/utils/env', () => ({ overrideEnv: vi.fn() }))
+vi.mock('@clack/prompts', () => ({
+  intro: vi.fn(),
+  outro: vi.fn(),
+}))
+vi.mock('../../../src/utils/banner', () => ({
+  showBanner: vi.fn(),
+}))
+vi.mock('../../../src/utils/env', () => ({
+  overrideEnv: vi.fn(),
+}))
 vi.mock('../../../src/utils/fs', () => ({ clearBuildDir: mocks.clearBuildDir }))
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({
@@ -37,7 +44,13 @@ vi.mock('../../../src/utils/lockfile', () => ({
   formatLockError: mocks.formatLockError,
 }))
 vi.mock('../../../src/utils/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), message: vi.fn(), success: vi.fn() },
+  logger: {
+    error: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    message: vi.fn(),
+    success: vi.fn(),
+  },
   intro: vi.fn(),
   outro: vi.fn(),
 }))
@@ -51,7 +64,10 @@ const buildDir = '/project/.nuxt'
 const outputDir = '/project/.output'
 
 function run(args: string[] = [], data?: Record<string, any>) {
-  return runCommand(build, { rawArgs: [cwd, ...args], data })
+  return runCommand(build, {
+    rawArgs: [cwd, ...args],
+    data,
+  })
 }
 
 describe('build', () => {
@@ -63,15 +79,25 @@ describe('build', () => {
       options: { buildDir, rootDir: cwd, ssr: true },
     })
     mocks.useNitro.mockReturnValue({
-      options: { preset: 'node-server', output: { dir: outputDir, publicDir: `${outputDir}/public` } },
+      options: {
+        preset: 'node-server',
+        output: { dir: outputDir, publicDir: `${outputDir}/public` },
+      },
     })
     mocks.acquireLock.mockReturnValue({ release: mocks.releaseBuildDir })
     mocks.acquireOutputLock.mockReturnValue({ release: mocks.releaseOutputDir })
   })
 
   it('loads Nuxt with build arguments and runs the build in order', async () => {
-    await run(['--prerender', '--preset=cloudflare', '--extends=base', '--profile=verbose'], {
-      overrides: { debug: { templates: true } },
+    await run([
+      '--prerender',
+      '--preset=cloudflare',
+      '--extends=base',
+      '--profile=verbose',
+    ], {
+      overrides: {
+        debug: { templates: true },
+      },
     })
 
     expect(mocks.loadNuxt).toHaveBeenCalledWith({
@@ -110,10 +136,18 @@ describe('build', () => {
   })
 
   it('should load every requested `.env` file, in the order given', async () => {
-    await run(['--dotenv', '.env.development', '--dotenv', '.env.local'])
+    await run([
+      '--dotenv',
+      '.env.development',
+      '--dotenv',
+      '.env.local',
+    ])
 
     expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
-      dotenv: { cwd, fileName: ['.env.development', '.env.local'] },
+      dotenv: {
+        cwd,
+        fileName: ['.env.development', '.env.local'],
+      },
     }))
   })
 
@@ -133,13 +167,20 @@ describe('build', () => {
 
   it('releases the build-directory lock when the output is already in use', async () => {
     mocks.acquireOutputLock.mockReturnValue({
-      existing: { pid: 42, command: 'build', cwd: '/other/project', startedAt: Date.now() },
+      existing: {
+        pid: 42,
+        command: 'build',
+        cwd: '/other/project',
+        startedAt: Date.now(),
+      },
     })
 
     await expect(run()).rejects.toThrow('lock details')
     expect(mocks.formatLockError).toHaveBeenCalledWith(
       expect.objectContaining({ pid: 42 }),
-      { outputDir: expect.stringContaining('.output') },
+      {
+        outputDir: expect.stringContaining('.output'),
+      },
     )
 
     expect(mocks.clearBuildDir).not.toHaveBeenCalled()
@@ -153,7 +194,9 @@ describe('build', () => {
     await run([arg])
 
     expect(mocks.loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
-      overrides: expect.objectContaining({ nitro: { static: undefined, preset: 'vercel' } }),
+      overrides: expect.objectContaining({
+        nitro: { static: undefined, preset: 'vercel' },
+      }),
     }))
   })
 
@@ -169,7 +212,10 @@ describe('build', () => {
         targetLabel: 'preset',
         target: () => 'vercel',
         capabilities: { server: true, dev: true },
-        output: { dir: () => outputDir, publicDir: () => `${outputDir}/public` },
+        output: {
+          dir: () => outputDir,
+          publicDir: () => `${outputDir}/public`,
+        },
       },
     })
 
@@ -186,7 +232,12 @@ describe('build', () => {
     mocks.loadNuxt.mockImplementation(({ overrides }) => Promise.resolve({
       hook: (name: string, fn: (...args: any[]) => unknown) => hooks.set(name, fn),
       ready: vi.fn(),
-      options: { buildDir, rootDir: cwd, ssr: true, logLevel: overrides.logLevel },
+      options: {
+        buildDir,
+        rootDir: cwd,
+        ssr: true,
+        logLevel: overrides.logLevel,
+      },
     }))
     mocks.buildNuxt.mockImplementation(async () => {
       await hooks.get('build:environment:done')!(
@@ -208,7 +259,12 @@ describe('build', () => {
     mocks.loadNuxt.mockResolvedValue({
       hook: vi.fn(),
       ready: vi.fn(),
-      options: { buildDir, rootDir: cwd, ssr: false, server: { builder: 'vite' } },
+      options: {
+        buildDir,
+        rootDir: cwd,
+        ssr: false,
+        server: { builder: 'vite' },
+      },
     })
 
     await run()

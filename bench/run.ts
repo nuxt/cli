@@ -17,16 +17,38 @@ import { panelSuite } from './suites/panel.ts'
 import { restartSuite } from './suites/restart.ts'
 import { startupSuite } from './suites/startup.ts'
 
-const ALL_SUITES = ['startup', 'modules', 'panel', 'dev', 'restart', 'build', 'footprint'] as const
+const ALL_SUITES = [
+  'startup',
+  'modules',
+  'panel',
+  'dev',
+  'restart',
+  'build',
+  'footprint',
+] as const
 type SuiteName = typeof ALL_SUITES[number]
 
 const { values } = parseArgs({
   options: {
-    'suite': { type: 'string', multiple: true, default: [...ALL_SUITES] },
+    'suite': {
+      type: 'string',
+      multiple: true,
+      default: [...ALL_SUITES],
+    },
     'baseline': { type: 'string', default: DEFAULT_BASELINE },
-    'fixture': { type: 'string', multiple: true, default: ['playground', 'large'] },
-    'workdir': { type: 'string', default: join(homedir(), '.cache', 'nuxt-cli-bench') },
-    'out': { type: 'string', default: join(repoRoot, 'bench/results/report.md') },
+    'fixture': {
+      type: 'string',
+      multiple: true,
+      default: ['playground', 'large'],
+    },
+    'workdir': {
+      type: 'string',
+      default: join(homedir(), '.cache', 'nuxt-cli-bench'),
+    },
+    'out': {
+      type: 'string',
+      default: join(repoRoot, 'bench/results/report.md'),
+    },
     'startup-reps': { type: 'string', default: '15' },
     'panel-reps': { type: 'string', default: '5' },
     'dev-reps': { type: 'string', default: '5' },
@@ -49,7 +71,9 @@ mkdirSync(workdir, { recursive: true })
 console.log(`workdir: ${workdir}`)
 const targets = prepareTargets(workdir, values.baseline!)
 const needsFixtures = suites.has('panel') || suites.has('dev') || suites.has('restart') || suites.has('build')
-const fixtures = needsFixtures ? prepareFixtures(workdir).filter(fixture => values.fixture!.includes(fixture.id)) : []
+const fixtures = needsFixtures
+  ? prepareFixtures(workdir).filter(fixture => values.fixture!.includes(fixture.id))
+  : []
 if (needsFixtures && fixtures.length === 0) {
   throw new Error(`no fixtures matched ${values.fixture!.join(', ')}; the panel, dev, restart and build suites need at least one`)
 }
@@ -59,7 +83,11 @@ for (const target of targets) {
 
 const env = environment()
 const sections: string[] = []
-const json: Record<string, unknown> = { environment: env, commit: gitDescribe(repoRoot), targets }
+const json: Record<string, unknown> = {
+  environment: env,
+  commit: gitDescribe(repoRoot),
+  targets,
+}
 
 let startupResults: StartupResult[] | undefined
 let moduleResults: ModuleCount[] | undefined
@@ -127,7 +155,12 @@ const header = [
     ['Run started', env.date],
   ]),
   ...(fixtures.length
-    ? ['', 'Fixtures:', '', ...fixtures.map(fixture => `- \`${fixture.id}\`: ${fixture.label}`)]
+    ? [
+        '',
+        'Fixtures:',
+        '',
+        ...fixtures.map(fixture => `- \`${fixture.id}\`: ${fixture.label}`),
+      ]
     : []),
 ].join('\n')
 
@@ -142,7 +175,12 @@ for (const [caseId, label] of STARTUP_CASES) {
   const baseline = startupResults?.find(r => r.case === caseId && r.target === 'baseline')
   const head = startupResults?.find(r => r.case === caseId && r.target === 'head')
   if (baseline && head) {
-    headlineRows.push([`${label} wall time (median)`, formatMs(baseline.wall.median), formatMs(head.wall.median), formatDelta(baseline.wall.median, head.wall.median)])
+    headlineRows.push([
+      `${label} wall time (median)`,
+      formatMs(baseline.wall.median),
+      formatMs(head.wall.median),
+      formatDelta(baseline.wall.median, head.wall.median),
+    ])
   }
 }
 for (const [caseId, label] of STARTUP_CASES) {
@@ -150,16 +188,36 @@ for (const [caseId, label] of STARTUP_CASES) {
   const head = moduleResults?.find(r => r.case === caseId && r.target === 'head')
   if (baseline && head) {
     headlineRows.push(
-      [`${label} modules loaded`, String(baseline.modules), String(head.modules), formatDelta(baseline.modules, head.modules)],
-      [`${label} built-ins loaded`, String(baseline.builtins), String(head.builtins), formatDelta(baseline.builtins, head.builtins)],
+      [
+        `${label} modules loaded`,
+        String(baseline.modules),
+        String(head.modules),
+        formatDelta(baseline.modules, head.modules),
+      ],
+      [
+        `${label} built-ins loaded`,
+        String(baseline.builtins),
+        String(head.builtins),
+        formatDelta(baseline.builtins, head.builtins),
+      ],
     )
   }
 }
 if (footprintResults) {
   const [baseline, head] = footprintResults
   headlineRows.push(
-    ['Installed `node_modules`', formatBytes(baseline!.bytes), formatBytes(head!.bytes), formatDelta(baseline!.bytes, head!.bytes)],
-    ['Published tarball (packed)', formatBytes(baseline!.tarballBytes), formatBytes(head!.tarballBytes), formatDelta(baseline!.tarballBytes, head!.tarballBytes)],
+    [
+      'Installed `node_modules`',
+      formatBytes(baseline!.bytes),
+      formatBytes(head!.bytes),
+      formatDelta(baseline!.bytes, head!.bytes),
+    ],
+    [
+      'Published tarball (packed)',
+      formatBytes(baseline!.tarballBytes),
+      formatBytes(head!.tarballBytes),
+      formatDelta(baseline!.tarballBytes, head!.tarballBytes),
+    ],
   )
 }
 
@@ -171,7 +229,12 @@ if (headlineRows.length) {
   const summary = [
     `\`@nuxt/cli\` v${targets[0]!.version} (baseline) vs v${targets[1]!.version} (this PR)`,
     '',
-    markdownTable(['Metric', shortLabel(targets[0]!), shortLabel(targets[1]!), 'Delta'], headlineRows),
+    markdownTable([
+      'Metric',
+      shortLabel(targets[0]!),
+      shortLabel(targets[1]!),
+      'Delta',
+    ], headlineRows),
     '',
   ].join('\n')
   writeFileSync(join(dirname(values.out!), 'summary.md'), summary)

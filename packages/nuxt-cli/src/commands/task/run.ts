@@ -66,7 +66,9 @@ function unwrapResult(data: unknown): unknown {
     return data
   }
   const keys = Object.keys(data)
-  return keys.length === 1 && keys[0] === 'result' ? (data as { result: unknown }).result : data
+  return keys.length === 1 && keys[0] === 'result'
+    ? (data as { result: unknown }).result
+    : data
 }
 
 function resolvePayload(args: Record<string, unknown>): Record<string, unknown> {

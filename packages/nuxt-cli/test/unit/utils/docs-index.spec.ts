@@ -7,7 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { resolveDocsIndex } from '../../../src/utils/docs-index'
 
-const { resolveRegistryVersion } = vi.hoisted(() => ({ resolveRegistryVersion: vi.fn<() => Promise<string | undefined>>() }))
+const { resolveRegistryVersion } = vi.hoisted(() => ({
+  resolveRegistryVersion: vi.fn<() => Promise<string | undefined>>(),
+}))
 
 vi.mock('../../../src/utils/versions', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/utils/versions')>(),
@@ -40,11 +42,22 @@ function createProject(version: string, files: Record<string, string>): string {
   cwd = mkdtempSync(join(tmpdir(), 'nuxt-docs-index-'))
   const root = join(cwd, 'node_modules/@nuxt/docs')
   mkdirSync(root, { recursive: true })
-  writeFileSync(join(root, 'package.json'), JSON.stringify({ name: '@nuxt/docs', version, exports: { './*': './*' } }))
+  writeFileSync(join(root, 'package.json'), JSON.stringify({
+    name: '@nuxt/docs',
+    version,
+    exports: { './*': './*' },
+  }))
   const nuxt = join(cwd, 'node_modules/nuxt')
   mkdirSync(nuxt, { recursive: true })
-  writeFileSync(join(nuxt, 'package.json'), JSON.stringify({ name: 'nuxt', version, exports: { './package.json': './package.json' } }))
-  writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'project', dependencies: { nuxt: version } }))
+  writeFileSync(join(nuxt, 'package.json'), JSON.stringify({
+    name: 'nuxt',
+    version,
+    exports: { './package.json': './package.json' },
+  }))
+  writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+    name: 'project',
+    dependencies: { nuxt: version },
+  }))
   for (const [path, contents] of Object.entries(files)) {
     const file = join(root, path)
     mkdirSync(dirname(file), { recursive: true })
@@ -57,12 +70,21 @@ function createProject(version: string, files: Record<string, string>): string {
 function createTarball(files: Record<string, string>): ArrayBuffer {
   const dir = mkdtempSync(join(tmpdir(), 'nuxt-docs-tarball-'))
   try {
-    for (const [path, contents] of Object.entries({ 'package.json': JSON.stringify({ name: '@nuxt/docs' }), ...files })) {
+    for (const [path, contents] of Object.entries({
+      'package.json': JSON.stringify({ name: '@nuxt/docs' }),
+      ...files,
+    })) {
       const file = join(dir, 'package', path)
       mkdirSync(dirname(file), { recursive: true })
       writeFileSync(file, contents)
     }
-    execFileSync('tar', ['-czf', join(dir, 'docs.tgz'), '-C', dir, 'package'])
+    execFileSync('tar', [
+      '-czf',
+      join(dir, 'docs.tgz'),
+      '-C',
+      dir,
+      'package',
+    ])
     const contents = readFileSync(join(dir, 'docs.tgz'))
     return contents.buffer.slice(contents.byteOffset, contents.byteOffset + contents.byteLength) as ArrayBuffer
   }
@@ -72,7 +94,9 @@ function createTarball(files: Record<string, string>): ArrayBuffer {
 }
 
 function page(title: string, description?: string, body = ''): string {
-  return `---\ntitle: '${title}'\n${description ? `description: '${description}'\n` : ''}---\n\n${body}`
+  return `---\ntitle: '${title}'\n${description
+    ? `description: '${description}'\n`
+    : ''}---\n\n${body}`
 }
 
 describe('resolveDocsIndex', () => {
@@ -100,13 +124,21 @@ describe('resolveDocsIndex', () => {
   })
 
   it('should serve each major version from its own base', async () => {
-    expect((await resolveDocsIndex(createProject('4.5.2', { 'a.md': page('A') })))?.base).toBe('/docs/4.x')
-    expect((await resolveDocsIndex(createProject('3.17.0', { 'a.md': page('A') })))?.base).toBe('/docs/3.x')
-    expect((await resolveDocsIndex(createProject('nightly', { 'a.md': page('A') })))?.base).toBe('/docs')
+    expect((await resolveDocsIndex(createProject('4.5.2', {
+      'a.md': page('A'),
+    })))?.base).toBe('/docs/4.x')
+    expect((await resolveDocsIndex(createProject('3.17.0', {
+      'a.md': page('A'),
+    })))?.base).toBe('/docs/3.x')
+    expect((await resolveDocsIndex(createProject('nightly', {
+      'a.md': page('A'),
+    })))?.base).toBe('/docs')
   })
 
   it('should drop the index segment from a section landing page', async () => {
-    const index = await resolveDocsIndex(createProject('4.5.2', { '3.guide/4.modules/index.md': page('Modules') }))
+    const index = await resolveDocsIndex(createProject('4.5.2', {
+      '3.guide/4.modules/index.md': page('Modules'),
+    }))
 
     expect(index?.entries[0]?.path).toBe('/guide/modules')
   })
@@ -146,7 +178,9 @@ describe('resolveDocsIndex', () => {
   })
 
   it('should read the installed docs afresh rather than from the cache', async () => {
-    const project = createProject('4.5.2', { 'guide.md': page('Guide') })
+    const project = createProject('4.5.2', {
+      'guide.md': page('Guide'),
+    })
     expect((await resolveDocsIndex(project))?.entries.map(entry => entry.title)).toEqual(['Guide'])
 
     writeFileSync(join(project, 'node_modules/@nuxt/docs/guide.md'), page('Renamed'))
@@ -163,9 +197,14 @@ describe('resolveDocsIndex', () => {
 
   it('should fetch the docs published for the project\'s Nuxt version when none are installed', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'nuxt-docs-index-'))
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'project', dependencies: { nuxt: '4.5.2' } }))
+    writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+      name: 'project',
+      dependencies: { nuxt: '4.5.2' },
+    }))
     resolveRegistryVersion.mockResolvedValue('4.5.2')
-    const tarball = createTarball({ 'guide.md': page('Fetched') })
+    const tarball = createTarball({
+      'guide.md': page('Fetched'),
+    })
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(tarball))
     const onDownload = vi.fn()
 
@@ -183,7 +222,9 @@ describe('resolveDocsIndex', () => {
 
     // A project configuring another registry gets its own cache entry.
     writeFileSync(join(cwd, '.npmrc'), 'registry=https://proxy.example.com/npm/\n')
-    fetchSpy.mockResolvedValue(new Response(createTarball({ 'guide.md': page('Proxied') })))
+    fetchSpy.mockResolvedValue(new Response(createTarball({
+      'guide.md': page('Proxied'),
+    })))
     expect((await resolveDocsIndex(cwd))?.entries.map(entry => entry.title)).toEqual(['Proxied'])
     expect(fetchSpy).toHaveBeenCalledTimes(1)
 
@@ -195,9 +236,14 @@ describe('resolveDocsIndex', () => {
 
   it('should download from npm when the configured registry rejects the request', async () => {
     cwd = mkdtempSync(join(tmpdir(), 'nuxt-docs-index-'))
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'project', dependencies: { nuxt: '4.5.2' } }))
+    writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+      name: 'project',
+      dependencies: { nuxt: '4.5.2' },
+    }))
     writeFileSync(join(cwd, '.npmrc'), 'registry=https://proxy.example.com/npm/\n')
-    const tarball = createTarball({ 'guide.md': page('Fetched') })
+    const tarball = createTarball({
+      'guide.md': page('Fetched'),
+    })
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(null, { status: 401 }))
       .mockResolvedValueOnce(new Response(tarball))
@@ -212,6 +258,8 @@ describe('resolveDocsIndex', () => {
   })
 
   it('should be undefined when the package holds no pages', async () => {
-    await expect(resolveDocsIndex(createProject('4.5.2', { 'README.md': page('Readme') }))).resolves.toBeUndefined()
+    await expect(resolveDocsIndex(createProject('4.5.2', {
+      'README.md': page('Readme'),
+    }))).resolves.toBeUndefined()
   })
 })

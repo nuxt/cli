@@ -44,7 +44,12 @@ describe('suggestCommand', () => {
 })
 
 describe('suggestFlag', () => {
-  const candidates = ['dotenv', 'logLevel', 'strictPort', 'port']
+  const candidates = [
+    'dotenv',
+    'logLevel',
+    'strictPort',
+    'port',
+  ]
 
   it('matches a differently cased spelling', async () => {
     await expect(suggestFlag('loglevel', candidates)).resolves.toBe('logLevel')

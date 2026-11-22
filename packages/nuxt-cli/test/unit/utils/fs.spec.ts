@@ -49,7 +49,12 @@ describe('clearDir', () => {
 
   it('should keep the excluded entries and drop everything else', async () => {
     const dir = join(root, 'build')
-    populate(dir, ['keep.txt', 'drop.txt', 'keep-dir/', 'drop-dir/'])
+    populate(dir, [
+      'keep.txt',
+      'drop.txt',
+      'keep-dir/',
+      'drop-dir/',
+    ])
 
     await clearDir(dir, ['keep.txt', 'keep-dir'])
 
@@ -69,11 +74,23 @@ describe('clearDir', () => {
 describe('clearBuildDir', () => {
   it('should keep the cache and the analysis output', async () => {
     const dir = join(root, '.nuxt')
-    populate(dir, ['cache/', 'analyze/', 'nuxt.json', 'nuxt.lock', 'dist/', 'manifest.json'])
+    populate(dir, [
+      'cache/',
+      'analyze/',
+      'nuxt.json',
+      'nuxt.lock',
+      'dist/',
+      'manifest.json',
+    ])
 
     await clearBuildDir(dir)
 
-    expect(readdirSync(dir).sort()).toEqual(['analyze', 'cache', 'nuxt.json', 'nuxt.lock'])
+    expect(readdirSync(dir).sort()).toEqual([
+      'analyze',
+      'cache',
+      'nuxt.json',
+      'nuxt.lock',
+    ])
     expect(existsSync(join(dir, 'cache/nested/file.txt'))).toBe(true)
   })
 })

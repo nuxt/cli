@@ -11,7 +11,9 @@ const tempDirs: string[] = []
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: async () => ({
-    loadNuxt: async () => ({ close: async () => {} }),
+    loadNuxt: async () => ({
+      close: async () => {},
+    }),
   }),
 }))
 

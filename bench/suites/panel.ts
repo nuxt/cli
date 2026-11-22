@@ -107,7 +107,10 @@ export async function panelSuite(targets: Target[], fixtures: Fixture[], reps: n
       }
     })
     const [baseline, head] = summaries
-    for (const [label, key] of [['first paint', 'firstPaint'], ['first answered keypress', 'interactive']] as const) {
+    for (const [label, key] of [
+      ['first paint', 'firstPaint'],
+      ['first answered keypress', 'interactive'],
+    ] as const) {
       rows.push([
         `${fixture.id} / ${label}`,
         formatMs(baseline![key].median),
@@ -123,7 +126,14 @@ export async function panelSuite(targets: Target[], fixtures: Fixture[], reps: n
     `Median of ${reps} interleaved runs in a ${COLUMNS}x${ROWS} pty, one warmup discarded. "First paint" is the first chunk carrying printable content, so cursor moves and the room the panel makes for itself do not count. "First answered keypress" offers \`?\` every ${KEY_INTERVAL_MS}ms from the first paint and waits for the help view.`,
     '',
     markdownTable(
-      ['Fixture / metric', `${shortLabel(targets[0]!)} median`, `${shortLabel(targets[1]!)} median`, 'Delta', `${shortLabel(targets[0]!)} min / max`, `${shortLabel(targets[1]!)} min / max`],
+      [
+        'Fixture / metric',
+        `${shortLabel(targets[0]!)} median`,
+        `${shortLabel(targets[1]!)} median`,
+        'Delta',
+        `${shortLabel(targets[0]!)} min / max`,
+        `${shortLabel(targets[1]!)} min / max`,
+      ],
       rows,
     ),
   ].join('\n')

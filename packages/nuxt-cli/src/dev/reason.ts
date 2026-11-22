@@ -26,9 +26,19 @@ export function mergeRestartReasons(previous: DevRestartReason | undefined, next
   }
   return {
     type: 'config',
-    files: [...new Set([...previous.files, ...next.files])],
+    files: [
+      ...new Set([
+        ...previous.files,
+        ...next.files,
+      ]),
+    ],
     keys: previous.keys || next.keys
-      ? [...new Set([...previous.keys || [], ...next.keys || []])]
+      ? [
+          ...new Set([
+            ...previous.keys || [],
+            ...next.keys || [],
+          ]),
+        ]
       : undefined,
   }
 }
@@ -41,7 +51,10 @@ export function withConfigKeys(reason: DevRestartReason | undefined, keys: strin
   if (reason?.type !== 'config' || !keys?.length) {
     return reason
   }
-  return { ...reason, keys: [...keys].sort() }
+  return {
+    ...reason,
+    keys: [...keys].sort(),
+  }
 }
 
 /** Describe what caused a reload or restart, without saying what happens next. */
@@ -56,7 +69,9 @@ export function formatRestartCause(reason: DevRestartReason, options: FormatRest
     case 'shortcut':
       return 'Restart requested'
     case 'error':
-      return reason.message ? `Unhandled error: ${reason.message}` : 'Unhandled error'
+      return reason.message
+        ? `Unhandled error: ${reason.message}`
+        : 'Unhandled error'
   }
 }
 
@@ -85,7 +100,9 @@ export function formatRestartReason(reason: DevRestartReason | undefined, option
 const MAX_LISTED_ITEMS = 2
 
 function formatFileList(files: string[], options: FormatRestartReasonOptions): string {
-  const names = files.map(file => options.link === false ? relativeTo(options.rootDir, file, { link: false }) : relativeTo(options.rootDir, file))
+  const names = files.map(file => options.link === false
+    ? relativeTo(options.rootDir, file, { link: false })
+    : relativeTo(options.rootDir, file))
   if (names.length === 0) {
     return 'A file'
   }
@@ -97,5 +114,7 @@ function formatTruncatedList(items: string[], noun: string): string {
     return items.join(' and ')
   }
   const remaining = items.length - MAX_LISTED_ITEMS
-  return `${items.slice(0, MAX_LISTED_ITEMS).join(', ')} and ${remaining} other ${noun}${remaining === 1 ? '' : 's'}`
+  return `${items.slice(0, MAX_LISTED_ITEMS).join(', ')} and ${remaining} other ${noun}${remaining === 1
+    ? ''
+    : 's'}`
 }

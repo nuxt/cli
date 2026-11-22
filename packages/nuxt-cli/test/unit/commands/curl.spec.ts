@@ -22,7 +22,16 @@ interface ReceivedRequest {
 
 const requests: ReceivedRequest[] = []
 
-const BINARY_BODY = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x00, 0x1A, 0x0A, 0x00])
+const BINARY_BODY = Buffer.from([
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x00,
+  0x1A,
+  0x0A,
+  0x00,
+])
 
 const ASSETS: Record<string, [contentType: string, body: string]> = {
   '/app.css': ['text/css', '.a { color: red }'],
@@ -187,7 +196,13 @@ describe('curl', () => {
   })
 
   it('sends headers, a body and defaults the method to POST', async () => {
-    const code = await run([`${origin}/api/hello`, '-H', 'x-test: 1', '-d', '{"a":1}'])
+    const code = await run([
+      `${origin}/api/hello`,
+      '-H',
+      'x-test: 1',
+      '-d',
+      '{"a":1}',
+    ])
 
     expect(code).toBe(0)
     expect(requests[0]).toMatchObject({
@@ -214,7 +229,13 @@ describe('curl', () => {
   })
 
   it('rejects a body on a GET request', async () => {
-    const code = await run([`${origin}/api/hello`, '-X', 'GET', '-d', '{}'])
+    const code = await run([
+      `${origin}/api/hello`,
+      '-X',
+      'GET',
+      '-d',
+      '{}',
+    ])
 
     expect(code).toBe(1)
     expect(requests).toHaveLength(0)
@@ -237,7 +258,12 @@ describe('curl', () => {
   })
 
   it('sends every value of a repeated -H flag', async () => {
-    const code = await run([`${origin}/api/hello`, '-H', 'x-one: 1', '--header=x-two: 2'])
+    const code = await run([
+      `${origin}/api/hello`,
+      '-H',
+      'x-one: 1',
+      '--header=x-two: 2',
+    ])
 
     expect(code).toBe(0)
     expect(requests[0]?.headers['x-one']).toBe('1')

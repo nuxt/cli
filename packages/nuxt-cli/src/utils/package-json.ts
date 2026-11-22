@@ -17,8 +17,13 @@ import { readPackageJSON } from 'pkg-types'
  * point, because `exports` may withhold either one of the two.
  */
 export async function readDependencyPackageJson(name: string, from: string): Promise<PackageJson | undefined> {
-  const options = { from: join(from, '/'), try: true }
+  const options = {
+    from: join(from, '/'),
+    try: true,
+  }
   const path = resolveModulePath(`${name}/package.json`, options) ?? resolveModulePath(name, options)
 
-  return path ? await readPackageJSON(path).catch(() => undefined) : undefined
+  return path
+    ? await readPackageJSON(path).catch(() => undefined)
+    : undefined
 }

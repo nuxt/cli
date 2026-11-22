@@ -25,8 +25,14 @@ export function resolveDefaultLoadingTemplate(cwd: string): Promise<LoadingTempl
 
 async function importDefaultLoadingTemplate(cwd: string): Promise<LoadingTemplate | undefined> {
   try {
-    const nuxtPath = resolveModulePath('nuxt', { from: withNodePath(cwd), try: true })
-    const schemaPath = resolveModulePath('@nuxt/schema', { from: withNodePath(nuxtPath || cwd), try: true })
+    const nuxtPath = resolveModulePath('nuxt', {
+      from: withNodePath(cwd),
+      try: true,
+    })
+    const schemaPath = resolveModulePath('@nuxt/schema', {
+      from: withNodePath(nuxtPath || cwd),
+      try: true,
+    })
     if (!schemaPath) {
       return
     }
@@ -37,7 +43,9 @@ async function importDefaultLoadingTemplate(cwd: string): Promise<LoadingTemplat
     }
     const template = NuxtConfigSchema?.devServer?.loadingTemplate
 
-    return typeof template === 'function' ? template as LoadingTemplate : undefined
+    return typeof template === 'function'
+      ? template as LoadingTemplate
+      : undefined
   }
   catch (error) {
     debug('Could not resolve the default loading template:', error)

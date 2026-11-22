@@ -4,11 +4,22 @@ import { summariseActiveResources, warnOnHang } from '../../src/utils/hang'
 
 describe('summariseActiveResources', () => {
   it('should ignore the handles every process has', () => {
-    expect(summariseActiveResources(['TTYWrap', 'PipeWrap', 'SignalWrap', 'FileHandle'])).toBeUndefined()
+    expect(summariseActiveResources([
+      'TTYWrap',
+      'PipeWrap',
+      'SignalWrap',
+      'FileHandle',
+    ])).toBeUndefined()
   })
 
   it('should group resources by what they mean to a user', () => {
-    expect(summariseActiveResources(['Timeout', 'Timeout', 'Immediate', 'FSEventWrap', 'TCPWrap'])).toBe('3 timers, 1 file watcher, 1 open connection')
+    expect(summariseActiveResources([
+      'Timeout',
+      'Timeout',
+      'Immediate',
+      'FSEventWrap',
+      'TCPWrap',
+    ])).toBe('3 timers, 1 file watcher, 1 open connection')
   })
 
   it('should fall back to the internal name for unknown resources', () => {

@@ -8,7 +8,12 @@ import { join } from 'pathe'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { runInstall, answers, resolveModulePath, spawn, tinyexec, writeTypes, tty } = vi.hoisted(() => ({
-  runInstall: vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })),
+  runInstall: vi.fn((_options: Record<string, unknown>) => Promise.resolve({
+    success: true,
+    output: '',
+    command: '',
+    ignoredBuilds: [] as string[],
+  })),
   answers: { select: [] as unknown[], confirm: [] as unknown[] },
   resolveModulePath: vi.fn(),
   spawn: vi.fn(),
@@ -41,7 +46,10 @@ vi.mock('../../../src/utils/package-managers', async importOriginal => ({
 
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({
-    loadNuxt: () => Promise.resolve({ close: () => Promise.resolve(), options: {} }),
+    loadNuxt: () => Promise.resolve({
+      close: () => Promise.resolve(),
+      options: {},
+    }),
     buildNuxt: () => Promise.resolve(),
     writeTypes,
   }),
@@ -57,12 +65,19 @@ vi.mock('std-env', async importOriginal => ({
 
 vi.mock('@clack/prompts', async (importOriginal) => {
   const original = await importOriginal<typeof import('@clack/prompts')>()
-  const next = (queue: unknown[], fallback: unknown) => Promise.resolve(queue.length ? queue.shift() : fallback)
+  const next = (queue: unknown[], fallback: unknown) => Promise.resolve(queue.length
+    ? queue.shift()
+    : fallback)
   return {
     ...original,
     select: vi.fn(() => next(answers.select, 'vue-tsc')),
     confirm: vi.fn(() => next(answers.confirm, false)),
-    spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), error: vi.fn(), message: vi.fn() })),
+    spinner: vi.fn(() => ({
+      start: vi.fn(),
+      stop: vi.fn(),
+      error: vi.fn(),
+      message: vi.fn(),
+    })),
   }
 })
 
@@ -114,7 +129,12 @@ beforeEach(async () => {
   vi.clearAllMocks()
   tinyexec.mockResolvedValue({ exitCode: 0, stdout: '', stderr: '' })
   typegenExits(0)
-  runInstall.mockImplementation(() => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] }))
+  runInstall.mockImplementation(() => Promise.resolve({
+    success: true,
+    output: '',
+    command: '',
+    ignoredBuilds: [] as string[],
+  }))
   installed('typescript', 'vue-tsc/bin/vue-tsc.js')
   await writeFile(join(cwd, 'package.json'), JSON.stringify({ name: 'app', type: 'module' }))
 })
@@ -171,12 +191,21 @@ describe('typecheck installation advice', () => {
     answers.confirm.push(true)
     runInstall.mockImplementation(() => {
       installed('typescript', 'vue-tsc/bin/vue-tsc.js')
-      return Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] as string[] })
+      return Promise.resolve({
+        success: true,
+        output: '',
+        command: '',
+        ignoredBuilds: [] as string[],
+      })
     })
 
     await runTypecheck()
 
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ cwd, dependencies: ['typescript', 'vue-tsc'], dev: true }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      cwd,
+      dependencies: ['typescript', 'vue-tsc'],
+      dev: true,
+    }))
     expect(tinyexec).toHaveBeenCalledTimes(1)
   })
 
@@ -207,7 +236,12 @@ describe('typecheck installation advice', () => {
 
 describe('typecheck build mode', () => {
   it('should use project references for a solution-style tsconfig', async () => {
-    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({ files: [], references: [{ path: './.nuxt/tsconfig.app.json' }] }))
+    await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({
+      files: [],
+      references: [
+        { path: './.nuxt/tsconfig.app.json' },
+      ],
+    }))
 
     await runTypecheck()
 
@@ -217,7 +251,9 @@ describe('typecheck build mode', () => {
   it('should warn when a tsconfig references nuxt projects but has files of its own', async () => {
     await writeFile(join(cwd, 'tsconfig.json'), JSON.stringify({
       include: ['src'],
-      references: [{ path: './.nuxt/tsconfig.app.json' }],
+      references: [
+        { path: './.nuxt/tsconfig.app.json' },
+      ],
     }))
 
     const { output } = await runTypecheck()
@@ -319,7 +355,10 @@ describe('typecheck heap limit', () => {
     vi.spyOn(os, 'totalmem').mockReturnValue(total)
     vi.spyOn(process, 'constrainedMemory').mockReturnValue(constrained)
     vi.spyOn(process, 'availableMemory').mockReturnValue(available)
-    vi.spyOn(v8, 'getHeapStatistics').mockReturnValue({ ...v8.getHeapStatistics(), heap_size_limit: heapLimit })
+    vi.spyOn(v8, 'getHeapStatistics').mockReturnValue({
+      ...v8.getHeapStatistics(),
+      heap_size_limit: heapLimit,
+    })
   }
 
   function checkerNodeOptions(): string | undefined {
@@ -338,9 +377,21 @@ describe('typecheck heap limit', () => {
 
   it.each([
     ['half of the total memory', {}, 6144],
-    ['half of the memory limit of the process', { constrained: 6 * GB }, 3072],
-    ['the memory currently available', { available: 3 * GB }, 3072],
-    ['at most 8 GB', { total: 32 * GB, available: 30 * GB, heapLimit: 4144 * MB }, 8192],
+    [
+      'half of the memory limit of the process',
+      { constrained: 6 * GB },
+      3072,
+    ],
+    [
+      'the memory currently available',
+      { available: 3 * GB },
+      3072,
+    ],
+    [
+      'at most 8 GB',
+      { total: 32 * GB, available: 30 * GB, heapLimit: 4144 * MB },
+      8192,
+    ],
   ])('should raise the checker heap limit to %s', async (_, options, limit) => {
     memory(options)
 
@@ -368,9 +419,27 @@ describe('typecheck heap limit', () => {
   })
 
   it.each([
-    ['the raised heap limit', {}, '', 6144, '--max-old-space-size=6144'],
-    ['the heap limit set in NODE_OPTIONS', {}, '--max-old-space-size=3000', 3000, undefined],
-    ['V8\'s default heap limit', { total: 4 * GB }, '', 2240, undefined],
+    [
+      'the raised heap limit',
+      {},
+      '',
+      6144,
+      '--max-old-space-size=6144',
+    ],
+    [
+      'the heap limit set in NODE_OPTIONS',
+      {},
+      '--max-old-space-size=3000',
+      3000,
+      undefined,
+    ],
+    [
+      'V8\'s default heap limit',
+      { total: 4 * GB },
+      '',
+      2240,
+      undefined,
+    ],
   ])('should name %s when the checker runs out of heap', async (_, options, nodeOptions, limit, passed) => {
     memory(options)
     vi.stubEnv('NODE_OPTIONS', nodeOptions)
@@ -402,12 +471,17 @@ describe('typecheck type generation', () => {
   it('should generate types in a separate node process', async () => {
     await runTypecheck(['--dotenv=.env.test', '--logLevel=silent', '--extends=./layer'])
 
-    expect(spawn).toHaveBeenCalledWith(process.execPath, [expect.stringMatching(/write-types\.mjs$/), expect.any(String)], expect.objectContaining({ cwd, stdio: 'inherit' }))
+    expect(spawn).toHaveBeenCalledWith(process.execPath, [
+      expect.stringMatching(/write-types\.mjs$/),
+      expect.any(String),
+    ], expect.objectContaining({ cwd, stdio: 'inherit' }))
     expect(JSON.parse(spawn.mock.calls[0]![1][1])).toEqual({
       cwd,
       dotenv: ['.env.test'],
       logLevel: 'silent',
-      overrides: { extends: ['./layer'] },
+      overrides: {
+        extends: ['./layer'],
+      },
     })
     expect(writeTypes).not.toHaveBeenCalled()
     expect(tinyexec).toHaveBeenCalledTimes(1)
@@ -428,7 +502,13 @@ describe('typecheck type generation', () => {
   })
 
   it('should generate types in this process when called with overrides', async () => {
-    await runTypecheck([], { overrides: { hooks: { ready: () => {} } } })
+    await runTypecheck([], {
+      overrides: {
+        hooks: {
+          ready: () => {},
+        },
+      },
+    })
 
     expect(spawn).not.toHaveBeenCalled()
     expect(writeTypes).toHaveBeenCalledTimes(1)
@@ -455,20 +535,38 @@ describe('typecheck incremental cache', () => {
 
   function installedVueTsc(version = '3.3.10') {
     return installedPackages({
-      'typescript': { version: '6.0.3', entries: ['typescript'] },
-      'vue-tsc': { version, entries: ['vue-tsc/bin/vue-tsc.js'] },
+      'typescript': {
+        version: '6.0.3',
+        entries: ['typescript'],
+      },
+      'vue-tsc': {
+        version,
+        entries: ['vue-tsc/bin/vue-tsc.js'],
+      },
     })
   }
 
   async function writeFixture(path: string, contents: unknown) {
     await mkdir(join(cwd, path, '..'), { recursive: true })
-    await writeFile(join(cwd, path), typeof contents === 'string' ? contents : JSON.stringify(contents))
+    await writeFile(join(cwd, path), typeof contents === 'string'
+      ? contents
+      : JSON.stringify(contents))
   }
 
   async function writeProjects() {
-    await writeFixture('tsconfig.json', { files: [], references: [{ path: './.nuxt/tsconfig.app.json' }, { path: './layer' }] })
-    await writeFixture('.nuxt/tsconfig.app.json', { compilerOptions: { tsBuildInfoFile: './cache/typecheck/tsconfig.app.tsbuildinfo' } })
-    await writeFixture('layer/tsconfig.json', { compilerOptions: { tsBuildInfoFile: '../.nuxt/cache/typecheck/layer.tsbuildinfo' } })
+    await writeFixture('tsconfig.json', {
+      files: [],
+      references: [
+        { path: './.nuxt/tsconfig.app.json' },
+        { path: './layer' },
+      ],
+    })
+    await writeFixture('.nuxt/tsconfig.app.json', {
+      compilerOptions: { tsBuildInfoFile: './cache/typecheck/tsconfig.app.tsbuildinfo' },
+    })
+    await writeFixture('layer/tsconfig.json', {
+      compilerOptions: { tsBuildInfoFile: '../.nuxt/cache/typecheck/layer.tsbuildinfo' },
+    })
   }
 
   it('should type-check incrementally when every referenced project sets `tsBuildInfoFile`', async () => {
@@ -545,14 +643,25 @@ describe('typecheck incremental cache', () => {
 
   it('should key the golar cache by golar and its vue plugin', async () => {
     await installedPackages({
-      'golar': { version: '0.1.11', entries: ['golar/unstable'] },
-      '@golar/vue': { version: '0.1.12', entries: ['@golar/vue'] },
+      'golar': {
+        version: '0.1.11',
+        entries: ['golar/unstable'],
+      },
+      '@golar/vue': {
+        version: '0.1.12',
+        entries: ['@golar/vue'],
+      },
     })
     await writeProjects()
 
     await runTypecheck(['--checker=golar'])
 
-    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), ['tsc', '--build', '--noEmit', '--incremental'], expect.anything())
+    expect(tinyexec).toHaveBeenCalledWith(expect.anything(), [
+      'tsc',
+      '--build',
+      '--noEmit',
+      '--incremental',
+    ], expect.anything())
     expect(await readFile(join(cwd, '.nuxt/cache/typecheck/checker.stamp'), 'utf8')).toBe('golar@0.1.11+@golar/vue@0.1.12')
   })
 })

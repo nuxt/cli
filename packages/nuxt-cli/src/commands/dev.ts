@@ -228,7 +228,12 @@ const command = defineCommand({
 
     // Nuxt, Nitro and Vite all print while they load, so the panel takes the
     // terminal before any of them get the chance.
-    const uiOptions = { flag: ctx.args.tui, inspect: !!inspect, cwd, startTime }
+    const uiOptions = {
+      flag: ctx.args.tui,
+      inspect: !!inspect,
+      cwd,
+      startTime,
+    }
     const session = await beginDevUI(uiOptions)
     const ui = !!session
     if (ui) {
@@ -238,7 +243,9 @@ const command = defineCommand({
 
     const { context: shortcutContext, attach: attachServer, provide } = devShortcutContext()
     provide({ clearCaches })
-    const startingUI = ui ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true }) : undefined
+    const startingUI = ui
+      ? await setupDevUI(shortcutContext, { ...uiOptions, enabled: true })
+      : undefined
     handleShutdownSignals(() => shortcutContext.close())
 
     // Evaluating the dev server's graph blocks the loop; let the panel answer
@@ -246,7 +253,13 @@ const command = defineCommand({
     await new Promise(resolve => setImmediate(resolve))
     const { initialize } = await import('../dev')
 
-    const started = await initialize({ cwd, args: ctx.args, handoverFrom: takeover.action === 'taken' ? takeover.pid : undefined }, {
+    const started = await initialize({
+      cwd,
+      args: ctx.args,
+      handoverFrom: takeover.action === 'taken'
+        ? takeover.pid
+        : undefined,
+    }, {
       data: ctx.data,
       listenOverrides,
       showBanner: !ui,
@@ -279,7 +292,12 @@ const command = defineCommand({
 
     // Disable forking when profiling to capture all activity in one process
     if (!ctx.args.fork || profiling) {
-      attachServer({ listener, close, onReady, restart: () => reload({ type: 'shortcut' }) })
+      attachServer({
+        listener,
+        close,
+        onReady,
+        restart: () => reload({ type: 'shortcut' }),
+      })
       attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
       return {
         listener,
@@ -308,7 +326,12 @@ const command = defineCommand({
       pool.startWarming()
     })
 
-    attachServer({ listener, close: () => closeAll(), onReady, restart: () => restart({ type: 'shortcut' }) })
+    attachServer({
+      listener,
+      close: () => closeAll(),
+      onReady,
+      restart: () => restart({ type: 'shortcut' }),
+    })
     const devUI = attachDevUI(startingUI ?? await setupDevUI(shortcutContext, { ...uiOptions, enabled: ui }))
     // Whatever is serving the app right now: this process, then each fork in turn.
     let closeCurrent = close
@@ -358,7 +381,9 @@ const command = defineCommand({
       if (!handover) {
         await Promise.all([
           closeCurrent(),
-          inspect ? closeInspector() : undefined,
+          inspect
+            ? closeInspector()
+            : undefined,
         ])
       }
 
@@ -425,7 +450,9 @@ const command = defineCommand({
       }
       catch (error) {
         await fork?.close()
-        const detail = error instanceof Error ? error.message : String(error)
+        const detail = error instanceof Error
+          ? error.message
+          : String(error)
         if (!handover) {
           // The outgoing server is already closed, so there is nothing left to
           // serve the app and no watcher left to trigger another attempt.
@@ -540,7 +567,9 @@ export function resolveListenOverrides(args: ParsedArgs<ArgsT>): DevListenOverri
       || process.env.PORT
       || undefined,
     strictPort: args.strictPort,
-    hostname: host === true || host === '' ? '' : host || undefined,
+    hostname: host === true || host === ''
+      ? ''
+      : host || undefined,
     open: args.open || !!args['open.url'],
     openURL: args['open.url'] || undefined,
     clipboard: args.clipboard,

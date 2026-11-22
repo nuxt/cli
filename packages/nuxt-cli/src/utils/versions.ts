@@ -25,7 +25,10 @@ export async function getNuxtVersion(cwd: string) {
   if (nuxtPkg?.version && NUXT_PACKAGE_NAMES.has(nuxtPkg.name!)) {
     return nuxtPkg.version
   }
-  const [pkg, { resolveCatalogEntry }] = await Promise.all([readPackageJSON(cwd), import('./catalog')])
+  const [pkg, { resolveCatalogEntry }] = await Promise.all([
+    readPackageJSON(cwd),
+    import('./catalog'),
+  ])
   const pkgDep = resolveCatalogEntry(cwd, pkg, 'nuxt')?.specifier
     ?? (pkg?.dependencies?.nuxt || pkg?.devDependencies?.nuxt)
   const coerced = pkgDep && coerce(pkgDep)
@@ -38,14 +41,18 @@ export async function getNuxtVersion(cwd: string) {
  * range matches nothing or the registry cannot be reached.
  */
 export async function resolveRegistryVersion(pkg: string, range: string): Promise<string | undefined> {
-  const scope = pkg.startsWith('@') ? pkg.split('/')[0]! : null
+  const scope = pkg.startsWith('@')
+    ? pkg.split('/')[0]!
+    : null
   const { detectNpmRegistry, PUBLIC_REGISTRY } = await import('./registry')
   const { registry, authorization } = await detectNpmRegistry(scope)
 
   const packument = await fetchPackument(pkg, registry, authorization)
     // A registry that rejects us (a proxy needing credentials this process does
     // not have) still leaves public packages readable from npm itself.
-    ?? (registry === PUBLIC_REGISTRY ? undefined : await fetchPackument(pkg, PUBLIC_REGISTRY, null))
+    ?? (registry === PUBLIC_REGISTRY
+      ? undefined
+      : await fetchPackument(pkg, PUBLIC_REGISTRY, null))
   if (!packument) {
     debug(`Failed to resolve a version of ${pkg} matching ${range}.`)
     return undefined
@@ -69,7 +76,9 @@ async function fetchPackument(pkg: string, registry: string, authorization: stri
         // The abbreviated packument is a fraction of the size of the full one and
         // still carries every version and dist-tag.
         Accept: 'application/vnd.npm.install-v1+json',
-        ...authorization ? { Authorization: authorization } : {},
+        ...authorization
+          ? { Authorization: authorization }
+          : {},
       },
       timeout: FETCH_TIMEOUT,
       retry: 0,

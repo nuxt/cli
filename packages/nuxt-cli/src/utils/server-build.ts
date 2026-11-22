@@ -104,7 +104,9 @@ export function getServerBuilderName(nuxt: Nuxt, hasServer?: boolean): string {
     return name
   }
   // Nuxt versions without `server.builder` only ever built with Nitro.
-  return hasServer === false ? 'unknown' : 'Nitro'
+  return hasServer === false
+    ? 'unknown'
+    : 'Nitro'
 }
 
 /**
@@ -115,7 +117,9 @@ export function getServerBuilderId(nuxt: Nuxt): string | undefined {
   const declared = (nuxt as MaybeModernNuxt).serverBuild
   // A descriptor Nuxt seeded but no builder replaced carries the raw specifier
   // as its name, so it is read the same way as the `server.builder` option.
-  return declared ? normalizeBuilderName(declared.name) : inferBuilderName(nuxt)
+  return declared
+    ? normalizeBuilderName(declared.name)
+    : inferBuilderName(nuxt)
 }
 
 /**
@@ -146,7 +150,9 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
   const declared = (nuxt as MaybeModernNuxt).serverBuild
   // Resolved on each read rather than once: a Nitro instance may not exist yet
   // when the build is first described, and everything it answers can move.
-  const getNitro = () => declared?.capabilities.server === false ? undefined : tryUseNitro(kit)
+  const getNitro = () => declared?.capabilities.server === false
+    ? undefined
+    : tryUseNitro(kit)
 
   return {
     declared: !!declared,
@@ -175,7 +181,9 @@ export function resolveServerBuild(kit: MaybeModernKit, nuxt: Nuxt): ServerBuild
     },
     get previewStaticDir() {
       const dir = declared?.preview?.staticDir?.()
-      return dir ? resolve(dir) : undefined
+      return dir
+        ? resolve(dir)
+        : undefined
     },
   }
 }

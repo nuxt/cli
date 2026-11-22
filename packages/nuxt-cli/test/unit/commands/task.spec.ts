@@ -26,12 +26,22 @@ const requests: ReceivedRequest[] = []
 
 /** Set to `true` to emulate a Nitro version that only accepts `GET`. */
 let getOnly = false
-let envelope: unknown = { result: { ok: true } }
+let envelope: unknown = {
+  result: { ok: true },
+}
 /** Set to `false` to emulate a server with no dev task routes at all. */
 let tasksRoute = true
 let taskList: unknown = {
-  tasks: { 'db:migrate': { description: 'Migrate the database' }, 'db:seed': {} },
-  scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+  tasks: {
+    'db:migrate': { description: 'Migrate the database' },
+    'db:seed': {},
+  },
+  scheduledTasks: [
+    {
+      cron: '0 * * * *',
+      tasks: ['db:seed'],
+    },
+  ],
 }
 
 const server = createServer(async (req, res) => {
@@ -40,7 +50,11 @@ const server = createServer(async (req, res) => {
     chunks.push(chunk as Buffer)
   }
   const url = req.url!
-  const request = { method: req.method!, url, body: Buffer.concat(chunks).toString('utf-8') }
+  const request = {
+    method: req.method!,
+    url,
+    body: Buffer.concat(chunks).toString('utf-8'),
+  }
   requests.push(request)
 
   res.setHeader('content-type', 'application/json')
@@ -85,10 +99,20 @@ beforeEach(async () => {
   getOnly = false
   tasksRoute = true
   taskList = {
-    tasks: { 'db:migrate': { description: 'Migrate the database' }, 'db:seed': {} },
-    scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+    tasks: {
+      'db:migrate': { description: 'Migrate the database' },
+      'db:seed': {},
+    },
+    scheduledTasks: [
+      {
+        cron: '0 * * * *',
+        tasks: ['db:seed'],
+      },
+    ],
   }
-  envelope = { result: { ok: true } }
+  envelope = {
+    result: { ok: true },
+  }
   stdout = ''
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-task-test-'))
   vi.spyOn(process.stdout, 'write').mockImplementation((chunk: any) => {
@@ -110,7 +134,10 @@ afterAll(async () => {
 async function writeBuildInfo(socketPath: string) {
   await mkdir(join(cwd, '.nuxt'), { recursive: true })
   await writeFile(join(cwd, '.nuxt', 'nitro.json'), JSON.stringify({
-    dev: { pid: 424242, workerAddress: { socketPath } },
+    dev: {
+      pid: 424242,
+      workerAddress: { socketPath },
+    },
   }))
   vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
 }
@@ -165,13 +192,23 @@ describe('task list', () => {
         { name: 'db:migrate', description: 'Migrate the database' },
         { name: 'db:seed', description: null },
       ],
-      scheduledTasks: [{ cron: '0 * * * *', tasks: ['db:seed'] }],
+      scheduledTasks: [
+        {
+          cron: '0 * * * *',
+          tasks: ['db:seed'],
+        },
+      ],
     })
   })
 
   it('prints an empty payload with `--json` when the server exposes no tasks', async () => {
     taskList = { tasks: {} }
-    const code = await runTaskCommand(list, ['--url', origin, `--cwd=${cwd}`, '--json'])
+    const code = await runTaskCommand(list, [
+      '--url',
+      origin,
+      `--cwd=${cwd}`,
+      '--json',
+    ])
 
     expect(code).toBe(0)
     expect(JSON.parse(stdout)).toEqual({ tasks: [], scheduledTasks: [] })
@@ -241,7 +278,11 @@ describe('task over the Nitro dev worker socket', () => {
   const socketServer = createServer(async (req, res) => {
     requests.push({ method: req.method!, url: req.url!, body: '' })
     res.setHeader('content-type', 'application/json')
-    res.end(JSON.stringify({ tasks: { 'db:seed': { description: 'Seed' } } }))
+    res.end(JSON.stringify({
+      tasks: {
+        'db:seed': { description: 'Seed' },
+      },
+    }))
   })
 
   let socketPath: string
@@ -277,34 +318,62 @@ describe('task over the Nitro dev worker socket', () => {
 
 describe('task run', () => {
   it('posts the payload and prints the result', async () => {
-    const code = await runTaskCommand(run, ['db:seed', '--url', origin, '--payload.count=3', '--payload.nested.flag=yes'])
+    const code = await runTaskCommand(run, [
+      'db:seed',
+      '--url',
+      origin,
+      '--payload.count=3',
+      '--payload.nested.flag=yes',
+    ])
 
     expect(code).toBe(0)
     expect(requests[0]).toMatchObject({ method: 'POST', url: '/_nitro/tasks/db%3Aseed' })
     expect(JSON.parse(requests[0]!.body)).toEqual({
       name: 'db:seed',
-      payload: { count: '3', nested: { flag: 'yes' } },
+      payload: {
+        count: '3',
+        nested: { flag: 'yes' },
+      },
     })
     expect(stripVTControlCharacters(stdout)).toBe('{\n  "ok": true\n}\n')
   })
 
   it('prints a response that is not a bare result envelope as it came', async () => {
-    envelope = { result: { ok: true }, duration: 12 }
+    envelope = {
+      result: { ok: true },
+      duration: 12,
+    }
     const code = await runTaskCommand(run, ['db:seed', '--url', origin])
 
     expect(code).toBe(0)
-    expect(JSON.parse(stripVTControlCharacters(stdout))).toEqual({ result: { ok: true }, duration: 12 })
+    expect(JSON.parse(stripVTControlCharacters(stdout))).toEqual({
+      result: { ok: true },
+      duration: 12,
+    })
   })
 
   it('merges a JSON payload with dotted arguments', async () => {
-    const code = await runTaskCommand(run, ['db:seed', '--url', origin, '--payload', '{"a":1}', '--payload.b=2'])
+    const code = await runTaskCommand(run, [
+      'db:seed',
+      '--url',
+      origin,
+      '--payload',
+      '{"a":1}',
+      '--payload.b=2',
+    ])
 
     expect(code).toBe(0)
     expect(JSON.parse(requests[0]!.body).payload).toEqual({ a: 1, b: '2' })
   })
 
   it('rejects an unparseable payload', async () => {
-    const code = await runTaskCommand(run, ['db:seed', '--url', origin, '--payload', 'nope'])
+    const code = await runTaskCommand(run, [
+      'db:seed',
+      '--url',
+      origin,
+      '--payload',
+      'nope',
+    ])
 
     expect(code).toBe(1)
     expect(requests).toHaveLength(0)
@@ -312,7 +381,12 @@ describe('task run', () => {
 
   it('falls back to a query-encoded GET when POST is not allowed', async () => {
     getOnly = true
-    const code = await runTaskCommand(run, ['db:seed', '--url', origin, '--payload.count=3'])
+    const code = await runTaskCommand(run, [
+      'db:seed',
+      '--url',
+      origin,
+      '--payload.count=3',
+    ])
 
     expect(code).toBe(0)
     expect(requests.map(request => request.method)).toEqual(['POST', 'GET'])
@@ -328,7 +402,12 @@ describe('task run', () => {
   it('lists what is available when the task name is unknown', async () => {
     const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'error').mockImplementation(() => {})
-    const code = await runTaskCommand(run, ['unknown', '--url', origin, `--cwd=${cwd}`])
+    const code = await runTaskCommand(run, [
+      'unknown',
+      '--url',
+      origin,
+      `--cwd=${cwd}`,
+    ])
 
     expect(code).toBe(1)
     expect(info).toHaveBeenCalledWith(expect.stringContaining('db:migrate'))
@@ -338,7 +417,12 @@ describe('task run', () => {
     taskList = { tasks: {} }
     const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
     vi.spyOn(logger, 'error').mockImplementation(() => {})
-    const code = await runTaskCommand(run, ['unknown', '--url', origin, `--cwd=${cwd}`])
+    const code = await runTaskCommand(run, [
+      'unknown',
+      '--url',
+      origin,
+      `--cwd=${cwd}`,
+    ])
 
     expect(code).toBe(1)
     expect(info).toHaveBeenCalledWith(expect.stringContaining('experimental: { tasks: true }'))

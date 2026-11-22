@@ -36,18 +36,31 @@ afterEach(() => unsubscribe?.())
 
 function subscribe(inflight: Array<{ id: string, internal: boolean }>, current?: { id: string }) {
   const spans: DevRequestSpan[] = []
-  unsubscribe = subscribeCompileTiming({ rootDir: () => '/project', current: () => current, inflight: () => inflight, report: span => spans.push(span) })
+  unsubscribe = subscribeCompileTiming({
+    rootDir: () => '/project',
+    current: () => current,
+    inflight: () => inflight,
+    report: span => spans.push(span),
+  })
   return spans
 }
 
 describe('compile timing', () => {
   it('charges a module to the app request in flight, with each plugin\'s own time', async () => {
-    const spans = subscribe([{ id: 'r1', internal: false }, { id: 'bundler', internal: true }])
+    const spans = subscribe([
+      { id: 'r1', internal: false },
+      { id: 'bundler', internal: true },
+    ])
     await compile('/project/app/pages/index.vue?macro=true')
 
     expect(spans).toHaveLength(1)
     const [span] = spans
-    expect(span).toMatchObject({ requestId: 'r1', kind: 'compile', name: 'app/pages/index.vue', environment: 'ssr' })
+    expect(span).toMatchObject({
+      requestId: 'r1',
+      kind: 'compile',
+      name: 'app/pages/index.vue',
+      environment: 'ssr',
+    })
     expect(span!.shared).toBeUndefined()
     expect(span!.plugins!.resolver).toBeGreaterThanOrEqual(15)
     expect(span!.plugins!.transformer).toBeGreaterThanOrEqual(15)
@@ -55,8 +68,13 @@ describe('compile timing', () => {
   })
 
   it('keeps concurrent modules apart', async () => {
-    const spans = subscribe([{ id: 'r1', internal: false }])
-    await Promise.all([compile('/project/a.ts'), compile('/project/b.ts')])
+    const spans = subscribe([
+      { id: 'r1', internal: false },
+    ])
+    await Promise.all([
+      compile('/project/a.ts'),
+      compile('/project/b.ts'),
+    ])
     expect(spans.map(span => span.name).sort()).toEqual(['a.ts', 'b.ts'])
     for (const span of spans) {
       expect(Object.keys(span.plugins!).sort()).toEqual(['resolver', 'transformer'])
@@ -65,13 +83,20 @@ describe('compile timing', () => {
   })
 
   it('charges a module compiled while serving a request to that request alone', async () => {
-    const spans = subscribe([{ id: 'r1', internal: false }, { id: 'r2', internal: false }], { id: 'asset' })
+    const spans = subscribe([
+      { id: 'r1', internal: false },
+      { id: 'r2', internal: false },
+    ], { id: 'asset' })
     await compile('/project/app/app.vue')
-    expect(spans.map(span => [span.requestId, span.shared])).toEqual([['asset', undefined]])
+    expect(spans.map(span => [span.requestId, span.shared])).toEqual([
+      ['asset', undefined],
+    ])
   })
 
   it('reads the channels Nuxt publishes, and reports a module traced on both once', async () => {
-    const spans = subscribe([{ id: 'r1', internal: false }])
+    const spans = subscribe([
+      { id: 'r1', internal: false },
+    ])
     await nuxtModules.tracePromise(async () => {
       await nuxtPlugins.tracePromise(() => sleep(20), { plugin: 'nuxt:only', hook: 'transform' })
     }, { id: '/project/app/app.vue', environment: 'ssr' })
@@ -83,9 +108,15 @@ describe('compile timing', () => {
   })
 
   it('marks a module compiled while several app requests are in flight as shared', async () => {
-    const spans = subscribe([{ id: 'r1', internal: false }, { id: 'r2', internal: false }])
+    const spans = subscribe([
+      { id: 'r1', internal: false },
+      { id: 'r2', internal: false },
+    ])
     await compile('/project/server/api/hello.ts')
-    expect(spans.map(span => [span.requestId, span.shared])).toEqual([['r1', true], ['r2', true]])
+    expect(spans.map(span => [span.requestId, span.shared])).toEqual([
+      ['r1', true],
+      ['r2', true],
+    ])
   })
 
   it('reports nothing when no app request is in flight, or once unsubscribed', async () => {

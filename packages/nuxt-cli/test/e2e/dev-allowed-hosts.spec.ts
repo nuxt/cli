@@ -14,7 +14,9 @@ const modulePath = fileURLToPath(new URL('../fixtures/log-vite-hosts.ts', import
 async function resolveAllowedHosts(args: string[]): Promise<string[] | true | undefined> {
   const port = await getPort({ port: 3620 })
   const { result: { close } } = await runCommand('dev', [`--port=${port}`, `--cwd=${fixtureDir}`, ...args], {
-    overrides: { modules: [modulePath] },
+    overrides: {
+      modules: [modulePath],
+    },
   }) as any
   await close()
   const { allowedHosts } = await readFile(join(fixtureDir, '.nuxt/vite-hosts.json'), 'utf-8').then(JSON.parse)
@@ -22,7 +24,11 @@ async function resolveAllowedHosts(args: string[]): Promise<string[] | true | un
 }
 
 async function startWithAllowedHosts(allowedHosts: string[] | true): Promise<{ port: number, close: () => Promise<void> }> {
-  await writeFile(join(configFixtureDir, 'nuxt.config.ts'), `export default ${JSON.stringify({ vite: { server: { allowedHosts } } })}\n`)
+  await writeFile(join(configFixtureDir, 'nuxt.config.ts'), `export default ${JSON.stringify({
+    vite: {
+      server: { allowedHosts },
+    },
+  })}\n`)
   const port = await getPort({ host: '127.0.0.1', port: 3640 })
   const { result: { close } } = await runCommand('dev', ['--host=127.0.0.1', `--port=${port}`, `--cwd=${configFixtureDir}`]) as any
   return { port, close }
@@ -31,7 +37,12 @@ async function startWithAllowedHosts(allowedHosts: string[] | true): Promise<{ p
 /** Status of the progress endpoint for a `Host` header, which `fetch` does not let a caller set. */
 function progressStatusForHost(port: number, host: string): Promise<number | undefined> {
   return new Promise((resolve, reject) => {
-    const req = request({ host: '127.0.0.1', port, path: '/__nuxt_dev__/progress', headers: { host } }, (res) => {
+    const req = request({
+      host: '127.0.0.1',
+      port,
+      path: '/__nuxt_dev__/progress',
+      headers: { host },
+    }, (res) => {
       // The progress endpoint is a stream that does not end.
       res.destroy()
       resolve(res.statusCode)

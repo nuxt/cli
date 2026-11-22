@@ -53,7 +53,9 @@ function staticModuleRequests(path: string, source: string): string[] {
   const { module } = parseSync(path, source)
   return [
     ...module.staticImports.map(entry => entry.moduleRequest.value),
-    ...module.staticExports.flatMap(statement => statement.entries.flatMap(entry => entry.moduleRequest ? [entry.moduleRequest.value] : [])),
+    ...module.staticExports.flatMap(statement => statement.entries.flatMap(entry => entry.moduleRequest
+      ? [entry.moduleRequest.value]
+      : [])),
   ]
 }
 

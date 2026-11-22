@@ -46,7 +46,10 @@ async function runFailing(argv: string[]) {
   })
 
   exit.mockRestore()
-  return { output: screen(renderer), exitCode }
+  return {
+    output: screen(renderer),
+    exitCode,
+  }
 }
 
 describe('network failures reported when scaffolding', () => {

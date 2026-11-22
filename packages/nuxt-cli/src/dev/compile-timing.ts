@@ -80,7 +80,10 @@ export function subscribeCompileTiming(options: {
       context[NESTED] = true
       return outer
     }
-    return { plugins: new Map(), nested: 0 }
+    return {
+      plugins: new Map(),
+      nested: 0,
+    }
   }
   const openPlugin = (): Frame | undefined => {
     const parent = storage.getStore()
@@ -96,10 +99,16 @@ export function subscribeCompileTiming(options: {
       }
       const current = options.current()
       const requests = current
-        ? [{ id: current.id, internal: false }]
+        ? [
+            { id: current.id, internal: false },
+          ]
         : options.inflight().filter(request => !request.internal)
       if (frame && requests.length) {
-        context[STARTED] = { frame, start: performance.now(), requests }
+        context[STARTED] = {
+          frame,
+          start: performance.now(),
+          requests,
+        }
       }
     },
     asyncEnd(context: Traced<ModuleContext>) {
@@ -117,9 +126,13 @@ export function subscribeCompileTiming(options: {
           name: shortenModuleId(String(context.url ?? context.id ?? ''), options.rootDir()),
           start: performance.timeOrigin + started.start,
           duration,
-          ...context.environment ? { environment: context.environment } : {},
+          ...context.environment
+            ? { environment: context.environment }
+            : {},
           plugins: timings,
-          ...started.requests.length > 1 ? { shared: true } : {},
+          ...started.requests.length > 1
+            ? { shared: true }
+            : {},
         })
       }
     },
@@ -130,7 +143,10 @@ export function subscribeCompileTiming(options: {
     start(context: Traced<PluginContext>) {
       const frame = storage.getStore()
       if (frame?.parent) {
-        context[STARTED] = { frame, start: performance.now() }
+        context[STARTED] = {
+          frame,
+          start: performance.now(),
+        }
       }
     },
     asyncEnd(context: Traced<PluginContext>) {
@@ -185,5 +201,7 @@ export function shortenModuleId(url: string, rootDir: string): string {
   if (file.startsWith(root)) {
     return file.slice(root.length)
   }
-  return file.startsWith('/') && !url.startsWith('/@fs/') && !existsSync(file) ? file.slice(1) : file
+  return file.startsWith('/') && !url.startsWith('/@fs/') && !existsSync(file)
+    ? file.slice(1)
+    : file
 }

@@ -28,8 +28,28 @@ interface Edit {
   text: string
 }
 
-const RESOLVE_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts', '.json', '.jsonc', '.json5', '.yaml', '.yml', '.toml']
-const EDITABLE_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
+const RESOLVE_EXTENSIONS = [
+  '.js',
+  '.ts',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts',
+  '.json',
+  '.jsonc',
+  '.json5',
+  '.yaml',
+  '.yml',
+  '.toml',
+]
+const EDITABLE_EXTENSIONS = [
+  '.js',
+  '.ts',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts',
+]
 
 const LEADING_INDENT_RE = /^[ \t]*/
 const OWN_LINE_RE = /\n[ \t]*$/
@@ -39,7 +59,9 @@ const TRAILING_SPACE_RE = /\s$/
 
 /** Reuse the file's own line ending so a CRLF config does not gain stray LFs. */
 function detectEol(source: string): string {
-  return source.includes('\r\n') ? '\r\n' : '\n'
+  return source.includes('\r\n')
+    ? '\r\n'
+    : '\n'
 }
 
 /** Indentation of the line `index` sits on. */
@@ -214,7 +236,9 @@ function findOrphanedComma(source: string, location: ArrayLocation, doomed: Arra
   while (source[at] === ' ' || source[at] === '\t') {
     at++
   }
-  return source[at] === ',' ? at : undefined
+  return source[at] === ','
+    ? at
+    : undefined
 }
 
 function toConfigFile(file: string, cwd: string, location: ConfigLocation): NuxtConfigFile {
@@ -250,7 +274,9 @@ function applyEdits(source: string, edits: Edit[]): string {
 
 /** Render a `key: [...]` property for a config that has no such key yet. */
 function buildProperty(source: string, location: ConfigLocation, key: ConfigKey, names: string[]): string {
-  const name = isQuotedKeys(source, location) ? `${location.quote}${key}${location.quote}` : key
+  const name = isQuotedKeys(source, location)
+    ? `${location.quote}${key}${location.quote}`
+    : key
   return `${name}: [${quoteAll(location, names).join(', ')}]`
 }
 
@@ -261,7 +287,11 @@ function buildPropertyInsert(source: string, location: ConfigLocation, propertie
 
   if (firstProperty !== undefined && source.lastIndexOf('\n', firstProperty) > location.objectStart) {
     const indent = lineIndent(source, firstProperty)
-    return { start: at, end: at, text: properties.map(property => `${eol}${indent}${property},`).join('') }
+    return {
+      start: at,
+      end: at,
+      text: properties.map(property => `${eol}${indent}${property},`).join(''),
+    }
   }
 
   // An empty object needs no separator, and gains a stray comma if given one.
@@ -293,11 +323,21 @@ function buildInsert(source: string, location: ConfigLocation, array: ArrayLocat
   if (!last) {
     if (!ownLine) {
       const at = array.array!.start + 1
-      return { start: at, end: at, text: entries.join(', ') }
+      return {
+        start: at,
+        end: at,
+        text: entries.join(', '),
+      }
     }
     const closeIndent = source.slice(closeLineStart, close)
-    const indent = closeIndent + (closeIndent.includes('\t') ? '\t' : '  ')
-    return { start: closeLineStart, end: closeLineStart, text: entries.map(entry => `${indent}${entry},${eol}`).join('') }
+    const indent = closeIndent + (closeIndent.includes('\t')
+      ? '\t'
+      : '  ')
+    return {
+      start: closeLineStart,
+      end: closeLineStart,
+      text: entries.map(entry => `${indent}${entry},${eol}`).join(''),
+    }
   }
 
   if (ownLine) {
@@ -308,7 +348,9 @@ function buildInsert(source: string, location: ConfigLocation, array: ArrayLocat
     const trailingComma = LEADING_COMMA_RE.test(region)
     const indent = lineIndent(source, last.start)
     const lines = entries.map((entry, index) => {
-      const comma = trailingComma || index < entries.length - 1 ? ',' : ''
+      const comma = trailingComma || index < entries.length - 1
+        ? ','
+        : ''
       return `${indent}${entry}${comma}${eol}`
     })
     return {
@@ -320,7 +362,9 @@ function buildInsert(source: string, location: ConfigLocation, array: ArrayLocat
 
   const region = source.slice(last.end, close)
   const separator = TRAILING_COMMA_RE.test(region)
-    ? (TRAILING_SPACE_RE.test(region) ? '' : ' ')
+    ? (TRAILING_SPACE_RE.test(region)
+        ? ''
+        : ' ')
     : ', '
   return { start: close, end: close, text: separator + entries.join(', ') }
 }
@@ -337,7 +381,13 @@ function buildRemoval(source: string, location: ArrayLocation, element: ArrayEle
     // its newline, so no blank line is left behind.
     start = source.lastIndexOf('\n', element.start - 1) + 1
     const newline = source.indexOf('\n', end)
-    return { start, end: newline === -1 ? source.length : newline + 1, text: '' }
+    return {
+      start,
+      end: newline === -1
+        ? source.length
+        : newline + 1,
+      text: '',
+    }
   }
 
   // `['a', 'b']` keeps a stray separator unless the space after the comma goes
@@ -371,5 +421,7 @@ function tryResolve(path: string, cwd: string) {
     suffixes: ['', '/index'],
     cache: false,
   })
-  return resolved ? normalize(resolved) : undefined
+  return resolved
+    ? normalize(resolved)
+    : undefined
 }

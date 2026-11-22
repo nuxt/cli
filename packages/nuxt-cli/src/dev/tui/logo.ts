@@ -38,7 +38,9 @@ export interface LogoState {
  * colours move.
  */
 export function renderLogo(state: LogoState = {}): string {
-  const highlight = state.working ? Math.abs(state.frame ?? 0) % PIXELS.length : -1
+  const highlight = state.working
+    ? Math.abs(state.frame ?? 0) % PIXELS.length
+    : -1
   const background = state.background ?? resolveBackground()
 
   return PIXELS
@@ -51,7 +53,9 @@ export function renderLogo(state: LogoState = {}): string {
 }
 
 function paint(glyph: string, tone: 'brand' | 'traffic', lit: boolean, background: TerminalBackground): string {
-  const known = background === 'light' ? 'light' : 'dark'
+  const known = background === 'light'
+    ? 'light'
+    : 'dark'
   if (process.env.NO_COLOR) {
     return glyph
   }
@@ -60,16 +64,27 @@ function paint(glyph: string, tone: 'brand' | 'traffic', lit: boolean, backgroun
   // Without a known background there is no safe exact colour to pick, so the
   // terminal's own palette decides.
   if (background === 'unknown' || depth < 8) {
-    return styleText(lit ? named(tone) : [named(tone), 'dim'], glyph)
+    return styleText(lit
+      ? named(tone)
+      : [
+          named(tone),
+          'dim',
+        ], glyph)
   }
 
-  const exact = tone === 'traffic' ? MAGENTA : BRAND_GREEN[known]
-  const shade = lit ? exact : blend(exact, BACKDROP[known], DIM)
+  const exact = tone === 'traffic'
+    ? MAGENTA
+    : BRAND_GREEN[known]
+  const shade = lit
+    ? exact
+    : blend(exact, BACKDROP[known], DIM)
   return `${colour(shade, depth)}${glyph}\u001B[39m`
 }
 
 function named(tone: 'brand' | 'traffic'): 'magenta' | 'green' {
-  return tone === 'traffic' ? 'magenta' : 'green'
+  return tone === 'traffic'
+    ? 'magenta'
+    : 'green'
 }
 
 /** Fade `colour` towards `backdrop`, which is what dimming means on either background. */

@@ -22,7 +22,12 @@ export interface TemplateData {
   tar: string
 }
 
-const GITHUB_HOSTS = new Set(['api.github.com', 'github.com', 'raw.githubusercontent.com', 'objects.githubusercontent.com'])
+const GITHUB_HOSTS = new Set([
+  'api.github.com',
+  'github.com',
+  'raw.githubusercontent.com',
+  'objects.githubusercontent.com',
+])
 
 /**
  * Whether `url` is a GitHub host the `GITHUB_TOKEN` may be sent to. The listing
@@ -48,7 +53,9 @@ export function fetchOptionsFor(url: string) {
     timeout: 5000,
     headers: {
       'user-agent': '@nuxt/cli',
-      ...token && isGitHubURL(url) ? { authorization: `token ${token}` } : {},
+      ...token && isGitHubURL(url)
+        ? { authorization: `token ${token}` }
+        : {},
     },
   }
 }

@@ -53,7 +53,11 @@ describe('commands', () => {
     'docs': async () => {
       const res = await x(nuxi, ['docs', '--no-open'], {
         throwOnError: true,
-        nodeOptions: { stdio: 'pipe', cwd: fixtureDir, env: { ...process.env, BROWSER: 'none' } },
+        nodeOptions: {
+          stdio: 'pipe',
+          cwd: fixtureDir,
+          env: { ...process.env, BROWSER: 'none' },
+        },
       })
       expect(res.exitCode).toBe(0)
       expect(res.stdout + res.stderr).toContain('https://nuxt.com/docs')
@@ -188,7 +192,9 @@ describe('commands', () => {
   })
 
   const testsToRun = Object.entries(tests).filter(([_, value]) => value !== 'todo')
-  it.each(testsToRun)(`%s`, { timeout: isWindows ? 200000 : 50000 }, (_, test) => (test as () => Promise<void>)())
+  it.each(testsToRun)(`%s`, {
+    timeout: isWindows ? 200000 : 50000,
+  }, (_, test) => (test as () => Promise<void>)())
 
   for (const [command, value] of Object.entries(tests)) {
     if (value === 'todo') {
@@ -198,10 +204,17 @@ describe('commands', () => {
 })
 
 describe('extends support', () => {
-  it('works with dev server', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('works with dev server', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const controller = new AbortController()
     const port = await getPort({ host: '127.0.0.1', port: 3003 })
-    const devProcess = x(nuxi, ['dev', `--host=127.0.0.1`, `--port=${port}`, '--extends=some-layer'], {
+    const devProcess = x(nuxi, [
+      'dev',
+      `--host=127.0.0.1`,
+      `--port=${port}`,
+      '--extends=some-layer',
+    ], {
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       signal: controller.signal,
     })

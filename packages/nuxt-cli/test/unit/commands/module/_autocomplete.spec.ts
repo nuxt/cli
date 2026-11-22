@@ -92,7 +92,9 @@ describe('selectModulesAutocomplete', () => {
       // Re-import the module to get the new mock
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
-      const modules = [createMockModule()]
+      const modules = [
+        createMockModule(),
+      ]
       const result = await selectModulesAutocomplete({ modules })
 
       expect(result).toEqual({ selected: [], cancelled: false })
@@ -109,7 +111,9 @@ describe('selectModulesAutocomplete', () => {
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
-      const modules = [createMockModule()]
+      const modules = [
+        createMockModule(),
+      ]
       const result = await selectModulesAutocomplete({ modules })
 
       expect(result).toEqual({ selected: [], cancelled: false })
@@ -209,7 +213,9 @@ describe('selectModulesAutocomplete', () => {
 
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
-      const modules = [createMockModule()]
+      const modules = [
+        createMockModule(),
+      ]
       const result = await selectModulesAutocomplete({ modules })
 
       expect(result).toEqual({ selected: [], cancelled: true })
@@ -232,7 +238,9 @@ describe('selectModulesAutocomplete', () => {
 
       const customMessage = 'Custom search message:'
       await selectModulesAutocomplete({
-        modules: [createMockModule()],
+        modules: [
+          createMockModule(),
+        ],
         message: customMessage,
       })
 
@@ -253,7 +261,9 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule()],
+        modules: [
+          createMockModule(),
+        ],
       })
 
       expect(capturedMessage).toBe('Search and select modules:')
@@ -377,7 +387,9 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule({ npm: '@nuxt/typescript-build', name: 'typescript-build', category: 'Devtools' })],
+        modules: [
+          createMockModule({ npm: '@nuxt/typescript-build', name: 'typescript-build', category: 'Devtools' }),
+        ],
       })
 
       expect(capturedFilter!('tsb', { value: '@nuxt/typescript-build', label: '@nuxt/typescript-build' })).toBe(true)
@@ -399,7 +411,9 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule({ npm: '@nuxt/test', description: 'A test module.' })],
+        modules: [
+          createMockModule({ npm: '@nuxt/test', description: 'A test module.' }),
+        ],
       })
 
       expect(capturedOptions[0]).toEqual({
@@ -451,7 +465,9 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule({ npm: '@nuxt/image', description: 'Images' })],
+        modules: [
+          createMockModule({ npm: '@nuxt/image', description: 'Images' }),
+        ],
       })
 
       expect(capturedOptions[0].label).not.toBe(stripAnsi(capturedOptions[0].label))
@@ -474,7 +490,12 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule({ npm: '@nuxt/test', description: 'A'.repeat(200) })],
+        modules: [
+          createMockModule({
+            npm: '@nuxt/test',
+            description: 'A'.repeat(200),
+          }),
+        ],
       })
 
       const label = stripAnsi(capturedOptions[0].label)
@@ -496,7 +517,9 @@ describe('selectModulesAutocomplete', () => {
       const { selectModulesAutocomplete } = await import('../../../../src/commands/module/_autocomplete')
 
       await selectModulesAutocomplete({
-        modules: [createMockModule()],
+        modules: [
+          createMockModule(),
+        ],
       })
 
       expect(capturedRequired).toBe(false)

@@ -37,7 +37,9 @@ async function requestHttp2(session: ClientHttp2Session, path: string, timeout =
         })
         stream.on('data', chunk => body += chunk)
         stream.once('error', reject)
-        stream.once('end', () => status === 200 ? resolve(body) : reject(new Error(`${path} responded with ${status}: ${body}`)))
+        stream.once('end', () => status === 200
+          ? resolve(body)
+          : reject(new Error(`${path} responded with ${status}: ${body}`)))
       }))
     }
     catch (error) {
@@ -192,7 +194,9 @@ describe('dev server', () => {
         }
       }
       // Only whole events, so a half-read chunk cannot be parsed as a snapshot.
-      const latest = () => JSON.parse([...stream.matchAll(/data: (.+)\n/g)].pop()![1]!)
+      const latest = () => JSON.parse([
+        ...stream.matchAll(/data: (.+)\n/g),
+      ].pop()![1]!)
 
       await readUntil('event: nuxt:ready')
       expect(stream).toContain('event: nuxt:ready')
@@ -200,7 +204,9 @@ describe('dev server', () => {
       // the server can accept that request rather than that it has answered it.
       expect(latest()).toMatchObject({ status: 'ready', serving: false })
 
-      await fetch(`http://${host}:${port}/`, { headers: { accept: 'text/html' } })
+      await fetch(`http://${host}:${port}/`, {
+        headers: { accept: 'text/html' },
+      })
       await readUntil('"serving":true')
       await reader.cancel()
 
@@ -221,7 +227,12 @@ describe('dev server', () => {
       // `fetch` refuses to forward a forged `Host`, so speak HTTP directly.
       const { request } = await import('node:http')
       const status = await new Promise<number | undefined>((resolve, reject) => {
-        const req = request({ host, port, path: '/__nuxt_dev__/progress', headers: { host: 'rebinding-attacker.com' } }, (res) => {
+        const req = request({
+          host,
+          port,
+          path: '/__nuxt_dev__/progress',
+          headers: { host: 'rebinding-attacker.com' },
+        }, (res) => {
           res.resume()
           resolve(res.statusCode)
         })
@@ -382,7 +393,9 @@ describe('dev server', () => {
             (_: unknown, nuxt: Nuxt) => {
               nuxt.options.devServerHandlers.push({
                 route: '/__test/host',
-                handler: eventHandler(event => ({ host: event.headers.get('host') })),
+                handler: eventHandler(event => ({
+                  host: event.headers.get('host'),
+                })),
               })
             },
           ],

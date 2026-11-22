@@ -25,6 +25,11 @@ describe('replaceCwdArg', () => {
   })
 
   it('should leave arguments after a -- separator alone', () => {
-    expect(replace(['dev', '--', 'apps/web'])).toEqual(['dev', '--cwd=/projects/site', '--', 'apps/web'])
+    expect(replace(['dev', '--', 'apps/web'])).toEqual([
+      'dev',
+      '--cwd=/projects/site',
+      '--',
+      'apps/web',
+    ])
   })
 })

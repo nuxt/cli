@@ -131,7 +131,24 @@ const HOOK_LABELS: Record<string, string> = {
  * Anything else was named by the project or one of its modules, and reads as
  * something its author would recognise.
  */
-const INTERNAL_HOOK_NAMESPACES = new Set(['app', 'build', 'builder', 'components', 'devtools', 'imports', 'kit', 'modules', 'module', 'nitro', 'pages', 'prepare', 'schema', 'vite', 'webpack', 'rspack'])
+const INTERNAL_HOOK_NAMESPACES = new Set([
+  'app',
+  'build',
+  'builder',
+  'components',
+  'devtools',
+  'imports',
+  'kit',
+  'modules',
+  'module',
+  'nitro',
+  'pages',
+  'prepare',
+  'schema',
+  'vite',
+  'webpack',
+  'rspack',
+])
 
 /**
  * The label for a hook that has been running long enough to be the reason for
@@ -142,7 +159,9 @@ function hookLabel(name: string): string | undefined {
   if (label) {
     return label
   }
-  return INTERNAL_HOOK_NAMESPACES.has(name.split(':')[0]!) ? undefined : `Running ${name}`
+  return INTERNAL_HOOK_NAMESPACES.has(name.split(':')[0]!)
+    ? undefined
+    : `Running ${name}`
 }
 
 /**
@@ -162,12 +181,16 @@ function shortenModuleName(name: string): string {
   const short = name.startsWith('@') || !/[\\/]/.test(name)
     ? name
     : name.split(/[\\/]/).pop()!.replace(/\.[cm]?[jt]sx?$/, '')
-  return short.length > MODULE_NAME_LIMIT ? `${short.slice(0, MODULE_NAME_LIMIT - 1)}\u2026` : short
+  return short.length > MODULE_NAME_LIMIT
+    ? `${short.slice(0, MODULE_NAME_LIMIT - 1)}\u2026`
+    : short
 }
 
 function moduleName(module: unknown): string | undefined {
   const name = (module as { name?: unknown } | undefined)?.name
-  return typeof name === 'string' && name ? name : undefined
+  return typeof name === 'string' && name
+    ? name
+    : undefined
 }
 
 interface HookableLike {
@@ -216,7 +239,9 @@ export class DevProgress extends PhaseTimeline {
       ...snapshot,
       status: this.#status,
       message: this.#message,
-      progress: this.#status === 'ready' ? (this.#serving ? 1 : READY_PROGRESS) : snapshot.progress,
+      progress: this.#status === 'ready'
+        ? (this.#serving ? 1 : READY_PROGRESS)
+        : snapshot.progress,
       reload: this.#reload,
       serving: this.#serving,
       pending: this.#pending,
@@ -278,7 +303,10 @@ export class DevProgress extends PhaseTimeline {
    */
   startRequest(label: string): number {
     const id = ++this.#nextRequest
-    this.#inflight.set(id, { label, startedAt: Date.now() })
+    this.#inflight.set(id, {
+      label,
+      startedAt: Date.now(),
+    })
     this.#scheduleDwell()
     return id
   }
@@ -318,7 +346,9 @@ export class DevProgress extends PhaseTimeline {
     }
     let next: number | undefined
     for (const { startedAt } of this.#inflight.values()) {
-      next = next === undefined ? startedAt : Math.min(next, startedAt)
+      next = next === undefined
+        ? startedAt
+        : Math.min(next, startedAt)
     }
     if (next === undefined) {
       return
@@ -465,7 +495,10 @@ export class DevProgress extends PhaseTimeline {
     if (this.#hooks.length >= HOOK_STACK_LIMIT) {
       this.#hooks.shift()
     }
-    this.#hooks.push({ name, at: Date.now() })
+    this.#hooks.push({
+      name,
+      at: Date.now(),
+    })
   }
 
   #popHook(name: string): void {
@@ -516,7 +549,10 @@ export class DevProgress extends PhaseTimeline {
       else if (name === MODULE_STARTED) {
         const module = moduleName(args?.[0])
         if (module) {
-          this.#module = { name: module, at: Date.now() }
+          this.#module = {
+            name: module,
+            at: Date.now(),
+          }
         }
       }
       // A module that finishes before it earned a mention must not be named

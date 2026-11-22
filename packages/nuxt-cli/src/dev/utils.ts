@@ -123,7 +123,9 @@ function devForkParentPid(): number | undefined {
   }
   // A supervisor that already exited leaves us reparented to init, which must
   // never be signalled.
-  return process.ppid > 1 ? process.ppid : undefined
+  return process.ppid > 1
+    ? process.ppid
+    : undefined
 }
 
 const TRAILING_SLASH_RE = /\/$/
@@ -176,7 +178,9 @@ export function attachViteHmrServer(server: ViteServerOptions, hmrServer: HttpSe
  */
 function resolveConfigDiffer(kit: Awaited<ReturnType<typeof loadKit>>) {
   const differ = (kit as Partial<typeof kit>).diffNuxtConfig
-  return typeof differ === 'function' ? differ : undefined
+  return typeof differ === 'function'
+    ? differ
+    : undefined
 }
 
 /** The app's routes, plus the component that renders its errors. */
@@ -360,7 +364,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const url = req.url || '/'
       const start = performance.now()
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
-      this.#inflight.set(request.id, { id: request.id, internal: isBundlerRequest(url, fetchDest) })
+      this.#inflight.set(request.id, {
+        id: request.id,
+        internal: isBundlerRequest(url, fetchDest),
+      })
       return runWithRequest(request, () => {
         onResponseClose(res, () => {
           this.#inflight.delete(request.id)
@@ -425,7 +432,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     for (const { url } of this.listener?.getURLs() ?? []) {
       try {
         const hostname = new URL(url).hostname.toLowerCase()
-        this.#allowedHosts.add(hostname.startsWith('[') ? hostname.slice(1, -1) : hostname)
+        this.#allowedHosts.add(hostname.startsWith('[')
+          ? hostname.slice(1, -1)
+          : hostname)
       }
       catch {
         // a malformed display URL is not a hostname to allow
@@ -478,7 +487,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     // Rendering a page compiles the module graph on demand, which is silent and
     // can take longer than the whole build did, so the request is reported for
     // as long as it is in flight.
-    const pending = document ? this.#progress.startRequest(`${req.method || 'GET'} ${req.url || '/'}`) : undefined
+    const pending = document
+      ? this.#progress.startRequest(`${req.method || 'GET'} ${req.url || '/'}`)
+      : undefined
     onResponseClose(res, () => {
       this.#inflightResponses.delete(res)
       if (pending !== undefined) {
@@ -539,7 +550,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
     const devServer = this.#currentNuxt.options.devServer as { errorChannel?: unknown }
     const runner = (this.#currentNuxt.options.nitro?.devServer as { runner?: unknown } | undefined)?.runner
-    if (!isThreadRunner(typeof runner === 'string' ? runner : undefined)) {
+    if (!isThreadRunner(typeof runner === 'string'
+      ? runner
+      : undefined)) {
       this.#ownsChannel = false
       delete process.env[ERROR_CHANNEL_ENV]
       return
@@ -560,11 +573,15 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
     try {
       // Without a channel of our own there is nothing to subscribe to.
-      const channel = this.#ownsChannel ? await useErrorChannel(this.#errorChannelOptions()) : undefined
+      const channel = this.#ownsChannel
+        ? await useErrorChannel(this.#errorChannelOptions())
+        : undefined
       const html = await renderErrorPage(report, {
         cwd: this.#rootDir(),
         channel: channel && this.#errorChannel,
-        history: isLocalPeer(req) ? channel?.history : undefined,
+        history: isLocalPeer(req)
+          ? channel?.history
+          : undefined,
       })
       res.statusCode = 500
       res.setHeader('Content-Type', 'text/html')
@@ -657,7 +674,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       this.#unsubscribeCompileTiming = subscribeCompileTiming({
         rootDir: () => this.#rootDir(),
         current: currentRequest,
-        inflight: () => [...this.#inflight.values()],
+        inflight: () => [
+          ...this.#inflight.values(),
+        ],
         report: span => this.emit('span', span),
       })
     }
@@ -846,7 +865,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
    * line they explain rather than being prefixed as a separate log message.
    */
   #reportReload(reason: DevRestartReason | undefined): void {
-    const lines = [formatRestartReason(reason, { rootDir: this.#cwd })]
+    const lines = [
+      formatRestartReason(reason, { rootDir: this.#cwd }),
+    ]
 
     const changedKeys = reason?.type === 'config' && formatChangedKeys(reason.keys ?? [])
     if (changedKeys) {
@@ -924,7 +945,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #emitStack(nuxt: Nuxt): void {
     const builder = nuxt.options.builder
     this.emit('stack', {
-      builder: typeof builder === 'string' ? builder : undefined,
+      builder: typeof builder === 'string'
+        ? builder
+        : undefined,
       server: getServerBuilderId(nuxt),
       nitroMajor: readNitroMajor(nuxt.options),
     })
@@ -939,7 +962,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   #collectRoutes(nuxt: Nuxt): void {
     const routes: DevRoute[] = []
     let errorComponent: string | undefined
-    const emit = () => this.emit('routes', { routes: [...routes], errorComponent })
+    const emit = () => this.emit('routes', {
+      routes: [...routes],
+      errorComponent,
+    })
 
     // `errorComponent` is minified in Nuxt's published build, so the shipped
     // property name is checked as well as the source one.
@@ -952,7 +978,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     nuxt.hook('pages:extend', (pages: Array<{ path: string, file?: string, children?: unknown[] }>) => {
       const flatten = (list: typeof pages, prefix = '') => {
         for (const page of list) {
-          const path = page.path.startsWith('/') ? page.path : `${prefix}/${page.path}`.replace(/\/+/g, '/')
+          const path = page.path.startsWith('/')
+            ? page.path
+            : `${prefix}/${page.path}`.replace(/\/+/g, '/')
           routes.push({ kind: 'page', route: path, file: page.file })
           flatten((page.children ?? []) as typeof pages, path)
         }
@@ -966,7 +994,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       routes.splice(0, routes.length, ...routes.filter(route => route.kind !== 'server'))
       for (const handler of nitro.scannedHandlers ?? []) {
         if (handler.route) {
-          routes.push({ kind: 'server', route: handler.route, method: handler.method, file: handler.handler })
+          routes.push({
+            kind: 'server',
+            route: handler.route,
+            method: handler.method,
+            file: handler.handler,
+          })
         }
       }
       emit()
@@ -1027,12 +1060,18 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.listener = await createListener(this.#bound, listenOptions, { announce: false })
     this.#hintedAllowedHosts = resolveConfiguredAllowedHosts(hint?.allowedHosts)
     this.#syncAllowedHosts(listenOptions)
-    this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: false })
+    this.emit('listening', {
+      url: this.listener.url,
+      urls: this.listener.getURLs(),
+      confirmed: false,
+    })
 
     const knowsScheme = overrides.httpsEnabled !== undefined || hint?.https === false
     if (overrides.open && knowsScheme && (hasExplicitPort || hint?.port === this.#bound.address.port)) {
       this.#openedEagerly = true
-      openBrowser(overrides.openURL ? resolveOpenURL(overrides.openURL, this.listener.url) : this.listener.url)
+      openBrowser(overrides.openURL
+        ? resolveOpenURL(overrides.openURL, this.listener.url)
+        : this.listener.url)
     }
   }
 
@@ -1057,7 +1096,11 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       open: listenOptions.open && !this.#openedEagerly,
     })
     this.#syncAllowedHosts(listenOptions)
-    this.emit('listening', { url: this.listener.url, urls: this.listener.getURLs(), confirmed: true })
+    this.emit('listening', {
+      url: this.listener.url,
+      urls: this.listener.getURLs(),
+      confirmed: true,
+    })
 
     const devServer = this.#currentNuxt.options.devServer as NuxtOptions['devServer'] & DevServerAllowedHosts
 
@@ -1075,7 +1118,12 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const hostnames = urls.map(u => new URL(u).hostname)
       devServer.allowedHosts = devServer.allowedHosts === true
         ? true
-        : dedupe([...Array.isArray(devServer.allowedHosts) ? devServer.allowedHosts : [], ...hostnames])
+        : dedupe([
+            ...Array.isArray(devServer.allowedHosts)
+              ? devServer.allowedHosts
+              : [],
+            ...hostnames,
+          ])
       this.#currentNuxt.options.vite = defu(this.#currentNuxt.options.vite, {
         server: {
           allowedHosts: hostnames,
@@ -1100,7 +1148,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     }
     saveDevServerHint(this.options.cwd, {
       port: Number(devServer.port) || undefined,
-      hostname: typeof devServer.host === 'string' ? devServer.host : undefined,
+      hostname: typeof devServer.host === 'string'
+        ? devServer.host
+        : undefined,
       https: !!devServer.https,
       baseURL,
       allowedHosts: resolveNuxtAllowedHosts(this.#currentNuxt?.options),
@@ -1121,7 +1171,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     const port = overrides.port ?? nuxtConfig.devServer?.port
 
-    const devServerHost = typeof nuxtConfig.devServer?.host === 'string' ? nuxtConfig.devServer.host : undefined
+    const devServerHost = typeof nuxtConfig.devServer?.host === 'string'
+      ? nuxtConfig.devServer.host
+      : undefined
     const hostname = overrides.hostname ?? devServerHost
 
     // Only `--public` (or a sandbox that fronts the server) drops both the `Host`
@@ -1131,9 +1183,13 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
 
     // `--https` (or its absence) wins over the config; `https.*` arguments and
     // `devServer.https` options only apply once https is enabled.
-    const httpsFromConfig = typeof nuxtConfig.devServer?.https === 'object' ? nuxtConfig.devServer.https : {}
+    const httpsFromConfig = typeof nuxtConfig.devServer?.https === 'object'
+      ? nuxtConfig.devServer.https
+      : {}
     const https = (httpsEnabled ?? !!nuxtConfig.devServer?.https)
-      && defu(typeof overrides.https === 'object' ? overrides.https : {}, httpsFromConfig)
+      && defu(typeof overrides.https === 'object'
+        ? overrides.https
+        : {}, httpsFromConfig)
 
     const baseURL = resolveAppBaseURL(nuxtConfig.app?.baseURL)
 
@@ -1211,7 +1267,9 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     })
 
     const nuxt = this.#currentNuxt
-    const baseURL = nuxt.options.app.baseURL.startsWith('./') ? nuxt.options.app.baseURL.slice(1) : nuxt.options.app.baseURL
+    const baseURL = nuxt.options.app.baseURL.startsWith('./')
+      ? nuxt.options.app.baseURL.slice(1)
+      : nuxt.options.app.baseURL
     const buildAssetsPath = `${baseURL.replace(/\/$/, '')}/${nuxt.options.app.buildAssetsDir.replace(/^\//, '')}`
     const expectsViteHmr = !process.env.NUXI_DISABLE_VITE_HMR && (!nuxt.options.builder || String(nuxt.options.builder).includes('vite'))
     this.listener.server.on('upgrade', (req, socket, head) => {
@@ -1263,7 +1321,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       ? kit.writeTypes(this.#currentNuxt).catch(console.error)
       : await kit.writeTypes(this.#currentNuxt).catch(console.error)
 
-    await Promise.all([typesPromise, kit.buildNuxt(this.#currentNuxt)])
+    await Promise.all([
+      typesPromise,
+      kit.buildNuxt(this.#currentNuxt),
+    ])
 
     // A server builder defined inline describes itself only once it has built.
     if (this.options.captureUIEvents) {
@@ -1342,7 +1403,10 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
   async #publishError(error: unknown): Promise<ErrorReport | undefined> {
     let report: ErrorReport
     try {
-      report = await createCliReport(error, { cwd: this.#rootDir(), workspaceDir: this.#currentNuxt?.options.workspaceDir })
+      report = await createCliReport(error, {
+        cwd: this.#rootDir(),
+        workspaceDir: this.#currentNuxt?.options.workspaceDir,
+      })
     }
     catch (reportError) {
       debug('Could not build a report for the error:', reportError)
@@ -1460,10 +1524,16 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     this.#configWatcher = createConfigWatcher(
       this.#cwd,
       this.options.dotenv.fileName,
-      file => this.emit('restart', { type: 'config', files: [file] }),
+      file => this.emit('restart', {
+        type: 'config',
+        files: [file],
+      }),
       (file) => {
         this.emit('change')
-        this.scheduleReload({ type: 'config', files: [file] })
+        this.scheduleReload({
+          type: 'config',
+          files: [file],
+        })
       },
       getLocalLayerDirs(this.#currentNuxt?.options._layers ?? [], this.#cwd),
     )
@@ -1476,12 +1546,16 @@ function isInteractive(): boolean {
 }
 
 function resolveAppBaseURL(baseURL: string | undefined): string | undefined {
-  return baseURL?.startsWith?.('./') ? baseURL.slice(1) : baseURL
+  return baseURL?.startsWith?.('./')
+    ? baseURL.slice(1)
+    : baseURL
 }
 
 function getAddressURL(addr: { address: string, port: number }, https: boolean) {
   const proto = https ? 'https' : 'http'
-  let host = addr.address.includes(':') ? `[${addr.address}]` : addr.address
+  let host = addr.address.includes(':')
+    ? `[${addr.address}]`
+    : addr.address
   if (host === '[::]') {
     host = 'localhost' // Fix issues with Docker networking
   }
@@ -1500,7 +1574,9 @@ function resolveDevServerHTTPS(certificate: false | ResolvedCertificate): NuxtOp
 }
 
 function dedupe<T>(values: T[]): T[] {
-  return [...new Set(values)]
+  return [
+    ...new Set(values),
+  ]
 }
 
 /** `devServer.allowedHosts`, which `@nuxt/schema` declares from Nuxt 4.7. */
@@ -1529,22 +1605,35 @@ function resolveDevServerDefaults(listenOptions: { hostname?: string, https: boo
   // defined hostname
   if (listenOptions.hostname) {
     const protocol = listenOptions.https ? 'https' : 'http'
-    defaultConfig.devServer = { cors: { origin: [`${protocol}://${listenOptions.hostname}`, ...urls] } }
-    defaultConfig.vite = defu(defaultConfig.vite, { server: { allowedHosts: [listenOptions.hostname] } })
+    defaultConfig.devServer = {
+      cors: {
+        origin: [`${protocol}://${listenOptions.hostname}`, ...urls],
+      },
+    }
+    defaultConfig.vite = defu(defaultConfig.vite, {
+      server: {
+        allowedHosts: [listenOptions.hostname],
+      },
+    })
   }
 
   // Browser requests reach us through the portless proxy, so its origins have
   // to be allowed even when the server itself is bound to localhost.
   const portlessOrigins = resolvePortlessURLs().all
   if (portlessOrigins.length > 0) {
-    defaultConfig.devServer = defu(defaultConfig.devServer, { cors: { origin: portlessOrigins } })
+    defaultConfig.devServer = defu(defaultConfig.devServer, {
+      cors: { origin: portlessOrigins },
+    })
   }
 
   // `defu` concatenates arrays, so the hostname and the listener urls overlap.
   const allowedHosts = defaultConfig.vite?.server?.allowedHosts
   if (Array.isArray(allowedHosts)) {
     defaultConfig.vite!.server!.allowedHosts = dedupe(allowedHosts)
-    defaultConfig.devServer = { ...defaultConfig.devServer, allowedHosts: dedupe(allowedHosts) } as NuxtConfig['devServer']
+    defaultConfig.devServer = {
+      ...defaultConfig.devServer,
+      allowedHosts: dedupe(allowedHosts),
+    } as NuxtConfig['devServer']
   }
   const corsOrigin = defaultConfig.devServer?.cors?.origin
   if (Array.isArray(corsOrigin)) {

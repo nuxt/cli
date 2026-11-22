@@ -27,7 +27,10 @@ describe('cleanup', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     cwd = await mkdtemp(join(tmpdir(), 'nuxt-cleanup-'))
-    loadNuxtConfig.mockResolvedValue({ rootDir: cwd, buildDir: join(cwd, '.nuxt') })
+    loadNuxtConfig.mockResolvedValue({
+      rootDir: cwd,
+      buildDir: join(cwd, '.nuxt'),
+    })
   })
 
   afterEach(async () => {
@@ -45,9 +48,14 @@ describe('cleanup', () => {
     await Promise.all(generated.map(path => createFile(join(cwd, path))))
     await createFile(join(cwd, 'node_modules/nuxt/package.json'))
 
-    await runCommand(cleanup, { rawArgs: [cwd] })
+    await runCommand(cleanup, {
+      rawArgs: [cwd],
+    })
 
-    expect(loadNuxtConfig).toHaveBeenCalledWith({ cwd, overrides: { dev: true } })
+    expect(loadNuxtConfig).toHaveBeenCalledWith({
+      cwd,
+      overrides: { dev: true },
+    })
     expect(generated.every(path => !existsSync(join(cwd, path)))).toBe(true)
     expect(existsSync(join(cwd, 'node_modules/nuxt/package.json'))).toBe(true)
   })
@@ -57,17 +65,30 @@ describe('cleanup', () => {
     loadNuxtConfig.mockResolvedValue({ rootDir: cwd, buildDir })
     await createFile(join(buildDir, 'nuxt/client.json'))
 
-    await expect(runCommand(cleanup, { rawArgs: [cwd] })).resolves.toBeDefined()
+    await expect(runCommand(cleanup, {
+      rawArgs: [cwd],
+    })).resolves.toBeDefined()
   })
 
   it.each([
-    ['the project root', () => cwd],
-    ['a parent of the project root', () => join(cwd, '..')],
+    [
+      'the project root',
+      () => cwd,
+    ],
+    [
+      'a parent of the project root',
+      () => join(cwd, '..'),
+    ],
   ])('refuses to remove %s', async (_, getBuildDir) => {
-    loadNuxtConfig.mockResolvedValue({ rootDir: cwd, buildDir: getBuildDir() })
+    loadNuxtConfig.mockResolvedValue({
+      rootDir: cwd,
+      buildDir: getBuildDir(),
+    })
     await createFile(join(cwd, 'package.json'))
 
-    await expect(runCommand(cleanup, { rawArgs: [cwd] })).rejects.toThrow('Cannot clean a build directory that contains the project root.')
+    await expect(runCommand(cleanup, {
+      rawArgs: [cwd],
+    })).rejects.toThrow('Cannot clean a build directory that contains the project root.')
     expect(existsSync(join(cwd, 'package.json'))).toBe(true)
   })
 })

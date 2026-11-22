@@ -50,7 +50,10 @@ async function runFailing(command: CommandDef<any>, argv: string[]) {
   })
 
   exit.mockRestore()
-  return { output: screen(renderer), exitCode }
+  return {
+    output: screen(renderer),
+    exitCode,
+  }
 }
 
 describe('network failures reported by commands', () => {
@@ -69,7 +72,10 @@ describe('network failures reported by commands', () => {
 
   it('names the unreachable npm registry when module metadata cannot be fetched', async () => {
     dir = await mkdtemp(join(tmpdir(), 'nuxt-add-network-'))
-    await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'app', devDependencies: { nuxt: '4.0.0' } }))
+    await writeFile(join(dir, 'package.json'), JSON.stringify({
+      name: 'app',
+      devDependencies: { nuxt: '4.0.0' },
+    }))
     process.env.COREPACK_NPM_REGISTRY = `http://127.0.0.1:${port}`
 
     // Only the modules database is stubbed; the registry request is real.

@@ -22,7 +22,9 @@ interface NuxtProjectManifest {
 export async function cleanupNuxtDirs(rootDir: string, buildDir: string, options: { silent?: boolean } = {}) {
   const root = resolve(rootDir)
   const build = resolve(root, buildDir)
-  if (build === root || root.startsWith(build.endsWith('/') ? build : `${build}/`)) {
+  if (build === root || root.startsWith(build.endsWith('/')
+    ? build
+    : `${build}/`)) {
     throw new Error('Cannot clean a build directory that contains the project root.')
   }
 

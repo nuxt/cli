@@ -26,8 +26,42 @@ const CHROME_HEIGHT = 32
 /** Gradient border around the terminal card, for social media embeds. */
 const MARGIN = 32
 
-const LIGHT_PALETTE = ['#24292f', '#cf222e', '#116329', '#8a6300', '#0969da', '#8250df', '#1b7c83', '#57606a', '#57606a', '#a40e26', '#0e7a34', '#7d4e00', '#0550ae', '#6639ba', '#136c72', '#24292f']
-const DARK_PALETTE = ['#c9d1d9', '#ff7b72', '#3fb950', '#d29922', '#58a6ff', '#bc8cff', '#39c5cf', '#b1bac4', '#8b949e', '#ffa198', '#56d364', '#e3b341', '#79c0ff', '#d2a8ff', '#56d4dd', '#f0f6fc']
+const LIGHT_PALETTE = [
+  '#24292f',
+  '#cf222e',
+  '#116329',
+  '#8a6300',
+  '#0969da',
+  '#8250df',
+  '#1b7c83',
+  '#57606a',
+  '#57606a',
+  '#a40e26',
+  '#0e7a34',
+  '#7d4e00',
+  '#0550ae',
+  '#6639ba',
+  '#136c72',
+  '#24292f',
+]
+const DARK_PALETTE = [
+  '#c9d1d9',
+  '#ff7b72',
+  '#3fb950',
+  '#d29922',
+  '#58a6ff',
+  '#bc8cff',
+  '#39c5cf',
+  '#b1bac4',
+  '#8b949e',
+  '#ffa198',
+  '#56d364',
+  '#e3b341',
+  '#79c0ff',
+  '#d2a8ff',
+  '#56d4dd',
+  '#f0f6fc',
+]
 
 function paletteColor(index: number, dark: boolean): string {
   if (index < 16) {
@@ -80,7 +114,9 @@ function runsForLine(line: string, styles: Style[] | undefined): Run[] {
   let current: Run | undefined
   for (let col = 0; col < line.length; col++) {
     const style = styles?.[col]
-    const key = style ? styleKey(style) : ''
+    const key = style
+      ? styleKey(style)
+      : ''
     if (!current || styleKey(current.style) !== key) {
       if (current && current.text.trim() !== '') {
         runs.push(current)
@@ -99,7 +135,16 @@ function runsForLine(line: string, styles: Style[] | undefined): Run[] {
 }
 
 function styleKey(style: Style): string {
-  return JSON.stringify([style.foreground, style.background, style.bold, style.dim, style.italic, style.underline, style.inverse, style.strikethrough])
+  return JSON.stringify([
+    style.foreground,
+    style.background,
+    style.bold,
+    style.dim,
+    style.italic,
+    style.underline,
+    style.inverse,
+    style.strikethrough,
+  ])
 }
 
 function escapeText(text: string): string {
@@ -153,7 +198,9 @@ function renderFrame(frame: Frame, options: Required<Pick<SvgOptions, 'columns' 
           : ` fill="${colorValue(background, false)}"`
         parts.push(`<rect x="${x.toFixed(1)}" y="${(y - lineHeight * 0.75).toFixed(1)}" width="${(run.text.length * charWidth).toFixed(1)}" height="${lineHeight.toFixed(1)}"${fillAttribute}/>`)
       }
-      const classAttribute = classes.length ? ` class="${classes.join(' ')}"` : ''
+      const classAttribute = classes.length
+        ? ` class="${classes.join(' ')}"`
+        : ''
       // Each run starts at an absolute x on a 0.6em column grid, but glyphs
       // inside a run advance at the viewer font's real width. If that is not
       // exactly 0.6em, a long run drifts and the next run's snapped x lands on
@@ -183,13 +230,29 @@ export function toSvg(frames: Frame[], options: SvgOptions): string {
       return body
     }
     const start = frame.at / duration
-    const end = index + 1 < frames.length ? frames[index + 1]!.at / duration : 1
+    const end = index + 1 < frames.length
+      ? frames[index + 1]!.at / duration
+      : 1
     const last = index + 1 === frames.length
     // Frames must cut, not crossfade: SMIL interpolates linearly between
     // keyframes, so without a zero keyframe right after `end` a frame would
     // fade out over the rest of the loop, ghosting on top of later frames.
-    const keyTimes = [0, Math.max(start - 0.0001, 0), start, Math.min(end, 1), Math.min(end + 0.0001, 1), 1]
-    const values = [0, 0, 1, 1, last ? 1 : 0, last ? 1 : 0]
+    const keyTimes = [
+      0,
+      Math.max(start - 0.0001, 0),
+      start,
+      Math.min(end, 1),
+      Math.min(end + 0.0001, 1),
+      1,
+    ]
+    const values = [
+      0,
+      0,
+      1,
+      1,
+      last ? 1 : 0,
+      last ? 1 : 0,
+    ]
     return [
       `<g opacity="0">`,
       `<animate attributeName="opacity" values="${values.join(';')}" keyTimes="${keyTimes.map(t => t.toFixed(4)).join(';')}" dur="${(duration / 1000).toFixed(2)}s" repeatCount="indefinite"/>`,

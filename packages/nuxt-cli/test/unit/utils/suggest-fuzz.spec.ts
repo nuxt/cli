@@ -17,7 +17,10 @@ const argsDef = {
   'cwd': { type: 'string' },
   'logLevel': { type: 'string' },
   'dotenv': { type: 'string' },
-  'port': { type: 'string', alias: ['p', 'P'] },
+  'port': {
+    type: 'string',
+    alias: ['p', 'P'],
+  },
   'host': { type: 'string' },
   'fork': { type: 'boolean' },
   'clear': { type: 'boolean' },
@@ -32,7 +35,9 @@ const aliases = ['p', 'P']
 
 /** One typo of the kind a suggestion is meant to catch. */
 function mutate(word: string, kind: 'delete' | 'transpose' | 'substitute' | 'insert', at: number): string {
-  const index = word.length ? at % word.length : 0
+  const index = word.length
+    ? at % word.length
+    : 0
   switch (kind) {
     case 'delete':
       return word.slice(0, index) + word.slice(index + 1)
@@ -66,7 +71,9 @@ describe('suggestCommand', () => {
   it('should stay quiet for a command spelled correctly', async () => {
     await fc.assert(fc.asyncProperty(fc.constantFrom(...names), async (name) => {
       await expect(suggestCommand(name, names)).resolves.toBeUndefined()
-    }), { numRuns: Math.min(RUNS, names.length * 2) })
+    }), {
+      numRuns: Math.min(RUNS, names.length * 2),
+    })
   })
 
   it('should never point a typo at the wrong command', async () => {
@@ -103,13 +110,31 @@ describe('suggestCommand', () => {
 
 const flagArgs = fc.array(
   fc.oneof(
-    { weight: 4, arbitrary: fc.constantFrom(...declared).map(name => `--${name}`) },
-    { weight: 1, arbitrary: fc.constantFrom(...declared).map(name => `--${name}=value`) },
-    { weight: 1, arbitrary: fc.constantFrom(...aliases).map(alias => `-${alias}`) },
-    { weight: 1, arbitrary: fc.constantFrom('--help', '--version', '--no-fork', '--no-clear', '--https.key=x', '--open.target=x') },
-    { weight: 3, arbitrary: word.map(name => `--${name}`) },
+    {
+      weight: 4,
+      arbitrary: fc.constantFrom(...declared).map(name => `--${name}`),
+    },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom(...declared).map(name => `--${name}=value`),
+    },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom(...aliases).map(alias => `-${alias}`),
+    },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom('--help', '--version', '--no-fork', '--no-clear', '--https.key=x', '--open.target=x'),
+    },
+    {
+      weight: 3,
+      arbitrary: word.map(name => `--${name}`),
+    },
     { weight: 1, arbitrary: word },
-    { weight: 1, arbitrary: fc.constantFrom('--', '-abc', '-', '3000', '--=x') },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom('--', '-abc', '-', '3000', '--=x'),
+    },
   ),
   { maxLength: 8 },
 )
@@ -130,14 +155,20 @@ describe('findUnknownFlags', () => {
     fc.assert(fc.property(flagArgs, (rawArgs) => {
       const { flags } = findUnknownFlags(argsDef, rawArgs)
 
-      expect(flags).toEqual([...new Set(flags)])
+      expect(flags).toEqual([
+        ...new Set(flags),
+      ])
       expect(flags.every(flag => rawArgs.some(arg => arg === `--${flag}` || arg.startsWith(`--${flag}=`)))).toBe(true)
     }), { numRuns: RUNS })
   })
 
   it('should ignore everything after a `--` separator', () => {
     fc.assert(fc.property(flagArgs, flagArgs, (before, after) => {
-      const withSeparator = findUnknownFlags(argsDef, [...before, '--', ...after]).flags
+      const withSeparator = findUnknownFlags(argsDef, [
+        ...before,
+        '--',
+        ...after,
+      ]).flags
 
       expect(withSeparator).toEqual(findUnknownFlags(argsDef, [...before, '--']).flags)
     }), { numRuns: RUNS })

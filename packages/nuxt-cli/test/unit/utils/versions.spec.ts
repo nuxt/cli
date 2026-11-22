@@ -8,7 +8,9 @@ import { fetchJson } from '../../../src/utils/fetch'
 import { detectNpmRegistry } from '../../../src/utils/registry'
 import { getNuxtVersion, resolveRegistryVersion } from '../../../src/utils/versions'
 
-vi.mock('../../../src/utils/fetch', () => ({ fetchJson: vi.fn() }))
+vi.mock('../../../src/utils/fetch', () => ({
+  fetchJson: vi.fn(),
+}))
 vi.mock('../../../src/utils/registry', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/utils/registry')>(),
   detectNpmRegistry: vi.fn(),
@@ -26,27 +28,35 @@ describe('getNuxtVersion', () => {
   })
 
   it('should read the declared version when nuxt is not installed', async () => {
-    await writeFile(join(tempDir, 'package.json'), JSON.stringify({ devDependencies: { nuxt: '^4.2.0' } }))
+    await writeFile(join(tempDir, 'package.json'), JSON.stringify({
+      devDependencies: { nuxt: '^4.2.0' },
+    }))
 
     expect(await getNuxtVersion(tempDir)).toBe('4.2.0')
   })
 
   it('should resolve a catalog reference through pnpm-workspace.yaml', async () => {
-    await writeFile(join(tempDir, 'package.json'), JSON.stringify({ devDependencies: { nuxt: 'catalog:' } }))
+    await writeFile(join(tempDir, 'package.json'), JSON.stringify({
+      devDependencies: { nuxt: 'catalog:' },
+    }))
     await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalog:\n  nuxt: ^4.2.0\n')
 
     expect(await getNuxtVersion(tempDir)).toBe('4.2.0')
   })
 
   it('should resolve a named catalog reference', async () => {
-    await writeFile(join(tempDir, 'package.json'), JSON.stringify({ dependencies: { nuxt: 'catalog:prod' } }))
+    await writeFile(join(tempDir, 'package.json'), JSON.stringify({
+      dependencies: { nuxt: 'catalog:prod' },
+    }))
     await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalogs:\n  prod:\n    nuxt: 4.1.2\n')
 
     expect(await getNuxtVersion(tempDir)).toBe('4.1.2')
   })
 
   it('should fall back when the catalog has no entry for nuxt', async () => {
-    await writeFile(join(tempDir, 'package.json'), JSON.stringify({ dependencies: { nuxt: 'catalog:' } }))
+    await writeFile(join(tempDir, 'package.json'), JSON.stringify({
+      dependencies: { nuxt: 'catalog:' },
+    }))
     await writeFile(join(tempDir, 'pnpm-workspace.yaml'), 'catalog:\n  vue: ^3.6.0\n')
 
     expect(await getNuxtVersion(tempDir)).toBe('3.0.0')
@@ -59,19 +69,28 @@ describe('resolveRegistryVersion', () => {
   })
 
   it('should prefer a matching dist-tag', async () => {
-    vi.mocked(fetchJson).mockResolvedValue({ 'dist-tags': { latest: '4.2.0' }, 'versions': { '4.2.0': {}, '5.0.0-rc.1': {} } })
+    vi.mocked(fetchJson).mockResolvedValue({
+      'dist-tags': { latest: '4.2.0' },
+      'versions': { '4.2.0': {}, '5.0.0-rc.1': {} },
+    })
 
     expect(await resolveRegistryVersion('nuxt', 'latest')).toBe('4.2.0')
   })
 
   it('should pick the highest matching version regardless of publication order', async () => {
-    vi.mocked(fetchJson).mockResolvedValue({ 'dist-tags': { latest: '4.2.0' }, 'versions': { '3.17.0': {}, '3.19.0': {}, '3.18.1': {} } })
+    vi.mocked(fetchJson).mockResolvedValue({
+      'dist-tags': { latest: '4.2.0' },
+      'versions': { '3.17.0': {}, '3.19.0': {}, '3.18.1': {} },
+    })
 
     expect(await resolveRegistryVersion('nuxt', '3')).toBe('3.19.0')
   })
 
   it('should return nothing when no version matches', async () => {
-    vi.mocked(fetchJson).mockResolvedValue({ 'dist-tags': { latest: '4.2.0' }, 'versions': { '4.2.0': {} } })
+    vi.mocked(fetchJson).mockResolvedValue({
+      'dist-tags': { latest: '4.2.0' },
+      'versions': { '4.2.0': {} },
+    })
 
     expect(await resolveRegistryVersion('nuxt', '99')).toBeUndefined()
   })
@@ -86,7 +105,9 @@ describe('resolveRegistryVersion', () => {
     vi.mocked(fetchJson).mockClear()
     vi.mocked(fetchJson)
       .mockRejectedValueOnce(Object.assign(new Error('Unauthorized'), { status: 401 }))
-      .mockResolvedValueOnce({ 'dist-tags': { latest: '4.2.0' } })
+      .mockResolvedValueOnce({
+        'dist-tags': { latest: '4.2.0' },
+      })
 
     expect(await resolveRegistryVersion('nuxt', 'latest')).toBe('4.2.0')
     expect(vi.mocked(fetchJson).mock.calls[1]![0]).toBe('https://registry.npmjs.org/nuxt')

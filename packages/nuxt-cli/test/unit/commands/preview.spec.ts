@@ -88,7 +88,11 @@ describe('preview', () => {
         options: { srcDir: cwd },
         hook: vi.fn((name, callback) => {
           if (name === 'nitro:init') {
-            callback({ options: { output: { dir: '.output' } } })
+            callback({
+              options: {
+                output: { dir: '.output' },
+              },
+            })
           }
         }),
         close: vi.fn(),
@@ -133,7 +137,9 @@ describe('preview', () => {
   it('names the deploy target a Nitro build recorded', async () => {
     await writeNitroJSON(join(cwd, '.output'), { preset: 'cloudflare-module' })
 
-    const terminal = await render(() => runCommand(preview, { rawArgs: [cwd] }))
+    const terminal = await render(() => runCommand(preview, {
+      rawArgs: [cwd],
+    }))
 
     expect(screen(terminal)).toMatch(/Deploy target:\s+cloudflare-module/)
   })
@@ -150,12 +156,19 @@ describe('preview', () => {
         label: 'Vite server',
         target: () => 'cloudflare',
         capabilities: { server: true, dev: true },
-        output: { dir: () => outputDir, publicDir: () => join(outputDir, 'public') },
-        preview: { command: () => 'npx wrangler dev' },
+        output: {
+          dir: () => outputDir,
+          publicDir: () => join(outputDir, 'public'),
+        },
+        preview: {
+          command: () => 'npx wrangler dev',
+        },
       },
     })
 
-    const terminal = await render(() => runCommand(preview, { rawArgs: [cwd] }))
+    const terminal = await render(() => runCommand(preview, {
+      rawArgs: [cwd],
+    }))
 
     expect(screen(terminal)).toMatch(/Deploy target:\s+cloudflare/)
   })
@@ -165,10 +178,16 @@ describe('preview', () => {
     await writeNitroJSON(outputDir)
     loadNuxt.mockImplementation(async (options) => {
       const nuxt = {
-        options: { srcDir: join(cwd, 'src') },
+        options: {
+          srcDir: join(cwd, 'src'),
+        },
         hook: vi.fn((name, callback) => {
           if (name === 'nitro:init') {
-            callback({ options: { output: { dir: '../dist/server-output' } } })
+            callback({
+              options: {
+                output: { dir: '../dist/server-output' },
+              },
+            })
           }
         }),
         close: vi.fn(),
@@ -177,7 +196,9 @@ describe('preview', () => {
       return nuxt
     })
 
-    await runCommand(preview, { rawArgs: [cwd] })
+    await runCommand(preview, {
+      rawArgs: [cwd],
+    })
 
     expect(x).toHaveBeenCalledWith('node', ['./server/index.mjs'], expect.objectContaining({
       nodeOptions: expect.objectContaining({ cwd: outputDir }),
@@ -189,7 +210,9 @@ describe('preview', () => {
     const outputDir = join(cwd, '.output')
     await writeNitroJSON(outputDir)
 
-    await runCommand(preview, { rawArgs: [cwd] })
+    await runCommand(preview, {
+      rawArgs: [cwd],
+    })
 
     expect(x).toHaveBeenCalledWith('node', ['./server/index.mjs'], expect.objectContaining({
       nodeOptions: expect.objectContaining({ cwd: outputDir }),
@@ -201,7 +224,9 @@ describe('preview', () => {
     vi.stubEnv('NUXT_HOST', 'localhost')
     await writeNitroJSON(join(cwd, '.output'))
 
-    await runCommand(preview, { rawArgs: [cwd] })
+    await runCommand(preview, {
+      rawArgs: [cwd],
+    })
 
     expect(x).toHaveBeenCalledWith(expect.any(String), expect.any(Array), expect.objectContaining({
       nodeOptions: expect.objectContaining({
@@ -218,7 +243,9 @@ describe('preview', () => {
   it('listens on port 3000 when none is given', async () => {
     await writeNitroJSON(join(cwd, '.output'))
 
-    await runCommand(preview, { rawArgs: [cwd] })
+    await runCommand(preview, {
+      rawArgs: [cwd],
+    })
 
     expect(getPort).toHaveBeenCalledWith(expect.objectContaining({ port: 3000 }))
     expectServerPort('3000')
@@ -230,7 +257,9 @@ describe('preview', () => {
       commands: { preview: 'npx wrangler dev' },
     })
 
-    await runCommand(preview, { rawArgs: [cwd] })
+    await runCommand(preview, {
+      rawArgs: [cwd],
+    })
 
     expect(getPort).not.toHaveBeenCalled()
     expect(x).toHaveBeenCalledWith('npx', ['wrangler', 'dev'], expect.anything())
@@ -242,7 +271,9 @@ describe('preview', () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
     await writeNitroJSON(join(cwd, '.output'))
 
-    await runCommand(preview, { rawArgs: [cwd, '--port=4321'] })
+    await runCommand(preview, {
+      rawArgs: [cwd, '--port=4321'],
+    })
 
     expect(warn).toHaveBeenCalledWith('Port 4321 is in use, using port 4322 instead.')
     expectServerPort('4322')
@@ -252,7 +283,9 @@ describe('preview', () => {
     checkPort.mockResolvedValue(false)
     await writeNitroJSON(join(cwd, '.output'))
 
-    await expect(runCommand(preview, { rawArgs: [cwd, '--port=4321', '--strictPort'] }))
+    await expect(runCommand(preview, {
+      rawArgs: [cwd, '--port=4321', '--strictPort'],
+    }))
       .rejects
       .toThrow('Port 4321 is already in use (`--strictPort` is enabled).')
     expect(x).not.toHaveBeenCalled()
@@ -269,7 +302,9 @@ describe('preview', () => {
     })
     await writeNitroJSON(join(cwd, '.output'))
 
-    await runCommand(preview, { rawArgs: [cwd, '--port=4321'] })
+    await runCommand(preview, {
+      rawArgs: [cwd, '--port=4321'],
+    })
 
     expect(recorded).toMatchObject({
       pid: process.pid,
@@ -294,7 +329,9 @@ describe('preview', () => {
     await writeNitroJSON(join(cwd, '.output'))
     const listeners = process.listenerCount('exit')
 
-    await expect(runCommand(preview, { rawArgs: [cwd] })).rejects.toThrow(error)
+    await expect(runCommand(preview, {
+      rawArgs: [cwd],
+    })).rejects.toThrow(error)
 
     expect(readLock(previewLockDir(cwd))).toBeUndefined()
     expect(process.listenerCount('exit')).toBe(listeners)
@@ -304,7 +341,9 @@ describe('preview', () => {
     getPort.mockResolvedValue(4321)
     await writeNitroJSON(join(cwd, '.output'))
 
-    await runCommand(preview, { rawArgs: [cwd, '--port=0'] })
+    await runCommand(preview, {
+      rawArgs: [cwd, '--port=0'],
+    })
 
     expect(getPort).toHaveBeenCalledWith({ random: true, host: undefined })
     expectServerPort('4321')
@@ -313,7 +352,9 @@ describe('preview', () => {
   it('rejects an invalid port before starting a server', async () => {
     await writeNitroJSON(join(cwd, '.output'))
 
-    await expect(runCommand(preview, { rawArgs: [cwd, '--port=invalid'] }))
+    await expect(runCommand(preview, {
+      rawArgs: [cwd, '--port=invalid'],
+    }))
       .rejects
       .toThrow('Invalid port')
 
@@ -330,9 +371,14 @@ describe('preview', () => {
       await writePreviewLock()
       const signals = mockProcesses()
 
-      await runCommand(preview, { rawArgs: [cwd] })
+      await runCommand(preview, {
+        rawArgs: [cwd],
+      })
 
-      expect(signals).toEqual([[SERVER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
+      expect(signals).toEqual([
+        [SERVER_PID, 'SIGTERM'],
+        [HOLDER_PID, 'SIGTERM'],
+      ])
       expectServerPort('4500')
     })
 
@@ -344,7 +390,9 @@ describe('preview', () => {
         throw new Error(`exit ${code}`)
       })
 
-      await expect(runCommand(preview, { rawArgs: [cwd] })).rejects.toThrow('exit 1')
+      await expect(runCommand(preview, {
+        rawArgs: [cwd],
+      })).rejects.toThrow('exit 1')
 
       expect(signals).toHaveLength(0)
       expect(x).not.toHaveBeenCalled()
@@ -356,9 +404,14 @@ describe('preview', () => {
       await writePreviewLock({ interactive: true })
       const signals = mockProcesses()
 
-      await runCommand(preview, { rawArgs: [cwd, '--takeover'] })
+      await runCommand(preview, {
+        rawArgs: [cwd, '--takeover'],
+      })
 
-      expect(signals).toEqual([[SERVER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
+      expect(signals).toEqual([
+        [SERVER_PID, 'SIGTERM'],
+        [HOLDER_PID, 'SIGTERM'],
+      ])
       expectServerPort('4500')
     })
 
@@ -370,16 +423,22 @@ describe('preview', () => {
         throw new Error(`exit ${code}`)
       })
 
-      await expect(runCommand(preview, { rawArgs: [cwd, '--no-takeover'] })).rejects.toThrow('exit 1')
+      await expect(runCommand(preview, {
+        rawArgs: [cwd, '--no-takeover'],
+      })).rejects.toThrow('exit 1')
       expect(signals).toHaveLength(0)
     })
 
     it('starts alongside it on another port asked for', async () => {
       await writePreviewLock()
       const signals = mockProcesses()
-      checkPort.mockImplementation(async port => port === 4500 ? false : port)
+      checkPort.mockImplementation(async port => port === 4500
+        ? false
+        : port)
 
-      await runCommand(preview, { rawArgs: [cwd, '--port=4600'] })
+      await runCommand(preview, {
+        rawArgs: [cwd, '--port=4600'],
+      })
 
       expect(signals).toHaveLength(0)
       expectServerPort('4600')
@@ -400,7 +459,9 @@ describe('preview', () => {
       getPort.mockResolvedValue(3001)
       vi.spyOn(logger, 'warn').mockImplementation(() => {})
 
-      await runCommand(preview, { rawArgs: [cwd] })
+      await runCommand(preview, {
+        rawArgs: [cwd],
+      })
 
       expect(signals).toHaveLength(0)
       expectServerPort('3001')

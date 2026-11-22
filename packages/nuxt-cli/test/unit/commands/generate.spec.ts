@@ -15,8 +15,12 @@ vi.mock('@clack/prompts', async importOriginal => ({
   intro: vi.fn(),
   outro: vi.fn(),
 }))
-vi.mock('../../../src/utils/banner', () => ({ showBanner: vi.fn() }))
-vi.mock('../../../src/utils/env', () => ({ overrideEnv: vi.fn() }))
+vi.mock('../../../src/utils/banner', () => ({
+  showBanner: vi.fn(),
+}))
+vi.mock('../../../src/utils/env', () => ({
+  overrideEnv: vi.fn(),
+}))
 vi.mock('../../../src/utils/fs', () => ({ clearBuildDir }))
 vi.mock('../../../src/utils/kit', () => ({
   loadKit: () => Promise.resolve({
@@ -35,8 +39,12 @@ vi.mock('../../../src/utils/kit', () => ({
   }),
 }))
 vi.mock('../../../src/utils/lockfile', () => ({
-  acquireLock: () => ({ release: vi.fn() }),
-  acquireOutputLock: () => ({ release: vi.fn() }),
+  acquireLock: () => ({
+    release: vi.fn(),
+  }),
+  acquireOutputLock: () => ({
+    release: vi.fn(),
+  }),
   formatLockError: vi.fn(),
 }))
 
@@ -55,7 +63,9 @@ beforeEach(() => {
 
 describe('generate', () => {
   it('enables Nuxt generation and Nitro static output', async () => {
-    await runCommand(generate, { rawArgs: ['/project'] })
+    await runCommand(generate, {
+      rawArgs: ['/project'],
+    })
 
     expect(loadNuxt).toHaveBeenCalledWith(expect.objectContaining({
       cwd: '/project',

@@ -9,7 +9,9 @@ export default defineCliConfig({
   entry: ['src/index.ts', 'src/cli.ts'],
   shims: true,
   deps: { onlyBundle: false, neverBundle: PARSER_PACKAGES },
-  dts: { entry: ['src/index.ts'] },
+  dts: {
+    entry: ['src/index.ts'],
+  },
   // disabled due to upstream DTS warnings from @nuxt/schema type imports
   failOnWarn: false,
   ...packaging,

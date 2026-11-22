@@ -26,7 +26,9 @@ describe('dev server loading screen', () => {
 
     try {
       const token = randomUUID()
-      const inflight = fetch(`${base}/api/hang?token=${token}`, { headers: { accept: 'text/html' } })
+      const inflight = fetch(`${base}/api/hang?token=${token}`, {
+        headers: { accept: 'text/html' },
+      })
         .then(async response => ({ response, html: await response.text() }))
 
       await vi.waitFor(async () => {
@@ -107,9 +109,14 @@ describe('dev server loading screen', () => {
     // reloads, which loops for as long as the build takes.
     const polled = new Promise<{ contentType: string | null, html: string }>((resolve) => {
       const poll = async () => {
-        const page = await fetch(base, { headers: { accept: '*/*' } })
+        const page = await fetch(base, {
+          headers: { accept: '*/*' },
+        })
           .then(async response => response.status === 503
-            ? { contentType: response.headers.get('content-type'), html: await response.text() }
+            ? {
+                contentType: response.headers.get('content-type'),
+                html: await response.text(),
+              }
             : undefined)
           .catch(() => undefined)
         if (!page) {

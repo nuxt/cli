@@ -124,7 +124,11 @@ export default defineCommand({
       headers.set('content-type', 'application/json')
     }
 
-    const defaultMethod = ctx.args.head ? 'HEAD' : (body === undefined ? 'GET' : 'POST')
+    const defaultMethod = ctx.args.head
+      ? 'HEAD'
+      : (body === undefined
+          ? 'GET'
+          : 'POST')
     const method = (ctx.args.method || defaultMethod).toUpperCase()
 
     if (body !== undefined && (method === 'GET' || method === 'HEAD')) {
@@ -143,7 +147,12 @@ export default defineCommand({
 
     let response: Response
     try {
-      response = await fetch(url, { method, headers, body, redirect: 'manual' })
+      response = await fetch(url, {
+        method,
+        headers,
+        body,
+        redirect: 'manual',
+      })
     }
     catch (error) {
       logNetworkError(error, { url: url.href })
@@ -179,7 +188,9 @@ async function resolveRequestUrl(input: string, cwd: string): Promise<URL> {
     process.exit(1)
   }
 
-  return new URL(input.startsWith('/') ? input : `/${input}`, server.url)
+  return new URL(input.startsWith('/')
+    ? input
+    : `/${input}`, server.url)
 }
 
 async function readRequestBody(data: string | undefined): Promise<string | undefined> {
@@ -221,7 +232,9 @@ function statusStyle(status: number): 'green' | 'cyan' | 'yellow' | 'red' {
 
 function formatResponseHead(response: Response, prefix: string, stream: NodeJS.WriteStream, pretty: boolean): string {
   const paint = (style: Parameters<typeof styleText>[0], text: string): string =>
-    pretty ? styleText(style, text, { stream }) : text
+    pretty
+      ? styleText(style, text, { stream })
+      : text
   const status = paint(statusStyle(response.status), `${response.status} ${response.statusText}`.trimEnd())
   let head = `${prefix}${paint('dim', 'HTTP/1.1')} ${status}\n`
   for (const [name, value] of response.headers) {
@@ -310,7 +323,9 @@ function resolveRenderer(contentType: string): ((text: string) => string) | unde
     return text => highlight(formatHtml(text), 'html')
   }
   const language = CONTENT_TYPE_LANGUAGES.find(([pattern]) => pattern.test(contentType))?.[1]
-  return language ? text => highlight(text, language) : undefined
+  return language
+    ? text => highlight(text, language)
+    : undefined
 }
 
 function isJson(value: string): boolean {

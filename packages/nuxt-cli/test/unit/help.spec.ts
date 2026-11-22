@@ -10,17 +10,23 @@ import { main } from '../../src/main'
 import { showUsage } from '../../src/run'
 
 async function resolve(def: Resolvable<CommandDef>): Promise<CommandDef> {
-  return typeof def === 'function' ? await def() : def
+  return typeof def === 'function'
+    ? await def()
+    : def
 }
 
 async function usage(def: Resolvable<CommandDef>, parent?: Resolvable<CommandDef>): Promise<string> {
-  const rendered = await renderUsage(await resolve(def), parent ? await resolve(parent) : undefined)
+  const rendered = await renderUsage(await resolve(def), parent
+    ? await resolve(parent)
+    : undefined)
   return rendered.replace(/v\d+\.\d+\.\d[^\s)]*/g, 'v0.0.0')
 }
 
 async function subCommand(parent: Resolvable<CommandDef>, name: string): Promise<CommandDef> {
   const resolved = await resolve(parent)
-  const subCommands = await (typeof resolved.subCommands === 'function' ? resolved.subCommands() : resolved.subCommands)
+  const subCommands = await (typeof resolved.subCommands === 'function'
+    ? resolved.subCommands()
+    : resolved.subCommands)
   return subCommands![name] as CommandDef
 }
 
@@ -549,7 +555,12 @@ describe('showUsage', () => {
     const hasColors = process.stdout.hasColors
     process.stdout.hasColors = () => false
     try {
-      await showUsage({ meta: { name: 'nuxt', description: styleText('bold', 'Nuxt CLI', { validateStream: false }) } })
+      await showUsage({
+        meta: {
+          name: 'nuxt',
+          description: styleText('bold', 'Nuxt CLI', { validateStream: false }),
+        },
+      })
       const output = String(write.mock.calls[0]![0])
       expect(output).toContain('Nuxt CLI')
       expect(output).not.toContain('\u001B[')

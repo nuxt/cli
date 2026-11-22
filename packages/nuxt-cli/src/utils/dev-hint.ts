@@ -56,7 +56,9 @@ function sanitizeDevServerHint(value: unknown): DevServerHint {
 export function loadDevServerHint(cwd: string): DevServerHint | undefined {
   try {
     const hint = JSON.parse(readFileSync(hintPath(cwd), 'utf-8'))
-    return typeof hint === 'object' && hint && !Array.isArray(hint) ? sanitizeDevServerHint(hint) : undefined
+    return typeof hint === 'object' && hint && !Array.isArray(hint)
+      ? sanitizeDevServerHint(hint)
+      : undefined
   }
   catch {
     return undefined

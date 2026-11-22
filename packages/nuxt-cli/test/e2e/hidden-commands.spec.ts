@@ -14,7 +14,10 @@ const hiddenCommands = ['_dev', 'start'] as const
 
 function run(bin: string, args: string[]) {
   return x('node', [bin, ...args], {
-    nodeOptions: { cwd: fixtureDir, env: { ...process.env, NO_COLOR: '1' } },
+    nodeOptions: {
+      cwd: fixtureDir,
+      env: { ...process.env, NO_COLOR: '1' },
+    },
   }).then(res => res.stdout + res.stderr)
 }
 

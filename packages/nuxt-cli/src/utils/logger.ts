@@ -30,7 +30,9 @@ const plain: LoggerImpl = {
 }
 
 function defaultImpl(): LoggerImpl {
-  return !process.stdout.isTTY || isCI ? plain : log
+  return !process.stdout.isTTY || isCI
+    ? plain
+    : log
 }
 
 let impl: LoggerImpl | undefined
@@ -97,7 +99,9 @@ export function outro(message: string): void {
   message = message.replace(/\n/g, '\n   ')
   // Nuxt 4 calls `consola.wrapAll()` while building, which trims each chunk
   // written to stdout and would drop the blank line clack ends the outro with.
-  clackOutro(message, { output: { write: writeDirect } as unknown as NodeJS.WriteStream })
+  clackOutro(message, {
+    output: { write: writeDirect } as unknown as NodeJS.WriteStream,
+  })
 }
 
 export const debug = createDebug('nuxi')
@@ -115,6 +119,8 @@ export const debug = createDebug('nuxi')
  * the leading gap is measured rather than assumed.
  */
 export function writeNotice(headline: string, instruction?: string): void {
-  const body = instruction ? `${headline}\n  ${instruction}\n` : `${headline}\n`
+  const body = instruction
+    ? `${headline}\n  ${instruction}\n`
+    : `${headline}\n`
   writeDirect(`${blankLineBefore()}${styleText('blue', S_INFO)} ${body}`)
 }

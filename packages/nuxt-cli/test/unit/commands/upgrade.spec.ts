@@ -69,16 +69,36 @@ describe('findLockFile', () => {
 
 describe('parseInstallSpec', () => {
   it('should split a package from its dist-tag', () => {
-    expect(parseInstallSpec('nuxt@latest')).toEqual({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })
+    expect(parseInstallSpec('nuxt@latest')).toEqual({
+      name: 'nuxt',
+      target: 'nuxt',
+      range: 'latest',
+      aliased: false,
+    })
   })
 
   it('should default to the latest dist-tag for a bare package name', () => {
-    expect(parseInstallSpec('nuxt')).toEqual({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })
-    expect(parseInstallSpec('@nuxt/kit')).toEqual({ name: '@nuxt/kit', target: '@nuxt/kit', range: 'latest', aliased: false })
+    expect(parseInstallSpec('nuxt')).toEqual({
+      name: 'nuxt',
+      target: 'nuxt',
+      range: 'latest',
+      aliased: false,
+    })
+    expect(parseInstallSpec('@nuxt/kit')).toEqual({
+      name: '@nuxt/kit',
+      target: '@nuxt/kit',
+      range: 'latest',
+      aliased: false,
+    })
   })
 
   it('should split a scoped package from its range', () => {
-    expect(parseInstallSpec('@nuxt/kit@3')).toEqual({ name: '@nuxt/kit', target: '@nuxt/kit', range: '3', aliased: false })
+    expect(parseInstallSpec('@nuxt/kit@3')).toEqual({
+      name: '@nuxt/kit',
+      target: '@nuxt/kit',
+      range: '3',
+      aliased: false,
+    })
   })
 
   it('should resolve an aliased nightly install through the aliased package', () => {
@@ -104,19 +124,34 @@ describe('resolveCatalogSpecifier', () => {
   it('should write a caret range for a regular package', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue('4.2.1')
 
-    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false })).toBe('^4.2.1')
+    expect(await resolveCatalogSpecifier({
+      name: 'nuxt',
+      target: 'nuxt',
+      range: 'latest',
+      aliased: false,
+    })).toBe('^4.2.1')
     expect(vi.mocked(resolveRegistryVersion)).toHaveBeenCalledWith('nuxt', 'latest')
   })
 
   it('should write an npm alias for an aliased package', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue('4.3.0-28991214-abcdef')
 
-    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt-nightly', range: 'latest', aliased: true })).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
+    expect(await resolveCatalogSpecifier({
+      name: 'nuxt',
+      target: 'nuxt-nightly',
+      range: 'latest',
+      aliased: true,
+    })).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
   })
 
   it('should keep the range operator of the entry it replaces', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue('4.2.1')
-    const spec = { name: 'nuxt', target: 'nuxt', range: 'latest', aliased: false }
+    const spec = {
+      name: 'nuxt',
+      target: 'nuxt',
+      range: 'latest',
+      aliased: false,
+    }
 
     expect(await resolveCatalogSpecifier(spec, '4.1.0')).toBe('4.2.1')
     expect(await resolveCatalogSpecifier(spec, '~4.1.0')).toBe('~4.2.1')
@@ -126,7 +161,12 @@ describe('resolveCatalogSpecifier', () => {
 
   it('should keep the range operator of an aliased entry', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue('4.3.0-28991214-abcdef')
-    const spec = { name: 'nuxt', target: 'nuxt-nightly', range: 'latest', aliased: true }
+    const spec = {
+      name: 'nuxt',
+      target: 'nuxt-nightly',
+      range: 'latest',
+      aliased: true,
+    }
 
     expect(await resolveCatalogSpecifier(spec, 'npm:nuxt-nightly@4.2.0-28991213-abcdef')).toBe('npm:nuxt-nightly@4.3.0-28991214-abcdef')
     expect(await resolveCatalogSpecifier(spec, 'npm:nuxt-nightly@^4.2.0')).toBe('npm:nuxt-nightly@^4.3.0-28991214-abcdef')
@@ -135,6 +175,11 @@ describe('resolveCatalogSpecifier', () => {
   it('should return nothing when no version matches', async () => {
     vi.mocked(resolveRegistryVersion).mockResolvedValue(undefined)
 
-    expect(await resolveCatalogSpecifier({ name: 'nuxt', target: 'nuxt', range: '99', aliased: false })).toBeUndefined()
+    expect(await resolveCatalogSpecifier({
+      name: 'nuxt',
+      target: 'nuxt',
+      range: '99',
+      aliased: false,
+    })).toBeUndefined()
   })
 })

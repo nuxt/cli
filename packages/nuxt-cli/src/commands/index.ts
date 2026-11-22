@@ -10,7 +10,9 @@ import { isRunningMain } from '../utils/running-main'
 type Resolvable<T> = T | Promise<T> | (() => T) | (() => Promise<T>)
 
 function resolve<T>(value: Resolvable<T>): T | Promise<T> {
-  return typeof value === 'function' ? (value as () => T | Promise<T>)() : value
+  return typeof value === 'function'
+    ? (value as () => T | Promise<T>)()
+    : value
 }
 
 /**
@@ -64,7 +66,9 @@ export function withRemedy(command: CommandDef): CommandDef {
         }
       },
     },
-    ...subCommands && { subCommands: withRemedies(subCommands) },
+    ...subCommands && {
+      subCommands: withRemedies(subCommands),
+    },
   }
 }
 

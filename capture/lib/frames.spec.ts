@@ -27,7 +27,10 @@ function transcript(repaint: string): string {
 
 function fingerprint(chunks: string[]): string {
   const asChunks: Chunk[] = chunks.map((data, index) => ({ at: index * 10, data }))
-  return buildFingerprint(asChunks, { rows: 24, scrubRules: ['spinner'] })
+  return buildFingerprint(asChunks, {
+    rows: 24,
+    scrubRules: ['spinner'],
+  })
 }
 
 /** Ways the operating system could have split the same output into reads. */
@@ -62,7 +65,15 @@ describe('capture fingerprint', () => {
 describe('scrubbing the log view clock', () => {
   const muted = '\u001B[90m'
   const reset = '\u001B[39m'
-  const log = (rows: string[]) => buildFingerprint([{ at: 0, data: rows.join('\r\n') }], { rows: 24, scrubRules: ['dates', 'clock'] })
+  const log = (rows: string[]) => buildFingerprint([
+    {
+      at: 0,
+      data: rows.join('\r\n'),
+    },
+  ], {
+    rows: 24,
+    scrubRules: ['dates', 'clock'],
+  })
 
   it('should not depend on which rows the time was printed on', () => {
     const shown = log([`  ${muted}14:42:32${reset} Vite server built`, `  ${muted}14:42:33${reset} [nitro] built`])
@@ -98,7 +109,13 @@ describe('scrubbing a right-aligned tag', () => {
   }
 
   it('should put the tag in the same column however long the duration was', () => {
-    const durations = ['1085 ms', '986 ms', '9 ms', '42 ms', '1.2 s']
+    const durations = [
+      '1085 ms',
+      '986 ms',
+      '9 ms',
+      '42 ms',
+      '1.2 s',
+    ]
     const scrubbed = durations.map(scrub)
 
     for (const line of scrubbed) {

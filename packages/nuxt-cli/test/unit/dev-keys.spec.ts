@@ -21,7 +21,11 @@ describe('panel keys', () => {
 
   function attach(options?: { ignoreBufferedInput?: boolean }) {
     const stdin = new PassThrough() as unknown as typeof process.stdin
-    Object.assign(stdin, { isTTY: true, isRaw: false, setRawMode: (raw: boolean) => Object.assign(stdin, { isRaw: raw }) })
+    Object.assign(stdin, {
+      isTTY: true,
+      isRaw: false,
+      setRawMode: (raw: boolean) => Object.assign(stdin, { isRaw: raw }),
+    })
     const original = Object.getOwnPropertyDescriptor(process, 'stdin')!
     Object.defineProperty(process, 'stdin', { value: stdin, configurable: true })
     restores.push(() => Object.defineProperty(process, 'stdin', original))
@@ -125,7 +129,9 @@ describe('panel keys', () => {
   })
 
   it('should give the keyboard back when a reply is never terminated', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout'],
+    })
     restores.push(() => vi.useRealTimers())
     const { keys, type } = attach()
 
@@ -155,8 +161,18 @@ describe('panel keys', () => {
 
     expect(keys).toEqual(['o'])
     expect(mouse).toEqual([
-      { button: 0, pressed: true, row: 4, column: 11 },
-      { button: 0, pressed: false, row: 4, column: 11 },
+      {
+        button: 0,
+        pressed: true,
+        row: 4,
+        column: 11,
+      },
+      {
+        button: 0,
+        pressed: false,
+        row: 4,
+        column: 11,
+      },
     ])
   })
 
@@ -178,8 +194,18 @@ describe('panel keys', () => {
 
     expect(keys).toEqual(['o', 'p'])
     expect(mouse).toEqual([
-      { button: 0, pressed: true, row: 4, column: 11 },
-      { button: 0, pressed: false, row: 4, column: 11 },
+      {
+        button: 0,
+        pressed: true,
+        row: 4,
+        column: 11,
+      },
+      {
+        button: 0,
+        pressed: false,
+        row: 4,
+        column: 11,
+      },
     ])
   })
 

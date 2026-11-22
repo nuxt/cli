@@ -107,7 +107,9 @@ export function resolveChannelPath(value: unknown): string | undefined {
     return undefined
   }
   const path = value.replace(/\/+$/, '')
-  return path.startsWith('/') && path.length > 1 ? path : undefined
+  return path.startsWith('/') && path.length > 1
+    ? path
+    : undefined
 }
 
 /** Whether `path` is served by the channel mounted at `base`. */
@@ -122,7 +124,9 @@ export function isLocalPeer(req: IncomingMessage): boolean {
 
 export async function handleErrorChannelRequest(req: IncomingMessage, res: ServerResponse, options: ErrorChannelOptions = {}): Promise<void> {
   const instance = await useErrorChannel(options)
-  if (await instance.handler(req, res, { trusted: isLocalPeer(req) })) {
+  if (await instance.handler(req, res, {
+    trusted: isLocalPeer(req),
+  })) {
     return
   }
   res.statusCode = 404
@@ -150,12 +154,20 @@ export async function createCliReport(error: unknown, options: CreateReportOptio
     import('my-bad/presets'),
   ])
   const cwd = options.cwd || process.cwd()
-  const roots = [...new Set([cwd, options.workspaceDir].filter((root): root is string => typeof root === 'string'))]
+  const roots = [
+    ...new Set([cwd, options.workspaceDir].filter((root): root is string => typeof root === 'string')),
+  ]
   return createReport(error, {
     cwd,
-    loaders: [fsLoader({ roots })],
-    presets: [nuxtPreset()],
-    context: options.req ? { req: options.req } : undefined,
+    loaders: [
+      fsLoader({ roots }),
+    ],
+    presets: [
+      nuxtPreset(),
+    ],
+    context: options.req
+      ? { req: options.req }
+      : undefined,
   })
 }
 
@@ -184,7 +196,9 @@ const APP_PROGRESS_SOURCE = 'app'
 export function toBuildProgress(snapshot: ProgressSnapshot): BuildProgress {
   return {
     phase: snapshot.phase,
-    percent: snapshot.status === 'error' ? undefined : Math.round(snapshot.progress * 100),
+    percent: snapshot.status === 'error'
+      ? undefined
+      : Math.round(snapshot.progress * 100),
     message: snapshot.message,
     source: CLI_PROGRESS_SOURCE,
   }
@@ -240,7 +254,15 @@ export function isDevErrorMessage(message: unknown): message is DevErrorMessage 
   return type === 'nuxt:dev:error:report' || type === 'nuxt:dev:error:warning' || type === 'nuxt:dev:error:warning:clear'
 }
 
-const LOG_LEVELS = new Set<string>(['trace', 'debug', 'info', 'log', 'warn', 'error', 'fatal'] satisfies LogLevel[])
+const LOG_LEVELS = new Set<string>([
+  'trace',
+  'debug',
+  'info',
+  'log',
+  'warn',
+  'error',
+  'fatal',
+] satisfies LogLevel[])
 
 /** Whether `entry` is a log the channel's drawer can show. */
 function isLogEntry(entry: unknown): entry is LogEntry {
@@ -318,7 +340,9 @@ export async function summariseReport(report: ErrorReport, context: ReportContex
   const { renderAnsi } = await import('my-bad')
   // A request that hit a compile error is described by the compile error.
   const named = findCompileReport(report) ?? report
-  const frames = named.frames.some(frame => frame.file) ? named.frames : report.frames
+  const frames = named.frames.some(frame => frame.file)
+    ? named.frames
+    : report.frames
   const frame = frames.find(frame => frame.type === 'app' && frame.file) ?? frames.find(frame => frame.file)
   return {
     id: report.id,
@@ -338,7 +362,9 @@ export async function summariseReport(report: ErrorReport, context: ReportContex
 /** `file:line:column`, relative to the project where it sits inside it. */
 function formatLocation(file: string, line: number | undefined, column: number | undefined, cwd: string): string {
   const relativePath = relative(cwd, file)
-  const path = !relativePath || relativePath.startsWith('..') || isAbsolute(relativePath) ? file : `./${relativePath}`
+  const path = !relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)
+    ? file
+    : `./${relativePath}`
   return [path, line, column].filter(part => part !== undefined).join(':')
 }
 
@@ -349,8 +375,12 @@ export function formatReportForTerminal(report: DevReportSummary): string {
     return body
   }
   const separator = report.request.indexOf(' ')
-  const method = separator === -1 ? report.request : report.request.slice(0, separator)
-  const path = separator === -1 ? '' : ` ${report.request.slice(separator + 1)}`
+  const method = separator === -1
+    ? report.request
+    : report.request.slice(0, separator)
+  const path = separator === -1
+    ? ''
+    : ` ${report.request.slice(separator + 1)}`
   return `[request error] [${method}]${path}\n\n  ${body.replaceAll('\n', '\n  ')}`
 }
 
@@ -408,8 +438,12 @@ export function openErrorBridge(handlers: ErrorBridgeHandlers = {}, options: Err
         case 'nuxt:dev:error:clear': {
           if (message.requestId !== undefined || message.request !== undefined) {
             instance.clearError(message.id, {
-              ...(message.requestId !== undefined ? { requestId: message.requestId } : {}),
-              ...(message.request !== undefined ? { request: message.request } : {}),
+              ...(message.requestId !== undefined
+                ? { requestId: message.requestId }
+                : {}),
+              ...(message.request !== undefined
+                ? { request: message.request }
+                : {}),
             })
           }
           else {

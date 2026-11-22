@@ -33,7 +33,9 @@ export function progressClient(options: ProgressClientOptions): void {
 
   function paint(): void {
     const seconds = `${((Date.now() - start) / 1000).toFixed(1)}s`
-    caption.textContent = label ? `${label} \u00B7 ${seconds}` : seconds
+    caption.textContent = label
+      ? `${label} \u00B7 ${seconds}`
+      : seconds
   }
 
   function apply(snapshot: ProgressSnapshot): void {
@@ -93,7 +95,9 @@ export function progressClient(options: ProgressClientOptions): void {
     }
     const snapshot = read(event)
     // Use the server's wording so the terminal, the caption and the tab agree.
-    const message = snapshot && !snapshot.serving && snapshot.message ? snapshot.message : 'Starting the app'
+    const message = snapshot && !snapshot.serving && snapshot.message
+      ? snapshot.message
+      : 'Starting the app'
     label = message.charAt(0).toLowerCase() + message.slice(1)
     document.title = message
 
@@ -107,7 +111,9 @@ export function progressClient(options: ProgressClientOptions): void {
     }
 
     // Hold the bar short of full while the caption still says starting.
-    const fraction = typeof snapshot?.progress === 'number' && snapshot.progress > 0 ? Math.min(snapshot.progress, 1) : 1
+    const fraction = typeof snapshot?.progress === 'number' && snapshot.progress > 0
+      ? Math.min(snapshot.progress, 1)
+      : 1
     document.documentElement.style.setProperty(options.progressProperty, `${Math.round(fraction * 100)}%`)
     paint()
 
@@ -123,7 +129,10 @@ export function progressClient(options: ProgressClientOptions): void {
 
     const attempt = async (): Promise<void> => {
       try {
-        const response = await fetch(location.href, { headers: { accept: 'text/html' }, signal: controller.signal })
+        const response = await fetch(location.href, {
+          headers: { accept: 'text/html' },
+          signal: controller.signal,
+        })
         const body = await response.text()
         if (!body.includes(options.captionId)) {
           controller.abort()

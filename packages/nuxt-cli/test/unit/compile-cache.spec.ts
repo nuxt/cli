@@ -12,8 +12,16 @@ const probePath = fileURLToPath(new URL('./fixtures/compile-cache-probe.mjs', im
 
 function runBin(env: NodeJS.ProcessEnv): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ['--import', probePath, binPath, '--version'], {
-      env: { ...process.env, ...env },
+    const child = spawn(process.execPath, [
+      '--import',
+      probePath,
+      binPath,
+      '--version',
+    ], {
+      env: {
+        ...process.env,
+        ...env,
+      },
       stdio: ['ignore', 'ignore', 'pipe'],
     })
     let stderr = ''
@@ -61,7 +69,12 @@ describe.skipIf(process.platform === 'win32')('compile cache', () => {
   })
 
   it('should stay disabled when `NODE_DISABLE_COMPILE_CACHE` is set', async () => {
-    const directory = await runBin({ TMPDIR: blockedTmp, HOME: home, NODE_DISABLE_COMPILE_CACHE: '1', NODE_COMPILE_CACHE: '' })
+    const directory = await runBin({
+      TMPDIR: blockedTmp,
+      HOME: home,
+      NODE_DISABLE_COMPILE_CACHE: '1',
+      NODE_COMPILE_CACHE: '',
+    })
     expect(directory).toBe('none')
   })
 })

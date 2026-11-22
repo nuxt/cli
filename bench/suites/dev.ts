@@ -30,7 +30,14 @@ async function measureDevStart(target: Target, fixture: Fixture, cold: boolean, 
     clearBuildCache(fixture.dir)
   }
   const port = allocatePort()
-  const server = start(process.execPath, [target.bin, 'dev', '--port', String(port), '--no-clear', ...extraArgs], {
+  const server = start(process.execPath, [
+    target.bin,
+    'dev',
+    '--port',
+    String(port),
+    '--no-clear',
+    ...extraArgs,
+  ], {
     cwd: fixture.dir,
     env: { NO_COLOR: '1', NUXT_TELEMETRY_DISABLED: '1', CI: '1' },
   })
@@ -62,7 +69,12 @@ export async function devSuite(targets: Target[], fixtures: Fixture[], reps: num
       for (let rep = 0; rep < reps; rep++) {
         for (const target of targets) {
           const measurement = await measureDevStart(target, fixture, mode === 'cold')
-          samples.get(target.id)!.push({ fixture: fixture.id, mode, target: target.id, ...measurement })
+          samples.get(target.id)!.push({
+            fixture: fixture.id,
+            mode,
+            target: target.id,
+            ...measurement,
+          })
         }
       }
       const summaries = targets.map((target) => {
@@ -75,7 +87,11 @@ export async function devSuite(targets: Target[], fixtures: Fixture[], reps: num
         }
       })
       const [baseline, head] = summaries
-      for (const [label, key] of [['socket bound', 'bound'], ['ready', 'ready'], ['first 200 response', 'firstResponse']] as const) {
+      for (const [label, key] of [
+        ['socket bound', 'bound'],
+        ['ready', 'ready'],
+        ['first 200 response', 'firstResponse'],
+      ] as const) {
         rows.push([
           `${fixture.id} / ${mode} / ${label}`,
           formatMs(baseline![key].median),
@@ -92,7 +108,14 @@ export async function devSuite(targets: Target[], fixtures: Fixture[], reps: num
     `Median of ${reps} interleaved runs, from process spawn. "Socket bound" is the first URL printed, which happens as soon as the server can accept a connection; "ready" is the line the CLI prints once the app is built; "first 200 response" is a successful \`GET /\`. Cold runs delete \`.nuxt\`, \`.data\`, \`.output\` and \`node_modules/.cache\` first.`,
     '',
     markdownTable(
-      ['Fixture / mode / metric', `${shortLabel(targets[0]!)} median`, `${shortLabel(targets[1]!)} median`, 'Delta', `${shortLabel(targets[0]!)} min / max`, `${shortLabel(targets[1]!)} min / max`],
+      [
+        'Fixture / mode / metric',
+        `${shortLabel(targets[0]!)} median`,
+        `${shortLabel(targets[1]!)} median`,
+        'Delta',
+        `${shortLabel(targets[0]!)} min / max`,
+        `${shortLabel(targets[1]!)} min / max`,
+      ],
       rows,
     ),
   ].join('\n')

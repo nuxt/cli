@@ -9,7 +9,13 @@ const { highlight } = await import('../../../src/utils/highlight')
 
 describe('highlight', () => {
   describe('json', () => {
-    const json = JSON.stringify({ name: 'db:seed', count: 3, ok: true, missing: null, list: [1, 'two'] }, null, 2)
+    const json = JSON.stringify({
+      name: 'db:seed',
+      count: 3,
+      ok: true,
+      missing: null,
+      list: [1, 'two'],
+    }, null, 2)
 
     it('colours keys, strings, numbers and booleans', () => {
       const highlighted = highlight(json, 'json')

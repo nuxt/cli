@@ -9,7 +9,12 @@ import * as versions from '../../../src/utils/versions'
 
 const { readNuxtConfig, addNuxtConfigEntries, detectPackageManager, mock$fetch } = vi.hoisted(() => {
   return {
-    readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+    readNuxtConfig: vi.fn(() => Promise.resolve({
+      file: '/fake-dir/nuxt.config.ts',
+      cwd: '/fake-dir',
+      modules: [],
+      extends: [],
+    })),
     addNuxtConfigEntries: vi.fn(() => Promise.resolve()),
     detectPackageManager: vi.fn(() => Promise.resolve({ name: 'npm', agent: 'npm' })),
     mock$fetch: vi.fn(),
@@ -140,7 +145,12 @@ describe('nuxt add command', () => {
       return Promise.resolve({})
     })
 
-    runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
+    runInstall = vi.spyOn(installUtils, 'runInstall').mockResolvedValue({
+      success: true,
+      output: '',
+      command: 'npm install',
+      ignoredBuilds: [],
+    })
     vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
     vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.14.0')
   })
@@ -211,7 +221,12 @@ describe('nuxt add command', () => {
   it('should resolve duplicate modules once', async () => {
     const addCommand = await (commands as CommandsType).subCommands.add()
 
-    await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['ui', 'ui'] } })
+    await addCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        moduleName: ['ui', 'ui'],
+      },
+    })
 
     expect(mock$fetch).toHaveBeenCalledTimes(1)
     expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
@@ -321,7 +336,9 @@ describe('nuxt add command', () => {
     expect(readNuxtConfig).toHaveBeenCalledWith('/fake-dir')
     expect(addNuxtConfigEntries).toHaveBeenCalledWith(
       expect.objectContaining({ file: '/fake-dir/nuxt.config.ts' }),
-      { modules: ['@nuxt/ui'] },
+      {
+        modules: ['@nuxt/ui'],
+      },
     )
   })
 
@@ -339,7 +356,13 @@ describe('nuxt add command', () => {
   })
 
   it('should not update nuxt.config when the install fails', async () => {
-    runInstall.mockResolvedValue({ success: false, output: '', command: 'npm install @nuxt/ui@3.0.0', error: '`npm` was not found.', ignoredBuilds: [] })
+    runInstall.mockResolvedValue({
+      success: false,
+      output: '',
+      command: 'npm install @nuxt/ui@3.0.0',
+      error: '`npm` was not found.',
+      ignoredBuilds: [],
+    })
     const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const addCommand = await (commands as CommandsType).subCommands.add()
@@ -352,7 +375,9 @@ describe('nuxt add command', () => {
     })
 
     expect(runInstall).toHaveBeenCalledWith(
-      expect.objectContaining({ packageManager: { name: 'npm', agent: 'npm' } }),
+      expect.objectContaining({
+        packageManager: { name: 'npm', agent: 'npm' },
+      }),
     )
     expect(addNuxtConfigEntries).not.toHaveBeenCalled()
     expect(exit).toHaveBeenCalledWith(1)

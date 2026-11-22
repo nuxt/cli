@@ -37,7 +37,16 @@ async function createModule({ withBuilder, bin = 'nuxt-module-build' }: { withBu
 
 function run(args: string[], cwd: string) {
   return x('node', [nuxi, ...args], {
-    nodeOptions: { cwd, env: { ...process.env, NODE_PATH: undefined, NO_COLOR: '1', FORCE_COLOR: '0', CI: '1' } },
+    nodeOptions: {
+      cwd,
+      env: {
+        ...process.env,
+        NODE_PATH: undefined,
+        NO_COLOR: '1',
+        FORCE_COLOR: '0',
+        CI: '1',
+      },
+    },
   })
 }
 
@@ -45,11 +54,26 @@ describe('nuxt module build', () => {
   it('forwards every argument, including a --cwd passed before the command', { timeout: 60_000 }, async () => {
     const { parent } = await createModule({ withBuilder: true })
 
-    const res = await run(['--cwd', 'my-module', 'module', 'build', '--unknown', 'value', '--sourcemap'], parent)
+    const res = await run([
+      '--cwd',
+      'my-module',
+      'module',
+      'build',
+      '--unknown',
+      'value',
+      '--sourcemap',
+    ], parent)
 
     expect(res.exitCode).toBe(3)
     const forwarded = JSON.parse(res.stdout.trim().split('\n').at(-1)!)
-    expect(forwarded).toEqual(['build', '--cwd', 'my-module', '--unknown', 'value', '--sourcemap'])
+    expect(forwarded).toEqual([
+      'build',
+      '--cwd',
+      'my-module',
+      '--unknown',
+      'value',
+      '--sourcemap',
+    ])
   })
 
   it('resolves the module builder from ROOTDIR', { timeout: 60_000 }, async () => {

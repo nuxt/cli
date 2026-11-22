@@ -19,7 +19,12 @@ describe('isBundlerRequest', () => {
     expect(isBundlerRequest(url)).toBe(true)
   })
 
-  it.each(['/', '/api/hello', '/ws', '/products?import-batch=3'])('leaves %s to the app', (url) => {
+  it.each([
+    '/',
+    '/api/hello',
+    '/ws',
+    '/products?import-batch=3',
+  ])('leaves %s to the app', (url) => {
     expect(isBundlerRequest(url)).toBe(false)
   })
 

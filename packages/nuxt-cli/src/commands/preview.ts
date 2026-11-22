@@ -170,10 +170,12 @@ const command = defineCommand({
     else {
       // Without a descriptor, `nitro.json` is both the build marker and the
       // source of the command to run.
-      const nitroJSONPaths = [...new Set([
-        legacyNitroJSON,
-        resolve(cwd, '.output', 'nitro.json'),
-      ].filter((path): path is string => !!path))]
+      const nitroJSONPaths = [
+        ...new Set([
+          legacyNitroJSON,
+          resolve(cwd, '.output', 'nitro.json'),
+        ].filter((path): path is string => !!path)),
+      ]
       searchPaths.push(...nitroJSONPaths)
 
       const nitroJSONPath = nitroJSONPaths.find(path => existsSync(path))
@@ -197,7 +199,12 @@ const command = defineCommand({
         if (entry) {
           logger.info(`This build has no server, so ${styleText('cyan', relativeToProcess(dir))} is being served statically.`)
           const listenPort = await claimPort()
-          const server = await previewStaticOutput({ dir, entry, port: String(listenPort), hostname: host })
+          const server = await previewStaticOutput({
+            dir,
+            entry,
+            port: String(listenPort),
+            hostname: host,
+          })
           recordPreview(cwd, listenPort, host)
           outro(`Previewing ${styleText('cyan', relativeToProcess(dir))} at ${styleText('cyan', formatServerURL(server.url))}`)
           return
@@ -209,7 +216,14 @@ const command = defineCommand({
       }
       else {
         logger.error(
-          `Cannot find a build to preview${declared ? ` for the ${styleText('cyan', declared.label)} server builder` : ''}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${[...new Set([...searchPaths, ...staticDirs])].join('\n')}`,
+          `Cannot find a build to preview${declared
+            ? ` for the ${styleText('cyan', declared.label)} server builder`
+            : ''}. Did you run ${styleText('cyan', 'nuxt build')} first? Search path:\n${[
+            ...new Set([
+              ...searchPaths,
+              ...staticDirs,
+            ]),
+          ].join('\n')}`,
         )
       }
       process.exit(1)
@@ -219,13 +233,22 @@ const command = defineCommand({
     const previewDir = outputPath!
 
     const [command, ...commandArgs] = tokenizeArgs(previewCommand) as [string, ...string[]]
-    const listenPort = PORT_AWARE_RUNTIMES.has(command) ? await claimPort() : undefined
-    const serverPort = listenPort === undefined ? port : String(listenPort)
+    const listenPort = PORT_AWARE_RUNTIMES.has(command)
+      ? await claimPort()
+      : undefined
+    const serverPort = listenPort === undefined
+      ? port
+      : String(listenPort)
 
     const info = [
       ['Node.js:', `v${process.versions.node}`],
-      ...(target ? [target] : []),
-      ['Working directory:', relativeToProcess(previewDir)],
+      ...(target
+        ? [target]
+        : []),
+      [
+        'Working directory:',
+        relativeToProcess(previewDir),
+      ],
     ] as const
     const _infoKeyLen = Math.max(...info.map(([label]) => label.length))
 
@@ -275,7 +298,9 @@ const command = defineCommand({
 
     outro(`Running ${styleText('cyan', previewCommand)} in ${styleText('cyan', relativeToProcess(previewDir))}`)
 
-    const previewLock = listenPort === undefined ? undefined : recordPreview(cwd, listenPort, host)
+    const previewLock = listenPort === undefined
+      ? undefined
+      : recordPreview(cwd, listenPort, host)
     try {
       const server = x(command, commandArgs, {
         throwOnError: true,
@@ -318,7 +343,9 @@ function recordPreview(rootDir: string, port: number, hostname: string | undefin
     cwd: rootDir,
     port,
     hostname,
-    url: `http://${host.includes(':') && !host.startsWith('[') ? `[${host}]` : host}:${port}`,
+    url: `http://${host.includes(':') && !host.startsWith('[')
+      ? `[${host}]`
+      : host}:${port}`,
   }
   const { release } = acquireLock(lockDir, info)
   if (!release) {

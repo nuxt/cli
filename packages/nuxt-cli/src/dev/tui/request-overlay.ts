@@ -44,7 +44,11 @@ export class RequestOverlay extends ScreenOverlay {
     onClose: () => void,
     options: { resolveFile?: (request: DevRequest) => string | undefined, cwd?: string, events?: DevEventLog } = {},
   ) {
-    super({ write, onClose, subscribe: listener => requests.onChange(listener) })
+    super({
+      write,
+      onClose,
+      subscribe: listener => requests.onChange(listener),
+    })
     this.#requests = requests
     this.#events = options.events
     this.#resolveFile = options.resolveFile ?? (() => undefined)
@@ -107,11 +111,17 @@ export class RequestOverlay extends ScreenOverlay {
       return ` ${styleText('bold', 'trace')} · ${styleText('bold', `${request.method} ${request.url}`)} · ${status} · ${formatDuration(request.duration)}${this.renderSearch()}`
     }
     const shown = this.#matching().length
-    const label = this.#filter === 'all' ? 'all' : this.#filter
+    const label = this.#filter === 'all'
+      ? 'all'
+      : this.#filter
     const median = this.#requests.medianDuration()
     const summary = styleText(MUTED, `${this.#requests.total} total · median ${formatDuration(median)}`)
-    const hiddenInternal = this.#showInternal ? 0 : this.#requests.recent(SCAN_LIMIT, request => !!request.internal).length
-    const bundler = hiddenInternal ? ` · ${styleText(MUTED, `${hiddenInternal} bundler hidden`)}` : ''
+    const hiddenInternal = this.#showInternal
+      ? 0
+      : this.#requests.recent(SCAN_LIMIT, request => !!request.internal).length
+    const bundler = hiddenInternal
+      ? ` · ${styleText(MUTED, `${hiddenInternal} bundler hidden`)}`
+      : ''
     return ` ${styleText('bold', 'traffic')} · ${label} (${shown}) · ${summary}${bundler}${this.renderPosition()}${this.renderSearch()}`
   }
 
@@ -121,12 +131,22 @@ export class RequestOverlay extends ScreenOverlay {
     }
     const matching = this.#matching()
     if (!matching.length) {
-      return [{ lines: [styleText(MUTED, this.#requests.total ? 'no requests match this filter' : 'waiting for requests…')] }]
+      return [
+        {
+          lines: [
+            styleText(MUTED, this.#requests.total ? 'no requests match this filter' : 'waiting for requests…'),
+          ],
+        },
+      ]
     }
     const errors = this.#errorCounts()
     return matching.map(request => ({
       key: request,
-      lines: [this.#format(request, columns, request.id === undefined ? 0 : errors.get(request.id) ?? 0)],
+      lines: [
+        this.#format(request, columns, request.id === undefined
+          ? 0
+          : errors.get(request.id) ?? 0),
+      ],
       copy: describeRequest(request),
     }))
   }
@@ -145,10 +165,26 @@ export class RequestOverlay extends ScreenOverlay {
       ['enter', 'trace'],
       ['Home/End', 'top/live'],
       ['PgUp/PgDn', 'scroll'],
-      ['e', 'errors', { active: this.#filter === 'errors' }],
-      ['s', `slow >${SLOW_MS}ms`, { active: this.#filter === 'slow' }],
-      ['a', 'all', { active: this.#filter === 'all' }],
-      ['b', 'bundler', { active: this.#showInternal }],
+      [
+        'e',
+        'errors',
+        { active: this.#filter === 'errors' },
+      ],
+      [
+        's',
+        `slow >${SLOW_MS}ms`,
+        { active: this.#filter === 'slow' },
+      ],
+      [
+        'a',
+        'all',
+        { active: this.#filter === 'all' },
+      ],
+      [
+        'b',
+        'bundler',
+        { active: this.#showInternal },
+      ],
       ['/', 'search'],
       ['y', 'copy'],
       ['Y', 'copy all'],
@@ -161,23 +197,49 @@ export class RequestOverlay extends ScreenOverlay {
     const file = this.#resolveFile(request)
     const summary: OverlayEntry[] = [
       {
-        lines: [this.#format(request, columns, 0)],
+        lines: [
+          this.#format(request, columns, 0),
+        ],
         copy: describeRequest(request),
       },
-      ...file ? [{ lines: [`${' '.repeat(12)}${styleText(MUTED, 'served by ')}${link(file, { cwd: this.#cwd })}`], copy: file }] : [],
-      { lines: [''] },
+      ...file
+        ? [
+            {
+              lines: [`${' '.repeat(12)}${styleText(MUTED, 'served by ')}${link(file, { cwd: this.#cwd })}`],
+              copy: file,
+            },
+          ]
+        : [],
+      {
+        lines: [''],
+      },
       ...renderTimeline(request, this.#requests.spansFor(request), columns),
     ]
     const events = this.#traceEvents(request)
     if (!events.length) {
-      return [...summary, { lines: [styleText(MUTED, request.id === undefined ? 'this request predates log attribution' : 'no logs were captured for this request')] }]
+      return [
+        ...summary,
+        {
+          lines: [
+            styleText(MUTED, request.id === undefined
+              ? 'this request predates log attribution'
+              : 'no logs were captured for this request'),
+          ],
+        },
+      ]
     }
-    return [...summary, ...events.map(event => ({
-      key: event,
-      lines: formatEvent(event, columns, true),
-      expand: () => formatEvent(event, columns, true, { expanded: true }),
-      copy: [formatTime(event.time), event.message].filter(Boolean).join(' '),
-    }))]
+    return [
+      ...summary,
+      ...events.map(event => ({
+        key: event,
+        lines: formatEvent(event, columns, true),
+        expand: () => formatEvent(event, columns, true, { expanded: true }),
+        copy: [
+          formatTime(event.time),
+          event.message,
+        ].filter(Boolean).join(' '),
+      })),
+    ]
   }
 
   #traceEvents(request: DevRequest): DevLogEvent[] {
@@ -198,7 +260,9 @@ export class RequestOverlay extends ScreenOverlay {
 
   #format(request: DevRequest, columns: number, errors: number): string {
     const file = this.#resolveFile(request)
-    return formatRequest(request, columns, file ? { file, cwd: this.#cwd } : undefined, errors)
+    return formatRequest(request, columns, file
+      ? { file, cwd: this.#cwd }
+      : undefined, errors)
   }
 
   #matching(): DevRequest[] {
@@ -221,7 +285,9 @@ export class RequestOverlay extends ScreenOverlay {
   }
 
   #setFilter(filter: TrafficFilter): boolean {
-    this.#filter = this.#filter === filter ? 'all' : filter
+    this.#filter = this.#filter === filter
+      ? 'all'
+      : filter
     this.resetScroll()
     return true
   }
@@ -275,14 +341,26 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
 
   const compiled = spans.filter(span => span.kind === 'compile')
   const rows: TimelineRow[] = [
-    { kind: 'request', label: `${request.method} ${request.url}`, segments: [[requestStart, requestStart + request.duration]], duration: request.duration, color: 'white' },
+    {
+      kind: 'request',
+      label: `${request.method} ${request.url}`,
+      segments: [
+        [requestStart, requestStart + request.duration],
+      ],
+      duration: request.duration,
+      color: 'white',
+    },
   ]
   if (compiled.length) {
     const segments = mergeIntervals(compiled.map(span => [span.start, span.start + span.duration]))
-    const shared = compiled.some(span => span.shared) ? ', shared' : ''
+    const shared = compiled.some(span => span.shared)
+      ? ', shared'
+      : ''
     rows.push({
       kind: 'compile',
-      label: `  ${compiled.length} ${compiled.length === 1 ? 'module' : 'modules'}${shared}`,
+      label: `  ${compiled.length} ${compiled.length === 1
+        ? 'module'
+        : 'modules'}${shared}`,
       segments,
       duration: segments.reduce((sum, [from, to]) => sum + to - from, 0),
       color: SPAN_COLORS.compile,
@@ -299,10 +377,16 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
     }
     rows.push({
       kind: span.kind,
-      label: `${'  '.repeat(open.length + 1)}${span.name}${span.status ? ` ${span.status}` : ''}`,
-      segments: [[span.start, spanEnd]],
+      label: `${'  '.repeat(open.length + 1)}${span.name}${span.status
+        ? ` ${span.status}`
+        : ''}`,
+      segments: [
+        [span.start, spanEnd],
+      ],
       duration: span.duration,
-      color: span.error || (span.status ?? 0) >= 400 ? 'red' : SPAN_COLORS[span.kind] ?? 'white',
+      color: span.error || (span.status ?? 0) >= 400
+        ? 'red'
+        : SPAN_COLORS[span.kind] ?? 'white',
     })
     open.push(span)
   }
@@ -314,7 +398,9 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
   const axis = styleText(MUTED, `${'0ms'.padEnd(width - totalLabel.length)}${totalLabel}`)
 
   return [
-    { lines: [`${styleText('bold', 'timeline'.padEnd(labelWidth + 11))} ${axis}`] },
+    {
+      lines: [`${styleText('bold', 'timeline'.padEnd(labelWidth + 11))} ${axis}`],
+    },
     ...rows.map((row) => {
       const label = truncate(row.label, labelWidth).padEnd(labelWidth)
       const time = formatDuration(row.duration).padStart(9)
@@ -323,7 +409,9 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
         copy: `+${formatDuration(row.segments[0]![0] - origin)} ${row.kind} ${row.label.trim()} ${formatDuration(row.duration)}`,
       }
     }),
-    { lines: [''] },
+    {
+      lines: [''],
+    },
     ...renderCompileBreakdown(compiled, columns),
   ]
 }
@@ -376,14 +464,26 @@ function renderCompileBreakdown(compiled: DevRequestSpan[], columns: number): Ov
   return [
     ...plugins.length
       ? [
-          { lines: [styleText('bold', 'vite plugins') + styleText(MUTED, ' · time spent compiling for this request')] },
+          {
+            lines: [styleText('bold', 'vite plugins') + styleText(MUTED, ' · time spent compiling for this request')],
+          },
           ...plugins.map(([plugin, time]) => row(plugin, time)),
-          { lines: [''] },
+          {
+            lines: [''],
+          },
         ]
       : [],
-    { lines: [styleText('bold', 'slowest modules')] },
-    ...modules.map(span => row(span.environment ? `${span.name} ${styleText(MUTED, `(${span.environment})`)}` : span.name, span.duration)),
-    { lines: [''] },
+    {
+      lines: [
+        styleText('bold', 'slowest modules'),
+      ],
+    },
+    ...modules.map(span => row(span.environment
+      ? `${span.name} ${styleText(MUTED, `(${span.environment})`)}`
+      : span.name, span.duration)),
+    {
+      lines: [''],
+    },
   ]
 }
 
@@ -396,7 +496,9 @@ function paintDuration(duration: number): string {
   if (duration >= VERY_SLOW_MS) {
     return styleText('red', text)
   }
-  return duration >= SLOW_MS ? paint('warning', text) : styleText(MUTED, text)
+  return duration >= SLOW_MS
+    ? paint('warning', text)
+    : styleText(MUTED, text)
 }
 
 function formatRequest(request: DevRequest, columns: number, target?: { file: string, cwd: string }, errors = 0): string {
@@ -404,10 +506,19 @@ function formatRequest(request: DevRequest, columns: number, target?: { file: st
   const method = styleText('bold', request.method.padEnd(6))
   const status = paintStatus(request.status, String(request.status).padEnd(4))
   const duration = paintDuration(request.duration)
-  const marker = errors ? ` ${styleText(['red', 'bold'], `✗ ${errors}`)}` : ''
+  const marker = errors
+    ? ` ${styleText(['red', 'bold'], `✗ ${errors}`)}`
+    : ''
   // The four fixed columns above, plus the spaces between them and the marker.
-  const room = Math.max(10, columns - 34 - (errors ? `  ✗ ${errors}`.length : 0))
+  const room = Math.max(10, columns - 34 - (errors
+    ? `  ✗ ${errors}`.length
+    : 0))
   const label = truncate(request.url, room)
-  const url = target ? link(target.file, { cwd: target.cwd, formatter: () => label }) : label
+  const url = target
+    ? link(target.file, {
+        cwd: target.cwd,
+        formatter: () => label,
+      })
+    : label
   return `${time} ${method} ${status} ${duration}  ${url}${marker}`
 }

@@ -18,7 +18,10 @@ export async function startTunnelProxy() {
   const tunnelled: string[] = []
   const target = createServer((_req, res) => res.end('ok'))
   const proxy = createServer()
-  const [proxyPort, targetPort] = await Promise.all([listen(proxy), listen(target)])
+  const [proxyPort, targetPort] = await Promise.all([
+    listen(proxy),
+    listen(target),
+  ])
   proxy.on('connect', (req, socket) => {
     tunnelled.push(req.url!)
     const upstream = connect(targetPort, '127.0.0.1', () => {

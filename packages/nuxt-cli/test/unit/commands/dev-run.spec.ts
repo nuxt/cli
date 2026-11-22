@@ -47,7 +47,9 @@ vi.mock('../../../src/dev/shortcuts', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/dev/shortcuts')>(),
   setupShortcuts,
 }))
-vi.mock('../../../src/utils/dev-server', () => ({ resolveLockDir: (cwd: string) => Promise.resolve(`${cwd}/.nuxt`) }))
+vi.mock('../../../src/utils/dev-server', () => ({
+  resolveLockDir: (cwd: string) => Promise.resolve(`${cwd}/.nuxt`),
+}))
 vi.mock('../../../src/dev/takeover', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/dev/takeover')>(),
   takeOverServer,
@@ -86,7 +88,9 @@ function existingLock(overrides: Partial<LockInfo> = {}): LockInfo {
 }
 
 async function runDev(args: string[] = []) {
-  return await runCommand(dev, { rawArgs: [`--cwd=${process.cwd()}`, ...args] })
+  return await runCommand(dev, {
+    rawArgs: [`--cwd=${process.cwd()}`, ...args],
+  })
 }
 
 let exit: ReturnType<typeof vi.spyOn>
@@ -178,7 +182,11 @@ describe('dev command startup', () => {
 
 describe('dev command takeover', () => {
   it('should not start when a takeover is refused', async () => {
-    takeOverServer.mockResolvedValue({ action: 'refused', existing: existingLock(), reason: 'declined' })
+    takeOverServer.mockResolvedValue({
+      action: 'refused',
+      existing: existingLock(),
+      reason: 'declined',
+    })
 
     await expect(runDev(['--no-fork'])).rejects.toThrow('process.exit')
 
@@ -203,7 +211,10 @@ describe('dev command takeover', () => {
   })
 
   it('should bypass the lock when the user starts a second server anyway', async () => {
-    takeOverServer.mockResolvedValue({ action: 'start-anyway', existing: existingLock() })
+    takeOverServer.mockResolvedValue({
+      action: 'start-anyway',
+      existing: existingLock(),
+    })
     vi.stubEnv('NUXT_IGNORE_LOCK', '')
 
     await runDev(['--no-fork'])
@@ -232,18 +243,27 @@ describe('dev command fork pool', () => {
   it('should hand the pool the arguments the session was started with', async () => {
     await runDev(['--fork', '--port=4002'])
 
-    expect(createFork.mock.calls[0]![0]).toMatchObject({ listenOverrides: expect.objectContaining({ port: '4002' }) })
+    expect(createFork.mock.calls[0]![0]).toMatchObject({
+      listenOverrides: expect.objectContaining({ port: '4002' }),
+    })
   })
 
   it('should not let a fork open the browser again', async () => {
     await runDev(['--fork', '--open', '--open.url=/about'])
 
-    expect(createFork.mock.calls[0]![0]).toMatchObject({ listenOverrides: expect.objectContaining({ open: false, openURL: undefined }) })
+    expect(createFork.mock.calls[0]![0]).toMatchObject({
+      listenOverrides: expect.objectContaining({ open: false, openURL: undefined }),
+    })
   })
 
   it('should replace the current server with a fork on a hard restart', async () => {
     const forkClose = vi.fn(() => Promise.resolve())
-    getFork.mockResolvedValue({ pid: 999, serving: Promise.resolve(), promote: vi.fn(), close: forkClose })
+    getFork.mockResolvedValue({
+      pid: 999,
+      serving: Promise.resolve(),
+      promote: vi.fn(),
+      close: forkClose,
+    })
     await runDev(['--fork'])
 
     await onRestart.mock.calls[0]![0]({ type: 'shortcut' })
@@ -256,7 +276,12 @@ describe('dev command fork pool', () => {
     const forkClose = vi.fn(() => Promise.resolve())
     const serving = Promise.reject(new Error('fork died'))
     serving.catch(() => {})
-    getFork.mockResolvedValue({ pid: 999, serving, promote: vi.fn(), close: forkClose })
+    getFork.mockResolvedValue({
+      pid: 999,
+      serving,
+      promote: vi.fn(),
+      close: forkClose,
+    })
     await runDev(['--fork'])
 
     await onRestart.mock.calls[0]![0]({ type: 'shortcut' })
@@ -271,7 +296,12 @@ describe('dev command fork pool', () => {
     const forkClose = vi.fn(() => Promise.resolve())
     const serving = Promise.reject(new Error('fork died'))
     serving.catch(() => {})
-    getFork.mockResolvedValue({ pid: 999, serving, promote: vi.fn(), close: forkClose })
+    getFork.mockResolvedValue({
+      pid: 999,
+      serving,
+      promote: vi.fn(),
+      close: forkClose,
+    })
     await runDev(['--fork'])
 
     await expect(onRestart.mock.calls[0]![0]({ type: 'shortcut' })).rejects.toThrow('process.exit')
@@ -284,7 +314,12 @@ describe('dev command fork pool', () => {
   it('should collapse overlapping hard restarts into one handover at a time', async () => {
     let releaseFirst: (() => void) | undefined
     getFork.mockImplementation(() => new Promise((resolve) => {
-      releaseFirst = () => resolve({ pid: 999, serving: Promise.resolve(), promote: vi.fn(), close: vi.fn(() => Promise.resolve()) })
+      releaseFirst = () => resolve({
+        pid: 999,
+        serving: Promise.resolve(),
+        promote: vi.fn(),
+        close: vi.fn(() => Promise.resolve()),
+      })
     }))
     await runDev(['--fork'])
 

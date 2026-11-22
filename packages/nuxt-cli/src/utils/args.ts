@@ -10,7 +10,9 @@ import { resolve } from 'pathe'
  */
 export function replaceCwdArg(rawArgs: string[], cwd: string, previousCwd: string): void {
   const separator = rawArgs.indexOf('--')
-  const end = separator === -1 ? rawArgs.length : separator
+  const end = separator === -1
+    ? rawArgs.length
+    : separator
 
   const kept: string[] = []
   for (let index = 0; index < end; index++) {

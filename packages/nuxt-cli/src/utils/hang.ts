@@ -3,7 +3,12 @@ import process from 'node:process'
 import { logger } from './logger'
 
 /** Handles that are present in every process (stdio, signal listeners) and never the reason a command hangs. */
-const IGNORED_RESOURCES = new Set(['TTYWrap', 'PipeWrap', 'FileHandle', 'SignalWrap'])
+const IGNORED_RESOURCES = new Set([
+  'TTYWrap',
+  'PipeWrap',
+  'FileHandle',
+  'SignalWrap',
+])
 
 const RESOURCE_LABELS: Record<string, string> = {
   ChildProcess: 'child process',
@@ -43,7 +48,9 @@ export function summariseActiveResources(resources: string[] = process.getActive
   }
 
   return [...counts]
-    .map(([label, count]) => count === 1 ? `1 ${label}` : `${count} ${label}s`)
+    .map(([label, count]) => count === 1
+      ? `1 ${label}`
+      : `${count} ${label}s`)
     .join(', ')
 }
 
@@ -68,7 +75,9 @@ export function warnOnHang(options: HangWarningOptions = {}): () => void {
   const timer = setTimeout(() => {
     const summary = summariseActiveResources()
     warn([
-      `The ${action} is complete but the process is still running${summary ? `: ${summary}` : ''}.`,
+      `The ${action} is complete but the process is still running${summary
+        ? `: ${summary}`
+        : ''}.`,
       summary
         ? 'A module, plugin or dependency is likely holding these open. Nuxt will exit once they are closed.'
         : 'Nothing is registered on the event loop, so a pending promise is likely never settling.',

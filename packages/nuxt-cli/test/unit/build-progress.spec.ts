@@ -9,7 +9,11 @@ type HookHandler = (event: { name: string, args?: unknown[] }) => void
 function nuxtStub() {
   const handlers: HookHandler[] = []
   return {
-    nuxt: { hooks: { beforeEach: (fn: HookHandler) => void handlers.push(fn) } },
+    nuxt: {
+      hooks: {
+        beforeEach: (fn: HookHandler) => void handlers.push(fn),
+      },
+    },
     call(name: string) {
       for (const handler of handlers) {
         handler({ name })
@@ -67,7 +71,16 @@ describe('build progress', () => {
       'Bundling nitro',
       'Building',
     ])
-    expect(progress.timings.map(timing => timing.phase)).toEqual(['config', 'modules', 'app', 'types', 'client', 'server', 'prerender', 'nitro'])
+    expect(progress.timings.map(timing => timing.phase)).toEqual([
+      'config',
+      'modules',
+      'app',
+      'types',
+      'client',
+      'server',
+      'prerender',
+      'nitro',
+    ])
   })
 
   it('should report bundles that build at the same time', () => {
@@ -83,12 +96,31 @@ describe('build progress', () => {
     progress.endBundle('client')
     progress.finish()
 
-    expect(seen.map(snapshot => snapshot.message)).toEqual(['Loading Nuxt config', 'Bundling client', 'Bundling client and server', 'Bundling client', 'Building'])
-    expect(progress.timings.filter(timing => timing.phase !== 'config')).toEqual([
-      { phase: 'client', message: 'client', start: 0, duration: 305 },
-      { phase: 'server', message: 'server', start: 5, duration: 200 },
+    expect(seen.map(snapshot => snapshot.message)).toEqual([
+      'Loading Nuxt config',
+      'Bundling client',
+      'Bundling client and server',
+      'Bundling client',
+      'Building',
     ])
-    expect(progress.phaseTimings.map(timing => [timing.phase, timing.duration])).toEqual([['config', 0], ['build', 305]])
+    expect(progress.timings.filter(timing => timing.phase !== 'config')).toEqual([
+      {
+        phase: 'client',
+        message: 'client',
+        start: 0,
+        duration: 305,
+      },
+      {
+        phase: 'server',
+        message: 'server',
+        start: 5,
+        duration: 200,
+      },
+    ])
+    expect(progress.phaseTimings.map(timing => [timing.phase, timing.duration])).toEqual([
+      ['config', 0],
+      ['build', 305],
+    ])
   })
 
   it('should keep the phase of the last task between tasks', () => {
@@ -111,10 +143,22 @@ describe('build progress', () => {
     progress.prerenderRoute('/blog', 2)
 
     expect(seen.slice(1).map(snapshot => [snapshot.message, snapshot.meter])).toEqual([
-      ['Prerendering routes', { done: 0, total: 1 }],
-      ['Prerendering routes', { done: 1, total: 4, detail: '/' }],
-      ['Prerendering routes', { done: 2, total: 4, detail: '/about' }],
-      ['Prerendering routes', { done: 3, total: 4, detail: '/blog' }],
+      [
+        'Prerendering routes',
+        { done: 0, total: 1 },
+      ],
+      [
+        'Prerendering routes',
+        { done: 1, total: 4, detail: '/' },
+      ],
+      [
+        'Prerendering routes',
+        { done: 2, total: 4, detail: '/about' },
+      ],
+      [
+        'Prerendering routes',
+        { done: 3, total: 4, detail: '/blog' },
+      ],
     ])
   })
 
@@ -137,7 +181,12 @@ describe('build progress', () => {
     progress.startPrerender(3)
     progress.endPrerender()
 
-    expect(seen.map(snapshot => snapshot.meter)).toEqual([undefined, undefined, { done: 0, total: 3 }, undefined])
+    expect(seen.map(snapshot => snapshot.meter)).toEqual([
+      undefined,
+      undefined,
+      { done: 0, total: 3 },
+      undefined,
+    ])
   })
 
   it('should time the build as one phase when no bundles are reported', () => {

@@ -36,7 +36,12 @@ function response() {
 }
 
 function request(overrides: Partial<IncomingMessage> = {}): IncomingMessage {
-  return { method: 'GET', url: '/', headers: { accept: 'text/html' }, ...overrides } as IncomingMessage
+  return {
+    method: 'GET',
+    url: '/',
+    headers: { accept: 'text/html' },
+    ...overrides,
+  } as IncomingMessage
 }
 
 /**
@@ -47,22 +52,32 @@ function admitAll(gate: WarmupGate, count: number) {
   const responses = Array.from({ length: count }, response)
   const admitted = new Set<number>()
   const settled = responses.map((res, index) => gate.admit(res as never).then(() => void admitted.add(index)))
-  return { responses, admitted, settled: Promise.all(settled) }
+  return {
+    responses,
+    admitted,
+    settled: Promise.all(settled),
+  }
 }
 
 describe('which requests the warmup gate applies to', () => {
   it('should queue page renders', () => {
     expect(isDocumentRequest(request())).toBe(true)
-    expect(isDocumentRequest(request({ headers: { accept: 'text/html,application/xhtml+xml' } }))).toBe(true)
+    expect(isDocumentRequest(request({
+      headers: { accept: 'text/html,application/xhtml+xml' },
+    }))).toBe(true)
   })
 
   it('should ignore everything that does not pay for the module graph', () => {
     expect(isDocumentRequest(request({ method: 'POST' }))).toBe(false)
-    expect(isDocumentRequest(request({ headers: { accept: 'application/json' } }))).toBe(false)
+    expect(isDocumentRequest(request({
+      headers: { accept: 'application/json' },
+    }))).toBe(false)
     expect(isDocumentRequest(request({ headers: {} }))).toBe(false)
     expect(isDocumentRequest(request({ url: '/_nuxt/@vite/client' }))).toBe(false)
     expect(isDocumentRequest(request({ url: '/__nuxt_dev__/progress' }))).toBe(false)
-    expect(isDocumentRequest(request({ headers: { 'accept': 'text/html', 'sec-fetch-dest': 'script' } }))).toBe(false)
+    expect(isDocumentRequest(request({
+      headers: { 'accept': 'text/html', 'sec-fetch-dest': 'script' },
+    }))).toBe(false)
   })
 })
 

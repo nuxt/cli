@@ -53,7 +53,9 @@ export default defineCommand({
 
     const profileArg = ctx.args.profile
     const profiling = profileArg !== undefined
-    const perfValue = profileArg === 'verbose' ? true : profiling ? 'quiet' : undefined
+    const perfValue = profileArg === 'verbose'
+      ? true
+      : profiling ? 'quiet' : undefined
     if (profiling) {
       await startCpuProfile()
     }
@@ -137,7 +139,9 @@ export default defineCommand({
         cwd,
       })
       if (outputLock.existing) {
-        throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), outputDir) }))
+        throw new ActionableError(formatLockError(outputLock.existing, {
+          outputDir: relative(process.cwd(), outputDir),
+        }))
       }
       releaseLocks.push(outputLock.release)
 
@@ -152,7 +156,9 @@ export default defineCommand({
       const elapsed = Date.now() - start
 
       const verbose = nuxt.options.logLevel === 'verbose'
-      const summary = nuxt.options.logLevel === 'silent' ? undefined : await report.summary(verbose)
+      const summary = nuxt.options.logLevel === 'silent'
+        ? undefined
+        : await report.summary(verbose)
       if (summary) {
         logger.success(summary)
       }
@@ -162,10 +168,18 @@ export default defineCommand({
         logger.info(`You can read more in ${styleText('cyan', 'https://nuxt.com/docs/getting-started/deployment#static-hosting')}.`)
       }
 
-      const breakdown = verbose ? formatPhaseTable(progress.timings) : formatPhaseBreakdown(progress.phaseTimings)
+      const breakdown = verbose
+        ? formatPhaseTable(progress.timings)
+        : formatPhaseBreakdown(progress.phaseTimings)
       const total = `Build complete in ${styleText('cyan', formatDuration(elapsed))}`
-      const complete = breakdown ? `${total}\n${verbose ? breakdown : styleText(MUTED, breakdown)}` : total
-      const next = ctx.args.prerender ? report.staticCommands(serverBuild) : report.commands(serverBuild)
+      const complete = breakdown
+        ? `${total}\n${verbose
+          ? breakdown
+          : styleText(MUTED, breakdown)}`
+        : total
+      const next = ctx.args.prerender
+        ? report.staticCommands(serverBuild)
+        : report.commands(serverBuild)
       if (next.length) {
         logger.success(complete)
         outro(next.join('\n'))

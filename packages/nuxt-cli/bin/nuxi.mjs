@@ -15,7 +15,10 @@ process.env.MIMALLOC_ARENA_EAGER_COMMIT ||= '0'
 //
 // handle `<tmpdir>/node-compile-cache` if owned by another user
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
-  for (const candidate of [undefined, join(homedir(), '.cache', 'nuxt', 'compile-cache')]) {
+  for (const candidate of [
+    undefined,
+    join(homedir(), '.cache', 'nuxt', 'compile-cache'),
+  ]) {
     let directory
     try {
       ({ directory } = nodeModule.enableCompileCache(candidate))

@@ -88,7 +88,9 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
     const answered = REPLY_RE.exec(buffer)
     // Anything typed while the terminal was thinking is put back for whoever
     // reads keys next, rather than being swallowed by the question.
-    const typed = answered ? buffer.replace(answered[0], '') : buffer
+    const typed = answered
+      ? buffer.replace(answered[0], '')
+      : buffer
     if (typed) {
       stdin.unshift(Buffer.from(typed, 'latin1'))
     }
@@ -103,7 +105,9 @@ async function resolve(options: QueryBackgroundOptions): Promise<TerminalBackgro
       return 'unknown'
     }
 
-    return brightness(reply) > LIGHT_THRESHOLD ? 'light' : 'dark'
+    return brightness(reply) > LIGHT_THRESHOLD
+      ? 'light'
+      : 'dark'
   }
   catch (error) {
     debug('Could not ask the terminal for its background:', error)

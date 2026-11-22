@@ -50,7 +50,14 @@ export async function buildSuite(targets: Target[], fixtures: Fixture[], reps: n
     `Median of ${reps} interleaved \`nuxt build\` runs per fixture, build caches deleted before every run.`,
     '',
     markdownTable(
-      ['Fixture', `${shortLabel(targets[0]!)} median`, `${shortLabel(targets[1]!)} median`, 'Delta', `${shortLabel(targets[0]!)} min / max`, `${shortLabel(targets[1]!)} min / max`],
+      [
+        'Fixture',
+        `${shortLabel(targets[0]!)} median`,
+        `${shortLabel(targets[1]!)} median`,
+        'Delta',
+        `${shortLabel(targets[0]!)} min / max`,
+        `${shortLabel(targets[1]!)} min / max`,
+      ],
       rows,
     ),
   ].join('\n')

@@ -94,8 +94,12 @@ const CONNECTION_DRAIN_TIMEOUT_MS = 1000
  * readable. A malformed sequence is left as-is rather than throwing.
  */
 export function formatDisplayURL(protocol: 'http' | 'https', host: string, port: number, baseURL: string): string {
-  const hostname = host.includes(':') ? `[${host}]` : host
-  const suffix = port === DEFAULT_PORTS[protocol] ? '' : `:${port}`
+  const hostname = host.includes(':')
+    ? `[${host}]`
+    : host
+  const suffix = port === DEFAULT_PORTS[protocol]
+    ? ''
+    : `:${port}`
   const url = `${protocol}://${hostname}${suffix}${baseURL}`
   try {
     return decodeURI(url)
@@ -128,7 +132,9 @@ export function validateHostname(hostname: string | undefined, isPublic?: boolea
 /** Hostname `bindListener` will bind for `options`. */
 function resolveBindHostname(options: ListenOptions, silent = false): string {
   const isolated = options.hostname === undefined && !options.public && detectIsolatedEnvironment()
-  return validateHostname(options.hostname, options.public, { silent }) ?? (options.public || isolated ? '' : 'localhost')
+  return validateHostname(options.hostname, options.public, { silent }) ?? (options.public || isolated
+    ? ''
+    : 'localhost')
 }
 
 /**
@@ -144,7 +150,9 @@ export function matchesBoundTarget(bound: BoundServer, options: ListenOptions): 
   }
   // Parsed leniently: an unusable port cannot match, and reporting that is
   // `bindListener`'s job rather than this comparison's.
-  const port = options.port === undefined || options.port === '' ? undefined : Number(options.port)
+  const port = options.port === undefined || options.port === ''
+    ? undefined
+    : Number(options.port)
   return port === undefined || port === bound.address.port || port === bound.requestedPort
 }
 
@@ -190,7 +198,9 @@ function isNetworkBaseAddress(address: string, cidr: string | null | undefined):
  */
 function createSecureServer(certificate: ResolvedCertificate, handler: RequestListener, http2: boolean): HttpServer | Http2SecureServer {
   try {
-    return http2 ? createHttp2Server(certificate, handler) : createHttpsServer(certificate, handler)
+    return http2
+      ? createHttp2Server(certificate, handler)
+      : createHttpsServer(certificate, handler)
   }
   catch (error) {
     if (certificate.pfx && (error as NodeJS.ErrnoException)?.code === 'ERR_CRYPTO_UNSUPPORTED_OPERATION') {
@@ -289,7 +299,9 @@ export async function bindListener(handler: RequestListener, options: ListenOpti
     ? requestedPort
     : await resolvePort(requestedPort, hostname, options.strictPort)
 
-  const httpsOptions = options.https === true ? {} : options.https
+  const httpsOptions = options.https === true
+    ? {}
+    : options.https
   // `cert` and `tunnel` reach `dev/binaries.ts`, which pulls in `rc9` and the
   // clack spinner. Neither is wanted unless `--https` or `--tunnel` is passed.
   const certificate = httpsOptions
@@ -306,7 +318,13 @@ export async function bindListener(handler: RequestListener, options: ListenOpti
   // takes the whole dev process down.
   server.on('error', error => logger.error(`Dev server error: ${error.message}`))
 
-  return { server, address: server.address() as AddressInfo, https: certificate, hostname, requestedPort }
+  return {
+    server,
+    address: server.address() as AddressInfo,
+    https: certificate,
+    hostname,
+    requestedPort,
+  }
 }
 
 /**
@@ -359,9 +377,15 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
         urls.push({ url: stackblitzURL, type: 'public' })
       }
       if (anyHost) {
-        urls.push({ url: formatURL('localhost'), type: 'local' })
+        urls.push({
+          url: formatURL('localhost'),
+          type: 'local',
+        })
         for (const address of getNetworkAddresses()) {
-          urls.push({ url: formatURL(address), type: 'network' })
+          urls.push({
+            url: formatURL(address),
+            type: 'network',
+          })
         }
       }
       else {
@@ -383,11 +407,23 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
 
     function showURLs({ qr = false }: { qr?: boolean } = {}): void {
       const urls = getURLs()
-      const labels = { local: 'Local:', network: 'Network:', tunnel: 'Tunnel:', public: 'Public:' } as const
-      const labelColors = { local: 'green', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
+      const labels = {
+        local: 'Local:',
+        network: 'Network:',
+        tunnel: 'Tunnel:',
+        public: 'Public:',
+      } as const
+      const labelColors = {
+        local: 'green',
+        network: 'magenta',
+        tunnel: 'cyan',
+        public: 'magenta',
+      } as const
       const lines: string[] = []
       const line = (color: (text: string) => string, label: string, value: string, isQR: boolean) =>
-        `  ${color('➜')} ${styleText('bold', color(label.padEnd(10)))}${value}${isQR ? styleText('gray', ' [QR code]') : ''}`
+        `  ${color('➜')} ${styleText('bold', color(label.padEnd(10)))}${value}${isQR
+          ? styleText('gray', ' [QR code]')
+          : ''}`
       for (const { url: displayURL, type } of urls) {
         lines.push(line(text => styleText(labelColors[type], text), labels[type], styleText('cyan', displayURL), qr && displayURL === qrURL))
       }
@@ -423,7 +459,9 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       }
 
       if (options.open) {
-        openBrowser(options.openURL ? resolveOpenURL(options.openURL, url) : url)
+        openBrowser(options.openURL
+          ? resolveOpenURL(options.openURL, url)
+          : url)
       }
     }
 
@@ -502,7 +540,12 @@ function bindServer(server: HttpServer | Http2SecureServer, port: number, hostna
     }
     server.once('error', onError)
     try {
-      server.listen({ port, host: hostname || undefined, reusePort, exclusive: !reusePort }, () => {
+      server.listen({
+        port,
+        host: hostname || undefined,
+        reusePort,
+        exclusive: !reusePort,
+      }, () => {
         server.removeListener('error', onError)
         resolve()
       })
@@ -624,7 +667,9 @@ function isQRCodeVisible(): boolean {
 
 export async function printQRCode(url: string, { showURL = false }: { showURL?: boolean } = {}): Promise<void> {
   const { renderUnicodeCompact } = await import('uqr')
-  const caption = showURL ? `\n${centerBlock(styleText('cyan', url), url.length)}` : ''
+  const caption = showURL
+    ? `\n${centerBlock(styleText('cyan', url), url.length)}`
+    : ''
   // eslint-disable-next-line no-console
   console.log(`\n${centerBlock(renderUnicodeCompact(url))}${caption}\n`)
 }
@@ -656,7 +701,13 @@ export function resolveOpenURL(target: string, baseURL: string): string {
   }
 }
 
-const DEFAULT_LAUNCHERS = new Set(['open', 'xdg-open', 'start', 'cmd', 'cmd.exe'])
+const DEFAULT_LAUNCHERS = new Set([
+  'open',
+  'xdg-open',
+  'start',
+  'cmd',
+  'cmd.exe',
+])
 
 /**
  * Resolve the command that opens `url`, honouring the de facto `BROWSER` and
@@ -678,21 +729,48 @@ export function resolveOpenCommand(
   if (browser && !DEFAULT_LAUNCHERS.has(browser)) {
     const browserArgs = env.BROWSER_ARGS?.trim().split(/\s+/).filter(Boolean) ?? []
     return platform === 'darwin' && !browser.includes('/')
-      ? ['open', ['-a', browser, url, ...(browserArgs.length > 0 ? ['--args', ...browserArgs] : [])]]
-      : [browser, [...browserArgs, url]]
+      ? [
+          'open',
+          [
+            '-a',
+            browser,
+            url,
+            ...(browserArgs.length > 0
+              ? ['--args', ...browserArgs]
+              : []),
+          ],
+        ]
+      : [
+          browser,
+          [...browserArgs, url],
+        ]
   }
 
   if (platform === 'darwin') {
-    return ['open', [url]]
+    return [
+      'open',
+      [url],
+    ]
   }
   // `cmd /c start` owns the arcane quoting rules; `""` is a dummy window title
   // (otherwise `start` treats a quoted URL as one), and `&`/`^` need escaping.
   // WSL reports itself as Linux but has no X server, so `xdg-open` fails there;
   // `cmd.exe` opens the browser on the Windows side instead.
   if (platform === 'win32' || isWsl(platform, env)) {
-    return ['cmd.exe', ['/c', 'start', '""', url.replace(/[&^]/g, '^$&')]]
+    return [
+      'cmd.exe',
+      [
+        '/c',
+        'start',
+        '""',
+        url.replace(/[&^]/g, '^$&'),
+      ],
+    ]
   }
-  return ['xdg-open', [url]]
+  return [
+    'xdg-open',
+    [url],
+  ]
 }
 
 /** How long a launcher has to fail before we assume the browser did open. */

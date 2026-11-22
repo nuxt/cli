@@ -31,7 +31,9 @@ function quantile(sorted: number[], q: number): number {
 }
 
 export function formatMs(value: number): string {
-  return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${value.toFixed(0)} ms`
+  return value >= 1000
+    ? `${(value / 1000).toFixed(2)} s`
+    : `${value.toFixed(0)} ms`
 }
 
 export function formatBytes(bytes: number): string {
@@ -49,7 +51,9 @@ export function formatDelta(baseline: number, head: number): string {
     return 'n/a'
   }
   const pct = ((head - baseline) / baseline) * 100
-  const sign = pct > 0 ? '+' : ''
+  const sign = pct > 0
+    ? '+'
+    : ''
   return `${sign}${pct.toFixed(1)}%`
 }
 

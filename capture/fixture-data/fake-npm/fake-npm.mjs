@@ -15,8 +15,12 @@ await new Promise(resolve => setTimeout(resolve, 2200))
 
 for (const spec of specs) {
   const at = spec.lastIndexOf('@')
-  const name = at > 0 ? spec.slice(0, at) : spec
-  const version = at > 0 ? spec.slice(at + 1).replace(/^[~^]/, '') : '0.0.0'
+  const name = at > 0
+    ? spec.slice(0, at)
+    : spec
+  const version = at > 0
+    ? spec.slice(at + 1).replace(/^[~^]/, '')
+    : '0.0.0'
 
   const dir = join('node_modules', ...name.split('/'))
   mkdirSync(dir, { recursive: true })
@@ -38,4 +42,6 @@ for (const spec of specs) {
   writeFileSync('package.json', `${JSON.stringify(pkg, null, 2)}\n`)
 }
 
-console.log(`\nadded ${specs.length} package${specs.length === 1 ? '' : 's'} in 2s`)
+console.log(`\nadded ${specs.length} package${specs.length === 1
+  ? ''
+  : 's'} in 2s`)

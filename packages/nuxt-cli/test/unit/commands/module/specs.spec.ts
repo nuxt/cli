@@ -46,7 +46,9 @@ describe('resolveModuleEntry', () => {
   it('should leave regular modules alone', () => {
     expect(resolveModuleEntry({
       main: './dist/module.mjs',
-      exports: { '.': { types: './dist/types.d.mts', import: './dist/module.mjs' } },
+      exports: {
+        '.': { types: './dist/types.d.mts', import: './dist/module.mjs' },
+      },
     })).toEqual({ isLayer: false })
   })
 
@@ -68,12 +70,18 @@ describe('resolveModuleEntry', () => {
 
   it('should detect layers from their entrypoint', () => {
     expect(resolveModuleEntry({ main: 'nuxt.config.ts', type: 'module' })).toEqual({ isLayer: true })
-    expect(resolveModuleEntry({ exports: { '.': './nuxt.config.js' } })).toEqual({ isLayer: true })
+    expect(resolveModuleEntry({
+      exports: { '.': './nuxt.config.js' },
+    })).toEqual({ isLayer: true })
   })
 
   it('should detect layers that only publish a `nuxt.config`', () => {
-    expect(resolveModuleEntry({ files: ['nuxt.config.ts', 'components'] })).toEqual({ isLayer: true })
-    expect(resolveModuleEntry({ files: ['index.js'] })).toEqual({ isLayer: false })
+    expect(resolveModuleEntry({
+      files: ['nuxt.config.ts', 'components'],
+    })).toEqual({ isLayer: true })
+    expect(resolveModuleEntry({
+      files: ['index.js'],
+    })).toEqual({ isLayer: false })
   })
 })
 
@@ -89,9 +97,22 @@ describe('describeModules', () => {
   it('should describe modules, layers and a mixture of both', () => {
     expect(describeModules([{}])).toBe('module')
     expect(describeModules([{}, {}])).toBe('modules')
-    expect(describeModules([{ isLayer: true }])).toBe('layer')
-    expect(describeModules([{ isLayer: true }, { isLayer: true }])).toBe('layers')
-    expect(describeModules([{}, { isLayer: true }])).toBe('module and layer')
-    expect(describeModules([{}, {}, { isLayer: true }, { isLayer: true }])).toBe('modules and layers')
+    expect(describeModules([
+      { isLayer: true },
+    ])).toBe('layer')
+    expect(describeModules([
+      { isLayer: true },
+      { isLayer: true },
+    ])).toBe('layers')
+    expect(describeModules([
+      {},
+      { isLayer: true },
+    ])).toBe('module and layer')
+    expect(describeModules([
+      {},
+      {},
+      { isLayer: true },
+      { isLayer: true },
+    ])).toBe('modules and layers')
   })
 })

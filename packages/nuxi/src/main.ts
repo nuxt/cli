@@ -24,7 +24,9 @@ setupProxySupport()
 
 const _main = defineCommand({
   meta: {
-    name: name.endsWith('nightly') ? name : 'nuxi',
+    name: name.endsWith('nightly')
+      ? name
+      : 'nuxi',
     version,
     description,
   },

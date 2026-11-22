@@ -62,7 +62,9 @@ export function resolveBackground(env: NodeJS.ProcessEnv = process.env): Termina
   if (!reported || !/^\d+$/.test(reported)) {
     return 'unknown'
   }
-  return LIGHT_INDICES.has(Number(reported)) ? 'light' : 'dark'
+  return LIGHT_INDICES.has(Number(reported))
+    ? 'light'
+    : 'dark'
 }
 
 /**
@@ -114,7 +116,9 @@ export function colour([r, g, b]: Rgb, depth = process.stdout.getColorDepth?.() 
     return `\u001B[38;2;${r};${g};${b}m`
   }
   const level = (channel: number) => CUBE_LEVELS.reduce(
-    (best, value, index) => Math.abs(value - channel) < Math.abs(CUBE_LEVELS[best]! - channel) ? index : best,
+    (best, value, index) => Math.abs(value - channel) < Math.abs(CUBE_LEVELS[best]! - channel)
+      ? index
+      : best,
     0,
   )
   return `\u001B[38;5;${16 + 36 * level(r) + 6 * level(g) + level(b)}m`

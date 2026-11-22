@@ -18,14 +18,28 @@ const repoRoot = fileURLToPath(new URL('..', import.meta.url))
 process.env.NUXT_TELEMETRY_DISABLED = '1'
 
 /** Environmental noise pinned in the fingerprint but kept real in the SVG. */
-const FINGERPRINT_RULES = ['versions', 'timings', 'dates', 'spinner']
+const FINGERPRINT_RULES = [
+  'versions',
+  'timings',
+  'dates',
+  'spinner',
+]
 
 const { values } = parseArgs({
   options: {
     'only': { type: 'string', multiple: true, default: [] },
-    'bin': { type: 'string', default: join(repoRoot, 'packages/nuxt-cli/bin/nuxi.mjs') },
-    'workdir': { type: 'string', default: join(homedir(), '.cache', 'nuxt-cli-capture') },
-    'out': { type: 'string', default: join(repoRoot, 'capture/output') },
+    'bin': {
+      type: 'string',
+      default: join(repoRoot, 'packages/nuxt-cli/bin/nuxi.mjs'),
+    },
+    'workdir': {
+      type: 'string',
+      default: join(homedir(), '.cache', 'nuxt-cli-capture'),
+    },
+    'out': {
+      type: 'string',
+      default: join(repoRoot, 'capture/output'),
+    },
     'columns': { type: 'string', default: '96' },
     'no-scrub': { type: 'boolean', default: false },
     'force': { type: 'boolean', default: false },
@@ -39,7 +53,12 @@ mkdirSync(values.out!, { recursive: true })
 mkdirSync(scratchDir, { recursive: true })
 
 /** Caches that live in the work directory but are not fixture-managed. */
-const PRESERVED_DIRS = new Set(['node_modules', '.nuxt', '.output', '.data'])
+const PRESERVED_DIRS = new Set([
+  'node_modules',
+  '.nuxt',
+  '.output',
+  '.data',
+])
 
 const changedFixtureFiles = syncFixture(join(repoRoot, 'capture/fixture'), appDir, PRESERVED_DIRS)
 if (!existsSync(join(appDir, 'node_modules/nuxt')) || changedFixtureFiles.includes('package-lock.json')) {
@@ -47,7 +66,9 @@ if (!existsSync(join(appDir, 'node_modules/nuxt')) || changedFixtureFiles.includ
   execFileSync('npm', ['ci', '--no-audit', '--no-fund'], { cwd: appDir, stdio: 'inherit' })
 }
 
-const selected = values.only!.length ? captures.filter(capture => values.only!.includes(capture.id)) : captures
+const selected = values.only!.length
+  ? captures.filter(capture => values.only!.includes(capture.id))
+  : captures
 const unknown = values.only!.filter(id => !captures.some(capture => capture.id === id))
 if (unknown.length) {
   console.error(`unknown scenario id(s): ${unknown.join(', ')}\nknown ids: ${captures.map(capture => capture.id).join(', ')}`)
@@ -61,7 +82,12 @@ if (unknown.length) {
  */
 async function warmUpFixture(): Promise<void> {
   console.log('warming up the fixture app')
-  const session = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40, env: { NUXT_TUI: 'plain' } })
+  const session = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, {
+    cwd: appDir,
+    columns: 120,
+    rows: 40,
+    env: { NUXT_TUI: 'plain' },
+  })
   try {
     await session.waitFor(/warmed up|Vite client built/, 240_000)
     await session.wait(500)
@@ -76,7 +102,12 @@ async function ensureDevServer(): Promise<void> {
   if (devServer) {
     return
   }
-  devServer = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, { cwd: appDir, columns: 120, rows: 40, env: { NUXT_TUI: 'plain' } })
+  devServer = record(`node ${values.bin} dev --no-clear --takeover --port 3000`, {
+    cwd: appDir,
+    columns: 120,
+    rows: 40,
+    env: { NUXT_TUI: 'plain' },
+  })
   await devServer.waitFor(/warmed up|Vite client built/, 240_000)
   await devServer.wait(1500)
 }
@@ -97,7 +128,9 @@ function captureEnv(capture: Capture): Record<string, string> | undefined {
 async function runCapture(capture: Capture): Promise<void> {
   const columns = capture.columns ?? Number(values.columns)
   const rows = capture.rows ?? 24
-  const cwd = capture.cwd === 'scratch' ? scratchDir : appDir
+  const cwd = capture.cwd === 'scratch'
+    ? scratchDir
+    : appDir
   if (capture.cwd === 'scratch') {
     rmSync(scratchDir, { recursive: true, force: true })
     mkdirSync(scratchDir, { recursive: true })
@@ -150,7 +183,9 @@ async function runCapture(capture: Capture): Promise<void> {
   if (/is in use, using port/.test(session.output())) {
     console.warn(`[capture] ${capture.id}: another server occupied the preferred port during recording; the capture contains a "port in use" warning. Re-record on a quiet machine.`)
   }
-  const scrubRules = values['no-scrub'] ? [] : (capture.scrub ?? [])
+  const scrubRules = values['no-scrub']
+    ? []
+    : (capture.scrub ?? [])
   const target = join(values.out!, `${capture.id}.svg`)
 
   // The fingerprint decides whether the committed SVG is stale. It pins
@@ -158,7 +193,13 @@ async function runCapture(capture: Capture): Promise<void> {
   // the SVG deliberately keeps real, so a re-recording only replaces the SVG
   // when the CLI's actual content changed.
   if (!values['no-scrub']) {
-    const fingerprintRules = [...new Set([...scrubRules, ...FINGERPRINT_RULES, ...capture.fingerprint ?? []])]
+    const fingerprintRules = [
+      ...new Set([
+        ...scrubRules,
+        ...FINGERPRINT_RULES,
+        ...capture.fingerprint ?? [],
+      ]),
+    ]
     const fingerprint = buildFingerprint(session.chunks, { rows, scrubRules: fingerprintRules })
     const fingerprintTarget = join(values.out!, `${capture.id}.txt`)
     let existing: string | undefined
@@ -174,7 +215,9 @@ async function runCapture(capture: Capture): Promise<void> {
   }
 
   const frames = buildFrames(session.chunks, { rows, scrubRules })
-  const svg = toSvg(capture.animated ? frames : frames.slice(-1).map(frame => ({ ...frame, at: 0 })), {
+  const svg = toSvg(capture.animated
+    ? frames
+    : frames.slice(-1).map(frame => ({ ...frame, at: 0 })), {
     columns,
     rows,
     title: capture.title,

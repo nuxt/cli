@@ -15,7 +15,14 @@ interface FakeResponse {
 }
 
 function createIncomingMessage(accept?: string, url = '/'): IncomingMessage {
-  return { url, method: 'GET', headers: accept ? { accept } : {}, rawHeaders: [] } as unknown as IncomingMessage
+  return {
+    url,
+    method: 'GET',
+    headers: accept
+      ? { accept }
+      : {},
+    rawHeaders: [],
+  } as unknown as IncomingMessage
 }
 
 function createResponse(): FakeResponse {
@@ -46,7 +53,9 @@ function createResponse(): FakeResponse {
   }
   return new Proxy(res, {
     get(target, key) {
-      return key === 'response' ? target : Reflect.get(target, key)
+      return key === 'response'
+        ? target
+        : Reflect.get(target, key)
     },
   }) as unknown as FakeResponse
 }
@@ -107,7 +116,12 @@ describe('sendErrorResponse', () => {
 
 describe('dev server loading screen', () => {
   function createDevServer(loadingTemplate?: (data: { loading?: string }) => string) {
-    return new NuxtDevServer({ cwd: process.cwd(), dotenv: {}, overrides: {}, loadingTemplate })
+    return new NuxtDevServer({
+      cwd: process.cwd(),
+      dotenv: {},
+      overrides: {},
+      loadingTemplate,
+    })
   }
 
   it('should serve the loading template to a browser', async () => {

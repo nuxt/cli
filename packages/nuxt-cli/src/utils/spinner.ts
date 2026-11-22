@@ -32,7 +32,10 @@ export async function withSpinner<T>(message: string, fn: (spinner: Spinner) => 
   const run = async () => {
     indicator.start(message)
     try {
-      const result = await fn({ update: text => indicator.message(text), done: setDone })
+      const result = await fn({
+        update: text => indicator.message(text),
+        done: setDone,
+      })
       indicator.stop(done)
       return result
     }
@@ -46,7 +49,9 @@ export async function withSpinner<T>(message: string, fn: (spinner: Spinner) => 
       restoreRawMode()
     }
   }
-  return useTerminalHost() ? run() : withDirectStdout(run)
+  return useTerminalHost()
+    ? run()
+    : withDirectStdout(run)
 }
 
 export interface CliSpinner {

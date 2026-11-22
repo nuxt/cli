@@ -6,7 +6,10 @@ function fakeHost() {
   return {
     version: 1 as const,
     withTerminal: <T>(work: () => Promise<T>) => work(),
-    startTask: () => ({ update: vi.fn(), stop: vi.fn() }),
+    startTask: () => ({
+      update: vi.fn(),
+      stop: vi.fn(),
+    }),
   }
 }
 
@@ -37,7 +40,10 @@ describe('terminal host registry', () => {
   })
 
   it('should ignore a host speaking a different revision of the contract', () => {
-    const release = registerTerminalHost({ ...fakeHost(), version: 2 as never })
+    const release = registerTerminalHost({
+      ...fakeHost(),
+      version: 2 as never,
+    })
 
     expect(useTerminalHost()).toBeUndefined()
     release()

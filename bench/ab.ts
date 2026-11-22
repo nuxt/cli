@@ -14,9 +14,16 @@ import { formatDelta, formatMs, markdownTable, summarise } from './lib/stats.ts'
 const { values } = parseArgs({
   options: {
     bin: { type: 'string', multiple: true, default: [] },
-    case: { type: 'string', multiple: true, default: ['--version'] },
+    case: {
+      type: 'string',
+      multiple: true,
+      default: ['--version'],
+    },
     reps: { type: 'string', default: '31' },
-    cwd: { type: 'string', default: join(homedir(), '.cache', 'nuxt-cli-bench') },
+    cwd: {
+      type: 'string',
+      default: join(homedir(), '.cache', 'nuxt-cli-bench'),
+    },
   },
 })
 
@@ -25,7 +32,10 @@ const bins = values.bin!.map((entry) => {
   if (index === -1) {
     throw new Error(`expected --bin label=/path/to/bin/nuxi.mjs, got "${entry}"`)
   }
-  return { label: entry.slice(0, index), path: entry.slice(index + 1) }
+  return {
+    label: entry.slice(0, index),
+    path: entry.slice(index + 1),
+  }
 })
 if (bins.length < 2) {
   throw new Error('pass at least two --bin label=path entries')
@@ -39,14 +49,20 @@ async function main(): Promise<void> {
   for (const testCase of values.case!) {
     for (const bin of bins) {
       samples.set(`${testCase}:${bin.label}`, [])
-      await run(process.execPath, [bin.path, ...testCase.split(' ')], { cwd: values.cwd })
+      await run(process.execPath, [
+        bin.path,
+        ...testCase.split(' '),
+      ], { cwd: values.cwd })
     }
   }
 
   for (let rep = 0; rep < reps; rep++) {
     for (const testCase of values.case!) {
       for (const bin of bins) {
-        const result = await run(process.execPath, [bin.path, ...testCase.split(' ')], { cwd: values.cwd })
+        const result = await run(process.execPath, [
+          bin.path,
+          ...testCase.split(' '),
+        ], { cwd: values.cwd })
         samples.get(`${testCase}:${bin.label}`)!.push(result.wall)
       }
     }
@@ -63,12 +79,21 @@ async function main(): Promise<void> {
         formatMs(summary.median),
         formatMs(summary.min),
         formatMs(summary.p95),
-        bin.label === bins[0]!.label ? 'reference' : formatDelta(first.median, summary.median),
+        bin.label === bins[0]!.label
+          ? 'reference'
+          : formatDelta(first.median, summary.median),
       ])
     }
   }
 
-  console.log(markdownTable(['Case', 'Build', 'Median', 'Min', 'p95', 'vs reference'], rows))
+  console.log(markdownTable([
+    'Case',
+    'Build',
+    'Median',
+    'Min',
+    'p95',
+    'vs reference',
+  ], rows))
 }
 
 main().catch((err) => {

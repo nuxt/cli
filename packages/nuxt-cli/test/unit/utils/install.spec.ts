@@ -81,7 +81,9 @@ describe('takeUnreportedIgnoredBuilds', () => {
 
 describe('isExecutableAvailable', () => {
   it('should find a command on the PATH', () => {
-    expect(isExecutableAvailable(process.platform === 'win32' ? 'cmd' : 'sh')).toBe(true)
+    expect(isExecutableAvailable(process.platform === 'win32'
+      ? 'cmd'
+      : 'sh')).toBe(true)
   })
 
   it('should not find a command that does not exist', () => {
@@ -102,7 +104,10 @@ describe('runInstall', () => {
       'i=0; while [ $i -lt 60 ]; do echo "line $i"; i=$((i+1)); done',
     ])
 
-    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' } })
+    const result = await runInstall({
+      cwd: dir,
+      packageManager: { name: 'pnpm', agent: 'pnpm' },
+    })
 
     expect(result.success).toBe(true)
     expect(result.output).not.toContain('Ignored build scripts')
@@ -125,13 +130,22 @@ describe('runInstall', () => {
 describe.skipIf(process.platform === 'win32')('runInstall arguments', () => {
   it('should add dev dependencies with `-D`', async () => {
     const { dir } = await createFakePackageManager('npm')
-    const result = await runInstall({ cwd: dir, packageManager: { name: 'npm', agent: 'npm' }, dependencies: ['a'], dev: true })
+    const result = await runInstall({
+      cwd: dir,
+      packageManager: { name: 'npm', agent: 'npm' },
+      dependencies: ['a'],
+      dev: true,
+    })
     expect(result.command).toBe('npm i -D a')
   })
 
   it('should skip the pnpm workspace root check without workspace config', async () => {
     const { dir } = await createFakePackageManager('pnpm')
-    const result = await runInstall({ cwd: dir, packageManager: { name: 'pnpm', agent: 'pnpm' }, dependencies: ['a'] })
+    const result = await runInstall({
+      cwd: dir,
+      packageManager: { name: 'pnpm', agent: 'pnpm' },
+      dependencies: ['a'],
+    })
     expect(result.command).toBe('pnpm add --ignore-workspace-root-check a --config.confirm-modules-purge=false --config.strict-dep-builds=false')
   })
 })
@@ -154,7 +168,10 @@ describe('runDedupe', () => {
 
   it.skipIf(process.platform === 'win32')('should dedupe with Yarn 1 by installing', async () => {
     const { dir } = await createFakePackageManager('yarn')
-    const result = await runDedupe({ cwd: dir, packageManager: { name: 'yarn', agent: 'yarn' } })
+    const result = await runDedupe({
+      cwd: dir,
+      packageManager: { name: 'yarn', agent: 'yarn' },
+    })
     expect(result.command).toBe('yarn install')
   })
 

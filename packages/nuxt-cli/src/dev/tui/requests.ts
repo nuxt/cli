@@ -77,11 +77,15 @@ export class RequestLog {
     if (request.id === undefined) {
       return []
     }
-    return [...this.#spans.get(request.id) ?? []].sort((a, b) => a.start - b.start || b.duration - a.duration)
+    return [
+      ...this.#spans.get(request.id) ?? [],
+    ].sort((a, b) => a.start - b.start || b.duration - a.duration)
   }
 
   recent(count: number, filter?: (request: DevRequest) => boolean): DevRequest[] {
-    const source = filter ? this.#requests.filter(filter) : this.#requests
+    const source = filter
+      ? this.#requests.filter(filter)
+      : this.#requests
     return source.slice(-count)
   }
 

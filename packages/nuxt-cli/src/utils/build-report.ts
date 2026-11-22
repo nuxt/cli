@@ -109,7 +109,12 @@ const SOURCE_MAP_RE = /\.map(?:\.json)?$/
 
 const GZIP_CONCURRENCY = 8
 
-const LABELS: Record<string, string> = { client: 'Client', server: 'Server', ssr: 'Server', nitro: 'Nitro' }
+const LABELS: Record<string, string> = {
+  client: 'Client',
+  server: 'Server',
+  ssr: 'Server',
+  nitro: 'Nitro',
+}
 
 /** What a bundle is called on the progress line and in the breakdown. */
 function bundleLabel(environment: BuildEnvironment): string {
@@ -172,7 +177,9 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
   hook('build:prerender:done', (result) => {
     progress.endPrerender()
     if (result.failed.length) {
-      logger.error(`Failed to prerender ${result.failed.length} route${result.failed.length === 1 ? '' : 's'}:\n${
+      logger.error(`Failed to prerender ${result.failed.length} route${result.failed.length === 1
+        ? ''
+        : 's'}:\n${
         result.failed.map(route => formatFailedRoute(route, isCI || nuxt.options.logLevel === 'verbose')).join('\n')}`)
     }
     if (!result.written) {
@@ -183,7 +190,9 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
     entries.push({
       start: prerenderStart || Date.now() - result.duration,
       render: async verbose => [
-        `Prerendered ${result.written} route${result.written === 1 ? '' : 's'} in ${formatDuration(result.duration)}`,
+        `Prerendered ${result.written} route${result.written === 1
+          ? ''
+          : 's'} in ${formatDuration(result.duration)}`,
         ...formatPrerenderedRoutes(written, command, verbose),
       ].join('\n'),
     })
@@ -198,7 +207,9 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
     async summary(verbose) {
       const sorted = [...entries].sort((a, b) => a.start - b.start)
       const lines = await Promise.all(sorted.map(entry => entry.render(verbose)))
-      return lines.length ? lines.join('\n') : undefined
+      return lines.length
+        ? lines.join('\n')
+        : undefined
     },
     commands(serverBuild) {
       const commands: string[] = []
@@ -232,40 +243,60 @@ export function createBuildReport(nuxt: Nuxt, options: BuildReportOptions): Buil
 function deployCommand(nuxt: Nuxt, serverBuild: ServerBuild): string | undefined {
   const command = serverBuild.deployCommand
   const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
-  return command && dir ? `cd ${quote(dir)} && ${command}` : command
+  return command && dir
+    ? `cd ${quote(dir)} && ${command}`
+    : command
 }
 
 function quote(path: string): string {
-  return /\s/.test(path) ? JSON.stringify(path) : path
+  return /\s/.test(path)
+    ? JSON.stringify(path)
+    : path
 }
 
 async function formatBundle(bundle: Bundle, verbose: boolean): Promise<string> {
   const { environment, result, files } = bundle
   const gzip = await bundle.gzip
   const total = gzip?.reduce((sum, size) => sum + size, 0)
-  const size = `${formatBytes(bundle.size)}${total === undefined ? '' : ` (${formatBytes(total)} gzip)`}`
+  const size = `${formatBytes(bundle.size)}${total === undefined
+    ? ''
+    : ` (${formatBytes(total)} gzip)`}`
   const line = `${displayLabel(environment)} ${styleText(MUTED, `(${environment.builder})`)} built in ${formatDuration(result.duration)}${styleText(MUTED, ` \u00B7 ${size}`)}`
   if (!verbose || !files.length) {
     return line
   }
   const rows = files
-    .map((file, index) => ({ path: relative(process.cwd(), join(result.outDir, file.path)), size: formatBytes(file.size), gzip: gzip && formatBytes(gzip[index]!), bytes: file.size }))
+    .map((file, index) => ({
+      path: relative(process.cwd(), join(result.outDir, file.path)),
+      size: formatBytes(file.size),
+      gzip: gzip && formatBytes(gzip[index]!),
+      bytes: file.size,
+    }))
     .sort((a, b) => b.bytes - a.bytes)
   const pathWidth = rows.reduce((max, row) => Math.max(max, row.path.length), 0)
   const sizeWidth = rows.reduce((max, row) => Math.max(max, row.size.length), 0)
   const gzipWidth = rows.reduce((max, row) => Math.max(max, row.gzip?.length ?? 0), 0)
-  return [line, ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText(MUTED, `${row.size.padStart(sizeWidth)}${row.gzip ? `  ${row.gzip.padStart(gzipWidth)} gzip` : ''}`)}`)].join('\n')
+  return [
+    line,
+    ...rows.map(row => `  ${row.path.padEnd(pathWidth)}  ${styleText(MUTED, `${row.size.padStart(sizeWidth)}${row.gzip
+      ? `  ${row.gzip.padStart(gzipWidth)} gzip`
+      : ''}`)}`),
+  ].join('\n')
 }
 
 /** `npx nuxt <command>`, naming the project when it is not the current directory. */
 function nuxtCommand(nuxt: Nuxt, command: string): string {
   const dir = relative(process.cwd(), nuxt.options.rootDir || process.cwd())
-  return `npx nuxt ${command}${dir ? ` ${quote(dir)}` : ''}`
+  return `npx nuxt ${command}${dir
+    ? ` ${quote(dir)}`
+    : ''}`
 }
 
 function routePath(route: string): string {
   const query = route.indexOf('?')
-  return query === -1 ? route : route.slice(0, query)
+  return query === -1
+    ? route
+    : route.slice(0, query)
 }
 
 function isPayloadRoute(route: PrerenderedRoute): boolean {
@@ -283,14 +314,21 @@ function formatPrerenderedRoutes(routes: PrerenderedRoute[], command: string, ve
 
   if (all) {
     const width = Math.min(listed.reduce((max, route) => Math.max(max, route.route.length), 0), 60)
-    const times = listed.map(route => route.skipped ? 'skipped' : formatRouteTime(route.duration))
+    const times = listed.map(route => route.skipped
+      ? 'skipped'
+      : formatRouteTime(route.duration))
     const timeWidth = times.reduce((max, time) => Math.max(max, time.length), 0)
     return listed.map((route, index) => `${route.route.padEnd(width)}  ${styleText(MUTED, times[index]!.padStart(timeWidth))}`.trimEnd())
   }
 
   const pages = listed.filter(route => !isPayloadRoute(route))
   const shown = pages.sort((a, b) => a.route.localeCompare(b.route, 'en', { numeric: true })).slice(0, PRERENDER_ROUTE_LIMIT)
-  const lines = shown.length ? [styleText(MUTED, 'Routes:'), ...shown.map(route => route.route)] : []
+  const lines = shown.length
+    ? [
+        styleText(MUTED, 'Routes:'),
+        ...shown.map(route => route.route),
+      ]
+    : []
   const hidden = listed.length - shown.length
   if (hidden) {
     lines.push(styleText(MUTED, `\u2026 and ${hidden} more. Run ${styleText('cyan', `${command} --logLevel=verbose`)} to see all prerendered routes.`))
@@ -300,24 +338,34 @@ function formatPrerenderedRoutes(routes: PrerenderedRoute[], command: string, ve
 
 /** Whole milliseconds until a route takes seconds. */
 function formatRouteTime(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)}ms` : formatDuration(ms)
+  return ms < 1000
+    ? `${Math.round(ms)}ms`
+    : formatDuration(ms)
 }
 
 function formatFailedRoute(route: PrerenderResult['failed'][number], all: boolean): string {
   const detail = [route.status, route.message].filter(Boolean).join(' ')
-  const line = `${route.route}${detail ? styleText(MUTED, ` (${detail})`) : ''}`
+  const line = `${route.route}${detail
+    ? styleText(MUTED, ` (${detail})`)
+    : ''}`
   const parents = route.linkedFrom ?? []
   if (!parents.length) {
     return line
   }
-  const shown = all ? parents : parents.slice(0, LINKED_FROM_LIMIT)
+  const shown = all
+    ? parents
+    : parents.slice(0, LINKED_FROM_LIMIT)
   const hidden = parents.length - shown.length
-  return `${line}\n${styleText(MUTED, `  linked from ${shown.join(', ')}${hidden ? ` and ${hidden} more` : ''}`)}`
+  return `${line}\n${styleText(MUTED, `  linked from ${shown.join(', ')}${hidden
+    ? ` and ${hidden} more`
+    : ''}`)}`
 }
 
 async function gzipSize(path: string): Promise<number> {
   const content = await readFile(path)
-  return new Promise((resolve, reject) => gzip(content, (error, result) => error ? reject(error) : resolve(result.byteLength)))
+  return new Promise((resolve, reject) => gzip(content, (error, result) => error
+    ? reject(error)
+    : resolve(result.byteLength)))
 }
 
 function createLimiter(concurrency: number) {

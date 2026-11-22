@@ -28,7 +28,13 @@ import { dotEnvArgs, extendsArgs, logLevelArgs, rootDirArgs } from './_shared'
 const NON_WORD_RE = /[^\w-]/g
 const HTML_EXT_RE = /\.html$/
 
-const LEGACY_REPORT_FILES = ['client.html', 'client.json', 'nitro.html', 'meta.json', '.vite-inspect']
+const LEGACY_REPORT_FILES = [
+  'client.html',
+  'client.json',
+  'nitro.html',
+  'meta.json',
+  '.vite-inspect',
+]
 
 interface ReportOptions {
   filename?: string
@@ -46,7 +52,9 @@ function resolveReportFilename(filename: string | undefined, defaultFilename: st
   if (!filename || filename === defaultFilename) {
     return join(dir, json ? '{name}.json' : '{name}.html')
   }
-  return json ? filename.replace(HTML_EXT_RE, '.json') : filename
+  return json
+    ? filename.replace(HTML_EXT_RE, '.json')
+    : filename
 }
 
 async function readFirstFile(files: (string | undefined)[]) {
@@ -155,7 +163,9 @@ export default defineCommand({
             prerender: {
               routes: [],
               crawlLinks: false,
-              ignore: [() => true],
+              ignore: [
+                () => true,
+              ],
             },
           },
         }),
@@ -195,7 +205,9 @@ export default defineCommand({
     if (ctx.args.json) {
       // `loadNuxt()` has already decided whether to install DevTools, so the user's `enabled` choice is kept.
       const devtools = nuxt.options.devtools
-      nuxt.options.devtools = typeof devtools === 'object' ? { ...devtools, viteInspect: false } : { enabled: devtools, viteInspect: false }
+      nuxt.options.devtools = typeof devtools === 'object'
+        ? { ...devtools, viteInspect: false }
+        : { enabled: devtools, viteInspect: false }
     }
 
     let nitroAnalyzeDisabled = false
@@ -231,12 +243,15 @@ export default defineCommand({
         }
         const { visualizer } = await import(pathToFileURL(visualizerPath).href)
         nitroReportFile = join(analyzeDir, ctx.args.json ? 'nitro.json' : 'nitro.html')
-        config.plugins = [...plugins, visualizer({
-          template: ctx.args.json ? 'raw-data' : 'treemap',
-          projectRoot: nuxt.options.rootDir,
-          filename: nitroReportFile,
-          title: 'Nitro Server bundle stats',
-        })] as typeof config.plugins
+        config.plugins = [
+          ...plugins,
+          visualizer({
+            template: ctx.args.json ? 'raw-data' : 'treemap',
+            projectRoot: nuxt.options.rootDir,
+            filename: nitroReportFile,
+            title: 'Nitro Server bundle stats',
+          }),
+        ] as typeof config.plugins
       })
     })
 
@@ -257,7 +272,9 @@ export default defineCommand({
     const outputLock = acquireOutputLock(nuxt.options.rootDir, outDir, lockInfo)
     if (outputLock.existing) {
       lock.release()
-      throw new ActionableError(formatLockError(outputLock.existing, { outputDir: relative(process.cwd(), outDir) }))
+      throw new ActionableError(formatLockError(outputLock.existing, {
+        outputDir: relative(process.cwd(), outDir),
+      }))
     }
 
     try {
@@ -275,7 +292,9 @@ export default defineCommand({
       tasklog.success('Build complete')
 
       if (skippedPrerenderRoutes > 0) {
-        logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1 ? '' : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
+        logger.info(`Skipped prerendering ${skippedPrerenderRoutes} route${skippedPrerenderRoutes === 1
+          ? ''
+          : 's'}. Pass ${styleText('cyan', '--prerender')} to include assets emitted while prerendering.`)
       }
 
       const meta: NuxtAnalyzeMeta = {
@@ -301,30 +320,50 @@ export default defineCommand({
     if (ctx.args.serve !== false && !ctx.args.json && !process.env.CI) {
       const headers = { 'content-type': 'text/html' }
       const reports = [
-        { path: '/client', label: 'Client bundle stats', html: await readFirstFile([analyzeOptions.filename.replace('{name}', 'client'), join(analyzeDir, 'client.html')]) },
-        { path: '/nitro', label: 'Nitro server bundle stats', html: await readFirstFile([nitroReportFile, join(analyzeDir, 'nitro.html')]) },
+        { path: '/client', label: 'Client bundle stats', html: await readFirstFile([
+          analyzeOptions.filename.replace('{name}', 'client'),
+          join(analyzeDir, 'client.html'),
+        ]) },
+        { path: '/nitro', label: 'Nitro server bundle stats', html: await readFirstFile([
+          nitroReportFile,
+          join(analyzeDir, 'nitro.html'),
+        ]) },
       ]
       const contents = new Map(reports.map(report => [report.path, report.html]))
       const generated = reports.filter(report => report.html !== undefined)
-      const indexHtml = generated.length === 1 ? generated[0]!.html! : renderIndexHtml(generated)
+      const indexHtml = generated.length === 1
+        ? generated[0]!.html!
+        : renderIndexHtml(generated)
 
       logger.step('Starting stats server...')
 
       const hostname = process.env.HOST || 'localhost'
       const requestedPort = Number(process.env.PORT) || 3000
-      const port = await getPort({ port: requestedPort, alternativePortRange: [3000, 3100], host: hostname })
+      const port = await getPort({
+        port: requestedPort,
+        alternativePortRange: [3000, 3100],
+        host: hostname,
+      })
       if (port !== requestedPort) {
         logger.warn(`Port ${requestedPort} is in use, using port ${port} instead.`)
       }
       const configuredHosts = resolveNuxtAllowedHosts(nuxt.options)
-      const allowedHosts = new Set([hostname, ...Array.isArray(configuredHosts) ? configuredHosts : []].map(host => host.toLowerCase()))
+      const allowedHosts = new Set([
+        hostname,
+        ...Array.isArray(configuredHosts)
+          ? configuredHosts
+          : [],
+      ].map(host => host.toLowerCase()))
 
       await serve({
         hostname,
         port,
         fetch(request) {
           if (configuredHosts !== true && !isAllowedHost(request.headers.get('host') ?? undefined, allowedHosts)) {
-            return new Response('Forbidden: this host is not allowed.', { status: 403, headers: { 'content-type': 'text/plain' } })
+            return new Response('Forbidden: this host is not allowed.', {
+              status: 403,
+              headers: { 'content-type': 'text/plain' },
+            })
           }
           const pathname = new URL(request.url).pathname.replace(/\/$/, '')
           if (contents.has(pathname)) {

@@ -15,9 +15,18 @@ vi.mock('node:worker_threads', async importOriginal => ({
 
 describe('dev channels', () => {
   it.each([
-    ['log', () => openDevLogChannel(() => {})],
-    ['span', () => openDevSpanChannel(() => {})],
-    ['error', () => openErrorBridge()],
+    [
+      'log',
+      () => openDevLogChannel(() => {}),
+    ],
+    [
+      'span',
+      () => openDevSpanChannel(() => {}),
+    ],
+    [
+      'error',
+      () => openErrorBridge(),
+    ],
   ])('should open and close the %s channel when `BroadcastChannel` cannot be constructed', (_, open) => {
     expect(() => open()()).not.toThrow()
   })

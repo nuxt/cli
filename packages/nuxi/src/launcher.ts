@@ -40,7 +40,9 @@ export async function runMain(): Promise<void> {
 
   // `@nuxt/cli` only redirects `init` to `create-nuxt`, so scaffolding is served
   // from the copy bundled here rather than handed off to the project.
-  const cli = command === 'init' ? null : loadProjectCli(rawArgs)
+  const cli = command === 'init'
+    ? null
+    : loadProjectCli(rawArgs)
   if (command === 'dev' && cli?.bootEntry && cli.devEntry) {
     await import(pathToFileURL(cli.bootEntry).href)
       .then((mod: { bootDevUI?: () => Promise<void> }) => mod.bootDevUI?.())
@@ -67,7 +69,10 @@ interface ProjectCli {
 export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
   for (const dir of candidateDirs(rawArgs)) {
     // trailing separators keep `exsolve` from treating the directories as files
-    const from = [tryResolveNuxt(dir), ...withNodePath(dir).map(path => join(path, '/'))].filter(Boolean) as string[]
+    const from = [
+      tryResolveNuxt(dir),
+      ...withNodePath(dir).map(path => join(path, '/')),
+    ].filter(Boolean) as string[]
     const entry = resolveModulePath('@nuxt/cli', { from, try: true })
     // resolving to our own build (a global or `npx` install of `nuxi`) would recurse
     if (!entry || comparablePath(entry).startsWith(`${launcherDist}/`)) {
@@ -83,8 +88,12 @@ export function loadProjectCli(rawArgs: string[]): ProjectCli | null {
       name: '@nuxt/cli',
       version: pkg?.version,
       entry,
-      devEntry: devEntry && existsSync(devEntry) ? devEntry : undefined,
-      bootEntry: bootEntry && existsSync(bootEntry) ? bootEntry : undefined,
+      devEntry: devEntry && existsSync(devEntry)
+        ? devEntry
+        : undefined,
+      bootEntry: bootEntry && existsSync(bootEntry)
+        ? bootEntry
+        : undefined,
     }
   }
   return null
@@ -181,7 +190,9 @@ function resolveDir(value: string | undefined) {
     return
   }
   const dir = resolve(process.cwd(), value)
-  return existsSync(join(dir, 'package.json')) ? dir : undefined
+  return existsSync(join(dir, 'package.json'))
+    ? dir
+    : undefined
 }
 
 /**
@@ -194,7 +205,9 @@ function comparablePath(path: string) {
   }
   catch {}
   resolved = resolved.replace(BACKSLASH_RE, '/')
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved
+  return process.platform === 'win32'
+    ? resolved.toLowerCase()
+    : resolved
 }
 
 function isAtLeast(version: string, [minMajor, minMinor]: [number, number]) {

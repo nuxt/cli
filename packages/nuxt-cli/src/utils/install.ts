@@ -31,7 +31,9 @@ function getInstallCommand({ packageManager: { agent }, dependencies = [], dev, 
     return resolveCommand(agent, 'install', [])!
   }
   return resolveCommand(agent, uninstall ? 'uninstall' : 'add', [
-    ...dev && !uninstall ? ['-D'] : [],
+    ...dev && !uninstall
+      ? ['-D']
+      : [],
     ...dependencies,
   ], { ignoreWorkspaceRootCheck: true })!
 }
@@ -75,7 +77,10 @@ export interface InstallResult {
  */
 export async function runInstall(options: InstallOptions): Promise<InstallResult> {
   const { command, args } = getInstallCommand(options)
-  return await execute(command, [...args, ...nonInteractiveArgs(options.packageManager)], options)
+  return await execute(command, [
+    ...args,
+    ...nonInteractiveArgs(options.packageManager),
+  ], options)
 }
 
 export interface DedupeOptions extends Omit<InstallOptions, 'dependencies' | 'dev' | 'uninstall'> {
@@ -103,12 +108,23 @@ export async function runDedupe(options: DedupeOptions): Promise<InstallResult> 
 
   const { agent, name } = options.packageManager
   // Yarn 1 deduplicates as part of a regular install.
-  const exec = resolveCommand(agent, agent === 'yarn' ? 'install' : 'dedupe', [])
+  const exec = resolveCommand(agent, agent === 'yarn'
+    ? 'install'
+    : 'dedupe', [])
   if (!exec) {
-    return { success: false, output: '', command: '', ignoredBuilds: [], error: `Deduplication is not supported for ${name}` }
+    return {
+      success: false,
+      output: '',
+      command: '',
+      ignoredBuilds: [],
+      error: `Deduplication is not supported for ${name}`,
+    }
   }
 
-  return await execute(exec.command, [...exec.args, ...nonInteractiveArgs(options.packageManager)], options)
+  return await execute(exec.command, [
+    ...exec.args,
+    ...nonInteractiveArgs(options.packageManager),
+  ], options)
 }
 
 /**
@@ -158,9 +174,13 @@ export function createInstallLog({ verbose = false } = {}): InstallLog {
       if (result.success && !verbose) {
         return
       }
-      const output = (lines.length > 0 ? lines.join('\n') : result.output).trim()
+      const output = (lines.length > 0
+        ? lines.join('\n')
+        : result.output).trim()
       if (output) {
-        log.message(output.split('\n'), { symbol: styleText('gray', S_BAR) })
+        log.message(output.split('\n'), {
+          symbol: styleText('gray', S_BAR),
+        })
       }
     },
   }
@@ -207,15 +227,24 @@ export function isExecutableAvailable(command: string, cwd = process.cwd()): boo
     : [
         // Windows resolves a bare command against the working directory too, and
         // its `PATH` entries can be quoted.
-        ...isWindows ? [cwd] : [],
+        ...isWindows
+          ? [cwd]
+          : [],
         ...(process.env.PATH || '')
           .split(delimiter)
           .filter(Boolean)
-          .map(directory => isWindows ? directory.replace(SURROUNDING_QUOTES_RE, '$1') : directory),
+          .map(directory => isWindows
+            ? directory.replace(SURROUNDING_QUOTES_RE, '$1')
+            : directory),
       ]
 
   const extensions = isWindows
-    ? [...command.includes('.') ? [''] : [], ...(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(delimiter)]
+    ? [
+        ...command.includes('.')
+          ? ['']
+          : [],
+        ...(process.env.PATHEXT || '.EXE;.CMD;.BAT;.COM').split(delimiter),
+      ]
     : ['']
 
   for (const directory of directories) {
@@ -339,7 +368,9 @@ function execute(command: string, args: string[], options: InstallOptions): Prom
         return
       }
       const reason = code === null
-        ? `was terminated${signal ? ` by ${signal}` : ''}`
+        ? `was terminated${signal
+          ? ` by ${signal}`
+          : ''}`
         : `failed with exit code ${code}`
       finish({ success: false, error: `\`${displayCommand}\` ${reason}.` })
     })

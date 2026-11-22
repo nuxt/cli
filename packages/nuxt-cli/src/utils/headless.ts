@@ -25,7 +25,9 @@ const createCommands: Partial<Record<AgentName, string>> = {
 
 function currentPackageManager(userAgent: string | undefined): AgentName | undefined {
   const name = userAgent?.split('/')[0]
-  return name && name in createCommands ? name as AgentName : undefined
+  return name && name in createCommands
+    ? name as AgentName
+    : undefined
 }
 
 /**
@@ -35,7 +37,9 @@ function currentPackageManager(userAgent: string | undefined): AgentName | undef
  * the bin name, which is not on the user's `PATH`.
  */
 export function getInvocationPrefix(argv: string[] = process.argv, userAgent = process.env.npm_config_user_agent): string {
-  return isCreateInvocation(argv) ? getCreateCommand(userAgent) : 'nuxt init'
+  return isCreateInvocation(argv)
+    ? getCreateCommand(userAgent)
+    : 'nuxt init'
 }
 
 /** Whether the CLI was reached through `create-nuxt` rather than `nuxt init`. */
@@ -74,7 +78,10 @@ function getAncestorCommands(depth = 4): string[] {
     for (const line of listing.split('\n')) {
       const [pid, ppid, ...command] = line.trim().split(/ +/)
       if (pid && /^\d+$/.test(pid)) {
-        parents.set(Number(pid), { ppid: Number(ppid), command: command.join(' ') })
+        parents.set(Number(pid), {
+          ppid: Number(ppid),
+          command: command.join(' '),
+        })
       }
     }
     for (let pid = process.ppid, level = 0; level < depth && pid > 1; level++) {
@@ -139,14 +146,20 @@ export function getHeadlessCommand(options: HeadlessCommandOptions): string[] {
   return [
     prefix,
     quoteArgument(dir, windows),
-    needsArgumentSeparator(prefix) ? '--' : '',
+    needsArgumentSeparator(prefix)
+      ? '--'
+      : '',
     `--template=${template}`,
     `--packageManager=${packageManager}`,
     gitInit ? '--gitInit' : '--no-gitInit',
-    modules?.length ? `--modules=${modules.join(',')}` : '--no-modules',
+    modules?.length
+      ? `--modules=${modules.join(',')}`
+      : '--no-modules',
     install ? '' : '--no-install',
     force ? '--force' : '',
-    nightly ? `--nightly=${nightly}` : '',
+    nightly
+      ? `--nightly=${nightly}`
+      : '',
   ].filter(Boolean)
 }
 

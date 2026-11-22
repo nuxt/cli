@@ -53,7 +53,12 @@ export interface InstallSpec {
 export function parseInstallSpec(spec: string): InstallSpec {
   const separator = spec.lastIndexOf('@')
   if (separator < 1) {
-    return { name: spec, target: spec, range: 'latest', aliased: false }
+    return {
+      name: spec,
+      target: spec,
+      range: 'latest',
+      aliased: false,
+    }
   }
 
   const name = spec.slice(0, separator)
@@ -61,10 +66,20 @@ export function parseInstallSpec(spec: string): InstallSpec {
 
   const alias = spec.slice(spec.indexOf('@', 1) + 1).match(ALIAS_SPEC_RE)
   if (alias) {
-    return { name: spec.slice(0, spec.indexOf('@', 1)), target: alias[1]!, range: alias[2]!, aliased: true }
+    return {
+      name: spec.slice(0, spec.indexOf('@', 1)),
+      target: alias[1]!,
+      range: alias[2]!,
+      aliased: true,
+    }
   }
 
-  return { name, target: name, range: rest, aliased: false }
+  return {
+    name,
+    target: name,
+    range: rest,
+    aliased: false,
+  }
 }
 
 const CATALOG_RANGE_RE = /^(?:npm:.+@)?([~^]?)\d+\.\d+\.\d+(?:[-+].+)?$/
@@ -90,7 +105,9 @@ export async function resolveCatalogSpecifier(spec: InstallSpec, current?: strin
     return undefined
   }
   const range = `${resolveRangePrefix(current)}${version}`
-  return spec.aliased ? `npm:${spec.target}@${range}` : range
+  return spec.aliased
+    ? `npm:${spec.target}@${range}`
+    : range
 }
 
 const nuxtVersionTags = {
@@ -130,18 +147,36 @@ async function getRequiredNewVersion(packageNames: string[], channel: string): P
     case 'nightly':
       return getNightlyVersion(packageNames)
     case 'v3':
-      return { npmPackages: packageNames.map(p => `${p}@3`), nuxtVersion: '3.x' }
+      return {
+        npmPackages: packageNames.map(p => `${p}@3`),
+        nuxtVersion: '3.x',
+      }
     case 'v4':
-      return { npmPackages: packageNames.map(p => `${p}@4`), nuxtVersion: '4.x' }
+      return {
+        npmPackages: packageNames.map(p => `${p}@4`),
+        nuxtVersion: '4.x',
+      }
     case 'v3-nightly':
-      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')), nuxtVersion: '3.x' }
+      return {
+        npmPackages: packageNames.map(p => getNightlyDependency(p, '3.x')),
+        nuxtVersion: '3.x',
+      }
     case 'v4-nightly':
-      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')), nuxtVersion: '4.x' }
+      return {
+        npmPackages: packageNames.map(p => getNightlyDependency(p, '4.x')),
+        nuxtVersion: '4.x',
+      }
     case 'v5-nightly':
-      return { npmPackages: packageNames.map(p => getNightlyDependency(p, '5.x')), nuxtVersion: '5.x' }
+      return {
+        npmPackages: packageNames.map(p => getNightlyDependency(p, '5.x')),
+        nuxtVersion: '5.x',
+      }
     case 'stable':
     default:
-      return { npmPackages: packageNames.map(p => `${p}@latest`), nuxtVersion: '4.x' }
+      return {
+        npmPackages: packageNames.map(p => `${p}@latest`),
+        nuxtVersion: '4.x',
+      }
   }
 }
 
@@ -167,7 +202,15 @@ export default defineCommand({
       alias: 'ch',
       default: 'stable',
       description: 'Specify a channel to install from',
-      options: ['stable', 'nightly', 'v3', 'v4', 'v3-nightly', 'v4-nightly', 'v5-nightly'],
+      options: [
+        'stable',
+        'nightly',
+        'v3',
+        'v4',
+        'v3-nightly',
+        'v4-nightly',
+        'v5-nightly',
+      ],
       valueHint: 'stable|nightly|v4|v4-nightly|v5-nightly',
     },
   },
@@ -176,7 +219,11 @@ export default defineCommand({
 
     intro(styleText('cyan', 'Upgrading Nuxt ...'))
 
-    const [packageManager, workspaceDir = cwd, { resolveCatalogEntry, updateCatalogEntries }] = await Promise.all([detectPackageManager(cwd), findWorkspaceDir(cwd, { try: true }), import('../utils/catalog')])
+    const [packageManager, workspaceDir = cwd, { resolveCatalogEntry, updateCatalogEntries }] = await Promise.all([
+      detectPackageManager(cwd),
+      findWorkspaceDir(cwd, { try: true }),
+      import('../utils/catalog'),
+    ])
     if (!packageManager) {
       logger.error(
         `Unable to determine the package manager used by this project.\n\nNo lock files found in ${styleText('cyan', relativeToProcess(cwd))}, and no ${styleText('cyan', 'packageManager')} field specified in ${styleText('cyan', 'package.json')}.`,
@@ -196,10 +243,20 @@ export default defineCommand({
 
     const pkg = await pkgPromise
 
-    const nuxtDependencyType = pkg ? checkNuxtDependencyType(pkg) : 'dependencies'
-    const corePackages = ['@nuxt/kit', '@nuxt/schema', '@nuxt/vite-builder', '@nuxt/webpack-builder', '@nuxt/rspack-builder']
+    const nuxtDependencyType = pkg
+      ? checkNuxtDependencyType(pkg)
+      : 'dependencies'
+    const corePackages = [
+      '@nuxt/kit',
+      '@nuxt/schema',
+      '@nuxt/vite-builder',
+      '@nuxt/webpack-builder',
+      '@nuxt/rspack-builder',
+    ]
 
-    const packagesToUpdate = pkg ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p]) : []
+    const packagesToUpdate = pkg
+      ? corePackages.filter(p => pkg.dependencies?.[p] || pkg.devDependencies?.[p])
+      : []
 
     const packageNames = ['nuxt', ...packagesToUpdate]
     const { npmPackages, nuxtVersion } = await getRequiredNewVersion(packageNames, ctx.args.channel)
@@ -210,9 +267,15 @@ export default defineCommand({
     const catalogUpdates: Array<{ catalog: string, current?: string, spec: InstallSpec }> = []
     const directPackages: string[] = []
     for (const [index, name] of packageNames.entries()) {
-      const entry = packageManagerName === 'pnpm' ? resolveCatalogEntry(cwd, pkg, name) : undefined
+      const entry = packageManagerName === 'pnpm'
+        ? resolveCatalogEntry(cwd, pkg, name)
+        : undefined
       if (entry) {
-        catalogUpdates.push({ catalog: entry.catalog, current: entry.specifier, spec: parseInstallSpec(npmPackages[index]!) })
+        catalogUpdates.push({
+          catalog: entry.catalog,
+          current: entry.specifier,
+          spec: parseInstallSpec(npmPackages[index]!),
+        })
       }
       else {
         directPackages.push(npmPackages[index]!)
@@ -237,7 +300,9 @@ export default defineCommand({
       .map(p => styleText('cyan', p))
       .join(' and ')
 
-    let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force ? 'force' : ctx.args.dedupe ? 'dedupe' : undefined
+    let method: 'force' | 'dedupe' | 'skip' | undefined = ctx.args.force
+      ? 'force'
+      : ctx.args.dedupe ? 'dedupe' : undefined
 
     if (!method) {
       const result = await select({
@@ -268,7 +333,9 @@ export default defineCommand({
       method = result
     }
 
-    const versionType = ctx.args.channel === 'nightly' ? 'nightly' : `latest ${ctx.args.channel}`
+    const versionType = ctx.args.channel === 'nightly'
+      ? 'nightly'
+      : `latest ${ctx.args.channel}`
 
     const verbose = ctx.args.logLevel === 'verbose' || Boolean(process.env.DEBUG)
 
@@ -346,10 +413,18 @@ export default defineCommand({
     if (method === 'force' || method === 'dedupe') {
       const recreateLockfile = method === 'force'
       const failed = await withInstallSpinner(
-        recreateLockfile ? `Recreating ${forceRemovals}` : 'Deduping dependencies',
+        recreateLockfile
+          ? `Recreating ${forceRemovals}`
+          : 'Deduping dependencies',
         recreateLockfile ? 'Lockfile recreated' : 'Dependencies deduped',
         { verbose },
-        hooks => runDedupe({ cwd, packageManager, recreateLockfile, lockFile, ...hooks }),
+        hooks => runDedupe({
+          cwd,
+          packageManager,
+          recreateLockfile,
+          lockFile,
+          ...hooks,
+        }),
       )
 
       if (failed) {
@@ -374,7 +449,9 @@ export default defineCommand({
     }
     catch (err) {
       cleanupSpinner.error('Could not clean build directories')
-      logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error ? err.message : err}`)
+      logger.warn(`Nuxt was upgraded but build directories could not be removed: ${err instanceof Error
+        ? err.message
+        : err}`)
     }
 
     if (method === 'force') {
@@ -458,7 +535,9 @@ async function withInstallSpinner(
 }
 
 export function findLockFile(cwd: string, workspaceDir: string, lockFiles: string | Array<string> | undefined) {
-  const candidates = typeof lockFiles === 'string' ? [lockFiles] : lockFiles
+  const candidates = typeof lockFiles === 'string'
+    ? [lockFiles]
+    : lockFiles
 
   if (!candidates?.length) {
     return undefined

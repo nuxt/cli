@@ -9,12 +9,28 @@ describe.skipIf(!setGlobalProxyFromEnv)('proxy support', () => {
   })
 
   it.each([
-    ['create-nuxt', () => import('../../src/main')],
-    ['nuxi', () => import('../../../nuxi/src/main')],
+    [
+      'create-nuxt',
+      () => import('../../src/main'),
+    ],
+    [
+      'nuxi',
+      () => import('../../../nuxi/src/main'),
+    ],
   ])('should route %s requests through HTTP_PROXY', async (_name, load) => {
     const proxy = await startTunnelProxy()
     try {
-      for (const key of ['HTTPS_PROXY', 'https_proxy', 'http_proxy', 'ALL_PROXY', 'all_proxy', 'NO_PROXY', 'no_proxy', 'NODE_USE_ENV_PROXY', 'NODE_OPTIONS']) {
+      for (const key of [
+        'HTTPS_PROXY',
+        'https_proxy',
+        'http_proxy',
+        'ALL_PROXY',
+        'all_proxy',
+        'NO_PROXY',
+        'no_proxy',
+        'NODE_USE_ENV_PROXY',
+        'NODE_OPTIONS',
+      ]) {
         vi.stubEnv(key, undefined)
       }
       vi.stubEnv('HTTP_PROXY', proxy.proxyUrl)

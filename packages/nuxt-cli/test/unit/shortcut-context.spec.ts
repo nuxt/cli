@@ -51,7 +51,10 @@ describe('deferShortcutContext', () => {
     const started = server()
     attach(started)
 
-    await Promise.all([context.close(), context.close()])
+    await Promise.all([
+      context.close(),
+      context.close(),
+    ])
 
     expect(started.close).toHaveBeenCalledTimes(1)
   })

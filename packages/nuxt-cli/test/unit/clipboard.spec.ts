@@ -24,7 +24,16 @@ const realIsTTY = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
 
 function stubEnvironment(platform: NodeJS.Platform, env: NodeJS.ProcessEnv = {}) {
   Object.defineProperty(process, 'platform', { value: platform, configurable: true })
-  process.env = { ...realEnv, DISPLAY: undefined, WAYLAND_DISPLAY: undefined, WSL_DISTRO_NAME: undefined, TERM: undefined, TERM_PROGRAM: undefined, TMUX: undefined, ...env }
+  process.env = {
+    ...realEnv,
+    DISPLAY: undefined,
+    WAYLAND_DISPLAY: undefined,
+    WSL_DISTRO_NAME: undefined,
+    TERM: undefined,
+    TERM_PROGRAM: undefined,
+    TMUX: undefined,
+    ...env,
+  }
 }
 
 function stubTTY(isTTY: boolean) {
@@ -65,7 +74,9 @@ describe('writeClipboard', () => {
   it('should not reach for a clipboard tool without a display server on linux', async () => {
     stubEnvironment('linux')
 
-    await expect(writeClipboard('text', { write: vi.fn() })).resolves.toBe(false)
+    await expect(writeClipboard('text', {
+      write: vi.fn(),
+    })).resolves.toBe(false)
 
     expect(writeText).not.toHaveBeenCalled()
   })
@@ -74,7 +85,9 @@ describe('writeClipboard', () => {
     stubEnvironment('darwin')
     writeText.mockRejectedValueOnce(new Error('no clipboard tool found'))
 
-    await expect(writeClipboard('text', { write: vi.fn() })).resolves.toBe(false)
+    await expect(writeClipboard('text', {
+      write: vi.fn(),
+    })).resolves.toBe(false)
   })
 
   it('should ask the terminal to set the clipboard when there is no display server', async () => {
@@ -185,7 +198,14 @@ describe('writeClipboard', () => {
   it('should not write to stdout while a terminal host owns it', async () => {
     stubEnvironment('linux', { TERM: 'xterm-kitty' })
     const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
-    const release = registerTerminalHost({ version: 1, withTerminal: work => work(), startTask: () => ({ update: () => {}, stop: () => {} }) })
+    const release = registerTerminalHost({
+      version: 1,
+      withTerminal: work => work(),
+      startTask: () => ({
+        update: () => {},
+        stop: () => {},
+      }),
+    })
 
     try {
       await expect(writeClipboard('text')).resolves.toBe(false)

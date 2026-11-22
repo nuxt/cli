@@ -19,10 +19,17 @@ vi.mock('@clack/prompts', async (importOriginal) => {
   const original = await importOriginal<typeof import('@clack/prompts')>()
   return {
     ...original,
-    select: vi.fn(() => Promise.resolve(answers.select.length ? answers.select.shift() : 'skip')),
+    select: vi.fn(() => Promise.resolve(answers.select.length
+      ? answers.select.shift()
+      : 'skip')),
     spinner: vi.fn(() => {
       const record = (message?: string) => void (message && progress.push(message))
-      return { start: record, stop: record, error: record, message: record }
+      return {
+        start: record,
+        stop: record,
+        error: record,
+        message: record,
+      }
     }),
   }
 })
@@ -46,7 +53,9 @@ vi.mock('../../../src/utils/versions', async importOriginal => ({
 }))
 
 vi.mock('../../../src/utils/kit', () => ({
-  loadKit: () => Promise.resolve({ loadNuxtConfig: () => Promise.resolve({ buildDir: '.nuxt' }) }),
+  loadKit: () => Promise.resolve({
+    loadNuxtConfig: () => Promise.resolve({ buildDir: '.nuxt' }),
+  }),
   tryResolveNuxt: () => undefined,
 }))
 
@@ -81,7 +90,14 @@ async function runUpgrade(argv: string[] = []): Promise<{ output: string, exitCo
   })
 
   exit.mockRestore()
-  return { output: [...progress, renderer.frames.join('\n'), screen(renderer)].join('\n'), exitCode }
+  return {
+    output: [
+      ...progress,
+      renderer.frames.join('\n'),
+      screen(renderer),
+    ].join('\n'),
+    exitCode,
+  }
 }
 
 async function writeProject(files: Record<string, string>): Promise<void> {
@@ -90,7 +106,12 @@ async function writeProject(files: Record<string, string>): Promise<void> {
   }
 }
 
-const installed = { success: true, output: '', command: 'pnpm install', ignoredBuilds: [] }
+const installed = {
+  success: true,
+  output: '',
+  command: 'pnpm install',
+  ignoredBuilds: [],
+}
 
 beforeEach(async () => {
   cwd = await mkdtemp(join(tmpdir(), 'nuxt-upgrade-'))
@@ -103,7 +124,10 @@ beforeEach(async () => {
   runInstall.mockResolvedValue(installed)
   runDedupe.mockResolvedValue(installed)
   await writeProject({
-    'package.json': JSON.stringify({ name: 'app', dependencies: { nuxt: '^4.0.0' } }),
+    'package.json': JSON.stringify({
+      name: 'app',
+      dependencies: { nuxt: '^4.0.0' },
+    }),
     'pnpm-lock.yaml': '',
   })
 })
@@ -139,7 +163,9 @@ describe('upgrade install', () => {
   it('should install the requested channel', async () => {
     await runUpgrade(['--channel=v3'])
 
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['nuxt@3'] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['nuxt@3'],
+    }))
   })
 
   it.each([
@@ -149,7 +175,9 @@ describe('upgrade install', () => {
   ])('should install the %s channel from the %s nightly dist-tag', async (channel, tag) => {
     await runUpgrade([`--channel=${channel}`])
 
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`nuxt@npm:nuxt-nightly@${tag}`] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: [`nuxt@npm:nuxt-nightly@${tag}`],
+    }))
   })
 
   it.each([
@@ -160,11 +188,18 @@ describe('upgrade install', () => {
 
     await runUpgrade(['--channel=nightly'])
 
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: [`nuxt@npm:nuxt-nightly@${tag}`] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: [`nuxt@npm:nuxt-nightly@${tag}`],
+    }))
   })
 
   it('should upgrade the core packages the project depends on', async () => {
-    await writeProject({ 'package.json': JSON.stringify({ name: 'app', devDependencies: { 'nuxt': '^4.0.0', '@nuxt/kit': '^4.0.0' } }) })
+    await writeProject({
+      'package.json': JSON.stringify({
+        name: 'app',
+        devDependencies: { 'nuxt': '^4.0.0', '@nuxt/kit': '^4.0.0' },
+      }),
+    })
 
     await runUpgrade()
 
@@ -175,7 +210,12 @@ describe('upgrade install', () => {
   })
 
   it('should stop when the install fails', async () => {
-    runInstall.mockResolvedValue({ ...installed, success: false, error: 'pnpm ERR! offline', output: 'pnpm ERR! offline' })
+    runInstall.mockResolvedValue({
+      ...installed,
+      success: false,
+      error: 'pnpm ERR! offline',
+      output: 'pnpm ERR! offline',
+    })
 
     const { output, exitCode } = await runUpgrade()
 
@@ -218,7 +258,10 @@ describe('upgrade with a pnpm catalog', () => {
 
   beforeEach(async () => {
     await writeProject({
-      'package.json': JSON.stringify({ name: 'app', dependencies: { nuxt: 'catalog:' } }),
+      'package.json': JSON.stringify({
+        name: 'app',
+        dependencies: { nuxt: 'catalog:' },
+      }),
       'pnpm-workspace.yaml': workspace,
     })
   })
@@ -239,7 +282,9 @@ describe('upgrade with a pnpm catalog', () => {
     await runUpgrade()
 
     expect(await readFile(join(cwd, 'pnpm-workspace.yaml'), 'utf8')).toBe(workspace)
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['nuxt@latest'] }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['nuxt@latest'],
+    }))
   })
 
   it('should stop when nuxt cannot be resolved for the catalog', async () => {

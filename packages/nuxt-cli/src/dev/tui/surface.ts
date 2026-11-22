@@ -279,7 +279,9 @@ export class PanelSurface {
    * ends a line, so the panel cannot end up sharing one with it.
    */
   writeAbove(text: string): void {
-    const line = text.endsWith('\n') ? text : `${text}\n`
+    const line = text.endsWith('\n')
+      ? text
+      : `${text}\n`
     if (this.#closed) {
       this.#raw(line)
       return
@@ -339,7 +341,9 @@ export class PanelSurface {
         if (text !== undefined) {
           this.#divert(text)
         }
-        const done = typeof encoding === 'function' ? encoding : callback
+        const done = typeof encoding === 'function'
+          ? encoding
+          : callback
         if (typeof done === 'function') {
           done()
         }
@@ -457,7 +461,9 @@ export class PanelSurface {
     const up = this.#painted - 1
     this.#painted = 0
     this.#atLineStart = true
-    return `\r${up > 0 ? `\u001B[${up}A` : ''}\u001B[J`
+    return `\r${up > 0
+      ? `\u001B[${up}A`
+      : ''}\u001B[J`
   }
 }
 
@@ -465,5 +471,7 @@ function asText(chunk: unknown): string | undefined {
   if (typeof chunk === 'string') {
     return chunk
   }
-  return chunk instanceof Uint8Array ? Buffer.from(chunk).toString() : undefined
+  return chunk instanceof Uint8Array
+    ? Buffer.from(chunk).toString()
+    : undefined
 }

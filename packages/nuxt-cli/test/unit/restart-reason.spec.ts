@@ -11,23 +11,41 @@ const options = { rootDir, link: false } as const
 
 describe('formatRestartCause', () => {
   it('should name a changed config file relative to the root directory', () => {
-    expect(formatRestartCause({ type: 'config', files: [join(rootDir, 'nuxt.config.ts')] }, options))
+    expect(formatRestartCause({
+      type: 'config',
+      files: [
+        join(rootDir, 'nuxt.config.ts'),
+      ],
+    }, options))
       .toBe('nuxt.config.ts changed')
   })
 
   it('should name nested config files relative to the root directory', () => {
-    expect(formatRestartCause({ type: 'config', files: [join(rootDir, '.config/nuxt.ts')] }, options))
+    expect(formatRestartCause({
+      type: 'config',
+      files: [
+        join(rootDir, '.config/nuxt.ts'),
+      ],
+    }, options))
       .toBe(`.config${sep}nuxt.ts changed`)
   })
 
   it('should list two files without truncating', () => {
-    const files = [join(rootDir, 'nuxt.config.ts'), join(rootDir, '.nuxtrc')]
+    const files = [
+      join(rootDir, 'nuxt.config.ts'),
+      join(rootDir, '.nuxtrc'),
+    ]
     expect(formatRestartCause({ type: 'config', files }, options))
       .toBe('nuxt.config.ts and .nuxtrc changed')
   })
 
   it('should truncate longer file lists with a count', () => {
-    const files = ['nuxt.config.ts', '.nuxtrc', '.nuxtignore', '.env'].map(file => join(rootDir, file))
+    const files = [
+      'nuxt.config.ts',
+      '.nuxtrc',
+      '.nuxtignore',
+      '.env',
+    ].map(file => join(rootDir, file))
     expect(formatRestartCause({ type: 'config', files }, options))
       .toBe('nuxt.config.ts, .nuxtrc and 2 other files changed')
   })
@@ -39,7 +57,13 @@ describe('formatRestartCause', () => {
   })
 
   it('should leave changed config keys to the follow-up line', () => {
-    expect(formatRestartCause({ type: 'config', files: [join(rootDir, 'nuxt.config.ts')], keys: ['ssr', 'modules'] }, options))
+    expect(formatRestartCause({
+      type: 'config',
+      files: [
+        join(rootDir, 'nuxt.config.ts'),
+      ],
+      keys: ['ssr', 'modules'],
+    }, options))
       .toBe('nuxt.config.ts changed')
   })
 
@@ -69,7 +93,12 @@ describe('formatRestartReason', () => {
 
 describe('formatSkippedReload', () => {
   it('should name the saved files without promising a reload', () => {
-    expect(formatSkippedReload({ type: 'config', files: [join(rootDir, 'nuxt.config.ts')] }, options))
+    expect(formatSkippedReload({
+      type: 'config',
+      files: [
+        join(rootDir, 'nuxt.config.ts'),
+      ],
+    }, options))
       .toBe('nuxt.config.ts saved without changing config.')
   })
 
@@ -92,7 +121,12 @@ describe('formatChangedKeys', () => {
   it('should truncate longer key lists', () => {
     expect(formatChangedKeys(['ssr', 'modules', 'runtimeConfig.public.foo']))
       .toBe('`ssr`, `modules` and 1 other key updated')
-    expect(formatChangedKeys(['ssr', 'modules', 'devtools', 'app.head.title']))
+    expect(formatChangedKeys([
+      'ssr',
+      'modules',
+      'devtools',
+      'app.head.title',
+    ]))
       .toBe('`ssr`, `modules` and 2 other keys updated')
   })
 
@@ -102,11 +136,18 @@ describe('formatChangedKeys', () => {
 })
 
 describe('withConfigKeys', () => {
-  const reason: DevRestartReason = { type: 'config', files: [join(rootDir, 'nuxt.config.ts')] }
+  const reason: DevRestartReason = {
+    type: 'config',
+    files: [
+      join(rootDir, 'nuxt.config.ts'),
+    ],
+  }
 
   it('should sort the changed keys', () => {
     expect(withConfigKeys(reason, ['ssr', 'modules', 'runtimeConfig.public.foo']))
-      .toMatchObject({ keys: ['modules', 'runtimeConfig.public.foo', 'ssr'] })
+      .toMatchObject({
+        keys: ['modules', 'runtimeConfig.public.foo', 'ssr'],
+      })
   })
 
   it('should leave the reason untouched when there are no keys', () => {
@@ -124,22 +165,45 @@ describe('withConfigKeys', () => {
 describe('mergeRestartReasons', () => {
   it('should combine config files and drop duplicates', () => {
     const merged = mergeRestartReasons(
-      { type: 'config', files: ['/project/nuxt.config.ts'] },
-      { type: 'config', files: ['/project/nuxt.config.ts', '/project/.nuxtrc'] },
+      {
+        type: 'config',
+        files: ['/project/nuxt.config.ts'],
+      },
+      {
+        type: 'config',
+        files: ['/project/nuxt.config.ts', '/project/.nuxtrc'],
+      },
     )
-    expect(merged).toEqual({ type: 'config', files: ['/project/nuxt.config.ts', '/project/.nuxtrc'], keys: undefined })
+    expect(merged).toEqual({
+      type: 'config',
+      files: ['/project/nuxt.config.ts', '/project/.nuxtrc'],
+      keys: undefined,
+    })
   })
 
   it('should combine known config keys', () => {
     const merged = mergeRestartReasons(
-      { type: 'config', files: ['/project/nuxt.config.ts'], keys: ['ssr'] },
-      { type: 'config', files: ['/project/nuxt.config.ts'], keys: ['modules'] },
+      {
+        type: 'config',
+        files: ['/project/nuxt.config.ts'],
+        keys: ['ssr'],
+      },
+      {
+        type: 'config',
+        files: ['/project/nuxt.config.ts'],
+        keys: ['modules'],
+      },
     )
-    expect(merged).toMatchObject({ keys: ['ssr', 'modules'] })
+    expect(merged).toMatchObject({
+      keys: ['ssr', 'modules'],
+    })
   })
 
   it('should prefer the newer reason when the types differ', () => {
-    expect(mergeRestartReasons({ type: 'config', files: ['/project/nuxt.config.ts'] }, { type: 'dist-removed' }))
+    expect(mergeRestartReasons({
+      type: 'config',
+      files: ['/project/nuxt.config.ts'],
+    }, { type: 'dist-removed' }))
       .toEqual({ type: 'dist-removed' })
     expect(mergeRestartReasons(undefined, { type: 'shortcut' })).toEqual({ type: 'shortcut' })
   })

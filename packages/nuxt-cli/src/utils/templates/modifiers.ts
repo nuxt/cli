@@ -7,4 +7,14 @@ export const modes = ['client', 'server'] as const
  * Order decides the order suffixes are concatenated in when more than one
  * shorthand is passed, so it is kept rather than sorted.
  */
-export const httpMethods = ['connect', 'delete', 'get', 'head', 'options', 'post', 'put', 'trace', 'patch'] as const
+export const httpMethods = [
+  'connect',
+  'delete',
+  'get',
+  'head',
+  'options',
+  'post',
+  'put',
+  'trace',
+  'patch',
+] as const

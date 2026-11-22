@@ -48,16 +48,31 @@ function run(options: Partial<ProgressClientOptions> = {}, fetchImpl?: typeof fe
   const listeners = new Map<string, (event: { data: string }) => void>()
   const elements: FakeElement[] = []
   const classes = new Set<string>()
-  const classList = { add: (name: string) => void classes.add(name), remove: (name: string) => void classes.delete(name) }
+  const classList = {
+    add: (name: string) => void classes.add(name),
+    remove: (name: string) => void classes.delete(name),
+  }
   const properties = new Map<string, string>()
   const reload = vi.fn()
   const close = vi.fn()
 
   vi.stubGlobal('document', {
     title: '',
-    documentElement: { style: { setProperty: (name: string, value: string) => void properties.set(name, value) } },
-    body: { append: (element: FakeElement) => void elements.push(element), classList },
-    createElement: (): FakeElement => ({ id: '', title: '', textContent: '', removeAttribute: () => {} }),
+    documentElement: {
+      style: {
+        setProperty: (name: string, value: string) => void properties.set(name, value),
+      },
+    },
+    body: {
+      append: (element: FakeElement) => void elements.push(element),
+      classList,
+    },
+    createElement: (): FakeElement => ({
+      id: '',
+      title: '',
+      textContent: '',
+      removeAttribute: () => {},
+    }),
   })
   const sources: { readyState: number }[] = []
   vi.stubGlobal('EventSource', class {
@@ -75,10 +90,15 @@ function run(options: Partial<ProgressClientOptions> = {}, fetchImpl?: typeof fe
     }
   })
   vi.stubGlobal('location', { href: 'http://localhost:3000/', reload })
-  const request = vi.fn(fetchImpl ?? (() => Promise.resolve({ text: () => Promise.resolve('') } as Response)))
+  const request = vi.fn(fetchImpl ?? (() => Promise.resolve({
+    text: () => Promise.resolve(''),
+  } as Response)))
   vi.stubGlobal('fetch', request)
 
-  const script = inlineScript(progressClient, { ...OPTIONS, ...options })
+  const script = inlineScript(progressClient, {
+    ...OPTIONS,
+    ...options,
+  })
   // eslint-disable-next-line no-new-func
   new Function(script.replace(/^<script>|<\/script>$/g, ''))()
 
@@ -89,7 +109,9 @@ function run(options: Partial<ProgressClientOptions> = {}, fetchImpl?: typeof fe
     reload,
     close,
     request,
-    emit: (type: string, data: unknown) => listeners.get(type)?.({ data: JSON.stringify(data) }),
+    emit: (type: string, data: unknown) => listeners.get(type)?.({
+      data: JSON.stringify(data),
+    }),
     listens: (type: string) => listeners.has(type),
   }
 }
@@ -120,7 +142,12 @@ describe('the injected progress client', () => {
 
   it('should surface the module being set up, in the caption and the tab title', () => {
     const client = run()
-    client.emit('nuxt:loading', snapshot({ index: 1, phase: 'modules', message: 'Setting up @nuxtjs/i18n', progress: 1 / 6 }))
+    client.emit('nuxt:loading', snapshot({
+      index: 1,
+      phase: 'modules',
+      message: 'Setting up @nuxtjs/i18n',
+      progress: 1 / 6,
+    }))
 
     expect(client.elements[0]!.textContent).toMatch(/^setting up @nuxtjs\/i18n · step 2\/7 · \d+\.\ds$/)
     expect(document.title).toBe('Setting up @nuxtjs/i18n')
@@ -151,7 +178,9 @@ describe('the injected progress client', () => {
     expect(client.elements[0]!.textContent).toMatch(/^compiling the first request · /)
 
     await vi.waitFor(() => expect(client.reload).toHaveBeenCalled())
-    expect(client.request).toHaveBeenCalledWith('http://localhost:3000/', expect.objectContaining({ headers: { accept: 'text/html' } }))
+    expect(client.request).toHaveBeenCalledWith('http://localhost:3000/', expect.objectContaining({
+      headers: { accept: 'text/html' },
+    }))
   })
 
   it('should say it is starting the app in the tab title as well as the caption', () => {
@@ -185,7 +214,9 @@ describe('the injected progress client', () => {
       peak = Math.max(peak, ++pending)
       return new Promise(resolve => setTimeout(() => {
         pending--
-        resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response)
+        resolve({
+          text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>'),
+        } as Response)
       }, 5000))
     })
 
@@ -204,7 +235,9 @@ describe('the injected progress client', () => {
     const started = Date.now()
     const client = run({}, () => {
       at.push(Date.now() - started)
-      return Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response)
+      return Promise.resolve({
+        text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>'),
+      } as Response)
     })
 
     client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))
@@ -216,7 +249,9 @@ describe('the injected progress client', () => {
 
   it('should keep the event stream open while it polls for the app', async () => {
     vi.useFakeTimers()
-    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+    const client = run({}, () => Promise.resolve({
+      text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>'),
+    } as Response))
 
     client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
     await vi.advanceTimersByTimeAsync(5000)
@@ -236,7 +271,9 @@ describe('the injected progress client', () => {
 
   it('should reload at once when a rebuild finishes mid-warmup', async () => {
     vi.useFakeTimers()
-    const client = run({}, () => Promise.resolve({ text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>') } as Response))
+    const client = run({}, () => Promise.resolve({
+      text: () => Promise.resolve('<div id="nuxt-dev-phase"></div>'),
+    } as Response))
 
     client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 0.95 }))
     await vi.advanceTimersByTimeAsync(50)
@@ -252,7 +289,9 @@ describe('the injected progress client', () => {
     const signals: (AbortSignal | undefined)[] = []
     const client = run({}, (_input, init) => {
       signals.push(init?.signal ?? undefined)
-      return Promise.resolve({ text: () => Promise.resolve('<html>the app</html>') } as Response)
+      return Promise.resolve({
+        text: () => Promise.resolve('<html>the app</html>'),
+      } as Response)
     })
 
     client.emit('nuxt:ready', snapshot({ status: 'ready', progress: 1 }))

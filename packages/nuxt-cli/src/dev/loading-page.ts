@@ -38,7 +38,9 @@ function progressTags(snapshot: ProgressSnapshot): string {
 export function withProgress(html: string, snapshot: ProgressSnapshot): string {
   const tags = progressTags(snapshot)
   const index = html.lastIndexOf('</body>')
-  return index === -1 ? html + tags : html.slice(0, index) + tags + html.slice(index)
+  return index === -1
+    ? html + tags
+    : html.slice(0, index) + tags + html.slice(index)
 }
 
 /**

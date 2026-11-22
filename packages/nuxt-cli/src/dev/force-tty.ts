@@ -19,12 +19,20 @@ if (process.env.__NUXT_DEV_PIPED_TTY__) {
       configurable: true,
     })
     const depth = Number(process.env.__NUXT_DEV_COLOR_DEPTH__) || forcedColorDepth()
-    Object.defineProperty(stream, 'getColorDepth', { value: () => depth, configurable: true })
+    Object.defineProperty(stream, 'getColorDepth', {
+      value: () => depth,
+      configurable: true,
+    })
     Object.defineProperty(stream, 'hasColors', {
       value: (count?: number) => depth >= 4 && (typeof count !== 'number' || count <= 2 ** depth),
       configurable: true,
     })
-    for (const method of ['cursorTo', 'moveCursor', 'clearLine', 'clearScreenDown'] as const) {
+    for (const method of [
+      'cursorTo',
+      'moveCursor',
+      'clearLine',
+      'clearScreenDown',
+    ] as const) {
       if (typeof (stream as any)[method] !== 'function') {
         Object.defineProperty(stream, method, {
           value: (...args: unknown[]) => {

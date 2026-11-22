@@ -44,12 +44,18 @@ function events(chunks: string[]) {
     .filter(block => block.startsWith('event:'))
     .map((block) => {
       const [event, data] = block.split('\n')
-      return { event: event!.slice('event: '.length), data: JSON.parse(data!.slice('data: '.length)) }
+      return {
+        event: event!.slice('event: '.length),
+        data: JSON.parse(data!.slice('data: '.length)),
+      }
     })
 }
 
 function request(url: string, accept = 'text/html') {
-  return { url, headers: { accept } } as unknown as IncomingMessage
+  return {
+    url,
+    headers: { accept },
+  } as unknown as IncomingMessage
 }
 
 describe('devProgress', () => {
@@ -76,7 +82,9 @@ describe('devProgress', () => {
     const progress = new DevProgress()
     let callHook: (name: string) => void = () => {}
     progress.start()
-    progress.attachNuxt({ beforeEach: fn => (callHook = name => fn({ name })) })
+    progress.attachNuxt({
+      beforeEach: fn => (callHook = name => fn({ name })),
+    })
 
     callHook('modules:before')
     expect(progress.snapshot.phase).toBe('modules')
@@ -102,9 +110,23 @@ describe('devProgress', () => {
       const enter = (name: string) => before({ name, args: [] })
       const leave = (name: string) => after({ name })
       callHook('modules:before')
-      const install = (name: string) => callHook('module:before', { name, meta: { name } })
-      const finish = (name: string) => callHook('module:done', { name, meta: { name }, duration: 1 })
-      return { progress, callHook, enter, leave, install, finish }
+      const install = (name: string) => callHook('module:before', {
+        name,
+        meta: { name },
+      })
+      const finish = (name: string) => callHook('module:done', {
+        name,
+        meta: { name },
+        duration: 1,
+      })
+      return {
+        progress,
+        callHook,
+        enter,
+        leave,
+        install,
+        finish,
+      }
     }
 
     it('should name a module that stays busy, without advancing the phase', () => {
@@ -284,7 +306,12 @@ describe('devProgress', () => {
       const progress = new DevProgress()
       let installed = 0
       progress.start()
-      progress.attachNuxt({ beforeEach: fn => fn({ name: 'modules:before' }), afterEach: () => {} }, { installedModules: () => installed })
+      progress.attachNuxt({
+        beforeEach: fn => fn({ name: 'modules:before' }),
+        afterEach: () => {},
+      }, {
+        installedModules: () => installed,
+      })
 
       vi.advanceTimersByTime(4000)
       expect(progress.snapshot.message).toBe('Setting up modules')
@@ -427,7 +454,9 @@ describe('devProgress', () => {
       const progress = new DevProgress()
       let before: (event: { name: string, args?: unknown[] }) => void = () => {}
       progress.start()
-      progress.attachNuxt({ beforeEach: fn => (before = fn) })
+      progress.attachNuxt({
+        beforeEach: fn => (before = fn),
+      })
 
       before({ name: 'modules:before' })
       before({ name: 'markdown:blog-entries' })
@@ -634,7 +663,11 @@ describe('devProgress', () => {
 
 describe('dev server internal endpoints', () => {
   function createServer() {
-    return new NuxtDevServer({ cwd: process.cwd(), dotenv: {}, overrides: {} })
+    return new NuxtDevServer({
+      cwd: process.cwd(),
+      dotenv: {},
+      overrides: {},
+    })
   }
 
   it('should answer the progress stream before nuxt is ready', async () => {

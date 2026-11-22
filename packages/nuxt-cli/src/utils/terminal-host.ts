@@ -92,5 +92,7 @@ export function registerTerminalHost(host: TerminalHost): () => void {
 /** The terminal host published in this process, if a compatible one is. */
 export function useTerminalHost(): TerminalHost | undefined {
   const host = (globalThis as HostCarrier)[HOST_KEY]
-  return host?.version === 1 ? host : undefined
+  return host?.version === 1
+    ? host
+    : undefined
 }

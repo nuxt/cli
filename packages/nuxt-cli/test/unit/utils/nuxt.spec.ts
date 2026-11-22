@@ -30,7 +30,13 @@ describe('cleanupNuxtDirs', () => {
 
     await cleanupNuxtDirs(root, '.nuxt', { silent: true })
 
-    for (const dir of ['.nuxt', '.output', 'dist', 'node_modules/.vite', 'node_modules/.cache']) {
+    for (const dir of [
+      '.nuxt',
+      '.output',
+      'dist',
+      'node_modules/.vite',
+      'node_modules/.cache',
+    ]) {
       expect(existsSync(join(root, dir)), dir).toBe(false)
     }
     expect(existsSync(join(root, 'app'))).toBe(true)

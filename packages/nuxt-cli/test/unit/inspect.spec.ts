@@ -90,7 +90,13 @@ describe('dev inspector plugin', () => {
       `const { parentPort } = require('node:worker_threads')
       import(${JSON.stringify(plugin)}).then(({ default: plugin }) => plugin())
       parentPort.on('message', () => parentPort.postMessage(require('node:inspector').url() ?? null))`,
-      { eval: true, env: { ...process.env, [INSPECT_ENV]: JSON.stringify({ host: '127.0.0.1', port }) } },
+      {
+        eval: true,
+        env: {
+          ...process.env,
+          [INSPECT_ENV]: JSON.stringify({ host: '127.0.0.1', port }),
+        },
+      },
     )
     const deadline = Date.now() + 2000
     return new Promise<string | null>((resolve) => {

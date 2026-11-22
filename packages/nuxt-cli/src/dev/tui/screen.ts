@@ -58,7 +58,11 @@ const LEAVE_ALT = `${DISABLE_MOUSE}\u001B[?25h\u001B[?1049l`
 
 const HINT_SEPARATOR = ' · '
 
-const SEARCH_HINTS: OverlayHint[] = [['enter', 'apply'], ['esc', 'cancel'], ['⌫', 'delete']]
+const SEARCH_HINTS: OverlayHint[] = [
+  ['enter', 'apply'],
+  ['esc', 'cancel'],
+  ['⌫', 'delete'],
+]
 
 /** Hint labels that are words rather than the key itself. */
 const HINT_KEYS: Record<string, Key> = {
@@ -261,11 +265,15 @@ export abstract class ScreenOverlay {
         void this.#copySelected()
         return
       case 'y':
-        void (key.sequence === 'Y' ? this.#copyAll() : this.#copySelected())
+        void (key.sequence === 'Y'
+          ? this.#copyAll()
+          : this.#copySelected())
         return
       case 'tab': {
         const index = this.#tabs.findIndex(({ view }) => view === this)
-        this.#tabs.at((index + (key.shift ? -1 : 1)) % this.#tabs.length)?.view.open()
+        this.#tabs.at((index + (key.shift
+          ? -1
+          : 1)) % this.#tabs.length)?.view.open()
         return
       }
       default: {
@@ -294,7 +302,9 @@ export abstract class ScreenOverlay {
       if (this.#searching) {
         return
       }
-      const direction = button === WHEEL_UP ? -1 : 1
+      const direction = button === WHEEL_UP
+        ? -1
+        : 1
       if (this.scrollsByRow) {
         this.#scroll(direction)
       }
@@ -334,16 +344,22 @@ export abstract class ScreenOverlay {
     if (this.#tabs.length && row === 0) {
       return this.#shownTabs.find(({ start, end }) => column >= start && column < end)?.view.open()
     }
-    const shown = row >= headerRows && !this.scrollsByRow ? this.#shownEntries[row - headerRows] : undefined
+    const shown = row >= headerRows && !this.scrollsByRow
+      ? this.#shownEntries[row - headerRows]
+      : undefined
     if (!shown) {
       return
     }
     // Resolved by identity: the list may have changed since it was painted.
-    const index = shown.key === undefined ? shown.index : this.#entries().findIndex(entry => entry.key === shown.key)
+    const index = shown.key === undefined
+      ? shown.index
+      : this.#entries().findIndex(entry => entry.key === shown.key)
     if (index < 0) {
       return
     }
-    const again = shown.key === undefined ? index === this.#selected : shown.key === this.#selectedKey
+    const again = shown.key === undefined
+      ? index === this.#selected
+      : shown.key === this.#selectedKey
     this.select(index)
     if (again) {
       this.handleKey({ name: 'return' })
@@ -361,7 +377,9 @@ export abstract class ScreenOverlay {
     }
     this.#confirming = undefined
     this.#notice = undefined
-    return confirming.until > Date.now() ? confirming.key : undefined
+    return confirming.until > Date.now()
+      ? confirming.key
+      : undefined
   }
 
   #opens(key: Key): boolean {
@@ -414,7 +432,11 @@ export abstract class ScreenOverlay {
   }
 
   protected renderPosition(): string {
-    return this.#following ? '' : ` · ${paint('warning', `follow paused${this.#offset > 0 ? ` · ↓${this.#offset} rows below` : ''}`)}`
+    return this.#following
+      ? ''
+      : ` · ${paint('warning', `follow paused${this.#offset > 0
+        ? ` · ↓${this.#offset} rows below`
+        : ''}`)}`
   }
 
   /** The active search text, lowercased. Empty when nothing is being searched. */
@@ -427,7 +449,9 @@ export abstract class ScreenOverlay {
     if (!this.#searching && !this.#query) {
       return ''
     }
-    const caret = this.#searching ? styleText('inverse', ' ') : ''
+    const caret = this.#searching
+      ? styleText('inverse', ' ')
+      : ''
     return ` · ${styleText(MUTED, 'search')} ${styleText('bold', this.#query)}${caret}`
   }
 
@@ -486,12 +510,18 @@ export abstract class ScreenOverlay {
     let entries = this.#entries()
     if (!this.#revealSelection && this.#selectedKey !== undefined) {
       const index = entries.findIndex(entry => entry.key === this.#selectedKey)
-      this.#selected = index < 0 ? undefined : index
+      this.#selected = index < 0
+        ? undefined
+        : index
     }
     if (this.#selected !== undefined) {
-      this.#selected = entries.length ? Math.min(this.#selected, entries.length - 1) : undefined
+      this.#selected = entries.length
+        ? Math.min(this.#selected, entries.length - 1)
+        : undefined
     }
-    this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
+    this.#selectedKey = this.#selected === undefined
+      ? undefined
+      : entries[this.#selected]?.key
     entries = this.#expandSelected(entries)
 
     const rows: string[] = []
@@ -503,7 +533,9 @@ export abstract class ScreenOverlay {
         selectedRows = { start: rows.length, end: rows.length + entry.lines.length }
       }
       for (const line of entry.lines) {
-        rows.push(`${selected ? styleText('green', SELECTED_GUTTER) : GUTTER}${line}`)
+        rows.push(`${selected
+          ? styleText('green', SELECTED_GUTTER)
+          : GUTTER}${line}`)
         rowEntries.push(index)
       }
     }
@@ -512,7 +544,9 @@ export abstract class ScreenOverlay {
     let top = this.#following ? maxTop : this.#top
     if (!this.#following && this.#anchor) {
       const anchor = this.#anchor
-      const index = anchor.key === undefined ? anchor.index : entries.findIndex(entry => entry.key === anchor.key)
+      const index = anchor.key === undefined
+        ? anchor.index
+        : entries.findIndex(entry => entry.key === anchor.key)
       top = index < 0
         ? 0
         : entries.slice(0, index).reduce((total, entry) => total + entry.lines.length, 0)
@@ -534,7 +568,11 @@ export abstract class ScreenOverlay {
     this.#shownEntries = rowEntries.slice(this.#top, this.#top + bodyRows).map(index => ({ key: entries[index]!.key, index }))
 
     const frame = [
-      ...this.#tabs.length ? [this.#tabLine(columns)] : [],
+      ...this.#tabs.length
+        ? [
+            this.#tabLine(columns),
+          ]
+        : [],
       this.renderTitle(columns),
       styleText(MUTED, '─'.repeat(Math.max(0, columns))),
       ...visible,
@@ -545,7 +583,11 @@ export abstract class ScreenOverlay {
   }
 
   #tabLine(columns: number): string {
-    const tabs = this.#tabs.map(({ label, view }): OverlayHint => [view.closeKeys[0]!, label, { active: view === this }])
+    const tabs = this.#tabs.map(({ label, view }): OverlayHint => [
+      view.closeKeys[0]!,
+      label,
+      { active: view === this },
+    ])
     const { text, spans } = layoutHints(tabs, columns - 1)
     this.#shownTabs = spans.map(({ hint, start, end }) => ({ view: this.#tabs[tabs.indexOf(hint)]!.view, start: start + 1, end: end + 1 }))
     return ` ${text}`
@@ -556,7 +598,9 @@ export abstract class ScreenOverlay {
       this.#shownHints = []
       return styleText('green', this.#notice.text)
     }
-    const { text, spans } = layoutHints(this.#searching ? SEARCH_HINTS : this.hints(), columns)
+    const { text, spans } = layoutHints(this.#searching
+      ? SEARCH_HINTS
+      : this.hints(), columns)
     this.#shownHints = spans
     return text
   }
@@ -567,11 +611,16 @@ export abstract class ScreenOverlay {
 
   /** The entries with the selected one in its expanded form. */
   #expandSelected(entries: OverlayEntry[]): OverlayEntry[] {
-    const selected = this.#selected === undefined ? undefined : entries[this.#selected]
+    const selected = this.#selected === undefined
+      ? undefined
+      : entries[this.#selected]
     if (!selected?.expand) {
       return entries
     }
-    return entries.with(this.#selected!, { ...selected, lines: selected.expand() })
+    return entries.with(this.#selected!, {
+      ...selected,
+      lines: selected.expand(),
+    })
   }
 
   #move(delta: number): void {
@@ -581,7 +630,9 @@ export abstract class ScreenOverlay {
     }
     if (this.#selected === undefined) {
       const first = this.#rowAnchor(entries, this.#top)
-      this.select(delta > 0 ? Math.min((first?.index ?? 0) + (first?.line ? 1 : 0), entries.length - 1) : entries.length - 1)
+      this.select(delta > 0
+        ? Math.min((first?.index ?? 0) + (first?.line ? 1 : 0), entries.length - 1)
+        : entries.length - 1)
       return
     }
     this.select(Math.min(Math.max(this.#selected + delta, 0), entries.length - 1))
@@ -607,8 +658,12 @@ export abstract class ScreenOverlay {
         return
       }
     }
-    this.#selected = this.#rowAnchor(entries, delta < 0 ? this.#top : Math.min(rows - 1, this.#top + this.bodyRows() - 1))?.index
-    this.#selectedKey = this.#selected === undefined ? undefined : entries[this.#selected]?.key
+    this.#selected = this.#rowAnchor(entries, delta < 0
+      ? this.#top
+      : Math.min(rows - 1, this.#top + this.bodyRows() - 1))?.index
+    this.#selectedKey = this.#selected === undefined
+      ? undefined
+      : entries[this.#selected]?.key
     this.#revealSelection = false
   }
 
@@ -616,7 +671,11 @@ export abstract class ScreenOverlay {
     let start = 0
     for (const [index, entry] of entries.entries()) {
       if (row < start + entry.lines.length) {
-        return { key: entry.key, index, line: Math.max(0, row - start) }
+        return {
+          key: entry.key,
+          index,
+          line: Math.max(0, row - start),
+        }
       }
       start += entry.lines.length
     }
@@ -624,7 +683,9 @@ export abstract class ScreenOverlay {
 
   async #copySelected(): Promise<void> {
     const entries = this.#entries()
-    const text = this.#selected === undefined ? undefined : entries[this.#selected]?.copy
+    const text = this.#selected === undefined
+      ? undefined
+      : entries[this.#selected]?.copy
     if (!text) {
       this.notify('nothing selected to copy')
       return
@@ -654,14 +715,24 @@ export abstract class ScreenOverlay {
     while (start > 0 && length + texts[start - 1]!.length + 1 <= COPY_ALL_MAX_CHARS) {
       length += texts[--start]!.length + 1
     }
-    const kept = start === texts.length ? [texts.at(-1)!.slice(0, COPY_ALL_MAX_CHARS)] : texts.slice(start)
-    const count = kept.length === texts.length ? `${kept.length}` : `the last ${kept.length} of ${texts.length}`
-    await this.copy(kept.join('\n'), `copied ${count} ${texts.length === 1 ? 'entry' : 'entries'}`)
+    const kept = start === texts.length
+      ? [
+          texts.at(-1)!.slice(0, COPY_ALL_MAX_CHARS),
+        ]
+      : texts.slice(start)
+    const count = kept.length === texts.length
+      ? `${kept.length}`
+      : `the last ${kept.length} of ${texts.length}`
+    await this.copy(kept.join('\n'), `copied ${count} ${texts.length === 1
+      ? 'entry'
+      : 'entries'}`)
   }
 
   /** Put `text` on the clipboard and report `done` in the hint line. */
   protected async copy(text: string, done: string): Promise<void> {
-    this.notify(await writeClipboard(stripAnsi(text), { write: this.#write }) ? `${done} to clipboard` : 'no clipboard available')
+    this.notify(await writeClipboard(stripAnsi(text), { write: this.#write })
+      ? `${done} to clipboard`
+      : 'no clipboard available')
   }
 
   /** Replace the hint line with `text` for a moment. */
@@ -687,7 +758,12 @@ export abstract class ScreenOverlay {
 
 /** The key a click on a hint presses. Hints for several keys, like `↑/↓`, have none. */
 function hintKey(label: string): Key | undefined {
-  return HINT_KEYS[label] ?? (label.length === 1 ? { name: label.toLowerCase(), sequence: label } : undefined)
+  return HINT_KEYS[label] ?? (label.length === 1
+    ? {
+        name: label.toLowerCase(),
+        sequence: label,
+      }
+    : undefined)
 }
 
 /**

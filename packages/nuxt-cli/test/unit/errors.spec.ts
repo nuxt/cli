@@ -83,7 +83,10 @@ describe('asActionableError', () => {
     markReported(diagnostic)
     const partial = Object.assign(new Error('Build failed with 2 errors'), {
       code: 'PLUGIN_ERROR',
-      errors: [diagnostic, new Error('unreported')],
+      errors: [
+        diagnostic,
+        new Error('unreported'),
+      ],
     })
     const empty = Object.assign(new Error('Build failed'), { errors: [] })
 

@@ -18,7 +18,10 @@ export async function bootDevUI(): Promise<void> {
   if (!process.stdout.isTTY || !process.stdin.isTTY) {
     return
   }
-  const options = { cwd: resolveCwd(argv), startTime: globalThis.__nuxt_cli__?.startTime }
+  const options = {
+    cwd: resolveCwd(argv),
+    startTime: globalThis.__nuxt_cli__?.startTime,
+  }
   const { paintFirstFrame } = await import('./dev/tui/first-frame')
   const start = paintFirstFrame(options)
   if (!start) {
@@ -51,5 +54,7 @@ function resolveCwd(argv: string[]): string | undefined {
       return argv[index + 1]
     }
   }
-  return argv[1] && !argv[1].startsWith('-') ? argv[1] : undefined
+  return argv[1] && !argv[1].startsWith('-')
+    ? argv[1]
+    : undefined
 }

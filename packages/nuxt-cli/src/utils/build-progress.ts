@@ -39,7 +39,9 @@ interface Task {
 }
 
 function listLabels(labels: string[]): string {
-  return labels.length > 1 ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}` : labels[0]!
+  return labels.length > 1
+    ? `${labels.slice(0, -1).join(', ')} and ${labels.at(-1)}`
+    : labels[0]!
 }
 
 /**
@@ -61,8 +63,17 @@ export class BuildProgress extends PhaseTimeline {
   }
 
   override get snapshot(): ProgressSnapshot {
-    const snapshot = { ...super.snapshot, phase: this.#key, message: this.#message }
-    return this.#prerendering ? { ...snapshot, meter: { ...this.#prerender } } : snapshot
+    const snapshot = {
+      ...super.snapshot,
+      phase: this.#key,
+      message: this.#message,
+    }
+    return this.#prerendering
+      ? {
+          ...snapshot,
+          meter: { ...this.#prerender },
+        }
+      : snapshot
   }
 
   override onUpdate(listener: (snapshot: ProgressSnapshot) => void): () => void {
@@ -100,7 +111,11 @@ export class BuildProgress extends PhaseTimeline {
       return
     }
     const done = this.#prerender.done + 1
-    this.#prerender = { done, total: Math.max(total, this.#prerender.total, done), detail: route }
+    this.#prerender = {
+      done,
+      total: Math.max(total, this.#prerender.total, done),
+      detail: route,
+    }
     if (this.#prerendering) {
       this.emit()
     }
@@ -170,8 +185,13 @@ export class BuildProgress extends PhaseTimeline {
     if (this.enter(BUILD_PHASE)) {
       this.#key = BUILD_PHASE
     }
-    this.#tasks.set(id, { start: Date.now() })
-    this.#active = [...this.#active.filter(active => active !== id), id]
+    this.#tasks.set(id, {
+      start: Date.now(),
+    })
+    this.#active = [
+      ...this.#active.filter(active => active !== id),
+      id,
+    ]
     this.#update()
   }
 

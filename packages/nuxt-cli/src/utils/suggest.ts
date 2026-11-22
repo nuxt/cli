@@ -19,14 +19,18 @@ interface SuggestionPolicy {
 const commandPolicy: SuggestionPolicy = {
   threshold: 0.6,
   margin: 0.1,
-  tolerance: input => input.length <= 4 ? 1 : 2,
+  tolerance: input => input.length <= 4
+    ? 1
+    : 2,
   prefix: true,
   requireUnique: true,
 }
 
 const flagPolicy: SuggestionPolicy = {
   threshold: 0.3,
-  tolerance: input => input.length <= 4 ? 1 : 2,
+  tolerance: input => input.length <= 4
+    ? 1
+    : 2,
 }
 
 export function suggestCommand(input: string, commands: string[]): Promise<string | undefined> {
@@ -103,7 +107,9 @@ function editDistance(a: string, b: string): number {
   }
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      const cost = a[i - 1] === b[j - 1]
+        ? 0
+        : 1
       rows[i]![j] = Math.min(
         rows[i - 1]![j]! + 1,
         rows[i]![j - 1]! + 1,

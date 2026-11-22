@@ -56,7 +56,10 @@ function trackFile(path: string, stats: Stats): TrackedFile {
   if (stats.isDirectory()) {
     return { mtimeMs: stats.mtimeMs }
   }
-  return { mtimeMs: stats.mtimeMs, contentHash: hashFileContents(path, stats.size) }
+  return {
+    mtimeMs: stats.mtimeMs,
+    contentHash: hashFileContents(path, stats.size),
+  }
 }
 
 export class FileChangeTracker {
@@ -122,7 +125,9 @@ export function getLocalLayerDirs(layers: ReadonlyArray<{ cwd?: string, config?:
 }
 
 export function createConfigWatcher(cwd: string, dotenvFileName: string | string[] = '.env', onRestart: (file: string) => void, onReload: (file: string) => void, layerDirs: string[] = []) {
-  const dotenvFileNames = new Set(Array.isArray(dotenvFileName) ? dotenvFileName : [dotenvFileName])
+  const dotenvFileNames = new Set(Array.isArray(dotenvFileName)
+    ? dotenvFileName
+    : [dotenvFileName])
 
   // Only the root restarts on dotenv changes.
   const closers = [
@@ -166,7 +171,9 @@ function watchConfigDir(dir: string, onReload: (path: string) => void, onFile?: 
   const fileWatcher = new FileChangeTracker()
   fileWatcher.prime(dir)
   const watcher = watch(dir)
-  let configDirWatcher = existsSync(join(dir, '.config')) ? createConfigDirWatcher(dir, onReload) : undefined
+  let configDirWatcher = existsSync(join(dir, '.config'))
+    ? createConfigDirWatcher(dir, onReload)
+    : undefined
 
   const { listener, cancel } = perFile((file) => {
     if (!fileWatcher.shouldEmitChange(resolve(dir, file))) {

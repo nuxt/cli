@@ -18,7 +18,10 @@ import { cwdArgs, logLevelArgs } from './_shared'
 const modifierArgs = Object.fromEntries([
   ...modes.map(mode => [mode, `Shorthand for \`--mode ${mode}\``] as const),
   ...httpMethods.map(method => [method, `Shorthand for \`--method ${method}\``] as const),
-].map(([name, description]) => [name, { type: 'boolean', description }] as const))
+].map(([name, description]) => [
+  name,
+  { type: 'boolean', description },
+] as const))
 
 export default defineCommand({
   meta: {
@@ -122,7 +125,9 @@ export default defineCommand({
     }
 
     try {
-      await fsp.writeFile(res.path, `${res.contents.trim()}\n`, { flag: ctx.args.force ? 'w' : 'wx' })
+      await fsp.writeFile(res.path, `${res.contents.trim()}\n`, {
+        flag: ctx.args.force ? 'w' : 'wx',
+      })
     }
     catch (error) {
       if (!ctx.args.force && (error as NodeJS.ErrnoException).code === 'EEXIST') {

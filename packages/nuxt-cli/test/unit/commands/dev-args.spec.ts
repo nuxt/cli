@@ -52,8 +52,16 @@ describe('resolveListenOverrides', () => {
   })
 
   it('should collect https domains from repeated flags and comma-separated lists', () => {
-    expect(overrides({ 'https.domains': ['a.test, b.test ,'] }).https).toMatchObject({ domains: ['a.test', 'b.test'] })
-    expect(overrides({ 'https.domains': ['a.test', 'b.test'] }).https).toMatchObject({ domains: ['a.test', 'b.test'] })
+    expect(overrides({
+      'https.domains': ['a.test, b.test ,'],
+    }).https).toMatchObject({
+      domains: ['a.test', 'b.test'],
+    })
+    expect(overrides({
+      'https.domains': ['a.test', 'b.test'],
+    }).https).toMatchObject({
+      domains: ['a.test', 'b.test'],
+    })
   })
 
   it('should leave https domains unset when the flag is absent', () => {

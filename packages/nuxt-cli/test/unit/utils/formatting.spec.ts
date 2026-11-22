@@ -46,7 +46,11 @@ describe('truncate', () => {
 
 describe('formatBytes', () => {
   it('uses decimal units', () => {
-    expect([formatBytes(999), formatBytes(1000), formatBytes(2_454_000)]).toEqual(['999 B', '1.00 kB', '2.45 MB'])
+    expect([
+      formatBytes(999),
+      formatBytes(1000),
+      formatBytes(2_454_000),
+    ]).toEqual(['999 B', '1.00 kB', '2.45 MB'])
   })
 })
 

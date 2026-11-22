@@ -24,7 +24,10 @@ describe('resolving a certificate the user supplied', () => {
     await writeFile(join(dir, 'cert.pem'), 'certificate')
     await writeFile(join(dir, 'key.pem'), 'private key')
 
-    await expect(resolveCertificate({ cert: join(dir, 'cert.pem'), key: join(dir, 'key.pem') }))
+    await expect(resolveCertificate({
+      cert: join(dir, 'cert.pem'),
+      key: join(dir, 'key.pem'),
+    }))
       .resolves
       .toMatchObject({ cert: 'certificate', key: 'private key' })
   })
@@ -33,7 +36,10 @@ describe('resolving a certificate the user supplied', () => {
     const dir = await scratch()
     await writeFile(join(dir, 'key.pem'), 'private key')
 
-    await expect(resolveCertificate({ cert: join(dir, 'absent.pem'), key: join(dir, 'key.pem') }))
+    await expect(resolveCertificate({
+      cert: join(dir, 'absent.pem'),
+      key: join(dir, 'key.pem'),
+    }))
       .rejects
       .toThrow(/There is no file at .*absent\.pem, given as --https\.cert/)
   })
@@ -41,7 +47,9 @@ describe('resolving a certificate the user supplied', () => {
   it('should say the same for a keystore', async () => {
     const dir = await scratch()
 
-    await expect(resolveCertificate({ pfx: join(dir, 'absent.p12') }))
+    await expect(resolveCertificate({
+      pfx: join(dir, 'absent.p12'),
+    }))
       .rejects
       .toThrow(/absent\.p12, given as --https\.pfx/)
   })

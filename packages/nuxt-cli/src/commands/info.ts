@@ -65,7 +65,9 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
     const packageManagerPromise = detectPackageManager(cwd).then(async detected =>
-      detected ? `${detected.name}@${await getPackageManagerVersion(detected.name)}` : 'unknown')
+      detected
+        ? `${detected.name}@${await getPackageManagerVersion(detected.name)}`
+        : 'unknown')
     const [nuxtConfig, projectPkg] = await Promise.all([
       getNuxtConfig(cwd),
       readPackageJSON(cwd).catch(() => ({} as PackageJson)),
@@ -87,10 +89,14 @@ export default defineCommand({
       if (!name) {
         return null
       }
-      const specifier = Array.isArray(module) ? module[0] : module
+      const specifier = Array.isArray(module)
+        ? module[0]
+        : module
       const packageName = typeof specifier === 'string' && getPackageName(specifier)
       const version = packageName && await getDepVersion(packageName)
-      return version ? `${name}@${version}` : name
+      return version
+        ? `${name}@${version}`
+        : name
     }))
     const [modules, nuxtVersion = '-', nitroVersion, packageManager] = await Promise.all([
       modulesPromise,
@@ -104,16 +110,29 @@ export default defineCommand({
     // Read from the config, without loading Nuxt, the same way as for a loaded app.
     const usesNitro = getServerBuilderName({ options: nuxtConfig } as unknown as Nuxt) === 'Nitro'
     const serverBuilder = usesNitro
-      ? nitroVersion ? `nitro@${nitroVersion}` : 'nitro'
+      ? nitroVersion
+        ? `nitro@${nitroVersion}`
+        : 'nitro'
       : await describeServerBuilder(nuxtConfig, getDepVersion)
     const osType = os.type()
     const cpus = os.cpus()
-    const builderInfo = typeof builder === 'string' && ['vite', '@nuxt/vite-builder', 'webpack', '@nuxt/webpack-builder', 'rspack', '@nuxt/rspack-builder'].includes(builder)
+    const builderInfo = typeof builder === 'string' && [
+      'vite',
+      '@nuxt/vite-builder',
+      'webpack',
+      '@nuxt/webpack-builder',
+      'rspack',
+      '@nuxt/rspack-builder',
+    ].includes(builder)
       ? getBuilder(cwd, builder)
       : { name: 'custom', version: '0.0.0' }
 
     const infoObj = {
-      'Operating system': osType === 'Darwin' ? `macOS ${os.release()}` : osType === 'Windows_NT' ? `Windows ${os.release()}` : `${osType} ${os.release()}`,
+      'Operating system': osType === 'Darwin'
+        ? `macOS ${os.release()}`
+        : osType === 'Windows_NT'
+          ? `Windows ${os.release()}`
+          : `${osType} ${os.release()}`,
       'CPU': `${cpus[0]?.model || 'unknown'} (${cpus.length} cores)`,
       ...isBun
         // @ts-expect-error Bun global
@@ -126,7 +145,9 @@ export default defineCommand({
       'Package manager': packageManager,
       'Nuxt version': nuxtVersion,
       'Server builder': serverBuilder,
-      'Builder': builderInfo.name === 'custom' ? 'custom' : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
+      'Builder': builderInfo.name === 'custom'
+        ? 'custom'
+        : `${builderInfo.name.toLowerCase()}@${builderInfo.version}`,
       'Config': configKeys.map(key => `\`${key}\``).join(', '),
       'Modules': moduleNames.map(name => `\`${name}\``).join(', '),
     }
@@ -210,7 +231,9 @@ export function formatJsonAsMarkdownTable(json: Record<string, unknown>): string
   const info: Record<string, string | undefined> = {}
   for (const [key, value] of Object.entries(json)) {
     if (labels[key]) {
-      info[labels[key]] = Array.isArray(value) ? value.map(item => `\`${item}\``).join(', ') : (value as string | null) ?? undefined
+      info[labels[key]] = Array.isArray(value)
+        ? value.map(item => `\`${item}\``).join(', ')
+        : (value as string | null) ?? undefined
     }
   }
   return formatMarkdownTable(info)
@@ -219,9 +242,13 @@ export function formatJsonAsMarkdownTable(json: Record<string, unknown>): string
 export function formatMarkdownTable(info: Record<string, string | undefined>): string {
   const entries = Object.entries(info).map(([label, value]) => [label, value || '-'] as const)
   const labelWidth = Math.max(...entries.map(([label]) => label.length + 4))
-  const valueWidth = Math.max(...entries.map(([, value]) => value.length + (value.includes('`') ? 0 : 2)))
+  const valueWidth = Math.max(...entries.map(([, value]) => value.length + (value.includes('`')
+    ? 0
+    : 2)))
   const rows = entries.map(([label, value]) => {
-    const formattedValue = value.includes('`') ? value : `\`${value}\``
+    const formattedValue = value.includes('`')
+      ? value
+      : `\`${value}\``
     return `| ${`**${label}**`.padEnd(labelWidth)} | ${formattedValue.padEnd(valueWidth)} |`
   })
   return [
@@ -237,7 +264,9 @@ export function getPackageName(name: string): string | undefined {
     return undefined
   }
   const parts = name.split('/')
-  return name.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0]
+  return name.startsWith('@')
+    ? parts.slice(0, 2).join('/')
+    : parts[0]
 }
 
 export function normalizeConfigModule(
@@ -286,5 +315,7 @@ async function describeServerBuilder(
   }
   const packageName = getPackageName(configured)
   const version = packageName && await getDepVersion(packageName)
-  return version ? `${configured}@${version}` : configured
+  return version
+    ? `${configured}@${version}`
+    : configured
 }

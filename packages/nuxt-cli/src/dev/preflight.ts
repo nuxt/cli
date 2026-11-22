@@ -22,14 +22,27 @@ import { isInteractive } from '../utils/stdout'
  * a project as missing is worse than looking in a few more places, so the whole
  * set is checked here even though only the importable ones can be loaded.
  */
-const DATA_CONFIG_EXTENSIONS = ['.json', '.jsonc', '.json5', '.yaml', '.yml', '.toml']
+const DATA_CONFIG_EXTENSIONS = [
+  '.json',
+  '.jsonc',
+  '.json5',
+  '.yaml',
+  '.yml',
+  '.toml',
+]
 
-const ALL_CONFIG_EXTENSIONS = [...CONFIG_EXTENSIONS, ...DATA_CONFIG_EXTENSIONS]
+const ALL_CONFIG_EXTENSIONS = [
+  ...CONFIG_EXTENSIONS,
+  ...DATA_CONFIG_EXTENSIONS,
+]
 
 const CONFIG_FILENAMES = new Set(ALL_CONFIG_EXTENSIONS.map(extension => `nuxt.config${extension}`))
 
 /** The same configs, under both names `c12` accepts inside `.config/`. */
-const CONFIG_DIR_FILENAMES = new Set([...CONFIG_FILENAMES, ...ALL_CONFIG_EXTENSIONS.map(extension => `nuxt${extension}`)])
+const CONFIG_DIR_FILENAMES = new Set([
+  ...CONFIG_FILENAMES,
+  ...ALL_CONFIG_EXTENSIONS.map(extension => `nuxt${extension}`),
+])
 
 function containsAny(dir: string, filenames: Set<string>): boolean {
   try {
@@ -61,7 +74,10 @@ function declaresNuxt(packageJson: Record<string, any> | undefined): boolean {
   if (!packageJson) {
     return false
   }
-  const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies }
+  const dependencies = {
+    ...packageJson.dependencies,
+    ...packageJson.devDependencies,
+  }
   return NUXT_PACKAGES.some(name => name in dependencies)
 }
 
@@ -179,7 +195,9 @@ async function resolveProjectDirectory(cwd: string, interactive: boolean): Promi
  */
 function checkWritableBuildDir(cwd: string): void {
   const buildDir = join(cwd, '.nuxt')
-  const target = existsSync(buildDir) ? buildDir : cwd
+  const target = existsSync(buildDir)
+    ? buildDir
+    : cwd
   try {
     accessSync(target, constants.W_OK | constants.X_OK)
   }
@@ -245,7 +263,10 @@ async function offerInstall(cwd: string, interactive: boolean): Promise<void> {
 
   const controller = new AbortController()
   const installLog = createInstallLog()
-  const installSpinner = createSpinner({ indicator: 'timer', onCancel: () => controller.abort() })
+  const installSpinner = createSpinner({
+    indicator: 'timer',
+    onCancel: () => controller.abort(),
+  })
   installSpinner.start(`Installing with ${styleText('cyan', packageManager.name)}`)
 
   const result = await runInstall({

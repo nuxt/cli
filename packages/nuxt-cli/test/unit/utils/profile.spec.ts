@@ -69,9 +69,15 @@ describe('cpu profiling', () => {
     const session = new inspector.Session()
     session.connect()
     await new Promise<void>((resolve, reject) => {
-      session.post('Profiler.enable', error => error ? reject(error) : session.post('Profiler.start', error => error ? reject(error) : resolve()))
+      session.post('Profiler.enable', error => error
+        ? reject(error)
+        : session.post('Profiler.start', error => error
+            ? reject(error)
+            : resolve()))
     })
-    Object.assign(globalThis, { __nuxt_cli__: { entry: 'test', startTime: 0, cpuProfileSession: session } })
+    Object.assign(globalThis, {
+      __nuxt_cli__: { entry: 'test', startTime: 0, cpuProfileSession: session },
+    })
 
     await startCpuProfile()
     work()
@@ -88,7 +94,9 @@ describe('cpu profiling', () => {
 
     const inspector = await import('node:inspector')
     const session = new inspector.Session()
-    Object.assign(globalThis, { __nuxt_cli__: { entry: 'test', startTime: 0, cpuProfileSession: session } })
+    Object.assign(globalThis, {
+      __nuxt_cli__: { entry: 'test', startTime: 0, cpuProfileSession: session },
+    })
 
     // A disconnected session cannot report, so the stop reports nothing rather
     // than throwing out of the command it was profiling.

@@ -119,7 +119,12 @@ export class PhaseTimeline {
 
   protected closePhase(): void {
     const phase = this.phases[this.index]!
-    this.timings.push({ phase: phase.id, message: phase.message, duration: Date.now() - this.phaseStartedAt, start: this.phaseStartedAt - this.startedAt })
+    this.timings.push({
+      phase: phase.id,
+      message: phase.message,
+      duration: Date.now() - this.phaseStartedAt,
+      start: this.phaseStartedAt - this.startedAt,
+    })
     this.phaseStartedAt = Date.now()
   }
 

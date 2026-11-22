@@ -52,16 +52,28 @@ function getNitroCandidates(cwd: string, nitroMajor?: 2 | 3): NitroCandidate[] {
   const declared = getNuxtNitroDependency(cwd)
   if (nitroMajor) {
     const name = NITRO_MAJOR_PKGS[nitroMajor]
-    const chain = declared?.name === name ? [declared] : []
-    const plain: NitroCandidate[] = [{ name }]
+    const chain = declared?.name === name
+      ? [declared]
+      : []
+    const plain: NitroCandidate[] = [
+      { name },
+    ]
     // The project's own copy wins when it declares the package, but a hoisted
     // unrelated copy must not shadow the one Nuxt declares.
     return manifestDeclaresPkg(getProjectPkgJSON(cwd), name)
-      ? [...plain, ...chain]
-      : [...chain, ...plain]
+      ? [
+          ...plain,
+          ...chain,
+        ]
+      : [
+          ...chain,
+          ...plain,
+        ]
   }
   const candidates: NitroCandidate[] = NITRO_PKGS.map(name => ({ name }))
-  return declared ? [declared, ...candidates] : candidates
+  return declared
+    ? [declared, ...candidates]
+    : candidates
 }
 
 /** Whether a manifest declares `name` in its dependencies or devDependencies. */
@@ -88,7 +100,10 @@ export function getProjectNitroMajor(cwd: string): 2 | 3 | undefined {
   }
 
   const { dependencies, devDependencies } = getProjectPkgJSON(workspaceDir) ?? {}
-  const deps = { ...dependencies, ...devDependencies }
+  const deps = {
+    ...dependencies,
+    ...devDependencies,
+  }
   const hasNitro = 'nitro' in deps
   const hasNitropack = 'nitropack' in deps
   if (hasNitro === hasNitropack) {
@@ -100,7 +115,10 @@ export function getProjectNitroMajor(cwd: string): 2 | 3 | undefined {
 /** The Nitro major a manifest's `dependencies` and `devDependencies` select. */
 function getNitroMajorFromManifest(pkg: PackageJson | null): 2 | 3 | undefined {
   const { dependencies, devDependencies } = pkg ?? {}
-  const deps = { ...dependencies, ...devDependencies }
+  const deps = {
+    ...dependencies,
+    ...devDependencies,
+  }
   if ('nitro' in deps) {
     return 3
   }
@@ -112,7 +130,9 @@ function getNitroMajorFromManifest(pkg: PackageJson | null): 2 | 3 | undefined {
 /** An internal `_nitroMajor` option, allowing only the values Nuxt resolves. */
 export function readNitroMajor(config: unknown): 2 | 3 | undefined {
   const { _nitroMajor } = (config ?? {}) as { _nitroMajor?: unknown }
-  return _nitroMajor === 2 || _nitroMajor === 3 ? _nitroMajor : undefined
+  return _nitroMajor === 2 || _nitroMajor === 3
+    ? _nitroMajor
+    : undefined
 }
 
 /** Whether the installed Nuxt resolves the `_nitroMajor` option. */
@@ -129,7 +149,9 @@ export function resolveNitroMajor(cwd: string, fromNuxt?: 2 | 3): 2 | 3 | undefi
   if (fromNuxt !== undefined) {
     return fromNuxt
   }
-  return supportsNitroMajor(cwd) ? getProjectNitroMajor(cwd) : undefined
+  return supportsNitroMajor(cwd)
+    ? getProjectNitroMajor(cwd)
+    : undefined
 }
 
 /**
@@ -146,12 +168,18 @@ function getNuxtNitroDependency(cwd: string): NitroCandidate | undefined {
     }
     const name = findNitroPkgName(manifest)
     if (name) {
-      return { name, via: [owner] }
+      return {
+        name,
+        via: [owner],
+      }
     }
     if (manifest.dependencies?.[NITRO_SERVER_PKG]) {
       const server = findNitroPkgName(readManifest(NITRO_SERVER_PKG, [owner]))
       if (server) {
-        return { name: server, via: [owner, NITRO_SERVER_PKG] }
+        return {
+          name: server,
+          via: [owner, NITRO_SERVER_PKG],
+        }
       }
     }
   }

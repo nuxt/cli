@@ -79,19 +79,49 @@ describe('isAllowedHost', () => {
 describe('resolveNuxtAllowedHosts', () => {
   it('combines `devServer.allowedHosts` and `vite.server.allowedHosts`', () => {
     expect(resolveNuxtAllowedHosts({
-      devServer: { allowedHosts: ['a.test', 'b.test'] },
-      vite: { server: { allowedHosts: ['b.test', 'c.test'] } },
+      devServer: {
+        allowedHosts: ['a.test', 'b.test'],
+      },
+      vite: {
+        server: {
+          allowedHosts: ['b.test', 'c.test'],
+        },
+      },
     })).toEqual(['a.test', 'b.test', 'c.test'])
   })
 
   it('reads either option on its own', () => {
-    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: ['a.test'] } })).toEqual(['a.test'])
-    expect(resolveNuxtAllowedHosts({ vite: { server: { allowedHosts: ['a.test'] } } })).toEqual(['a.test'])
+    expect(resolveNuxtAllowedHosts({
+      devServer: {
+        allowedHosts: ['a.test'],
+      },
+    })).toEqual(['a.test'])
+    expect(resolveNuxtAllowedHosts({
+      vite: {
+        server: {
+          allowedHosts: ['a.test'],
+        },
+      },
+    })).toEqual(['a.test'])
   })
 
   it('allows any host for `true` in either option', () => {
-    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: true }, vite: { server: { allowedHosts: ['a.test'] } } })).toBe(true)
-    expect(resolveNuxtAllowedHosts({ devServer: { allowedHosts: ['a.test'] }, vite: { server: { allowedHosts: true } } })).toBe(true)
+    expect(resolveNuxtAllowedHosts({
+      devServer: { allowedHosts: true },
+      vite: {
+        server: {
+          allowedHosts: ['a.test'],
+        },
+      },
+    })).toBe(true)
+    expect(resolveNuxtAllowedHosts({
+      devServer: {
+        allowedHosts: ['a.test'],
+      },
+      vite: {
+        server: { allowedHosts: true },
+      },
+    })).toBe(true)
   })
 
   it('returns `undefined` when neither option is set', () => {
@@ -101,11 +131,26 @@ describe('resolveNuxtAllowedHosts', () => {
 })
 
 describe('isLoopbackAddress', () => {
-  it.each(['127.0.0.1', '127.1.2.3', '::1', '[::1]', '::ffff:127.0.0.1', '::1%lo0'])('accepts %s', (address) => {
+  it.each([
+    '127.0.0.1',
+    '127.1.2.3',
+    '::1',
+    '[::1]',
+    '::ffff:127.0.0.1',
+    '::1%lo0',
+  ])('accepts %s', (address) => {
     expect(isLoopbackAddress(address)).toBe(true)
   })
 
-  it.each(['192.168.0.31', '10.0.0.5', '0.0.0.0', '::ffff:192.168.0.31', 'fe80::1', '', undefined])('rejects %s', (address) => {
+  it.each([
+    '192.168.0.31',
+    '10.0.0.5',
+    '0.0.0.0',
+    '::ffff:192.168.0.31',
+    'fe80::1',
+    '',
+    undefined,
+  ])('rejects %s', (address) => {
     expect(isLoopbackAddress(address)).toBe(false)
   })
 })

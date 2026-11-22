@@ -99,7 +99,10 @@ export class ForkPool {
     }
     fork.process.send({
       type: 'nuxt:internal:dev:context',
-      listenOverrides: { ...this.options.listenOverrides, ...options.listenOverrides },
+      listenOverrides: {
+        ...this.options.listenOverrides,
+        ...options.listenOverrides,
+      },
       inspect: this.options.inspect,
       context,
     } satisfies NuxtParentIPCMessage)
@@ -128,7 +131,9 @@ export class ForkPool {
     const childProc = fork(globalThis.__nuxt_cli__.devEntry!, this.options.rawArgs, {
       // Only the serving fork opens the inspector, so idle forks do not contend for the port.
       execArgv: ['--enable-source-maps'],
-      stdio: pipeOutput ? ['ignore', 'pipe', 'pipe', 'ipc'] : undefined,
+      stdio: pipeOutput
+        ? ['ignore', 'pipe', 'pipe', 'ipc']
+        : undefined,
       env: {
         ...withoutDotenvVars(process.env),
         __NUXT__FORK: 'true',
@@ -267,8 +272,15 @@ function forcedColorEnv(): Record<string, string> {
   if (depth <= 1) {
     return {}
   }
-  const level = depth >= 24 ? '3' : depth >= 8 ? '2' : '1'
-  return { FORCE_COLOR: level, __NUXT_DEV_COLOR_DEPTH__: String(depth) }
+  const level = depth >= 24
+    ? '3'
+    : depth >= 8
+      ? '2'
+      : '1'
+  return {
+    FORCE_COLOR: level,
+    __NUXT_DEV_COLOR_DEPTH__: String(depth),
+  }
 }
 
 function waitForExit(child: ChildProcess): Promise<void> {
