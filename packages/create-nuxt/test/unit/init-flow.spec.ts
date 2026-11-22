@@ -261,11 +261,29 @@ describe('package manager selection', () => {
     expect(runInstall).not.toHaveBeenCalled()
   })
 
+  it('should suggest installing with the template\'s package manager after a conflict', async () => {
+    stubTemplate({ 'pnpm-lock.yaml': '' })
+
+    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+
+    expect(output).toContain('› pnpm install')
+    expect(output).toContain('› pnpm run dev')
+  })
+
   it('should opt a yarn project out of plug and play', async () => {
     const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=yarn', '--gitInit=false', '--no-modules'])
 
     expect(await readFile(join(cwd, 'my-app', '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
     expect(output).toContain('.yarnrc.yml')
+  })
+
+  it('should opt a conflicting yarn template out of plug and play', async () => {
+    stubTemplate({ 'yarn.lock': '' })
+
+    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+
+    expect(await readFile(join(cwd, 'my-app', '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
+    expect(output).toContain('› yarn install')
   })
 
   it('should reject a package manager that does not exist', async () => {
