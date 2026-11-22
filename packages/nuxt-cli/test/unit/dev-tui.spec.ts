@@ -1,3 +1,4 @@
+import type { ConsolaOptions } from 'consola'
 import type { DevLogRoute } from '../../src/dev/tui/events'
 import type { PanelState } from '../../src/dev/tui/panel'
 import type { DevRequest } from '../../src/dev/tui/requests'
@@ -26,6 +27,7 @@ import { RouteOverlay } from '../../src/dev/tui/route-overlay'
 import { layoutHints } from '../../src/dev/tui/screen'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
+import { interceptPrompts } from '../../src/utils/console'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
 import { terminalLink, truncate } from '../../src/utils/formatting'
 import { logger } from '../../src/utils/logger'
@@ -3291,6 +3293,23 @@ describe('panel surface', () => {
     })
   })
 
+  it('should hand over what it kept off the screen during the current turn, once', async () => {
+    await withStubbedTerminalAsync(24, async () => {
+      const surface = new PanelSurface()
+      surface.onExternalOutput(() => {})
+      surface.externalOutput = 'capture'
+
+      process.stdout.write('Nuxt collects anonymous usage data.\n')
+      expect(surface.takeUnseenOutput()).toBe('Nuxt collects anonymous usage data.\n')
+      expect(surface.takeUnseenOutput()).toBe('')
+
+      process.stdout.write('printed a while ago\n')
+      await new Promise(resolve => setImmediate(resolve))
+      expect(surface.takeUnseenOutput()).toBe('')
+      surface.close()
+    })
+  })
+
   it('does not stack footers across repaints', async () => {
     const renderer = await render(async () => {
       const surface = new PanelSurface()
@@ -4597,6 +4616,24 @@ describe('the terminal host on the panel', () => {
       dismissed = useTerminalHost()!.notify!({ message: 'devframe auth code 123456' }).dismissed
     })
     await expect(dismissed).resolves.toBeUndefined()
+  })
+
+  it('should show what was printed ahead of a question along with it', async () => {
+    ci.override = false
+    try {
+      await withPanel(async (_ui, settle) => {
+        const instance = { options: { prompt: (async () => true) as NonNullable<ConsolaOptions['prompt']> } }
+        interceptPrompts(instance)
+
+        process.stdout.write('Nuxt collects completely anonymous data about usage.\n')
+        await instance.options.prompt('Are you interested in participating?', { type: 'confirm' })
+
+        expect(await settle()).toContain('Nuxt collects completely anonymous data about usage.')
+      })
+    }
+    finally {
+      ci.override = undefined
+    }
   })
 
   it('lends the terminal to one borrower at a time', async () => {

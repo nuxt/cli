@@ -9,9 +9,9 @@ import { resolveModulePath } from 'exsolve'
 import { isRemotePeerError } from './errors'
 import { debug } from './logger'
 import { tryResolveNuxt } from './resolve-nuxt'
-import { holdScreen, isScreenHeld } from './screen'
+import { holdScreen, isScreenHeld, takeUnseenOutput } from './screen'
 import { withUserAttention } from './startup-clock'
-import { isInteractiveSession, trackOutputSpacing } from './stdout'
+import { isInteractiveSession, trackOutputSpacing, writeDirect } from './stdout'
 
 function wrapReporter(reporter: ConsolaReporter) {
   return ({
@@ -198,6 +198,10 @@ const wrappedPrompts = new WeakSet<PromptFn>()
  * log and the keystroke meant for it taken as a shortcut. It is asked through
  * {@link askQuestion}, like the CLI's own prompts.
  *
+ * Output printed in the same turn of the event loop as a question explains
+ * what it is asking, so whatever of it was kept off the screen is shown above
+ * the question.
+ *
  * Prompts are serialised, since two of them redrawing over each other can be
  * neither read nor answered.
  */
@@ -212,12 +216,22 @@ export function interceptPrompts(instance: { options: { prompt?: PromptFn } }): 
       debug(`Not asking, with no terminal to answer on: ${message}`)
       return Promise.resolve(declinedAnswer(opts))
     }
-    const answer = promptQueue.then(() => askQuestion(() => prompt(message, opts)))
+    const leadIn = trimBlankLines(takeUnseenOutput())
+    const answer = promptQueue.then(() => askQuestion(() => {
+      if (leadIn) {
+        writeDirect(`\n${leadIn}\n`)
+      }
+      return prompt(message, opts)
+    }))
     promptQueue = answer.catch(() => {})
     return answer
   }) as PromptFn
   wrappedPrompts.add(wrapped)
   instance.options.prompt = wrapped
+}
+
+function trimBlankLines(text: string): string {
+  return text.replace(/^(?:[ \t]*\r?\n)+/, '').trimEnd()
 }
 
 /** What a question that could not be asked answers: whatever changes nothing. */

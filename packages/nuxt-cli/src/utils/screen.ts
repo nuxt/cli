@@ -53,3 +53,24 @@ function notify(held: boolean): void {
     listener(held)
   }
 }
+
+let unseenOutput: (() => string) | undefined
+
+/**
+ * Register the source of output kept off the screen: `source` returns what was
+ * held back during the current turn of the event loop. The returned function
+ * withdraws it.
+ */
+export function registerUnseenOutput(source: () => string): () => void {
+  unseenOutput = source
+  return () => {
+    if (unseenOutput === source) {
+      unseenOutput = undefined
+    }
+  }
+}
+
+/** Take what was printed during the current turn of the event loop and kept off the screen. */
+export function takeUnseenOutput(): string {
+  return unseenOutput?.() ?? ''
+}

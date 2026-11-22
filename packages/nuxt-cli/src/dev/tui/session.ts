@@ -13,6 +13,7 @@ import { KEEPS_PROCESS_ALIVE } from '../../utils/errors'
 import { stripAnsi } from '../../utils/formatting'
 import { debug, isEmittingCliLog, setLoggerImpl } from '../../utils/logger'
 import { READY_MESSAGE } from '../../utils/progress-snapshot'
+import { registerUnseenOutput } from '../../utils/screen'
 import { startupElapsedMs } from '../../utils/startup-clock'
 import { registerTerminalHost } from '../../utils/terminal-host'
 import { currentRequest } from '../serving-state'
@@ -253,6 +254,7 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     },
   })
   teardownTasks.push(releaseHost)
+  teardownTasks.push(registerUnseenOutput(() => surface.takeUnseenOutput()))
 
   let progressListener: (() => void) | undefined
 
