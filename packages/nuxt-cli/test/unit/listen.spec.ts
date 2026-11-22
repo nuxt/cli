@@ -3,7 +3,7 @@ import type { ClientHttp2Session, ClientHttp2Stream } from 'node:http2'
 import type { BoundServer, Listener, ListenOptions } from '../../src/dev/listen'
 
 import { connect as connectHttp2 } from 'node:http2'
-import { request as requestHttps } from 'node:https'
+import { Agent as HttpsAgent, request as requestHttps } from 'node:https'
 import { connect } from 'node:net'
 import { networkInterfaces } from 'node:os'
 import { connect as connectTls } from 'node:tls'
@@ -517,9 +517,9 @@ describe('listen over https', () => {
     })
   }
 
-  function requestHttp1(listener: Listener): Promise<string> {
+  function requestHttp1(listener: Listener, agent: HttpsAgent | false = false): Promise<string> {
     return new Promise((resolve, reject) => {
-      const req = requestHttps(listener.url, { rejectUnauthorized: false, agent: false }, (res) => {
+      const req = requestHttps(listener.url, { rejectUnauthorized: false, agent }, (res) => {
         let body = ''
         res.setEncoding('utf8')
         res.on('data', chunk => body += chunk)
@@ -605,6 +605,23 @@ describe('listen over https', () => {
     })
 
     await expect(status).resolves.toBe(101)
+  })
+
+  it('should not wait for idle keep-alive connections', async () => {
+    const listener = await start((_req, res) => res.end('ok'))
+    const agent = new HttpsAgent({ keepAlive: true })
+
+    try {
+      await requestHttp1(listener, agent)
+
+      const closing = Date.now()
+      await listener.close()
+
+      expect(Date.now() - closing).toBeLessThan(500)
+    }
+    finally {
+      agent.destroy()
+    }
   })
 
   it('should not wait for idle HTTP/2 sessions', async () => {

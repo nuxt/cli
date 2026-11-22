@@ -473,21 +473,19 @@ function closeServer(server: HttpServer | Http2SecureServer): Promise<void> {
     // Sockets waiting on keep-alive and HTTP/2 sessions without open streams
     // are closed at once, so shutdown is only delayed while a request is
     // actually being served.
-    // @ts-expect-error `Http2SecureServer.closeIdleConnections` is not typed
-    server.closeIdleConnections?.()
     const http2 = http2Connections.get(server)
-    for (const session of http2?.sessions ?? []) {
-      session.close()
+    if (http2) {
+      // `close()` has closed the idle HTTP/1.1 sockets of an HTTP/2 server.
+      for (const session of http2.sessions) {
+        session.close()
+      }
+      forceClose = setTimeout(() => http2.sockets.forEach(socket => socket.destroy()), CONNECTION_DRAIN_TIMEOUT_MS)
     }
-    forceClose = setTimeout(() => {
-      if (!http2) {
-        (server as HttpServer).closeAllConnections?.()
-        return
-      }
-      for (const socket of http2.sockets) {
-        socket.destroy()
-      }
-    }, CONNECTION_DRAIN_TIMEOUT_MS)
+    else {
+      const http1 = server as HttpServer
+      http1.closeIdleConnections?.()
+      forceClose = setTimeout(() => http1.closeAllConnections?.(), CONNECTION_DRAIN_TIMEOUT_MS)
+    }
     forceClose.unref()
   })
 }
