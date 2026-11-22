@@ -1,4 +1,4 @@
-import type { ConsolaOptions, ConsolaReporter } from 'consola'
+import type { ConsolaInstance, ConsolaOptions, ConsolaReporter } from 'consola'
 
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
@@ -31,6 +31,25 @@ function wrapReporter(reporter: ConsolaReporter) {
   }) satisfies ConsolaReporter
 }
 
+/** How Node opens a process warning, such as `(node:1234) DeprecationWarning: …`. */
+const PROCESS_WARNING_RE = /^\(node:\d+\) /
+
+/**
+ * Log the process warnings Node prints through `console.error` as warnings.
+ *
+ * Call before `instance` wraps the console, which is when the wrapped
+ * `console.error` is taken from it.
+ */
+export function routeProcessWarnings(instance: Pick<ConsolaInstance, 'error' | 'warn'>): void {
+  const raw = instance.error.raw
+  instance.error.raw = (...args) => {
+    if (typeof args[0] === 'string' && PROCESS_WARNING_RE.test(args[0])) {
+      return instance.warn.raw(...args)
+    }
+    return raw(...args)
+  }
+}
+
 export async function configureProjectConsola(rootDir: string): Promise<void> {
   try {
     const path = resolveModulePath('consola', { from: tryResolveNuxt(rootDir) || rootDir, try: true })
@@ -41,6 +60,7 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
     const projectConsola = mod.consola ?? mod.default
     if (projectConsola) {
       projectConsola.options.formatOptions.date = false
+      routeProcessWarnings(projectConsola)
       interceptPrompts(projectConsola)
       // Logs from a separate instance would otherwise bypass the dev UI's reporters.
       if (projectConsola !== consola) {
@@ -62,6 +82,7 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
 export function setupGlobalConsole(opts: { dev?: boolean } = {}) {
   consola.options.formatOptions.date = false
   consola.options.reporters = consola.options.reporters.map(wrapReporter)
+  routeProcessWarnings(consola)
 
   if (opts.dev) {
     trackOutputSpacing()
