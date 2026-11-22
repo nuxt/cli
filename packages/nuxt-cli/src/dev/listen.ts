@@ -727,7 +727,8 @@ export function openBrowser(url: string): Promise<void> {
     }
 
     try {
-      const child = spawn(command, args, { stdio: 'ignore', detached: true })
+      const isWindowsLauncher = process.platform === 'win32' && command === 'cmd.exe'
+      const child = spawn(command, args, { stdio: 'ignore', detached: !isWindowsLauncher, windowsHide: isWindowsLauncher })
       const onExit = (code: number | null) => {
         if (code) {
           onFailure(new Error(`\`${command}\` exited with code ${code}`))
