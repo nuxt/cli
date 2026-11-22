@@ -9,17 +9,40 @@ import { beginDevUI } from '../../src/dev/tui/session'
 function withTerminal<T>(run: (chunks: string[]) => T, terminal = true): T {
   const chunks: string[] = []
   const saved = [
-    ['stdout', 'isTTY', Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')],
-    ['stdout', 'columns', Object.getOwnPropertyDescriptor(process.stdout, 'columns')],
-    ['stdout', 'rows', Object.getOwnPropertyDescriptor(process.stdout, 'rows')],
-    ['stdin', 'isTTY', Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')],
-    ['stdin', 'setRawMode', Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')],
+    [
+      'stdout',
+      'isTTY',
+      Object.getOwnPropertyDescriptor(process.stdout, 'isTTY'),
+    ],
+    [
+      'stdout',
+      'columns',
+      Object.getOwnPropertyDescriptor(process.stdout, 'columns'),
+    ],
+    [
+      'stdout',
+      'rows',
+      Object.getOwnPropertyDescriptor(process.stdout, 'rows'),
+    ],
+    [
+      'stdin',
+      'isTTY',
+      Object.getOwnPropertyDescriptor(process.stdin, 'isTTY'),
+    ],
+    [
+      'stdin',
+      'setRawMode',
+      Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode'),
+    ],
   ] as const
   Object.defineProperty(process.stdout, 'isTTY', { value: terminal, configurable: true })
   Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
   Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
   Object.defineProperty(process.stdin, 'isTTY', { value: terminal, configurable: true })
-  Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
+  Object.defineProperty(process.stdin, 'setRawMode', {
+    value: () => process.stdin,
+    configurable: true,
+  })
   const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
     chunks.push(String(chunk))
     return true
@@ -76,7 +99,12 @@ describe('first panel frame', () => {
   it('should let the session adopt the frame already on screen', () => {
     withTerminal(() => {
       const start = paintFirstFrame({ version: '4.5.2', ci: false, test: false })!
-      const session = beginDevUI({ version: '4.5.2', ci: false, test: false, start })
+      const session = beginDevUI({
+        version: '4.5.2',
+        ci: false,
+        test: false,
+        start,
+      })
 
       expect(session).toBeDefined()
       expect(session!.surface).toBe(start.surface)

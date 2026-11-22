@@ -16,7 +16,10 @@ type Hook = (...args: any[]) => unknown
 function createHooks() {
   const hooks = new Map<string, Hook[]>()
   return {
-    hook: (name: string, fn: Hook) => void hooks.set(name, [...hooks.get(name) || [], fn]),
+    hook: (name: string, fn: Hook) => void hooks.set(name, [
+      ...hooks.get(name) || [],
+      fn,
+    ]),
     callHook: async (name: string, ...args: unknown[]) => {
       for (const fn of hooks.get(name) || []) {
         await fn(...args)
@@ -43,7 +46,10 @@ vi.mock('get-port-please', () => ({ getPort }))
 
 vi.mock('exsolve', async (importOriginal) => {
   const exsolve = await importOriginal<typeof import('exsolve')>()
-  return { ...exsolve, resolveModulePath: vi.fn(exsolve.resolveModulePath) }
+  return {
+    ...exsolve,
+    resolveModulePath: vi.fn(exsolve.resolveModulePath),
+  }
 })
 
 vi.mock('../../../src/utils/kit', () => ({
@@ -89,13 +95,25 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
     analyzeDir: join(cwd, 'analyze'),
     buildDir: join(cwd, '.nuxt'),
     rootDir: cwd,
-    modulesDir: [join(cwd, 'node_modules')],
+    modulesDir: [
+      join(cwd, 'node_modules'),
+    ],
     nitro: {},
     build: {
-      analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...buildAnalyze },
+      analyze: {
+        enabled: true,
+        template: 'treemap',
+        filename: join(cwd, 'analyze', '{name}.html'),
+        ...buildAnalyze,
+      },
     },
     webpack: {
-      analyze: { enabled: true, template: 'treemap', filename: join(cwd, 'analyze', '{name}.html'), ...webpackAnalyze } as Record<string, any>,
+      analyze: {
+        enabled: true,
+        template: 'treemap',
+        filename: join(cwd, 'analyze', '{name}.html'),
+        ...webpackAnalyze,
+      } as Record<string, any>,
     },
     devServer,
     devtools,
@@ -112,7 +130,11 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
       ...nuxtHooks,
       ready: async () => {
         if (nitro === 'v2') {
-          nitroConfig.analyze = nitroAnalyze && { template: 'treemap', filename: join(nuxtOptions.analyzeDir, '{name}.html'), ...nitroAnalyze }
+          nitroConfig.analyze = nitroAnalyze && {
+            template: 'treemap',
+            filename: join(nuxtOptions.analyzeDir, '{name}.html'),
+            ...nitroAnalyze,
+          }
         }
         await nuxtHooks.callHook('nitro:config', nitroConfig)
         await nuxtHooks.callHook('nitro:init', { hooks: nitroHooks })
@@ -126,7 +148,14 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
     await mkdir(dirname(filename), { recursive: true })
     await writeFile(filename.replace('{name}', 'client'), template)
     const bundlerConfig: { plugins: any[] } = {
-      plugins: nitroConfig.analyze ? [fakeVisualizer({ ...nitroConfig.analyze, filename: nitroConfig.analyze.filename!.replace('{name}', 'nitro') })] : [],
+      plugins: nitroConfig.analyze
+        ? [
+            fakeVisualizer({
+              ...nitroConfig.analyze,
+              filename: nitroConfig.analyze.filename!.replace('{name}', 'nitro'),
+            }),
+          ]
+        : [],
     }
     await nitroHooks.callHook('rollup:before', {}, bundlerConfig)
     for (const plugin of bundlerConfig.plugins.filter(plugin => plugin.name === 'visualizer')) {
@@ -136,7 +165,9 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
     await nitroHooks.callHook('prerender:routes', prerenderRoutes)
   })
 
-  const renderer = await render(() => runCommand(analyze, { rawArgs: [`--cwd=${cwd}`, ...args] }))
+  const renderer = await render(() => runCommand(analyze, {
+    rawArgs: [`--cwd=${cwd}`, ...args],
+  }))
 
   const ignore: ((path: string) => unknown)[] = overrides.nitro?.prerender?.ignore || []
   return {
@@ -168,12 +199,17 @@ describe('nuxt analyze command', () => {
     })
 
     it('should only write the webpack stats file with --json', async () => {
-      const { nuxtOptions } = await runAnalyze({ args: ['--json'] })
+      const { nuxtOptions } = await runAnalyze({
+        args: ['--json'],
+      })
       expect(nuxtOptions.webpack.analyze).toMatchObject({ openAnalyzer: false, analyzerMode: 'disabled', generateStatsFile: true })
     })
 
     it('should leave webpack analysis off when it is disabled', async () => {
-      const { nuxtOptions, overrides } = await runAnalyze({ args: ['--json'], webpackAnalyze: { enabled: false } })
+      const { nuxtOptions, overrides } = await runAnalyze({
+        args: ['--json'],
+        webpackAnalyze: { enabled: false },
+      })
       expect(overrides.webpack).toBeUndefined()
       expect(nuxtOptions.webpack.analyze).toMatchObject({ enabled: false })
       expect(nuxtOptions.webpack.analyze).not.toHaveProperty('openAnalyzer')
@@ -183,13 +219,17 @@ describe('nuxt analyze command', () => {
   })
 
   it('should not prerender any routes by default', async () => {
-    const { prerendered, overrides } = await runAnalyze({ routes: ['/', '/about'] })
+    const { prerendered, overrides } = await runAnalyze({
+      routes: ['/', '/about'],
+    })
     expect(prerendered).toEqual([])
     expect(overrides.nitro.prerender.crawlLinks).toBe(false)
   })
 
   it('should report the routes it skipped prerendering', async () => {
-    const { output } = await runAnalyze({ routes: ['/', '/about'] })
+    const { output } = await runAnalyze({
+      routes: ['/', '/about'],
+    })
     expect(output).toContain('Skipped prerendering 2 routes')
     expect(output).toContain('--prerender')
   })
@@ -200,14 +240,19 @@ describe('nuxt analyze command', () => {
   })
 
   it('should prerender when the --prerender flag is passed', async () => {
-    const { prerendered, overrides, output } = await runAnalyze({ args: ['--no-serve', '--prerender'], routes: ['/', '/about'] })
+    const { prerendered, overrides, output } = await runAnalyze({
+      args: ['--no-serve', '--prerender'],
+      routes: ['/', '/about'],
+    })
     expect(prerendered).toEqual(['/', '/about'])
     expect(overrides.nitro?.prerender).toBeUndefined()
     expect(output).not.toContain('Skipped prerendering')
   })
 
   it('should write metadata and fall back to a non-empty slug', async () => {
-    await runAnalyze({ args: ['--no-serve', '--name=   '] })
+    await runAnalyze({
+      args: ['--no-serve', '--name=   '],
+    })
 
     const meta = JSON.parse(await readFile(join(cwd, 'analyze/default/meta.json'), 'utf8'))
     expect(meta).toMatchObject({
@@ -221,10 +266,16 @@ describe('nuxt analyze command', () => {
   })
 
   it('should keep the results of each named run', async () => {
-    await runAnalyze({ args: ['--no-serve', '--name=before'] })
-    await runAnalyze({ args: ['--no-serve', '--name=after/fix'] })
+    await runAnalyze({
+      args: ['--no-serve', '--name=before'],
+    })
+    await runAnalyze({
+      args: ['--no-serve', '--name=after/fix'],
+    })
     await writeFile(join(cwd, 'analyze/after_fix/stale.html'), 'old')
-    await runAnalyze({ args: ['--no-serve', '--name=after/fix'] })
+    await runAnalyze({
+      args: ['--no-serve', '--name=after/fix'],
+    })
 
     await expect(access(join(cwd, 'analyze/after_fix/stale.html'))).rejects.toThrow()
 
@@ -250,21 +301,36 @@ describe('nuxt analyze command', () => {
   })
 
   it('should keep a custom report filename', async () => {
-    await runAnalyze({ args: ['--no-serve', '--name=custom'], buildAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await runAnalyze({
+      args: ['--no-serve', '--name=custom'],
+      buildAnalyze: {
+        filename: join(cwd, 'reports/{name}.html'),
+      },
+    })
     await expect(readFile(join(cwd, 'reports/client.html'), 'utf8')).resolves.toBe('treemap')
     await expect(access(join(cwd, 'analyze/custom/client.html'))).rejects.toThrow()
     await expect(readFile(join(cwd, 'analyze/custom/meta.json'), 'utf8')).resolves.toContain('"slug": "custom"')
   })
 
   it('should use a .json extension for a custom report filename with --json', async () => {
-    await runAnalyze({ args: ['--json'], buildAnalyze: { filename: join(cwd, 'reports/{name}.html') }, nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await runAnalyze({
+      args: ['--json'],
+      buildAnalyze: {
+        filename: join(cwd, 'reports/{name}.html'),
+      },
+      nitroAnalyze: {
+        filename: join(cwd, 'reports/{name}.html'),
+      },
+    })
     await expect(readFile(join(cwd, 'reports/client.json'), 'utf8')).resolves.toBe('raw-data')
     await expect(readFile(join(cwd, 'reports/nitro.json'), 'utf8')).resolves.toBe('raw-data')
   })
 
   it('should write the client report as JSON with --json and not serve it', async () => {
     vi.stubEnv('CI', '')
-    await runAnalyze({ args: ['--json'] })
+    await runAnalyze({
+      args: ['--json'],
+    })
     vi.unstubAllEnvs()
 
     await expect(readFile(join(cwd, 'analyze/default/client.json'), 'utf8')).resolves.toBe('raw-data')
@@ -286,14 +352,21 @@ describe('nuxt analyze command', () => {
 
     it('should write the Nitro report as JSON with --json', async () => {
       await installFakeVisualizer()
-      await runAnalyze({ args: ['--json'], nitro: 'v3' })
+      await runAnalyze({
+        args: ['--json'],
+        nitro: 'v3',
+      })
       await expect(readFile(join(cwd, 'analyze/default/nitro.json'), 'utf8')).resolves.toBe('raw-data')
     })
   })
 
   it('should not add a second Nitro report when Nitro made one', async () => {
     await installFakeVisualizer()
-    await runAnalyze({ nitroAnalyze: { filename: join(cwd, 'reports/{name}.html') } })
+    await runAnalyze({
+      nitroAnalyze: {
+        filename: join(cwd, 'reports/{name}.html'),
+      },
+    })
     await expect(readFile(join(cwd, 'reports/nitro.html'), 'utf8')).resolves.toBe('treemap')
     await expect(readFile(join(cwd, 'analyze/default/nitro.html'), 'utf8')).rejects.toThrow()
   })
@@ -305,13 +378,19 @@ describe('nuxt analyze command', () => {
   })
 
   it('should disable the DevTools Vite inspect output with --json', async () => {
-    const { nuxtOptions, overrides } = await runAnalyze({ args: ['--json'], devtools: { componentInspector: false } })
+    const { nuxtOptions, overrides } = await runAnalyze({
+      args: ['--json'],
+      devtools: { componentInspector: false },
+    })
     expect(nuxtOptions.devtools).toEqual({ componentInspector: false, viteInspect: false })
     expect(overrides.devtools).toBeUndefined()
   })
 
   it('should keep the DevTools enabled choice with --json', async () => {
-    const { nuxtOptions } = await runAnalyze({ args: ['--json'], devtools: false })
+    const { nuxtOptions } = await runAnalyze({
+      args: ['--json'],
+      devtools: false,
+    })
     expect(nuxtOptions.devtools).toEqual({ enabled: false, viteInspect: false })
   })
 
@@ -321,7 +400,12 @@ describe('nuxt analyze command', () => {
   })
 
   it('should keep a custom Nitro report filename with --json', async () => {
-    await runAnalyze({ args: ['--json'], nitroAnalyze: { filename: join(cwd, 'reports/{name}.data') } })
+    await runAnalyze({
+      args: ['--json'],
+      nitroAnalyze: {
+        filename: join(cwd, 'reports/{name}.data'),
+      },
+    })
     await expect(readFile(join(cwd, 'reports/nitro.data'), 'utf8')).resolves.toBe('raw-data')
   })
 
@@ -350,7 +434,9 @@ describe('nuxt analyze command', () => {
     await expect(runAnalyze()).rejects.toThrow('locked')
     expect(formatLockError).toHaveBeenCalledWith(
       expect.objectContaining({ pid: 42 }),
-      { outputDir: expect.stringContaining('.output') },
+      {
+        outputDir: expect.stringContaining('.output'),
+      },
     )
     expect(buildNuxt).not.toHaveBeenCalled()
     expect(releaseBuildLock).toHaveBeenCalledOnce()
@@ -360,7 +446,9 @@ describe('nuxt analyze command', () => {
     async function startStatsServer(options: AnalyzeOptions = {}) {
       vi.stubEnv('CI', '')
       vi.stubEnv('HOST', '')
-      serve.mockReturnValue({ ready: () => Promise.resolve() })
+      serve.mockReturnValue({
+        ready: () => Promise.resolve(),
+      })
       const { output } = await runAnalyze({ ...options, args: [] })
       const { fetch } = serve.mock.lastCall![0] as { fetch: (request: Request) => Response }
       const fetchPage = (path: string, headers?: Record<string, string>) => fetch(new Request(`http://localhost${path}`, { headers }))
@@ -396,20 +484,33 @@ describe('nuxt analyze command', () => {
 
     it('should serve the client report at / when it is the only report', async () => {
       vi.mocked(resolveModulePath).mockReturnValueOnce(undefined)
-      const { fetchPage } = await startStatsServer({ nitro: 'v3', buildAnalyze: { template: 'client report' } })
+      const { fetchPage } = await startStatsServer({
+        nitro: 'v3',
+        buildAnalyze: { template: 'client report' },
+      })
       await expect(fetchPage('/').text()).resolves.toBe('client report')
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
       expect(fetchPage('/nitro').status).toBe(404)
     })
 
     it('should serve the client report from a custom report filename', async () => {
-      const { fetchPage } = await startStatsServer({ buildAnalyze: { template: 'client report', filename: join(cwd, 'reports/{name}.html') } })
+      const { fetchPage } = await startStatsServer({
+        buildAnalyze: {
+          template: 'client report',
+          filename: join(cwd, 'reports/{name}.html'),
+        },
+      })
       await expect(fetchPage('/client').text()).resolves.toBe('client report')
       expect(await fetchPage('/').text()).toContain('<a href="/client">')
     })
 
     it('should serve the Nitro report from a custom report filename', async () => {
-      const { fetchPage } = await startStatsServer({ nitroAnalyze: { template: 'nitro report', filename: join(cwd, 'reports/{name}.html') } })
+      const { fetchPage } = await startStatsServer({
+        nitroAnalyze: {
+          template: 'nitro report',
+          filename: join(cwd, 'reports/{name}.html'),
+        },
+      })
       await expect(fetchPage('/nitro').text()).resolves.toBe('nitro report')
     })
 
@@ -418,22 +519,34 @@ describe('nuxt analyze command', () => {
     })
 
     it('should allow the hosts in `vite.server.allowedHosts`', async () => {
-      const vite = { server: { allowedHosts: ['.example.test'] } }
+      const vite = {
+        server: {
+          allowedHosts: ['.example.test'],
+        },
+      }
       await expect(statusForHost(vite, 'app.example.test:3000')).resolves.toBe(200)
       serve.mockClear()
       await expect(statusForHost(vite, 'rebinding-attacker.com')).resolves.toBe(403)
     })
 
     it('should allow any host for `vite.server.allowedHosts: true`', async () => {
-      await expect(statusForHost({ server: { allowedHosts: true } }, 'rebinding-attacker.com')).resolves.toBe(200)
+      await expect(statusForHost({
+        server: { allowedHosts: true },
+      }, 'rebinding-attacker.com')).resolves.toBe(200)
     })
 
     it('should allow the hosts in `devServer.allowedHosts`', async () => {
-      await expect(statusForHost({}, 'app.example.test', { allowedHosts: ['app.example.test'] })).resolves.toBe(200)
+      await expect(statusForHost({}, 'app.example.test', {
+        allowedHosts: ['app.example.test'],
+      })).resolves.toBe(200)
     })
 
     it('should allow any host for `devServer.allowedHosts: true`', async () => {
-      await expect(statusForHost({ server: { allowedHosts: ['app.example.test'] } }, 'rebinding-attacker.com', { allowedHosts: true })).resolves.toBe(200)
+      await expect(statusForHost({
+        server: {
+          allowedHosts: ['app.example.test'],
+        },
+      }, 'rebinding-attacker.com', { allowedHosts: true })).resolves.toBe(200)
     })
   })
 })

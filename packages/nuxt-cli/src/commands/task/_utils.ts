@@ -71,7 +71,9 @@ export async function resolveTaskServer(args: { url?: string, cwd?: string, root
       logger.error(`Invalid ${styleText('cyan', '--url')} value ${styleText('cyan', args.url)}.`)
       process.exit(1)
     }
-    return { base: args.url.replace(TRAILING_SLASH_RE, '') }
+    return {
+      base: args.url.replace(TRAILING_SLASH_RE, ''),
+    }
   }
 
   const cwd = resolveRootDir(args)
@@ -88,7 +90,9 @@ export async function resolveTaskServer(args: { url?: string, cwd?: string, root
     return { base: 'http://localhost', socketPath: worker.socketPath }
   }
   if (worker?.url) {
-    return { base: toLoopback(worker.url) }
+    return {
+      base: toLoopback(worker.url),
+    }
   }
 
   logger.error(noDevServerMessage('nuxt task'))
@@ -122,9 +126,13 @@ export async function runTask(server: TaskServer, name: string, payload: Record<
 
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(payload)) {
-    query.set(key, typeof value === 'string' ? value : JSON.stringify(value))
+    query.set(key, typeof value === 'string'
+      ? value
+      : JSON.stringify(value))
   }
-  const search = query.size > 0 ? `?${query}` : ''
+  const search = query.size > 0
+    ? `?${query}`
+    : ''
   const queried = await request(server, `${path}${search}`)
 
   return queried.ok ? queried : posted
@@ -132,7 +140,9 @@ export async function runTask(server: TaskServer, name: string, payload: Record<
 
 /** Print the error a task route returned, with as much detail as it gave us. */
 export function reportTaskError(response: TaskResponse): void {
-  const error = (typeof response.data === 'object' && response.data ? response.data : {}) as ServerError
+  const error = (typeof response.data === 'object' && response.data
+    ? response.data
+    : {}) as ServerError
   const message = error.message || error.statusMessage || `Request failed with status ${response.status}`
 
   logger.error(message)
@@ -145,7 +155,9 @@ export function reportTaskError(response: TaskResponse): void {
   // all framework frames; a 5xx comes from the task itself, where they help.
   // Nitro repeats the message at the head of the stack, so only frames are kept.
   if (response.status >= 500) {
-    const stack = (Array.isArray(error.stack) ? error.stack : (error.stack || '').split('\n'))
+    const stack = (Array.isArray(error.stack)
+      ? error.stack
+      : (error.stack || '').split('\n'))
       .map(line => line.trim())
       .filter(line => line.startsWith('at '))
     if (stack.length > 0) {
@@ -216,7 +228,9 @@ function hasFiles(dir: string): boolean {
 }
 
 export function format(value: unknown): string {
-  return typeof value === 'string' ? value : highlight(JSON.stringify(value, null, 2), 'json')
+  return typeof value === 'string'
+    ? value
+    : highlight(JSON.stringify(value, null, 2), 'json')
 }
 
 async function request(server: TaskServer, path: string, options: RequestOptions = {}): Promise<TaskResponse> {
@@ -241,7 +255,11 @@ async function request(server: TaskServer, path: string, options: RequestOptions
 
 async function httpRequest(url: string, options: RequestOptions): Promise<TaskResponse> {
   const response = await fetch(url, options)
-  return { ok: response.ok, status: response.status, data: parseBody(await response.text()) }
+  return {
+    ok: response.ok,
+    status: response.status,
+    data: parseBody(await response.text()),
+  }
 }
 
 /**
@@ -250,7 +268,12 @@ async function httpRequest(url: string, options: RequestOptions): Promise<TaskRe
  */
 function socketRequest(socketPath: string, path: string, options: RequestOptions): Promise<TaskResponse> {
   return new Promise((resolve, reject) => {
-    const req = http.request({ socketPath, path, method: options.method || 'GET', headers: options.headers }, (res) => {
+    const req = http.request({
+      socketPath,
+      path,
+      method: options.method || 'GET',
+      headers: options.headers,
+    }, (res) => {
       res.setEncoding('utf-8')
       let body = ''
       res.on('data', (chunk: string) => {
@@ -259,7 +282,11 @@ function socketRequest(socketPath: string, path: string, options: RequestOptions
       res.on('error', reject)
       res.on('end', () => {
         const status = res.statusCode || 0
-        resolve({ ok: status >= 200 && status < 300, status, data: parseBody(body) })
+        resolve({
+          ok: status >= 200 && status < 300,
+          status,
+          data: parseBody(body),
+        })
       })
     })
     req.on('error', reject)

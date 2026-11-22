@@ -25,13 +25,19 @@ export function findUnknownFlags(argsDef: ArgsDef, rawArgs: string[]): UnknownFl
   for (const [name, def] of Object.entries(argsDef)) {
     known.add(name)
     const alias = (def as { alias?: string | string[] }).alias
-    for (const entry of Array.isArray(alias) ? alias : alias ? [alias] : []) {
+    for (const entry of Array.isArray(alias)
+      ? alias
+      : alias
+        ? [alias]
+        : []) {
       known.add(entry)
     }
   }
 
   const separator = rawArgs.indexOf('--')
-  const argv = separator === -1 ? rawArgs : rawArgs.slice(0, separator)
+  const argv = separator === -1
+    ? rawArgs
+    : rawArgs.slice(0, separator)
 
   const flags: string[] = []
   for (const arg of argv) {
@@ -39,12 +45,17 @@ export function findUnknownFlags(argsDef: ArgsDef, rawArgs: string[]): UnknownFl
       continue
     }
     const equals = arg.indexOf('=')
-    const name = (equals === -1 ? arg : arg.slice(0, equals)).replace(LEADING_DASHES_RE, '')
+    const name = (equals === -1
+      ? arg
+      : arg.slice(0, equals)).replace(LEADING_DASHES_RE, '')
     if (name && !isKnown(known, name) && !flags.includes(name)) {
       flags.push(name)
     }
   }
-  return { flags, known: [...known] }
+  return {
+    flags,
+    known: [...known],
+  }
 }
 
 /**
@@ -65,7 +76,9 @@ export async function suggestFlags({ flags, known }: UnknownFlags): Promise<Arra
  */
 export function replaceFlag(rawArgs: string[], flag: string, replacement: string): void {
   const separator = rawArgs.indexOf('--')
-  const end = separator === -1 ? rawArgs.length : separator
+  const end = separator === -1
+    ? rawArgs.length
+    : separator
   for (let i = 0; i < end; i++) {
     if (rawArgs[i] === flag) {
       rawArgs[i] = replacement
@@ -81,7 +94,10 @@ export function replaceFlag(rawArgs: string[], flag: string, replacement: string
  * holds them (`https`), and a boolean may be negated with a `no-` prefix.
  */
 function isKnown(known: Set<string>, name: string): boolean {
-  for (const candidate of new Set([name, name.replace(NEGATION_RE, '')])) {
+  for (const candidate of new Set([
+    name,
+    name.replace(NEGATION_RE, ''),
+  ])) {
     if (known.has(candidate)) {
       return true
     }

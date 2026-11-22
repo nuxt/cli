@@ -18,7 +18,10 @@ export default defineCommand({
   async run(ctx) {
     const cwd = resolveRootDir(ctx.args)
     const { loadNuxtConfig } = await loadKit(cwd)
-    const nuxtOptions = await loadNuxtConfig({ cwd, overrides: { dev: true } })
+    const nuxtOptions = await loadNuxtConfig({
+      cwd,
+      overrides: { dev: true },
+    })
     await cleanupNuxtDirs(nuxtOptions.rootDir, nuxtOptions.buildDir)
 
     logger.success('Cleanup complete!')

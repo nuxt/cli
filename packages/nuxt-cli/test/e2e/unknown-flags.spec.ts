@@ -8,7 +8,10 @@ const nuxi = fileURLToPath(new URL('../../bin/nuxi.mjs', import.meta.url))
 
 function run(args: string[]) {
   return x('node', [nuxi, ...args], {
-    nodeOptions: { cwd: fixtureDir, env: { ...process.env, NO_COLOR: '1' } },
+    nodeOptions: {
+      cwd: fixtureDir,
+      env: { ...process.env, NO_COLOR: '1' },
+    },
   })
 }
 

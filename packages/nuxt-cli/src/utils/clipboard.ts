@@ -33,7 +33,9 @@ export async function writeClipboard(text: string, options: ClipboardOptions = {
     return true
   }
   // A terminal host diverts stdout into its own output, so the sequence would never arrive.
-  const write = options.write ?? (useTerminalHost() ? undefined : writeDirect)
+  const write = options.write ?? (useTerminalHost()
+    ? undefined
+    : writeDirect)
   if (!write || !canReachTerminal()) {
     return false
   }

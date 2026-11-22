@@ -17,7 +17,15 @@ describe('getInvocationPrefix', () => {
 })
 
 describe('getHeadlessCommand', () => {
-  const base = { prefix: 'nuxt init', dir: 'my-app', template: 'minimal', packageManager: 'pnpm' as const, gitInit: true, install: true, windows: false }
+  const base = {
+    prefix: 'nuxt init',
+    dir: 'my-app',
+    template: 'minimal',
+    packageManager: 'pnpm' as const,
+    gitInit: true,
+    install: true,
+    windows: false,
+  }
 
   it('should include every prompted argument', () => {
     expect(getHeadlessCommand(base).join(' ')).toBe('nuxt init my-app --template=minimal --packageManager=pnpm --gitInit --no-modules')
@@ -28,7 +36,12 @@ describe('getHeadlessCommand', () => {
   })
 
   it('should list selected modules and quote a directory with spaces', () => {
-    expect(getHeadlessCommand({ ...base, dir: 'my app', modules: ['@nuxt/ui', '@nuxt/image'], force: true }).join(' ')).toBe('nuxt init \'my app\' --template=minimal --packageManager=pnpm --gitInit --modules=@nuxt/ui,@nuxt/image --force')
+    expect(getHeadlessCommand({
+      ...base,
+      dir: 'my app',
+      modules: ['@nuxt/ui', '@nuxt/image'],
+      force: true,
+    }).join(' ')).toBe('nuxt init \'my app\' --template=minimal --packageManager=pnpm --gitInit --modules=@nuxt/ui,@nuxt/image --force')
   })
 
   it('should separate the options from an `npm create` prefix', () => {
@@ -59,10 +72,19 @@ describe('getHeadlessCommand', () => {
 })
 
 describe('wrapCommand', () => {
-  const tokens = ['pnpm create nuxt', 'my-app', '--template=minimal', '--packageManager=pnpm', '--no-gitInit', '--no-modules']
+  const tokens = [
+    'pnpm create nuxt',
+    'my-app',
+    '--template=minimal',
+    '--packageManager=pnpm',
+    '--no-gitInit',
+    '--no-modules',
+  ]
 
   it('should leave a command that fits on one line', () => {
-    expect(wrapCommand(tokens, { width: 120, windows: false })).toEqual([tokens.join(' ')])
+    expect(wrapCommand(tokens, { width: 120, windows: false })).toEqual([
+      tokens.join(' '),
+    ])
   })
 
   it('should wrap on argument boundaries within the given width', () => {
@@ -76,9 +98,17 @@ describe('wrapCommand', () => {
   })
 
   it('should use the continuation marker of the likely shell', () => {
-    expect(wrapCommand(tokens, { width: 40, windows: true, env: { PSModulePath: 'C:\\Modules' } })[0]).toMatch(/`$/)
+    expect(wrapCommand(tokens, {
+      width: 40,
+      windows: true,
+      env: { PSModulePath: 'C:\\Modules' },
+    })[0]).toMatch(/`$/)
     expect(wrapCommand(tokens, { width: 40, windows: true, env: {} })[0]).toMatch(/\^$/)
-    expect(wrapCommand(tokens, { width: 40, windows: true, env: { MSYSTEM: 'MINGW64' } })[0]).toMatch(/\\$/)
+    expect(wrapCommand(tokens, {
+      width: 40,
+      windows: true,
+      env: { MSYSTEM: 'MINGW64' },
+    })[0]).toMatch(/\\$/)
   })
 
   it('should not split a token longer than the width', () => {

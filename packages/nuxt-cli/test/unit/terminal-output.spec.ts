@@ -128,7 +128,12 @@ describe('dev server terminal output', () => {
     it('should not hint at `--host` when the bound address is not loopback', async () => {
       const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
 
-      const renderer = await render(() => createListener({ server, address: { ...address, address: '192.168.1.20' }, https, hostname: '192.168.1.20' }, { qr: false }))
+      const renderer = await render(() => createListener({
+        server,
+        address: { ...address, address: '192.168.1.20' },
+        https,
+        hostname: '192.168.1.20',
+      }, { qr: false }))
 
       expect(screen(renderer)).toContain('➜ Local:    http://192.168.1.20:<port>/')
       expect(screen(renderer)).not.toContain('use --host')
@@ -138,7 +143,12 @@ describe('dev server terminal output', () => {
       const { server, address, https } = await start({ hostname: '127.0.0.1', showURL: false })
       isolatedEnvironment.current = 'the container'
 
-      const renderer = await render(() => createListener({ server, address, https, hostname: 'app.localhost' }, { qr: false }))
+      const renderer = await render(() => createListener({
+        server,
+        address,
+        https,
+        hostname: 'app.localhost',
+      }, { qr: false }))
 
       expect(screen(renderer)).toContain('➜ Local:    http://app.localhost:<port>/')
       expect(screen(renderer)).toContain('➜ Network:  use --host to reach this server from outside the container')
@@ -248,7 +258,9 @@ describe('dev server terminal output', () => {
     })
 
     it('should list restart first when a restart handler is available', async () => {
-      const { press } = await withShortcuts({ restart: () => {} })
+      const { press } = await withShortcuts({
+        restart: () => {},
+      })
 
       const renderer = await render(() => press('h'))
 

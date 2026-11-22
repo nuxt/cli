@@ -36,8 +36,14 @@ async function createProject(files: Record<string, string> = {}, { parser = fals
 // The oxc parser and the fallback scanner must produce identical edits, so every
 // shape below runs through both.
 describe.each([
-  ['scanner', { parser: false }],
-  ['parser', { parser: true }],
+  [
+    'scanner',
+    { parser: false },
+  ],
+  [
+    'parser',
+    { parser: true },
+  ],
 ])('nuxt.config modules (%s)', (_name, options) => {
   async function add(source: string, names: string[]) {
     const cwd = await createProject({ 'nuxt.config.ts': source }, options)
@@ -67,13 +73,17 @@ describe.each([
   }
 
   it('should add a layer to `extends`', async () => {
-    const result = await edit('export default defineNuxtConfig({\n  extends: [\'./layers/base\'],\n})\n', { extends: ['nuxt-seo-kit'] })
+    const result = await edit('export default defineNuxtConfig({\n  extends: [\'./layers/base\'],\n})\n', {
+      extends: ['nuxt-seo-kit'],
+    })
 
     expect(result).toBe('export default defineNuxtConfig({\n  extends: [\'./layers/base\', \'nuxt-seo-kit\'],\n})\n')
   })
 
   it('should widen a lone `extends` string into an array', async () => {
-    const result = await edit('export default defineNuxtConfig({\n  extends: \'./layers/base\',\n})\n', { extends: ['nuxt-seo-kit'] })
+    const result = await edit('export default defineNuxtConfig({\n  extends: \'./layers/base\',\n})\n', {
+      extends: ['nuxt-seo-kit'],
+    })
 
     expect(result).toBe('export default defineNuxtConfig({\n  extends: [\'./layers/base\', \'nuxt-seo-kit\'],\n})\n')
   })
@@ -85,7 +95,10 @@ describe.each([
   })
 
   it('should add both keys to a config that has neither', async () => {
-    const result = await edit('export default defineNuxtConfig({\n  ssr: false,\n})\n', { modules: ['@nuxt/image'], extends: ['nuxt-seo-kit'] })
+    const result = await edit('export default defineNuxtConfig({\n  ssr: false,\n})\n', {
+      modules: ['@nuxt/image'],
+      extends: ['nuxt-seo-kit'],
+    })
 
     expect(result).toBe('export default defineNuxtConfig({\n  modules: [\'@nuxt/image\'],\n  extends: [\'nuxt-seo-kit\'],\n  ssr: false,\n})\n')
   })
@@ -93,7 +106,10 @@ describe.each([
   it('should edit `modules` and `extends` in one pass', async () => {
     const source = 'export default defineNuxtConfig({\n  modules: [\n    \'@nuxt/image\',\n  ],\n  extends: [\n    \'./layers/base\',\n  ],\n})\n'
 
-    const result = await edit(source, { modules: ['@nuxt/content'], extends: ['nuxt-seo-kit'] })
+    const result = await edit(source, {
+      modules: ['@nuxt/content'],
+      extends: ['nuxt-seo-kit'],
+    })
 
     expect(result).toBe('export default defineNuxtConfig({\n  modules: [\n    \'@nuxt/image\',\n    \'@nuxt/content\',\n  ],\n  extends: [\n    \'./layers/base\',\n    \'nuxt-seo-kit\',\n  ],\n})\n')
   })
@@ -102,7 +118,10 @@ describe.each([
     const source = 'export default defineNuxtConfig({\n  modules: [\n    \'a\',\n    \'b\',\n  ],\n  extends: [\n    \'./layers/base\',\n    \'nuxt-seo-kit\',\n  ],\n})\n'
     const cwd = await createProject({ 'nuxt.config.ts': source }, options)
 
-    await removeNuxtConfigEntries((await readNuxtConfig(cwd))!, { modules: ['b'], extends: ['./layers/base'] })
+    await removeNuxtConfigEntries((await readNuxtConfig(cwd))!, {
+      modules: ['b'],
+      extends: ['./layers/base'],
+    })
 
     expect(await readFile(join(cwd, 'nuxt.config.ts'), 'utf8')).toBe('export default defineNuxtConfig({\n  modules: [\n    \'a\',\n  ],\n  extends: [\n    \'nuxt-seo-kit\',\n  ],\n})\n')
   })
@@ -111,7 +130,9 @@ describe.each([
     const source = 'export default defineNuxtConfig({\n  extends: \'./layers/base\',\n})\n'
     const cwd = await createProject({ 'nuxt.config.ts': source }, options)
 
-    await removeNuxtConfigEntries((await readNuxtConfig(cwd))!, { extends: ['./layers/base'] })
+    await removeNuxtConfigEntries((await readNuxtConfig(cwd))!, {
+      extends: ['./layers/base'],
+    })
 
     expect(await readFile(join(cwd, 'nuxt.config.ts'), 'utf8')).toBe(source)
   })
@@ -419,7 +440,9 @@ describe('createNuxtConfig', () => {
     const cwd = await createProject()
 
     const config = await createNuxtConfig(cwd, 'export default defineNuxtConfig({})\n')
-    await addNuxtConfigEntries(config, { modules: ['@nuxt/image'] })
+    await addNuxtConfigEntries(config, {
+      modules: ['@nuxt/image'],
+    })
 
     expect(await readFile(config.file, 'utf8')).toBe('export default defineNuxtConfig({ modules: [\'@nuxt/image\'] })\n')
   })
@@ -455,7 +478,9 @@ describe('unrecognised parsers', () => {
     }`)
 
     const config = await readNuxtConfig(cwd)
-    await addNuxtConfigEntries(config!, { modules: ['b'] })
+    await addNuxtConfigEntries(config!, {
+      modules: ['b'],
+    })
 
     expect(config!.modules).toEqual(['a'])
     expect(await readFile(join(cwd, 'nuxt.config.ts'), 'utf8')).toBe('export default defineNuxtConfig({\n  modules: [\n    \'a\',\n    \'b\',\n  ],\n})\n')

@@ -42,8 +42,22 @@ export function prepareTargets(workdir: string, baselineSpec: string = DEFAULT_B
   const baselineInstallSpec = resolveBaselineSpec(workdir, baselineSpec)
 
   const targets: Target[] = [
-    { id: 'baseline', label: `baseline (@nuxt/cli@${baselineSpec})`, dir: join(workdir, 'baseline'), bin: '', version: '', spec: baselineSpec },
-    { id: 'head', label: 'head (local main)', dir: join(workdir, 'head'), bin: '', version: '', spec: `file:${tarball}` },
+    {
+      id: 'baseline',
+      label: `baseline (@nuxt/cli@${baselineSpec})`,
+      dir: join(workdir, 'baseline'),
+      bin: '',
+      version: '',
+      spec: baselineSpec,
+    },
+    {
+      id: 'head',
+      label: 'head (local main)',
+      dir: join(workdir, 'head'),
+      bin: '',
+      version: '',
+      spec: `file:${tarball}`,
+    },
   ]
 
   const installSpecs: Record<string, string> = { baseline: baselineInstallSpec, head: `file:${tarball}` }
@@ -87,22 +101,47 @@ function resolveBaselineSpec(workdir: string, spec: string): string {
 function pack(packageDir: string, destination: string): string {
   mkdirSync(destination, { recursive: true })
   execFileSync('pnpm', ['build'], { cwd: packageDir, stdio: 'ignore' })
-  const output = execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', destination], { cwd: packageDir, encoding: 'utf8' })
+  const output = execFileSync('npm', [
+    'pack',
+    '--json',
+    '--ignore-scripts',
+    '--pack-destination',
+    destination,
+  ], { cwd: packageDir, encoding: 'utf8' })
   const [entry] = JSON.parse(output) as { filename: string }[]
   return join(destination, entry!.filename)
 }
 
 export function npm(args: string[], cwd: string): string {
-  return execFileSync('npm', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  return execFileSync('npm', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 }
 
 /** What the fixtures do not own: installed dependencies and build caches. */
-const PRESERVED_FIXTURE_ENTRIES = new Set(['node_modules', 'package-lock.json', '.nuxt', '.data', '.output', '.nitro'])
+const PRESERVED_FIXTURE_ENTRIES = new Set([
+  'node_modules',
+  'package-lock.json',
+  '.nuxt',
+  '.data',
+  '.output',
+  '.nitro',
+])
 
 export function prepareFixtures(workdir: string): Fixture[] {
   const fixtures: Fixture[] = [
-    { id: 'playground', label: 'repo `playground/` (2 pages, 1 layer, websocket nitro)', dir: join(workdir, 'fixture-playground') },
-    { id: 'large', label: 'generated app (60 pages, 40 components, 10 server routes)', dir: join(workdir, 'fixture-large') },
+    {
+      id: 'playground',
+      label: 'repo `playground/` (2 pages, 1 layer, websocket nitro)',
+      dir: join(workdir, 'fixture-playground'),
+    },
+    {
+      id: 'large',
+      label: 'generated app (60 pages, 40 components, 10 server routes)',
+      dir: join(workdir, 'fixture-large'),
+    },
   ]
 
   // Mirrored rather than copied once, so an edit reaches the next run and an
@@ -117,7 +156,10 @@ export function prepareFixtures(workdir: string): Fixture[] {
       name: `nuxt-cli-bench-fixture-${fixture.id}`,
       private: true,
       type: 'module',
-      dependencies: { 'nuxt': nuxtVersion(), 'vue-router': '^5.2.0' },
+      dependencies: {
+        'nuxt': nuxtVersion(),
+        'vue-router': '^5.2.0',
+      },
     }, null, 2)}\n`)
     if (installedNuxtSpec(fixture.dir) !== nuxtVersion()) {
       rmSync(join(fixture.dir, 'node_modules'), { recursive: true, force: true })
@@ -203,7 +245,14 @@ function generateLargeFixture(dir: string): void {
 }
 
 export function clearBuildCache(fixtureDir: string): void {
-  for (const entry of ['.nuxt', '.data', '.output', '.nitro', 'node_modules/.cache', 'node_modules/.vite']) {
+  for (const entry of [
+    '.nuxt',
+    '.data',
+    '.output',
+    '.nitro',
+    'node_modules/.cache',
+    'node_modules/.vite',
+  ]) {
     rmSync(join(fixtureDir, entry), { recursive: true, force: true })
   }
 }

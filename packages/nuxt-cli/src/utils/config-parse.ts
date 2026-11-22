@@ -46,7 +46,9 @@ const SELF = Symbol('self')
 function resolutionRoots(cwd: string): (string | typeof SELF)[] {
   const from = join(cwd, '/')
   const nuxt = resolveModulePath('nuxt', { from, try: true })
-  return nuxt ? [from, nuxt, SELF] : [from, SELF]
+  return nuxt
+    ? [from, nuxt, SELF]
+    : [from, SELF]
 }
 
 async function loadParser(cwd: string): Promise<ParseSync | undefined> {
@@ -73,7 +75,9 @@ async function loadParser(cwd: string): Promise<ParseSync | undefined> {
         }
       }
       catch (error) {
-        debug(`Failed to load \`${candidate.specifier}\` from \`${from === SELF ? 'self' : from}\`:`, error)
+        debug(`Failed to load \`${candidate.specifier}\` from \`${from === SELF
+          ? 'self'
+          : from}\`:`, error)
       }
     }
   }
@@ -142,7 +146,9 @@ function locateWithParser(parseSync: ParseSync, source: string, filename: string
   // `export default defineNuxtConfig({ ... })` wraps the object we want to edit,
   // and either the call or the object may be wrapped again by `as`/`satisfies`.
   const called = unwrap(exported.declaration)
-  const object = unwrap(called.type === 'CallExpression' ? called.arguments[0] : called)
+  const object = unwrap(called.type === 'CallExpression'
+    ? called.arguments[0]
+    : called)
   if (object?.type !== 'ObjectExpression') {
     throw new ConfigShapeError('Could not find a config object in the default export.')
   }
@@ -160,7 +166,9 @@ function locateWithParser(parseSync: ParseSync, source: string, filename: string
     const property = object.properties.find((candidate: any) =>
       candidate.type === 'Property' && (candidate.key?.name ?? candidate.key?.value) === key,
     )
-    keys[key] = property ? readArrayValue(property.value, key) : { elements: [] }
+    keys[key] = property
+      ? readArrayValue(property.value, key)
+      : { elements: [] }
   }
 
   return {
@@ -198,7 +206,12 @@ function readArrayValue(value: any, key: ConfigKey): ArrayLocation {
   // into an array before another entry can join it.
   if (SINGLE_VALUE_KEYS.has(key) && value?.type === 'Literal' && typeof value.value === 'string') {
     const single = { start: value.start, end: value.end }
-    return { single, elements: [{ ...single, name: value.value }] }
+    return {
+      single,
+      elements: [
+        { ...single, name: value.value },
+      ],
+    }
   }
 
   throw new ConfigShapeError(`The \`${key}\` entry in the config file is not an array.`)
@@ -274,7 +287,9 @@ function detectQuote(source: string, elements: ArrayElement[]): string {
     at++
   }
 
-  return double > single ? '"' : '\''
+  return double > single
+    ? '"'
+    : '\''
 }
 
 /**
@@ -295,7 +310,9 @@ function locateWithScan(source: string): ConfigLocation {
 
   for (const key of CONFIG_KEYS) {
     const property = properties.find(candidate => candidate.key === key)
-    keys[key] = property ? scanArrayValue(source, property.valueStart, key) : { elements: [] }
+    keys[key] = property
+      ? scanArrayValue(source, property.valueStart, key)
+      : { elements: [] }
   }
 
   return {
@@ -315,7 +332,10 @@ function scanArrayValue(source: string, valueStart: number, key: ConfigKey): Arr
     if (end === undefined) {
       throw new ConfigShapeError(`The \`${key}\` array in the config file is not terminated.`)
     }
-    return { array: { start, end: end + 1 }, elements: scanElements(source, start, end) }
+    return {
+      array: { start, end: end + 1 },
+      elements: scanElements(source, start, end),
+    }
   }
 
   if (SINGLE_VALUE_KEYS.has(key) && (source[start] === '\'' || source[start] === '"')) {
@@ -324,7 +344,15 @@ function scanArrayValue(source: string, valueStart: number, key: ConfigKey): Arr
       throw new ConfigShapeError(`The \`${key}\` entry in the config file is not terminated.`)
     }
     const single = { start, end: end + 1 }
-    return { single, elements: [{ ...single, name: readScannedName(source.slice(start, end + 1)) }] }
+    return {
+      single,
+      elements: [
+        {
+          ...single,
+          name: readScannedName(source.slice(start, end + 1)),
+        },
+      ],
+    }
   }
 
   throw new ConfigShapeError(`The \`${key}\` entry in the config file is not an array.`)
@@ -404,13 +432,23 @@ function readKey(source: string, at: number): { value: string, end: number } | u
   const quote = source[at]
   if (quote === '\'' || quote === '"') {
     const end = findStringEnd(source, at)
-    return end === undefined ? undefined : { value: source.slice(at + 1, end), end: end + 1 }
+    return end === undefined
+      ? undefined
+      : {
+          value: source.slice(at + 1, end),
+          end: end + 1,
+        }
   }
   let end = at
   while (end < source.length && /[\w$]/.test(source[end]!)) {
     end++
   }
-  return end === at ? undefined : { value: source.slice(at, end), end }
+  return end === at
+    ? undefined
+    : {
+        value: source.slice(at, end),
+        end,
+      }
 }
 
 /** Advance past one property value, stopping at the `,` or `}` that ends it. */
@@ -456,7 +494,11 @@ function scanElements(source: string, arrayStart: number, arrayEnd: number): Arr
     if (valueEnd === start) {
       break
     }
-    elements.push({ start, end: valueEnd, name: readScannedName(source.slice(start, valueEnd)) })
+    elements.push({
+      start,
+      end: valueEnd,
+      name: readScannedName(source.slice(start, valueEnd)),
+    })
 
     at = skipTrivia(source, end)
     if (source[at] === ',') {
@@ -473,9 +515,13 @@ function scanElements(source: string, arrayStart: number, arrayEnd: number): Arr
 const LEADING_STRING_RE = /^(['"])((?:[^\\]|\\.)*?)\1/
 
 function readScannedName(text: string): string | null {
-  const inner = text.startsWith('[') ? text.slice(1).trimStart() : text
+  const inner = text.startsWith('[')
+    ? text.slice(1).trimStart()
+    : text
   const match = LEADING_STRING_RE.exec(inner)
-  return match ? match[2]!.replace(/\\(.)/g, '$1') : null
+  return match
+    ? match[2]!.replace(/\\(.)/g, '$1')
+    : null
 }
 
 /**
@@ -582,12 +628,16 @@ function skipTrivia(source: string, at: number): number {
     }
     if (char === '/' && source[cursor + 1] === '/') {
       const newline = source.indexOf('\n', cursor)
-      cursor = newline === -1 ? source.length : newline
+      cursor = newline === -1
+        ? source.length
+        : newline
       continue
     }
     if (char === '/' && source[cursor + 1] === '*') {
       const end = source.indexOf('*/', cursor)
-      cursor = end === -1 ? source.length : end + 2
+      cursor = end === -1
+        ? source.length
+        : end + 2
       continue
     }
     return cursor

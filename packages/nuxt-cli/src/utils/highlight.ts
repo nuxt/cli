@@ -29,12 +29,17 @@ type Style = Parameters<typeof styleText>[0]
  */
 function typedScripts(grammar: ShjGrammar): ShjGrammar {
   return grammar.map((rule) => {
-    const sub = 'sub' in rule ? rule.sub : undefined
+    const sub = 'sub' in rule
+      ? rule.sub
+      : undefined
     if (sub === 'js') {
       return { ...rule, sub: 'ts' }
     }
     if (Array.isArray(sub)) {
-      return { ...rule, sub: typedScripts(sub) }
+      return {
+        ...rule,
+        sub: typedScripts(sub),
+      }
     }
     return rule
   }) as ShjGrammar
@@ -55,7 +60,10 @@ const LANGUAGES: Record<string, ShjLanguageData> = {
   jsdoc: jsdocLanguage,
   json: jsonLanguage,
   // ATX headings are missing from the upstream grammar (speed-highlight/core#76).
-  md: [{ type: 'section', match: /^#{1,6} .*/gm }, ...mdLanguage],
+  md: [
+    { type: 'section', match: /^#{1,6} .*/gm },
+    ...mdLanguage,
+  ],
   py: pyLanguage,
   regex: regexLanguage,
   todo: todoLanguage,
@@ -122,7 +130,9 @@ export function highlight(code: string, language: HighlightLanguage): string {
   try {
     tokenizeWith(code, LANGUAGES[language]!, (text, token) => {
       const style = token && THEME[token]
-      output += style && text ? styleText(style, text) : text
+      output += style && text
+        ? styleText(style, text)
+        : text
     }, { languages: RESOLVER })
   }
   catch {

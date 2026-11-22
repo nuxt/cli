@@ -14,12 +14,19 @@ export function withPrependedPath(env: NodeJS.ProcessEnv, dirs: string[]): NodeJ
   const result: NodeJS.ProcessEnv = { ...env }
   const key = pathKey(result)
   const current = result[key]
-  result[key] = [...dirs, ...(current ? [current] : [])].join(delimiter)
+  result[key] = [
+    ...dirs,
+    ...(current
+      ? [current]
+      : []),
+  ].join(delimiter)
   return result
 }
 
 export function withLocalBinPath(cwd: string, env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return withPrependedPath(env, [resolve(cwd, 'node_modules/.bin')])
+  return withPrependedPath(env, [
+    resolve(cwd, 'node_modules/.bin'),
+  ])
 }
 
 function pathKey(env: NodeJS.ProcessEnv): string {

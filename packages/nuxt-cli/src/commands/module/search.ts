@@ -142,7 +142,11 @@ async function findModuleByKeywords(query: string, nuxtVersion: string, json?: b
   }
 
   logger.success(
-    `Found ${results.length} Nuxt ${results.length > 1 ? 'modules' : 'module'} matching ${styleText('cyan', query)} ${nuxtVersion ? `for Nuxt ${styleText('cyan', nuxtVersion)}` : ''}:\n`,
+    `Found ${results.length} Nuxt ${results.length > 1
+      ? 'modules'
+      : 'module'} matching ${styleText('cyan', query)} ${nuxtVersion
+      ? `for Nuxt ${styleText('cyan', nuxtVersion)}`
+      : ''}:\n`,
   )
   for (const foundModule of results) {
     const formattedModule: Record<string, string> = {}

@@ -45,7 +45,9 @@ function charWidth(char: string): number {
   if (zero.test(char)) {
     return 0
   }
-  return wide.test(char) ? 2 : 1
+  return wide.test(char)
+    ? 2
+    : 1
 }
 
 /** Terminal columns `text` occupies. */
@@ -92,8 +94,12 @@ export function truncate(text: string, columns: number): string {
       continue
     }
     const code = text.codePointAt(index)!
-    const char = code < 0x300 ? text[index]! : String.fromCodePoint(code)
-    const width = code < 0x300 ? 1 : charWidth(char)
+    const char = code < 0x300
+      ? text[index]!
+      : String.fromCodePoint(code)
+    const width = code < 0x300
+      ? 1
+      : charWidth(char)
     if (visible + width > limit) {
       break
     }
@@ -131,7 +137,12 @@ function atomise(line: string): Atom[] {
       continue
     }
     const char = String.fromCodePoint(line.codePointAt(index)!)
-    atoms.push({ text: char, width: char.charCodeAt(0) < 0x300 ? 1 : charWidth(char) })
+    atoms.push({
+      text: char,
+      width: char.charCodeAt(0) < 0x300
+        ? 1
+        : charWidth(char),
+    })
     index += char.length
   }
   return atoms
@@ -139,8 +150,27 @@ function atomise(line: string): Atom[] {
 
 type SgrState = ReadonlyMap<string, string>
 
-const SGR_ON: Record<number, string> = { 1: 'bold', 2: 'dim', 3: 'italic', 4: 'underline', 5: 'blink', 7: 'inverse', 8: 'hidden', 9: 'strike' }
-const SGR_OFF: Record<number, string[]> = { 22: ['bold', 'dim'], 23: ['italic'], 24: ['underline'], 25: ['blink'], 27: ['inverse'], 28: ['hidden'], 29: ['strike'], 39: ['fg'], 49: ['bg'] }
+const SGR_ON: Record<number, string> = {
+  1: 'bold',
+  2: 'dim',
+  3: 'italic',
+  4: 'underline',
+  5: 'blink',
+  7: 'inverse',
+  8: 'hidden',
+  9: 'strike',
+}
+const SGR_OFF: Record<number, string[]> = {
+  22: ['bold', 'dim'],
+  23: ['italic'],
+  24: ['underline'],
+  25: ['blink'],
+  27: ['inverse'],
+  28: ['hidden'],
+  29: ['strike'],
+  39: ['fg'],
+  49: ['bg'],
+}
 
 /** The attributes still active after `sequence`, keyed by what each one sets. */
 function applySgr(state: SgrState, sequence: string): SgrState {
@@ -164,8 +194,12 @@ function applySgr(state: SgrState, sequence: string): SgrState {
       next.set('bg', String(code))
     }
     else if ((code === 38 || code === 48) && (params[index + 1] === 5 || params[index + 1] === 2)) {
-      const length = params[index + 1] === 5 ? 3 : 5
-      next.set(code === 38 ? 'fg' : 'bg', params.slice(index, index + length).join(';'))
+      const length = params[index + 1] === 5
+        ? 3
+        : 5
+      next.set(code === 38
+        ? 'fg'
+        : 'bg', params.slice(index, index + length).join(';'))
       index += length - 1
     }
     else {
@@ -180,7 +214,9 @@ function wrapLine(line: string, columns: number): string[] {
     return [line]
   }
   const leading = /^\s*/.exec(stripAnsi(line))![0].length
-  const hanging = ' '.repeat(leading < columns / 2 ? leading : 0)
+  const hanging = ' '.repeat(leading < columns / 2
+    ? leading
+    : 0)
 
   const rows: string[] = []
   let sgr: SgrState = new Map()
@@ -194,13 +230,19 @@ function wrapLine(line: string, columns: number): string[] {
 
   const atoms = atomise(line)
   const closing = (state: { sgr: SgrState, link?: string }) => `${state.link ? LINK_TERMINATOR : ''}${state.sgr.size ? '\u001B[0m' : ''}`
-  const reopen = (state: { sgr: SgrState, link?: string }) => `${hanging}${state.sgr.size ? `\u001B[${[...state.sgr.values()].join(';')}m` : ''}${state.link ?? ''}`
+  const reopen = (state: { sgr: SgrState, link?: string }) => `${hanging}${state.sgr.size
+    ? `\u001B[${[
+      ...state.sgr.values(),
+    ].join(';')}m`
+    : ''}${state.link ?? ''}`
 
   for (let index = 0; index < atoms.length; index++) {
     const atom = atoms[index]!
     if (atom.width === undefined) {
       if (atom.text.startsWith('\u001B]8;')) {
-        link = atom.text === LINK_TERMINATOR ? undefined : atom.text
+        link = atom.text === LINK_TERMINATOR
+          ? undefined
+          : atom.text
       }
       else {
         sgr = applySgr(sgr, atom.text)
@@ -236,7 +278,13 @@ function wrapLine(line: string, columns: number): string[] {
       worded = true
     }
     else if (worded) {
-      breakpoint = { at: row.length, used, atom: index, sgr, link }
+      breakpoint = {
+        at: row.length,
+        used,
+        atom: index,
+        sgr,
+        link,
+      }
     }
   }
   rows.push(row)
@@ -245,7 +293,9 @@ function wrapLine(line: string, columns: number): string[] {
 
 /** Lower-case a leading capital, leaving acronyms alone. */
 export function decapitalise(text: string): string {
-  return /^[A-Z][a-z]/.test(text) ? text[0]!.toLowerCase() + text.slice(1) : text
+  return /^[A-Z][a-z]/.test(text)
+    ? text[0]!.toLowerCase() + text.slice(1)
+    : text
 }
 
 /** Format milliseconds with fixed precision per unit (`4.2ms`, `420ms`, `4.20s`, `42.0s`, `4m 02s`, `1h 04m 02s`). */
@@ -283,7 +333,9 @@ export function formatBytes(bytes: number): string {
     value /= 1000
     unit++
   }
-  return unit === 0 ? `${value} B` : `${value.toFixed(2)} ${BYTE_UNITS[unit]}`
+  return unit === 0
+    ? `${value} B`
+    : `${value.toFixed(2)} ${BYTE_UNITS[unit]}`
 }
 
 const AT_MENTION_RE = /\b@([^, ]+)/g

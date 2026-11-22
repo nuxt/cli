@@ -22,7 +22,10 @@ export interface NoopResult {
 
 const SCENARIOS = [
   { id: 'config change, warmed fork pool', args: [] as string[] },
-  { id: 'config change, `--no-fork`', args: ['--no-fork'] },
+  {
+    id: 'config change, `--no-fork`',
+    args: ['--no-fork'],
+  },
 ]
 
 function configFor(marker: number): string {
@@ -68,7 +71,14 @@ async function measureRestart(target: Target, fixture: Fixture, args: string[], 
   const port = allocatePort()
   const samples: RestartSample[] = []
   writeFileSync(configPath, configFor(0))
-  const server = start(process.execPath, [target.bin, 'dev', '--port', String(port), '--no-clear', ...args], {
+  const server = start(process.execPath, [
+    target.bin,
+    'dev',
+    '--port',
+    String(port),
+    '--no-clear',
+    ...args,
+  ], {
     cwd: fixture.dir,
     env: { NO_COLOR: '1', NUXT_TELEMETRY_DISABLED: '1', CI: '1' },
   })
@@ -83,7 +93,12 @@ async function measureRestart(target: Target, fixture: Fixture, args: string[], 
       writeFileSync(configPath, configFor(rep))
       const notice = await server.waitFor(/\S/, 60_000)
       const serving = await waitForMarker(port, rep, changedAt)
-      samples.push({ scenario: args.join(' ') || 'fork', target: target.id, notice, serving })
+      samples.push({
+        scenario: args.join(' ') || 'fork',
+        target: target.id,
+        notice,
+        serving,
+      })
     }
   }
   finally {
@@ -98,7 +113,13 @@ async function measureNoopSave(target: Target, fixture: Fixture, waitMs: number)
   const original = readFileSync(configPath, 'utf8')
   const port = allocatePort()
   writeFileSync(configPath, configFor(0))
-  const server = start(process.execPath, [target.bin, 'dev', '--port', String(port), '--no-clear'], {
+  const server = start(process.execPath, [
+    target.bin,
+    'dev',
+    '--port',
+    String(port),
+    '--no-clear',
+  ], {
     cwd: fixture.dir,
     env: { NO_COLOR: '1', NUXT_TELEMETRY_DISABLED: '1', CI: '1' },
   })
@@ -165,7 +186,14 @@ export async function restartSuite(targets: Target[], fixture: Fixture, reps: nu
     `Median of ${reps} restarts per scenario on the \`${fixture.id}\` fixture, one long-lived dev server per scenario. During this suite \`nuxt.config.ts\` is replaced with a generated config carrying a counter in \`runtimeConfig.public\`, and the fixture exposes it at \`/__bench\`. "noticed" is the first output after the write, "serving new config" is the first request that comes back with the new counter, so it is a true end-to-end restart measurement rather than a log line.`,
     '',
     markdownTable(
-      ['Scenario', `${shortLabel(targets[0]!)} median`, `${shortLabel(targets[1]!)} median`, 'Delta', `${shortLabel(targets[0]!)} min / max`, `${shortLabel(targets[1]!)} min / max`],
+      [
+        'Scenario',
+        `${shortLabel(targets[0]!)} median`,
+        `${shortLabel(targets[1]!)} median`,
+        'Delta',
+        `${shortLabel(targets[0]!)} min / max`,
+        `${shortLabel(targets[1]!)} min / max`,
+      ],
       rows,
     ),
     '',
@@ -173,7 +201,10 @@ export async function restartSuite(targets: Target[], fixture: Fixture, reps: nu
     '',
     markdownTable(
       ['Version', 'Any restart activity on a no-op save?'],
-      noop.map((entry, index) => [shortLabel(targets[index]!), entry.restarted ? 'yes' : 'no']),
+      noop.map((entry, index) => [
+        shortLabel(targets[index]!),
+        entry.restarted ? 'yes' : 'no',
+      ]),
     ),
   ].join('\n')
 

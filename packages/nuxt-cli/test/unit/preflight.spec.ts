@@ -11,7 +11,10 @@ const prompt = vi.hoisted(() => ({ answer: false as boolean }))
 
 vi.mock('@clack/prompts', async (importOriginal) => {
   const original = await importOriginal<typeof import('@clack/prompts')>()
-  return { ...original, confirm: () => Promise.resolve(prompt.answer) }
+  return {
+    ...original,
+    confirm: () => Promise.resolve(prompt.answer),
+  }
 })
 
 const resolvedNuxt = vi.hoisted(() => ({ path: null as string | null, error: null as Error | null }))
@@ -66,7 +69,9 @@ describe('locateProject', () => {
   })
 
   it('should recognise a directory that only declares nuxt', () => {
-    write('package.json', JSON.stringify({ devDependencies: { 'nuxt-nightly': 'latest' } }))
+    write('package.json', JSON.stringify({
+      devDependencies: { 'nuxt-nightly': 'latest' },
+    }))
 
     expect(locateProject(tempDir)).toEqual({ isProject: true })
   })
@@ -91,13 +96,17 @@ describe('locateProject', () => {
   })
 
   it('should not treat an ancestor that only declares nuxt as a project', () => {
-    write('package.json', JSON.stringify({ devDependencies: { nuxt: '^4' } }))
+    write('package.json', JSON.stringify({
+      devDependencies: { nuxt: '^4' },
+    }))
 
     expect(locateProject(createSubdirectory())).toEqual({ isProject: false })
   })
 
   it('should report no project at all', () => {
-    write('package.json', JSON.stringify({ dependencies: { vue: '^3' } }))
+    write('package.json', JSON.stringify({
+      dependencies: { vue: '^3' },
+    }))
 
     expect(locateProject(tempDir)).toEqual({ isProject: false })
   })
@@ -119,7 +128,10 @@ describe('preflight', () => {
     installNuxt()
 
     prompt.answer = true
-    await expect(preflight({ cwd: createSubdirectory(), interactive: true })).resolves.toBe(tempDir)
+    await expect(preflight({
+      cwd: createSubdirectory(),
+      interactive: true,
+    })).resolves.toBe(tempDir)
   })
 
   it('should not move to the project above when the offer is declined', async () => {
@@ -127,7 +139,10 @@ describe('preflight', () => {
     installNuxt()
 
     prompt.answer = false
-    await expect(preflight({ cwd: createSubdirectory(), interactive: true })).rejects.toThrow(/cd \.\. && nuxt dev/)
+    await expect(preflight({
+      cwd: createSubdirectory(),
+      interactive: true,
+    })).rejects.toThrow(/cd \.\. && nuxt dev/)
   })
 
   it.skipIf(process.getuid?.() === 0 || process.platform === 'win32')('should explain a read-only build directory', async () => {
@@ -175,7 +190,9 @@ describe('preflight', () => {
 
   it('should explain that nuxt is not a dependency', async () => {
     write('nuxt.config.ts')
-    write('package.json', JSON.stringify({ dependencies: { vue: '^3' } }))
+    write('package.json', JSON.stringify({
+      dependencies: { vue: '^3' },
+    }))
     write('pnpm-lock.yaml')
 
     await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/pnpm add nuxt/)
@@ -183,14 +200,19 @@ describe('preflight', () => {
 
   it('should name the package manager from `packageManager` without a lockfile', async () => {
     write('nuxt.config.ts')
-    write('package.json', JSON.stringify({ packageManager: 'yarn@4.5.0', dependencies: { vue: '^3' } }))
+    write('package.json', JSON.stringify({
+      packageManager: 'yarn@4.5.0',
+      dependencies: { vue: '^3' },
+    }))
 
     await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/yarn add nuxt/)
   })
 
   it('should ask for an install when dependencies are missing', async () => {
     write('nuxt.config.ts')
-    write('package.json', JSON.stringify({ dependencies: { nuxt: '^4' } }))
+    write('package.json', JSON.stringify({
+      dependencies: { nuxt: '^4' },
+    }))
     write('pnpm-lock.yaml')
 
     await expect(preflight({ cwd: tempDir, interactive: false })).rejects.toThrow(/pnpm install/)
@@ -198,7 +220,9 @@ describe('preflight', () => {
 
   it('should pass a project that is ready to start', async () => {
     write('nuxt.config.ts')
-    write('package.json', JSON.stringify({ dependencies: { nuxt: '^4' } }))
+    write('package.json', JSON.stringify({
+      dependencies: { nuxt: '^4' },
+    }))
     write('pnpm-lock.yaml')
     installNuxt()
 

@@ -11,7 +11,9 @@ export function parseHostHeader(host: string | undefined): string | undefined {
   const value = host.trim().toLowerCase()
   if (value.startsWith('[')) {
     const end = value.indexOf(']')
-    return end > 1 ? value.slice(1, end) : undefined
+    return end > 1
+      ? value.slice(1, end)
+      : undefined
   }
   const hostname = value.split(':')[0]
   return hostname || undefined
@@ -81,7 +83,12 @@ export function resolveNuxtAllowedHosts(options: AllowedHostsOptions | undefined
   if (!devServer && !vite) {
     return undefined
   }
-  return [...new Set([...devServer ?? [], ...vite ?? []])]
+  return [
+    ...new Set([
+      ...devServer ?? [],
+      ...vite ?? [],
+    ]),
+  ]
 }
 
 /**

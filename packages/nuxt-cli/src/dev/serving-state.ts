@@ -22,7 +22,10 @@ const REQUEST_LABEL_HEADER = 'x-nuxt-dev-request-label'
  * The id is random because it also scopes who may read the request's report.
  */
 export function createRequest(label: string): InflightRequest {
-  return { id: randomUUID(), label }
+  return {
+    id: randomUUID(),
+    label,
+  }
 }
 
 /** Stamp `req` with a fresh identity, overwriting any client-supplied copy in `headers` and `rawHeaders`. */

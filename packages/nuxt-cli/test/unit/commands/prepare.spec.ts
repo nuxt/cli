@@ -39,31 +39,42 @@ describe('prepare', () => {
   beforeEach(async () => {
     cwd = await mkdtemp(join(tmpdir(), 'nuxt-prepare-test-'))
     buildDir = await mkdtemp(join(tmpdir(), 'nuxt-prepare-build-'))
-    loadNuxt.mockResolvedValue({ options: { buildDir } })
+    loadNuxt.mockResolvedValue({
+      options: { buildDir },
+    })
   })
 
   afterEach(async () => {
     vi.restoreAllMocks()
     vi.clearAllMocks()
-    await Promise.all([rm(cwd, { recursive: true, force: true }), rm(buildDir, { recursive: true, force: true })])
+    await Promise.all([
+      rm(cwd, { recursive: true, force: true }),
+      rm(buildDir, { recursive: true, force: true }),
+    ])
   })
 
   it('clears the build directory when nothing owns it', async () => {
-    await runCommand(prepare, { rawArgs: [`--cwd=${cwd}`] })
+    await runCommand(prepare, {
+      rawArgs: [`--cwd=${cwd}`],
+    })
     expect(clearBuildDir).toHaveBeenCalledWith(buildDir)
     expect(buildNuxt).toHaveBeenCalled()
   })
 
   it('clears the build directory when the lock is stale', async () => {
     await writeLock({ pid: 999999999 })
-    await runCommand(prepare, { rawArgs: [`--cwd=${cwd}`] })
+    await runCommand(prepare, {
+      rawArgs: [`--cwd=${cwd}`],
+    })
     expect(clearBuildDir).toHaveBeenCalled()
   })
 
   it('refreshes in place while a dev server is using the build directory', async () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
     await writeLock({ command: 'dev' })
-    await runCommand(prepare, { rawArgs: [`--cwd=${cwd}`] })
+    await runCommand(prepare, {
+      rawArgs: [`--cwd=${cwd}`],
+    })
     expect(clearBuildDir).not.toHaveBeenCalled()
     expect(buildNuxt).toHaveBeenCalled()
     expect(writeTypes).toHaveBeenCalled()
@@ -72,7 +83,9 @@ describe('prepare', () => {
   it('refreshes in place while a build is using the build directory', async () => {
     vi.spyOn(process, 'kill').mockImplementation(() => true as unknown as true)
     await writeLock({ command: 'build' })
-    await runCommand(prepare, { rawArgs: [`--cwd=${cwd}`] })
+    await runCommand(prepare, {
+      rawArgs: [`--cwd=${cwd}`],
+    })
     expect(clearBuildDir).not.toHaveBeenCalled()
   })
 })

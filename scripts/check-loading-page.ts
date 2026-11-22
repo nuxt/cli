@@ -49,9 +49,21 @@ for (const name of CLIENTS) {
   const globals = {
     document: {
       title: '',
-      documentElement: { style: { setProperty: () => {} } },
-      body: { append: () => {}, classList: { add: () => {}, remove: () => {} } },
-      createElement: () => ({ removeAttribute: () => {} }),
+      documentElement: {
+        style: {
+          setProperty: () => {},
+        },
+      },
+      body: {
+        append: () => {},
+        classList: {
+          add: () => {},
+          remove: () => {},
+        },
+      },
+      createElement: () => ({
+        removeAttribute: () => {},
+      }),
     },
     EventSource: class {
       close() {}
@@ -59,8 +71,13 @@ for (const name of CLIENTS) {
         listeners.push(type)
       }
     },
-    location: { href: 'http://localhost:3000/', reload: () => {} },
-    fetch: () => Promise.resolve({ text: () => Promise.resolve('') }),
+    location: {
+      href: 'http://localhost:3000/',
+      reload: () => {},
+    },
+    fetch: () => Promise.resolve({
+      text: () => Promise.resolve(''),
+    }),
     // stubbed, or the client's own timers would keep this process alive
     setInterval: () => 0,
     clearInterval: () => {},

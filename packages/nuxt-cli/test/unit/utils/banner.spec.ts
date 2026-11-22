@@ -24,11 +24,31 @@ const CWD_VERSIONS: Record<string, Record<string, string>> = {
   '/no-vue': { vue: '' },
 }
 
-const NUXT_WITH_NITROPACK = { name: 'nuxt', version: '4.4.6', dependencies: { nitropack: '^2.13.4' } }
-const NUXT_WITH_NITRO_SERVER = { name: 'nuxt', version: '5.0.0', dependencies: { '@nuxt/nitro-server': '^5.0.0' } }
-const NUXT_WITH_NITROPACK_SERVER = { name: 'nuxt', version: '4.7.0', dependencies: { '@nuxt/nitro-server': '^4.7.0' } }
-const NITRO_SERVER = { name: '@nuxt/nitro-server', version: '5.0.0', dependencies: { nitro: '^3.0.0' } }
-const NITROPACK_SERVER = { name: '@nuxt/nitro-server', version: '4.7.0', dependencies: { nitropack: '^2.13.6' } }
+const NUXT_WITH_NITROPACK = {
+  name: 'nuxt',
+  version: '4.4.6',
+  dependencies: { nitropack: '^2.13.4' },
+}
+const NUXT_WITH_NITRO_SERVER = {
+  name: 'nuxt',
+  version: '5.0.0',
+  dependencies: { '@nuxt/nitro-server': '^5.0.0' },
+}
+const NUXT_WITH_NITROPACK_SERVER = {
+  name: 'nuxt',
+  version: '4.7.0',
+  dependencies: { '@nuxt/nitro-server': '^4.7.0' },
+}
+const NITRO_SERVER = {
+  name: '@nuxt/nitro-server',
+  version: '5.0.0',
+  dependencies: { nitro: '^3.0.0' },
+}
+const NITROPACK_SERVER = {
+  name: '@nuxt/nitro-server',
+  version: '4.7.0',
+  dependencies: { nitropack: '^2.13.6' },
+}
 
 const MANIFESTS: Record<string, Record<string, unknown>> = {
   '/any': { nuxt: NUXT_WITH_NITROPACK },
@@ -49,7 +69,11 @@ vi.mock('../../../src/utils/pkg', () => ({
         return null
       }
       if (cwd === '/vite-plus') {
-        return { name: '@voidzero-dev/vite-plus-core', version: '0.2.6', bundledVersions: { vite: '8.1.5' } }
+        return {
+          name: '@voidzero-dev/vite-plus-core',
+          version: '0.2.6',
+          bundledVersions: { vite: '8.1.5' },
+        }
       }
       return { name: 'vite', version: '7.3.1' }
     }
@@ -98,7 +122,10 @@ describe('getBuilder', () => {
 describe('showBanner', () => {
   it('should print every version on one line', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/any', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/any', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -108,7 +135,10 @@ describe('showBanner', () => {
 
   it('should prefer the nitro version declared by nuxt', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '5.0.0', options: { rootDir: '/nitro-v3', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '5.0.0',
+        options: { rootDir: '/nitro-v3', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -118,7 +148,10 @@ describe('showBanner', () => {
 
   it('should follow nuxt\'s internal nitro major over its declared nitropack', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.7.0', options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 3 } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.7.0',
+        options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 3 },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -128,7 +161,10 @@ describe('showBanner', () => {
 
   it('should follow nuxt\'s internal nitro major 2 over its declared nitro', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '5.0.0', options: { rootDir: '/nitro-v3', builder: 'vite', _nitroMajor: 2 } } as unknown as Nuxt))
+      showBanner({
+        _version: '5.0.0',
+        options: { rootDir: '/nitro-v3', builder: 'vite', _nitroMajor: 2 },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -138,7 +174,10 @@ describe('showBanner', () => {
 
   it('should keep the nuxt-declared nitropack when the nitro major is missing or invalid', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.7.0', options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 4 } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.7.0',
+        options: { rootDir: '/nitro-v3-major', builder: 'vite', _nitroMajor: 4 },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -148,7 +187,10 @@ describe('showBanner', () => {
 
   it('should follow nuxt\'s declared nitropack over a directly installed @nuxt/nitro-server', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/direct-server', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/direct-server', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -158,7 +200,10 @@ describe('showBanner', () => {
 
   it('should fall back to an installed nitro when no owner declares it', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/no-owner', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/no-owner', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -168,7 +213,10 @@ describe('showBanner', () => {
 
   it('should omit nitro when no version can be resolved', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/no-nitro', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/no-nitro', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -178,7 +226,14 @@ describe('showBanner', () => {
 
   it('should omit nitro when another server builder is configured', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/any', builder: 'vite', server: { builder: '@nuxt/vite-server' } } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: {
+          rootDir: '/any',
+          builder: 'vite',
+          server: { builder: '@nuxt/vite-server' },
+        },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -188,7 +243,10 @@ describe('showBanner', () => {
 
   it('should identify Vite+ as the Vite provider', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/vite-plus', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/vite-plus', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│
@@ -198,7 +256,10 @@ describe('showBanner', () => {
 
   it('should print a single version without a conjunction', async () => {
     const renderer = await render(() =>
-      showBanner({ _version: '4.4.6', options: { rootDir: '/no-vue', builder: 'vite' } } as unknown as Nuxt))
+      showBanner({
+        _version: '4.4.6',
+        options: { rootDir: '/no-vue', builder: 'vite' },
+      } as unknown as Nuxt))
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
       "│

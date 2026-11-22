@@ -87,7 +87,9 @@ export default defineCommand({
 
     const width = Math.max(...results.map(entry => entry.title.length))
     const lines = results.map(({ title, description, path }, position) => {
-      const label = `  ${position === 0 ? styleText('green', '>') : ' '} ${styleText('bold', title.padEnd(width))}`
+      const label = `  ${position === 0
+        ? styleText('green', '>')
+        : ' '} ${styleText('bold', title.padEnd(width))}`
       return `${label}  ${styleText('gray', description || path)}`
     })
     process.stdout.write(`${lines.join('\n')}\n`)
@@ -115,7 +117,10 @@ async function search(index: DocsIndex, query: string): Promise<DocsEntry[]> {
     const heading = Math.max(0, ...entry.headings.map(value => fuzzysort.single(query, value)?.score ?? 0))
     const description = fuzzysort.single(query, entry.description || '')?.score ?? 0
     const path = fuzzysort.single(query, entry.path)?.score ?? 0
-    return { entry, score: Math.max(title, heading * 0.9, path * 0.8, description * 0.6) }
+    return {
+      entry,
+      score: Math.max(title, heading * 0.9, path * 0.8, description * 0.6),
+    }
   })
 
   return scored

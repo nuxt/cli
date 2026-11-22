@@ -19,7 +19,9 @@ type PromptFn = NonNullable<ConsolaOptions['prompt']>
 /** Whether the session has a terminal a question could be answered on. */
 let interactive = true
 
-vi.mock('../../../src/utils/resolve-nuxt', () => ({ tryResolveNuxt: () => null }))
+vi.mock('../../../src/utils/resolve-nuxt', () => ({
+  tryResolveNuxt: () => null,
+}))
 
 vi.mock('../../../src/utils/stdout', async importOriginal => ({
   ...await importOriginal<typeof import('../../../src/utils/stdout')>(),
@@ -191,7 +193,10 @@ describe('askQuestion', () => {
     })
     const release = registerTerminalHost({
       version: 1,
-      startTask: () => ({ update: () => {}, stop: () => {} }),
+      startTask: () => ({
+        update: () => {},
+        stop: () => {},
+      }),
       withTerminal: async (work) => {
         try {
           return await work()
@@ -225,9 +230,14 @@ describe('interceptPrompts', () => {
 
   const ask = (options: PromptOptions = {}) => {
     const prompt = vi.fn(pending) as unknown as PromptFn
-    const instance = { options: { prompt } }
+    const instance = {
+      options: { prompt },
+    }
     interceptPrompts(instance)
-    return { prompt, answer: () => instance.options.prompt('Install it?', options) }
+    return {
+      prompt,
+      answer: () => instance.options.prompt('Install it?', options),
+    }
   }
 
   afterEach(() => {
@@ -250,7 +260,10 @@ describe('interceptPrompts', () => {
     const events: string[] = []
     const release = registerTerminalHost({
       version: 1,
-      startTask: () => ({ update: () => {}, stop: () => {} }),
+      startTask: () => ({
+        update: () => {},
+        stop: () => {},
+      }),
       withTerminal: async (work) => {
         events.push('suspend')
         try {
@@ -300,7 +313,10 @@ describe('interceptPrompts', () => {
     const first = ask({ type: 'confirm' })
     const second = ask({ type: 'confirm' })
 
-    const answers = [first.answer(), second.answer()]
+    const answers = [
+      first.answer(),
+      second.answer(),
+    ]
     await vi.waitFor(() => expect(first.prompt).toHaveBeenCalled())
     expect(second.prompt).not.toHaveBeenCalled()
 
@@ -341,7 +357,9 @@ describe('interceptPrompts', () => {
       const first = ask({ type: 'confirm' })
       const second = ask({ type: 'confirm' })
 
-      const answers = [first.answer()]
+      const answers = [
+        first.answer(),
+      ]
       unseen = 'What the second question is about.\n'
       answers.push(second.answer())
       unseen = ''
@@ -361,7 +379,11 @@ describe('interceptPrompts', () => {
   })
 
   it('should leave an already intercepted prompt alone', () => {
-    const instance = { options: { prompt: vi.fn(pending) as unknown as PromptFn } }
+    const instance = {
+      options: {
+        prompt: vi.fn(pending) as unknown as PromptFn,
+      },
+    }
     interceptPrompts(instance)
     const wrapped = instance.options.prompt
     interceptPrompts(instance)
@@ -380,7 +402,13 @@ describe('interceptPrompts', () => {
 describe('routeProcessWarnings', () => {
   it('should log a process warning printed through the console as a warning', () => {
     const logs: LogObject[] = []
-    const instance = createConsola({ reporters: [{ log: logObj => void logs.push(logObj) }] })
+    const instance = createConsola({
+      reporters: [
+        {
+          log: logObj => void logs.push(logObj),
+        },
+      ],
+    })
     routeProcessWarnings(instance)
     instance.wrapConsole()
     try {
@@ -392,8 +420,16 @@ describe('routeProcessWarnings', () => {
     }
 
     expect(logs).toMatchObject([
-      { type: 'warn', level: 1, args: ['(node:1234) [DEP0000] DeprecationWarning: deprecated'] },
-      { type: 'error', level: 0, args: ['boom'] },
+      {
+        type: 'warn',
+        level: 1,
+        args: ['(node:1234) [DEP0000] DeprecationWarning: deprecated'],
+      },
+      {
+        type: 'error',
+        level: 0,
+        args: ['boom'],
+      },
     ])
   })
 })
@@ -407,12 +443,22 @@ describe('configureProjectConsola', () => {
       await configureProjectConsola(root)
       const { consola: project } = await import(pathToFileURL(resolveModulePath('consola', { from: root })).href) as { consola: typeof consola }
       const logs: LogObject[] = []
-      consola.options.reporters = [{ log: logObj => void logs.push(logObj) }]
+      consola.options.reporters = [
+        {
+          log: logObj => void logs.push(logObj),
+        },
+      ]
 
       project.withTag('@nuxt/robots').warn('You have disallowed robots')
 
       expect(project).not.toBe(consola)
-      expect(logs).toMatchObject([{ type: 'warn', tag: '@nuxt/robots', args: ['You have disallowed robots'] }])
+      expect(logs).toMatchObject([
+        {
+          type: 'warn',
+          tag: '@nuxt/robots',
+          args: ['You have disallowed robots'],
+        },
+      ])
     }
     finally {
       consola.options.reporters = reporters

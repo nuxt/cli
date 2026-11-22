@@ -20,7 +20,12 @@ const { holdScreen } = await import('../../src/utils/screen')
 
 function stubUnicode(supported: boolean): void {
   vi.stubEnv('LC_ALL', supported ? 'en_GB.UTF-8' : 'C')
-  for (const name of ['WT_SESSION', 'TERMINUS_SUBLIME', 'ConEmuTask', 'TERM_PROGRAM']) {
+  for (const name of [
+    'WT_SESSION',
+    'TERMINUS_SUBLIME',
+    'ConEmuTask',
+    'TERM_PROGRAM',
+  ]) {
     vi.stubEnv(name, '')
   }
   if (supported) {
@@ -80,7 +85,13 @@ describe('phase reporter', () => {
     freezeClock()
     const renderer = await render(() => {
       const startup = reporter(true)
-      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
+      startup.update(snapshot({
+        phase: 'types',
+        message: 'Generating types',
+        index: 3,
+        elapsed: 41_000,
+        phaseElapsed: 33_000,
+      }))
     })
 
     expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
@@ -92,10 +103,14 @@ describe('phase reporter', () => {
     let release = () => {}
     try {
       const chunks: string[] = []
-      const stream = { isTTY: true, columns: 100, write: (chunk: string) => {
-        chunks.push(chunk)
-        return true
-      } } as unknown as NodeJS.WriteStream
+      const stream = {
+        isTTY: true,
+        columns: 100,
+        write: (chunk: string) => {
+          chunks.push(chunk)
+          return true
+        },
+      } as unknown as NodeJS.WriteStream
       const startup = createPhaseReporter({ animated: true, stream })
       reporters.push(startup)
       startup.update(snapshot())
@@ -110,7 +125,10 @@ describe('phase reporter', () => {
       expect(chunks.length).toBe(painted + 2)
 
       release()
-      expect(chunks.slice(painted + 2)).toEqual(['\u001B[?25l', expect.stringContaining('Building server')])
+      expect(chunks.slice(painted + 2)).toEqual([
+        '\u001B[?25l',
+        expect.stringContaining('Building server'),
+      ])
       vi.advanceTimersByTime(80)
       expect(chunks.length).toBe(painted + 5)
     }
@@ -164,7 +182,13 @@ describe('phase reporter', () => {
 
       release = holdScreen()
       startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
       written.length = 0
 
       release()
@@ -180,14 +204,24 @@ describe('phase reporter', () => {
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
     try {
       const chunks: string[] = []
-      const stream = { isTTY: true, columns: 100, write: (chunk: string) => {
-        chunks.push(chunk)
-        return true
-      } } as unknown as NodeJS.WriteStream
+      const stream = {
+        isTTY: true,
+        columns: 100,
+        write: (chunk: string) => {
+          chunks.push(chunk)
+          return true
+        },
+      } as unknown as NodeJS.WriteStream
       const startup = createPhaseReporter({ animated: true, stream })
       reporters.push(startup)
       startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
       const settled = chunks.length
 
       holdScreen()()
@@ -205,14 +239,23 @@ describe('phase reporter', () => {
       vi.unstubAllEnvs()
     })
 
-    const prerendering = (meter: ProgressSnapshot['meter']) => snapshot({ phase: 'prerender', message: 'Prerendering routes', index: 4, meter })
+    const prerendering = (meter: ProgressSnapshot['meter']) => snapshot({
+      phase: 'prerender',
+      message: 'Prerendering routes',
+      index: 4,
+      meter,
+    })
 
     function terminal(columns: number) {
       const chunks: string[] = []
-      const stream = { isTTY: true, columns, write: (chunk: string) => {
-        chunks.push(chunk)
-        return true
-      } } as unknown as NodeJS.WriteStream
+      const stream = {
+        isTTY: true,
+        columns,
+        write: (chunk: string) => {
+          chunks.push(chunk)
+          return true
+        },
+      } as unknown as NodeJS.WriteStream
       const startup = createPhaseReporter({ animated: true, stream })
       reporters.push(startup)
       const line = () => stripVTControlCharacters(chunks.join('').split('\r').at(-1)!).slice(2)
@@ -280,10 +323,13 @@ describe('phase reporter', () => {
     vi.useFakeTimers()
     freezeClock()
     const chunks: string[] = []
-    const stream = { isTTY: true, write: (chunk: string) => {
-      chunks.push(chunk)
-      return true
-    } } as unknown as NodeJS.WriteStream
+    const stream = {
+      isTTY: true,
+      write: (chunk: string) => {
+        chunks.push(chunk)
+        return true
+      },
+    } as unknown as NodeJS.WriteStream
     const startup = createPhaseReporter({ animated: true, stream })
     try {
       startup.update(snapshot({ message: 'Bundling app', elapsed: 5000, phaseElapsed: 5000 }))
@@ -364,7 +410,12 @@ describe('phase reporter', () => {
     const renderer = await render(async ({ waitForOutput }) => {
       const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
       reporters.push(startup)
-      startup.update(snapshot({ phase: 'server', message: 'Building Nitro server', index: 5, elapsed: 4000 }))
+      startup.update(snapshot({
+        phase: 'server',
+        message: 'Building Nitro server',
+        index: 5,
+        elapsed: 4000,
+      }))
       await waitForOutput(/Building Nitro server[\s\S]*Building Nitro server/)
     })
 
@@ -389,9 +440,21 @@ describe('phase reporter', () => {
     const renderer = await render(async ({ waitForOutput }) => {
       const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
       reporters.push(startup)
-      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3, elapsed: 8000, phaseElapsed: 8000 }))
+      startup.update(snapshot({
+        phase: 'types',
+        message: 'Generating types',
+        index: 3,
+        elapsed: 8000,
+        phaseElapsed: 8000,
+      }))
       await waitForOutput('Generating types')
-      startup.update(snapshot({ phase: 'types', message: 'Generating server types', index: 3, elapsed: 41_000, phaseElapsed: 33_000 }))
+      startup.update(snapshot({
+        phase: 'types',
+        message: 'Generating server types',
+        index: 3,
+        elapsed: 41_000,
+        phaseElapsed: 33_000,
+      }))
       await waitForOutput('Generating server types')
     })
 
@@ -426,8 +489,21 @@ describe('phase reporter', () => {
     const renderer = await render(() => {
       const startup = reporter(true)
       startup.update(snapshot())
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Compiling the first request', index: 6, elapsed: 2400 }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 8100 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Compiling the first request',
+        index: 6,
+        elapsed: 2400,
+      }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        serving: true,
+        elapsed: 8100,
+      }))
     })
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
@@ -443,7 +519,13 @@ describe('phase reporter', () => {
       const startup = reporter(true)
       startup.setURL('http://localhost:3000/')
       startup.update(snapshot())
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
     })
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
@@ -457,7 +539,13 @@ describe('phase reporter', () => {
     const renderer = await render(() => {
       const startup = reporter(true)
       startup.update(snapshot())
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
       startup.update(snapshot({
         status: 'ready',
         phase: 'ready',
@@ -475,11 +563,38 @@ describe('phase reporter', () => {
     freezeClock()
     const renderer = await render(() => {
       const startup = reporter(false)
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
       const pending = { label: 'GET /', startedAt: Date.now() - 6400 }
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400, pending }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400, pending }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 16_800 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+        pending,
+      }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+        pending,
+      }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        serving: true,
+        elapsed: 16_800,
+      }))
     })
 
     expect(screen(renderer)).toMatchInlineSnapshot(`
@@ -495,7 +610,13 @@ describe('phase reporter', () => {
   it('should announce being ready once, however many times it is told', async () => {
     const renderer = await render(() => {
       const startup = reporter(false)
-      const ready = snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 })
+      const ready = snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      })
       startup.update(ready)
       startup.update(ready)
       startup.update(snapshot({ status: 'loading', phase: 'config', message: 'Loading Nuxt config' }))
@@ -509,9 +630,18 @@ describe('phase reporter', () => {
     const renderer = await render(async ({ waitForOutput }) => {
       const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
       reporters.push(startup)
-      const ready = { status: 'ready' as const, phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }
+      const ready = {
+        status: 'ready' as const,
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }
       startup.update(snapshot(ready))
-      startup.update(snapshot({ ...ready, pending: { label: 'GET /', startedAt: Date.now() - 12_500 } }))
+      startup.update(snapshot({
+        ...ready,
+        pending: { label: 'GET /', startedAt: Date.now() - 12_500 },
+      }))
       await waitForOutput(/Rendering GET \/[\s\S]*Rendering GET \/[\s\S]*\(12\.\ds\)/)
     })
 
@@ -521,8 +651,21 @@ describe('phase reporter', () => {
   it('should not close off a wait it never reported', async () => {
     const renderer = await render(() => {
       const startup = reporter(false)
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
-      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, serving: true, elapsed: 2600 }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        elapsed: 2400,
+      }))
+      startup.update(snapshot({
+        status: 'ready',
+        phase: 'ready',
+        message: 'Ready',
+        index: 6,
+        serving: true,
+        elapsed: 2600,
+      }))
     })
 
     expect(screen(renderer)).toBe('│\n◆  Ready in 2.40s')
@@ -539,7 +682,12 @@ describe('phase reporter', () => {
   })
 
   it('should describe a reload rather than a first start', () => {
-    expect(formatSummary(snapshot({ status: 'ready', reload: true, serving: true, elapsed: 900 }))).toBe('Reloaded in 900ms')
+    expect(formatSummary(snapshot({
+      status: 'ready',
+      reload: true,
+      serving: true,
+      elapsed: 900,
+    }))).toBe('Reloaded in 900ms')
   })
 
   // `nuxt dev` runs under `consola.wrapAll()`, which moves the real `write` to
@@ -628,11 +776,36 @@ describe('formatMeter', () => {
 describe('formatPhaseTable', () => {
   it('places each phase where it ran', () => {
     const table = formatPhaseTable([
-      { phase: 'config', message: '', duration: 1000, start: 0 },
-      { phase: 'types', message: '', duration: 5, start: 1000 },
-      { phase: 'client', message: '', duration: 2000, start: 1005 },
-      { phase: 'server', message: '', duration: 1000, start: 1005 },
-      { phase: 'prerender', message: '', duration: 1000, start: 3005 },
+      {
+        phase: 'config',
+        message: '',
+        duration: 1000,
+        start: 0,
+      },
+      {
+        phase: 'types',
+        message: '',
+        duration: 5,
+        start: 1000,
+      },
+      {
+        phase: 'client',
+        message: '',
+        duration: 2000,
+        start: 1005,
+      },
+      {
+        phase: 'server',
+        message: '',
+        duration: 1000,
+        start: 1005,
+      },
+      {
+        phase: 'prerender',
+        message: '',
+        duration: 1000,
+        start: 3005,
+      },
     ])
     expect(stripVTControlCharacters(table).split('\n')).toEqual([
       `config     ${'█'.repeat(6)}${' '.repeat(18)}  1.00s`,

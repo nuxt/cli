@@ -29,8 +29,18 @@ describe('attachViteHmrServer', () => {
 
     attachViteHmrServer(server, hmrServer)
 
-    expect(server.ws).toMatchObject({ clientPort: 1234, server: hmrServer, port: undefined, host: undefined })
-    expect(server.hmr).toMatchObject({ overlay: false, server: hmrServer, port: undefined, host: undefined })
+    expect(server.ws).toMatchObject({
+      clientPort: 1234,
+      server: hmrServer,
+      port: undefined,
+      host: undefined,
+    })
+    expect(server.hmr).toMatchObject({
+      overlay: false,
+      server: hmrServer,
+      port: undefined,
+      host: undefined,
+    })
   })
 
   it('does not crash when ws or hmr is set to false', () => {
@@ -43,8 +53,18 @@ describe('attachViteHmrServer', () => {
   })
 
   it.each([
-    ['ws', { ws: { path: 'hmr' } }],
-    ['hmr', { hmr: { path: 'hmr' } }],
+    [
+      'ws',
+      {
+        ws: { path: 'hmr' },
+      },
+    ],
+    [
+      'hmr',
+      {
+        hmr: { path: 'hmr' },
+      },
+    ],
   ])('sets a %s path on both ws and hmr and returns it', (_key, server: Record<string, any>) => {
     expect(attachViteHmrServer(server, hmrServer)).toBe('hmr')
     expect(server.ws.path).toBe('hmr')
@@ -52,7 +72,10 @@ describe('attachViteHmrServer', () => {
   })
 
   it('prefers the ws path when both are set', () => {
-    const server: Record<string, any> = { ws: { path: 'a' }, hmr: { path: 'b' } }
+    const server: Record<string, any> = {
+      ws: { path: 'a' },
+      hmr: { path: 'b' },
+    }
 
     expect(attachViteHmrServer(server, hmrServer)).toBe('a')
     expect(server.hmr.path).toBe('a')

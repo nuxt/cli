@@ -36,7 +36,13 @@ function buildArchive(name: string): Buffer {
   const dir = mkdtempSync(join(tmpdir(), 'nuxt-archive-'))
   try {
     writeFileSync(join(dir, name), BINARY)
-    execFileSync('tar', ['-czf', join(dir, 'out.tgz'), '-C', dir, name], { stdio: 'ignore' })
+    execFileSync('tar', [
+      '-czf',
+      join(dir, 'out.tgz'),
+      '-C',
+      dir,
+      name,
+    ], { stdio: 'ignore' })
     return readFileSync(join(dir, 'out.tgz'))
   }
   finally {
@@ -51,7 +57,9 @@ beforeAll(async () => {
   server = createServer((request, response) => {
     requests.push(request.url!)
     if (request.url === '/binary') {
-      response.writeHead(200, { 'content-length': String(Buffer.byteLength(BINARY)) })
+      response.writeHead(200, {
+        'content-length': String(Buffer.byteLength(BINARY)),
+      })
       response.end(BINARY)
       return
     }
@@ -61,12 +69,16 @@ beforeAll(async () => {
       return
     }
     if (request.url === '/archive') {
-      response.writeHead(200, { 'content-length': String(archive.byteLength) })
+      response.writeHead(200, {
+        'content-length': String(archive.byteLength),
+      })
       response.end(archive)
       return
     }
     if (request.url === '/empty-archive') {
-      response.writeHead(200, { 'content-length': String(unrelatedArchive.byteLength) })
+      response.writeHead(200, {
+        'content-length': String(unrelatedArchive.byteLength),
+      })
       response.end(unrelatedArchive)
       return
     }
@@ -106,7 +118,9 @@ afterAll(async () => {
 })
 
 function cachedPath(name = 'nuxt-test-tool') {
-  return join(cacheHome, 'nuxt', 'bin', process.platform === 'win32' ? `${name}.exe` : name)
+  return join(cacheHome, 'nuxt', 'bin', process.platform === 'win32'
+    ? `${name}.exe`
+    : name)
 }
 
 function download(url: string, options: Parameters<typeof resolveTool>[1] extends infer T ? Partial<T> : never = {}) {
@@ -117,10 +131,14 @@ describe('resolveTool', () => {
   it('should prefer a tool already on PATH', async () => {
     const dir = join(cacheHome, 'bin')
     mkdirSync(dir, { recursive: true })
-    const existing = join(dir, process.platform === 'win32' ? 'nuxt-test-tool.exe' : 'nuxt-test-tool')
+    const existing = join(dir, process.platform === 'win32'
+      ? 'nuxt-test-tool.exe'
+      : 'nuxt-test-tool')
     writeFileSync(existing, BINARY)
     chmodSync(existing, 0o755)
-    vi.stubEnv('PATH', `${dir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH}`)
+    vi.stubEnv('PATH', `${dir}${process.platform === 'win32'
+      ? ';'
+      : ':'}${process.env.PATH}`)
 
     // Windows spells the extension the way `PATHEXT` does, which is upper case.
     await expect(download('/binary').then(path => path?.toLowerCase())).resolves.toBe(existing.toLowerCase())
@@ -158,7 +176,9 @@ describe('resolveTool', () => {
   it('should discard a download whose digest does not match', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
 
-    await expect(download('/binary', { sha256: '0'.repeat(64) })).resolves.toBeUndefined()
+    await expect(download('/binary', {
+      sha256: '0'.repeat(64),
+    })).resolves.toBeUndefined()
 
     expect(readdirSync(join(cacheHome, 'nuxt', 'bin'))).toEqual([])
     expect(warn.mock.calls.flat().join('\n')).toContain('nuxt-test-tool')

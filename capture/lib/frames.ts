@@ -31,8 +31,12 @@ function scrubbedQrArt(): string[] {
 function snapshot(frameObject: RenderedFrame | undefined, at: number, rows: number): Frame {
   const contents = frameObject?.contents ?? ''
   const lines = contents.split('\n')
-  const visible = lines.length > rows ? lines.slice(lines.length - rows) : lines
-  const styles = (frameObject?.styles ?? []).slice(lines.length > rows ? lines.length - rows : 0)
+  const visible = lines.length > rows
+    ? lines.slice(lines.length - rows)
+    : lines
+  const styles = (frameObject?.styles ?? []).slice(lines.length > rows
+    ? lines.length - rows
+    : 0)
   return { at, lines: visible, styles }
 }
 
@@ -66,7 +70,9 @@ export function buildFrames(chunks: Chunk[], options: FrameOptions): Frame[] {
     raw.push(scrubFrame(snapshot(rendered.at(-1), chunk.at, options.rows), rules, redrawQr))
   }
   if (raw.length === 0) {
-    return [{ at: 0, lines: [], styles: [] }]
+    return [
+      { at: 0, lines: [], styles: [] },
+    ]
   }
 
   let minFrameMs = options.minFrameMs ?? 80
@@ -142,7 +148,9 @@ function scrubFrame(frame: Frame, rules: ReturnType<typeof resolveRules>, redraw
     styles.push(lineStyles)
   }
   const result = { at: frame.at, lines, styles }
-  return redrawQr ? replaceQrBlock(result) : result
+  return redrawQr
+    ? replaceQrBlock(result)
+    : result
 }
 
 /**
@@ -181,8 +189,16 @@ function replaceQrBlock(frame: Frame): Frame {
       ? full.slice(full.length - blockLength)
       : full.slice(0, blockLength)
   const art = slice.map(line => indent + line)
-  const lines = [...frame.lines.slice(0, start), ...art, ...frame.lines.slice(end + 1)]
-  const styles = [...frame.styles.slice(0, start), ...art.map(() => [] as Style[]), ...frame.styles.slice(end + 1)]
+  const lines = [
+    ...frame.lines.slice(0, start),
+    ...art,
+    ...frame.lines.slice(end + 1),
+  ]
+  const styles = [
+    ...frame.styles.slice(0, start),
+    ...art.map(() => [] as Style[]),
+    ...frame.styles.slice(end + 1),
+  ]
   return { at: frame.at, lines, styles }
 }
 
@@ -196,7 +212,10 @@ function trimStyledLine(line: string, styles: Style[]): [string, Style[]] {
   while (length > 0 && line[length - 1] === ' ' && !styles[length - 1]?.background) {
     length--
   }
-  return [line.slice(0, length), styles.slice(0, length)]
+  return [
+    line.slice(0, length),
+    styles.slice(0, length),
+  ]
 }
 
 /** Run-length encode a line's styles, so style-only differences are visible to identity checks. */
@@ -206,7 +225,18 @@ function styleRuns(line: string, styles: (Style | undefined)[]): string {
   let count = 0
   for (let col = 0; col < line.length; col++) {
     const style = styles[col]
-    const key = style ? JSON.stringify([style.foreground, style.background, style.bold, style.dim, style.italic, style.underline, style.inverse, style.strikethrough]) : ''
+    const key = style
+      ? JSON.stringify([
+          style.foreground,
+          style.background,
+          style.bold,
+          style.dim,
+          style.italic,
+          style.underline,
+          style.inverse,
+          style.strikethrough,
+        ])
+      : ''
     if (key === current) {
       count++
       continue

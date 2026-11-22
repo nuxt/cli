@@ -18,9 +18,19 @@ export interface PanelURL {
   pending?: boolean
 }
 
-export const URL_STYLES = { local: 'cyan', network: 'magenta', tunnel: 'cyan', public: 'magenta' } as const
+export const URL_STYLES = {
+  local: 'cyan',
+  network: 'magenta',
+  tunnel: 'cyan',
+  public: 'magenta',
+} as const
 
-export const URL_LABELS = { local: 'Local', network: 'Network', tunnel: 'Tunnel', public: 'Public' } as const
+export const URL_LABELS = {
+  local: 'Local',
+  network: 'Network',
+  tunnel: 'Tunnel',
+  public: 'Public',
+} as const
 
 /** Listener URLs as panel entries, shared with the pre-ready pending block. */
 export function describeListenURLs(urls: Array<{ type: keyof typeof URL_LABELS, url: string }>, options: { pending?: boolean } = {}): PanelURL[] {
@@ -128,18 +138,49 @@ interface Badge {
 }
 
 const BADGES: Record<DevStatus, Badge> = {
-  starting: { label: 'STARTING', style: ['bgYellow', 'black', 'bold'], note: 'preparing your app' },
-  building: { label: 'BUILDING', style: ['bgYellow', 'black', 'bold'], note: 'compiling changes' },
-  restarting: { label: 'RESTART', style: ['bgYellow', 'black', 'bold'], note: 'reloading the dev server' },
-  error: { label: 'ERROR', style: ['bgRed', 'white', 'bold'], note: 'an error was logged · press e to view it' },
-  warming: { label: 'WARMUP', style: ['bgYellow', 'black', 'bold'], note: 'compiling the first request' },
-  ready: { label: 'READY', style: ['bgGreen', 'black', 'bold'], note: 'watching for changes' },
+  starting: {
+    label: 'STARTING',
+    style: ['bgYellow', 'black', 'bold'],
+    note: 'preparing your app',
+  },
+  building: {
+    label: 'BUILDING',
+    style: ['bgYellow', 'black', 'bold'],
+    note: 'compiling changes',
+  },
+  restarting: {
+    label: 'RESTART',
+    style: ['bgYellow', 'black', 'bold'],
+    note: 'reloading the dev server',
+  },
+  error: {
+    label: 'ERROR',
+    style: ['bgRed', 'white', 'bold'],
+    note: 'an error was logged · press e to view it',
+  },
+  warming: {
+    label: 'WARMUP',
+    style: ['bgYellow', 'black', 'bold'],
+    note: 'compiling the first request',
+  },
+  ready: {
+    label: 'READY',
+    style: ['bgGreen', 'black', 'bold'],
+    note: 'watching for changes',
+  },
 }
 
 const SEPARATOR = styleText(MUTED, ' \u00B7 ')
 
 /** Blocks are dropped from the least important until the panel fits. */
-const BLOCK_PRIORITY = ['hints', 'status', 'wordmark', 'urls', 'summary', 'space'] as const
+const BLOCK_PRIORITY = [
+  'hints',
+  'status',
+  'wordmark',
+  'urls',
+  'summary',
+  'space',
+] as const
 
 type BlockName = typeof BLOCK_PRIORITY[number]
 
@@ -158,14 +199,44 @@ interface Block {
 export function renderPanel(state: PanelState, columns: number, rows = 24): string[] {
   const width = Math.max(1, columns)
   const blocks = ([
-    { name: 'wordmark', lines: [renderWordmark(state, width)] },
-    { name: 'space', lines: [''] },
-    { name: 'urls', lines: renderURLs(state, width) },
-    { name: 'space', lines: [''] },
-    { name: 'summary', lines: renderSummary(state, width) },
-    { name: 'space', lines: [''] },
-    { name: 'status', lines: [renderStatus(state, width)] },
-    { name: 'hints', lines: [renderHints(state, width)] },
+    {
+      name: 'wordmark',
+      lines: [
+        renderWordmark(state, width),
+      ],
+    },
+    {
+      name: 'space',
+      lines: [''],
+    },
+    {
+      name: 'urls',
+      lines: renderURLs(state, width),
+    },
+    {
+      name: 'space',
+      lines: [''],
+    },
+    {
+      name: 'summary',
+      lines: renderSummary(state, width),
+    },
+    {
+      name: 'space',
+      lines: [''],
+    },
+    {
+      name: 'status',
+      lines: [
+        renderStatus(state, width),
+      ],
+    },
+    {
+      name: 'hints',
+      lines: [
+        renderHints(state, width),
+      ],
+    },
   ] satisfies Block[]).filter(block => block.lines.length > 0)
 
   const budget = Math.max(2, Math.min(rows - 1, 14))
@@ -194,10 +265,19 @@ export function renderPanel(state: PanelState, columns: number, rows = 24): stri
 function renderWordmark(state: PanelState, columns: number): string {
   const mark = state.ascii
     ? styleText('green', '>')
-    : renderLogo({ working: state.status !== 'ready' && state.status !== 'error', frame: state.frame, active: state.active, background: state.background })
+    : renderLogo({
+        working: state.status !== 'ready' && state.status !== 'error',
+        frame: state.frame,
+        active: state.active,
+        background: state.background,
+      })
   const version = state.versionLink ?? state.version
-  const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version ? ` ${styleText(MUTED, version)}` : ''}${
-    state.update ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`, state.background) : ''}`
+  const head = ` ${mark}  ${paint('brand', styleText('bold', 'Nuxt'), state.background)}${version
+    ? ` ${styleText(MUTED, version)}`
+    : ''}${
+    state.update
+      ? paint('warning', `  ${state.updateLink ?? `\u2192 ${state.update}`}`, state.background)
+      : ''}`
 
   // How long the last load took says nothing about the one in flight, and a
   // precise number is the wrong thing to be confident about mid-rebuild.
@@ -206,11 +286,24 @@ function renderWordmark(state: PanelState, columns: number): string {
     ? ''
     : styleText(MUTED, `ready in ${formatDuration(state.readyMs)} `)
   const gap = columns - visibleWidth(head) - visibleWidth(tail)
-  return gap < 2 ? truncate(head, columns) : head + ' '.repeat(gap) + tail
+  return gap < 2
+    ? truncate(head, columns)
+    : head + ' '.repeat(gap) + tail
 }
 
 /** The spinner shown next to a URL that is bound but not yet confirmed. */
-const SPINNER_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'] as const
+const SPINNER_FRAMES = [
+  '\u280B',
+  '\u2819',
+  '\u2839',
+  '\u2838',
+  '\u283C',
+  '\u2834',
+  '\u2826',
+  '\u2827',
+  '\u2807',
+  '\u280F',
+] as const
 
 function renderURLs(state: PanelState, columns: number): string[] {
   const urls = state.urls?.filter(entry => !!entry.url) ?? []
@@ -220,10 +313,14 @@ function renderURLs(state: PanelState, columns: number): string[] {
   const width = Math.max(...urls.map(entry => entry.label.length))
   return urls.map(({ label, url, link, style, pending }) => {
     const spinner = pending
-      ? ` ${paint('warning', state.ascii ? '~' : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!, state.background)}`
+      ? ` ${paint('warning', state.ascii
+        ? '~'
+        : SPINNER_FRAMES[(state.frame ?? 0) % SPINNER_FRAMES.length]!, state.background)}`
       : ''
     return truncate(
-      `   ${styleText(MUTED, label.padEnd(width))}   ${styleText(pending ? MUTED : style ?? 'cyan', link ?? url)}${spinner}`,
+      `   ${styleText(MUTED, label.padEnd(width))}   ${styleText(pending
+        ? MUTED
+        : style ?? 'cyan', link ?? url)}${spinner}`,
       columns,
     )
   })
@@ -231,7 +328,18 @@ function renderURLs(state: PanelState, columns: number): string[] {
 
 const PROGRESS_BAR_WIDTH = 20
 
-const TASK_FRAMES = ['\u280B', '\u2819', '\u2839', '\u2838', '\u283C', '\u2834', '\u2826', '\u2827', '\u2807', '\u280F'] as const
+const TASK_FRAMES = [
+  '\u280B',
+  '\u2819',
+  '\u2839',
+  '\u2838',
+  '\u283C',
+  '\u2834',
+  '\u2826',
+  '\u2827',
+  '\u2807',
+  '\u280F',
+] as const
 const TASK_FRAMES_ASCII = ['|', '/', '-', '\\'] as const
 
 /** How long a phase runs before its own elapsed time is worth a mention. */
@@ -249,7 +357,9 @@ function renderProgress(state: PanelState, columns: number): string {
   const filled = Math.round(fraction * PROGRESS_BAR_WIDTH)
   const glyph = state.ascii ? '=' : '\u2501'
   const bar = styleText('green', glyph.repeat(filled)) + styleText(MUTED, glyph.repeat(PROGRESS_BAR_WIDTH - filled))
-  const elapsed = state.elapsedMs === undefined ? '' : `${SEPARATOR}${styleText(MUTED, formatDuration(state.elapsedMs))}`
+  const elapsed = state.elapsedMs === undefined
+    ? ''
+    : `${SEPARATOR}${styleText(MUTED, formatDuration(state.elapsedMs))}`
   return truncate(`   ${bar} ${styleText(MUTED, `${Math.round(fraction * 100)}%`)}${elapsed}`, columns)
 }
 
@@ -259,7 +369,9 @@ function renderSummary(state: PanelState, columns: number): string[] {
     : { ok: '\u2714', warn: '\u26A0', fail: '\u2716' }
 
   if (state.status !== 'ready' && state.status !== 'error' && state.progress !== undefined) {
-    return [renderProgress(state, columns)]
+    return [
+      renderProgress(state, columns),
+    ]
   }
 
   // Work reported through the terminal host borrows the summary line: it is
@@ -268,7 +380,9 @@ function renderSummary(state: PanelState, columns: number): string[] {
     const glyph = state.ascii ? TASK_FRAMES_ASCII : TASK_FRAMES
     const mark = glyph[(state.frame ?? 0) % glyph.length]!
     const elapsed = styleText(MUTED, formatDuration(Date.now() - state.task.startedAt))
-    return [truncate(`   ${styleText('cyan', mark)} ${decapitalise(state.task.label)}${SEPARATOR}${elapsed}`, columns)]
+    return [
+      truncate(`   ${styleText('cyan', mark)} ${decapitalise(state.task.label)}${SEPARATOR}${elapsed}`, columns),
+    ]
   }
 
   const parts: string[] = []
@@ -289,9 +403,13 @@ function renderSummary(state: PanelState, columns: number): string[] {
   }
   if (!parts.length) {
     // The line stays reserved so the first request cannot reflow the panel.
-    return [truncate(`   ${styleText(MUTED, 'waiting for requests')}`, columns)]
+    return [
+      truncate(`   ${styleText(MUTED, 'waiting for requests')}`, columns),
+    ]
   }
-  return [truncate(`   ${parts.join(styleText(MUTED, '   '))}`, columns)]
+  return [
+    truncate(`   ${parts.join(styleText(MUTED, '   '))}`, columns),
+  ]
 }
 
 /**
@@ -300,9 +418,18 @@ function renderSummary(state: PanelState, columns: number): string[] {
  * capital followed by lowercase is folded, so acronyms survive.
  */
 const NOTICE_TONES = {
-  info: { mark: { unicode: '\u2139', ascii: 'i' }, paint: (glyph: string) => styleText('cyan', glyph) },
-  warn: { mark: { unicode: '\u26A0', ascii: '!' }, paint: (glyph: string, background?: TerminalBackground) => paint('warning', glyph, background) },
-  success: { mark: { unicode: '\u2714', ascii: '+' }, paint: (glyph: string) => styleText('green', glyph) },
+  info: {
+    mark: { unicode: '\u2139', ascii: 'i' },
+    paint: (glyph: string) => styleText('cyan', glyph),
+  },
+  warn: {
+    mark: { unicode: '\u26A0', ascii: '!' },
+    paint: (glyph: string, background?: TerminalBackground) => paint('warning', glyph, background),
+  },
+  success: {
+    mark: { unicode: '\u2714', ascii: '+' },
+    paint: (glyph: string) => styleText('green', glyph),
+  },
 } as const satisfies Record<string, { mark: { unicode: string, ascii: string }, paint: (glyph: string, background?: TerminalBackground) => string }>
 
 /** Passing feedback, in place of the badge's standing description. */
@@ -322,8 +449,12 @@ function renderStatus(state: PanelState, columns: number): string {
 
   // A render is only worth reporting over a server with nothing else to say;
   // a load in flight is the more important thing and keeps the line.
-  const rendering = state.status === 'ready' || state.status === 'warming' ? state.rendering : undefined
-  const badge = rendering && state.awaitingFirstRender ? BADGES.warming : BADGES[state.status]
+  const rendering = state.status === 'ready' || state.status === 'warming'
+    ? state.rendering
+    : undefined
+  const badge = rendering && state.awaitingFirstRender
+    ? BADGES.warming
+    : BADGES[state.status]
   const description = state.notice
     ? renderNotice(state)
     : rendering
@@ -332,7 +463,9 @@ function renderStatus(state: PanelState, columns: number): string {
   const head = ` ${styleText(badge.style, ` ${badge.label} `)}  ${description}`
   // The request in flight is the more interesting one, and it is usually the
   // same URL as the last: printing both reads as a stutter.
-  return truncate(head + (rendering ? '' : renderTicker(state, columns - visibleWidth(head))), columns)
+  return truncate(head + (rendering
+    ? ''
+    : renderTicker(state, columns - visibleWidth(head))), columns)
 }
 
 /**
@@ -387,7 +520,11 @@ function renderTicker(state: PanelState, room: number): string {
 function renderHints(state: PanelState, columns: number): string {
   const remaining = [
     // Whatever else has to go, the way to read the error stays on screen.
-    ...state.errors ? [{ key: 'e', label: 'last error', priority: Number.POSITIVE_INFINITY }] : [],
+    ...state.errors
+      ? [
+          { key: 'e', label: 'last error', priority: Number.POSITIVE_INFINITY },
+        ]
+      : [],
     ...state.hints ?? [],
   ]
   const render = (items: PanelHint[]) => ` ${items
@@ -397,7 +534,9 @@ function renderHints(state: PanelState, columns: number): string {
     .join(SEPARATOR)}`
 
   while (remaining.length > 1 && visibleWidth(render(remaining)) > columns) {
-    const weakest = remaining.reduce((lowest, item) => item.priority < lowest.priority ? item : lowest)
+    const weakest = remaining.reduce((lowest, item) => item.priority < lowest.priority
+      ? item
+      : lowest)
     remaining.splice(remaining.indexOf(weakest), 1)
   }
   return truncate(render(remaining), columns)
@@ -408,11 +547,17 @@ export function paintStatus(status: number, text = String(status), background?: 
   if (status >= 400 && status < 500) {
     return paint('warning', text, background)
   }
-  return styleText(status >= 500 ? 'red' : status >= 300 ? 'cyan' : 'green', text)
+  return styleText(status >= 500
+    ? 'red'
+    : status >= 300
+      ? 'cyan'
+      : 'green', text)
 }
 
 function plural(count: number, word: string): string {
-  return count === 1 ? word : `${word}s`
+  return count === 1
+    ? word
+    : `${word}s`
 }
 
 /** The panel as plain text, for asserting layout without styling. */

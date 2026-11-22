@@ -33,7 +33,9 @@ describe('logger', () => {
     })
     restores.push(() => write.mockRestore())
 
-    return { written: () => stripAnsi(chunks.join('')) }
+    return {
+      written: () => stripAnsi(chunks.join('')),
+    }
   }
 
   it('should leave no clack gutter in redirected output', () => {

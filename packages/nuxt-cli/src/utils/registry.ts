@@ -39,7 +39,14 @@ export function getRegistryFromContent(content: string, scope: string | null): s
 
 /** Parsed `.npmrc` files, most specific first; only the user file without a `cwd`. */
 async function readNpmrcs(cwd: string | undefined): Promise<NpmConfig[]> {
-  const paths = cwd ? [join(cwd, '.npmrc'), join(homedir(), '.npmrc')] : [join(homedir(), '.npmrc')]
+  const paths = cwd
+    ? [
+        join(cwd, '.npmrc'),
+        join(homedir(), '.npmrc'),
+      ]
+    : [
+        join(homedir(), '.npmrc'),
+      ]
   const configs = await Promise.all(paths.map(async (npmrcPath) => {
     let fd: FileHandle | undefined
     try {

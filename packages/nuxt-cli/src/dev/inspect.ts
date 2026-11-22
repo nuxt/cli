@@ -50,7 +50,9 @@ export function parseInspectArgs(args: string[]): InspectOptions | undefined {
     }
   }
 
-  return enabled ? { host, port, wait } : undefined
+  return enabled
+    ? { host, port, wait }
+    : undefined
 }
 
 function parseTarget(value: string | undefined): { host?: string, port?: number } {
@@ -65,16 +67,26 @@ function parseTarget(value: string | undefined): { host?: string, port?: number 
     }
     const host = value.slice(1, end)
     const rest = value.slice(end + 1)
-    return rest.startsWith(':') ? { host, port: toPort(rest.slice(1)) } : { host }
+    return rest.startsWith(':')
+      ? {
+          host,
+          port: toPort(rest.slice(1)),
+        }
+      : { host }
   }
 
   const separator = value.lastIndexOf(':')
   if (separator !== -1) {
-    return { host: value.slice(0, separator) || DEFAULT_HOST, port: toPort(value.slice(separator + 1)) }
+    return {
+      host: value.slice(0, separator) || DEFAULT_HOST,
+      port: toPort(value.slice(separator + 1)),
+    }
   }
 
   if (/^\d+$/.test(value)) {
-    return { port: toPort(value) }
+    return {
+      port: toPort(value),
+    }
   }
   return { host: value }
 }
@@ -84,7 +96,9 @@ function toPort(value: string): number | undefined {
     return undefined
   }
   const port = Number(value)
-  return port >= 0 && port <= 65535 ? port : undefined
+  return port >= 0 && port <= 65535
+    ? port
+    : undefined
 }
 
 /**
@@ -104,7 +118,9 @@ export async function openInspector(inspectOptions: InspectOptions): Promise<voi
     inspector.open(options.port, options.host, options.wait)
   }
   catch (error) {
-    logger.warn(`Could not start the inspector on ${styleText('cyan', `${options.host}:${options.port}`)}: ${error instanceof Error ? error.message : error}`)
+    logger.warn(`Could not start the inspector on ${styleText('cyan', `${options.host}:${options.port}`)}: ${error instanceof Error
+      ? error.message
+      : error}`)
   }
 
   process.env[INSPECT_ENV] = JSON.stringify({ host: inspectOptions.host, port: inspectOptions.port })
@@ -115,7 +131,12 @@ export async function openInspector(inspectOptions: InspectOptions): Promise<voi
  * modules. Server code runs in a nitro worker thread on the requested port.
  */
 export function resolveProcessInspectOptions(options: InspectOptions): InspectOptions {
-  return { ...options, port: options.port === 0 ? 0 : options.port + 1 }
+  return {
+    ...options,
+    port: options.port === 0
+      ? 0
+      : options.port + 1,
+  }
 }
 
 /** Release the inspector port so another process (a fork) can bind to it. */
@@ -133,5 +154,8 @@ export async function closeInspector(): Promise<void> {
 
 /** Node exec arguments are inspected too, so `node --inspect nuxt dev` behaves like `nuxt dev --inspect`. */
 export function resolveInspectOptions(rawArgs: string[]): InspectOptions | undefined {
-  return parseInspectArgs([...process.execArgv, ...rawArgs])
+  return parseInspectArgs([
+    ...process.execArgv,
+    ...rawArgs,
+  ])
 }

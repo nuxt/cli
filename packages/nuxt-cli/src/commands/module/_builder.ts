@@ -31,7 +31,10 @@ const moduleRootArgs = {
 export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'prepare', description: string, args: T) {
   return defineCommand({
     meta: { name, description },
-    args: { ...moduleRootArgs, ...args },
+    args: {
+      ...moduleRootArgs,
+      ...args,
+    },
     async run(ctx) {
       const bin = resolveModuleBuilderBin(resolveRootDir(ctx.args), name)
       const result = await x(process.execPath, [bin, name, ...ctx.rawArgs], {
@@ -46,12 +49,17 @@ export function defineModuleBuilderCommand<T extends ArgsDef>(name: 'build' | 'p
 }
 
 function resolveModuleBuilderBin(rootDir: string, command: string): string {
-  const manifest = resolveModulePath('@nuxt/module-builder/package.json', { from: withNodePath(rootDir), try: true })
+  const manifest = resolveModulePath('@nuxt/module-builder/package.json', {
+    from: withNodePath(rootDir),
+    try: true,
+  })
   if (!manifest) {
     throw new ActionableError(`\`@nuxt/module-builder\` is not installed in this module. Install it as a development dependency to use \`nuxt module ${command}\`.`)
   }
   const { bin } = JSON.parse(readFileSync(manifest, 'utf8')) as Pick<PackageJson, 'bin'>
-  const script = typeof bin === 'object' ? bin['nuxt-module-build'] : undefined
+  const script = typeof bin === 'object'
+    ? bin['nuxt-module-build']
+    : undefined
   if (!script) {
     throw new ActionableError(`The installed version of \`@nuxt/module-builder\` does not support \`nuxt module ${command}\`.`)
   }

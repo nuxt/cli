@@ -75,7 +75,18 @@ function countInstalledDirectories(target: Target): number {
 
 function tarballStats(target: Target, workdir: string): { tarballBytes: number, unpackedBytes: number, tarballFiles: number } {
   const packageDir = join(target.dir, 'node_modules/@nuxt/cli')
-  const output = execFileSync('npm', ['pack', '--json', '--dry-run', '--ignore-scripts', '--pack-destination', workdir], { cwd: packageDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  const output = execFileSync('npm', [
+    'pack',
+    '--json',
+    '--dry-run',
+    '--ignore-scripts',
+    '--pack-destination',
+    workdir,
+  ], {
+    cwd: packageDir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   const [entry] = JSON.parse(output) as { size: number, unpackedSize: number, entryCount: number }[]
   return { tarballBytes: entry!.size, unpackedBytes: entry!.unpackedSize, tarballFiles: entry!.entryCount }
 }
@@ -93,7 +104,12 @@ export async function footprintSuite(targets: Target[], workdir: string, reps: n
       rmSync(join(target.dir, 'node_modules'), { recursive: true, force: true })
       rmSync(join(target.dir, 'package-lock.json'), { force: true })
       const started = performance.now()
-      npm(['install', '--no-audit', '--no-fund', '--prefer-offline'], target.dir)
+      npm([
+        'install',
+        '--no-audit',
+        '--no-fund',
+        '--prefer-offline',
+      ], target.dir)
       installSamples.get(target.id)!.push(performance.now() - started)
     }
   }
@@ -117,22 +133,77 @@ export async function footprintSuite(targets: Target[], workdir: string, reps: n
 
   const [baseline, head] = results
   const rows = [
-    ['Direct dependencies of `@nuxt/cli`', String(baseline!.directPackages), String(head!.directPackages), formatDelta(baseline!.directPackages, head!.directPackages)],
-    ['Packages in the installed tree (unique name@version)', String(baseline!.packages), String(head!.packages), formatDelta(baseline!.packages, head!.packages)],
-    ['Unique package names', String(baseline!.uniqueNames), String(head!.uniqueNames), formatDelta(baseline!.uniqueNames, head!.uniqueNames)],
-    ['Package directories on disk (cross-check)', String(baseline!.installedDirs), String(head!.installedDirs), formatDelta(baseline!.installedDirs, head!.installedDirs)],
-    ['Installed `node_modules` on disk', formatBytes(baseline!.bytes), formatBytes(head!.bytes), formatDelta(baseline!.bytes, head!.bytes)],
-    ['Installed files', String(baseline!.files), String(head!.files), formatDelta(baseline!.files, head!.files)],
-    [`Install wall time (warm npm cache, median of ${reps})`, formatMs(baseline!.installMedianMs), formatMs(head!.installMedianMs), formatDelta(baseline!.installMedianMs, head!.installMedianMs)],
-    ['Published tarball (packed)', formatBytes(baseline!.tarballBytes), formatBytes(head!.tarballBytes), formatDelta(baseline!.tarballBytes, head!.tarballBytes)],
-    ['Published tarball (unpacked)', formatBytes(baseline!.unpackedBytes), formatBytes(head!.unpackedBytes), formatDelta(baseline!.unpackedBytes, head!.unpackedBytes)],
-    ['Files in tarball', String(baseline!.tarballFiles), String(head!.tarballFiles), formatDelta(baseline!.tarballFiles, head!.tarballFiles)],
+    [
+      'Direct dependencies of `@nuxt/cli`',
+      String(baseline!.directPackages),
+      String(head!.directPackages),
+      formatDelta(baseline!.directPackages, head!.directPackages),
+    ],
+    [
+      'Packages in the installed tree (unique name@version)',
+      String(baseline!.packages),
+      String(head!.packages),
+      formatDelta(baseline!.packages, head!.packages),
+    ],
+    [
+      'Unique package names',
+      String(baseline!.uniqueNames),
+      String(head!.uniqueNames),
+      formatDelta(baseline!.uniqueNames, head!.uniqueNames),
+    ],
+    [
+      'Package directories on disk (cross-check)',
+      String(baseline!.installedDirs),
+      String(head!.installedDirs),
+      formatDelta(baseline!.installedDirs, head!.installedDirs),
+    ],
+    [
+      'Installed `node_modules` on disk',
+      formatBytes(baseline!.bytes),
+      formatBytes(head!.bytes),
+      formatDelta(baseline!.bytes, head!.bytes),
+    ],
+    [
+      'Installed files',
+      String(baseline!.files),
+      String(head!.files),
+      formatDelta(baseline!.files, head!.files),
+    ],
+    [
+      `Install wall time (warm npm cache, median of ${reps})`,
+      formatMs(baseline!.installMedianMs),
+      formatMs(head!.installMedianMs),
+      formatDelta(baseline!.installMedianMs, head!.installMedianMs),
+    ],
+    [
+      'Published tarball (packed)',
+      formatBytes(baseline!.tarballBytes),
+      formatBytes(head!.tarballBytes),
+      formatDelta(baseline!.tarballBytes, head!.tarballBytes),
+    ],
+    [
+      'Published tarball (unpacked)',
+      formatBytes(baseline!.unpackedBytes),
+      formatBytes(head!.unpackedBytes),
+      formatDelta(baseline!.unpackedBytes, head!.unpackedBytes),
+    ],
+    [
+      'Files in tarball',
+      String(baseline!.tarballFiles),
+      String(head!.tarballFiles),
+      formatDelta(baseline!.tarballFiles, head!.tarballFiles),
+    ],
   ]
 
   const markdown = [
     'Each version installed on its own into an empty project with nothing but `@nuxt/cli` as a dependency, so the tree is exactly the CLI and its transitive dependencies. npm cache is warm and the registry is only consulted for metadata, so install wall time is indicative, not a network benchmark.',
     '',
-    markdownTable(['Metric', shortLabel(targets[0]!), shortLabel(targets[1]!), 'Delta'], rows),
+    markdownTable([
+      'Metric',
+      shortLabel(targets[0]!),
+      shortLabel(targets[1]!),
+      'Delta',
+    ], rows),
   ].join('\n')
 
   return { results, markdown }

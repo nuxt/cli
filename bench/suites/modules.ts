@@ -8,9 +8,21 @@ import { shortLabel } from '../lib/targets.ts'
 const hook = fileURLToPath(new URL('../lib/module-hook.mjs', import.meta.url))
 
 const CASES = [
-  { id: 'version', label: '`nuxt --version`', args: ['--version'] },
-  { id: 'help', label: '`nuxt --help`', args: ['--help'] },
-  { id: 'dev-help', label: '`nuxt dev --help`', args: ['dev', '--help'] },
+  {
+    id: 'version',
+    label: '`nuxt --version`',
+    args: ['--version'],
+  },
+  {
+    id: 'help',
+    label: '`nuxt --help`',
+    args: ['--help'],
+  },
+  {
+    id: 'dev-help',
+    label: '`nuxt dev --help`',
+    args: ['dev', '--help'],
+  },
 ] as const
 
 export interface ModuleCount {
@@ -30,7 +42,12 @@ export async function modulesSuite(targets: Target[], cwd: string): Promise<{ re
   for (const testCase of CASES) {
     const perTarget: ModuleCount[] = []
     for (const target of targets) {
-      const result = await run(process.execPath, ['--import', hook, target.bin, ...testCase.args], {
+      const result = await run(process.execPath, [
+        '--import',
+        hook,
+        target.bin,
+        ...testCase.args,
+      ], {
         cwd,
         env: { NODE_DISABLE_COMPILE_CACHE: '1' },
       })
@@ -62,7 +79,18 @@ export async function modulesSuite(targets: Target[], cwd: string): Promise<{ re
     'Counted with a `module.registerHooks` load hook, compile cache disabled. Counts every JS module actually evaluated on that code path (native addons excluded). Built-ins loaded after bootstrap are counted separately, including the internal modules they load.',
     '',
     markdownTable(
-      ['Command', `${shortLabel(targets[0]!)} modules`, `${shortLabel(targets[1]!)} modules`, 'Delta', `${shortLabel(targets[0]!)} source bytes`, `${shortLabel(targets[1]!)} source bytes`, 'Delta', `${shortLabel(targets[0]!)} built-ins`, `${shortLabel(targets[1]!)} built-ins`, 'Delta'],
+      [
+        'Command',
+        `${shortLabel(targets[0]!)} modules`,
+        `${shortLabel(targets[1]!)} modules`,
+        'Delta',
+        `${shortLabel(targets[0]!)} source bytes`,
+        `${shortLabel(targets[1]!)} source bytes`,
+        'Delta',
+        `${shortLabel(targets[0]!)} built-ins`,
+        `${shortLabel(targets[1]!)} built-ins`,
+        'Delta',
+      ],
       rows,
     ),
   ].join('\n')

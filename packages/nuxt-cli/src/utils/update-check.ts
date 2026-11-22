@@ -78,7 +78,9 @@ export function isUpdateCheckEnabled(): boolean {
 
 async function resolveLatestVersion(name: string): Promise<string | undefined> {
   const cache = readCache()
-  const entry = name === 'nuxt' ? cache : cache.packages?.[name] || {}
+  const entry = name === 'nuxt'
+    ? cache
+    : cache.packages?.[name] || {}
   if (entry.checkedAt && Date.now() - Number(entry.checkedAt) < CACHE_TTL) {
     return entry.latest
   }
@@ -87,7 +89,9 @@ async function resolveLatestVersion(name: string): Promise<string | undefined> {
   try {
     const { registry, authorization } = await detectNpmRegistry(null, null)
     latest = (await fetchJson<{ latest?: string }>(`${registry}/-/package/${name}/dist-tags`, {
-      headers: authorization ? { Authorization: authorization } : undefined,
+      headers: authorization
+        ? { Authorization: authorization }
+        : undefined,
       timeout: FETCH_TIMEOUT,
       retry: 0,
     })).latest
@@ -98,8 +102,15 @@ async function resolveLatestVersion(name: string): Promise<string | undefined> {
 
   // an unreachable or unauthenticated registry is recorded as a completed check
   // so an offline user does not pay the request timeout on every command
-  const checked = { latest, checkedAt: Date.now() }
-  writeCache(name === 'nuxt' ? checked : { packages: { [name]: checked } })
+  const checked = {
+    latest,
+    checkedAt: Date.now(),
+  }
+  writeCache(name === 'nuxt'
+    ? checked
+    : {
+        packages: { [name]: checked },
+      })
   return latest
 }
 
@@ -152,7 +163,9 @@ export interface UpdateNudgeOptions {
 function describeUpdate({ current, latest }: NuxtUpdate, name: string, pkg: string): string {
   const notes = releaseNotesUrl(pkg, latest)
   const version = styleText('green', latest)
-  return `a new version of ${name} is available: ${notes ? terminalLink(version, notes) : version} ${styleText('gray', `(you are on ${current})`)}`
+  return `a new version of ${name} is available: ${notes
+    ? terminalLink(version, notes)
+    : version} ${styleText('gray', `(you are on ${current})`)}`
 }
 
 export function renderUpdateNudge(update: NuxtUpdate, options: UpdateNudgeOptions = {}): void {

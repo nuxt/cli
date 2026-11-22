@@ -26,8 +26,24 @@ it('should reload dotenv values across successive fork restarts while preserving
 
   const host = '127.0.0.1'
   const port = await getPort({ host })
-  const server = spawn(process.execPath, [nuxi, 'dev', fixtureDir, '--host', host, '--port', String(port), '--no-tui'], {
-    env: { ...process.env, NODE_ENV: 'development', TEST: '', CI: '1', NUXT_PUBLIC_MARKER: undefined, NUXT_PUBLIC_SHELL: 'shell' },
+  const server = spawn(process.execPath, [
+    nuxi,
+    'dev',
+    fixtureDir,
+    '--host',
+    host,
+    '--port',
+    String(port),
+    '--no-tui',
+  ], {
+    env: {
+      ...process.env,
+      NODE_ENV: 'development',
+      TEST: '',
+      CI: '1',
+      NUXT_PUBLIC_MARKER: undefined,
+      NUXT_PUBLIC_SHELL: 'shell',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const exited = once(server, 'exit')
@@ -43,7 +59,9 @@ it('should reload dotenv values across successive fork restarts while preserving
     let pid = 0
     await vi.waitFor(async () => {
       expect(server.exitCode, output).toBeNull()
-      const response = await fetch(`http://${host}:${port}/api/dotenv`, { signal: AbortSignal.timeout(5000) })
+      const response = await fetch(`http://${host}:${port}/api/dotenv`, {
+        signal: AbortSignal.timeout(5000),
+      })
       expect(response.status).toBe(200)
       const value = await response.json() as { pid: number, marker: string, shell: string }
       expect(value).toMatchObject({ marker, shell: 'shell' })

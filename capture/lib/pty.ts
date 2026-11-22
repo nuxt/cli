@@ -38,9 +38,23 @@ export interface PtySession {
 function ptyHost(shellLine: string): { command: string, args: string[], env: Record<string, string> } {
   if (process.platform === 'darwin' || process.env.CAPTURE_FORCE_SHIM === '1') {
     const shim = fileURLToPath(new URL('pty-host.py', import.meta.url))
-    return { command: 'python3', args: [shim], env: { CAPTURE_CMD: shellLine } }
+    return {
+      command: 'python3',
+      args: [shim],
+      env: { CAPTURE_CMD: shellLine },
+    }
   }
-  return { command: 'script', args: ['-q', '-e', '-c', shellLine, '/dev/null'], env: {} }
+  return {
+    command: 'script',
+    args: [
+      '-q',
+      '-e',
+      '-c',
+      shellLine,
+      '/dev/null',
+    ],
+    env: {},
+  }
 }
 
 /**
@@ -59,7 +73,14 @@ export function record(command: string, options: PtyOptions): PtySession {
   // pipe, flipping them to consola's fancy reporter (right-aligned timestamps
   // and all) when a real run re-emits their plain output through the parent.
   // CI (set on Actions runners) is dropped for the inverse reason.
-  const env = { ...process.env, ...options.env, ...host.env, TERM: 'xterm-256color', COLUMNS: String(options.columns), LINES: String(options.rows) } as NodeJS.ProcessEnv
+  const env = {
+    ...process.env,
+    ...options.env,
+    ...host.env,
+    TERM: 'xterm-256color',
+    COLUMNS: String(options.columns),
+    LINES: String(options.rows),
+  } as NodeJS.ProcessEnv
   delete env.FORCE_COLOR
   delete env.NO_COLOR
   delete env.CI

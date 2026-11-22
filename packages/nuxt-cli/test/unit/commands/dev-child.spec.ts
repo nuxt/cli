@@ -18,7 +18,9 @@ describe('nuxt _dev command', () => {
     await runCommand('_dev', ['fixtures/app'])
 
     expect(initialize).toHaveBeenCalledWith(
-      expect.objectContaining({ cwd: expect.stringMatching(/fixtures[/\\]app$/) }),
+      expect.objectContaining({
+        cwd: expect.stringMatching(/fixtures[/\\]app$/),
+      }),
       expect.any(Object),
     )
   })

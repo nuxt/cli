@@ -49,7 +49,11 @@ export async function resolveCertificate(options: HTTPSOptions): Promise<Resolve
       readCertificateFile(options.cert, '--https.cert'),
       readCertificateFile(options.key, '--https.key'),
     ])
-    return { cert: cert.toString('utf8'), key: key.toString('utf8'), passphrase: options.passphrase }
+    return {
+      cert: cert.toString('utf8'),
+      key: key.toString('utf8'),
+      passphrase: options.passphrase,
+    }
   }
   return generateCertificate(options)
 }
@@ -75,7 +79,9 @@ async function readCertificateFile(path: string, flag: string): Promise<Buffer> 
 const CERT_MIN_REMAINING_MS = 24 * 60 * 60 * 1000
 
 async function generateCertificate(options: HTTPSOptions): Promise<ResolvedCertificate> {
-  const domains = options.domains?.length ? options.domains : ['localhost', '127.0.0.1', '::1']
+  const domains = options.domains?.length
+    ? options.domains
+    : ['localhost', '127.0.0.1', '::1']
   const hash = createHash('sha256').update(domains.join(',')).digest('hex').slice(0, 8)
   const dir = getCacheDir('certs', hash)
   const certPath = join(dir, 'cert.pem')
@@ -130,8 +136,16 @@ async function generateWithMkcert(certPath: string, keyPath: string, domains: st
     return undefined
   }
   try {
-    execFileSync(binary, ['-install'], { stdio: ['inherit', 'ignore', 'inherit'] })
-    execFileSync(binary, ['-cert-file', certPath, '-key-file', keyPath, ...domains], { stdio: 'ignore' })
+    execFileSync(binary, ['-install'], {
+      stdio: ['inherit', 'ignore', 'inherit'],
+    })
+    execFileSync(binary, [
+      '-cert-file',
+      certPath,
+      '-key-file',
+      keyPath,
+      ...domains,
+    ], { stdio: 'ignore' })
     return execFileSync(binary, ['-CAROOT'], { encoding: 'utf8' }).trim() || ''
   }
   catch (error) {
@@ -142,7 +156,9 @@ async function generateWithMkcert(certPath: string, keyPath: string, domains: st
 
 async function resolveMkcert(): Promise<string | undefined> {
   const platform = ({ darwin: 'darwin', linux: 'linux', win32: 'windows' } as Record<string, string>)[process.platform]
-  const arch = process.arch === 'arm64' ? 'arm64' : 'amd64'
+  const arch = process.arch === 'arm64'
+    ? 'arm64'
+    : 'amd64'
   return resolveTool('mkcert', {
     url: platform && `https://dl.filippo.io/mkcert/latest?for=${platform}/${arch}`,
     consent: {
@@ -163,7 +179,9 @@ function generateWithOpenssl(certPath: string, keyPath: string, domains: string[
   if (!findInPath('openssl')) {
     return false
   }
-  const altNames = domains.map(domain => (isIP(domain) ? `IP:${domain}` : `DNS:${domain}`)).join(',')
+  const altNames = domains.map(domain => (isIP(domain)
+    ? `IP:${domain}`
+    : `DNS:${domain}`)).join(',')
   try {
     execFileSync('openssl', [
       'req',

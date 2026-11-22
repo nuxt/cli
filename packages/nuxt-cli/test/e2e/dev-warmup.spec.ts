@@ -33,13 +33,17 @@ export default defineEventHandler(() => ({ entries: globalThis.__renders?.entrie
 
 /** How many renders were in flight as each one started, oldest first. */
 async function renders(base: string): Promise<number[]> {
-  const { entries } = await fetch(`${base}/api/renders`, { headers: { accept: 'application/json' } })
+  const { entries } = await fetch(`${base}/api/renders`, {
+    headers: { accept: 'application/json' },
+  })
     .then(response => response.json()) as { entries: number[] }
   return entries
 }
 
 function documents(base: string, count: number): Promise<Response[]> {
-  return Promise.all(Array.from({ length: count }, () => fetch(base, { headers: { accept: 'text/html' } })))
+  return Promise.all(Array.from({ length: count }, () => fetch(base, {
+    headers: { accept: 'text/html' },
+  })))
 }
 
 const host = '127.0.0.1'

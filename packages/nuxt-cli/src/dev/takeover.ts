@@ -153,10 +153,14 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
     }
     else {
       const prompt = options.prompt ?? promptForTakeover
-      const openURL = options.open ? resolveBrowserURL(existing, options.openURL) : undefined
+      const openURL = options.open
+        ? resolveBrowserURL(existing, options.openURL)
+        : undefined
       // Nothing ends an interactive session on a bare enter, so the default
       // depends on whether a person is watching the other server.
-      const defaultChoice = !existing.interactive ? 'takeover' : openURL ? 'open' : 'abort'
+      const defaultChoice = !existing.interactive
+        ? 'takeover'
+        : openURL ? 'open' : 'abort'
       const choice = await askQuestion(() => prompt(existing, defaultChoice, openURL))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
@@ -197,9 +201,11 @@ async function performTakeover(lockDir: string, existing: LockInfo, timeouts: Ta
 
   markTakenOver(lockDir, process.pid)
 
-  const pids = [...new Set(existing.command === 'preview'
-    ? [existing.serverPid, existing.pid]
-    : [existing.pid, existing.parentPid])]
+  const pids = [
+    ...new Set(existing.command === 'preview'
+      ? [existing.serverPid, existing.pid]
+      : [existing.pid, existing.parentPid]),
+  ]
     .filter((pid): pid is number => !!pid)
 
   // On Windows `SIGTERM` terminates outright.
@@ -317,7 +323,9 @@ export function formatTakeoverRefusal(existing: LockInfo, reason: TakeoverRefusa
 }
 
 function serverKind(existing: LockInfo) {
-  return SERVER_KINDS[existing.command === 'preview' ? 'preview' : 'dev']
+  return SERVER_KINDS[existing.command === 'preview'
+    ? 'preview'
+    : 'dev']
 }
 
 function describeServer(existing: LockInfo): string {
@@ -329,8 +337,12 @@ function describeLocation(existing: LockInfo): string {
 }
 
 function resolveBrowserURL(existing: LockInfo, target: string | undefined): string | undefined {
-  const url = canOpenBrowser() ? lockAppURL(existing) : undefined
-  return url && target ? resolveOpenURL(target, url) : url
+  const url = canOpenBrowser()
+    ? lockAppURL(existing)
+    : undefined
+  return url && target
+    ? resolveOpenURL(target, url)
+    : url
 }
 
 async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoice, openURL: string | undefined): Promise<TakeoverChoice> {
@@ -341,7 +353,11 @@ async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoi
     initialValue: defaultChoice,
     options: [
       { value: 'takeover', label: `Take over port ${existing.port}${andOpen}`, hint: 'stops the running server (--takeover)' },
-      ...(openURL ? [{ value: 'open' as const, label: `Do not start, open ${openURL} in browser`, hint: 'keeps the running server' }] : []),
+      ...(openURL
+        ? [
+            { value: 'open' as const, label: `Do not start, open ${openURL} in browser`, hint: 'keeps the running server' },
+          ]
+        : []),
       { value: 'abort', label: 'Do not start', hint: '--no-takeover' },
       { value: 'start-anyway', label: `Start anyway${andOpen}`, hint: serverKind(existing).startAnywayHint },
     ],

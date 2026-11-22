@@ -12,8 +12,13 @@ import { BuildProgress } from '../../../src/utils/build-progress'
 import { createBuildReport } from '../../../src/utils/build-report'
 import { stripAnsi } from '../../../src/utils/formatting'
 
-const mocks = vi.hoisted(() => ({ error: vi.fn(), isCI: false }))
-vi.mock('../../../src/utils/logger', () => ({ logger: { error: mocks.error } }))
+const mocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  isCI: false,
+}))
+vi.mock('../../../src/utils/logger', () => ({
+  logger: { error: mocks.error },
+}))
 vi.mock('std-env', async importOriginal => ({
   ...await importOriginal<typeof import('std-env')>(),
   get isCI() { return mocks.isCI },
@@ -24,7 +29,10 @@ type Handler = (...args: any[]) => unknown
 function createNuxt(rootDir: string) {
   const handlers: Record<string, Handler[]> = {}
   return {
-    nuxt: { options: { rootDir }, hook: (name: string, fn: Handler) => void (handlers[name] ||= []).push(fn) },
+    nuxt: {
+      options: { rootDir },
+      hook: (name: string, fn: Handler) => void (handlers[name] ||= []).push(fn),
+    },
     call: async (name: string, ...args: unknown[]) => {
       for (const fn of handlers[name] || []) {
         await fn(...args)
@@ -34,7 +42,18 @@ function createNuxt(rootDir: string) {
 }
 
 function serverBuild(dir: string, overrides: Partial<ServerBuild> = {}): ServerBuild {
-  return { label: 'Nitro', declared: true, hasDevServer: true, target: 'node-server', dir, publicDir: join(dir, 'public'), previewCommand: undefined, deployCommand: undefined, previewStaticDir: undefined, ...overrides }
+  return {
+    label: 'Nitro',
+    declared: true,
+    hasDevServer: true,
+    target: 'node-server',
+    dir,
+    publicDir: join(dir, 'public'),
+    previewCommand: undefined,
+    deployCommand: undefined,
+    previewStaticDir: undefined,
+    ...overrides,
+  }
 }
 
 let root: string
@@ -64,7 +83,10 @@ async function writeFiles(dir: string, files: Record<string, string>) {
     await mkdir(join(dir, path, '..'), { recursive: true })
     await writeFile(join(dir, path), content)
   }
-  return Object.entries(files).map(([path, content]) => ({ path, size: Buffer.byteLength(content) }))
+  return Object.entries(files).map(([path, content]) => ({
+    path,
+    size: Buffer.byteLength(content),
+  }))
 }
 
 const client = { name: 'client', consumer: 'client', builder: 'vite' }
@@ -75,7 +97,13 @@ describe('createBuildReport', () => {
   it('shows environments with other names verbatim rather than capitalising them', async () => {
     const { report, call } = await setup()
     await call('build:environment:start', { name: 'nuxt_vite_server_cloudflare', consumer: 'server', builder: 'vite' })
-    await call('build:environment:done', { name: 'nuxt_vite_server_cloudflare', consumer: 'server', builder: 'vite' }, { duration: 384, outDir: root, files: [{ path: 'worker.js', size: 584_560 }] })
+    await call('build:environment:done', { name: 'nuxt_vite_server_cloudflare', consumer: 'server', builder: 'vite' }, {
+      duration: 384,
+      outDir: root,
+      files: [
+        { path: 'worker.js', size: 584_560 },
+      ],
+    })
 
     expect(stripAnsi((await report.summary(false))!)).toBe('nuxt_vite_server_cloudflare (vite) built in 384ms · 584.56 kB')
   })
@@ -84,14 +112,28 @@ describe('createBuildReport', () => {
     const { report, call } = await setup()
     const clientDir = join(root, '.output/public')
     const serverDir = join(root, '.output/server')
-    const clientFiles = await writeFiles(clientDir, { '_nuxt/entry.js': 'a'.repeat(2000), '_nuxt/entry.js.map': 'm'.repeat(5000) })
-    const serverFiles = await writeFiles(serverDir, { 'index.mjs': 'b'.repeat(3000) })
+    const clientFiles = await writeFiles(clientDir, {
+      '_nuxt/entry.js': 'a'.repeat(2000),
+      '_nuxt/entry.js.map': 'm'.repeat(5000),
+    })
+    const serverFiles = await writeFiles(serverDir, {
+      'index.mjs': 'b'.repeat(3000),
+    })
 
-    vi.useFakeTimers({ now: 0, toFake: ['Date'] })
+    vi.useFakeTimers({
+      now: 0,
+      toFake: ['Date'],
+    })
     await call('build:environment:start', client)
     vi.setSystemTime(5)
     await call('build:environment:start', ssr)
-    await call('build:environment:done', ssr, { duration: 200, outDir: join(root, '.nuxt/dist/server'), files: [{ path: 'server.mjs', size: 1500 }] })
+    await call('build:environment:done', ssr, {
+      duration: 200,
+      outDir: join(root, '.nuxt/dist/server'),
+      files: [
+        { path: 'server.mjs', size: 1500 },
+      ],
+    })
     await call('build:environment:done', client, { duration: 300, outDir: clientDir, files: clientFiles })
     await call('build:environment:start', nitro)
     await call('build:environment:done', nitro, { duration: 100, outDir: serverDir, files: serverFiles })
@@ -108,7 +150,14 @@ describe('createBuildReport', () => {
     const { report, call } = await setup()
     const serverDir = join(root, '.output/server')
     await call('build:environment:start', nitro)
-    await call('build:environment:done', nitro, { duration: 100, outDir: serverDir, files: [{ path: 'index.mjs', size: 3000 }, { path: 'chunks/a.mjs', size: 12000 }] })
+    await call('build:environment:done', nitro, {
+      duration: 100,
+      outDir: serverDir,
+      files: [
+        { path: 'index.mjs', size: 3000 },
+        { path: 'chunks/a.mjs', size: 12000 },
+      ],
+    })
 
     expect(stripAnsi((await report.summary(true))!).split('\n')).toEqual([
       'Nitro (rollup) built in 100ms · 15.00 kB',
@@ -120,7 +169,10 @@ describe('createBuildReport', () => {
   it('lists the gzip size of each client file when verbose', async () => {
     const { report, call } = await setup()
     const clientDir = join(root, '.output/public')
-    const files = await writeFiles(clientDir, { 'a.js': 'a'.repeat(4000), 'b.css': 'b'.repeat(1000) })
+    const files = await writeFiles(clientDir, {
+      'a.js': 'a'.repeat(4000),
+      'b.css': 'b'.repeat(1000),
+    })
     await call('build:environment:start', client)
     await call('build:environment:done', client, { duration: 10, outDir: clientDir, files })
 
@@ -132,15 +184,27 @@ describe('createBuildReport', () => {
   it('drives the progress line from the bundles and prerendering', async () => {
     const { progress, call } = await setup()
     const seen: string[] = []
-    progress.onUpdate(snapshot => seen.push(`${snapshot.message}${snapshot.meter ? ` ${snapshot.meter.done}/${snapshot.meter.total}` : ''}`))
+    progress.onUpdate(snapshot => seen.push(`${snapshot.message}${snapshot.meter
+      ? ` ${snapshot.meter.done}/${snapshot.meter.total}`
+      : ''}`))
 
     await call('build:environment:start', client)
     await call('build:environment:start', ssr)
     await call('build:environment:done', ssr, { duration: 1, outDir: root, files: [] })
     await call('build:environment:done', client, { duration: 1, outDir: root, files: [] })
     await call('build:prerender:start', { routes: 1 })
-    await call('build:prerender:route', { route: '/', duration: 10, skipped: false, total: 2 })
-    await call('build:prerender:route', { route: '/about', duration: 10, skipped: false, total: 2 })
+    await call('build:prerender:route', {
+      route: '/',
+      duration: 10,
+      skipped: false,
+      total: 2,
+    })
+    await call('build:prerender:route', {
+      route: '/about',
+      duration: 10,
+      skipped: false,
+      total: 2,
+    })
     await call('build:prerender:done', { duration: 10, written: 2, failed: [] })
 
     expect(seen).toEqual([
@@ -192,16 +256,40 @@ describe('createBuildReport', () => {
   it('lists failed prerenders as soon as prerendering is done', async () => {
     const { call } = await setup()
     await call('build:prerender:start', { routes: 2 })
-    await call('build:prerender:done', { duration: 50, written: 0, failed: [{ route: '/missing', status: 404, message: 'Page not found: /missing' }, { route: '/broken', message: 'Boom' }] })
+    await call('build:prerender:done', {
+      duration: 50,
+      written: 0,
+      failed: [
+        { route: '/missing', status: 404, message: 'Page not found: /missing' },
+        { route: '/broken', message: 'Boom' },
+      ],
+    })
 
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 2 routes:\n/missing (404 Page not found: /missing)\n/broken (Boom)')
   })
 
   it('names the pages that link to a failed route, the first few in a terminal', async () => {
     const { call } = await setup()
-    const linkedFrom = ['/', '/about', '/blog', '/blog/a', '/blog/b']
+    const linkedFrom = [
+      '/',
+      '/about',
+      '/blog',
+      '/blog/a',
+      '/blog/b',
+    ]
     await call('build:prerender:start', { routes: 1 })
-    await call('build:prerender:done', { duration: 50, written: 0, failed: [{ route: '/missing', status: 404, message: 'Page not found', linkedFrom }] })
+    await call('build:prerender:done', {
+      duration: 50,
+      written: 0,
+      failed: [
+        {
+          route: '/missing',
+          status: 404,
+          message: 'Page not found',
+          linkedFrom,
+        },
+      ],
+    })
 
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n/missing (404 Page not found)\n  linked from /, /about, /blog and 2 more')
   })
@@ -210,7 +298,17 @@ describe('createBuildReport', () => {
     mocks.isCI = true
     const { call } = await setup()
     await call('build:prerender:start', { routes: 1 })
-    await call('build:prerender:done', { duration: 50, written: 0, failed: [{ route: '/missing', message: 'Boom', linkedFrom: ['/', '/about', '/blog', '/blog/a'] }] })
+    await call('build:prerender:done', {
+      duration: 50,
+      written: 0,
+      failed: [
+        {
+          route: '/missing',
+          message: 'Boom',
+          linkedFrom: ['/', '/about', '/blog', '/blog/a'],
+        },
+      ],
+    })
 
     expect(stripAnsi(mocks.error.mock.calls[0]![0])).toBe('Failed to prerender 1 route:\n/missing (Boom)\n  linked from /, /about, /blog, /blog/a')
   })
@@ -219,11 +317,19 @@ describe('createBuildReport', () => {
     const { report, call } = await setup()
     const output = join(root, '.output')
     await call('build:environment:start', ssr)
-    await call('build:environment:done', ssr, { duration: 1, outDir: join(root, '.nuxt/dist/server'), files: [] })
+    await call('build:environment:done', ssr, {
+      duration: 1,
+      outDir: join(root, '.nuxt/dist/server'),
+      files: [],
+    })
     expect(report.commands(serverBuild(output))).toEqual([])
 
     await call('build:environment:start', nitro)
-    await call('build:environment:done', nitro, { duration: 1, outDir: join(output, 'server'), files: [] })
+    await call('build:environment:done', nitro, {
+      duration: 1,
+      outDir: join(output, 'server'),
+      files: [],
+    })
     expect(report.commands(serverBuild(output, { deployCommand: 'npx wrangler --cwd .output deploy' })).map(stripAnsi)).toEqual([
       'You can preview this build using npx nuxt preview',
       'You can deploy this build using npx wrangler --cwd .output deploy',

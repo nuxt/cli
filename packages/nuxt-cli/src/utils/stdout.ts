@@ -27,7 +27,9 @@ const BLANK_LINE = 2
 let trailingNewlines = 1
 
 function isNewline(chunk: string | Uint8Array, index: number): boolean {
-  return typeof chunk === 'string' ? chunk[index] === '\n' : chunk[index] === 0x0A
+  return typeof chunk === 'string'
+    ? chunk[index] === '\n'
+    : chunk[index] === 0x0A
 }
 
 /**
@@ -43,7 +45,9 @@ export function observeOutput(chunk: string | Uint8Array): void {
     newlines++
   }
   // A chunk of nothing but newlines continues the run the last one left off at.
-  const total = newlines === chunk.length ? trailingNewlines + newlines : newlines
+  const total = newlines === chunk.length
+    ? trailingNewlines + newlines
+    : newlines
   trailingNewlines = Math.min(total, BLANK_LINE)
 }
 
@@ -125,7 +129,10 @@ export function tapOutput(stream: NodeJS.WriteStream, listener: OutputListener):
   }
 
   tap.listeners.add(listener)
-  return { write: tap.write, dispose: () => void tap!.listeners.delete(listener) }
+  return {
+    write: tap.write,
+    dispose: () => void tap!.listeners.delete(listener),
+  }
 }
 
 /**

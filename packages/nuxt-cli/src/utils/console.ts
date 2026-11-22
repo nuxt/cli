@@ -64,13 +64,15 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
       interceptPrompts(projectConsola)
       // Logs from a separate instance would otherwise bypass the dev UI's reporters.
       if (projectConsola !== consola) {
-        projectConsola.setReporters([{
-          log(logObj, ctx) {
-            for (const reporter of consola.options.reporters) {
-              reporter.log(logObj, ctx)
-            }
+        projectConsola.setReporters([
+          {
+            log(logObj, ctx) {
+              for (const reporter of consola.options.reporters) {
+                reporter.log(logObj, ctx)
+              }
+            },
           },
-        }])
+        ])
       }
     }
   }
@@ -257,7 +259,9 @@ function trimBlankLines(text: string): string {
 
 /** What a question that could not be asked answers: whatever changes nothing. */
 function declinedAnswer(opts: Parameters<PromptFn>[1] = {}) {
-  return opts.type === 'confirm' ? false : undefined
+  return opts.type === 'confirm'
+    ? false
+    : undefined
 }
 
 function report(label: string, error: unknown) {

@@ -164,7 +164,9 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
     if (installedModules.length > 0) {
       const installedModulesList = installedModules.map(module => styleText('cyan', module.pkgName)).join(', ')
-      const are = installedModules.length > 1 ? 'are' : 'is'
+      const are = installedModules.length > 1
+        ? 'are'
+        : 'is'
       logger.info(`${installedModulesList} ${are} already installed`)
     }
 
@@ -172,19 +174,27 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const isDev = Boolean(projectPkg.devDependencies?.nuxt) || dev
 
       const notInstalledModulesList = notInstalledModules.map(module => styleText('cyan', module.pkg)).join(', ')
-      const dependency = notInstalledModules.length > 1 ? 'dependencies' : 'dependency'
-      const a = notInstalledModules.length > 1 ? '' : ' a'
+      const dependency = notInstalledModules.length > 1
+        ? 'dependencies'
+        : 'dependency'
+      const a = notInstalledModules.length > 1
+        ? ''
+        : ' a'
       logger.info(`Installing ${notInstalledModulesList} as${a}${isDev ? ' development' : ''} ${dependency}`)
 
       const packageManager = await selectPackageManager(cwd, packageManagerName)
 
       const peers = resolveRequiredPeerDependencies(notInstalledModules, dependencies)
       if (peers.length > 0) {
-        logger.info(`Also installing required peer ${peers.length > 1 ? 'dependencies' : 'dependency'} ${peers.map(peer => styleText('cyan', peer)).join(', ')}`)
+        logger.info(`Also installing required peer ${peers.length > 1
+          ? 'dependencies'
+          : 'dependency'} ${peers.map(peer => styleText('cyan', peer)).join(', ')}`)
       }
 
       const installController = new AbortController()
-      const installLog = createInstallLog({ verbose: isVerboseInstall(logLevel) })
+      const installLog = createInstallLog({
+        verbose: isVerboseInstall(logLevel),
+      })
       const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
@@ -194,7 +204,10 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
       const result = await runInstall({
         cwd,
         packageManager,
-        dependencies: [...notInstalledModules.map(module => module.pkg), ...peers],
+        dependencies: [
+          ...notInstalledModules.map(module => module.pkg),
+          ...peers,
+        ],
         dev: isDev,
         onOutput: installLog.onOutput,
         onStatus: message => installSpinner.message(message),
@@ -239,7 +252,10 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
 
         logger.info(`Adding ${styleText('cyan', resolved.specifier)} to the ${styleText('cyan', key)}`)
 
-        toAdd[key] = [...toAdd[key] ?? [], resolved.specifier]
+        toAdd[key] = [
+          ...toAdd[key] ?? [],
+          resolved.specifier,
+        ]
       }
 
       await addNuxtConfigEntries(config, toAdd)
@@ -260,7 +276,9 @@ async function addModules(modules: ResolvedModule[], { skipInstall = false, skip
  * the project.
  */
 async function selectPackageManager(cwd: string, name?: string): Promise<DetectResult> {
-  const requested = isPackageManagerName(name) ? name : undefined
+  const requested = isPackageManagerName(name)
+    ? name
+    : undefined
   if (name && !requested) {
     logger.warn(`Unknown package manager ${styleText('cyan', name)}, detecting one instead.`)
   }
@@ -296,11 +314,15 @@ export function resolveRequiredPeerDependencies(modules: ResolvedModule[], depen
       // Ranges that cannot be passed as part of a package spec (`*`, `>=3 <5`)
       // fall back to the bare name.
       const usable = version && version !== '*' && !WHITESPACE_RE.test(version)
-      peers.set(name, usable ? `${name}@${version}` : name)
+      peers.set(name, usable
+        ? `${name}@${version}`
+        : name)
     }
   }
 
-  return [...peers.values()]
+  return [
+    ...peers.values(),
+  ]
 }
 
 /** `module`, `layers`, `modules and layers`, and so on. */
@@ -310,10 +332,14 @@ export function describeModules(modules: Array<{ isLayer?: boolean }>): string {
 
   const parts: string[] = []
   if (plain > 0) {
-    parts.push(plain > 1 ? 'modules' : 'module')
+    parts.push(plain > 1
+      ? 'modules'
+      : 'module')
   }
   if (layers > 0) {
-    parts.push(layers > 1 ? 'layers' : 'layer')
+    parts.push(layers > 1
+      ? 'layers'
+      : 'layer')
   }
 
   return parts.join(' and ')
@@ -338,7 +364,9 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   let { pkgName, pkgVersion } = spec
   let subpath = spec.subpath
 
-  const bareName = subpath ? `${pkgName}/${subpath}` : pkgName
+  const bareName = subpath
+    ? `${pkgName}/${subpath}`
+    : pkgName
   const matchedModule = modulesDB.find(
     module =>
       module.name === moduleName
@@ -404,10 +432,14 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   }
 
   let version = pkgVersion || 'latest'
-  const pkgScope = pkgName.startsWith('@') ? pkgName.split('/')[0]! : null
+  const pkgScope = pkgName.startsWith('@')
+    ? pkgName.split('/')[0]!
+    : null
   const { detectNpmRegistry } = await import('../../utils/registry')
   const meta = await detectNpmRegistry(pkgScope, cwd)
-  const headers: HeadersInit = meta.authorization ? { Authorization: meta.authorization } : {}
+  const headers: HeadersInit = meta.authorization
+    ? { Authorization: meta.authorization }
+    : {}
 
   const pkgUrl = `${meta.registry}/${pkgName}`
   const pkgDetails = await fetchJson<any>(pkgUrl, { headers }).catch((err: unknown) => {
@@ -436,7 +468,11 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
     logger.info(`${styleText('cyan', pkgName)} is a Nuxt layer, and will be added to ${styleText('cyan', 'extends')}.`)
   }
 
-  const pkgDependencies = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies }
+  const pkgDependencies = {
+    ...pkg.dependencies,
+    ...pkg.devDependencies,
+    ...pkg.peerDependencies,
+  }
   // A package exposing its module behind a `nuxt`/`module` subpath is a Nuxt
   // integration regardless of how it declares its dependency on Nuxt.
   if (
@@ -458,7 +494,9 @@ async function resolveModule(moduleName: string, cwd: string, modulesDB: NuxtMod
   return {
     pkg: `${pkgName}@${version}`,
     pkgName,
-    specifier: subpath ? `${pkgName}/${subpath}` : pkgName,
+    specifier: subpath
+      ? `${pkgName}/${subpath}`
+      : pkgName,
     isLayer: entry.isLayer,
     peerDependencies: pkg.peerDependencies,
     optionalPeerDependencies: Object.entries(pkg.peerDependenciesMeta || {})

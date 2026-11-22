@@ -18,11 +18,17 @@ describe('formatInfoBox', () => {
   })
 
   it('should render a placeholder for a missing value', () => {
-    expect(plain(formatInfoBox({ Builder: undefined }))).toEqual([expect.stringMatching(/^Builder +-$/), ''])
+    expect(plain(formatInfoBox({ Builder: undefined }))).toEqual([
+      expect.stringMatching(/^Builder +-$/),
+      '',
+    ])
   })
 
   it('should strip backticks from values', () => {
-    expect(plain(formatInfoBox({ Modules: '`@nuxt/image`' }))).toEqual([expect.stringMatching(/^Modules +@nuxt\/image$/), ''])
+    expect(plain(formatInfoBox({ Modules: '`@nuxt/image`' }))).toEqual([
+      expect.stringMatching(/^Modules +@nuxt\/image$/),
+      '',
+    ])
   })
 
   it('should align values to the widest label', () => {

@@ -12,7 +12,9 @@ const fixtureDir = fileURLToPath(new URL('../../../../playground', import.meta.u
 const createNuxt = fileURLToPath(new URL('../../bin/create-nuxt.mjs', import.meta.url))
 
 describe('non-interactive mode (no TTY)', () => {
-  it('shows help and exits with code 2 when required arguments are missing', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('shows help and exits with code 2 when required arguments are missing', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const result = await x(createNuxt, ['--preferOffline'], {
       throwOnError: false,
       nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -32,12 +34,21 @@ describe('non-interactive mode (no TTY)', () => {
     expect(output).toContain('minimal')
   })
 
-  it('creates a project without prompting when all required arguments are provided', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('creates a project without prompting when all required arguments are provided', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-non-interactive-test')
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      const result = await x(createNuxt, [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=true', '--preferOffline', '--install=false'], {
+      const result = await x(createNuxt, [
+        installPath,
+        '--template=minimal',
+        '--packageManager=pnpm',
+        '--gitInit=true',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
@@ -51,14 +62,22 @@ describe('non-interactive mode (no TTY)', () => {
     }
   })
 
-  it('still requires --packageManager when the template pins none', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('still requires --packageManager when the template pins none', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-no-pm-test')
 
     await rm(installPath, { recursive: true, force: true })
     try {
       // `minimal` pins no package manager, so once the template is resolved
       // there's nothing to infer and `--packageManager` is still required.
-      const result = await x(createNuxt, [installPath, '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      const result = await x(createNuxt, [
+        installPath,
+        '--template=minimal',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: false,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
@@ -71,12 +90,21 @@ describe('non-interactive mode (no TTY)', () => {
     }
   })
 
-  it('fails fast on an invalid --packageManager value', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('fails fast on an invalid --packageManager value', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-invalid-pm-test')
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      const result = await x(createNuxt, [installPath, '--template=minimal', '--packageManager=npmm', '--gitInit=false', '--preferOffline', '--install=false'], {
+      const result = await x(createNuxt, [
+        installPath,
+        '--template=minimal',
+        '--packageManager=npmm',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: false,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
       })
@@ -91,12 +119,21 @@ describe('non-interactive mode (no TTY)', () => {
     }
   })
 
-  it('fails fast when the target directory already exists', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('fails fast when the target directory already exists', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const installPath = join(tmpdir(), 'create-nuxt-existing-dir-test')
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      const args = [installPath, '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--preferOffline', '--install=false']
+      const args = [
+        installPath,
+        '--template=minimal',
+        '--packageManager=pnpm',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ]
       await x(createNuxt, args, {
         throwOnError: true,
         nodeOptions: { stdio: 'pipe', cwd: fixtureDir },
@@ -117,14 +154,23 @@ describe('non-interactive mode (no TTY)', () => {
 })
 
 describe('init command package name slugification', () => {
-  it('should slugify directory names with special characters', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('should slugify directory names with special characters', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const dir = tmpdir()
     const specialDirName = 'my@special#project!'
     const installPath = join(dir, specialDirName)
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [
+        installPath,
+        '--packageManager=pnpm',
+        '--template=minimal',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -145,14 +191,23 @@ describe('init command package name slugification', () => {
     }
   })
 
-  it('should handle consecutive special characters', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('should handle consecutive special characters', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const dir = tmpdir()
     const specialDirName = 'test___project@@@name!!!'
     const installPath = join(dir, specialDirName)
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [
+        installPath,
+        '--packageManager=pnpm',
+        '--template=minimal',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -172,14 +227,23 @@ describe('init command package name slugification', () => {
     }
   })
 
-  it('should handle leading and trailing special characters', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('should handle leading and trailing special characters', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const dir = tmpdir()
     const specialDirName = '---project-name---'
     const installPath = join(dir, specialDirName)
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [
+        installPath,
+        '--packageManager=pnpm',
+        '--template=minimal',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })
@@ -198,14 +262,23 @@ describe('init command package name slugification', () => {
     }
   })
 
-  it('should preserve valid package names without modification', { timeout: isWindows ? 200000 : 50000 }, async () => {
+  it('should preserve valid package names without modification', {
+    timeout: isWindows ? 200000 : 50000,
+  }, async () => {
     const dir = tmpdir()
     const validDirName = 'my-valid-project-name'
     const installPath = join(dir, validDirName)
 
     await rm(installPath, { recursive: true, force: true })
     try {
-      await x(createNuxt, [installPath, '--packageManager=pnpm', '--template=minimal', '--gitInit=false', '--preferOffline', '--install=false'], {
+      await x(createNuxt, [
+        installPath,
+        '--packageManager=pnpm',
+        '--template=minimal',
+        '--gitInit=false',
+        '--preferOffline',
+        '--install=false',
+      ], {
         throwOnError: true,
         nodeOptions: { stdio: 'inherit', cwd: fixtureDir },
       })

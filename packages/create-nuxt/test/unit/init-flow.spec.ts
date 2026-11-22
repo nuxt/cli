@@ -36,7 +36,9 @@ vi.mock('tinyexec', () => ({ x: tinyexec }))
 
 vi.mock('@clack/prompts', async (importOriginal) => {
   const original = await importOriginal<typeof import('@clack/prompts')>()
-  const next = (queue: unknown[], fallback: unknown) => Promise.resolve(queue.length ? queue.shift() : fallback)
+  const next = (queue: unknown[], fallback: unknown) => Promise.resolve(queue.length
+    ? queue.shift()
+    : fallback)
   return {
     ...original,
     intro: vi.fn(),
@@ -47,7 +49,12 @@ vi.mock('@clack/prompts', async (importOriginal) => {
     select: vi.fn(() => next(answers.select, undefined)),
     text: vi.fn(() => next(answers.text, '')),
     confirm: vi.fn(() => next(answers.confirm, false)),
-    spinner: vi.fn(() => ({ start: vi.fn(), stop: vi.fn(), error: vi.fn(), message: vi.fn() })),
+    spinner: vi.fn(() => ({
+      start: vi.fn(),
+      stop: vi.fn(),
+      error: vi.fn(),
+      message: vi.fn(),
+    })),
   }
 })
 
@@ -104,7 +111,10 @@ async function runInit(argv: string[]): Promise<{ output: string, exitCode: numb
 function stubTemplate(files: Record<string, string> = {}, name = 'minimal') {
   downloadTemplate.mockImplementation(async (_template: string, options: { dir: string }) => {
     await mkdir(options.dir, { recursive: true })
-    await writeFile(join(options.dir, 'package.json'), JSON.stringify({ name: 'template', dependencies: { nuxt: '^4.0.0' } }, null, 2))
+    await writeFile(join(options.dir, 'package.json'), JSON.stringify({
+      name: 'template',
+      dependencies: { nuxt: '^4.0.0' },
+    }, null, 2))
     for (const [file, contents] of Object.entries(files)) {
       await mkdir(join(options.dir, file, '..'), { recursive: true })
       await writeFile(join(options.dir, file), contents)
@@ -121,10 +131,27 @@ beforeEach(async () => {
   vi.clearAllMocks()
   stubTemplate()
   getTemplates.mockResolvedValue({
-    minimal: { name: 'minimal', description: 'Minimal starter', defaultDir: 'nuxt-app', url: '', tar: '' },
-    v4: { name: 'v4', description: 'Nuxt 4 starter', defaultDir: 'nuxt-app', url: '', tar: '' },
+    minimal: {
+      name: 'minimal',
+      description: 'Minimal starter',
+      defaultDir: 'nuxt-app',
+      url: '',
+      tar: '',
+    },
+    v4: {
+      name: 'v4',
+      description: 'Nuxt 4 starter',
+      defaultDir: 'nuxt-app',
+      url: '',
+      tar: '',
+    },
   })
-  runInstall.mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
+  runInstall.mockResolvedValue({
+    success: true,
+    output: '',
+    command: 'npm install',
+    ignoredBuilds: [],
+  })
   fetchModules.mockResolvedValue([])
 })
 
@@ -142,7 +169,9 @@ describe('interactive scaffolding', () => {
 
     const { output } = await runInit([])
 
-    expect(downloadTemplate).toHaveBeenCalledWith('minimal', expect.objectContaining({ dir: join(cwd, 'my-app') }))
+    expect(downloadTemplate).toHaveBeenCalledWith('minimal', expect.objectContaining({
+      dir: join(cwd, 'my-app'),
+    }))
     expect(runInstall).toHaveBeenCalledTimes(1)
     expect(output).toContain('Next steps')
     expect(output).toMatch(/cd \S*my-app/)
@@ -162,7 +191,13 @@ describe('interactive scaffolding', () => {
   })
 
   it('should not offer the headless command when nothing was prompted for', async () => {
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).not.toContain('without prompts')
   })
@@ -187,17 +222,31 @@ describe('interactive scaffolding', () => {
   })
 
   it('should initialise a git repository when asked to', async () => {
-    await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit', '--no-modules'])
+    await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit',
+      '--no-modules',
+    ])
 
     expect(tinyexec).toHaveBeenCalledWith('git', ['init'], expect.objectContaining({
-      nodeOptions: expect.objectContaining({ cwd: join(cwd, 'my-app') }),
+      nodeOptions: expect.objectContaining({
+        cwd: join(cwd, 'my-app'),
+      }),
     }))
   })
 
   it('should report a git repository that could not be initialised', async () => {
     tinyexec.mockResolvedValue({ exitCode: 128, stdout: '', stderr: 'fatal: not a git repository' })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit',
+      '--no-modules',
+    ])
 
     expect(output).toContain('fatal: not a git repository')
   })
@@ -245,7 +294,12 @@ describe('package manager selection', () => {
   it('should use the package manager the template pins', async () => {
     stubTemplate({ 'pnpm-lock.yaml': '' })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).toContain('Using pnpm')
     expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
@@ -256,7 +310,13 @@ describe('package manager selection', () => {
   it('should skip the install when the requested package manager conflicts with the template', async () => {
     stubTemplate({ 'pnpm-lock.yaml': '' })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).toContain('Skipping dependency installation')
     expect(runInstall).not.toHaveBeenCalled()
@@ -265,14 +325,26 @@ describe('package manager selection', () => {
   it('should suggest installing with the template\'s package manager after a conflict', async () => {
     stubTemplate({ 'pnpm-lock.yaml': '' })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).toContain('› pnpm install')
     expect(output).toContain('› pnpm run dev')
   })
 
   it('should opt a yarn project out of plug and play', async () => {
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=yarn', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=yarn',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(await readFile(join(cwd, 'my-app', '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
     expect(output).toContain('.yarnrc.yml')
@@ -281,7 +353,13 @@ describe('package manager selection', () => {
   it('should opt a conflicting yarn template out of plug and play', async () => {
     stubTemplate({ 'yarn.lock': '' })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(await readFile(join(cwd, 'my-app', '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
     expect(output).toContain('› yarn install')
@@ -306,7 +384,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -323,7 +407,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -340,7 +430,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -357,7 +453,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(rootPackageJson.name).toBe('cool-thing')
@@ -372,7 +474,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     const playgroundPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'playground', 'package.json'), 'utf8'))
@@ -386,7 +494,13 @@ describe('renaming when a workspace depends on the package name', () => {
       'packages/broken/package.json': '{ not json',
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -403,7 +517,13 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=pnpm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -414,12 +534,21 @@ describe('renaming when a workspace depends on the package name', () => {
   it('should rename the package when a template has a backslash-named directory', async () => {
     downloadTemplate.mockImplementation(async (_template, options: { dir: string }) => {
       await mkdir(options.dir, { recursive: true })
-      await writeFile(join(options.dir, 'package.json'), JSON.stringify({ name: 'template', dependencies: { nuxt: '^4.0.0' } }, null, 2))
+      await writeFile(join(options.dir, 'package.json'), JSON.stringify({
+        name: 'template',
+        dependencies: { nuxt: '^4.0.0' },
+      }, null, 2))
       await mkdir(pathJoin(options.dir, '..\\'), { recursive: true })
       return { dir: options.dir, name: 'minimal', source: 'github' }
     })
 
-    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit([
+      'cool-thing',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
@@ -430,9 +559,21 @@ describe('renaming when a workspace depends on the package name', () => {
 
 describe('recovery advice', () => {
   it('should tell the user to install by hand when the install fails', async () => {
-    runInstall.mockResolvedValue({ success: false, error: 'npm ERR! network timeout', output: 'npm ERR! network timeout', command: 'npm install', ignoredBuilds: [] })
+    runInstall.mockResolvedValue({
+      success: false,
+      error: 'npm ERR! network timeout',
+      output: 'npm ERR! network timeout',
+      command: 'npm install',
+      ignoredBuilds: [],
+    })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).toContain('dependencies are not installed')
     expect(output).toContain('npm install')
@@ -440,9 +581,21 @@ describe('recovery advice', () => {
   })
 
   it('should not add modules to a project whose install failed', async () => {
-    runInstall.mockResolvedValue({ success: false, error: 'npm ERR! network timeout', output: 'npm ERR! network timeout', command: 'npm install', ignoredBuilds: [] })
+    runInstall.mockResolvedValue({
+      success: false,
+      error: 'npm ERR! network timeout',
+      output: 'npm ERR! network timeout',
+      command: 'npm install',
+      ignoredBuilds: [],
+    })
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--modules=@nuxt/image'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--modules=@nuxt/image',
+    ])
 
     expect(output).toContain('Skipping module installation')
     expect(output).toContain('nuxt module add')
@@ -450,17 +603,34 @@ describe('recovery advice', () => {
 
   it('should offer `pnpm approve-builds` when builds were ignored', async () => {
     stubTemplate({ 'pnpm-lock.yaml': '' })
-    runInstall.mockResolvedValue({ success: true, output: '', command: 'pnpm install', ignoredBuilds: ['better-sqlite3'] })
+    runInstall.mockResolvedValue({
+      success: true,
+      output: '',
+      command: 'pnpm install',
+      ignoredBuilds: ['better-sqlite3'],
+    })
     answers.confirm.push(false)
 
-    const { output } = await runInit(['my-app', '--template=minimal', '--gitInit=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--gitInit=false',
+      '--no-modules',
+    ])
 
     expect(output).toContain('did not run build scripts')
     expect(output).toContain('pnpm approve-builds')
   })
 
   it('should tell the user to install when the install was skipped', async () => {
-    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--install=false', '--no-modules'])
+    const { output } = await runInit([
+      'my-app',
+      '--template=minimal',
+      '--packageManager=npm',
+      '--gitInit=false',
+      '--install=false',
+      '--no-modules',
+    ])
 
     expect(runInstall).not.toHaveBeenCalled()
     expect(output).toContain('npm install')

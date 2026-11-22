@@ -1,4 +1,4 @@
-styles: a4d3b4f12bc4b880
+styles: fbab2c28f31b67f2
              ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
            GET /api/checkout?cart=c_19be07
            GET /api/checkout?cart=c_8f3a21
@@ -21,7 +21,7 @@ styles: a4d3b4f12bc4b880
     [checkout] loading cart c_8f3a21 with options {"currency":"EUR","locale":"en-GB",… +2 lines
     [checkout] prices for cart c_19be07 were cached more than 10 minutes ago, recalcu… +2 lines
     [checkout] prices for cart c_8f3a21 were cached more than 10 minutes ago, recalcu… +2 lines
-    at Object.handler server/api/checkout.ts:9:1
+    at Object.handler server/api/checkout.ts:19:1
     at applyDiscount server/api/checkout.ts:2:1
     items already on sale)
     with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with
@@ -79,7 +79,7 @@ styles: a4d3b4f12bc4b880
 ▎              1 │ function applyDiscount(cart: string, code: string) {
 ▎              3 │ }
 ▎              4 │
-▎            at Object.handler server/api/checkout.ts:9:1
+▎            at Object.handler server/api/checkout.ts:19:1
 ▎            at applyDiscount server/api/checkout.ts:2:1
 ▎            be combined with items already on sale)
 ▎            responded with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot
@@ -98,7 +98,7 @@ styles: a4d3b4f12bc4b880
 ▎       1 │ function applyDiscount(cart: string, code: string) {
 ▎       3 │ }
 ▎       4 │
-▎     at Object.handler server/api/checkout.ts:9:1
+▎     at Object.handler server/api/checkout.ts:19:1
 ▎     at applyDiscount server/api/checkout.ts:2:1
 ▎     items already on sale)
 ▎     with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with

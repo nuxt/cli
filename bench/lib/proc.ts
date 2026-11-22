@@ -23,7 +23,10 @@ export async function run(command: string, args: string[], options: RunOptions =
   const started = performance.now()
   const child = spawn(command, args, {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env } as NodeJS.ProcessEnv,
+    env: {
+      ...process.env,
+      ...options.env,
+    } as NodeJS.ProcessEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   })
@@ -52,7 +55,13 @@ export async function run(command: string, args: string[], options: RunOptions =
   })
   clearTimeout(timer)
 
-  return { wall: performance.now() - started, ttfb, code, stdout, stderr }
+  return {
+    wall: performance.now() - started,
+    ttfb,
+    code,
+    stdout,
+    stderr,
+  }
 }
 
 function kill(child: ChildProcess): void {
@@ -84,7 +93,10 @@ export function start(command: string, args: string[], options: RunOptions = {})
 
   const child = spawn(command, args, {
     cwd: options.cwd,
-    env: { ...process.env, ...options.env } as NodeJS.ProcessEnv,
+    env: {
+      ...process.env,
+      ...options.env,
+    } as NodeJS.ProcessEnv,
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   })

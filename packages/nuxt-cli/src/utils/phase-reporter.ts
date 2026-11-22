@@ -13,7 +13,18 @@ import { onScreenHeld } from './screen'
 import { tapOutput } from './stdout'
 import { MUTED } from './terminal-theme'
 
-const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+const FRAMES = [
+  '⠋',
+  '⠙',
+  '⠹',
+  '⠸',
+  '⠼',
+  '⠴',
+  '⠦',
+  '⠧',
+  '⠇',
+  '⠏',
+]
 const FRAME_INTERVAL = 80
 const CLEAR_LINE = '\r\u001B[2K'
 const COLUMN_ONE = '\r'
@@ -51,13 +62,19 @@ function formatElapsed(snapshot: ProgressSnapshot, drift: number): string {
 
 /** `42/180`, for output that has no room for a bar. */
 function formatCount(meter: ProgressMeter | undefined): string {
-  return meter ? ` ${meter.done}/${meter.total}` : ''
+  return meter
+    ? ` ${meter.done}/${meter.total}`
+    : ''
 }
 
 /** `━━━━━━━━ 42/180`, drawn like the progress bar in the `nuxt dev` panel. */
 export function formatMeter(meter: ProgressMeter, width: number = METER_WIDTH): string {
-  const filled = meter.total ? Math.min(width, Math.floor(meter.done / meter.total * width)) : 0
-  const glyph = supportsUnicode() ? '━' : '='
+  const filled = meter.total
+    ? Math.min(width, Math.floor(meter.done / meter.total * width))
+    : 0
+  const glyph = supportsUnicode()
+    ? '━'
+    : '='
   return `${styleText('green', glyph.repeat(filled))}${styleText(MUTED, glyph.repeat(width - filled))} ${styleText(MUTED, `${meter.done}/${meter.total}`)}`
 }
 
@@ -66,11 +83,15 @@ function fit(text: string, width: number): string {
   if (text.length <= width) {
     return text
   }
-  return width >= METER_DETAIL_MIN ? `\u2026${text.slice(text.length - width + 1)}` : ''
+  return width >= METER_DETAIL_MIN
+    ? `\u2026${text.slice(text.length - width + 1)}`
+    : ''
 }
 
 function bundlePhaseLabels(phase: string): string[] | undefined {
-  return phase.startsWith('bundle:') ? phase.slice('bundle:'.length).split('+') : undefined
+  return phase.startsWith('bundle:')
+    ? phase.slice('bundle:'.length).split('+')
+    : undefined
 }
 
 export interface PhaseReporter {
@@ -153,8 +174,12 @@ export function formatSummary(snapshot: ProgressSnapshot, url?: string): string 
     ? ''
     : styleText('dim', ` \u00B7 ${decapitalise(snapshot.message)}`)
   const headline = `${snapshot.reload ? 'Reloaded' : 'Ready'} in ${formatDuration(snapshot.elapsed)}${detail}${
-    url ? formatURL(url) : ''}`
-  return breakdown ? `${headline}\n${styleText('dim', breakdown)}` : headline
+    url
+      ? formatURL(url)
+      : ''}`
+  return breakdown
+    ? `${headline}\n${styleText('dim', breakdown)}`
+    : headline
 }
 
 /**
@@ -200,7 +225,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   // which turns a line that redraws itself into one line per frame. Writing
   // through the tap's own handle also keeps the transient line invisible to this
   // listener and to the spacing tracker.
-  const tap = animated ? tapOutput(stream, () => clear()) : undefined
+  const tap = animated
+    ? tapOutput(stream, () => clear())
+    : undefined
   const write = tap?.write ?? stream.write.bind(stream)
 
   function log(line: string, message: string) {
@@ -232,14 +259,18 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       return `rendering ${pending.label} ${styleText(MUTED, formatDuration(Date.now() - pending.startedAt))}`
     }
     const { meter } = snapshot!
-    const line = `${snapshot!.message}${meter ? ` ${formatMeter(meter)}` : ''} ${styleText(MUTED, formatElapsed(snapshot!, Date.now() - receivedAt))}`
+    const line = `${snapshot!.message}${meter
+      ? ` ${formatMeter(meter)}`
+      : ''} ${styleText(MUTED, formatElapsed(snapshot!, Date.now() - receivedAt))}`
     if (!meter?.detail) {
       return line
     }
     // A line that wraps cannot be cleared in place, so the detail gives way to the terminal width.
     const room = (stream.columns || 80) - visibleWidth(line) - 4
     const detail = fit(meter.detail, room)
-    return detail ? `${line} ${styleText(MUTED, detail)}` : line
+    return detail
+      ? `${line} ${styleText(MUTED, detail)}`
+      : line
   }
 
   function render() {
@@ -308,7 +339,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
   /** A render, as its own line, for output that cannot redraw one in place. */
   function announce(label: string, elapsed?: number): string {
-    return `Rendering ${label}${elapsed === undefined ? '' : ` ${styleText('dim', `(${formatDuration(elapsed)})`)}`}`
+    return `Rendering ${label}${elapsed === undefined
+      ? ''
+      : ` ${styleText('dim', `(${formatDuration(elapsed)})`)}`}`
   }
 
   /** Take the line down, leaving the terminal as it was found. */
@@ -393,7 +426,9 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
         }
 
         if (next.phase !== lastPhase) {
-          const previous = lastPhase === undefined ? undefined : bundlePhaseLabels(lastPhase)
+          const previous = lastPhase === undefined
+            ? undefined
+            : bundlePhaseLabels(lastPhase)
           const current = bundlePhaseLabels(next.phase)
           // A bundle finishing only shrinks the active set, which the line that
           // announced the bundle starting has already covered.

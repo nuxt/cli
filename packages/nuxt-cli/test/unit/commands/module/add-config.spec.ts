@@ -9,19 +9,30 @@ import * as installUtils from '../../../../src/utils/install'
 import * as versions from '../../../../src/utils/versions'
 
 const { readNuxtConfig, addNuxtConfigEntries } = vi.hoisted(() => ({
-  readNuxtConfig: vi.fn(() => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: [] })),
+  readNuxtConfig: vi.fn(() => Promise.resolve({
+    file: '/fake-dir/nuxt.config.ts',
+    cwd: '/fake-dir',
+    modules: [],
+    extends: [],
+  })),
   addNuxtConfigEntries: vi.fn((_config: unknown, _entries: Record<string, string[]>) => Promise.resolve()),
 }))
 
 let manifest: Record<string, unknown> = {}
 
-vi.mock('../../../../src/utils/config', () => ({ readNuxtConfig, addNuxtConfigEntries, createNuxtConfig: vi.fn() }))
+vi.mock('../../../../src/utils/config', () => ({
+  readNuxtConfig,
+  addNuxtConfigEntries,
+  createNuxtConfig: vi.fn(),
+}))
 vi.mock('../../../../src/utils/package-managers', async importOriginal => ({
   ...await importOriginal<typeof import('../../../../src/utils/package-managers')>(),
   detectPackageManager: () => Promise.resolve({ name: 'npm', agent: 'npm' }),
 }))
 vi.mock('pkg-types', () => ({
-  readPackageJSON: () => Promise.resolve({ devDependencies: { nuxt: '3.0.0' } }),
+  readPackageJSON: () => Promise.resolve({
+    devDependencies: { nuxt: '3.0.0' },
+  }),
 }))
 vi.mock('../../../../src/utils/fetch', () => ({
   fetchJson: vi.fn(() => Promise.resolve({
@@ -43,7 +54,13 @@ function databaseEntry(name: string, npm: string): NuxtModule {
     category: '',
     type: 'community',
     maintainers: [],
-    stats: { downloads: 0, stars: 0, maintainers: 0, contributors: 0, modules: 0 },
+    stats: {
+      downloads: 0,
+      stars: 0,
+      maintainers: 0,
+      contributors: 0,
+      modules: 0,
+    },
   }
 }
 
@@ -52,16 +69,29 @@ interface CommandsType {
 }
 
 async function addModule(name: string, pkg: Record<string, unknown>) {
-  manifest = { devDependencies: { nuxt: '3.0.0' }, ...pkg }
+  manifest = {
+    devDependencies: { nuxt: '3.0.0' },
+    ...pkg,
+  }
 
   const addCommand = await (commands as CommandsType).subCommands.add()
-  await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: [name] } })
+  await addCommand.setup({
+    args: {
+      cwd: '/fake-dir',
+      moduleName: [name],
+    },
+  })
 
   return addNuxtConfigEntries.mock.calls.at(-1)![1]
 }
 
 describe('module add config', () => {
-  vi.spyOn(installUtils, 'runInstall').mockResolvedValue({ success: true, output: '', command: 'npm install', ignoredBuilds: [] })
+  vi.spyOn(installUtils, 'runInstall').mockResolvedValue({
+    success: true,
+    output: '',
+    command: 'npm install',
+    ignoredBuilds: [],
+  })
   vi.spyOn(runCommands, 'runCommandDef').mockImplementation(vi.fn())
   vi.spyOn(versions, 'getNuxtVersion').mockResolvedValue('3.0.0')
   const fetchModules = vi.spyOn(utils, 'fetchModules').mockResolvedValue([])
@@ -73,40 +103,66 @@ describe('module add config', () => {
   it('should add a module to `modules`', async () => {
     const config = await addModule('nuxt-shiki', { main: './dist/module.mjs' })
 
-    expect(config).toEqual({ modules: ['nuxt-shiki'] })
+    expect(config).toEqual({
+      modules: ['nuxt-shiki'],
+    })
   })
 
   it('should keep an explicitly requested subpath', async () => {
-    const config = await addModule('maz-ui/nuxt', { exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' } })
+    const config = await addModule('maz-ui/nuxt', {
+      exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' },
+    })
 
-    expect(config).toEqual({ modules: ['maz-ui/nuxt'] })
+    expect(config).toEqual({
+      modules: ['maz-ui/nuxt'],
+    })
   })
 
   it('should keep an explicitly requested subpath when the database matches the package name', async () => {
-    fetchModules.mockResolvedValueOnce([databaseEntry('sonner', 'vue-sonner')])
+    fetchModules.mockResolvedValueOnce([
+      databaseEntry('sonner', 'vue-sonner'),
+    ])
 
-    const config = await addModule('vue-sonner/custom', { exports: { '.': './dist/index.mjs', './custom': './dist/custom.mjs' } })
+    const config = await addModule('vue-sonner/custom', {
+      exports: { '.': './dist/index.mjs', './custom': './dist/custom.mjs' },
+    })
 
-    expect(config).toEqual({ modules: ['vue-sonner/custom'] })
+    expect(config).toEqual({
+      modules: ['vue-sonner/custom'],
+    })
   })
 
   it('should resolve a module exposed at a `nuxt` subpath', async () => {
-    const config = await addModule('maz-ui', { exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' } })
+    const config = await addModule('maz-ui', {
+      exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' },
+    })
 
-    expect(config).toEqual({ modules: ['maz-ui/nuxt'] })
+    expect(config).toEqual({
+      modules: ['maz-ui/nuxt'],
+    })
   })
 
   it('should add a layer to `extends`', async () => {
     const config = await addModule('nuxt-seo-kit', { main: 'nuxt.config.ts' })
 
-    expect(config).toEqual({ extends: ['nuxt-seo-kit'] })
+    expect(config).toEqual({
+      extends: ['nuxt-seo-kit'],
+    })
   })
 
   it('should install the package without its subpath', async () => {
-    manifest = { devDependencies: { nuxt: '3.0.0' }, exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' } }
+    manifest = {
+      devDependencies: { nuxt: '3.0.0' },
+      exports: { '.': './dist/index.mjs', './nuxt': './dist/nuxt.mjs' },
+    }
 
     const addCommand = await (commands as CommandsType).subCommands.add()
-    await addCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['maz-ui/nuxt'] } })
+    await addCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        moduleName: ['maz-ui/nuxt'],
+      },
+    })
 
     expect(installUtils.runInstall).toHaveBeenCalledWith(expect.objectContaining({
       dependencies: ['maz-ui@1.0.0'],

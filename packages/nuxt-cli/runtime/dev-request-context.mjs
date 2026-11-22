@@ -49,7 +49,14 @@ function postSpan(request, kind, name, start, extra) {
       spanChannel = new BroadcastChannel(SPAN_CHANNEL)
       spanChannel.unref?.()
     }
-    spanChannel.postMessage({ requestId: request.id, kind, name, start, duration: now() - start, ...extra })
+    spanChannel.postMessage({
+      requestId: request.id,
+      kind,
+      name,
+      start,
+      duration: now() - start,
+      ...extra,
+    })
   }
   catch {}
 }
@@ -65,7 +72,9 @@ function shortenPath(path) {
     return file.slice(packaged + '/node_modules/'.length)
   }
   const root = `${process.cwd()}/`
-  return file.startsWith(root) ? file.slice(root.length) : file
+  return file.startsWith(root)
+    ? file.slice(root.length)
+    : file
 }
 
 function pathOf(url) {
@@ -85,20 +94,41 @@ function pathOf(url) {
  */
 const TRACING_CHANNELS = {
   'nuxt.plugin': context => ['plugin', context.plugin?.name || 'anonymous'],
-  'nuxt.data': context => ['data', context.functionName ? `${context.functionName}(${context.key})` : String(context.key)],
-  'nuxt.render': context => ['render', context.streaming ? 'stream' : 'renderToString'],
+  'nuxt.data': context => [
+    'data',
+    context.functionName
+      ? `${context.functionName}(${context.key})`
+      : String(context.key),
+  ],
+  'nuxt.render': context => [
+    'render',
+    context.streaming ? 'stream' : 'renderToString',
+  ],
   'nuxt.island': context => ['island', context.islandContext?.name || 'island'],
-  'nuxt.hook': context => ['hook', String(context.name ?? context.hook?.name)],
+  'nuxt.hook': context => [
+    'hook',
+    String(context.name ?? context.hook?.name),
+  ],
   'nuxt.middleware': context => ['middleware', context.middleware?.name || shortenPath(context.middleware?.path) || 'anonymous'],
   'h3.request': (context) => {
     const request = context.event?.req ?? context.event?.node?.req
     const label = `${request?.method || 'GET'} ${pathOf(request?.url)}`
-    return [context.type === 'middleware' ? 'middleware' : 'route', label]
+    return [
+      context.type === 'middleware'
+        ? 'middleware'
+        : 'route',
+      label,
+    ]
   },
 }
 
 /** Undici's fetch lifecycle, published as plain channels rather than a `TracingChannel`. */
-const UNDICI_CHANNELS = ['undici:request:create', 'undici:request:headers', 'undici:request:trailers', 'undici:request:error']
+const UNDICI_CHANNELS = [
+  'undici:request:create',
+  'undici:request:headers',
+  'undici:request:trailers',
+  'undici:request:error',
+]
 
 const SUBSCRIPTION = Symbol.for('nuxt:dev:span:subscription')
 const STARTED = Symbol('nuxt:dev:span:started')
@@ -118,7 +148,10 @@ function subscribeSpans() {
       start(context) {
         const request = storage.getStore()
         if (request) {
-          context[STARTED] = { request, start: now() }
+          context[STARTED] = {
+            request,
+            start: now(),
+          }
         }
       },
       asyncEnd: context => finishTraced(context, describe),
@@ -134,7 +167,10 @@ function subscribeSpans() {
     'undici:request:create': ({ request }) => {
       const inflight = storage.getStore()
       if (inflight) {
-        fetches.set(request, { request: inflight, start: now() })
+        fetches.set(request, {
+          request: inflight,
+          start: now(),
+        })
       }
     },
     'undici:request:headers': ({ request, response }) => {
@@ -174,8 +210,12 @@ function finishTraced(context, describe, error) {
     const [kind, name] = describe(context)
     const status = context.event?.res?.status ?? context.event?.node?.res?.statusCode
     postSpan(started.request, kind, name, started.start, {
-      ...kind === 'route' && typeof status === 'number' ? { status } : {},
-      ...error ? { error: true } : {},
+      ...kind === 'route' && typeof status === 'number'
+        ? { status }
+        : {},
+      ...error
+        ? { error: true }
+        : {},
     })
   }
   catch {}
@@ -189,8 +229,12 @@ function finishFetch(fetches, request, error) {
   fetches.delete(request)
   const url = `${request.origin ?? ''}${request.path ?? ''}`
   postSpan(started.request, 'fetch', `${request.method || 'GET'} ${url}`, started.start, {
-    ...typeof started.status === 'number' ? { status: started.status } : {},
-    ...error ? { error: true } : {},
+    ...typeof started.status === 'number'
+      ? { status: started.status }
+      : {},
+    ...error
+      ? { error: true }
+      : {},
   })
 }
 
@@ -206,7 +250,10 @@ function trackHooks(nitroApp) {
   hooks.beforeEach((event) => {
     const request = storage.getStore()
     if (request && event.context && hooks._hooks?.[event.name]?.length) {
-      event.context[STARTED] = { request, start: now() }
+      event.context[STARTED] = {
+        request,
+        start: now(),
+      }
     }
   })
   hooks.afterEach((event) => {
@@ -238,7 +285,9 @@ function withRequest(read, remove, serve) {
     }
   }
   catch {}
-  return request ? storage.run(request, serve) : serve()
+  return request
+    ? storage.run(request, serve)
+    : serve()
 }
 
 function trackRequests(nitroApp) {
@@ -260,7 +309,14 @@ function trackRequests(nitroApp) {
 }
 
 /** `console` methods worth reporting, and the consola level each maps to. */
-const CONSOLE_LEVELS = { error: 0, warn: 1, log: 3, info: 3, debug: 4, trace: 5 }
+const CONSOLE_LEVELS = {
+  error: 0,
+  warn: 1,
+  log: 3,
+  info: 3,
+  debug: 4,
+  trace: 5,
+}
 
 function reportLogs() {
   const channel = new BroadcastChannel(CHANNEL)

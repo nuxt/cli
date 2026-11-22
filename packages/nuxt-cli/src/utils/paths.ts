@@ -15,7 +15,9 @@ const cwd = process.cwd()
 export function resolveRootDir(args: { cwd?: string, rootDir?: string }): string {
   // citty fills positionals from mri's `_`, which also collects arguments following `--`, so
   // `nuxt test -- --watch` would otherwise resolve a directory named after a passthrough flag
-  const rootDir = args.rootDir?.startsWith('-') ? undefined : args.rootDir
+  const rootDir = args.rootDir?.startsWith('-')
+    ? undefined
+    : args.rootDir
 
   if (!args.cwd) {
     return resolve(rootDir || '.')
@@ -59,5 +61,8 @@ export function relativeTo(dir: string, path: string, options: { link?: boolean 
   if (options.link === false) {
     return relative(dir, resolve(dir, path)) || path
   }
-  return link(path, { cwd: dir, formatter: absolute => relative(dir, absolute) || absolute })
+  return link(path, {
+    cwd: dir,
+    formatter: absolute => relative(dir, absolute) || absolute,
+  })
 }

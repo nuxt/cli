@@ -11,7 +11,14 @@ import { join } from 'pathe'
 const MODULE_NOT_FOUND_CODES = new Set(['ERR_MODULE_NOT_FOUND', 'MODULE_NOT_FOUND'])
 
 /** Extensions a `nuxt.config` can have, in resolution order. */
-export const CONFIG_EXTENSIONS = ['.js', '.ts', '.mjs', '.cjs', '.mts', '.cts']
+export const CONFIG_EXTENSIONS = [
+  '.js',
+  '.ts',
+  '.mjs',
+  '.cjs',
+  '.mts',
+  '.cts',
+]
 
 /**
  * Errors that mean the config needs a loader rather than that it is broken:
@@ -48,7 +55,9 @@ export async function getNuxtConfig(rootDir: string) {
     }
   }
   catch (error) {
-    consola.warn(`Failed to load \`${configFile}\`: ${error instanceof Error ? error.message : String(error)}`)
+    consola.warn(`Failed to load \`${configFile}\`: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return {}
   }
   finally {

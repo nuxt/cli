@@ -43,7 +43,9 @@ vi.mock('../../src/dev/listen', async importOriginal => ({
 
 // The info view resolves versions from what is installed; pinned so it lists Nitro.
 vi.mock('../../src/utils/nitro', () => ({
-  getNitroVersion: (_cwd: string, nitroMajor?: 2 | 3) => nitroMajor === 3 ? '3.0.0' : '2.13.5',
+  getNitroVersion: (_cwd: string, nitroMajor?: 2 | 3) => nitroMajor === 3
+    ? '3.0.0'
+    : '2.13.5',
   resolveNitroMajor: (_cwd: string, fromNuxt?: 2 | 3) => fromNuxt,
   readNitroMajor: () => undefined,
 }))
@@ -112,7 +114,16 @@ const HINTS = [
   { key: 'q', label: 'quit', priority: 90 },
 ]
 
-const READY = { status: 'ready', version: '4.5.2', readyMs: 1240, urls: [{ label: 'Local', url: 'http://localhost:3000/' }, { label: 'Network', url: 'http://192.168.1.4:3000/' }], hints: HINTS } satisfies PanelState
+const READY = {
+  status: 'ready',
+  version: '4.5.2',
+  readyMs: 1240,
+  urls: [
+    { label: 'Local', url: 'http://localhost:3000/' },
+    { label: 'Network', url: 'http://192.168.1.4:3000/' },
+  ],
+  hints: HINTS,
+} satisfies PanelState
 
 describe('dev tui panel', () => {
   it('leads with the wordmark, the urls and a status badge', () => {
@@ -131,17 +142,31 @@ describe('dev tui panel', () => {
   })
 
   it('should say the first request is still compiling before claiming to be ready', () => {
-    const lines = renderPanel({ ...READY, status: 'warming', progress: 0.95, awaitingFirstRender: true }, 80, 30).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      status: 'warming',
+      progress: 0.95,
+      awaitingFirstRender: true,
+    }, 80, 30).map(strip)
 
     expect(lines.join('\n')).toContain('WARMUP   compiling the first request')
     expect(lines.join('\n')).not.toContain('READY')
   })
 
   it('should say which request it is busy with, and for how long', () => {
-    const first = renderPanel({ ...READY, awaitingFirstRender: true, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+    const first = renderPanel({
+      ...READY,
+      awaitingFirstRender: true,
+      rendering: { label: 'GET /', startedAt: 0 },
+      renderingMs: 6400,
+    }, 80, 30).map(strip)
     expect(first.join('\n')).toContain('WARMUP   rendering GET / · 6.40s')
 
-    const later = renderPanel({ ...READY, rendering: { label: 'GET /about', startedAt: 0 }, renderingMs: 1200 }, 80, 30).map(strip)
+    const later = renderPanel({
+      ...READY,
+      rendering: { label: 'GET /about', startedAt: 0 },
+      renderingMs: 1200,
+    }, 80, 30).map(strip)
     expect(later.join('\n')).toContain('READY   rendering GET /about · 1.20s')
   })
 
@@ -150,7 +175,12 @@ describe('dev tui panel', () => {
       ...READY,
       rendering: { label: 'GET /', startedAt: 0 },
       renderingMs: 6700,
-      lastRequest: { method: 'GET', url: '/', status: 200, duration: 8442 },
+      lastRequest: {
+        method: 'GET',
+        url: '/',
+        status: 200,
+        duration: 8442,
+      },
     }, 100, 30).map(strip)
 
     expect(lines.join('\n')).toContain('READY   rendering GET / · 6.70s')
@@ -158,14 +188,24 @@ describe('dev tui panel', () => {
   })
 
   it('should not put a clock on a render that has only just arrived', () => {
-    const lines = renderPanel({ ...READY, rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 40 }, 80, 30).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      rendering: { label: 'GET /', startedAt: 0 },
+      renderingMs: 40,
+    }, 80, 30).map(strip)
 
     expect(lines.join('\n')).toContain('READY   rendering GET /')
     expect(lines.join('\n')).not.toContain('40ms')
   })
 
   it('should let a load in flight keep the status line from a render', () => {
-    const lines = renderPanel({ ...READY, status: 'building', note: 'nuxt.config.ts changed', rendering: { label: 'GET /', startedAt: 0 }, renderingMs: 6400 }, 80, 30).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      status: 'building',
+      note: 'nuxt.config.ts changed',
+      rendering: { label: 'GET /', startedAt: 0 },
+      renderingMs: 6400,
+    }, 80, 30).map(strip)
 
     expect(lines.join('\n')).toContain('BUILDING   nuxt.config.ts changed')
     expect(lines.join('\n')).not.toContain('rendering GET /')
@@ -179,7 +219,13 @@ describe('dev tui panel', () => {
   })
 
   it('counts warnings and errors without printing them', () => {
-    const line = renderPanel({ ...READY, warnings: 2, errors: 1, requests: 12, medianMs: 8 }, 100, 30)
+    const line = renderPanel({
+      ...READY,
+      warnings: 2,
+      errors: 1,
+      requests: 12,
+      medianMs: 8,
+    }, 100, 30)
       .map(strip)
       .find(candidate => candidate.includes('request'))
     expect(line).toContain('12 requests')
@@ -235,7 +281,10 @@ describe('dev tui panel', () => {
   })
 
   it('shows passing feedback in place of the status description', () => {
-    const lines = renderPanel({ ...READY, notice: { text: 'could not open a browser', tone: 'warn' } }, 100, 30).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      notice: { text: 'could not open a browser', tone: 'warn' },
+    }, 100, 30).map(strip)
     const status = lines.find(line => line.includes('READY'))
     expect(status).toContain('could not open a browser')
     expect(status).not.toContain('watching for changes')
@@ -244,7 +293,12 @@ describe('dev tui panel', () => {
   })
 
   it('reports hosted work on the summary line in place of the counts', () => {
-    const busy = { ...READY, requests: 188, medianMs: 11, task: { label: 'Installing with pnpm', startedAt: Date.now() - 4200 } }
+    const busy = {
+      ...READY,
+      requests: 188,
+      medianMs: 11,
+      task: { label: 'Installing with pnpm', startedAt: Date.now() - 4200 },
+    }
     const lines = renderPanel(busy, 100, 30).map(strip)
     const line = lines.find(entry => entry.includes('installing with pnpm'))!
     expect(line).toContain('4.20s')
@@ -254,7 +308,10 @@ describe('dev tui panel', () => {
   })
 
   it('keeps the status line and hints when the panel is squeezed', () => {
-    const lines = renderPanel({ ...READY, notice: { text: 'copied', tone: 'success' } }, 60, 3).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      notice: { text: 'copied', tone: 'success' },
+    }, 60, 3).map(strip)
     expect(lines).toHaveLength(2)
     expect(lines[0]).toContain('READY')
     expect(lines[0]).toContain('copied')
@@ -262,7 +319,14 @@ describe('dev tui panel', () => {
   })
 
   it('shows a progress bar with a running clock while loading', () => {
-    const lines = renderPanel({ ...READY, status: 'starting', readyMs: undefined, progress: 0.5, elapsedMs: 3200, note: 'Bundling app' }, 100, 30).map(strip)
+    const lines = renderPanel({
+      ...READY,
+      status: 'starting',
+      readyMs: undefined,
+      progress: 0.5,
+      elapsedMs: 3200,
+      note: 'Bundling app',
+    }, 100, 30).map(strip)
     const bar = lines.find(line => line.includes('%'))
     expect(bar).toContain('50%')
     expect(bar).toContain('3.20s')
@@ -285,7 +349,12 @@ describe('dev tui panel', () => {
   })
 
   it('lowercases sentence-shaped status notes without touching acronyms', () => {
-    const status = (note: string) => strip(renderPanel({ ...READY, status: 'restarting', readyMs: undefined, note }, 100, 30).find(line => line.includes('RESTART'))!)
+    const status = (note: string) => strip(renderPanel({
+      ...READY,
+      status: 'restarting',
+      readyMs: undefined,
+      note,
+    }, 100, 30).find(line => line.includes('RESTART'))!)
     expect(status('Restarting Nuxt...')).toContain('restarting Nuxt...')
     expect(status('HMR failed')).toContain('HMR failed')
   })
@@ -296,7 +365,10 @@ describe('dev tui panel', () => {
       version: '4.5.2',
       progress: 0.3,
       elapsedMs: 800,
-      urls: [{ label: 'Local', url: 'http://localhost:3000/', pending: true }, { label: 'Network', url: 'http://192.168.1.4:3000/', pending: true }],
+      urls: [
+        { label: 'Local', url: 'http://localhost:3000/', pending: true },
+        { label: 'Network', url: 'http://192.168.1.4:3000/', pending: true },
+      ],
       hints: DEFAULT_HINTS,
       hintsDimmed: true,
     }, 100, 30)
@@ -319,7 +391,14 @@ describe('dev tui panel', () => {
   it('paints an armed hint in the brand colour', () => {
     vi.stubEnv('FORCE_COLOR', '3')
     try {
-      const hints = [{ key: 'o', label: 'open', priority: 40, armed: true }]
+      const hints = [
+        {
+          key: 'o',
+          label: 'open',
+          priority: 40,
+          armed: true,
+        },
+      ]
       const armed = renderPanel({ ...READY, hints, background: 'dark' }, 100, 30).at(-1)!
       expect(armed).toContain(paint('brand', 'open', 'dark'))
       expect(renderPanel({ ...READY, background: 'dark' }, 100, 30).at(-1)!).not.toContain(paint('brand', 'open', 'dark'))
@@ -330,14 +409,28 @@ describe('dev tui panel', () => {
   })
 
   it('spins on a bound URL until it is confirmed', () => {
-    const pending = renderPanel({ ...READY, status: 'starting', readyMs: undefined, urls: [{ label: 'Local', url: 'http://localhost:3000/', pending: true }], frame: 0 }, 100, 30).map(strip)
+    const pending = renderPanel({
+      ...READY,
+      status: 'starting',
+      readyMs: undefined,
+      urls: [
+        { label: 'Local', url: 'http://localhost:3000/', pending: true },
+      ],
+      frame: 0,
+    }, 100, 30).map(strip)
     expect(pending.find(line => line.includes('localhost'))).toContain('\u280B')
     const confirmed = renderPanel({ ...READY }, 100, 30).map(strip)
     expect(confirmed.find(line => line.includes('localhost'))).not.toContain('\u280B')
   })
 
   it('substitutes plain characters when the terminal cannot render glyphs', () => {
-    const text = renderPanelText({ ...READY, ascii: true, warnings: 1, errors: 2, requests: 3 }, 100, 30)
+    const text = renderPanelText({
+      ...READY,
+      ascii: true,
+      warnings: 1,
+      errors: 2,
+      requests: 3,
+    }, 100, 30)
     expect(text).not.toMatch(/[⣠⣦⡀✔⚠✖]/)
     expect(text).toContain('! 1 warning')
     expect(text).toContain('x 2 errors')
@@ -345,9 +438,18 @@ describe('dev tui panel', () => {
 
   it('paints every accent for the background it was given, not the terminal\'s', () => {
     const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
-    const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => 24, configurable: true })
-    Object.defineProperty(process.stdout, 'hasColors', { value: () => true, configurable: true })
+    const originals = keys.map(key => [
+      key,
+      Object.getOwnPropertyDescriptor(process.stdout, key),
+    ] as const)
+    Object.defineProperty(process.stdout, 'getColorDepth', {
+      value: () => 24,
+      configurable: true,
+    })
+    Object.defineProperty(process.stdout, 'hasColors', {
+      value: () => true,
+      configurable: true,
+    })
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
     try {
       // The amber a light terminal can read, rather than plain yellow.
@@ -358,8 +460,15 @@ describe('dev tui panel', () => {
         warnings: 2,
         update: '4.6.0',
         notice: { text: 'no clipboard available', tone: 'warn' as const },
-        lastRequest: { method: 'GET', url: '/missing', status: 404, duration: 12 },
-        urls: [{ label: 'Local', url: 'http://localhost:3000/', pending: true }],
+        lastRequest: {
+          method: 'GET',
+          url: '/missing',
+          status: 404,
+          duration: 12,
+        },
+        urls: [
+          { label: 'Local', url: 'http://localhost:3000/', pending: true },
+        ],
         readyMs: undefined,
         progress: undefined,
       }
@@ -387,7 +496,20 @@ describe('dev tui panel', () => {
 
   it('never wraps a line past the terminal width', () => {
     for (const columns of [20, 40, 60, 80, 120]) {
-      for (const line of renderPanel({ ...READY, warnings: 3, errors: 1, requests: 999, medianMs: 1234, update: '4.6.0', lastRequest: { method: 'GET', url: '/api/very/long/path/that/keeps/going', status: 500, duration: 42 } }, columns, 30)) {
+      for (const line of renderPanel({
+        ...READY,
+        warnings: 3,
+        errors: 1,
+        requests: 999,
+        medianMs: 1234,
+        update: '4.6.0',
+        lastRequest: {
+          method: 'GET',
+          url: '/api/very/long/path/that/keeps/going',
+          status: 500,
+          duration: 42,
+        },
+      }, columns, 30)) {
         expect(strip(line).length).toBeLessThanOrEqual(columns)
       }
     }
@@ -396,20 +518,31 @@ describe('dev tui panel', () => {
 
 describe('dev tui held notices', () => {
   it('replaces the status badge with a labelled notice', () => {
-    const lines = renderPanelText({ ...READY, notice: { text: 'a browser is requesting permissions', tone: 'warn', label: 'ACTION' } }, 80, 30)
+    const lines = renderPanelText({
+      ...READY,
+      notice: { text: 'a browser is requesting permissions', tone: 'warn', label: 'ACTION' },
+    }, 80, 30)
     expect(lines).toContain(' ACTION   a browser is requesting permissions')
     expect(lines).not.toContain('READY')
   })
 
   it('keeps an unlabelled notice alongside the status badge', () => {
-    const lines = renderPanelText({ ...READY, notice: { text: 'devframe auth code 123456', tone: 'info' } }, 80, 30)
+    const lines = renderPanelText({
+      ...READY,
+      notice: { text: 'devframe auth code 123456', tone: 'info' },
+    }, 80, 30)
     expect(lines).toContain('READY')
     expect(lines).toContain('devframe auth code 123456')
   })
 })
 
 describe('dev tui traffic ticker', () => {
-  const request = { method: 'GET', url: '/api/hello', status: 200, duration: 12 }
+  const request = {
+    method: 'GET',
+    url: '/api/hello',
+    status: 200,
+    duration: 12,
+  }
   const statusLine = (state: Parameters<typeof renderPanel>[0], columns: number) =>
     strip(renderPanel(state, columns, 30).find(line => strip(line).includes('READY'))!)
 
@@ -434,7 +567,10 @@ describe('dev tui traffic ticker', () => {
   })
 
   it('truncates a long url to stay on the line', () => {
-    const line = statusLine({ ...READY, lastRequest: { ...request, url: `/_nuxt/${'x'.repeat(300)}.js` } }, 100)
+    const line = statusLine({
+      ...READY,
+      lastRequest: { ...request, url: `/_nuxt/${'x'.repeat(300)}.js` },
+    }, 100)
     expect(line.length).toBeLessThanOrEqual(100)
     expect(line).toContain('\u2026')
   })
@@ -445,26 +581,119 @@ describe('dev tui support', () => {
   const base = { ci: false, test: false }
 
   it('runs on a terminal that can host it', () => {
-    expect(resolveDevUISupport({ ...base, stdout: tty, stdin: { isTTY: true }, env: {} })).toEqual({ enabled: true })
+    expect(resolveDevUISupport({
+      ...base,
+      stdout: tty,
+      stdin: { isTTY: true },
+      env: {},
+    })).toEqual({ enabled: true })
   })
 
   it.each([
-    ['a piped stdout', { stdout: { isTTY: false }, stdin: { isTTY: true }, env: {} }, 'no-output-tty'],
-    ['a piped stdin', { stdout: tty, stdin: { isTTY: false }, env: {} }, 'no-input-tty'],
-    ['a dumb terminal', { stdout: tty, stdin: { isTTY: true }, env: { TERM: 'dumb' } }, 'dumb-terminal'],
-    ['a terminal too small to use', { stdout: { isTTY: true, columns: 30, rows: 40 }, stdin: { isTTY: true }, env: {} }, 'terminal-too-small'],
-    ['too few rows to use', { stdout: { isTTY: true, columns: 120, rows: 6 }, stdin: { isTTY: true }, env: {} }, 'terminal-too-small'],
-    ['an attached inspector', { stdout: tty, stdin: { isTTY: true }, env: {}, inspect: true }, 'inspector'],
-    ['--no-tui', { stdout: tty, stdin: { isTTY: true }, env: {}, flag: false }, 'flag'],
-    ['NUXT_TUI=0', { stdout: tty, stdin: { isTTY: true }, env: { NUXT_TUI: '0' } }, 'env'],
-    ['NUXT_TUI=false', { stdout: tty, stdin: { isTTY: true }, env: { NUXT_TUI: 'FALSE' } }, 'env'],
+    [
+      'a piped stdout',
+      {
+        stdout: { isTTY: false },
+        stdin: { isTTY: true },
+        env: {},
+      },
+      'no-output-tty',
+    ],
+    [
+      'a piped stdin',
+      {
+        stdout: tty,
+        stdin: { isTTY: false },
+        env: {},
+      },
+      'no-input-tty',
+    ],
+    [
+      'a dumb terminal',
+      {
+        stdout: tty,
+        stdin: { isTTY: true },
+        env: { TERM: 'dumb' },
+      },
+      'dumb-terminal',
+    ],
+    [
+      'a terminal too small to use',
+      {
+        stdout: { isTTY: true, columns: 30, rows: 40 },
+        stdin: { isTTY: true },
+        env: {},
+      },
+      'terminal-too-small',
+    ],
+    [
+      'too few rows to use',
+      {
+        stdout: { isTTY: true, columns: 120, rows: 6 },
+        stdin: { isTTY: true },
+        env: {},
+      },
+      'terminal-too-small',
+    ],
+    [
+      'an attached inspector',
+      {
+        stdout: tty,
+        stdin: { isTTY: true },
+        env: {},
+        inspect: true,
+      },
+      'inspector',
+    ],
+    [
+      '--no-tui',
+      {
+        stdout: tty,
+        stdin: { isTTY: true },
+        env: {},
+        flag: false,
+      },
+      'flag',
+    ],
+    [
+      'NUXT_TUI=0',
+      {
+        stdout: tty,
+        stdin: { isTTY: true },
+        env: { NUXT_TUI: '0' },
+      },
+      'env',
+    ],
+    [
+      'NUXT_TUI=false',
+      {
+        stdout: tty,
+        stdin: { isTTY: true },
+        env: { NUXT_TUI: 'FALSE' },
+      },
+      'env',
+    ],
   ])('falls back to plain logs for %s', (_name, options, reason) => {
-    expect(resolveDevUISupport({ ...base, ...options })).toEqual({ enabled: false, reason })
+    expect(resolveDevUISupport({
+      ...base,
+      ...options,
+    })).toEqual({ enabled: false, reason })
   })
 
   it('lets NUXT_TUI=1 override the environment checks but not a pipe', () => {
-    expect(resolveDevUISupport({ ...base, stdout: { isTTY: true, columns: 20, rows: 5 }, stdin: { isTTY: true }, env: { NUXT_TUI: '1' }, inspect: true })).toEqual({ enabled: true })
-    expect(resolveDevUISupport({ ...base, stdout: { isTTY: false }, stdin: { isTTY: true }, env: { NUXT_TUI: '1' } })).toEqual({ enabled: false, reason: 'no-output-tty' })
+    expect(resolveDevUISupport({
+      ...base,
+      stdout: { isTTY: true, columns: 20, rows: 5 },
+      stdin: { isTTY: true },
+      env: { NUXT_TUI: '1' },
+      inspect: true,
+    })).toEqual({ enabled: true })
+    expect(resolveDevUISupport({
+      ...base,
+      stdout: { isTTY: false },
+      stdin: { isTTY: true },
+      env: { NUXT_TUI: '1' },
+    })).toEqual({ enabled: false, reason: 'no-output-tty' })
   })
 
   it('takes an explicit single-byte locale at its word', () => {
@@ -486,9 +715,18 @@ describe('dev tui logo', () => {
   const withTruecolor = (run: () => void) => {
     vi.stubEnv('NO_COLOR', '')
     const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
-    const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => 24, configurable: true })
-    Object.defineProperty(process.stdout, 'hasColors', { value: () => true, configurable: true })
+    const originals = keys.map(key => [
+      key,
+      Object.getOwnPropertyDescriptor(process.stdout, key),
+    ] as const)
+    Object.defineProperty(process.stdout, 'getColorDepth', {
+      value: () => 24,
+      configurable: true,
+    })
+    Object.defineProperty(process.stdout, 'hasColors', {
+      value: () => true,
+      configurable: true,
+    })
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
     try {
       run()
@@ -506,21 +744,34 @@ describe('dev tui logo', () => {
     }
   }
 
-  // eslint-disable-next-line no-control-regex
-  const rgbOf = (text: string) => [...text.matchAll(/\u001B\[38;2;(\d+);(\d+);(\d+)m/g)]
-    .map(([, r, g, b]) => [Number(r), Number(g), Number(b)] as const)
+  const rgbOf = (text: string) => [
+    // eslint-disable-next-line no-control-regex
+    ...text.matchAll(/\u001B\[38;2;(\d+);(\d+);(\d+)m/g),
+  ]
+    .map(([, r, g, b]) => [
+      Number(r),
+      Number(g),
+      Number(b),
+    ] as const)
 
   const luminance = ([r, g, b]: readonly [number, number, number]) => {
     const channel = (value: number) => {
       const ratio = value / 255
-      return ratio <= 0.03928 ? ratio / 12.92 : ((ratio + 0.055) / 1.055) ** 2.4
+      return ratio <= 0.03928
+        ? ratio / 12.92
+        : ((ratio + 0.055) / 1.055) ** 2.4
     }
     return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
   }
 
   const contrast = (colour: readonly [number, number, number], background: 'dark' | 'light') => {
-    const other = background === 'dark' ? 0 : 1
-    const [lighter, darker] = [luminance(colour), other].sort((a, b) => b - a) as [number, number]
+    const other = background === 'dark'
+      ? 0
+      : 1
+    const [lighter, darker] = [
+      luminance(colour),
+      other,
+    ].sort((a, b) => b - a) as [number, number]
     return (lighter + 0.05) / (darker + 0.05)
   }
 
@@ -574,7 +825,10 @@ describe('dev tui logo', () => {
 
   it('takes the nearest cube colours on a 256-colour terminal', () => {
     const depth = Object.getOwnPropertyDescriptor(process.stdout, 'getColorDepth')
-    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => 8, configurable: true })
+    Object.defineProperty(process.stdout, 'getColorDepth', {
+      value: () => 8,
+      configurable: true,
+    })
     try {
       const mark = renderLogo({ background: 'light' })
       expect(mark).toContain('\u001B[38;5;29m')
@@ -595,7 +849,9 @@ describe('dev tui logo', () => {
       const cells = rgbOf(renderLogo({ working: true, frame: 0, background }))
       const [lit, dimmed] = [cells[0]!, cells[1]!]
       expect(contrast(dimmed, background)).toBeLessThan(contrast(lit, background))
-      const towards = background === 'light' ? 1 : 0
+      const towards = background === 'light'
+        ? 1
+        : 0
       expect(Math.abs(luminance(dimmed) - towards)).toBeLessThan(Math.abs(luminance(lit) - towards))
     })
   })
@@ -627,9 +883,20 @@ describe('dev event log', () => {
     const log = new DevEventLog()
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: now, type: 'box', message, source: 'build' }))
-    const printed = ['\u256D\u2500 Permission Request \u2500\u256E', ...message.split('\n').map(line => `\u2502 ${line} \u2502`), '\u2570\u2500\u256F'].join('\n')
-    expect(log.attachRendered([{ message: printed, rendered: printed }])).toEqual([])
+    log.push(event({
+      time: now,
+      type: 'box',
+      message,
+      source: 'build',
+    }))
+    const printed = [
+      '\u256D\u2500 Permission Request \u2500\u256E',
+      ...message.split('\n').map(line => `\u2502 ${line} \u2502`),
+      '\u2570\u2500\u256F',
+    ].join('\n')
+    expect(log.attachRendered([
+      { message: printed, rendered: printed },
+    ])).toEqual([])
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.rendered).toBe(printed)
   })
@@ -637,7 +904,12 @@ describe('dev event log', () => {
   it('should keep a boxed notice out of badge classification', () => {
     const log = new DevEventLog()
     const message = 'Warning: a browser is requesting permissions.\ngXSptCzfAzS2Lfgy'
-    log.push(event({ time: Date.now(), type: 'box', message, source: 'build' }))
+    log.push(event({
+      time: Date.now(),
+      type: 'box',
+      message,
+      source: 'build',
+    }))
     const [stored] = log.recent(10)
     expect(stored!.type).toBe('box')
     expect(stored!.message).toContain('gXSptCzfAzS2Lfgy')
@@ -648,11 +920,24 @@ describe('dev event log', () => {
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.'
     const printed = `\u256D\u2500 Permission Request \u2500\u256E\n\u2502 ${message} \u2502\n\u2570\u2500\u256F`
-    log.push(event({ time: now, type: 'box', message, source: 'build', rendered: printed }))
-    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    log.push(event({
+      time: now,
+      type: 'box',
+      message,
+      source: 'build',
+      rendered: printed,
+    }))
+    log.push(event({
+      time: now,
+      type: 'box',
+      message,
+      source: 'build',
+    }))
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]!.repeats).toBe(2)
-    expect(log.attachRendered([{ message: printed, rendered: printed }])).toEqual([])
+    expect(log.attachRendered([
+      { message: printed, rendered: printed },
+    ])).toEqual([])
     expect(log.recent(10)).toHaveLength(1)
   })
 
@@ -660,15 +945,35 @@ describe('dev event log', () => {
     const log = new DevEventLog()
     const now = Date.now()
     const format = () => 'laid out'
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Failed to apply the discount code', source: 'runtime' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Failed to apply the discount code\n    at handler (server/api/x.ts:3:9)', source: 'runtime', format, styled: true }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Failed to apply the discount code',
+      source: 'runtime',
+    }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Failed to apply the discount code\n    at handler (server/api/x.ts:3:9)',
+      source: 'runtime',
+      format,
+      styled: true,
+    }))
     expect(log.recent(10)).toHaveLength(1)
     expect(log.recent(10)[0]).toMatchObject({ format, styled: true })
   })
 
   it('should pair a forwarded log with its own printed log and leave the rest', () => {
     const log = new DevEventLog()
-    log.push(event({ time: Date.now(), level: 0, type: 'error', message: 'boom happened here today', source: 'build' }))
+    log.push(event({
+      time: Date.now(),
+      level: 0,
+      type: 'error',
+      message: 'boom happened here today',
+      source: 'build',
+    }))
     const before = { message: '[nuxt:icon] \u2714 Nuxt Icon loaded', rendered: '[nuxt:icon] \u2714 Nuxt Icon loaded\n' }
     const own = { message: ' ERROR  boom happened here today', rendered: '\n ERROR  boom happened here today\n\n' }
     const after = { message: '[@nuxt/robots]  WARN  You have disallowed robots', rendered: '\n[@nuxt/robots]  WARN  You have disallowed robots\n\n' }
@@ -678,7 +983,11 @@ describe('dev event log', () => {
 
   it('should pair a forwarded log with every printed log its message spans', () => {
     const log = new DevEventLog()
-    log.push(event({ time: Date.now(), message: 'Found:\n[a] one\n[b] two', source: 'build' }))
+    log.push(event({
+      time: Date.now(),
+      message: 'Found:\n[a] one\n[b] two',
+      source: 'build',
+    }))
     const printed = [
       { message: '\u2139 Found:', rendered: '\u2139 Found:\n' },
       { message: '[a] one', rendered: '[a] one\n' },
@@ -695,8 +1004,19 @@ describe('dev event log', () => {
     const message = 'A browser is requesting permissions of writing files and running commands.'
     const merges: boolean[] = []
     log.onEvent((_event, merged) => merges.push(!!merged))
-    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
-    log.push(event({ time: now, type: 'box', message, source: 'build' }))
+    log.push(event({
+      time: now,
+      level: 1,
+      type: 'warn',
+      message,
+      source: 'build',
+    }))
+    log.push(event({
+      time: now,
+      type: 'box',
+      message,
+      source: 'build',
+    }))
     expect(log.recent(10).map(entry => entry.type)).toEqual(['warn', 'box'])
     expect(merges).toEqual([false, false])
   })
@@ -705,8 +1025,19 @@ describe('dev event log', () => {
     const log = new DevEventLog()
     const now = Date.now()
     const message = 'A browser is requesting permissions of writing files and running commands.'
-    log.push(event({ time: now, type: 'box', message, source: 'build' }))
-    log.push(event({ time: now, level: 1, type: 'warn', message, source: 'build' }))
+    log.push(event({
+      time: now,
+      type: 'box',
+      message,
+      source: 'build',
+    }))
+    log.push(event({
+      time: now,
+      level: 1,
+      type: 'warn',
+      message,
+      source: 'build',
+    }))
     expect(log.recent(10).map(entry => entry.type)).toEqual(['box'])
     expect(log.recent(10)[0]!.repeats).toBe(2)
   })
@@ -733,9 +1064,31 @@ describe('dev event log', () => {
     const merges: boolean[] = []
     log.onEvent((_, merged) => merges.push(!!merged))
     const now = Date.now()
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue', source: 'build' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r8' }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Invalid end tag.',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r7',
+    }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue',
+      source: 'build',
+    }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Invalid end tag.',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r8',
+    }))
 
     const errors = log.recent(10, e => e.level <= 0)
     expect(errors).toHaveLength(1)
@@ -750,24 +1103,54 @@ describe('dev event log', () => {
   it('collapses the same problem wrapped differently by each tool', () => {
     const log = new DevEventLog()
     const now = Date.now()
-    log.push(event({ time: now, level: 0, type: 'error', message: '[/pages/index.vue — Invalid end tag.\n at createCompilerError (compiler-core.cjs.js:1378:17)' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue:8:29' }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: '[/pages/index.vue — Invalid end tag.\n at createCompilerError (compiler-core.cjs.js:1378:17)',
+    }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Internal server error: Invalid end tag.\n Plugin: vite:vue\n File: /pages/index.vue:8:29',
+    }))
     expect(log.recent(10, e => e.level <= 0)).toHaveLength(1)
   })
 
   it('treats backticks as formatting when comparing messages', () => {
     const log = new DevEventLog()
     const now = Date.now()
-    log.push(event({ time: now, level: 1, type: 'warn', message: 'Failed to stringify dev server logs. Received DevalueError: Cannot stringify arbitrary non-POJOs.' }))
-    log.push(event({ time: now, level: 1, type: 'warn', message: 'Failed to stringify dev server logs. Received `DevalueError: Cannot stringify arbitrary non-POJOs`.' }))
+    log.push(event({
+      time: now,
+      level: 1,
+      type: 'warn',
+      message: 'Failed to stringify dev server logs. Received DevalueError: Cannot stringify arbitrary non-POJOs.',
+    }))
+    log.push(event({
+      time: now,
+      level: 1,
+      type: 'warn',
+      message: 'Failed to stringify dev server logs. Received `DevalueError: Cannot stringify arbitrary non-POJOs`.',
+    }))
     expect(log.recent(10, e => e.level <= 1)).toHaveLength(1)
   })
 
   it('keeps distinct errors apart and leaves info logs alone', () => {
     const log = new DevEventLog()
     const now = Date.now()
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Invalid end tag.' }))
-    log.push(event({ time: now, level: 0, type: 'error', message: 'Cannot resolve import ./missing.ts' }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Invalid end tag.',
+    }))
+    log.push(event({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Cannot resolve import ./missing.ts',
+    }))
     log.push(event({ time: now, message: 'hmr update /app.vue' }))
     log.push(event({ time: now, message: 'hmr update /app.vue' }))
     expect(log.recent(10, e => e.level <= 0)).toHaveLength(2)
@@ -822,35 +1205,79 @@ describe('dev event log', () => {
     const events = new DevEventLog()
     for (const step of order) {
       if (step === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'runtime', request: 'GET /', requestId: 'r1' }, { route: 'report' })
+        events.push({
+          time: Date.now(),
+          level: 3,
+          type: 'info',
+          message: 'same line',
+          source: 'runtime',
+          request: 'GET /',
+          requestId: 'r1',
+        }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime' }, { route: 'output' })
+        events.push({
+          time: Date.now(),
+          level: 3,
+          type: 'log',
+          message: 'same line',
+          source: 'runtime',
+        }, { route: 'output' })
       }
     }
     return events.recent(10)
   }
 
   it.each([
-    ['report then print, twice', ['report', 'print', 'report', 'print']],
-    ['both reports first', ['report', 'report', 'print', 'print']],
-    ['both prints first', ['print', 'print', 'report', 'report']],
-    ['print then report, twice', ['print', 'report', 'print', 'report']],
+    [
+      'report then print, twice',
+      ['report', 'print', 'report', 'print'],
+    ],
+    [
+      'both reports first',
+      ['report', 'report', 'print', 'print'],
+    ],
+    [
+      'both prints first',
+      ['print', 'print', 'report', 'report'],
+    ],
+    [
+      'print then report, twice',
+      ['print', 'report', 'print', 'report'],
+    ],
   ])('keeps two identical logs from one request apart (%s)', (_name, order) => {
     expect(replay(order)).toHaveLength(2)
   })
 
   it.each([
-    ['report then print', ['report', 'print']],
-    ['print then report', ['print', 'report']],
+    [
+      'report then print',
+      ['report', 'print'],
+    ],
+    [
+      'print then report',
+      ['print', 'report'],
+    ],
   ])('pairs a log reported outside a request with its printed form (%s)', (_name, order) => {
     const events = new DevEventLog()
     for (const step of order) {
       if (step === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'booted', source: 'build' }, { route: 'report' })
+        events.push({
+          time: Date.now(),
+          level: 3,
+          type: 'log',
+          message: 'booted',
+          source: 'build',
+        }, { route: 'report' })
       }
       else {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'booted', source: 'build' }, { route: 'output' })
+        events.push({
+          time: Date.now(),
+          level: 2,
+          type: 'log',
+          message: 'booted',
+          source: 'build',
+        }, { route: 'output' })
       }
     }
     expect(events.recent(10)).toHaveLength(1)
@@ -859,23 +1286,56 @@ describe('dev event log', () => {
   // A fork forwards what its consola caught over IPC while the output arrives
   // down a pipe and the app's report on a channel, in no particular order.
   it.each([
-    [['report', 'reporter', 'output']],
-    [['report', 'output', 'reporter']],
-    [['reporter', 'report', 'output']],
-    [['reporter', 'output', 'report']],
-    [['output', 'report', 'reporter']],
-    [['output', 'reporter', 'report']],
+    [
+      ['report', 'reporter', 'output'],
+    ],
+    [
+      ['report', 'output', 'reporter'],
+    ],
+    [
+      ['reporter', 'report', 'output'],
+    ],
+    [
+      ['reporter', 'output', 'report'],
+    ],
+    [
+      ['output', 'report', 'reporter'],
+    ],
+    [
+      ['output', 'reporter', 'report'],
+    ],
   ])('keeps one entry for a log that arrives by every route (%j)', (order) => {
     const events = new DevEventLog()
     for (const route of order) {
       if (route === 'report') {
-        events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
+        events.push({
+          time: Date.now(),
+          level: 3,
+          type: 'log',
+          message: 'hello',
+          source: 'runtime',
+          request: 'GET /',
+          requestId: 'r4',
+        }, { route: 'report' })
       }
       else if (route === 'reporter') {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', source: 'runtime' }, { route: 'reporter' })
+        events.push({
+          time: Date.now(),
+          level: 2,
+          type: 'log',
+          message: 'hello',
+          source: 'runtime',
+        }, { route: 'reporter' })
       }
       else {
-        events.push({ time: Date.now(), level: 2, type: 'log', message: 'hello', rendered: 'hello\n', source: 'build' }, { route: 'output' })
+        events.push({
+          time: Date.now(),
+          level: 2,
+          type: 'log',
+          message: 'hello',
+          rendered: 'hello\n',
+          source: 'build',
+        }, { route: 'output' })
       }
     }
     expect(events.recent(10)).toHaveLength(1)
@@ -883,14 +1343,41 @@ describe('dev event log', () => {
   })
 
   it.each([
-    ['reports first', ['report 1', 'report 2', 'reporter 1', 'reporter 2']],
-    ['reporters first', ['reporter 1', 'reporter 2', 'report 1', 'report 2']],
-    ['a reporter with no report of its own', ['report 2', 'reporter 1']],
+    [
+      'reports first',
+      [
+        'report 1',
+        'report 2',
+        'reporter 1',
+        'reporter 2',
+      ],
+    ],
+    [
+      'reporters first',
+      [
+        'reporter 1',
+        'reporter 2',
+        'report 1',
+        'report 2',
+      ],
+    ],
+    [
+      'a reporter with no report of its own',
+      ['report 2', 'reporter 1'],
+    ],
   ])('does not join the same line from two requests (%s)', (_name, order) => {
     const events = new DevEventLog()
     for (const step of order) {
       const [route, id] = step.split(' ') as ['report' | 'reporter', string]
-      events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /', requestId: `r${id}` }, { route })
+      events.push({
+        time: Date.now(),
+        level: 3,
+        type: 'log',
+        message: 'same line',
+        source: 'runtime',
+        request: 'GET /',
+        requestId: `r${id}`,
+      }, { route })
     }
     const entries = events.recent(10)
     expect(entries).toHaveLength(2)
@@ -902,10 +1389,42 @@ describe('dev event log', () => {
 
   it('keeps a log with the request it names when another printed the same line', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'output' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'output' })
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /a', requestId: 'r1' }, { route: 'report' })
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', request: 'GET /b', requestId: 'r2' }, { route: 'report' })
+    events.push({
+      time: Date.now(),
+      level: 2,
+      type: 'log',
+      message: 'same line',
+      source: 'runtime',
+      request: 'GET /a',
+      requestId: 'r1',
+    }, { route: 'output' })
+    events.push({
+      time: Date.now(),
+      level: 2,
+      type: 'log',
+      message: 'same line',
+      source: 'runtime',
+      request: 'GET /b',
+      requestId: 'r2',
+    }, { route: 'output' })
+    events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'log',
+      message: 'same line',
+      source: 'runtime',
+      request: 'GET /a',
+      requestId: 'r1',
+    }, { route: 'report' })
+    events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'log',
+      message: 'same line',
+      source: 'runtime',
+      request: 'GET /b',
+      requestId: 'r2',
+    }, { route: 'report' })
 
     expect(events.recent(10).map(entry => entry.request)).toEqual(['GET /a', 'GET /b'])
   })
@@ -913,15 +1432,54 @@ describe('dev event log', () => {
   // Each route runs at its own pace, so the arrivals of two occurrences can be
   // heard in any order at all.
   it.each([
-    ['occurrence by occurrence', ['report 1', 'reporter 1', 'output 1', 'report 2', 'reporter 2', 'output 2']],
-    ['output trailing a whole occurrence behind', ['report 1', 'reporter 1', 'report 2', 'output 1', 'reporter 2', 'output 2']],
-    ['reports ahead of everything', ['report 1', 'report 2', 'reporter 1', 'output 1', 'reporter 2', 'output 2']],
+    [
+      'occurrence by occurrence',
+      [
+        'report 1',
+        'reporter 1',
+        'output 1',
+        'report 2',
+        'reporter 2',
+        'output 2',
+      ],
+    ],
+    [
+      'output trailing a whole occurrence behind',
+      [
+        'report 1',
+        'reporter 1',
+        'report 2',
+        'output 1',
+        'reporter 2',
+        'output 2',
+      ],
+    ],
+    [
+      'reports ahead of everything',
+      [
+        'report 1',
+        'report 2',
+        'reporter 1',
+        'output 1',
+        'reporter 2',
+        'output 2',
+      ],
+    ],
   ])('counts an error repeated in a fork once per occurrence (%s)', (_name, order) => {
     const events = new DevEventLog()
     const message = 'Cannot read properties of undefined'
     for (const step of order) {
       const route = step.split(' ')[0] as DevLogRoute
-      events.push({ time: Date.now(), level: 0, type: 'error', message, source: 'runtime', requestId: route === 'output' ? undefined : 'r1' }, { route })
+      events.push({
+        time: Date.now(),
+        level: 0,
+        type: 'error',
+        message,
+        source: 'runtime',
+        requestId: route === 'output'
+          ? undefined
+          : 'r1',
+      }, { route })
     }
 
     expect(events.recent(10)).toHaveLength(1)
@@ -930,7 +1488,14 @@ describe('dev event log', () => {
 
   it('does not let output heard twice make room for another report', () => {
     const events = new DevEventLog()
-    const report = () => events.push({ time: Date.now(), level: 3, type: 'log', message: 'same line', source: 'runtime', requestId: 'r1' }, { route: 'report' })
+    const report = () => events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'log',
+      message: 'same line',
+      source: 'runtime',
+      requestId: 'r1',
+    }, { route: 'report' })
     const entry = report()
     noteRoute(entry, 'output')
     noteRoute(entry, 'output')
@@ -940,8 +1505,20 @@ describe('dev event log', () => {
 
   it('does not pair printed output with a log nothing reported', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'info', message: 'same line', source: 'cli' })
-    events.push({ time: Date.now(), level: 2, type: 'log', message: 'same line', source: 'build' }, { route: 'output' })
+    events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'info',
+      message: 'same line',
+      source: 'cli',
+    })
+    events.push({
+      time: Date.now(),
+      level: 2,
+      type: 'log',
+      message: 'same line',
+      source: 'build',
+    }, { route: 'output' })
     expect(events.recent(10)).toHaveLength(2)
   })
 
@@ -951,8 +1528,23 @@ describe('dev event log', () => {
 
   it('pairs a report with printed output rather than duplicating it', () => {
     const events = new DevEventLog()
-    events.push({ time: Date.now(), level: 3, type: 'log', message: 'hello', rendered: '\u001B[36mhello\u001B[39m', source: 'runtime' }, { route: 'output' })
-    events.push({ time: Date.now(), level: 3, type: 'info', message: 'hello', source: 'runtime', request: 'GET /', requestId: 'r4' }, { route: 'report' })
+    events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'log',
+      message: 'hello',
+      rendered: '\u001B[36mhello\u001B[39m',
+      source: 'runtime',
+    }, { route: 'output' })
+    events.push({
+      time: Date.now(),
+      level: 3,
+      type: 'info',
+      message: 'hello',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r4',
+    }, { route: 'report' })
 
     const [only] = events.recent(10)
     expect(events.recent(10)).toHaveLength(1)
@@ -983,7 +1575,13 @@ describe('log overlay', () => {
 
   it('should leave a message that carries its own colours alone', () => {
     const coloured = `${'\u001B[31m'}✖${'\u001B[39m'} ParseError`
-    const lines = formatEvent(event({ message: coloured, rendered: coloured, level: 0, type: 'error', styled: true }), 80)
+    const lines = formatEvent(event({
+      message: coloured,
+      rendered: coloured,
+      level: 0,
+      type: 'error',
+      styled: true,
+    }), 80)
 
     expect(lines.join('\n')).toContain(coloured)
   })
@@ -1060,7 +1658,10 @@ describe('log overlay', () => {
 
   it('never paints a row wider than the terminal', () => {
     const events = new DevEventLog()
-    events.push(event({ tag: 'a'.repeat(60), message: 'b'.repeat(60) }))
+    events.push(event({
+      tag: 'a'.repeat(60),
+      message: 'b'.repeat(60),
+    }))
     events.push(event({ request: `GET /${'c'.repeat(120)}`, requestId: '1', message: 'boom' }))
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 20, configurable: true })
@@ -1110,7 +1711,13 @@ describe('log overlay', () => {
 
   it('wraps a long request in the detail view', () => {
     const events = new DevEventLog()
-    events.push(event({ request: `GET /api/${'c'.repeat(60)}?cart=last`, requestId: '1', message: 'boom', level: 0, type: 'error' }))
+    events.push(event({
+      request: `GET /api/${'c'.repeat(60)}?cart=last`,
+      requestId: '1',
+      message: 'boom',
+      level: 0,
+      type: 'error',
+    }))
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true })
     const { overlay, lastFrame } = create(events)
@@ -1133,7 +1740,9 @@ describe('log overlay', () => {
     const events = new DevEventLog()
     const rows = (process.stdout.rows || 24) - 3
     events.push(event({ message: 'short' }))
-    events.push(event({ message: Array.from({ length: rows * 3 }, (_, i) => `stack ${i}`).join('\n') }))
+    events.push(event({
+      message: Array.from({ length: rows * 3 }, (_, i) => `stack ${i}`).join('\n'),
+    }))
     events.push(event({ message: 'last' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
@@ -1151,8 +1760,18 @@ describe('log overlay', () => {
   it('shows a time only where it differs from the row above', () => {
     const events = new DevEventLog()
     events.push(event({ time: 1000, message: 'first' }))
-    events.push(event({ time: 1500, message: 'same second', request: 'GET /x', requestId: 'r1' }))
-    events.push(event({ time: 3000, message: 'still in request', request: 'GET /x', requestId: 'r1' }))
+    events.push(event({
+      time: 1500,
+      message: 'same second',
+      request: 'GET /x',
+      requestId: 'r1',
+    }))
+    events.push(event({
+      time: 3000,
+      message: 'still in request',
+      request: 'GET /x',
+      requestId: 'r1',
+    }))
     events.push(event({ time: 3000, message: 'later' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
@@ -1166,7 +1785,12 @@ describe('log overlay', () => {
   it('hides timestamps with shift-t and keeps t for cli logs', () => {
     const events = new DevEventLog()
     events.push(event({ message: 'plain' }))
-    events.push(event({ message: 'handled', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
+    events.push(event({
+      message: 'handled',
+      request: 'GET /x',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 't', sequence: 'T' })
@@ -1199,7 +1823,11 @@ describe('log overlay', () => {
     const events = new DevEventLog()
     const rows = (process.stdout.rows || 24) - 3
     events.push(event({ message: 'before' }))
-    events.push(event({ message: Array.from({ length: rows * 2 }, (_, i) => `row ${i}`).join('\n'), request: 'GET /tall', requestId: 'r1' }))
+    events.push(event({
+      message: Array.from({ length: rows * 2 }, (_, i) => `row ${i}`).join('\n'),
+      request: 'GET /tall',
+      requestId: 'r1',
+    }))
     events.push(event({ message: 'after' }))
     const { overlay, lastFrame } = create(events)
     const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows)
@@ -1237,7 +1865,9 @@ describe('log overlay', () => {
     expect(strip(lastFrame()).split('\n')[0]).toContain('3 of 3')
 
     overlay.handleKey({ name: 'y' })
-    await vi.waitFor(() => expect(copied).toEqual([expect.stringContaining('after')]))
+    await vi.waitFor(() => expect(copied).toEqual([
+      expect.stringContaining('after'),
+    ]))
 
     overlay.handleKey({ name: 'left' })
     overlay.handleKey({ name: 'escape' })
@@ -1298,7 +1928,14 @@ describe('log overlay', () => {
   describe('wheel', () => {
     async function spin(overlay: LogOverlay, directions: Array<'up' | 'down'>) {
       for (const direction of directions) {
-        overlay.handleMouse({ button: direction === 'up' ? 64 : 65, pressed: true, row: 5, column: 5 })
+        overlay.handleMouse({
+          button: direction === 'up'
+            ? 64
+            : 65,
+          pressed: true,
+          row: 5,
+          column: 5,
+        })
       }
       await new Promise(resolve => setImmediate(resolve))
     }
@@ -1331,7 +1968,9 @@ describe('log overlay', () => {
 
     it('scrolls a log shown in full by row, where a click selects nothing', async () => {
       const events = new DevEventLog()
-      events.push(event({ message: Array.from({ length: 80 }, (_, i) => `row ${i}`).join('\n') }))
+      events.push(event({
+        message: Array.from({ length: 80 }, (_, i) => `row ${i}`).join('\n'),
+      }))
       const keys = create(events)
       const wheel = create(events)
       for (const { overlay } of [keys, wheel]) {
@@ -1347,7 +1986,12 @@ describe('log overlay', () => {
       expect(wheel.lastFrame()).not.toBe(top)
       expect(wheel.lastFrame()).toBe(keys.lastFrame())
 
-      wheel.overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+      wheel.overlay.handleMouse({
+        button: 0,
+        pressed: true,
+        row: 4,
+        column: 10,
+      })
       expect(wheel.lastFrame()).toBe(keys.lastFrame())
       keys.overlay.close()
       wheel.overlay.close()
@@ -1370,7 +2014,12 @@ describe('log overlay', () => {
     it('does not repaint a view closed before the wheel settled', async () => {
       const { overlay, output } = create(forty())
       overlay.open()
-      overlay.handleMouse({ button: 65, pressed: true, row: 5, column: 5 })
+      overlay.handleMouse({
+        button: 65,
+        pressed: true,
+        row: 5,
+        column: 5,
+      })
       overlay.close()
       const closed = output()
 
@@ -1389,7 +2038,12 @@ describe('log overlay', () => {
     const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
     overlay.open()
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 4,
+      column: 10,
+    })
     expect(selected()).toHaveLength(1)
     expect(selected()[0]).toContain('entry 2')
 
@@ -1408,7 +2062,12 @@ describe('log overlay', () => {
     overlay.open()
     const first = body()[0]!.trim()
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 2,
+      column: 10,
+    })
 
     expect(first).not.toContain('entry 0')
     expect(body()[0]).toContain('\u258E')
@@ -1422,7 +2081,12 @@ describe('log overlay', () => {
     const click = (label: string) => {
       const column = strip(lastFrame()).split('\n').at(-1)!.indexOf(label)
       expect(column).toBeGreaterThanOrEqual(0)
-      overlay.handleMouse({ button: 0, pressed: true, row: hintRow, column: column + 1 })
+      overlay.handleMouse({
+        button: 0,
+        pressed: true,
+        row: hintRow,
+        column: column + 1,
+      })
     }
     overlay.open()
 
@@ -1448,12 +2112,19 @@ describe('log overlay', () => {
     const hints = () => strip(lastFrame()).split('\n').at(-1)!
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 200, configurable: true })
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
     try {
       overlay.open()
       const column = hints().indexOf('x delete logs')
       expect(column).toBeGreaterThanOrEqual(0)
-      const click = (row = hintRow) => overlay.handleMouse({ button: 0, pressed: true, row, column })
+      const click = (row = hintRow) => overlay.handleMouse({
+        button: 0,
+        pressed: true,
+        row,
+        column,
+      })
 
       click()
       expect(hints()).toContain('click again to delete logs')
@@ -1520,10 +2191,20 @@ describe('log overlay', () => {
     overlay.open()
     events.push(event({ message: 'entry 5' }))
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 2,
+      column: 10,
+    })
     expect(selected()).toEqual([])
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 3,
+      column: 10,
+    })
     expect(selected()).toHaveLength(1)
     expect(selected()[0]).toContain('entry 1')
     overlay.close()
@@ -1537,11 +2218,21 @@ describe('log overlay', () => {
     const { overlay, lastFrame } = create(events)
     const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
     overlay.open()
-    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 3,
+      column: 10,
+    })
     expect(selected()[0]).toContain('entry 1')
     events.push(event({ message: 'entry 5' }))
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 4,
+      column: 10,
+    })
     expect(selected()).toHaveLength(1)
     expect(selected()[0]).toContain('entry 2')
     overlay.close()
@@ -1555,9 +2246,19 @@ describe('log overlay', () => {
     const rows = process.stdout.rows || 24
 
     for (const row of [0, 1, 5, rows - 1]) {
-      overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
+      overlay.handleMouse({
+        button: 0,
+        pressed: true,
+        row,
+        column: 10,
+      })
     }
-    overlay.handleMouse({ button: 0, pressed: false, row: 2, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: false,
+      row: 2,
+      column: 10,
+    })
 
     expect(lastFrame()).not.toContain('\u258E')
     expect(strip(lastFrame())).not.toContain('nothing selected')
@@ -1573,8 +2274,18 @@ describe('log overlay', () => {
     overlay.open()
     overlay.handleKey({ sequence: '/' })
 
-    overlay.handleMouse({ button: 65, pressed: true, row: 4, column: 10 })
-    overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+    overlay.handleMouse({
+      button: 65,
+      pressed: true,
+      row: 4,
+      column: 10,
+    })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 4,
+      column: 10,
+    })
 
     expect(lastFrame()).not.toContain('\u258E')
     expect(strip(lastFrame()).split('\n')[0]).toContain('search')
@@ -1691,8 +2402,18 @@ describe('log overlay', () => {
 
   it('heads a request\'s logs once, with the request beside the time', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'first', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
-    events.push(event({ message: 'second', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
+    events.push(event({
+      message: 'first',
+      request: 'GET /about',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
+    events.push(event({
+      message: 'second',
+      request: 'GET /about',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -1706,8 +2427,18 @@ describe('log overlay', () => {
 
   it('heads each request separately when the same path is hit twice', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'one', request: 'GET /about', requestId: 'r1', source: 'runtime' }))
-    events.push(event({ message: 'two', request: 'GET /about', requestId: 'r2', source: 'runtime' }))
+    events.push(event({
+      message: 'one',
+      request: 'GET /about',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
+    events.push(event({
+      message: 'two',
+      request: 'GET /about',
+      requestId: 'r2',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /about'))).toHaveLength(2)
@@ -1715,8 +2446,17 @@ describe('log overlay', () => {
 
   it('puts the message at the same column whether or not it has a heading', () => {
     const events = new DevEventLog()
-    events.push(event({ time: new Date('2024-01-01T10:20:30').getTime(), message: 'plain' }))
-    events.push(event({ time: new Date('2024-01-01T10:20:31').getTime(), message: 'grouped', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
+    events.push(event({
+      time: new Date('2024-01-01T10:20:30').getTime(),
+      message: 'plain',
+    }))
+    events.push(event({
+      time: new Date('2024-01-01T10:20:31').getTime(),
+      message: 'grouped',
+      request: 'GET /x',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
 
@@ -1730,9 +2470,24 @@ describe('log overlay', () => {
 
   it('starts a new heading when another request interleaves', () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'a1', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
-    events.push(event({ message: 'b1', request: 'GET /b', requestId: 'r2', source: 'runtime' }))
-    events.push(event({ message: 'a2', request: 'GET /a', requestId: 'r1', source: 'runtime' }))
+    events.push(event({
+      message: 'a1',
+      request: 'GET /a',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
+    events.push(event({
+      message: 'b1',
+      request: 'GET /b',
+      requestId: 'r2',
+      source: 'runtime',
+    }))
+    events.push(event({
+      message: 'a2',
+      request: 'GET /a',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     expect(strip(lastFrame()).split('\n').filter(line => line.includes('GET /a'))).toHaveLength(2)
@@ -1823,7 +2578,9 @@ describe('log overlay', () => {
   it('pages through an entry taller than the viewport', () => {
     const events = new DevEventLog()
     const rows = (process.stdout.rows || 24) - 3
-    events.push(event({ message: Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n') }))
+    events.push(event({
+      message: Array.from({ length: rows * 3 }, (_, i) => `row ${i}`).join('\n'),
+    }))
     const { overlay, lastFrame } = create(events)
     const body = () => strip(lastFrame()).split('\n').slice(2, 2 + rows)
     overlay.open()
@@ -1836,7 +2593,9 @@ describe('log overlay', () => {
     overlay.handleKey({ name: 'pageup' })
     expect(body()[0]).toContain(`row ${rows - 1}`)
     overlay.handleKey({ name: 'end' })
-    expect(body().filter(Boolean)).toEqual([expect.stringMatching(new RegExp(`row 0 \\+${rows * 3 - 1} lines$`))])
+    expect(body().filter(Boolean)).toEqual([
+      expect.stringMatching(new RegExp(`row 0 \\+${rows * 3 - 1} lines$`)),
+    ])
     expect(strip(lastFrame())).not.toContain('paused')
     overlay.close()
   })
@@ -1845,7 +2604,9 @@ describe('log overlay', () => {
     const events = new DevEventLog()
     const rows = (process.stdout.rows || 24) - 3
     events.push(event({ message: 'short' }))
-    events.push(event({ message: Array.from({ length: rows * 2 }, (_, i) => `stack ${i}`).join('\n') }))
+    events.push(event({
+      message: Array.from({ length: rows * 2 }, (_, i) => `stack ${i}`).join('\n'),
+    }))
     events.push(event({ message: 'last' }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
@@ -1917,7 +2678,9 @@ describe('log overlay', () => {
   it('keeps a paged position inside a large entry when the terminal height changes', async () => {
     const descriptor = Object.getOwnPropertyDescriptor(process.stdout, 'rows')
     const events = new DevEventLog()
-    events.push(event({ message: Array.from({ length: 40 }, (_, i) => `row ${i}`).join('\n') }))
+    events.push(event({
+      message: Array.from({ length: 40 }, (_, i) => `row ${i}`).join('\n'),
+    }))
     const { overlay, lastFrame } = create(events)
     try {
       Object.defineProperty(process.stdout, 'rows', { value: 8, configurable: true })
@@ -2087,7 +2850,12 @@ describe('log overlay', () => {
 
   it('copies the selected entry, request and all', async () => {
     const events = new DevEventLog()
-    events.push(event({ message: 'boom', request: 'GET /x', requestId: 'r1', source: 'runtime' }))
+    events.push(event({
+      message: 'boom',
+      request: 'GET /x',
+      requestId: 'r1',
+      source: 'runtime',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'up' })
@@ -2118,8 +2886,21 @@ describe('log overlay', () => {
   it('copies every entry the filters leave', async () => {
     const events = new DevEventLog()
     events.push(event({ message: 'all good', source: 'cli' }))
-    events.push(event({ message: 'boom\n    at handler (server/api/x.ts:3:9)', level: 0, type: 'error', request: 'GET /x', requestId: '1', source: 'runtime' }))
-    events.push(event({ message: 'careful', level: 1, type: 'warn', tag: 'vite', source: 'build' }))
+    events.push(event({
+      message: 'boom\n    at handler (server/api/x.ts:3:9)',
+      level: 0,
+      type: 'error',
+      request: 'GET /x',
+      requestId: '1',
+      source: 'runtime',
+    }))
+    events.push(event({
+      message: 'careful',
+      level: 1,
+      type: 'warn',
+      tag: 'vite',
+      source: 'build',
+    }))
     const { overlay, lastFrame } = create(events)
     overlay.open()
     overlay.handleKey({ name: 'w' })
@@ -2171,11 +2952,24 @@ describe('log overlay', () => {
 
 describe('overlay hints', () => {
   it('highlights an active hint and keeps it when the line is too narrow', () => {
-    const { text, spans } = layoutHints([['a', 'first'], ['b', 'dropped'], ['c', 'active', { active: true }], ['d', 'dropped too'], ['e', 'last']], 27)
+    const { text, spans } = layoutHints([
+      ['a', 'first'],
+      ['b', 'dropped'],
+      [
+        'c',
+        'active',
+        { active: true },
+      ],
+      ['d', 'dropped too'],
+      ['e', 'last'],
+    ], 27)
 
     expect(strip(text)).toBe('a first · c active · e last')
     expect(text).toContain(styleText(['green', 'bold'], 'c active'))
-    expect(spans.map(({ hint, start, end }) => [strip(text).slice(start, end), hint[0]])).toEqual([
+    expect(spans.map(({ hint, start, end }) => [
+      strip(text).slice(start, end),
+      hint[0],
+    ])).toEqual([
       ['a first', 'a'],
       ['c active', 'c'],
       ['e last', 'e'],
@@ -2195,14 +2989,22 @@ describe('request log', () => {
 
   it('counts every request even once dropped from the buffer', () => {
     const log = new RequestLog(2)
-    log.push([request(), request(), request()])
+    log.push([
+      request(),
+      request(),
+      request(),
+    ])
     expect(log.total).toBe(3)
     expect(log.recent(10)).toHaveLength(2)
   })
 
   it('reports the median duration', () => {
     const log = new RequestLog()
-    log.push([request({ duration: 1 }), request({ duration: 5 }), request({ duration: 900 })])
+    log.push([
+      request({ duration: 1 }),
+      request({ duration: 5 }),
+      request({ duration: 900 }),
+    ])
     expect(log.medianDuration()).toBe(5)
   })
 
@@ -2210,14 +3012,21 @@ describe('request log', () => {
     const log = new RequestLog()
     let changes = 0
     log.onChange(() => changes++)
-    log.push([request({ url: '/a' }), request({ url: '/b' })])
+    log.push([
+      request({ url: '/a' }),
+      request({ url: '/b' }),
+    ])
     expect(changes).toBe(1)
     expect(log.last()?.url).toBe('/b')
   })
 
   it('excludes bundler requests from the median while app traffic exists', () => {
     const log = new RequestLog()
-    log.push([request({ duration: 1, internal: true }), request({ duration: 1, internal: true }), request({ duration: 50 })])
+    log.push([
+      request({ duration: 1, internal: true }),
+      request({ duration: 1, internal: true }),
+      request({ duration: 50 }),
+    ])
     expect(log.medianDuration()).toBe(50)
   })
 
@@ -2225,7 +3034,9 @@ describe('request log', () => {
     const log = new RequestLog()
     let changes = 0
     log.onChange(() => changes++)
-    log.push([request()])
+    log.push([
+      request(),
+    ])
     log.clear()
     expect(changes).toBe(2)
     expect(log.total).toBe(0)
@@ -2240,7 +3051,11 @@ describe('request overlay', () => {
     const overlay = new RequestOverlay(log, (chunk) => {
       output += chunk
     }, () => {}, options)
-    return { log, overlay, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '') }
+    return {
+      log,
+      overlay,
+      lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? ''),
+    }
   }
 
   it('waits for traffic before showing a table', () => {
@@ -2251,7 +3066,15 @@ describe('request overlay', () => {
 
   it('tabulates requests with status and duration', () => {
     const { log, overlay, lastFrame } = create()
-    log.push([{ time: 0, method: 'GET', url: '/api/hello', status: 200, duration: 12 }])
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/api/hello',
+        status: 200,
+        duration: 12,
+      },
+    ])
     overlay.open()
     expect(lastFrame()).toMatch(/GET\s+200\s+12ms\s+\/api\/hello/)
     expect(lastFrame()).toContain('1 total')
@@ -2260,9 +3083,27 @@ describe('request overlay', () => {
   it('filters to errors and to slow requests', () => {
     const { log, overlay, lastFrame } = create()
     log.push([
-      { time: 0, method: 'GET', url: '/fast-ok', status: 200, duration: 3 },
-      { time: 0, method: 'GET', url: '/slow-ok', status: 200, duration: 400 },
-      { time: 0, method: 'GET', url: '/missing', status: 404, duration: 2 },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/fast-ok',
+        status: 200,
+        duration: 3,
+      },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/slow-ok',
+        status: 200,
+        duration: 400,
+      },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/missing',
+        status: 404,
+        duration: 2,
+      },
     ])
     overlay.open()
 
@@ -2281,18 +3122,39 @@ describe('request overlay', () => {
     const { log, overlay } = create({
       resolveFile: (request) => {
         seen.push(request.status)
-        return request.status >= 400 ? '/project/app/error.vue' : '/project/app/pages/index.vue'
+        return request.status >= 400
+          ? '/project/app/error.vue'
+          : '/project/app/pages/index.vue'
       },
       cwd: '/project',
     })
-    log.push([{ time: 0, method: 'GET', url: '/missing', status: 404, duration: 2 }])
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/missing',
+        status: 404,
+        duration: 2,
+      },
+    ])
     overlay.open()
     expect(seen).toContain(404)
   })
 
   it('links a request to the file that served it', () => {
-    const { log, overlay, lastFrame } = create({ resolveFile: () => '/project/server/api/hello.ts', cwd: '/project' })
-    log.push([{ time: 0, method: 'GET', url: '/api/hello', status: 200, duration: 3 }])
+    const { log, overlay, lastFrame } = create({
+      resolveFile: () => '/project/server/api/hello.ts',
+      cwd: '/project',
+    })
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/api/hello',
+        status: 200,
+        duration: 3,
+      },
+    ])
     overlay.open()
     // The label still reads as the path; the link target is the file.
     expect(lastFrame()).toContain('/api/hello')
@@ -2301,8 +3163,20 @@ describe('request overlay', () => {
   it('searches across method, path and status', () => {
     const { log, overlay, lastFrame } = create()
     log.push([
-      { time: 0, method: 'GET', url: '/api/hello', status: 200, duration: 3 },
-      { time: 0, method: 'POST', url: '/api/submit', status: 201, duration: 4 },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/api/hello',
+        status: 200,
+        duration: 3,
+      },
+      {
+        time: 0,
+        method: 'POST',
+        url: '/api/submit',
+        status: 201,
+        duration: 4,
+      },
     ])
     overlay.open()
     overlay.handleKey({ sequence: '/' })
@@ -2323,8 +3197,21 @@ describe('request overlay', () => {
   it('hides bundler traffic until asked to show it', () => {
     const { log, overlay, lastFrame } = create()
     log.push([
-      { time: 0, method: 'GET', url: '/@id/virtual:nuxt:paths.mjs', status: 200, duration: 1, internal: true },
-      { time: 0, method: 'GET', url: '/api/hello', status: 200, duration: 3 },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/@id/virtual:nuxt:paths.mjs',
+        status: 200,
+        duration: 1,
+        internal: true,
+      },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/api/hello',
+        status: 200,
+        duration: 3,
+      },
     ])
     overlay.open()
     expect(lastFrame()).not.toContain('/@id/')
@@ -2338,8 +3225,25 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.', source: 'runtime', request: 'GET /', requestId: 'r7' })
-    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Invalid end tag.',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r7',
+    })
+    log.push([
+      {
+        id: 'r7',
+        time: now,
+        method: 'GET',
+        url: '/',
+        status: 500,
+        duration: 20,
+      },
+    ])
     overlay.open()
     expect(lastFrame()).toContain('✗ 1')
   })
@@ -2348,10 +3252,43 @@ describe('request overlay', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
     const now = Date.now()
-    events.push({ time: now, level: 2, type: 'log', message: 'rendering /', source: 'runtime', request: 'GET /', requestId: 'r7' })
-    events.push({ time: now, level: 0, type: 'error', message: 'Invalid end tag.\n  at index.vue:1:1', source: 'runtime', request: 'GET /', requestId: 'r7' })
-    events.push({ time: now, level: 2, type: 'log', message: 'unrelated', source: 'runtime', request: 'GET /other', requestId: 'r8' })
-    log.push([{ id: 'r7', time: now, method: 'GET', url: '/', status: 500, duration: 20 }])
+    events.push({
+      time: now,
+      level: 2,
+      type: 'log',
+      message: 'rendering /',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r7',
+    })
+    events.push({
+      time: now,
+      level: 0,
+      type: 'error',
+      message: 'Invalid end tag.\n  at index.vue:1:1',
+      source: 'runtime',
+      request: 'GET /',
+      requestId: 'r7',
+    })
+    events.push({
+      time: now,
+      level: 2,
+      type: 'log',
+      message: 'unrelated',
+      source: 'runtime',
+      request: 'GET /other',
+      requestId: 'r8',
+    })
+    log.push([
+      {
+        id: 'r7',
+        time: now,
+        method: 'GET',
+        url: '/',
+        status: 500,
+        duration: 20,
+      },
+    ])
     overlay.open()
 
     overlay.handleKey({ name: 'down' })
@@ -2371,10 +3308,23 @@ describe('request overlay', () => {
 
   it('opens the trace of a request clicked a second time', () => {
     const { log, overlay, lastFrame } = create()
-    log.push([{ time: 0, method: 'GET', url: '/clicked', status: 200, duration: 2 }])
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/clicked',
+        status: 200,
+        duration: 2,
+      },
+    ])
     overlay.open()
     const row = lastFrame().split('\n').findIndex(line => line.includes('/clicked'))
-    const click = () => overlay.handleMouse({ button: 0, pressed: true, row, column: 10 })
+    const click = () => overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row,
+      column: 10,
+    })
 
     const title = () => lastFrame().split('\n')[0]
 
@@ -2393,11 +3343,30 @@ describe('request overlay', () => {
       output += chunk
     }, () => {})
     const selected = () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '').split('\n').filter(line => line.includes('\u258E'))
-    log.push(['/a', '/b', '/c'].map(url => ({ time: 0, method: 'GET', url, status: 200, duration: 2 })))
+    log.push(['/a', '/b', '/c'].map(url => ({
+      time: 0,
+      method: 'GET',
+      url,
+      status: 200,
+      duration: 2,
+    })))
     overlay.open()
-    log.push([{ time: 0, method: 'GET', url: '/d', status: 200, duration: 2 }])
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/d',
+        status: 200,
+        duration: 2,
+      },
+    ])
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 3,
+      column: 10,
+    })
 
     expect(selected()).toHaveLength(1)
     expect(selected()[0]).toContain('/b')
@@ -2407,15 +3376,43 @@ describe('request overlay', () => {
   it('only selects on the first click after the filter changed', () => {
     const { log, overlay, lastFrame } = create()
     log.push([
-      { time: 0, method: 'GET', url: '/fine', status: 200, duration: 2 },
-      { time: 0, method: 'GET', url: '/broken', status: 500, duration: 2 },
-      { time: 0, method: 'GET', url: '/also-broken', status: 500, duration: 2 },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/fine',
+        status: 200,
+        duration: 2,
+      },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/broken',
+        status: 500,
+        duration: 2,
+      },
+      {
+        time: 0,
+        method: 'GET',
+        url: '/also-broken',
+        status: 500,
+        duration: 2,
+      },
     ])
     overlay.open()
-    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 2,
+      column: 10,
+    })
     overlay.handleKey({ name: 'e', sequence: 'e' })
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 2,
+      column: 10,
+    })
 
     expect(lastFrame().split('\n')[0]).toContain('traffic')
     expect(lastFrame().split('\n').find(line => line.includes('\u258E'))).toContain('/broken')
@@ -2424,7 +3421,15 @@ describe('request overlay', () => {
 
   it('keeps trace navigation keys inside search', () => {
     const { log, overlay, lastFrame } = create()
-    log.push([{ time: 0, method: 'GET', url: '/quiet', status: 200, duration: 2 }])
+    log.push([
+      {
+        time: 0,
+        method: 'GET',
+        url: '/quiet',
+        status: 200,
+        duration: 2,
+      },
+    ])
     overlay.open()
     overlay.handleKey({ name: 'down' })
     overlay.handleKey({ name: 'return' })
@@ -2443,14 +3448,58 @@ describe('request overlay', () => {
   })
 
   it('draws the spans timed for a request on a timeline', () => {
-    const { log, overlay, lastFrame } = create({ events: new DevEventLog() })
-    log.push([{ id: 'r1', time: 0, start: 1000, method: 'GET', url: '/', status: 200, duration: 100 }])
+    const { log, overlay, lastFrame } = create({
+      events: new DevEventLog(),
+    })
+    log.push([
+      {
+        id: 'r1',
+        time: 0,
+        start: 1000,
+        method: 'GET',
+        url: '/',
+        status: 200,
+        duration: 100,
+      },
+    ])
     log.pushSpans([
-      { requestId: 'r1', kind: 'route', name: 'GET /api/data', start: 1010, duration: 50, status: 200 },
-      { requestId: 'r1', kind: 'hook', name: 'render:html', start: 1080, duration: 0.4 },
-      { requestId: 'r1', kind: 'fetch', name: 'GET https://a.dev', start: 1020, duration: 30, status: 200 },
-      { requestId: 'r1', kind: 'middleware', name: 'GET /api/data', start: 1010, duration: 5 },
-      { requestId: 'r2', kind: 'hook', name: 'unrelated', start: 1000, duration: 1 },
+      {
+        requestId: 'r1',
+        kind: 'route',
+        name: 'GET /api/data',
+        start: 1010,
+        duration: 50,
+        status: 200,
+      },
+      {
+        requestId: 'r1',
+        kind: 'hook',
+        name: 'render:html',
+        start: 1080,
+        duration: 0.4,
+      },
+      {
+        requestId: 'r1',
+        kind: 'fetch',
+        name: 'GET https://a.dev',
+        start: 1020,
+        duration: 30,
+        status: 200,
+      },
+      {
+        requestId: 'r1',
+        kind: 'middleware',
+        name: 'GET /api/data',
+        start: 1010,
+        duration: 5,
+      },
+      {
+        requestId: 'r2',
+        kind: 'hook',
+        name: 'unrelated',
+        start: 1000,
+        duration: 1,
+      },
     ])
     overlay.open()
     overlay.handleKey({ name: 'down' })
@@ -2466,13 +3515,56 @@ describe('request overlay', () => {
   })
 
   it('draws compiled modules as one row and breaks their time down by plugin', () => {
-    const { log, overlay, lastFrame } = create({ events: new DevEventLog() })
-    log.push([{ id: 'r1', time: 0, start: 1000, method: 'GET', url: '/', status: 200, duration: 100 }])
+    const { log, overlay, lastFrame } = create({
+      events: new DevEventLog(),
+    })
+    log.push([
+      {
+        id: 'r1',
+        time: 0,
+        start: 1000,
+        method: 'GET',
+        url: '/',
+        status: 200,
+        duration: 100,
+      },
+    ])
     log.pushSpans([
-      { requestId: 'r1', kind: 'compile', name: 'app/app.vue', start: 1000, duration: 30, environment: 'nitro', plugins: { 'vite:vue': 20, 'nuxt:components': 4 } },
-      { requestId: 'r1', kind: 'compile', name: 'vue/index.mjs', start: 1010, duration: 10, environment: 'nitro', plugins: { 'vite:vue': 1 } },
-      { requestId: 'r1', kind: 'compile', name: 'app/pages/index.vue', start: 1060, duration: 20, environment: 'nitro', plugins: { 'nuxt:components': 9 } },
-      { requestId: 'r1', kind: 'route', name: 'GET /', start: 1030, duration: 60, status: 200 },
+      {
+        requestId: 'r1',
+        kind: 'compile',
+        name: 'app/app.vue',
+        start: 1000,
+        duration: 30,
+        environment: 'nitro',
+        plugins: { 'vite:vue': 20, 'nuxt:components': 4 },
+      },
+      {
+        requestId: 'r1',
+        kind: 'compile',
+        name: 'vue/index.mjs',
+        start: 1010,
+        duration: 10,
+        environment: 'nitro',
+        plugins: { 'vite:vue': 1 },
+      },
+      {
+        requestId: 'r1',
+        kind: 'compile',
+        name: 'app/pages/index.vue',
+        start: 1060,
+        duration: 20,
+        environment: 'nitro',
+        plugins: { 'nuxt:components': 9 },
+      },
+      {
+        requestId: 'r1',
+        kind: 'route',
+        name: 'GET /',
+        start: 1030,
+        duration: 60,
+        status: 200,
+      },
     ])
     overlay.open()
     overlay.handleKey({ name: 'down' })
@@ -2487,7 +3579,16 @@ describe('request overlay', () => {
   it('says so when a request has no attributed logs', () => {
     const events = new DevEventLog()
     const { log, overlay, lastFrame } = create({ events })
-    log.push([{ id: 'r9', time: Date.now(), method: 'GET', url: '/quiet', status: 200, duration: 2 }])
+    log.push([
+      {
+        id: 'r9',
+        time: Date.now(),
+        method: 'GET',
+        url: '/quiet',
+        status: 200,
+        duration: 2,
+      },
+    ])
     overlay.open()
     overlay.handleKey({ name: 'down' })
     overlay.handleKey({ name: 'return' })
@@ -2501,17 +3602,30 @@ describe('help overlay', () => {
     let closed = 0
     const overlay = new HelpOverlay(
       () => [
-        { keys: ['r'], description: 'restart the dev server' },
+        {
+          keys: ['r'],
+          description: 'restart the dev server',
+        },
         { keys: [], ctrl: 'r', description: 'restart the dev server' },
-        { keys: ['R'], description: 'restart with a cleared cache' },
-        { keys: ['h', '?'], description: 'show this help' },
+        {
+          keys: ['R'],
+          description: 'restart with a cleared cache',
+        },
+        {
+          keys: ['h', '?'],
+          description: 'show this help',
+        },
       ],
       (chunk) => {
         output += chunk
       },
       () => closed++,
     )
-    return { overlay, closed: () => closed, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '') }
+    return {
+      overlay,
+      closed: () => closed,
+      lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? ''),
+    }
   }
 
   it('lists shortcuts with their aliases instead of logging them', () => {
@@ -2576,15 +3690,29 @@ describe('info overlay', () => {
     let output = ''
     const overlay = new InfoOverlay(
       () => [
-        { heading: 'versions', entries: [['Nuxt', '4.5.1'], ['Vue', undefined]] },
-        { heading: 'urls', entries: [['local', 'http://localhost:3000/']] },
+        {
+          heading: 'versions',
+          entries: [
+            ['Nuxt', '4.5.1'],
+            ['Vue', undefined],
+          ],
+        },
+        {
+          heading: 'urls',
+          entries: [
+            ['local', 'http://localhost:3000/'],
+          ],
+        },
       ],
       (chunk) => {
         output += chunk
       },
       () => {},
     )
-    return { overlay, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '') }
+    return {
+      overlay,
+      lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? ''),
+    }
   }
 
   it('groups information under headings', () => {
@@ -2601,7 +3729,14 @@ describe('info overlay', () => {
   it('copies the issue report rather than the rows it is showing', async () => {
     copied.length = 0
     const overlay = new InfoOverlay(
-      () => [{ heading: 'urls', entries: [['local', 'http://localhost:3000/']] }],
+      () => [
+        {
+          heading: 'urls',
+          entries: [
+            ['local', 'http://localhost:3000/'],
+          ],
+        },
+      ],
       () => {},
       () => {},
       () => 'QR-A\nQR-B',
@@ -2637,7 +3772,14 @@ describe('info overlay', () => {
     copied.length = 0
     let output = ''
     const overlay = new InfoOverlay(
-      () => [{ heading: 'urls', entries: [['local', 'http://localhost:3000/']] }],
+      () => [
+        {
+          heading: 'urls',
+          entries: [
+            ['local', 'http://localhost:3000/'],
+          ],
+        },
+      ],
       (chunk) => {
         output += chunk
       },
@@ -2655,7 +3797,14 @@ describe('info overlay', () => {
   it('puts a side panel to the right when there is room', () => {
     let output = ''
     const overlay = new InfoOverlay(
-      () => [{ heading: 'urls', entries: [['local', 'http://localhost:3000/']] }],
+      () => [
+        {
+          heading: 'urls',
+          entries: [
+            ['local', 'http://localhost:3000/'],
+          ],
+        },
+      ],
       (chunk) => {
         output += chunk
       },
@@ -2703,13 +3852,21 @@ describe('route overlay', () => {
       output += chunk
     }, () => {}, '/project')
     // Files render relative to the project with the platform's own separator.
-    return { overlay, lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '').replaceAll('\\', '/') }
+    return {
+      overlay,
+      lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '').replaceAll('\\', '/'),
+    }
   }
 
   const routes: DevRoute[] = [
     { kind: 'page', route: '/', file: '/project/app/pages/index.vue' },
     { kind: 'page', route: '/about', file: '/project/app/pages/about.vue' },
-    { kind: 'server', route: '/api/hello', method: 'get', file: '/project/server/api/hello.ts' },
+    {
+      kind: 'server',
+      route: '/api/hello',
+      method: 'get',
+      file: '/project/server/api/hello.ts',
+    },
   ]
 
   it('waits for routes before listing any', () => {
@@ -2722,9 +3879,19 @@ describe('route overlay', () => {
     const { overlay, lastFrame } = create()
     overlay.setRoutes({ routes })
     overlay.open()
-    overlay.setRoutes({ routes: [{ kind: 'page', route: '/a', file: '/project/app/pages/a.vue' }, ...routes.map(route => ({ ...route }))] })
+    overlay.setRoutes({
+      routes: [
+        { kind: 'page', route: '/a', file: '/project/app/pages/a.vue' },
+        ...routes.map(route => ({ ...route })),
+      ],
+    })
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 3,
+      column: 10,
+    })
 
     const selected = lastFrame().split('\n').filter(line => line.includes('\u258E'))
     expect(selected).toHaveLength(1)
@@ -2734,13 +3901,20 @@ describe('route overlay', () => {
 
   it('tells apart two pages served at the same path', () => {
     const { overlay, lastFrame } = create()
-    overlay.setRoutes({ routes: [
-      { kind: 'page', route: '/', file: '/project/app/pages/index.vue' },
-      { kind: 'page', route: '/', file: '/project/app/pages/index/index.vue' },
-    ] })
+    overlay.setRoutes({
+      routes: [
+        { kind: 'page', route: '/', file: '/project/app/pages/index.vue' },
+        { kind: 'page', route: '/', file: '/project/app/pages/index/index.vue' },
+      ],
+    })
     overlay.open()
 
-    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+    overlay.handleMouse({
+      button: 0,
+      pressed: true,
+      row: 3,
+      column: 10,
+    })
 
     const selected = lastFrame().split('\n').filter(line => line.includes('\u258E'))
     expect(selected).toHaveLength(1)
@@ -2764,9 +3938,11 @@ describe('route overlay', () => {
     Object.defineProperty(process.stdout, 'columns', { value: 40, configurable: true })
     const { overlay, lastFrame } = create()
     try {
-      overlay.setRoutes({ routes: [
-        { kind: 'server', route: '/api/deeply/nested/resource/with/a/long/path', file: '/project/server/api/deeply/nested/resource/with/a/long/path.ts' },
-      ] })
+      overlay.setRoutes({
+        routes: [
+          { kind: 'server', route: '/api/deeply/nested/resource/with/a/long/path', file: '/project/server/api/deeply/nested/resource/with/a/long/path.ts' },
+        ],
+      })
       overlay.open()
       for (const line of strip(lastFrame()).split('\n')) {
         expect(line.length).toBeLessThanOrEqual(40)
@@ -2785,21 +3961,42 @@ describe('route overlay', () => {
 
   it('groups pages before server routes, each sorted by path', () => {
     const { overlay, lastFrame } = create()
-    overlay.setRoutes({ routes: [
-      { kind: 'server', route: '/api/zebra', method: 'get', file: '/project/server/api/zebra.ts' },
-      { kind: 'page', route: '/zoo', file: '/project/app/pages/zoo.vue' },
-      { kind: 'server', route: '/api/apple', method: 'get', file: '/project/server/api/apple.ts' },
-      { kind: 'page', route: '/about', file: '/project/app/pages/about.vue' },
-    ] })
+    overlay.setRoutes({
+      routes: [
+        {
+          kind: 'server',
+          route: '/api/zebra',
+          method: 'get',
+          file: '/project/server/api/zebra.ts',
+        },
+        { kind: 'page', route: '/zoo', file: '/project/app/pages/zoo.vue' },
+        {
+          kind: 'server',
+          route: '/api/apple',
+          method: 'get',
+          file: '/project/server/api/apple.ts',
+        },
+        { kind: 'page', route: '/about', file: '/project/app/pages/about.vue' },
+      ],
+    })
     overlay.open()
     const frame = lastFrame()
-    const order = ['/about', '/zoo', '/api/apple', '/api/zebra'].map(route => frame.indexOf(route))
+    const order = [
+      '/about',
+      '/zoo',
+      '/api/apple',
+      '/api/zebra',
+    ].map(route => frame.indexOf(route))
     expect(order).toEqual([...order].sort((a, b) => a - b))
   })
 
   it('labels a method-less server route as any rather than all', () => {
     const { overlay, lastFrame } = create()
-    overlay.setRoutes({ routes: [{ kind: 'server', route: '/api/catch', file: '/project/server/api/catch.ts' }] })
+    overlay.setRoutes({
+      routes: [
+        { kind: 'server', route: '/api/catch', file: '/project/server/api/catch.ts' },
+      ],
+    })
     overlay.open()
     expect(lastFrame()).toContain('any')
   })
@@ -2817,11 +4014,13 @@ describe('route overlay', () => {
 
   it('resolves the file serving a url, preferring the most specific route', () => {
     const { overlay } = create()
-    overlay.setRoutes({ routes: [
-      ...routes,
-      { kind: 'page', route: '/**', file: '/project/app/pages/[...slug].vue' },
-      { kind: 'server', route: '/api/users/:id', file: '/project/server/api/users/[id].ts' },
-    ] })
+    overlay.setRoutes({
+      routes: [
+        ...routes,
+        { kind: 'page', route: '/**', file: '/project/app/pages/[...slug].vue' },
+        { kind: 'server', route: '/api/users/:id', file: '/project/server/api/users/[id].ts' },
+      ],
+    })
     expect(overlay.fileFor('/api/hello')).toBe('/project/server/api/hello.ts')
     expect(overlay.fileFor('/api/users/42')).toBe('/project/server/api/users/[id].ts')
     expect(overlay.fileFor('/api/hello?q=1')).toBe('/project/server/api/hello.ts')
@@ -2832,7 +4031,11 @@ describe('route overlay', () => {
     const { overlay, lastFrame } = create()
     overlay.setRoutes({ routes })
     overlay.open()
-    overlay.setRoutes({ routes: [{ kind: 'page', route: '/only', file: '/project/app/pages/only.vue' }] })
+    overlay.setRoutes({
+      routes: [
+        { kind: 'page', route: '/only', file: '/project/app/pages/only.vue' },
+      ],
+    })
     // Repaints from the data source are throttled.
     await vi.waitFor(() => expect(lastFrame()).toContain('/only'))
     expect(lastFrame()).not.toContain('/about')
@@ -2960,7 +4163,10 @@ describe('panel surface', () => {
   })
 
   function stub(values: Array<[key: 'rows' | 'columns' | 'isTTY', value: number | boolean]>): () => void {
-    const descriptors = values.map(([key]) => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+    const descriptors = values.map(([key]) => [
+      key,
+      Object.getOwnPropertyDescriptor(process.stdout, key),
+    ] as const)
     for (const [key, value] of values) {
       Object.defineProperty(process.stdout, key, { value, configurable: true })
     }
@@ -2978,7 +4184,10 @@ describe('panel surface', () => {
 
   function stubTerminal(rows: number): { written: () => string, restore: () => void } {
     const chunks: string[] = []
-    const restore = stub([['rows', rows], ['isTTY', true]])
+    const restore = stub([
+      ['rows', rows],
+      ['isTTY', true],
+    ])
     const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
       chunks.push(String(chunk))
       return true
@@ -3013,7 +4222,9 @@ describe('panel surface', () => {
   }
 
   function withStubbedColumns(columns: number, run: () => void): void {
-    const restore = stub([['columns', columns]])
+    const restore = stub([
+      ['columns', columns],
+    ])
     try {
       run()
     }
@@ -3023,7 +4234,9 @@ describe('panel surface', () => {
   }
 
   async function withStubbedColumnsAsync(columns: number, run: () => Promise<void>): Promise<void> {
-    const restore = stub([['columns', columns]])
+    const restore = stub([
+      ['columns', columns],
+    ])
     try {
       await run()
     }
@@ -3077,7 +4290,9 @@ describe('panel surface', () => {
   it('asks its owner to re-render on resize rather than reusing stale lines', async () => {
     let resized = 0
     await render(async () => {
-      const surface = new PanelSurface({ onResize: () => resized++ })
+      const surface = new PanelSurface({
+        onResize: () => resized++,
+      })
       surface.render(['--- footer ---'])
       process.stdout.emit('resize')
       await new Promise(resolve => setTimeout(resolve, 5))
@@ -3107,7 +4322,9 @@ describe('panel surface', () => {
       surface.render(['--- footer ---'])
       surface.padToBottom()
       const before = read().length
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      vi.useFakeTimers({
+        toFake: ['setTimeout', 'clearTimeout'],
+      })
       try {
         await withStubbedColumnsAsync(30, async () => {
           process.stdout.emit('resize')
@@ -3133,7 +4350,9 @@ describe('panel surface', () => {
       surface.padToBottom()
       const before = read().length
       Object.defineProperty(process.stdout, 'rows', { value: 20, configurable: true })
-      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+      vi.useFakeTimers({
+        toFake: ['setTimeout', 'clearTimeout'],
+      })
       try {
         process.stdout.emit('resize')
         vi.advanceTimersByTime(200)
@@ -3153,7 +4372,9 @@ describe('panel surface', () => {
     withStubbedColumns(40, () => {
       withStubbedTerminal(24, (written) => {
         const surface = new PanelSurface()
-        surface.render(['x'.repeat(30)])
+        surface.render([
+          'x'.repeat(30),
+        ])
         const before = written().length
         withStubbedColumns(10, () => process.stdout.emit('resize'))
         expect(written().slice(before)).toContain('\r\u001B[J')
@@ -3331,7 +4552,9 @@ describe('release notes links on the panel', () => {
     // Terminal detection has many inputs; this is the switch that overrides them.
     vi.stubEnv('FORCE_HYPERLINK', '1')
     try {
-      return terminalLink(label, url, { stream: { isTTY: true } })
+      return terminalLink(label, url, {
+        stream: { isTTY: true },
+      })
     }
     finally {
       vi.unstubAllEnvs()
@@ -3340,7 +4563,12 @@ describe('release notes links on the panel', () => {
 
   it('links the running version as well as the update', () => {
     const link = linked('4.5.1', 'https://github.com/nuxt/nuxt/releases/tag/v4.5.1')
-    const lines = renderPanel({ status: 'ready', version: '4.5.1', versionLink: link, hints: HINTS }, 100, 30)
+    const lines = renderPanel({
+      status: 'ready',
+      version: '4.5.1',
+      versionLink: link,
+      hints: HINTS,
+    }, 100, 30)
     expect(lines[0]).toContain('releases/tag/v4.5.1')
     expect(strip(lines[0]!)).toContain('Nuxt 4.5.1')
   })
@@ -3348,8 +4576,22 @@ describe('release notes links on the panel', () => {
   it('keeps a linked version from skewing the panel width', () => {
     const link = linked('→ 4.6.0', 'https://example.com')
     const versionLink = linked('4.5.1', 'https://example.com/v4.5.1')
-    const withLinks = renderPanel({ status: 'ready', version: '4.5.1', versionLink, update: '4.6.0', updateLink: link, hints: HINTS, readyMs: 900 }, 100, 30)
-    const plain = renderPanel({ status: 'ready', version: '4.5.1', update: '4.6.0', hints: HINTS, readyMs: 900 }, 100, 30)
+    const withLinks = renderPanel({
+      status: 'ready',
+      version: '4.5.1',
+      versionLink,
+      update: '4.6.0',
+      updateLink: link,
+      hints: HINTS,
+      readyMs: 900,
+    }, 100, 30)
+    const plain = renderPanel({
+      status: 'ready',
+      version: '4.5.1',
+      update: '4.6.0',
+      hints: HINTS,
+      readyMs: 900,
+    }, 100, 30)
     expect(strip(withLinks[0]!)).toBe(strip(plain[0]!))
   })
 })
@@ -3367,16 +4609,34 @@ describe('dev ui teardown', () => {
     listeners: () => number
   }
 
-  const signals = ['exit', 'SIGINT', 'SIGTERM', 'SIGHUP', 'uncaughtException'] as const
+  const signals = [
+    'exit',
+    'SIGINT',
+    'SIGTERM',
+    'SIGHUP',
+    'uncaughtException',
+  ] as const
 
   async function withTerminal(run: (context: Session) => void | Promise<void>): Promise<void> {
     const chunks: string[] = []
     let raw = false
     const stdoutKeys = ['isTTY', 'columns', 'rows'] as const
     const saved = [
-      ...stdoutKeys.map(key => [process.stdout, key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const),
-      [process.stdin, 'isTTY', Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')] as const,
-      [process.stdin, 'setRawMode', Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')] as const,
+      ...stdoutKeys.map(key => [
+        process.stdout,
+        key,
+        Object.getOwnPropertyDescriptor(process.stdout, key),
+      ] as const),
+      [
+        process.stdin,
+        'isTTY',
+        Object.getOwnPropertyDescriptor(process.stdin, 'isTTY'),
+      ] as const,
+      [
+        process.stdin,
+        'setRawMode',
+        Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode'),
+      ] as const,
     ]
     Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
     Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
@@ -3432,17 +4692,35 @@ describe('dev ui teardown', () => {
         serving: false,
         timings: [],
       }
-      session.reportProgress({ ...ready, pending: { label: 'GET /', startedAt: Date.now() } })
+      session.reportProgress({
+        ...ready,
+        pending: {
+          label: 'GET /',
+          startedAt: Date.now(),
+        },
+      })
       expect(session.state.rendering?.label).toBe('GET /')
 
-      session.reportProgress({ ...ready, status: 'loading', phase: 'config', message: 'Reloading Nuxt...', reload: true })
+      session.reportProgress({
+        ...ready,
+        status: 'loading',
+        phase: 'config',
+        message: 'Reloading Nuxt...',
+        reload: true,
+      })
       expect(session.state.rendering).toBeUndefined()
     })
   })
 
   it('surfaces errors still waiting on their delay when it tears down', async () => {
     await withTerminal(({ session, written }) => {
-      session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
+      session.events.push({
+        time: Date.now(),
+        level: 0,
+        type: 'error',
+        message: 'the server could not start',
+        source: 'cli',
+      })
       const before = written().length
       session.teardown()
       expect(written().slice(before)).toContain('the server could not start')
@@ -3453,7 +4731,13 @@ describe('dev ui teardown', () => {
     await withTerminal(async ({ session, written }) => {
       session.state.readyMs = 1240
       const message = 'A browser is requesting permissions of writing files and running commands.\nOr manually copy and paste the following token:\ngXSptCzfAzS2Lfgy'
-      session.events.push({ time: Date.now(), level: 3, type: 'box', message, source: 'build' })
+      session.events.push({
+        time: Date.now(),
+        level: 3,
+        type: 'box',
+        message,
+        source: 'build',
+      })
       await vi.waitFor(() => expect(strip(written())).toContain('gXSptCzfAzS2Lfgy'))
       expect(session.events.recent(10)).toHaveLength(1)
     })
@@ -3461,7 +4745,13 @@ describe('dev ui teardown', () => {
 
   it('surfaces an error once, not again on the way out', async () => {
     await withTerminal(async ({ session, written }) => {
-      session.events.push({ time: Date.now(), level: 0, type: 'error', message: 'the server could not start', source: 'cli' })
+      session.events.push({
+        time: Date.now(),
+        level: 0,
+        type: 'error',
+        message: 'the server could not start',
+        source: 'cli',
+      })
       await vi.waitFor(() => expect(written()).toContain('the server could not start'))
       const before = written().length
       session.teardown()
@@ -3619,7 +4909,11 @@ describe('dev ui teardown', () => {
 
 describe('dev ui fallback', () => {
   const context = {
-    listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
+    listener: {
+      url: 'http://localhost:3000/',
+      getURLs: () => [],
+      showURLs: () => {},
+    },
     close: async () => {},
     onReady: () => {},
   }
@@ -3631,9 +4925,20 @@ describe('dev ui fallback', () => {
       return true
     })
     try {
-      const ui = setupDevUI(context as never, { ci: false, test: false, stdout: { isTTY: false } })
+      const ui = setupDevUI(context as never, {
+        ci: false,
+        test: false,
+        stdout: { isTTY: false },
+      })
       ui.setStatus('building')
-      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 200,
+          duration: 1,
+        },
+      ])
       expect(ui.interactive).toBe(false)
       // eslint-disable-next-line no-control-regex
       expect(chunks.join('')).not.toMatch(/\u001B\[\?(?:1049|25)/)
@@ -3652,28 +4957,41 @@ describe('dev ui fallback', () => {
 const TICKER_SETTLE_MS = 400
 
 const context = {
-  listener: { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} },
+  listener: {
+    url: 'http://localhost:3000/',
+    getURLs: () => [],
+    showURLs: () => {},
+  },
   close: async () => {},
   onReady: () => {},
 }
 
 async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => Promise<string>, session: NonNullable<ReturnType<typeof beginDevUI>>) => Promise<void>, overrides: Record<string, unknown> = {}): Promise<void> {
   const chunks: string[] = []
-  const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
+  const saved = (['isTTY', 'columns', 'rows'] as const).map(key => [
+    key,
+    Object.getOwnPropertyDescriptor(process.stdout, key),
+  ] as const)
   const stdin = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
   const setRawMode = Object.getOwnPropertyDescriptor(process.stdin, 'setRawMode')
   Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
   Object.defineProperty(process.stdout, 'columns', { value: 100, configurable: true })
   Object.defineProperty(process.stdout, 'rows', { value: 30, configurable: true })
   Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
-  Object.defineProperty(process.stdin, 'setRawMode', { value: () => process.stdin, configurable: true })
+  Object.defineProperty(process.stdin, 'setRawMode', {
+    value: () => process.stdin,
+    configurable: true,
+  })
   const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
     chunks.push(String(chunk))
     return true
   })
   const session = beginDevUI({ ci: false, test: false, version: '4.5.2' })!
   // Passed whole: spreading a deferred context would read its listener getter.
-  const ui = setupDevUI((overrides.context ?? { ...context, ...overrides }) as never, { ci: false, test: false, version: '4.5.2' })
+  const ui = setupDevUI((overrides.context ?? {
+    ...context,
+    ...overrides,
+  }) as never, { ci: false, test: false, version: '4.5.2' })
   try {
     await run(ui, async () => {
       // The panel repaints on a trailing timer, so nothing is on screen yet.
@@ -3798,7 +5116,13 @@ describe('panel views', () => {
 
   it('counts the logs as read when another tab takes their place', async () => {
     await withPanel(async (_ui, _settle, session) => {
-      session.events.push({ time: Date.now(), level: 1, type: 'warn', message: 'careful', source: 'build' }, { route: 'report' })
+      session.events.push({
+        time: Date.now(),
+        level: 1,
+        type: 'warn',
+        message: 'careful',
+        source: 'build',
+      }, { route: 'report' })
       expect(session.state.warnings).toBe(1)
 
       press('l')
@@ -3834,7 +5158,14 @@ describe('panel info view', () => {
 })
 
 describe('panel shortcut routing', () => {
-  it.each(['ready', 'starting', 'building', 'restarting', 'warming', 'error'] as const)('quits without confirmation while %s', async (status) => {
+  it.each([
+    'ready',
+    'starting',
+    'building',
+    'restarting',
+    'warming',
+    'error',
+  ] as const)('quits without confirmation while %s', async (status) => {
     const interrupt = vi.fn()
     process.on('SIGINT', interrupt)
     try {
@@ -3949,7 +5280,14 @@ describe('panel shortcut routing', () => {
   it('preserves history when clearing the display and deletes it with x', async () => {
     await withPanel(async (ui, _settle, session) => {
       ui.pushServerLog({ level: 3, logType: 'info', message: 'retained log' })
-      ui.pushRequests([{ method: 'GET', url: '/retained', status: 200, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/retained',
+          status: 200,
+          duration: 1,
+        },
+      ])
       process.stdin.emit('keypress', 'c', { name: 'c' })
       process.stdin.emit('keypress', '', { name: 'l', ctrl: true })
       expect(session.events.recent(10).some(event => event.message === 'retained log')).toBe(true)
@@ -4015,7 +5353,15 @@ describe('request failures on the panel', () => {
   it('should not report the bundler\'s own failed probes as failed requests', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building')
-      ui.pushRequests([{ method: 'GET', url: '/__skip_vite', status: 503, duration: 1, internal: true }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/__skip_vite',
+          status: 503,
+          duration: 1,
+          internal: true,
+        },
+      ])
       const frames = await settle()
 
       expect(frames).not.toContain('failed request')
@@ -4026,7 +5372,10 @@ describe('request failures on the panel', () => {
   it('should report a render forwarded from the fork that is serving', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+      ui.setRendering({
+        label: 'GET /about',
+        startedAt: Date.now(),
+      })
       expect(await settle()).toContain('rendering GET /about')
 
       ui.setRendering(undefined)
@@ -4037,7 +5386,10 @@ describe('request failures on the panel', () => {
   it('should not let a render replace what a build is reporting', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'compiling changes')
-      ui.setRendering({ label: 'GET /about', startedAt: Date.now() })
+      ui.setRendering({
+        label: 'GET /about',
+        startedAt: Date.now(),
+      })
 
       expect(await settle()).not.toContain('rendering GET /about')
     })
@@ -4046,10 +5398,16 @@ describe('request failures on the panel', () => {
   it('should show a fork\'s first render as a warmup', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.setRendering({ label: 'GET /', startedAt: Date.now() }, true)
+      ui.setRendering({
+        label: 'GET /',
+        startedAt: Date.now(),
+      }, true)
       expect(await settle()).toContain('WARMUP')
 
-      ui.setRendering({ label: 'GET /about', startedAt: Date.now() }, false)
+      ui.setRendering({
+        label: 'GET /about',
+        startedAt: Date.now(),
+      }, false)
       expect(await settle()).toContain('READY')
     })
   })
@@ -4057,7 +5415,10 @@ describe('request failures on the panel', () => {
   it('should keep reporting a render when the server reports itself ready again', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.setRendering({ label: 'GET /', startedAt: Date.now() })
+      ui.setRendering({
+        label: 'GET /',
+        startedAt: Date.now(),
+      })
       // The bundler reloads while it serves the first document, which is a
       // `building` event either side of the render it is serving.
       ui.setStatus('building')
@@ -4070,7 +5431,13 @@ describe('request failures on the panel', () => {
   it('should name a forwarded report on the status line and count it once', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function\n  at app.vue:3:1', requestId: 'r1' })
+      ui.pushReport({
+        id: 'abc',
+        name: 'TypeError',
+        message: 'x is not a function',
+        ansi: 'TypeError: x is not a function\n  at app.vue:3:1',
+        requestId: 'r1',
+      })
       const frames = await settle()
 
       expect(frames).toContain('x is not a function · press l to read it')
@@ -4082,7 +5449,12 @@ describe('request failures on the panel', () => {
   it('should keep a multi-line report message on the status line', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushReport({ id: 'abc', name: 'Error', message: 'module not found\nRequire stack:\n- /app/a.js', ansi: 'Error: module not found' })
+      ui.pushReport({
+        id: 'abc',
+        name: 'Error',
+        message: 'module not found\nRequire stack:\n- /app/a.js',
+        ansi: 'Error: module not found',
+      })
 
       expect(await settle()).toContain('module not found Require stack: - /app/a.js · press l to read it')
     })
@@ -4091,7 +5463,12 @@ describe('request failures on the panel', () => {
   it('should drop a report from the status line once the app recovers', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      ui.pushReport({
+        id: 'abc',
+        name: 'TypeError',
+        message: 'x is not a function',
+        ansi: 'TypeError: x is not a function',
+      })
       await settle()
 
       ui.clearReport('abc')
@@ -4102,7 +5479,12 @@ describe('request failures on the panel', () => {
   it('should ignore a clear for a report it is not showing', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushReport({ id: 'abc', name: 'TypeError', message: 'x is not a function', ansi: 'TypeError: x is not a function' })
+      ui.pushReport({
+        id: 'abc',
+        name: 'TypeError',
+        message: 'x is not a function',
+        ansi: 'TypeError: x is not a function',
+      })
       await settle()
 
       ui.clearReport('older')
@@ -4113,7 +5495,14 @@ describe('request failures on the panel', () => {
   it('should report a failed app request', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 500,
+          duration: 1,
+        },
+      ])
       const frames = await settle()
 
       expect(frames).toContain('1 failed request')
@@ -4136,12 +5525,29 @@ describe('request failures on the panel', () => {
   // A fork hears an app log twice: over the log channel, and again when the
   // app's stdout comes through its own consola.
   it.each([
-    ['inside a request', { origin: 'runtime' as const, request: 'GET /api/log', requestId: 'r1' }],
-    ['outside a request', { origin: 'build' as const, request: undefined }],
+    [
+      'inside a request',
+      { origin: 'runtime' as const, request: 'GET /api/log', requestId: 'r1' },
+    ],
+    [
+      'outside a request',
+      { origin: 'build' as const, request: undefined },
+    ],
   ])('should record an app log a fork forwards twice once (%s)', async (_name, attribution) => {
     await withPanel(async (ui, _settle, session) => {
-      const channel = { level: 3, logType: 'log', message: 'hello', ...attribution }
-      const stdout = { level: 2, logType: 'log', message: 'hello', origin: attribution.origin, raw: true }
+      const channel = {
+        level: 3,
+        logType: 'log',
+        message: 'hello',
+        ...attribution,
+      }
+      const stdout = {
+        level: 2,
+        logType: 'log',
+        message: 'hello',
+        origin: attribution.origin,
+        raw: true,
+      }
 
       ui.pushServerLog(channel)
       ui.pushServerLog(stdout)
@@ -4162,7 +5568,14 @@ describe('request failures on the panel', () => {
     const level = consola.level
     consola.level = 3
     try {
-      ui.pushServerLog({ level: 3, logType: 'log', message, origin: 'runtime', request: 'GET /', requestId: 'r1' })
+      ui.pushServerLog({
+        level: 3,
+        logType: 'log',
+        message,
+        origin: 'runtime',
+        request: 'GET /',
+        requestId: 'r1',
+      })
       consola.log(message)
       await flush()
       if (reprint) {
@@ -4221,9 +5634,29 @@ describe('request failures on the panel', () => {
         '[vite] printed without being forwarded\n',
       ]
       const forward = () => {
-        ui.pushServerLog({ level: 3, logType: 'success', tag: 'nuxt:icon', message: 'Nuxt Icon loaded local collection', origin: 'build', raw: true })
-        ui.pushServerLog({ level: 1, logType: 'warn', message: 'Nuxt Icon serverBundle is deprecated', origin: 'build', raw: true })
-        ui.pushServerLog({ level: 1, logType: 'warn', tag: '@nuxt/robots', message: 'You have disallowed robots', origin: 'build', raw: true })
+        ui.pushServerLog({
+          level: 3,
+          logType: 'success',
+          tag: 'nuxt:icon',
+          message: 'Nuxt Icon loaded local collection',
+          origin: 'build',
+          raw: true,
+        })
+        ui.pushServerLog({
+          level: 1,
+          logType: 'warn',
+          message: 'Nuxt Icon serverBundle is deprecated',
+          origin: 'build',
+          raw: true,
+        })
+        ui.pushServerLog({
+          level: 1,
+          logType: 'warn',
+          tag: '@nuxt/robots',
+          message: 'You have disallowed robots',
+          origin: 'build',
+          raw: true,
+        })
       }
       if (first === 'forwarded logs') {
         forward()
@@ -4237,11 +5670,36 @@ describe('request failures on the panel', () => {
       await flush()
 
       expect(session.events.recent(50).map(({ level, tag, message, rendered }) => ({ level, tag, message, rendered }))).toEqual([
-        { level: 3, tag: 'nuxt:icon', message: 'Nuxt Icon loaded local collection', rendered: printed[0] },
-        { level: 1, tag: undefined, message: 'Nuxt Icon serverBundle is deprecated', rendered: printed[1] },
-        { level: 1, tag: '@nuxt/robots', message: 'You have disallowed robots', rendered: printed[2] },
-        { level: 2, tag: undefined, message: '[vite] printed without being forwarded', rendered: printed[3] },
-        { level: 2, tag: undefined, message: '[vite] printed later', rendered: '[vite] printed later\n' },
+        {
+          level: 3,
+          tag: 'nuxt:icon',
+          message: 'Nuxt Icon loaded local collection',
+          rendered: printed[0],
+        },
+        {
+          level: 1,
+          tag: undefined,
+          message: 'Nuxt Icon serverBundle is deprecated',
+          rendered: printed[1],
+        },
+        {
+          level: 1,
+          tag: '@nuxt/robots',
+          message: 'You have disallowed robots',
+          rendered: printed[2],
+        },
+        {
+          level: 2,
+          tag: undefined,
+          message: '[vite] printed without being forwarded',
+          rendered: printed[3],
+        },
+        {
+          level: 2,
+          tag: undefined,
+          message: '[vite] printed later',
+          rendered: '[vite] printed later\n',
+        },
       ])
     })
   })
@@ -4266,7 +5724,13 @@ describe('request failures on the panel', () => {
 
   it('should record what only reaches a fork\'s stdout', async () => {
     await withPanel(async (ui, _settle, session) => {
-      ui.pushServerLog({ level: 2, logType: 'log', message: 'written straight to stdout', origin: 'build', raw: true })
+      ui.pushServerLog({
+        level: 2,
+        logType: 'log',
+        message: 'written straight to stdout',
+        origin: 'build',
+        raw: true,
+      })
       expect(session.events.recent(10).map(event => event.message)).toEqual(['written straight to stdout'])
     })
   })
@@ -4274,7 +5738,12 @@ describe('request failures on the panel', () => {
   it('should raise an action badge when something is waiting on the user', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions of writing files and running commands.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      ui.pushServerLog({
+        level: 3,
+        logType: 'box',
+        message: 'A browser is requesting permissions of writing files and running commands.\ngXSptCzfAzS2Lfgy',
+        origin: 'build',
+      })
       const frames = await settle()
 
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
@@ -4286,7 +5755,12 @@ describe('request failures on the panel', () => {
   it('should keep an action badge through a borrowed prompt that consumes keys', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushServerLog({ level: 3, logType: 'box', message: 'A browser is requesting permissions.\ngXSptCzfAzS2Lfgy', origin: 'build' })
+      ui.pushServerLog({
+        level: 3,
+        logType: 'box',
+        message: 'A browser is requesting permissions.\ngXSptCzfAzS2Lfgy',
+        origin: 'build',
+      })
       await useTerminalHost()!.withTerminal(async () => {
         process.stdin.emit('keypress', '', { name: 'y', sequence: 'y' })
       })
@@ -4299,9 +5773,24 @@ describe('request failures on the panel', () => {
   it('should not let an internal request clear a failure the app reported', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
-      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 500,
+          duration: 1,
+        },
+      ])
       await settle()
-      ui.pushRequests([{ method: 'GET', url: '/__skip_vite', status: 200, duration: 1, internal: true }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/__skip_vite',
+          status: 200,
+          duration: 1,
+          internal: true,
+        },
+      ])
       const frames = await settle()
 
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
@@ -4314,10 +5803,29 @@ describe('request failures on the panel', () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('ready')
       // A failed render is reported as a log as well as a status.
-      ui.pushServerLog({ level: 0, logType: 'error', message: '/app.vue \u2014 Interpolation end sign was not found.', origin: 'runtime' })
-      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: '/app.vue \u2014 Interpolation end sign was not found.',
+        origin: 'runtime',
+      })
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 500,
+          duration: 1,
+        },
+      ])
       expect(await settle()).toContain('a request failed')
-      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 200,
+          duration: 1,
+        },
+      ])
       const frames = await settle()
 
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
@@ -4329,7 +5837,12 @@ describe('request failures on the panel', () => {
   it('should report a load that errors rather than leaving its phase on the panel', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
-      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: 'Cannot restart nuxt: ParseError: Unexpected token',
+        origin: 'build',
+      })
       const frames = await settle()
 
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
@@ -4342,10 +5855,22 @@ describe('request failures on the panel', () => {
   it('should count a request the error page answered while a load has failed', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
-      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: 'Cannot restart nuxt: ParseError: Unexpected token',
+        origin: 'build',
+      })
       await settle()
 
-      ui.pushRequests([{ method: 'GET', url: '/', status: 500, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 500,
+          duration: 1,
+        },
+      ])
       const frames = await settle()
 
       const last = frames.slice(frames.lastIndexOf('Nuxt 4.5.2'))
@@ -4357,7 +5882,11 @@ describe('request failures on the panel', () => {
   })
 
   describe('opening before the server is up', () => {
-    const listener = { url: 'http://localhost:3000/', getURLs: () => [], showURLs: () => {} }
+    const listener = {
+      url: 'http://localhost:3000/',
+      getURLs: () => [],
+      showURLs: () => {},
+    }
 
     async function withStartingPanel(run: (ready: () => void, settle: () => Promise<string>) => Promise<void>) {
       opened.length = 0
@@ -4425,7 +5954,12 @@ describe('request failures on the panel', () => {
     let restarts = 0
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
-      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: 'Cannot restart nuxt: ParseError: Unexpected token',
+        origin: 'build',
+      })
       await settle()
 
       process.stdin.emit('keypress', 'r', { name: 'r', sequence: 'r' })
@@ -4447,7 +5981,12 @@ describe('request failures on the panel', () => {
     // `replaceWithFork` keeps the outgoing server when the incoming fork dies.
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
-      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: 'Cannot restart nuxt: ParseError: Unexpected token',
+        origin: 'build',
+      })
       await settle()
 
       ui.setStatus('restarting', 'restarting')
@@ -4496,11 +6035,23 @@ describe('request failures on the panel', () => {
   it('should keep a failed load on the panel until a load gets through', async () => {
     await withPanel(async (ui, settle) => {
       ui.setStatus('building', 'nuxt.config.ts changed. Reloading Nuxt...')
-      ui.pushServerLog({ level: 0, logType: 'error', message: 'Cannot restart nuxt: ParseError: Unexpected token', origin: 'build' })
+      ui.pushServerLog({
+        level: 0,
+        logType: 'error',
+        message: 'Cannot restart nuxt: ParseError: Unexpected token',
+        origin: 'build',
+      })
       await settle()
 
       // A page answered off the previous build says nothing about the load.
-      ui.pushRequests([{ method: 'GET', url: '/', status: 200, duration: 1 }])
+      ui.pushRequests([
+        {
+          method: 'GET',
+          url: '/',
+          status: 200,
+          duration: 1,
+        },
+      ])
       const served = await settle()
       expect(served.slice(served.lastIndexOf('Nuxt 4.5.2'))).toContain('ERROR')
 
@@ -4622,7 +6173,11 @@ describe('the terminal host on the panel', () => {
     ci.override = false
     try {
       await withPanel(async (_ui, settle) => {
-        const instance = { options: { prompt: (async () => true) as NonNullable<ConsolaOptions['prompt']> } }
+        const instance = {
+          options: {
+            prompt: (async () => true) as NonNullable<ConsolaOptions['prompt']>,
+          },
+        }
         interceptPrompts(instance)
 
         process.stdout.write('Nuxt collects completely anonymous data about usage.\n')

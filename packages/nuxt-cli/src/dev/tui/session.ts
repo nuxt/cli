@@ -80,11 +80,18 @@ function splitLogs(chunk: string): PrintedLog[] {
       last.rendered += blanks.join('') + line
     }
     else {
-      const own = !last ? blanks.length : FRAMED_RE.test(plain) ? Math.min(1, blanks.length) : 0
+      const own = !last
+        ? blanks.length
+        : FRAMED_RE.test(plain)
+          ? Math.min(1, blanks.length)
+          : 0
       if (last) {
         last.rendered += blanks.slice(0, blanks.length - own).join('')
       }
-      logs.push({ plain: [plain], rendered: blanks.slice(blanks.length - own).join('') + line })
+      logs.push({
+        plain: [plain],
+        rendered: blanks.slice(blanks.length - own).join('') + line,
+      })
     }
     blanks = []
   }
@@ -92,7 +99,10 @@ function splitLogs(chunk: string): PrintedLog[] {
   if (last) {
     last.rendered += blanks.join('')
   }
-  return logs.map(log => ({ message: log.plain.join('\n'), rendered: log.rendered }))
+  return logs.map(log => ({
+    message: log.plain.join('\n'),
+    rendered: log.rendered,
+  }))
 }
 
 export interface DevUISession {
@@ -174,7 +184,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
 
   // Nothing waits on the answer: the mark is painted in colours that are safe
   // on either background and repainted in the exact ones if a reply arrives.
-  void queryBackground({ write: chunk => surface.writeRaw(chunk) }).then((background) => {
+  void queryBackground({
+    write: chunk => surface.writeRaw(chunk),
+  }).then((background) => {
     if (background === 'unknown' || background === state.background) {
       return
     }
@@ -203,7 +215,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     }
     state.frame = (state.frame ?? 0) + 1
     state.elapsedMs = startupElapsedMs(state.loadStartedAt ?? Date.now())
-    state.phaseElapsedMs = state.phaseStartedAt === undefined ? undefined : Date.now() - state.phaseStartedAt
+    state.phaseElapsedMs = state.phaseStartedAt === undefined
+      ? undefined
+      : Date.now() - state.phaseStartedAt
     render()
   }, LOGO_FRAME_MS)
   startupTicker.unref?.()
@@ -232,7 +246,10 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
       }
     },
     startTask: (label) => {
-      const task = { label, startedAt: Date.now() }
+      const task = {
+        label,
+        startedAt: Date.now(),
+      }
       tasks.push(task)
       state.task = tasks.at(-1)
       repaint()
@@ -354,7 +371,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     const rewriting = REWRITE_RE.test(chunk)
     if (owner) {
       transient = undefined
-      const rest = events.attachRendered(rewriting ? [] : splitLogs(chunk), owner)
+      const rest = events.attachRendered(rewriting
+        ? []
+        : splitLogs(chunk), owner)
       if (owner.rendered === undefined) {
         owner.rendered = chunk
         noteRoute(owner, 'output')
@@ -366,7 +385,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
       return
     }
     const plain = stripAnsi(chunk)
-    const message = (rewriting ? settleRewrites(plain) : plain).replace(/\n+$/, '')
+    const message = (rewriting
+      ? settleRewrites(plain)
+      : plain).replace(/\n+$/, '')
     if (!message.trim()) {
       return
     }
@@ -374,7 +395,11 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     // rewrites the last, so together they are one entry that keeps up, not a
     // flood. The first plain line that follows ends the run.
     if (rewriting && transient) {
-      Object.assign(transient, { time: Date.now(), message, rendered: chunk })
+      Object.assign(transient, {
+        time: Date.now(),
+        message,
+        rendered: chunk,
+      })
       return
     }
     if (rewriting) {
@@ -403,7 +428,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
       request: request?.label,
       requestId: request?.id,
     }
-    return events.push(event, { route: 'output' }) === event ? event : undefined
+    return events.push(event, { route: 'output' }) === event
+      ? event
+      : undefined
   }
 
   // Deferred: a forwarded log arrives before its printed form.
@@ -443,7 +470,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
   const reporter = {
     log(logObj: { level: number, type: string, tag?: string, args: unknown[] }) {
       const cli = isEmittingCliLog()
-      const request = cli ? undefined : currentRequest()
+      const request = cli
+        ? undefined
+        : currentRequest()
       expectRender(events.push({
         time: Date.now(),
         level: logObj.level,
@@ -453,7 +482,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
         // The app, the build and the CLI share this consola instance on one
         // thread, so origin is inferred: the CLI marks its own calls, and
         // anything logged while a request is open belongs to the runtime.
-        source: cli ? 'cli' : request ? 'runtime' : 'build',
+        source: cli
+          ? 'cli'
+          : request ? 'runtime' : 'build',
         request: request?.label,
         requestId: request?.id,
       }, {
@@ -474,7 +505,9 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
     clearImmediate(flushTimer)
     // A fatal startup error tears down and exits before the surface delay can
     // fire, and a dev server that dies without a trace is undebuggable.
-    const unsurfaced = [...pendingSurfaces.entries()]
+    const unsurfaced = [
+      ...pendingSurfaces.entries(),
+    ]
     for (const [timer] of unsurfaced) {
       clearTimeout(timer)
     }
@@ -566,9 +599,18 @@ export function beginDevUI(options: PanelStartOptions & { start?: PanelStart } =
   }
   handlers = [
     ['exit', onSignal],
-    ['SIGINT', onInterrupt(130)],
-    ['SIGTERM', onInterrupt(143)],
-    ['SIGQUIT', onInterrupt(131)],
+    [
+      'SIGINT',
+      onInterrupt(130),
+    ],
+    [
+      'SIGTERM',
+      onInterrupt(143),
+    ],
+    [
+      'SIGQUIT',
+      onInterrupt(131),
+    ],
     ['SIGHUP', onHangup],
     // Raw mode and a pinned panel would otherwise outlive the crash: node
     // prints the error and exits without unwinding through `exit` first.

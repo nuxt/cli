@@ -55,7 +55,11 @@ vi.mock('node:child_process', () => ({ fork }))
 const context: NuxtDevContext = { cwd: '/app', args: {} as NuxtDevContext['args'] }
 
 function createPool(poolSize?: number) {
-  return new ForkPool({ rawArgs: [], poolSize, listenOverrides: { port: 3000 } })
+  return new ForkPool({
+    rawArgs: [],
+    poolSize,
+    listenOverrides: { port: 3000 },
+  })
 }
 
 function killAll(pool: ForkPool) {
@@ -159,7 +163,9 @@ describe('fork pool', () => {
   })
 
   it('should merge per-fork listen overrides into the context message', async () => {
-    await createPool().getFork(context, { listenOverrides: { port: 4000, handover: true } })
+    await createPool().getFork(context, {
+      listenOverrides: { port: 4000, handover: true },
+    })
 
     expect(forks[0]!.sent[0]).toMatchObject({
       type: 'nuxt:internal:dev:context',

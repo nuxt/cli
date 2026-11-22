@@ -17,8 +17,12 @@ const latency = Number(process.env.CAPTURE_FETCH_LATENCY ?? 0)
 const realFetch = globalThis.fetch
 
 globalThis.fetch = async (input, init) => {
-  const url = typeof input === 'string' ? input : input.url ?? String(input)
-  const settled = latency > 0 ? new Promise(resolve => setTimeout(resolve, latency)) : undefined
+  const url = typeof input === 'string'
+    ? input
+    : input.url ?? String(input)
+  const settled = latency > 0
+    ? new Promise(resolve => setTimeout(resolve, latency))
+    : undefined
   for (const [prefix, file] of stubs) {
     if (url.startsWith(prefix)) {
       const body = readFileSync(file, 'utf8')

@@ -22,7 +22,10 @@ export function formatReport(summary: DevReportSummary): (columns: number) => st
       return summary.ansi
     }
     if (last?.columns !== columns) {
-      last = { columns, text: renderAnsi(report, { cwd: summary.cwd, width: columns }) }
+      last = {
+        columns,
+        text: renderAnsi(report, { cwd: summary.cwd, width: columns }),
+      }
     }
     return last.text
   }

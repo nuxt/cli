@@ -6,9 +6,19 @@ import * as runCommands from '../../../../src/run-command'
 
 interface FakeConfig { file: string, cwd: string, modules: string[], extends: string[] }
 
-const readNuxtConfig = vi.fn((): Promise<FakeConfig | undefined> => Promise.resolve({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: ['@nuxt/content'], extends: [] }))
+const readNuxtConfig = vi.fn((): Promise<FakeConfig | undefined> => Promise.resolve({
+  file: '/fake-dir/nuxt.config.ts',
+  cwd: '/fake-dir',
+  modules: ['@nuxt/content'],
+  extends: [],
+}))
 const removeNuxtConfigEntries = vi.fn(() => Promise.resolve())
-const runInstall = vi.fn((_options: Record<string, unknown>) => Promise.resolve({ success: true, output: '', command: '', ignoredBuilds: [] }))
+const runInstall = vi.fn((_options: Record<string, unknown>) => Promise.resolve({
+  success: true,
+  output: '',
+  command: '',
+  ignoredBuilds: [],
+}))
 const detectPackageManager = vi.fn(() => Promise.resolve({ name: 'npm', agent: 'npm' }))
 const confirm = vi.fn((): Promise<boolean | symbol> => Promise.resolve(false))
 const multiselect = vi.fn((): Promise<string[] | symbol> => Promise.resolve([]))
@@ -104,26 +114,44 @@ describe('module remove', () => {
       devDependencies: { nuxt: '3.0.0' },
       dependencies: { example: '1.0.0' },
     })
-    vi.mocked(utils.fetchModules).mockResolvedValueOnce([{
-      name: 'example',
-      npm: 'example/nuxt',
-      aliases: ['example-module'],
-      compatibility: { nuxt: '3.0.0', versionMap: {} },
-      description: '',
-      repo: '',
-      github: '',
-      website: '',
-      learn_more: '',
-      category: '',
-      type: 'community',
-      maintainers: [],
-      stats: { downloads: 0, stars: 0, maintainers: 0, contributors: 0, modules: 0 },
-    }])
+    vi.mocked(utils.fetchModules).mockResolvedValueOnce([
+      {
+        name: 'example',
+        npm: 'example/nuxt',
+        aliases: ['example-module'],
+        compatibility: { nuxt: '3.0.0', versionMap: {} },
+        description: '',
+        repo: '',
+        github: '',
+        website: '',
+        learn_more: '',
+        category: '',
+        type: 'community',
+        maintainers: [],
+        stats: {
+          downloads: 0,
+          stars: 0,
+          maintainers: 0,
+          contributors: 0,
+          modules: 0,
+        },
+      },
+    ])
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', skipConfig: true, moduleName: ['example-module'] } })
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        skipConfig: true,
+        moduleName: ['example-module'],
+      },
+    })
 
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['example'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['example'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 
   it('should remove a Nuxt module by npm name', async () => {
@@ -155,11 +183,20 @@ describe('module remove', () => {
     })
 
     expect(multiselect).toHaveBeenCalled()
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@nuxt/content'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@nuxt/content'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 
   it('should remove a layer from `extends` without uninstalling a local path', async () => {
-    readNuxtConfig.mockResolvedValueOnce({ file: '/fake-dir/nuxt.config.ts', cwd: '/fake-dir', modules: [], extends: ['./layers/admin', 'nuxt-seo-kit'] })
+    readNuxtConfig.mockResolvedValueOnce({
+      file: '/fake-dir/nuxt.config.ts',
+      cwd: '/fake-dir',
+      modules: [],
+      extends: ['./layers/admin', 'nuxt-seo-kit'],
+    })
     multiselect.mockResolvedValueOnce(['./layers/admin'])
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
@@ -170,7 +207,9 @@ describe('module remove', () => {
       },
     })
 
-    expect(removeNuxtConfigEntries).toHaveBeenCalledWith(expect.anything(), { extends: ['./layers/admin'] })
+    expect(removeNuxtConfigEntries).toHaveBeenCalledWith(expect.anything(), {
+      extends: ['./layers/admin'],
+    })
     expect(runInstall).not.toHaveBeenCalled()
   })
 
@@ -241,7 +280,11 @@ describe('module remove', () => {
       },
     }))
     readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
-      name === '@vee-validate/nuxt' ? { peerDependencies: { 'vee-validate': '^4.0.0' } } : {},
+      name === '@vee-validate/nuxt'
+        ? {
+            peerDependencies: { 'vee-validate': '^4.0.0' },
+          }
+        : {},
     ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
@@ -253,7 +296,11 @@ describe('module remove', () => {
     })
 
     expect(confirm).toHaveBeenCalled()
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt', 'vee-validate'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@vee-validate/nuxt', 'vee-validate'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 
   it('should not suggest removing optional peer dependencies', async () => {
@@ -266,15 +313,29 @@ describe('module remove', () => {
     }))
     readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
       name === '@example/nuxt'
-        ? { peerDependencies: { 'optional-package': '^1.0.0' }, peerDependenciesMeta: { 'optional-package': { optional: true } } }
+        ? {
+            peerDependencies: { 'optional-package': '^1.0.0' },
+            peerDependenciesMeta: {
+              'optional-package': { optional: true },
+            },
+          }
         : {},
     ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['@example/nuxt'] } })
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        moduleName: ['@example/nuxt'],
+      },
+    })
 
     expect(confirm).not.toHaveBeenCalled()
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@example/nuxt'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@example/nuxt'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 
   it('should keep orphaned peer dependencies when declined', async () => {
@@ -287,7 +348,11 @@ describe('module remove', () => {
       },
     }))
     readDependencyPackageJson.mockImplementation((name?: string) => Promise.resolve(
-      name === '@vee-validate/nuxt' ? { peerDependencies: { 'vee-validate': '^4.0.0' } } : {},
+      name === '@vee-validate/nuxt'
+        ? {
+            peerDependencies: { 'vee-validate': '^4.0.0' },
+          }
+        : {},
     ))
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
@@ -299,7 +364,11 @@ describe('module remove', () => {
     })
 
     expect(confirm).toHaveBeenCalled()
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@vee-validate/nuxt'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 
   it('should inspect retained dependencies in parallel', async () => {
@@ -316,7 +385,9 @@ describe('module remove', () => {
     }))
     readDependencyPackageJson.mockImplementation(async (name?: string) => {
       if (name === '@vee-validate/nuxt') {
-        return { peerDependencies: { 'vee-validate': '^4.0.0' } }
+        return {
+          peerDependencies: { 'vee-validate': '^4.0.0' },
+        }
       }
       pending++
       peak = Math.max(peak, pending)
@@ -326,7 +397,12 @@ describe('module remove', () => {
     })
 
     const removeCommand = await (commands as CommandsType).subCommands.remove()
-    await removeCommand.setup({ args: { cwd: '/fake-dir', moduleName: ['@vee-validate/nuxt'] } })
+    await removeCommand.setup({
+      args: {
+        cwd: '/fake-dir',
+        moduleName: ['@vee-validate/nuxt'],
+      },
+    })
 
     expect(peak).toBeGreaterThan(1)
   })
@@ -342,10 +418,14 @@ describe('module remove', () => {
     }))
     readDependencyPackageJson.mockImplementation((name?: string) => {
       if (name === '@vee-validate/nuxt') {
-        return Promise.resolve({ peerDependencies: { 'vee-validate': '^4.0.0' } })
+        return Promise.resolve({
+          peerDependencies: { 'vee-validate': '^4.0.0' },
+        })
       }
       if (name === 'some-other-dep') {
-        return Promise.resolve({ dependencies: { 'vee-validate': '^4.0.0' } })
+        return Promise.resolve({
+          dependencies: { 'vee-validate': '^4.0.0' },
+        })
       }
       return Promise.resolve({})
     })
@@ -359,6 +439,10 @@ describe('module remove', () => {
     })
 
     expect(confirm).not.toHaveBeenCalled()
-    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({ dependencies: ['@vee-validate/nuxt'], uninstall: true, cwd: '/fake-dir' }))
+    expect(runInstall).toHaveBeenCalledWith(expect.objectContaining({
+      dependencies: ['@vee-validate/nuxt'],
+      uninstall: true,
+      cwd: '/fake-dir',
+    }))
   })
 })

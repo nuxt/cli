@@ -14,13 +14,22 @@ function descriptor(overrides: Record<string, any> = {}) {
   return {
     name: 'nitro',
     capabilities: { server: true, dev: true },
-    output: { dir: () => '/project/.output', publicDir: () => '/project/.output/public' },
+    output: {
+      dir: () => '/project/.output',
+      publicDir: () => '/project/.output/public',
+    },
     ...overrides,
   }
 }
 
 const nitroKit = {
-  useNitro: () => ({ options: { preset: 'node-server', output: { dir: '/project/.output', publicDir: '/project/.output/public' }, commands: { preview: 'node ./server/index.mjs' } } }),
+  useNitro: () => ({
+    options: {
+      preset: 'node-server',
+      output: { dir: '/project/.output', publicDir: '/project/.output/public' },
+      commands: { preview: 'node ./server/index.mjs' },
+    },
+  }),
 }
 
 const serverlessKit = {
@@ -43,9 +52,26 @@ describe('tryUseNitro', () => {
 
 describe('getServerBuilderName', () => {
   it.each([
-    [{ server: { builder: '@nuxt/vite-server' } }, 'vite'],
-    [{ server: { builder: 'vite' } }, 'vite'],
-    [{ server: { builder: () => {} } }, 'custom'],
+    [
+      {
+        server: { builder: '@nuxt/vite-server' },
+      },
+      'vite',
+    ],
+    [
+      {
+        server: { builder: 'vite' },
+      },
+      'vite',
+    ],
+    [
+      {
+        server: {
+          builder: () => {},
+        },
+      },
+      'custom',
+    ],
     [{}, 'Nitro'],
   ])('should describe %j as %s', (options, expected) => {
     expect(getServerBuilderName(makeNuxt(options))).toBe(expected)
@@ -56,12 +82,18 @@ describe('getServerBuilderName', () => {
   })
 
   it('should read an unresolved descriptor name as a builder name', () => {
-    const nuxt = makeNuxt({}, { serverBuild: descriptor({ name: '@nuxt/nitro-server' }) })
+    const nuxt = makeNuxt({}, {
+      serverBuild: descriptor({ name: '@nuxt/nitro-server' }),
+    })
     expect(getServerBuilderName(nuxt)).toBe('Nitro')
   })
 
   it('should use the label Nuxt declares', () => {
-    const nuxt = makeNuxt({ server: { builder: 'vite' } }, { serverBuild: descriptor({ label: 'Vite SPA' }) })
+    const nuxt = makeNuxt({
+      server: { builder: 'vite' },
+    }, {
+      serverBuild: descriptor({ label: 'Vite SPA' }),
+    })
     expect(getServerBuilderName(nuxt)).toBe('Vite SPA')
   })
 })
@@ -85,8 +117,13 @@ describe('resolveServerBuild', () => {
         label: 'Nitro',
         targetLabel: 'preset',
         target: () => 'vercel',
-        output: { dir: () => dir, publicDir: () => `${dir}/static` },
-        preview: { command: () => 'node ./server/index.mjs' },
+        output: {
+          dir: () => dir,
+          publicDir: () => `${dir}/static`,
+        },
+        preview: {
+          command: () => 'node ./server/index.mjs',
+        },
       }),
     })
     const build = resolveServerBuild(nitroKit, nuxt)
@@ -104,13 +141,20 @@ describe('resolveServerBuild', () => {
     const useNitro = vi.fn(() => {
       throw new Error('Nitro is not initialized!')
     })
-    const nuxt = makeNuxt({ server: { builder: 'vite' } }, {
+    const nuxt = makeNuxt({
+      server: { builder: 'vite' },
+    }, {
       serverBuild: descriptor({
         name: 'vite',
         label: 'Vite SPA',
         capabilities: { server: false, dev: true },
-        output: { dir: () => '/project/.output', publicDir: () => '/project/.output/public' },
-        preview: { staticDir: () => '/project/.output/public' },
+        output: {
+          dir: () => '/project/.output',
+          publicDir: () => '/project/.output/public',
+        },
+        preview: {
+          staticDir: () => '/project/.output/public',
+        },
       }),
     })
 
@@ -124,7 +168,9 @@ describe('resolveServerBuild', () => {
   })
 
   it('should fall back to Nitro for a descriptor that declares no target or preview command', () => {
-    const nuxt = makeNuxt({}, { serverBuild: descriptor({ name: '@nuxt/nitro-server' }) })
+    const nuxt = makeNuxt({}, {
+      serverBuild: descriptor({ name: '@nuxt/nitro-server' }),
+    })
     const build = resolveServerBuild(nitroKit, nuxt)
 
     expect(build).toMatchObject({ label: 'Nitro', declared: true })
@@ -135,7 +181,12 @@ describe('resolveServerBuild', () => {
 
   it('should fall back to Nitro for a descriptor whose getters resolve to nothing', () => {
     const nuxt = makeNuxt({}, {
-      serverBuild: descriptor({ target: () => undefined, preview: { command: () => undefined } }),
+      serverBuild: descriptor({
+        target: () => undefined,
+        preview: {
+          command: () => undefined,
+        },
+      }),
     })
     const build = resolveServerBuild(nitroKit, nuxt)
 
@@ -144,12 +195,18 @@ describe('resolveServerBuild', () => {
   })
 
   it('should report a builder that declares no dev server', () => {
-    const nuxt = makeNuxt({}, { serverBuild: descriptor({ capabilities: { server: true, dev: false } }) })
+    const nuxt = makeNuxt({}, {
+      serverBuild: descriptor({
+        capabilities: { server: true, dev: false },
+      }),
+    })
     expect(resolveServerBuild(nitroKit, nuxt).hasDevServer).toBe(false)
   })
 
   it('should fall back to defaults when there is no server', () => {
-    const build = resolveServerBuild(serverlessKit, makeNuxt({ server: { builder: 'vite' } }))
+    const build = resolveServerBuild(serverlessKit, makeNuxt({
+      server: { builder: 'vite' },
+    }))
 
     expect(build).toMatchObject({ label: 'vite', declared: false })
     expect(build.target).toBeUndefined()
@@ -172,7 +229,13 @@ describe('resolveServerBuild', () => {
     expect(build).toMatchObject({ label: 'unknown' })
     expect(build.dir).toBe('/project/.output')
 
-    nitro = { options: { preset: 'vercel', output: { dir: '/project/.vercel/output' }, commands: { preview: 'vercel dev' } } }
+    nitro = {
+      options: {
+        preset: 'vercel',
+        output: { dir: '/project/.vercel/output' },
+        commands: { preview: 'vercel dev' },
+      },
+    }
 
     expect(build).toMatchObject({ label: 'Nitro' })
     expect(build.target).toBe('vercel')
@@ -181,7 +244,13 @@ describe('resolveServerBuild', () => {
   })
 
   it('should strip the trailing slash Nitro puts on its output paths', () => {
-    const kit = { useNitro: () => ({ options: { output: { dir: '/project/.output/', publicDir: '/project/.output/public/' } } }) }
+    const kit = {
+      useNitro: () => ({
+        options: {
+          output: { dir: '/project/.output/', publicDir: '/project/.output/public/' },
+        },
+      }),
+    }
     const build = resolveServerBuild(kit, makeNuxt())
 
     expect(build.dir).toBe('/project/.output')
@@ -189,7 +258,11 @@ describe('resolveServerBuild', () => {
   })
 
   it('should honour a configured Nitro output directory without an instance', () => {
-    const build = resolveServerBuild(serverlessKit, makeNuxt({ nitro: { output: { dir: 'dist' } } }))
+    const build = resolveServerBuild(serverlessKit, makeNuxt({
+      nitro: {
+        output: { dir: 'dist' },
+      },
+    }))
 
     expect(build.dir).toBe('/project/dist')
   })

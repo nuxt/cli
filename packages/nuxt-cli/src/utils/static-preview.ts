@@ -46,7 +46,9 @@ export async function previewStaticOutput(options: StaticPreviewOptions): Promis
   const server = serve({
     port: options.port,
     hostname: options.hostname,
-    middleware: [staticMiddleware({ dir: options.dir })],
+    middleware: [
+      staticMiddleware({ dir: options.dir }),
+    ],
     async fetch() {
       return new Response(await readFile(options.entry), {
         headers: { 'content-type': 'text/html;charset=utf-8' },

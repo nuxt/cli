@@ -19,8 +19,22 @@ describe('dev server shutdown', () => {
     const host = '127.0.0.1'
     const port = await getPort({ host, port: 3060 })
     // nitropack skips its graceful worker shutdown under test and CI
-    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !['CI', 'TEST', 'VITEST', 'NODE_ENV', 'GITHUB_ACTIONS'].includes(key)))
-    const child = spawn(process.execPath, [nuxi, 'dev', '--no-fork', '--host', host, '--port', String(port)], {
+    const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => ![
+      'CI',
+      'TEST',
+      'VITEST',
+      'NODE_ENV',
+      'GITHUB_ACTIONS',
+    ].includes(key)))
+    const child = spawn(process.execPath, [
+      nuxi,
+      'dev',
+      '--no-fork',
+      '--host',
+      host,
+      '--port',
+      String(port),
+    ], {
       cwd: fixtureDir,
       env: { ...env, NO_COLOR: '1' },
       stdio: ['ignore', 'pipe', 'pipe'],

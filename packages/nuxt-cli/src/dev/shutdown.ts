@@ -64,7 +64,9 @@ export function handleShutdownSignals(close: () => Promise<void>): void {
 
       const deadline = setTimeout(() => {
         const summary = summariseActiveResources()
-        logger.warn(`The dev server did not shut down within ${SUPERVISOR_SHUTDOWN_TIMEOUT_MS / 1000}s${summary ? `: ${summary}` : ''}. Exiting anyway.`)
+        logger.warn(`The dev server did not shut down within ${SUPERVISOR_SHUTDOWN_TIMEOUT_MS / 1000}s${summary
+          ? `: ${summary}`
+          : ''}. Exiting anyway.`)
         process.exit()
       }, SUPERVISOR_SHUTDOWN_TIMEOUT_MS)
 

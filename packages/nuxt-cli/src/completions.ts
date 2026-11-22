@@ -39,14 +39,25 @@ export async function initCompletions<T extends ArgsDef = ArgsDef>(command: Comm
     }
   }
 
-  for (const name of ['add', 'module add', 'module remove', 'module search']) {
+  for (const name of [
+    'add',
+    'module add',
+    'module remove',
+    'module search',
+  ]) {
     const cwdOption = completion.commands.get(name)?.options.get('cwd')
     if (cwdOption) {
       cwdOption.handler = complete => complete('.', 'Current directory')
     }
   }
 
-  const logLevelCommands = ['dev', 'build', 'generate', 'preview', 'prepare']
+  const logLevelCommands = [
+    'dev',
+    'build',
+    'generate',
+    'preview',
+    'prepare',
+  ]
   for (const cmdName of logLevelCommands) {
     const cmd = completion.commands.get(cmdName)
     if (cmd) {

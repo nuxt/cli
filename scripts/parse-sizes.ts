@@ -62,9 +62,17 @@ function formatBytes(bytes: number): string {
  * Format diff with sign and percentage
  */
 function formatDiff(diff: number, base: number): { icon: string, sign: string, percent: string } {
-  const percent = base ? ((diff / base) * 100).toFixed(2) : '0.00'
-  const sign = diff > 0 ? '+' : ''
-  const icon = diff > 0 ? '📈' : diff < 0 ? '📉' : '➡️'
+  const percent = base
+    ? ((diff / base) * 100).toFixed(2)
+    : '0.00'
+  const sign = diff > 0
+    ? '+'
+    : ''
+  const icon = diff > 0
+    ? '📈'
+    : diff < 0
+      ? '📉'
+      : '➡️'
   return { icon, sign, percent }
 }
 
@@ -96,7 +104,9 @@ function comparePackage(name: string, headPath: string, basePath: string): Packa
       base: { rendered: 0, gzip: 0, brotli: 0 },
       head: { rendered: 0, gzip: 0, brotli: 0 },
       diff: { rendered: 0, gzip: 0, brotli: 0 },
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error
+        ? error.message
+        : String(error),
     }
   }
 }

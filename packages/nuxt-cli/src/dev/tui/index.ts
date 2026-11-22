@@ -96,7 +96,9 @@ export interface DevUIOptions extends DevUISupportOptions {
  * cannot support it (pipes, CI, `--no-tui`).
  */
 export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {}): DevUIController {
-  const session = options.enabled === false ? undefined : beginDevUI(options)
+  const session = options.enabled === false
+    ? undefined
+    : beginDevUI(options)
   if (!session) {
     setupShortcuts(context)
     return NOOP_CONTROLLER
@@ -111,7 +113,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   const { surface, events, state, surfaceText, render } = session
   const requests = new RequestLog()
   const version = options.version ?? state.version
-  Object.assign(state, { version, versionLink: version ? linkVersion(version) : undefined })
+  Object.assign(state, {
+    version,
+    versionLink: version
+      ? linkVersion(version)
+      : undefined,
+  })
 
   const write = (chunk: string) => surface.writeRaw(chunk)
   const release = () => {
@@ -173,7 +180,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     Object.assign(state, patch)
     state.lastRequest = requests.last()
     state.requests = requests.total || undefined
-    state.medianMs = requests.total ? requests.medianDuration() : undefined
+    state.medianMs = requests.total
+      ? requests.medianDuration()
+      : undefined
     syncAnimation()
     render()
   }
@@ -188,8 +197,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     const working = state.status !== 'ready' && state.status !== 'error'
     update({
       frame: (state.frame ?? 0) + 1,
-      elapsedMs: working ? Date.now() - (state.loadStartedAt ?? sessionStart) : state.elapsedMs,
-      phaseElapsedMs: working && state.phaseStartedAt !== undefined ? Date.now() - state.phaseStartedAt : state.phaseElapsedMs,
+      elapsedMs: working
+        ? Date.now() - (state.loadStartedAt ?? sessionStart)
+        : state.elapsedMs,
+      phaseElapsedMs: working && state.phaseStartedAt !== undefined
+        ? Date.now() - state.phaseStartedAt
+        : state.phaseElapsedMs,
       renderingMs: state.rendering && Date.now() - state.rendering.startedAt,
     })
   }
@@ -197,7 +210,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   function syncAnimation(): void {
     const busy = (state.status !== 'ready' && state.status !== 'error') || !!state.task || !!state.rendering
     const working = busy && !openOverlay()
-    const interval = state.status === 'warming' || state.rendering ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO : LOGO_FRAME_MS
+    const interval = state.status === 'warming' || state.rendering
+      ? LOGO_FRAME_MS * WARMUP_FRAME_RATIO
+      : LOGO_FRAME_MS
     if (working && animation && interval !== animationInterval) {
       clearInterval(animation)
       animation = undefined
@@ -224,7 +239,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
 
   function clearNotice(): void {
     const held = heldNotices.at(-1)
-    update({ notice: held ? { text: held.text, tone: held.tone, label: held.label } : undefined })
+    update({
+      notice: held
+        ? { text: held.text, tone: held.tone, label: held.label }
+        : undefined,
+    })
   }
 
   function dismissHeld(held: HeldNotice): void {
@@ -242,16 +261,28 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     const dismissed = new Promise<void>((settle) => {
       resolve = settle
     })
-    const held: HeldNotice = { ...notice, text: notice.text.split('\n')[0]!.trim(), resolve }
+    const held: HeldNotice = {
+      ...notice,
+      text: notice.text.split('\n')[0]!.trim(),
+      resolve,
+    }
     heldNotices.push(held)
     clearTimeout(noticeTimer)
     clearNotice()
-    return { dismiss: () => dismissHeld(held), dismissed }
+    return {
+      dismiss: () => dismissHeld(held),
+      dismissed,
+    }
   }
 
   function showNotice(text: string, tone: 'info' | 'warn' | 'success'): void {
     clearTimeout(noticeTimer)
-    update({ notice: { text: text.split('\n')[0]!.trim(), tone } })
+    update({
+      notice: {
+        text: text.split('\n')[0]!.trim(),
+        tone,
+      },
+    })
     noticeTimer = setTimeout(clearNotice, NOTICE_MS)
     noticeTimer.unref?.()
   }
@@ -266,7 +297,12 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     events.clear()
     requests.clear()
     loadFailed = false
-    update({ failures: 0, ...state.status === 'error' ? { status: 'ready' as DevStatus, note: undefined } : {} })
+    update({
+      failures: 0,
+      ...state.status === 'error'
+        ? { status: 'ready' as DevStatus, note: undefined }
+        : {},
+    })
   }
 
   events.onClear(() => acknowledgeLogs())
@@ -276,7 +312,11 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       return
     }
     if (isBoxedNotice(event)) {
-      holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'ACTION' })
+      holdNotice({
+        text: firstSentence(event.message),
+        tone: 'warn',
+        label: 'ACTION',
+      })
       return
     }
     if (event.level <= 0) {
@@ -284,13 +324,19 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       update({
         errors: (state.errors ?? 0) + 1,
         status: 'error',
-        ...state.status === 'error' ? {} : { note: undefined },
+        ...state.status === 'error'
+          ? {}
+          : { note: undefined },
       })
     }
     else if (event.level === 1) {
       if (event.source === 'cli') {
         if (state.readyMs === undefined) {
-          holdNotice({ text: firstSentence(event.message), tone: 'warn', label: 'WARNING' })
+          holdNotice({
+            text: firstSentence(event.message),
+            tone: 'warn',
+            label: 'WARNING',
+          })
         }
         else {
           showNotice(event.message, 'warn')
@@ -329,24 +375,37 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     }
     const notes = releaseNotesUrl('nuxt', latest)
     const label = `\u2192 ${latest}`
-    update({ update: latest, updateLink: notes ? terminalLink(label, notes) : label })
+    update({
+      update: latest,
+      updateLink: notes
+        ? terminalLink(label, notes)
+        : label,
+    })
   })
 
   const quit = (signal: 'SIGINT' | 'SIGQUIT' = 'SIGINT') => {
     session.teardown({ keep: true })
     if (!isShutdownAdopted()) {
-      process.exit(signal === 'SIGQUIT' ? 131 : 130)
+      process.exit(signal === 'SIGQUIT'
+        ? 131
+        : 130)
     }
     process.emit(signal as any)
   }
 
-  const settleRestart = () => update({ status: loadFailed ? 'error' : 'ready', note: undefined })
+  const settleRestart = () => update({
+    status: loadFailed ? 'error' : 'ready',
+    note: undefined,
+  })
 
   const restart = async (options: { clearCache?: boolean } = {}) => {
     if (!context.restart) {
       return
     }
-    update({ status: 'restarting', note: options.clearCache ? 'clearing caches and restarting' : undefined })
+    update({
+      status: 'restarting',
+      note: options.clearCache ? 'clearing caches and restarting' : undefined,
+    })
     try {
       if (options.clearCache) {
         const cleared = await context.clearCaches?.()
@@ -357,7 +416,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       await context.restart()
     }
     catch (error) {
-      showNotice(`could not restart: ${error instanceof Error ? error.message : error}`, 'warn')
+      showNotice(`could not restart: ${error instanceof Error
+        ? error.message
+        : error}`, 'warn')
     }
     finally {
       if (state.status === 'restarting') {
@@ -367,42 +428,145 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   }
 
   shortcuts = [
-    { keys: ['r'], isAvailable: () => !!context.restart, hint: 'restart', priority: 80, description: 'restart the dev server', action: () => void restart() },
-    { keys: ['R'], sequence: 'R', isAvailable: () => !!context.restart && !!context.clearCaches, description: 'restart with a cleared cache', action: () => void restart({ clearCache: true }) },
-    { keys: ['o'], hint: 'open', priority: 40, description: 'open in browser', isArmed: () => armedOpen, action: () => open() },
-    { keys: ['y'], description: 'copy the server URL to the clipboard', action: () => void copyURL(context, showNotice, write) },
-    { keys: ['c'], description: 'clear the console without deleting history', action: () => clearConsole(surface) },
-    { keys: ['x'], description: 'delete log and request history', action: clearHistory },
-    { keys: ['e'], description: 'show the last error in full', action: () => {
-      surface.screenMode = 'alternate-screen'
-      overlay.openAtLastError()
-    } },
-    { keys: ['i', 'u'], hint: 'info', priority: 50, description: 'show versions, URLs, QR code and session info', action: () => openView(infoOverlay) },
-    { keys: ['l'], hint: 'logs', priority: 70, description: 'browse the log history', action: () => openView(overlay) },
-    { keys: ['n'], hint: 'network', priority: 60, description: 'browse served requests', action: () => openView(trafficOverlay) },
-    { keys: ['p'], hint: 'routes', priority: 30, description: 'browse pages and server routes', action: () => openView(routeOverlay) },
-    { keys: ['?', 'h'], hint: 'help', priority: 100, description: 'show this help', action: () => openView(helpOverlay) },
-    { keys: ['q'], hint: 'quit', priority: 90, description: 'quit', action: () => quit() },
-    { keys: [], ctrl: 'c', description: 'quit (press again during cleanup to force exit)', action: () => quit() },
-    { keys: [], ctrl: 'd', description: 'quit', action: () => quit() },
-    { keys: [], ctrl: 'l', description: 'clear the console or redraw the current view', action: () => {
-      const active = openOverlay()
-      if (active) {
-        active.repaint()
-      }
-      else {
-        clearConsole(surface)
-      }
-    } },
-    { keys: [], ctrl: 'r', isAvailable: () => !!context.restart, description: 'restart the dev server', action: () => {
-      openOverlay()?.close()
-      void restart()
-    } },
+    {
+      keys: ['r'],
+      isAvailable: () => !!context.restart,
+      hint: 'restart',
+      priority: 80,
+      description: 'restart the dev server',
+      action: () => void restart(),
+    },
+    {
+      keys: ['R'],
+      sequence: 'R',
+      isAvailable: () => !!context.restart && !!context.clearCaches,
+      description: 'restart with a cleared cache',
+      action: () => void restart({ clearCache: true }),
+    },
+    {
+      keys: ['o'],
+      hint: 'open',
+      priority: 40,
+      description: 'open in browser',
+      isArmed: () => armedOpen,
+      action: () => open(),
+    },
+    {
+      keys: ['y'],
+      description: 'copy the server URL to the clipboard',
+      action: () => void copyURL(context, showNotice, write),
+    },
+    {
+      keys: ['c'],
+      description: 'clear the console without deleting history',
+      action: () => clearConsole(surface),
+    },
+    {
+      keys: ['x'],
+      description: 'delete log and request history',
+      action: clearHistory,
+    },
+    {
+      keys: ['e'],
+      description: 'show the last error in full',
+      action: () => {
+        surface.screenMode = 'alternate-screen'
+        overlay.openAtLastError()
+      },
+    },
+    {
+      keys: ['i', 'u'],
+      hint: 'info',
+      priority: 50,
+      description: 'show versions, URLs, QR code and session info',
+      action: () => openView(infoOverlay),
+    },
+    {
+      keys: ['l'],
+      hint: 'logs',
+      priority: 70,
+      description: 'browse the log history',
+      action: () => openView(overlay),
+    },
+    {
+      keys: ['n'],
+      hint: 'network',
+      priority: 60,
+      description: 'browse served requests',
+      action: () => openView(trafficOverlay),
+    },
+    {
+      keys: ['p'],
+      hint: 'routes',
+      priority: 30,
+      description: 'browse pages and server routes',
+      action: () => openView(routeOverlay),
+    },
+    {
+      keys: ['?', 'h'],
+      hint: 'help',
+      priority: 100,
+      description: 'show this help',
+      action: () => openView(helpOverlay),
+    },
+    {
+      keys: ['q'],
+      hint: 'quit',
+      priority: 90,
+      description: 'quit',
+      action: () => quit(),
+    },
+    {
+      keys: [],
+      ctrl: 'c',
+      description: 'quit (press again during cleanup to force exit)',
+      action: () => quit(),
+    },
+    {
+      keys: [],
+      ctrl: 'd',
+      description: 'quit',
+      action: () => quit(),
+    },
+    {
+      keys: [],
+      ctrl: 'l',
+      description: 'clear the console or redraw the current view',
+      action: () => {
+        const active = openOverlay()
+        if (active) {
+          active.repaint()
+        }
+        else {
+          clearConsole(surface)
+        }
+      },
+    },
+    {
+      keys: [],
+      ctrl: 'r',
+      isAvailable: () => !!context.restart,
+      description: 'restart the dev server',
+      action: () => {
+        openOverlay()?.close()
+        void restart()
+      },
+    },
     ...process.platform === 'win32'
       ? []
       : [
-          { keys: [], ctrl: 'z', description: 'suspend (resume with fg)', action: () => suspend() },
-          { keys: [], ctrl: '\\', description: 'quit with SIGQUIT', action: () => quit('SIGQUIT') },
+          {
+            keys: [],
+            ctrl: 'z',
+            description: 'suspend (resume with fg)',
+            action: () => suspend(),
+          },
+          {
+            keys: [],
+            ctrl: '\\',
+            description: 'quit with SIGQUIT',
+            action: () => quit('SIGQUIT'),
+          },
         ],
   ]
 
@@ -531,7 +695,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
   const tasks: Array<{ label: string, startedAt: number }> = []
 
   function syncTasks(): void {
-    update({ task: tasks.at(-1) })
+    update({
+      task: tasks.at(-1),
+    })
   }
 
   const releaseHost = registerTerminalHost({
@@ -555,11 +721,16 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       })
       return holdNotice({
         text: notification.title ?? notification.message,
-        tone: notification.level === 'warn' ? 'warn' : 'info',
+        tone: notification.level === 'warn'
+          ? 'warn'
+          : 'info',
       })
     },
     startTask: (label) => {
-      const task = { label, startedAt: Date.now() }
+      const task = {
+        label,
+        startedAt: Date.now(),
+      }
       tasks.push(task)
       syncTasks()
       return {
@@ -576,11 +747,17 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
           if (!message) {
             return
           }
-          showNotice(message, outcome === 'failure' ? 'warn' : 'success')
+          showNotice(message, outcome === 'failure'
+            ? 'warn'
+            : 'success')
           events.push({
             time: Date.now(),
-            level: outcome === 'failure' ? 0 : 3,
-            type: outcome === 'failure' ? 'error' : 'success',
+            level: outcome === 'failure'
+              ? 0
+              : 3,
+            type: outcome === 'failure'
+              ? 'error'
+              : 'success',
             message,
             source: 'cli',
           })
@@ -613,11 +790,32 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
     setStatus: (status, note) => {
       if (status === 'ready') {
         loadFailed = false
-        update({ status, note: undefined, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined, errors: 0, warnings: 0, failures: 0 })
+        update({
+          status,
+          note: undefined,
+          progress: undefined,
+          phaseStartedAt: undefined,
+          phaseElapsedMs: undefined,
+          errors: 0,
+          warnings: 0,
+          failures: 0,
+        })
         return
       }
       const restarted = state.status === 'ready' || state.status === 'error'
-      update({ status, note, ...restarted ? { loadStartedAt: Date.now(), elapsedMs: 0, progress: undefined, phaseStartedAt: undefined, phaseElapsedMs: undefined } : {} })
+      update({
+        status,
+        note,
+        ...restarted
+          ? {
+              loadStartedAt: Date.now(),
+              elapsedMs: 0,
+              progress: undefined,
+              phaseStartedAt: undefined,
+              phaseElapsedMs: undefined,
+            }
+          : {},
+      })
     },
     pushServerLog: (log) => {
       session.expectRender(events.push({
@@ -629,22 +827,31 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
         request: log.request,
         requestId: log.requestId,
         source: log.origin ?? 'build',
-      }, { route: log.raw ? 'reporter' : 'report' }))
+      }, {
+        route: log.raw ? 'reporter' : 'report',
+      }))
     },
     pushRequests: (batch) => {
       if (!batch.length) {
         return
       }
-      requests.push(batch.map(request => ({ time: Date.now(), ...request })))
+      requests.push(batch.map(request => ({
+        time: Date.now(),
+        ...request,
+      })))
       const app = batch.filter(request => !request.internal)
       const failed = app.filter(request => request.status >= 500)
       const failing = (app.at(-1)?.status ?? 0) >= 500
       const recovered = app.length > 0 && !failing && state.status === 'error' && !loadFailed
-      const failureNote = failing && !loadFailed ? 'a request failed · press n to trace it' : undefined
+      const failureNote = failing && !loadFailed
+        ? 'a request failed · press n to trace it'
+        : undefined
       update({
         active: true,
         failures: (state.failures ?? 0) + failed.length,
-        status: failing ? 'error' : recovered ? 'ready' : state.status,
+        status: failing
+          ? 'error'
+          : recovered ? 'ready' : state.status,
         note: failureNote ?? (recovered ? undefined : state.note),
       })
       repaintTicker()
@@ -684,7 +891,9 @@ export function setupDevUI(context: ShortcutContext, options: DevUIOptions = {})
       update({
         rendering: pending && { label: pending.label, startedAt: pending.startedAt },
         renderingMs: pending && Date.now() - pending.startedAt,
-        ...awaiting === undefined ? {} : { awaitingFirstRender: awaiting },
+        ...awaiting === undefined
+          ? {}
+          : { awaitingFirstRender: awaiting },
       })
     },
   }
@@ -739,7 +948,12 @@ function describeURLs(context: ShortcutContext): PanelURL[] {
   }
   const urls: PanelURL[] = describeListenURLs(listener.getURLs())
   if (listener.publicURL && !urls.some(entry => entry.url === listener.publicURL)) {
-    urls.push({ label: URL_LABELS.public, url: listener.publicURL, link: terminalLink(listener.publicURL, listener.publicURL), style: URL_STYLES.public })
+    urls.push({
+      label: URL_LABELS.public,
+      url: listener.publicURL,
+      link: terminalLink(listener.publicURL, listener.publicURL),
+      style: URL_STYLES.public,
+    })
   }
   return urls
 }
@@ -762,20 +976,33 @@ function describeSession(
   const server = stack?.server ?? 'nitro'
   const serverName = SERVER_BUILDER_NAMES[server] ?? server
   // The Vite server builder shares the app builder's version, listed below.
-  const serverVersion = server === 'nitro' ? versions.nitro : undefined
+  const serverVersion = server === 'nitro'
+    ? versions.nitro
+    : undefined
 
   return [
     {
       heading: 'versions',
       entries: [
-        ['Nuxt', update
-          ? `${linkVersion(versions.nuxt)} ${paint('warning', updateLink ?? `\u2192 ${update} available`)}`
-          : linkVersion(versions.nuxt)],
-        ['Server builder', serverVersion ? `${serverName} ${serverVersion}` : serverName],
+        [
+          'Nuxt',
+          update
+            ? `${linkVersion(versions.nuxt)} ${paint('warning', updateLink ?? `\u2192 ${update} available`)}`
+            : linkVersion(versions.nuxt),
+        ],
+        [
+          'Server builder',
+          serverVersion
+            ? `${serverName} ${serverVersion}`
+            : serverName,
+        ],
         [versions.builder.name, versions.builder.version],
         [versions.builder.provider?.name ?? 'via', versions.builder.provider?.version],
         ['Vue', versions.vue ?? undefined],
-        ['Node', process.version.replace(/^v/, '')],
+        [
+          'Node',
+          process.version.replace(/^v/, ''),
+        ],
       ],
     },
     {
@@ -788,9 +1015,20 @@ function describeSession(
     {
       heading: 'session',
       entries: [
-        ['uptime', formatDuration(Date.now() - sessionStart)],
-        ['requests', String(requests.total)],
-        ['median', requests.total ? formatDuration(requests.medianDuration()) : undefined],
+        [
+          'uptime',
+          formatDuration(Date.now() - sessionStart),
+        ],
+        [
+          'requests',
+          String(requests.total),
+        ],
+        [
+          'median',
+          requests.total
+            ? formatDuration(requests.medianDuration())
+            : undefined,
+        ],
         ['directory', cwd],
       ],
     },
@@ -802,14 +1040,20 @@ function firstSentence(message: string): string {
 }
 
 function renderNotification({ title, message, level }: TerminalNotification): string {
-  const mark = level === 'warn' ? styleText(['yellow', 'bold'], '\u26A0') : styleText('cyan', '\u2139')
-  const head = title ? `${mark} ${styleText('bold', title)}\n` : ''
+  const mark = level === 'warn'
+    ? styleText(['yellow', 'bold'], '\u26A0')
+    : styleText('cyan', '\u2139')
+  const head = title
+    ? `${mark} ${styleText('bold', title)}\n`
+    : ''
   return `${head}${message}`
 }
 
 function linkVersion(version: string): string {
   const notes = releaseNotesUrl('nuxt', version)
-  return notes ? terminalLink(version, notes) : version
+  return notes
+    ? terminalLink(version, notes)
+    : version
 }
 
 async function resolveQRCode(context: ShortcutContext): Promise<string | undefined> {

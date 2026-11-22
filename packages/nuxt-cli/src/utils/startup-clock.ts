@@ -21,7 +21,10 @@ function pauseStartupClock(): void {
 
 function resumeStartupClock(): void {
   if (depth > 0 && --depth === 0 && pausedAt !== undefined) {
-    pauses.push([pausedAt, Date.now()])
+    pauses.push([
+      pausedAt,
+      Date.now(),
+    ])
     pausedAt = undefined
   }
 }
@@ -50,7 +53,9 @@ export function withUserAttention<T>(work: () => Promise<T>): Promise<T> {
       return work()
     }
     const host = useTerminalHost()
-    return host ? host.withTerminal(ask) : ask()
+    return host
+      ? host.withTerminal(ask)
+      : ask()
   })
 }
 
@@ -62,8 +67,15 @@ export function withUserAttention<T>(work: () => Promise<T>): Promise<T> {
  */
 export function startupElapsedMs(since: number): number {
   const now = Date.now()
-  const open = pausedAt === undefined ? [] : [[pausedAt, now] as [number, number]]
-  const excluded = [...pauses, ...open]
+  const open = pausedAt === undefined
+    ? []
+    : [
+        [pausedAt, now] as [number, number],
+      ]
+  const excluded = [
+    ...pauses,
+    ...open,
+  ]
     .reduce((total, [start, end]) => total + Math.max(0, Math.min(end, now) - Math.max(start, since)), 0)
   return Math.max(0, now - since - excluded)
 }

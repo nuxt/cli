@@ -10,7 +10,13 @@ async function setup(argv: string[]): Promise<void> {
   vi.doMock('../../src/utils/engines', () => ({ checkEngines }))
   vi.doMock('../../src/utils/update-lazy', () => ({ scheduleUpdateNudge }))
   vi.doMock('../../src/commands', () => ({
-    commands: { info: () => ({ meta: { name: 'info' }, args: {}, run: () => {} }) },
+    commands: {
+      info: () => ({
+        meta: { name: 'info' },
+        args: {},
+        run: () => {},
+      }),
+    },
   }))
   vi.resetModules()
 
@@ -18,7 +24,12 @@ async function setup(argv: string[]): Promise<void> {
   const command = argv.find(arg => !arg.startsWith('-'))
   await freshMain.setup!({
     rawArgs: argv,
-    args: { _: command ? [command] : [], cwd: '.' },
+    args: {
+      _: command
+        ? [command]
+        : [],
+      cwd: '.',
+    },
     cmd: freshMain,
     data: {},
   } as unknown as CommandContext)

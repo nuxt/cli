@@ -10,7 +10,9 @@ import { openDevSpanChannel } from '../../src/dev/span-channel'
 
 const reporters: Array<{ log: (logObj: unknown) => void }> = []
 vi.mock('consola', () => ({
-  consola: { addReporter: (reporter: { log: (logObj: unknown) => void }) => reporters.push(reporter) },
+  consola: {
+    addReporter: (reporter: { log: (logObj: unknown) => void }) => reporters.push(reporter),
+  },
 }))
 
 const { default: plugin } = await import('../../runtime/dev-request-context.mjs') as {
@@ -21,12 +23,21 @@ const HEADER = 'x-nuxt-dev-request-id'
 const LABEL_HEADER = 'x-nuxt-dev-request-label'
 
 function nitroApp(handler: (event: unknown) => unknown) {
-  const app = { handler: Object.assign(handler, { __is_handler__: true }) }
-  return { app, nitroApp: { h3App: app } }
+  const app = {
+    handler: Object.assign(handler, { __is_handler__: true }),
+  }
+  return {
+    app,
+    nitroApp: { h3App: app },
+  }
 }
 
 function eventFor(headers: Record<string, string> = {}) {
-  return { node: { req: { headers, url: '/api/hello' } } }
+  return {
+    node: {
+      req: { headers, url: '/api/hello' },
+    },
+  }
 }
 
 function requestFor(headers: Record<string, string> = {}) {
@@ -35,7 +46,15 @@ function requestFor(headers: Record<string, string> = {}) {
 
 describe('dev request context plugin', () => {
   it('leaves an app it cannot understand exactly as it found it', () => {
-    for (const broken of [undefined, null, {}, { h3App: {} }, { h3App: { handler: 'not a function' } }]) {
+    for (const broken of [
+      undefined,
+      null,
+      {},
+      { h3App: {} },
+      {
+        h3App: { handler: 'not a function' },
+      },
+    ]) {
       expect(() => plugin(broken)).not.toThrow()
     }
   })
@@ -68,8 +87,15 @@ describe('dev request context plugin', () => {
     let seen: Array<string | null> = []
     const instance = {
       fetch: (req: Request) => {
-        seen = [req.headers.get(HEADER), req.headers.get(LABEL_HEADER)]
-        reporters[0]!.log({ level: 3, type: 'info', args: ['from the app'] })
+        seen = [
+          req.headers.get(HEADER),
+          req.headers.get(LABEL_HEADER),
+        ]
+        reporters[0]!.log({
+          level: 3,
+          type: 'info',
+          args: ['from the app'],
+        })
         return 'served'
       },
     }
@@ -100,7 +126,13 @@ describe('dev request context plugin', () => {
     }
     try {
       expect(reporters).toHaveLength(1)
-      expect(() => reporters[0]!.log({ level: 3, type: 'info', args: [Object.create(null)] })).not.toThrow()
+      expect(() => reporters[0]!.log({
+        level: 3,
+        type: 'info',
+        args: [
+          Object.create(null),
+        ],
+      })).not.toThrow()
       expect(app.handler(eventFor({ [HEADER]: 'req-7', [LABEL_HEADER]: 'GET%20%2Fapi%2Fhello' }))).toBe('served')
     }
     finally {
@@ -111,7 +143,11 @@ describe('dev request context plugin', () => {
   it('reports the request a log was emitted for', async () => {
     reporters.length = 0
     const { app, nitroApp: instance } = nitroApp(() => {
-      reporters[0]!.log({ level: 3, type: 'info', args: ['from the app'] })
+      reporters[0]!.log({
+        level: 3,
+        type: 'info',
+        args: ['from the app'],
+      })
       return 'served'
     })
     plugin(instance)
@@ -141,7 +177,11 @@ describe('dev request context plugin', () => {
     const received: Array<{ origin: string, requestId?: string }> = []
     const close = openDevLogChannel(log => received.push(log))
     try {
-      reporters[0]!.log({ level: 3, type: 'info', args: ['building'] })
+      reporters[0]!.log({
+        level: 3,
+        type: 'info',
+        args: ['building'],
+      })
       await vi.waitFor(() => expect(received).toHaveLength(1))
       expect(received[0]!.origin).toBe('build')
       expect(received[0]!.requestId).toBeUndefined()
@@ -155,7 +195,11 @@ describe('dev request context plugin', () => {
     const before: Array<(event: { name: string, context: Record<symbol, unknown> }) => void> = []
     const after: typeof before = []
     const hooks = {
-      _hooks: { 'render:html': [() => {}] } as Record<string, unknown[]>,
+      _hooks: {
+        'render:html': [
+          () => {},
+        ],
+      } as Record<string, unknown[]>,
       beforeEach: (fn: (typeof before)[number]) => before.push(fn),
       afterEach: (fn: (typeof before)[number]) => after.push(fn),
       callHook(name: string) {
@@ -166,17 +210,34 @@ describe('dev request context plugin', () => {
     }
     const fetchRequest = { method: 'GET', origin: 'https://api.example.com', path: '/data' }
     const { app, nitroApp: instance } = nitroApp(async () => {
-      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, { plugin: { name: 'nuxt:head' } })
+      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, {
+        plugin: { name: 'nuxt:head' },
+      })
       await tracingChannel('nuxt.hook').tracePromise(async () => {}, { name: 'app:rendered', args: [] })
-      await tracingChannel('nuxt.hook').tracePromise(async () => {}, { hook: { name: 'app:created' } })
-      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, { middleware: { name: 'auth', global: false } })
-      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, { middleware: { path: '@/project/node_modules/nuxt/dist/app/middleware/guard.js', global: true } })
+      await tracingChannel('nuxt.hook').tracePromise(async () => {}, {
+        hook: { name: 'app:created' },
+      })
+      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, {
+        middleware: { name: 'auth', global: false },
+      })
+      await tracingChannel('nuxt.middleware').tracePromise(async () => {}, {
+        middleware: { path: '@/project/node_modules/nuxt/dist/app/middleware/guard.js', global: true },
+      })
       await tracingChannel('nuxt.data').tracePromise(async () => {}, { key: 'posts', functionName: 'useFetch' })
-      await tracingChannel('h3.request').tracePromise(async () => {}, { type: 'route', event: { req: { method: 'GET', url: 'http://localhost/api/posts?page=2' }, res: { status: 201 } } })
+      await tracingChannel('h3.request').tracePromise(async () => {}, {
+        type: 'route',
+        event: {
+          req: { method: 'GET', url: 'http://localhost/api/posts?page=2' },
+          res: { status: 201 },
+        },
+      })
       hooks.callHook('render:html')
       hooks.callHook('request')
       channel('undici:request:create').publish({ request: fetchRequest })
-      channel('undici:request:headers').publish({ request: fetchRequest, response: { statusCode: 200 } })
+      channel('undici:request:headers').publish({
+        request: fetchRequest,
+        response: { statusCode: 200 },
+      })
       channel('undici:request:trailers').publish({ request: fetchRequest })
       return 'served'
     })
@@ -185,7 +246,9 @@ describe('dev request context plugin', () => {
     const received: DevRequestSpan[] = []
     const close = openDevSpanChannel(span => received.push(span))
     try {
-      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, { plugin: { name: 'outside a request' } })
+      await tracingChannel('nuxt.plugin').tracePromise(async () => {}, {
+        plugin: { name: 'outside a request' },
+      })
       await app.handler(eventFor({ [HEADER]: 'req-9', [LABEL_HEADER]: 'GET%20%2F' }))
       await vi.waitFor(() => expect(received).toHaveLength(9))
       expect(received.every(span => span.requestId === 'req-9')).toBe(true)

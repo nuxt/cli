@@ -50,7 +50,9 @@ describe('findInPath', () => {
   // Windows resolves a bare name through the extensions in `PATHEXT`, so the file
   // on disk is named for the platform under test, and `PATHEXT` is passed rather
   // than inherited so the runner's own value cannot change what is looked for.
-  const suffix = process.platform === 'win32' ? '.CMD' : ''
+  const suffix = process.platform === 'win32'
+    ? '.CMD'
+    : ''
   const pathExt = { PATHEXT: '.CMD' }
 
   it('should find a binary on the given path', () => {
@@ -60,7 +62,10 @@ describe('findInPath', () => {
   })
 
   it('should return nothing for a binary that is not on the path', () => {
-    expect(findInPath('nuxt-thing', { ...pathExt, PATH: binDir() })).toBeUndefined()
+    expect(findInPath('nuxt-thing', {
+      ...pathExt,
+      PATH: binDir(),
+    })).toBeUndefined()
   })
 
   it('should read the path from whichever key holds it', () => {

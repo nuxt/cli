@@ -7,7 +7,9 @@ const stdEnv = vi.hoisted(() => ({ isCI: false, isTest: false, provider: 'unknow
 const rcStore = vi.hoisted(() => ({ current: {} as Record<string, unknown> }))
 const project = vi.hoisted(() => ({ nuxtVersion: undefined as string | undefined }))
 const fetchMock = vi.hoisted(() => vi.fn())
-const registry = vi.hoisted(() => ({ current: { registry: 'https://registry.npmjs.org', authToken: null as string | null, authorization: null as string | null } }))
+const registry = vi.hoisted(() => ({
+  current: { registry: 'https://registry.npmjs.org', authToken: null as string | null, authorization: null as string | null },
+}))
 const detectNpmRegistry = vi.hoisted(() => vi.fn(async () => registry.current))
 
 vi.mock('std-env', async (importOriginal) => {
@@ -43,7 +45,9 @@ vi.mock('../../../src/utils/registry', () => ({ detectNpmRegistry }))
 vi.mock('../../../src/utils/package-json', () => ({
   readDependencyPackageJson: async (name?: string) => {
     if (name === 'nuxt') {
-      return project.nuxtVersion ? { name: 'nuxt', version: project.nuxtVersion } : undefined
+      return project.nuxtVersion
+        ? { name: 'nuxt', version: project.nuxtVersion }
+        : undefined
     }
     return undefined
   },
@@ -111,7 +115,9 @@ describe('update check', () => {
     })
 
     it('is disabled by a persisted opt-out', () => {
-      rcStore.current = { updateCheck: { enabled: false } }
+      rcStore.current = {
+        updateCheck: { enabled: false },
+      }
       expect(isUpdateCheckEnabled()).toBe(false)
     })
   })
@@ -160,7 +166,9 @@ describe('update check', () => {
       await checkForNuxtUpdate('/project')
       expect(fetchMock).toHaveBeenCalledWith(
         'https://npm.example.com/-/package/nuxt/dist-tags',
-        expect.objectContaining({ headers: { Authorization: 'Bearer secret' } }),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer secret' },
+        }),
       )
     })
 
@@ -202,20 +210,29 @@ describe('update check', () => {
     })
 
     it('preserves a persisted opt-in when caching the result', async () => {
-      rcStore.current = { updateCheck: { enabled: true } }
+      rcStore.current = {
+        updateCheck: { enabled: true },
+      }
       fetchMock.mockResolvedValue({ latest: '4.1.0' })
       await checkForNuxtUpdate('/project')
       expect(rcStore.current.updateCheck).toMatchObject({ enabled: true, latest: '4.1.0' })
     })
 
     it('uses a fresh cache without fetching', async () => {
-      rcStore.current = { updateCheck: { latest: '4.1.0', checkedAt: Date.now() } }
+      rcStore.current = {
+        updateCheck: {
+          latest: '4.1.0',
+          checkedAt: Date.now(),
+        },
+      }
       await expect(checkForNuxtUpdate('/project')).resolves.toEqual({ current: '4.0.0', latest: '4.1.0' })
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it('refetches when the cache is stale', async () => {
-      rcStore.current = { updateCheck: { latest: '4.1.0', checkedAt: Date.now() - 25 * 60 * 60 * 1000 } }
+      rcStore.current = {
+        updateCheck: { latest: '4.1.0', checkedAt: Date.now() - 25 * 60 * 60 * 1000 },
+      }
       fetchMock.mockResolvedValue({ latest: '4.2.0' })
       await expect(checkForNuxtUpdate('/project')).resolves.toEqual({ current: '4.0.0', latest: '4.2.0' })
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -276,7 +293,9 @@ describe('update check', () => {
     it('does not nudge when the caller declines', async () => {
       fetchMock.mockResolvedValue({ latest: '4.1.0' })
       const once = vi.spyOn(process, 'once')
-      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', { shouldNudge: () => false })
+      await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', {
+        shouldNudge: () => false,
+      })
       expect(once).not.toHaveBeenCalled()
       once.mockRestore()
     })
@@ -289,7 +308,12 @@ describe('update check', () => {
     })
 
     it('caches a package check separately from the nuxt one', async () => {
-      rcStore.current = { updateCheck: { latest: '4.9.0', checkedAt: Date.now() } }
+      rcStore.current = {
+        updateCheck: {
+          latest: '4.9.0',
+          checkedAt: Date.now(),
+        },
+      }
       fetchMock.mockResolvedValue({ latest: '4.0.0' })
       await scheduleSelfUpdateNudge('create-nuxt', '4.0.0', {})
       expect(fetchMock).toHaveBeenCalledTimes(1)

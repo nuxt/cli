@@ -3,7 +3,10 @@ import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const close = vi.fn()
-const paintFirstFrame = vi.fn(() => ({ surface: { close }, state: {} }))
+const paintFirstFrame = vi.fn(() => ({
+  surface: { close },
+  state: {},
+}))
 const setupDevUI = vi.fn(() => Promise.resolve({}))
 
 vi.mock('../../src/dev/tui/first-frame', () => ({ paintFirstFrame }))
@@ -16,9 +19,18 @@ async function boot(argv: string[], terminal = true) {
     stdout: Object.getOwnPropertyDescriptor(process, 'stdout')!,
     stdin: Object.getOwnPropertyDescriptor(process, 'stdin')!,
   }
-  Object.defineProperty(process, 'argv', { value: ['node', 'nuxi', ...argv], configurable: true })
-  Object.defineProperty(process, 'stdout', { value: { ...process.stdout, isTTY: terminal }, configurable: true })
-  Object.defineProperty(process, 'stdin', { value: { ...process.stdin, isTTY: terminal }, configurable: true })
+  Object.defineProperty(process, 'argv', {
+    value: ['node', 'nuxi', ...argv],
+    configurable: true,
+  })
+  Object.defineProperty(process, 'stdout', {
+    value: { ...process.stdout, isTTY: terminal },
+    configurable: true,
+  })
+  Object.defineProperty(process, 'stdin', {
+    value: { ...process.stdin, isTTY: terminal },
+    configurable: true,
+  })
   try {
     const { bootDevUI } = await import('../../src/boot')
     await bootDevUI()
@@ -64,13 +76,34 @@ describe('dev panel from the cli entry', () => {
   })
 
   it.each([
-    ['another command', ['build']],
-    ['help', ['dev', '--help']],
-    ['a version check', ['dev', '--version']],
-    ['the panel turned off', ['dev', '--no-tui']],
-    ['an explicit --tui value', ['dev', '--tui', 'false']],
-    ['the inspector', ['dev', '--inspect']],
-    ['the profiler', ['dev', '--profile=verbose']],
+    [
+      'another command',
+      ['build'],
+    ],
+    [
+      'help',
+      ['dev', '--help'],
+    ],
+    [
+      'a version check',
+      ['dev', '--version'],
+    ],
+    [
+      'the panel turned off',
+      ['dev', '--no-tui'],
+    ],
+    [
+      'an explicit --tui value',
+      ['dev', '--tui', 'false'],
+    ],
+    [
+      'the inspector',
+      ['dev', '--inspect'],
+    ],
+    [
+      'the profiler',
+      ['dev', '--profile=verbose'],
+    ],
   ])('should leave %s to the command', async (_case, argv) => {
     await boot(argv)
 

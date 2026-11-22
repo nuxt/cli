@@ -86,7 +86,9 @@ export default defineCommand({
     const proceed = await removeModules(resolvedModules, { ...ctx.args, cwd }, projectPkg)
 
     if (proceed !== true) {
-      process.exit(proceed === false ? 1 : 0)
+      process.exit(proceed === false
+        ? 1
+        : 0)
     }
 
     if (!ctx.args.skipInstall) {
@@ -105,7 +107,9 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
       return undefined
     })
 
-    const present = config ? CONFIG_KEYS.flatMap(key => config[key]) : []
+    const present = config
+      ? CONFIG_KEYS.flatMap(key => config[key])
+      : []
 
     let toRemove = new Set(modules)
     if (config && modules.length === 0 && present.length > 0) {
@@ -170,7 +174,9 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
 
     if (notInstalledModules.length > 0) {
       const notInstalledList = notInstalledModules.map(m => styleText('cyan', m)).join(', ')
-      const are = notInstalledModules.length > 1 ? 'are' : 'is'
+      const are = notInstalledModules.length > 1
+        ? 'are'
+        : 'is'
       logger.info(`${notInstalledList} ${are} not installed as a dependency`)
     }
 
@@ -184,10 +190,16 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     if (orphanedPeers.length > 0) {
       const peersList = orphanedPeers.map(({ peer, source }) =>
         `${styleText('cyan', peer)} (peer of ${styleText('cyan', source)})`).join(', ')
-      const peerDep = orphanedPeers.length > 1 ? 'dependencies' : 'dependency'
-      const them = orphanedPeers.length > 1 ? 'them' : 'it'
+      const peerDep = orphanedPeers.length > 1
+        ? 'dependencies'
+        : 'dependency'
+      const them = orphanedPeers.length > 1
+        ? 'them'
+        : 'it'
 
-      logger.info(`The following peer ${peerDep} ${orphanedPeers.length > 1 ? 'are' : 'is'} no longer used by any other dependency: ${peersList}`)
+      logger.info(`The following peer ${peerDep} ${orphanedPeers.length > 1
+        ? 'are'
+        : 'is'} no longer used by any other dependency: ${peersList}`)
 
       const alsoRemove = await askQuestion(() => confirm({
         message: `Do you also want to remove ${them}?`,
@@ -205,7 +217,9 @@ async function removeModules(modules: string[], { skipInstall = false, skipConfi
     }
 
     const removeList = toRemove.map(m => styleText('cyan', m)).join(', ')
-    const dependency = toRemove.length > 1 ? 'dependencies' : 'dependency'
+    const dependency = toRemove.length > 1
+      ? 'dependencies'
+      : 'dependency'
     logger.info(`Uninstalling ${removeList} ${dependency}`)
 
     const packageManager = await detectPackageManager(cwd) ?? defaultPackageManager
@@ -245,7 +259,9 @@ function resolveModuleName(input: string, modulesDB: NuxtModule[], installed: Se
     || m.aliases?.includes(input),
   )
 
-  return matched?.npm ? basePackageName(matched.npm) : input
+  return matched?.npm
+    ? basePackageName(matched.npm)
+    : input
 }
 
 async function findOrphanedPeers(removing: string[], projectPkg: PackageJson, cwd: string): Promise<OrphanedPeer[]> {

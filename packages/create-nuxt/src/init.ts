@@ -46,7 +46,12 @@ const NIGHTLY_DIST_TAGS_URL = 'https://registry.npmjs.org/nuxt-nightly'
 
 // Arguments that would otherwise be gathered through interactive prompts,
 // so they must be explicitly provided when no TTY is available
-const nonInteractiveRequiredArgs = ['dir', 'template', 'packageManager', 'gitInit'] as const
+const nonInteractiveRequiredArgs = [
+  'dir',
+  'template',
+  'packageManager',
+  'gitInit',
+] as const
 
 // Exit code citty uses for argument errors; reuse it for every missing/invalid
 // argument so the contract stays consistent regardless of where we detect it.
@@ -66,12 +71,18 @@ async function reportMissingNonInteractiveArgs<T extends ArgsDef>(
   await showUsage(cmd)
   if (availableTemplates) {
     logger.info(`Available templates:\n${Object.entries(availableTemplates)
-      .map(([name, data]) => `  ${styleText('cyan', name)}${data ? ` · ${data.description}` : ''}`)
+      .map(([name, data]) => `  ${styleText('cyan', name)}${data
+        ? ` · ${data.description}`
+        : ''}`)
       .join('\n')}`)
   }
-  const label = missingArgs.length === 1 ? 'argument' : 'arguments'
+  const label = missingArgs.length === 1
+    ? 'argument'
+    : 'arguments'
   logger.error(`Non-interactive terminal detected. Missing required ${label}: ${missingArgs
-    .map(name => styleText('cyan', name === 'dir' ? '<dir>' : `--${name}`))
+    .map(name => styleText('cyan', name === 'dir'
+      ? '<dir>'
+      : `--${name}`))
     .join(', ')}`)
 }
 
@@ -111,7 +122,9 @@ export function getNextSteps(options: {
   packageManager: AgentName
 }): string[] {
   const { dir, shell, installFailure, installSkipped, recoveryCommands, packageManager } = options
-  const runCmd = packageManager === 'deno' ? 'task' : 'run'
+  const runCmd = packageManager === 'deno'
+    ? 'task'
+    : 'run'
   return [
     !shell && dir !== '.' && `cd ${dir}`,
     (installFailure || installSkipped) && `${packageManager} install`,
@@ -120,13 +133,20 @@ export function getNextSteps(options: {
   ].filter((step): step is string => typeof step === 'string')
 }
 
-const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
+const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+] as const
 
 async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string) {
   const packageJsonFiles: string[] = []
   const rootPackageResolved = pathResolve(rootPackageJsonPath)
   const visited = new Set<string>()
-  const queue = [pathResolve(rootDir)]
+  const queue = [
+    pathResolve(rootDir),
+  ]
 
   while (queue.length > 0) {
     const dir = queue.pop()!
@@ -163,7 +183,9 @@ function workspaceTargetName(specifier: string): string | undefined {
     return
   }
   const at = rest.lastIndexOf('@')
-  return at === -1 ? undefined : rest.slice(0, at)
+  return at === -1
+    ? undefined
+    : rest.slice(0, at)
 }
 
 async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath: string, name: string) {
@@ -349,8 +371,12 @@ export default defineCommand({
         options: Object.entries(availableTemplates).map(([name, data]) => {
           return {
             value: name,
-            label: data ? `${styleText('whiteBright', name)} · ${data.description}` : name,
-            hint: name === DEFAULT_TEMPLATE_NAME ? 'recommended' : undefined,
+            label: data
+              ? `${styleText('whiteBright', name)} · ${data.description}`
+              : name,
+            hint: name === DEFAULT_TEMPLATE_NAME
+              ? 'recommended'
+              : undefined,
           }
         }),
         initialValue: DEFAULT_TEMPLATE_NAME,
@@ -542,7 +568,9 @@ export default defineCommand({
     const packageManagerSelectOptions = packageManagerNames.map(pm => ({
       label: pm,
       value: pm,
-      hint: currentPackageManager === pm ? 'current' : undefined,
+      hint: currentPackageManager === pm
+        ? 'current'
+        : undefined,
     }))
 
     // Detect the package manager the template ships with (via a lockfile or its
@@ -606,7 +634,9 @@ export default defineCommand({
       logger.info(`Created ${styleText('cyan', '.yarnrc.yml')} with ${styleText('cyan', 'nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
     }
 
-    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown ? false : ctx.args.gitInit
+    let gitInit: boolean | undefined = ctx.args.gitInit === 'false' as unknown
+      ? false
+      : ctx.args.gitInit
     if (gitInit === undefined) {
       const result = await confirm({
         message: 'Initialize git repository?',
@@ -627,7 +657,9 @@ export default defineCommand({
     }
     else if (shouldInstall) {
       const installController = new AbortController()
-      const installLog = createInstallLog({ verbose: isVerboseInstall(ctx.args.logLevel) })
+      const installLog = createInstallLog({
+        verbose: isVerboseInstall(ctx.args.logLevel),
+      })
       const installSpinner = createSpinner({
         indicator: 'timer',
         onCancel: () => installController.abort(),
@@ -690,7 +722,9 @@ export default defineCommand({
       }
       else {
         gitSpinner.error('Git initialization failed')
-        logger.message(git.stderr.trim().split('\n'), { symbol: styleText('gray', S_BAR) })
+        logger.message(git.stderr.trim().split('\n'), {
+          symbol: styleText('gray', S_BAR),
+        })
       }
     }
 
@@ -789,7 +823,9 @@ export default defineCommand({
         `--cwd=${template.dir}`,
         shouldInstall ? '' : '--skipInstall',
         `--packageManager=${selectedPackageManager}`,
-        ctx.args.logLevel ? `--logLevel=${ctx.args.logLevel}` : '',
+        ctx.args.logLevel
+          ? `--logLevel=${ctx.args.logLevel}`
+          : '',
       ].filter(Boolean)
 
       await runCommand(addModuleCommand, args)
@@ -840,7 +876,9 @@ export default defineCommand({
     logger.message([
       'Next steps:',
       ...nextSteps.map(step => `› ${styleText('cyan', step)}`),
-    ], { symbol: styleText('gray', S_BAR) })
+    ], {
+      symbol: styleText('gray', S_BAR),
+    })
 
     outro('✨ Happy building!')
 
@@ -881,9 +919,17 @@ async function getTemplateDependencies(templateDir: string) {
       return []
     }
     const packageJson = await readPackageJSON(packageJsonPath)
-    const directDepNames = Object.keys({ ...packageJson.dependencies, ...packageJson.devDependencies })
+    const directDepNames = Object.keys({
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies,
+    })
     const transitiveDeps = await Promise.all(directDepNames.map(getModuleDependencies))
-    return [...new Set([...directDepNames, ...transitiveDeps.flat()])]
+    return [
+      ...new Set([
+        ...directDepNames,
+        ...transitiveDeps.flat(),
+      ]),
+    ]
   }
   catch (err) {
     logger.warn(`Could not read template dependencies: ${err}`)

@@ -160,16 +160,20 @@ export function setupShortcuts(context: ShortcutContext): void {
       return
     }
     try {
-      await shortcut.action({ ...context, closeInput: () => rl.close(), open: () => {
-        if (ready && context.listener) {
-          openBrowser(context.listener.url)
-        }
-        else {
-          armedOpen = !armedOpen
-          // eslint-disable-next-line no-console
-          console.log(armedOpen ? 'Browser will open when the server is ready.' : 'Browser opening cancelled.')
-        }
-      } })
+      await shortcut.action({
+        ...context,
+        closeInput: () => rl.close(),
+        open: () => {
+          if (ready && context.listener) {
+            openBrowser(context.listener.url)
+          }
+          else {
+            armedOpen = !armedOpen
+            // eslint-disable-next-line no-console
+            console.log(armedOpen ? 'Browser will open when the server is ready.' : 'Browser opening cancelled.')
+          }
+        },
+      })
     }
     catch (error) {
       console.error(error)

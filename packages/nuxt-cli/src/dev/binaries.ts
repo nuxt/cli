@@ -47,7 +47,9 @@ async function locateTool(name: string, options: { url?: string, archive?: boole
   }
   const cacheName = options.cacheName || name
   const cacheDir = getCacheDir('bin')
-  const destination = join(cacheDir, process.platform === 'win32' ? `${cacheName}.exe` : cacheName)
+  const destination = join(cacheDir, process.platform === 'win32'
+    ? `${cacheName}.exe`
+    : cacheName)
   if (dirname(destination) !== cacheDir) {
     debug(`Refusing to cache \`${name}\` outside ${cacheDir}.`)
     return undefined
@@ -95,7 +97,11 @@ async function confirmToolInstall(options: ConsentOptions): Promise<boolean> {
   }
 
   try {
-    updateUser({ tools: { [options.key]: { termsAccepted: true } } }, '.nuxtrc')
+    updateUser({
+      tools: {
+        [options.key]: { termsAccepted: true },
+      },
+    }, '.nuxtrc')
   }
   catch (error) {
     debug('Failed to update user .nuxtrc:', error)
@@ -180,7 +186,9 @@ async function readWithProgress(response: Response, label: string): Promise<Buff
     return Buffer.from(await response.arrayBuffer())
   }
 
-  const indicator = total ? progress({ style: 'heavy', max: total }) : spinner()
+  const indicator = total
+    ? progress({ style: 'heavy', max: total })
+    : spinner()
   indicator.start(message)
 
   const chunks: Buffer[] = []

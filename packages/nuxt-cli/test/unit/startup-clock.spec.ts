@@ -120,7 +120,10 @@ describe('startup clock', () => {
     const release = holdStdin()
     const removeHost = registerTerminalHost({
       version: 1,
-      startTask: () => ({ update: () => {}, stop: () => {} }),
+      startTask: () => ({
+        update: () => {},
+        stop: () => {},
+      }),
       withTerminal: async (work) => {
         borrowed.push('suspend')
         try {

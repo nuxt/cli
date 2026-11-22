@@ -75,10 +75,22 @@ interface Entry {
 function entryArbitrary(quote: string) {
   return fc.record({
     entry: fc.oneof(
-      { weight: 6, arbitrary: specifier.map(value => ({ text: `${quote}${value}${quote}`, name: value })) },
-      { weight: 2, arbitrary: specifier.map(value => ({ text: `[${quote}${value}${quote}, { quality: 80 }]`, name: value })) },
-      { weight: 1, arbitrary: fc.constant({ text: 'noop', name: null }) },
-      { weight: 1, arbitrary: fc.constant({ text: '[noop, { a: 1 }]', name: null }) },
+      {
+        weight: 6,
+        arbitrary: specifier.map(value => ({ text: `${quote}${value}${quote}`, name: value })),
+      },
+      {
+        weight: 2,
+        arbitrary: specifier.map(value => ({ text: `[${quote}${value}${quote}, { quality: 80 }]`, name: value })),
+      },
+      {
+        weight: 1,
+        arbitrary: fc.constant({ text: 'noop', name: null }),
+      },
+      {
+        weight: 1,
+        arbitrary: fc.constant({ text: '[noop, { a: 1 }]', name: null }),
+      },
     ) as fc.Arbitrary<Entry>,
     comment: fc.boolean(),
   }).map(({ entry, comment }) => ({ ...entry, comment }))
@@ -97,7 +109,15 @@ const NOISE_VALUES = [
   '{ \'key with }\': 1 }',
 ]
 
-const NOISE_KEYS = ['ssr', 'srcDir', 'devtools', 'app', 'vite', 'future', 'experimental']
+const NOISE_KEYS = [
+  'ssr',
+  'srcDir',
+  'devtools',
+  'app',
+  'vite',
+  'future',
+  'experimental',
+]
 
 interface Shape {
   source: string
@@ -120,11 +140,17 @@ function renderArray(entries: Entry[], layout: Layout, indent: string, eol: stri
     return `[${texts.join(', ')},]`
   }
   const inner = `${indent}${indent}`
-  const comma = layout === 'lines' ? ',' : ''
+  const comma = layout === 'lines'
+    ? ','
+    : ''
   const lines = texts.map((text, index) => {
-    const separator = index < texts.length - 1 ? ',' : comma
+    const separator = index < texts.length - 1
+      ? ','
+      : comma
     // A comment on the last entry is where a naive insertion point would land.
-    const comment = index === texts.length - 1 && entries[index]!.comment ? ' // keep me' : ''
+    const comment = index === texts.length - 1 && entries[index]!.comment
+      ? ' // keep me'
+      : ''
     return `${inner}${text}${separator}${comment}`
   })
   return `[${eol}${lines.join(eol)}${eol}${indent}]`
@@ -141,7 +167,10 @@ const shape: fc.Arbitrary<Shape> = fc.record({
   singleExtends: fc.boolean(),
   hasModules: fc.boolean(),
   hasExtends: fc.boolean(),
-  noise: fc.uniqueArray(fc.tuple(fc.constantFrom(...NOISE_KEYS), fc.constantFrom(...NOISE_VALUES)), { maxLength: 3, selector: pair => pair[0] }),
+  noise: fc.uniqueArray(fc.tuple(fc.constantFrom(...NOISE_KEYS), fc.constantFrom(...NOISE_VALUES)), {
+    maxLength: 3,
+    selector: pair => pair[0],
+  }),
   noiseFirst: fc.boolean(),
   trailingComment: fc.boolean(),
 }).chain(options => fc.record({
@@ -150,7 +179,9 @@ const shape: fc.Arbitrary<Shape> = fc.record({
 }).map(({ moduleEntries, extendsEntries }) => {
   const { indent, eol, quote, wrapper, prelude, layout, quotedKeys, singleExtends, hasModules, hasExtends, noise, noiseFirst, trailingComment } = options
 
-  const key = (value: string) => quotedKeys ? `${quote}${value}${quote}` : value
+  const key = (value: string) => quotedKeys
+    ? `${quote}${value}${quote}`
+    : value
   const properties: Array<{ text: string, comment?: boolean }> = []
 
   const noiseProperties = noise.map(([noiseKey, value]) => ({ text: `${key(noiseKey)}: ${value}` }))
@@ -158,7 +189,9 @@ const shape: fc.Arbitrary<Shape> = fc.record({
     properties.push(...noiseProperties)
   }
 
-  const modules = hasModules ? dedupe(moduleEntries) : []
+  const modules = hasModules
+    ? dedupe(moduleEntries)
+    : []
   if (hasModules) {
     properties.push({ text: `${key('modules')}: ${renderArray(modules, layout, indent, eol)}`, comment: trailingComment })
   }
@@ -166,11 +199,15 @@ const shape: fc.Arbitrary<Shape> = fc.record({
   const single = singleExtends && extendsEntries.some(entry => entry.name !== null)
   const layers = hasExtends
     ? single
-      ? [extendsEntries.find(entry => entry.name !== null)!]
+      ? [
+          extendsEntries.find(entry => entry.name !== null)!,
+        ]
       : dedupe(extendsEntries)
     : []
   if (hasExtends) {
-    const value = single ? layers[0]!.text : renderArray(layers, layout, indent, eol)
+    const value = single
+      ? layers[0]!.text
+      : renderArray(layers, layout, indent, eol)
     properties.push({ text: `${key('extends')}: ${value}` })
   }
 
@@ -190,15 +227,22 @@ const shape: fc.Arbitrary<Shape> = fc.record({
         ? `defineNuxtConfig(${body}) as any`
         : `defineNuxtConfig(${body}) satisfies Record<string, unknown>`
 
-  const needsNoop = [...modules, ...layers].some(entry => entry.text.includes('noop'))
+  const needsNoop = [
+    ...modules,
+    ...layers,
+  ].some(entry => entry.text.includes('noop'))
   const header = (needsNoop ? 'const noop = () => {}\n' : '') + prelude
 
   const listed = layout === 'empty-inline' || layout === 'empty-lines'
 
   return {
     source: `${header}export default ${expression}${eol}`,
-    modules: listed ? [] : names(modules),
-    extends: listed && !single ? [] : names(layers),
+    modules: listed
+      ? []
+      : names(modules),
+    extends: listed && !single
+      ? []
+      : names(layers),
   }
 }))
 
@@ -233,7 +277,10 @@ function isParseable(source: string): boolean {
 }
 
 function describeShape(shape: Shape, extra: Record<string, unknown> = {}) {
-  return JSON.stringify({ ...shape, ...extra }, null, 2)
+  return JSON.stringify({
+    ...shape,
+    ...extra,
+  }, null, 2)
 }
 
 describe('config editing invariants', () => {
@@ -286,8 +333,14 @@ describe('config editing invariants', () => {
         expect(isParseable(source), context).toBe(true)
 
         const config = (await readNuxtConfig(engine.cwd))!
-        expect(config.modules, context).toEqual([...generated.modules, ...added.filter(name => !generated.modules.includes(name))])
-        expect(config.extends, context).toEqual([...generated.extends, ...added.filter(name => !generated.extends.includes(name))])
+        expect(config.modules, context).toEqual([
+          ...generated.modules,
+          ...added.filter(name => !generated.modules.includes(name)),
+        ])
+        expect(config.extends, context).toEqual([
+          ...generated.extends,
+          ...added.filter(name => !generated.extends.includes(name)),
+        ])
       }
     }), { numRuns: RUNS })
   }, TIMEOUT)

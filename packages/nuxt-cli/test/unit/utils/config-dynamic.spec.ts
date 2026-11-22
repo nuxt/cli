@@ -35,16 +35,26 @@ async function createProject(source: string, { parser }: { parser: boolean }): P
 }
 
 describe.each([
-  ['scanner', { parser: false }],
-  ['parser', { parser: true }],
+  [
+    'scanner',
+    { parser: false },
+  ],
+  [
+    'parser',
+    { parser: true },
+  ],
 ])('%s', (name, options) => {
-  const refusal = name === 'parser' ? 'Could not find a config object' : 'Default export is missing'
+  const refusal = name === 'parser'
+    ? 'Could not find a config object'
+    : 'Default export is missing'
   async function add(source: string): Promise<{ error?: string, after: string }> {
     const cwd = await createProject(source, options)
     const config = await readNuxtConfig(cwd)
     let error: string | undefined
     try {
-      await addNuxtConfigEntries(config!, { modules: ['@nuxt/image'] })
+      await addNuxtConfigEntries(config!, {
+        modules: ['@nuxt/image'],
+      })
     }
     catch (err) {
       error = (err as Error).message

@@ -54,7 +54,12 @@ describe('resolveTool', () => {
     await expect(resolveTool('nuxt-tool-that-does-not-exist', {
       url: 'https://example.com/cloudflared',
       cacheName: '../../escaped',
-      consent: { key: 'nuxt-tool-that-does-not-exist', notice: [], message: '', nonInteractiveWarning: '' },
+      consent: {
+        key: 'nuxt-tool-that-does-not-exist',
+        notice: [],
+        message: '',
+        nonInteractiveWarning: '',
+      },
     })).resolves.toBeUndefined()
 
     expect(fetchSpy).not.toHaveBeenCalled()

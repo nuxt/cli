@@ -52,12 +52,20 @@ export function asActionableError(error: unknown): unknown {
   }
   const diagnostic = error as NuxtDiagnostic
   const code = getNuxtDiagnosticCode(diagnostic)
-  const fix = typeof diagnostic.fix === 'string' && diagnostic.fix.trim() ? diagnostic.fix : undefined
-  const docs = typeof diagnostic.docs === 'string' && diagnostic.docs.trim() ? diagnostic.docs : undefined
+  const fix = typeof diagnostic.fix === 'string' && diagnostic.fix.trim()
+    ? diagnostic.fix
+    : undefined
+  const docs = typeof diagnostic.docs === 'string' && diagnostic.docs.trim()
+    ? diagnostic.docs
+    : undefined
   if (!code && !fix && !docs) {
     return error
   }
-  const lines = [code ? `[${code}] ${error.message}` : error.message]
+  const lines = [
+    code
+      ? `[${code}] ${error.message}`
+      : error.message,
+  ]
   if (fix) {
     lines.push(fix)
   }

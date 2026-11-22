@@ -32,9 +32,18 @@ describe('terminal background', () => {
 describe('exact colours', () => {
   const withTerminal = (depth: number, run: () => void) => {
     const keys = ['getColorDepth', 'hasColors', 'isTTY'] as const
-    const originals = keys.map(key => [key, Object.getOwnPropertyDescriptor(process.stdout, key)] as const)
-    Object.defineProperty(process.stdout, 'getColorDepth', { value: () => depth, configurable: true })
-    Object.defineProperty(process.stdout, 'hasColors', { value: () => depth > 1, configurable: true })
+    const originals = keys.map(key => [
+      key,
+      Object.getOwnPropertyDescriptor(process.stdout, key),
+    ] as const)
+    Object.defineProperty(process.stdout, 'getColorDepth', {
+      value: () => depth,
+      configurable: true,
+    })
+    Object.defineProperty(process.stdout, 'hasColors', {
+      value: () => depth > 1,
+      configurable: true,
+    })
     Object.defineProperty(process.stdout, 'isTTY', { value: depth > 1, configurable: true })
     try {
       run()

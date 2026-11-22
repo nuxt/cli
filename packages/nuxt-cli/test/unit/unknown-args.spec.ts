@@ -15,17 +15,33 @@ const argsDef = {
   'dotenv': { type: 'string' },
   'strictPort': { type: 'boolean' },
   'open.url': { type: 'string' },
-  'port': { type: 'string', alias: ['p'] },
+  'port': {
+    type: 'string',
+    alias: ['p'],
+  },
 } satisfies ArgsDef
 
 describe('findUnknownFlags', () => {
   it('should accept declared flags, aliases and negations', () => {
-    const { flags } = findUnknownFlags(argsDef, ['--cwd=.', '--json', '--no-fork', '--port', '3000', '--help', '--version'])
+    const { flags } = findUnknownFlags(argsDef, [
+      '--cwd=.',
+      '--json',
+      '--no-fork',
+      '--port',
+      '3000',
+      '--help',
+      '--version',
+    ])
     expect(flags).toEqual([])
   })
 
   it('should accept a dotted flag declared whole or by its parent', () => {
-    expect(findUnknownFlags(argsDef, ['--open.url=/admin', '--https.cert=x', '--https.key', 'y']).flags).toEqual([])
+    expect(findUnknownFlags(argsDef, [
+      '--open.url=/admin',
+      '--https.cert=x',
+      '--https.key',
+      'y',
+    ]).flags).toEqual([])
   })
 
   it('should report a flag that is not declared', () => {
@@ -61,21 +77,45 @@ describe('suggestFlags', () => {
   })
 
   it('should not invent a suggestion for an unrelated flag', async () => {
-    await expect(suggestFlags(findUnknownFlags(argsDef, ['--xyzzy']))).resolves.toEqual([{ flag: '--xyzzy', suggestion: undefined }])
+    await expect(suggestFlags(findUnknownFlags(argsDef, ['--xyzzy']))).resolves.toEqual([
+      { flag: '--xyzzy', suggestion: undefined },
+    ])
   })
 })
 
 describe('replaceFlag', () => {
   it('should replace bare and `=value` forms in place', () => {
-    const rawArgs = ['info', '--cdw', '.', '--cdw=app', '--json']
+    const rawArgs = [
+      'info',
+      '--cdw',
+      '.',
+      '--cdw=app',
+      '--json',
+    ]
     replaceFlag(rawArgs, '--cdw', '--cwd')
-    expect(rawArgs).toEqual(['info', '--cwd', '.', '--cwd=app', '--json'])
+    expect(rawArgs).toEqual([
+      'info',
+      '--cwd',
+      '.',
+      '--cwd=app',
+      '--json',
+    ])
   })
 
   it('should leave everything after `--` alone', () => {
-    const rawArgs = ['dev', '--prot=3000', '--', '--prot=4000']
+    const rawArgs = [
+      'dev',
+      '--prot=3000',
+      '--',
+      '--prot=4000',
+    ]
     replaceFlag(rawArgs, '--prot', '--port')
-    expect(rawArgs).toEqual(['dev', '--port=3000', '--', '--prot=4000'])
+    expect(rawArgs).toEqual([
+      'dev',
+      '--port=3000',
+      '--',
+      '--prot=4000',
+    ])
   })
 
   it('should not touch flags that merely share a prefix', () => {
@@ -99,7 +139,10 @@ describe('declared command arguments', () => {
           }
           argv.push(`--${flag}`)
         }
-        const { flags } = findUnknownFlags({ ...cwdArgs, ...args }, argv)
+        const { flags } = findUnknownFlags({
+          ...cwdArgs,
+          ...args,
+        }, argv)
         if (flags.length > 0) {
           reported[commandName] = flags
         }
@@ -114,11 +157,15 @@ async function resolveCommands(name: string): Promise<Array<[string, unknown]>> 
   const def = await commands[name as keyof typeof commands]() as CommandDef<any>
   const subCommands = await resolveLazy(def.subCommands)
   if (!subCommands) {
-    return [[name, def]]
+    return [
+      [name, def],
+    ]
   }
   return Promise.all(Object.entries(subCommands).map(async ([subName, subDef]) => [`${name} ${subName}`, await resolveLazy(subDef)] as [string, unknown]))
 }
 
 function resolveLazy<T>(value: T | (() => T | Promise<T>) | undefined): Promise<T | undefined> {
-  return Promise.resolve(typeof value === 'function' ? (value as () => T | Promise<T>)() : value)
+  return Promise.resolve(typeof value === 'function'
+    ? (value as () => T | Promise<T>)()
+    : value)
 }

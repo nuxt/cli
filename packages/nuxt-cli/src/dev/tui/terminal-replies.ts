@@ -134,7 +134,12 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
     let end = 0
     for (const match of buffered.matchAll(MOUSE_REPORT_RE)) {
       const [, button, column, row, state] = match
-      const report = { button: Number(button), pressed: state === 'M', column: Number(column) - 1, row: Number(row) - 1 }
+      const report = {
+        button: Number(button),
+        pressed: state === 'M',
+        column: Number(column) - 1,
+        row: Number(row) - 1,
+      }
       typed += buffered.slice(end, match.index)
       end = match.index + match[0].length
       // Typing is only read once this chunk is done, and may move what a later click lands on.
@@ -151,7 +156,9 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
       if (!PARTIAL_CSI_RE.test(rest)) {
         return endReply(typed + rest, 0, after)
       }
-      return typed ? endReply(typed, 0, after, rest) : awaitRest(rest)
+      return typed
+        ? endReply(typed, 0, after, rest)
+        : awaitRest(rest)
     }
     const csi = CSI_REPLY_RE.exec(buffered)
     if (csi) {

@@ -32,14 +32,20 @@ const RULES: Record<string, ScrubRule> = {
     id: 'ports',
     description: 'dev server ports pinned to 3000',
     steps: [
-      { pattern: /(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0):\d{2,5}/g, replacement: match => `${match[1]}:3000` },
+      {
+        pattern: /(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0):\d{2,5}/g,
+        replacement: match => `${match[1]}:3000`,
+      },
     ],
   },
   hostnames: {
     id: 'hostnames',
     description: 'LAN addresses replaced with a fixed private address',
     steps: [
-      { pattern: /\b(?!127\.)(?!0\.0\.0\.0)(?:\d{1,3}\.){3}\d{1,3}(:\d{2,5})?\b/g, replacement: match => match[1] ? '192.168.1.10:3000' : '192.168.1.10' },
+      {
+        pattern: /\b(?!127\.)(?!0\.0\.0\.0)(?:\d{1,3}\.){3}\d{1,3}(:\d{2,5})?\b/g,
+        replacement: match => match[1] ? '192.168.1.10:3000' : '192.168.1.10',
+      },
     ],
   },
   timings: {
@@ -48,11 +54,20 @@ const RULES: Record<string, ScrubRule> = {
     steps: [
       // One replacement for both units: a duration that crosses the 1s
       // boundary between two recordings must not change the scrubbed text.
-      { pattern: /\b\d+(?:\.\d+)?\s?ms\b/g, replacement: () => '42 ms' },
-      { pattern: /\b\d+(?:\.\d+)?\s?s(?![a-z])/g, replacement: () => '42 ms' },
+      {
+        pattern: /\b\d+(?:\.\d+)?\s?ms\b/g,
+        replacement: () => '42 ms',
+      },
+      {
+        pattern: /\b\d+(?:\.\d+)?\s?s(?![a-z])/g,
+        replacement: () => '42 ms',
+      },
       // A phase clock is only printed beside the total once they differ, so
       // the pair is a function of machine speed and carries nothing once pinned.
-      { pattern: /42 ms \u00B7 (?:total )?42 ms/g, replacement: () => '42 ms' },
+      {
+        pattern: /42 ms \u00B7 (?:total )?42 ms/g,
+        replacement: () => '42 ms',
+      },
     ],
   },
   versions: {
@@ -60,24 +75,42 @@ const RULES: Record<string, ScrubRule> = {
     description: 'semver versions replaced with x.y.z',
     steps: [
       // The lookarounds keep dotted quads (IP addresses) out of reach.
-      { pattern: /(?<![.\d])v?\d+\.\d+\.\d+(?:-[\w.]+)?(?![.\d])/g, replacement: () => 'x.y.z' },
+      {
+        pattern: /(?<![.\d])v?\d+\.\d+\.\d+(?:-[\w.]+)?(?![.\d])/g,
+        replacement: () => 'x.y.z',
+      },
     ],
   },
   paths: {
     id: 'paths',
     description: 'home directory and temporary paths collapsed',
     steps: [
-      { pattern: new RegExp(escapeRegExp(homedir()), 'g'), replacement: () => '~' },
-      { pattern: /\/tmp\/[\w.-]*capture[\w.-]*/g, replacement: () => '~/project' },
+      {
+        pattern: new RegExp(escapeRegExp(homedir()), 'g'),
+        replacement: () => '~',
+      },
+      {
+        pattern: /\/tmp\/[\w.-]*capture[\w.-]*/g,
+        replacement: () => '~/project',
+      },
     ],
   },
   dates: {
     id: 'dates',
     description: 'ISO dates and clock times pinned',
     steps: [
-      { pattern: /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT\b/g, replacement: () => 'Thu, 01 Jan 2026 12:00:00 GMT' },
-      { pattern: /\b\d{4}-\d{2}-\d{2}\b/g, replacement: () => '2026-01-01' },
-      { pattern: /\b\d{2}:\d{2}:\d{2}\b/g, replacement: () => '12:00:00' },
+      {
+        pattern: /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT\b/g,
+        replacement: () => 'Thu, 01 Jan 2026 12:00:00 GMT',
+      },
+      {
+        pattern: /\b\d{4}-\d{2}-\d{2}\b/g,
+        replacement: () => '2026-01-01',
+      },
+      {
+        pattern: /\b\d{2}:\d{2}:\d{2}\b/g,
+        replacement: () => '12:00:00',
+      },
     ],
   },
   clock: {
@@ -86,19 +119,32 @@ const RULES: Record<string, ScrubRule> = {
     steps: [
       // The log view only prints a time that differs from the row above, so
       // which rows carry one depends on where the seconds fell.
-      { pattern: /(?<=^.{2})(?:\d{2}:\d{2}:\d{2}| {8}) (?= *\S)/g, replacement: () => ' '.repeat(9), unstyled: true },
+      {
+        pattern: /(?<=^.{2})(?:\d{2}:\d{2}:\d{2}| {8}) (?= *\S)/g,
+        replacement: () => ' '.repeat(9),
+        unstyled: true,
+      },
     ],
   },
   spinner: {
     id: 'spinner',
     description: 'spinner glyphs pinned to one phase',
     steps: [
-      { pattern: /[⠙⠹⠸⠼⠴⠦⠧⠇⠏]/g, replacement: () => '⠋' },
-      { pattern: /[◒◓◑]/g, replacement: () => '◐' },
+      {
+        pattern: /[⠙⠹⠸⠼⠴⠦⠧⠇⠏]/g,
+        replacement: () => '⠋',
+      },
+      {
+        pattern: /[◒◓◑]/g,
+        replacement: () => '◐',
+      },
       // A prompt spinner also animates a trailing run of up to three dots, so
       // how many of them a recording caught is a function of how long the work
       // took. The message itself is what identifies the line.
-      { pattern: /^(\s*◐\s.*?)\.{1,3}(\s*)$/g, replacement: match => match[1]! + match[2]! },
+      {
+        pattern: /^(\s*◐\s.*?)\.{1,3}(\s*)$/g,
+        replacement: match => match[1]! + match[2]!,
+      },
     ],
   },
   qr: {

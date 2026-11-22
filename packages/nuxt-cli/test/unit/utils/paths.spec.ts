@@ -46,8 +46,14 @@ describe('resolveRootDir', () => {
   })
 
   it.each([
-    ['equivalent spellings', { cwd: 'apps/web', rootDir: 'apps/web/' }],
-    ['a single directory', { cwd: 'apps/web' }],
+    [
+      'equivalent spellings',
+      { cwd: 'apps/web', rootDir: 'apps/web/' },
+    ],
+    [
+      'a single directory',
+      { cwd: 'apps/web' },
+    ],
   ])('should not warn for %s', (_label, args) => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
 
@@ -58,22 +64,40 @@ describe('resolveRootDir', () => {
 
 describe('resolveProjectDir', () => {
   it('should follow the ROOTDIR positional a command will run against', () => {
-    expect(resolveProjectDir({ cwd: '.', _: ['dev', import.meta.dirname] })).toBe(resolve(import.meta.dirname))
+    expect(resolveProjectDir({
+      cwd: '.',
+      _: ['dev', import.meta.dirname],
+    })).toBe(resolve(import.meta.dirname))
   })
 
   it('should fall back to the working directory without a positional', () => {
-    expect(resolveProjectDir({ cwd: '.', _: ['dev'] })).toBe(resolve('.'))
+    expect(resolveProjectDir({
+      cwd: '.',
+      _: ['dev'],
+    })).toBe(resolve('.'))
   })
 
   it.each([
-    ['a subcommand', ['module', 'add', '@nuxt/ui']],
-    ['a template name', ['add', 'page', 'foo']],
-    ['a passthrough flag', ['test', '--watch']],
+    [
+      'a subcommand',
+      ['module', 'add', '@nuxt/ui'],
+    ],
+    [
+      'a template name',
+      ['add', 'page', 'foo'],
+    ],
+    [
+      'a passthrough flag',
+      ['test', '--watch'],
+    ],
   ])('should ignore %s', (_label, args) => {
     expect(resolveProjectDir({ cwd: '.', _: args })).toBe(resolve('.'))
   })
 
   it('should let an explicit --cwd win', () => {
-    expect(resolveProjectDir({ cwd: 'packages', _: ['dev', 'scripts'] })).toBe(resolve('packages'))
+    expect(resolveProjectDir({
+      cwd: 'packages',
+      _: ['dev', 'scripts'],
+    })).toBe(resolve('packages'))
   })
 })

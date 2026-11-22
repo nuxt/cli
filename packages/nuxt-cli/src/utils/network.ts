@@ -60,7 +60,9 @@ export function setupProxySupport(env: NodeJS.ProcessEnv = process.env, enableGl
   }
   envProxyActive = isEnvProxyActive(env)
   if (!envProxyActive && env.NODE_USE_ENV_PROXY !== '0') {
-    const enable = enableGlobalProxy === undefined ? getGlobalProxySetter() : enableGlobalProxy
+    const enable = enableGlobalProxy === undefined
+      ? getGlobalProxySetter()
+      : enableGlobalProxy
     if (enable) {
       enable(env)
       envProxyActive = true
@@ -107,13 +109,22 @@ export function formatRetryCommand(vars: Record<string, string>, ctx: CommandCon
   if (windows) {
     // `$env:` assignments only work in PowerShell, `set` only in cmd.exe.
     const isPowerShell = !!env.PSModulePath
-    const assignments = entries.map(([key, value]) => isPowerShell ? `$env:${key}="${value}"` : `set ${key}=${value}`)
+    const assignments = entries.map(([key, value]) => isPowerShell
+      ? `$env:${key}="${value}"`
+      : `set ${key}=${value}`)
     const separator = isPowerShell ? '; ' : ' && '
-    return [...assignments, ...command ? [command] : []].join(separator)
+    return [
+      ...assignments,
+      ...command
+        ? [command]
+        : [],
+    ].join(separator)
   }
 
   const assignments = entries.map(([key, value]) => `${key}=${value}`)
-  return command ? [...assignments, command].join(' ') : `export ${assignments.join(' ')}`
+  return command
+    ? [...assignments, command].join(' ')
+    : `export ${assignments.join(' ')}`
 }
 
 // Some libraries (notably `giget`) rethrow with the original error stringified
@@ -183,7 +194,13 @@ export function classifyNetworkError(err: unknown): NetworkFailure {
   const status = getStatus(err)
 
   if (status) {
-    return { kind: status === 407 ? 'proxy-auth' : 'http', status, code }
+    return {
+      kind: status === 407
+        ? 'proxy-auth'
+        : 'http',
+      status,
+      code,
+    }
   }
 
   switch (code) {
@@ -238,7 +255,10 @@ export async function probeNetworkError(url: string, timeout = 3000): Promise<un
   }
 
   try {
-    await fetch(origin, { method: 'HEAD', signal: AbortSignal.timeout(timeout) })
+    await fetch(origin, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(timeout),
+    })
   }
   catch (err) {
     return err
@@ -248,7 +268,9 @@ export async function probeNetworkError(url: string, timeout = 3000): Promise<un
 /** A single-line, human-readable explanation of a failed network request. */
 export function describeNetworkError(err: unknown, url?: string): string {
   const host = getHost(url)
-  const target = host ? styleText('cyan', host) : 'the network'
+  const target = host
+    ? styleText('cyan', host)
+    : 'the network'
   const { kind, code, status } = classifyNetworkError(err)
 
   switch (kind) {
@@ -270,7 +292,9 @@ export function describeNetworkError(err: unknown, url?: string): string {
       return `TLS connection to ${target} could not be verified (${code}).`
   }
 
-  const message = err instanceof Error ? err.message : String(err)
+  const message = err instanceof Error
+    ? err.message
+    : String(err)
   if (message.includes('fetch failed')) {
     return `Could not reach ${target}.`
   }
@@ -331,13 +355,22 @@ export interface LogNetworkErrorOptions {
  */
 export function logNetworkError(err: unknown, options: LogNetworkErrorOptions = {}): void {
   const description = describeNetworkError(err, options.url)
-  const message = options.prefix ? `${options.prefix} ${description}` : description
-  logger[options.level === 'warn' ? 'warn' : 'error'](message)
+  const message = options.prefix
+    ? `${options.prefix} ${description}`
+    : description
+  logger[options.level === 'warn'
+    ? 'warn'
+    : 'error'](message)
 
-  const proxyHint = proxyHintShown ? undefined : getProxyHint(classifyNetworkError(err).kind)
+  const proxyHint = proxyHintShown
+    ? undefined
+    : getProxyHint(classifyNetworkError(err).kind)
   proxyHintShown ||= !!proxyHint
 
-  const hints = [...options.hints || [], proxyHint].filter(Boolean) as string[]
+  const hints = [
+    ...options.hints || [],
+    proxyHint,
+  ].filter(Boolean) as string[]
   if (hints.length > 0) {
     logger.info(hints.join(' '))
   }

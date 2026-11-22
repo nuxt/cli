@@ -9,7 +9,9 @@ module.registerHooks({
     const result = nextLoad(url, context)
     if (!loaded.has(url)) {
       const source = result.source
-      const bytes = typeof source === 'string' ? Buffer.byteLength(source) : source ? source.byteLength : 0
+      const bytes = typeof source === 'string'
+        ? Buffer.byteLength(source)
+        : source ? source.byteLength : 0
       loaded.set(url, bytes)
     }
     return result
@@ -27,5 +29,10 @@ process.on('exit', () => {
   }
   // `_rawDebug` writes straight to fd 2 and cannot be intercepted by the CLI's own logging
   const builtins = process.moduleLoadList.filter(entry => entry.startsWith('NativeModule ') && !bootBuiltins.has(entry)).length
-  process._rawDebug(`__BENCH_MODULES__${JSON.stringify({ modules: loaded.size, nodeModules, bytes, builtins })}`)
+  process._rawDebug(`__BENCH_MODULES__${JSON.stringify({
+    modules: loaded.size,
+    nodeModules,
+    bytes,
+    builtins,
+  })}`)
 })

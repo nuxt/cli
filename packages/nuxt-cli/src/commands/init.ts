@@ -12,7 +12,10 @@ export default defineCommand({
     hidden: true,
   },
   run(ctx) {
-    const command = [getCreateCommand(), ...ctx.rawArgs].join(' ')
+    const command = [
+      getCreateCommand(),
+      ...ctx.rawArgs,
+    ].join(' ')
     logger.info(`Project scaffolding now lives in ${styleText('cyan', 'create-nuxt')}.`)
     logger.info(`Run ${styleText('cyan', command)} instead.`)
     process.exit(1)

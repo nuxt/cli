@@ -66,10 +66,17 @@ describe('getNextSteps', () => {
     expect(getNextSteps({
       ...base,
       dir: 'my-app',
-      installFailure: { error: new Error('offline') },
+      installFailure: {
+        error: new Error('offline'),
+      },
       recoveryCommands: ['pnpm approve-builds'],
       packageManager: 'pnpm',
-    })).toEqual(['cd my-app', 'pnpm install', 'pnpm approve-builds', 'pnpm run dev'])
+    })).toEqual([
+      'cd my-app',
+      'pnpm install',
+      'pnpm approve-builds',
+      'pnpm run dev',
+    ])
   })
 
   it('should use `task` for deno', () => {

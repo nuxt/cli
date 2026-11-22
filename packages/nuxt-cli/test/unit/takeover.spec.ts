@@ -179,7 +179,9 @@ describe('takeOverServer', () => {
       const proc = mockProcess()
       expect(await takeOverServer(buildDir, { interactive: false }))
         .toEqual({ action: 'taken', port: 3000, pid: HOLDER_PID })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+      ])
     })
 
     it('non-interactive holder, interactive caller: prompts, defaulting to takeover', async () => {
@@ -218,7 +220,9 @@ describe('takeOverServer', () => {
       expect(await takeOverServer(buildDir, { takeover: true, interactive: true, prompt }))
         .toEqual({ action: 'taken', port: 3000, pid: HOLDER_PID })
       expect(prompt).not.toHaveBeenCalled()
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+      ])
     })
 
     it('`--no-takeover` refuses without signalling anything', async () => {
@@ -234,7 +238,10 @@ describe('takeOverServer', () => {
     it('`start anyway` proceeds without a takeover', async () => {
       writeLock(buildDir, { interactive: true })
       const proc = mockProcess()
-      const result = await takeOverServer(buildDir, { interactive: true, prompt: async () => 'start-anyway' })
+      const result = await takeOverServer(buildDir, {
+        interactive: true,
+        prompt: async () => 'start-anyway',
+      })
       expect(result).toMatchObject({ action: 'start-anyway' })
       expect(proc.signals).toHaveLength(0)
       expect(readLock(buildDir)?.pid).toBe(HOLDER_PID)
@@ -243,7 +250,12 @@ describe('takeOverServer', () => {
 
   describe('opening the running server', () => {
     it('opens it on loopback under its base url, without stopping it', async () => {
-      writeLock(buildDir, { interactive: true, hostname: '0.0.0.0', url: 'http://0.0.0.0:3000', baseURL: '/admin/' })
+      writeLock(buildDir, {
+        interactive: true,
+        hostname: '0.0.0.0',
+        url: 'http://0.0.0.0:3000',
+        baseURL: '/admin/',
+      })
       const proc = mockProcess()
       const prompt = vi.fn(async () => 'open' as const)
       expect(await takeOverServer(buildDir, { interactive: true, open: true, prompt })).toMatchObject({ action: 'opened' })
@@ -256,7 +268,11 @@ describe('takeOverServer', () => {
     it('opens only the origin and a plain base url from the lock', async () => {
       writeLock(buildDir, { interactive: true, url: 'http://127.0.0.1:3000/x|calc', baseURL: '/"&calc' })
       mockProcess()
-      await takeOverServer(buildDir, { interactive: true, open: true, prompt: async () => 'open' })
+      await takeOverServer(buildDir, {
+        interactive: true,
+        open: true,
+        prompt: async () => 'open',
+      })
       expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:3000/')
     })
 
@@ -277,7 +293,12 @@ describe('takeOverServer', () => {
       writeLock(buildDir, { interactive: true, baseURL: '/admin/' })
       const proc = mockProcess()
       const prompt = vi.fn(async (_lock: LockInfo, fallback: TakeoverChoice) => fallback)
-      const result = await takeOverServer(buildDir, { interactive: true, open: true, openURL: 'settings', prompt })
+      const result = await takeOverServer(buildDir, {
+        interactive: true,
+        open: true,
+        openURL: 'settings',
+        prompt,
+      })
       expect(result).toMatchObject({ action: 'opened' })
       expect(openBrowser).toHaveBeenCalledWith('http://127.0.0.1:3000/admin/settings')
       expect(proc.signals).toHaveLength(0)
@@ -294,10 +315,30 @@ describe('takeOverServer', () => {
     })
 
     it.each([
-      ['`--open` was not passed', {}, true, false],
-      ['the server has no url yet', { url: undefined }, true, true],
-      ['the url names another machine', { url: 'http://203.0.113.7:3000' }, true, true],
-      ['there is no browser to open', {}, false, true],
+      [
+        '`--open` was not passed',
+        {},
+        true,
+        false,
+      ],
+      [
+        'the server has no url yet',
+        { url: undefined },
+        true,
+        true,
+      ],
+      [
+        'the url names another machine',
+        { url: 'http://203.0.113.7:3000' },
+        true,
+        true,
+      ],
+      [
+        'there is no browser to open',
+        {},
+        false,
+        true,
+      ],
     ])('is not offered when %s', async (_, lock: Partial<LockInfo>, browser, open) => {
       writeLock(buildDir, { interactive: true, ...lock })
       canOpenBrowser.mockReturnValue(browser)
@@ -322,23 +363,38 @@ describe('takeOverServer', () => {
     it('escalates to SIGKILL when SIGTERM is ignored', async () => {
       writeLock(buildDir)
       const proc = mockProcess({ diesOn: 'SIGKILL' })
-      expect(await takeOverServer(buildDir, { interactive: false, timeouts: { graceful: 200, force: 200 } }))
+      expect(await takeOverServer(buildDir, {
+        interactive: false,
+        timeouts: { graceful: 200, force: 200 },
+      }))
         .toEqual({ action: 'taken', port: 3000, pid: HOLDER_PID })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGKILL']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+        [HOLDER_PID, 'SIGKILL'],
+      ])
     })
 
     it('refuses to start when the port is still held after the deadline', async () => {
       writeLock(buildDir)
       const proc = mockProcess({ diesOn: 'never' })
-      expect(await takeOverServer(buildDir, { interactive: false, timeouts: { graceful: 200, force: 200 } }))
+      expect(await takeOverServer(buildDir, {
+        interactive: false,
+        timeouts: { graceful: 200, force: 200 },
+      }))
         .toMatchObject({ action: 'refused', reason: 'timeout' })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM'], [HOLDER_PID, 'SIGKILL']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+        [HOLDER_PID, 'SIGKILL'],
+      ])
     })
 
     it('leaves the holder identifiable after giving up', async () => {
       writeLock(buildDir)
       mockProcess({ diesOn: 'never' })
-      await takeOverServer(buildDir, { interactive: false, timeouts: { graceful: 200, force: 200 } })
+      await takeOverServer(buildDir, {
+        interactive: false,
+        timeouts: { graceful: 200, force: 200 },
+      })
       const lock = readLock(buildDir)
       expect(lock?.pid).toBe(HOLDER_PID)
       expect(lock?.takenOverBy).toBeUndefined()
@@ -348,7 +404,10 @@ describe('takeOverServer', () => {
       writeLock(buildDir, { parentPid: 424243 })
       const proc = mockProcess()
       await takeOverServer(buildDir, { interactive: false })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM'], [424243, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+        [424243, 'SIGTERM'],
+      ])
     })
   })
 
@@ -443,7 +502,10 @@ describe('takeOverServer', () => {
       writeLock(buildDir, { command: 'preview', serverPid: 434343 })
       const proc = mockProcess()
       await takeOverServer(buildDir, { command: 'preview', interactive: false })
-      expect(proc.signals).toEqual([[434343, 'SIGTERM'], [HOLDER_PID, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [434343, 'SIGTERM'],
+        [HOLDER_PID, 'SIGTERM'],
+      ])
     })
 
     it.each(['removed', 'replaced', 'free'])('does not signal a preview whose lock is %s while prompting', async (change) => {
@@ -465,7 +527,9 @@ describe('takeOverServer', () => {
           return 'takeover'
         },
       })
-      expect(result.action).toBe(change === 'free' ? 'stale' : 'none')
+      expect(result.action).toBe(change === 'free'
+        ? 'stale'
+        : 'none')
       expect(proc.signals).toHaveLength(0)
       if (change === 'replaced') {
         expect(readLock(buildDir)).toMatchObject({ pid: 555555 })
@@ -484,7 +548,9 @@ describe('takeOverServer', () => {
           return 'takeover'
         },
       })
-      expect(proc.signals).toEqual([[HOLDER_PID, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [HOLDER_PID, 'SIGTERM'],
+      ])
     })
 
     it('does not escalate against a preview whose lock was released', async () => {
@@ -502,14 +568,20 @@ describe('takeOverServer', () => {
         takeover: true,
         timeouts: { graceful: 1, force: 1 },
       })).toMatchObject({ action: 'refused', reason: 'timeout' })
-      expect(proc.signals).toEqual([[434343, 'SIGTERM']])
+      expect(proc.signals).toEqual([
+        [434343, 'SIGTERM'],
+      ])
     })
 
     it('can be started alongside without a warning about the build directory', async () => {
       writeLock(buildDir, { command: 'preview', interactive: true })
       mockProcess()
       const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
-      expect(await takeOverServer(buildDir, { command: 'preview', interactive: true, prompt: async () => 'start-anyway' }))
+      expect(await takeOverServer(buildDir, {
+        command: 'preview',
+        interactive: true,
+        prompt: async () => 'start-anyway',
+      }))
         .toMatchObject({ action: 'start-anyway' })
       expect(warn).not.toHaveBeenCalled()
     })

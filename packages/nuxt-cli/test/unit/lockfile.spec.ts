@@ -291,7 +291,12 @@ describe('lockfile', () => {
     it('records the pid of the server a preview runs', () => {
       const lockDir = previewLockDir(tempDir)
       const { release } = acquireLock(lockDir, { command: 'preview', cwd: tempDir, port: 3000 })
-      updateLock(lockDir, { command: 'preview', cwd: tempDir, port: 3000, serverPid: 4242 })
+      updateLock(lockDir, {
+        command: 'preview',
+        cwd: tempDir,
+        port: 3000,
+        serverPid: 4242,
+      })
       expect(readLock(lockDir)).toMatchObject({ pid: process.pid, serverPid: 4242 })
       release?.()
     })

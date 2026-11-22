@@ -62,8 +62,28 @@ describe('add-template command', () => {
     await expect(readFile(join(cwd, 'server/api/users.get.ts'), 'utf8')).resolves.toContain('return \'Hello users\'')
     await expect(readFile(join(cwd, 'server/api/orders.patch.ts'), 'utf8')).resolves.toContain('return \'Hello orders\'')
 
-    const modifiers = ['--client', '--server', '--connect', '--delete', '--get', '--head', '--options', '--post', '--put', '--trace', '--patch']
-    expect(findUnknownFlags({ ...cwdArgs, ...command.args as ArgsDef }, ['add-template', 'component', 'island', ...modifiers]).flags).toEqual([])
+    const modifiers = [
+      '--client',
+      '--server',
+      '--connect',
+      '--delete',
+      '--get',
+      '--head',
+      '--options',
+      '--post',
+      '--put',
+      '--trace',
+      '--patch',
+    ]
+    expect(findUnknownFlags({
+      ...cwdArgs,
+      ...command.args as ArgsDef,
+    }, [
+      'add-template',
+      'component',
+      'island',
+      ...modifiers,
+    ]).flags).toEqual([])
   })
 
   it('rejects unsupported suffix options', async () => {

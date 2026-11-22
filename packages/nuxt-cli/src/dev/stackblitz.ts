@@ -26,12 +26,16 @@ export function resolveStackblitzURL(
 
   if (cwd.startsWith('/home/projects/')) {
     const projectId = cwd.split('/')[3]
-    return projectId ? `https://stackblitz.com/edit/${projectId}` : undefined
+    return projectId
+      ? `https://stackblitz.com/edit/${projectId}`
+      : undefined
   }
 
   if (cwd.startsWith('/home/')) {
     const [owner, repository] = cwd.split('/').slice(2)
-    return owner && repository ? `https://stackblitz.com/edit/~/github.com/${owner}/${repository}` : undefined
+    return owner && repository
+      ? `https://stackblitz.com/edit/~/github.com/${owner}/${repository}`
+      : undefined
   }
 
   return undefined

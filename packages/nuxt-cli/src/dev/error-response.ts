@@ -55,7 +55,9 @@ export async function sendErrorResponse(req: IncomingMessage, res: ServerRespons
   }
 
   const message = escapeHtml(err?.message || 'Unknown error')
-  const stack = err?.stack ? `<pre>${escapeHtml(err.stack)}</pre>` : ''
+  const stack = err?.stack
+    ? `<pre>${escapeHtml(err.stack)}</pre>`
+    : ''
   res.end(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${message}</title></head>`
     + `<body><h1>${message}</h1>${stack}</body></html>${options.inject ?? ''}`)
 }

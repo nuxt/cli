@@ -6,7 +6,12 @@ import { promisify } from 'node:util'
 export async function readProjectReport(cwd: string): Promise<string> {
   const { stdout } = await promisify(execFile)(
     process.execPath,
-    [globalThis.__nuxt_cli__!.entry, 'info', '--json', cwd],
+    [
+      globalThis.__nuxt_cli__!.entry,
+      'info',
+      '--json',
+      cwd,
+    ],
     { cwd, timeout: 30_000 },
   )
   const { formatJsonAsMarkdownTable } = await import('../../commands/info')

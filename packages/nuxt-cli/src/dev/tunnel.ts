@@ -46,11 +46,18 @@ export async function startTunnel(localURL: string, insecure?: boolean): Promise
     return undefined
   }
 
-  const args = ['tunnel', '--url', localURL, '--no-autoupdate']
+  const args = [
+    'tunnel',
+    '--url',
+    localURL,
+    '--no-autoupdate',
+  ]
   if (insecure) {
     args.push('--no-tls-verify')
   }
-  const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+  const child = spawn(binary, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
 
   let output = ''
   const recentOutput: string[] = []
@@ -189,7 +196,9 @@ async function resolveCloudflared(): Promise<string | undefined> {
     url: asset && `${base}/${asset}`,
     archive: asset?.endsWith('.tgz'),
     cacheName: `cloudflared-${CLOUDFLARED_VERSION}`,
-    sha256: asset && CLOUDFLARED_VERSION === DEFAULT_CLOUDFLARED_VERSION ? CLOUDFLARED_SHA256[asset] : undefined,
+    sha256: asset && CLOUDFLARED_VERSION === DEFAULT_CLOUDFLARED_VERSION
+      ? CLOUDFLARED_SHA256[asset]
+      : undefined,
     consent: {
       key: 'cloudflared',
       notice: [

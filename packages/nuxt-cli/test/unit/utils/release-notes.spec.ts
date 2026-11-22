@@ -15,6 +15,8 @@ describe('release notes links', () => {
   })
 
   it('emits a hyperlink only where the terminal supports one', () => {
-    expect(terminalLink('4.6.0', 'https://example.com', { stream: { isTTY: false } })).toBe('4.6.0')
+    expect(terminalLink('4.6.0', 'https://example.com', {
+      stream: { isTTY: false },
+    })).toBe('4.6.0')
   })
 })

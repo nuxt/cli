@@ -138,7 +138,16 @@ export const captures: Capture[] = [
       const config = join(cwd, 'nuxt.config.ts')
       const pkg = join(cwd, 'package.json')
       const page = join(cwd, 'app/pages/scripts.vue')
-      const originals: Array<[string, string]> = [[config, readFileSync(config, 'utf8')], [pkg, readFileSync(pkg, 'utf8')]]
+      const originals: Array<[string, string]> = [
+        [
+          config,
+          readFileSync(config, 'utf8'),
+        ],
+        [
+          pkg,
+          readFileSync(pkg, 'utf8'),
+        ],
+      ]
 
       // `installNuxtModule` runs the *project's* `@nuxt/cli` in-process, which
       // the fixture installed from the registry; the capture should show the
@@ -215,7 +224,12 @@ export const captures: Capture[] = [
       await session.wait(3500)
       session.send('\u001B')
       await session.wait(2000)
-      for (const key of ['\u001B[A', '\u001B[A', '\u001B[B', '\u001B[B']) {
+      for (const key of [
+        '\u001B[A',
+        '\u001B[A',
+        '\u001B[B',
+        '\u001B[B',
+      ]) {
         session.send(key)
         await session.wait(1500)
       }
@@ -298,7 +312,13 @@ export const captures: Capture[] = [
       CAPTURE_FETCH_LATENCY: '250',
       CAPTURE_FETCH_STUBS: JSON.stringify({
         'https://api.github.com/repos/nuxt/starter/contents/templates': fileURLToPath(new URL('fixture-data/starter-templates/listing.json', import.meta.url)),
-        ...Object.fromEntries(['content', 'minimal', 'module', 'ui', 'v5-nightly'].map(name => [
+        ...Object.fromEntries([
+          'content',
+          'minimal',
+          'module',
+          'ui',
+          'v5-nightly',
+        ].map(name => [
           `https://raw.githubusercontent.com/nuxt/starter/templates/templates/${name}.json`,
           fileURLToPath(new URL(`fixture-data/starter-templates/${name}.json`, import.meta.url)),
         ])),

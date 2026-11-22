@@ -133,7 +133,12 @@ describe('commandName', () => {
 })
 
 describe('supportsCommand', () => {
-  const main = { subCommands: { dev: () => {}, init: () => {} } }
+  const main = {
+    subCommands: {
+      dev: () => {},
+      init: () => {},
+    },
+  }
 
   it('should defer commands the project CLI knows', () => {
     expect(supportsCommand(main, 'dev')).toBe(true)
@@ -149,7 +154,9 @@ describe('supportsCommand', () => {
   })
 
   it('should defer when the command list cannot be inspected', () => {
-    expect(supportsCommand({ subCommands: () => ({}) }, 'dev')).toBe(true)
+    expect(supportsCommand({
+      subCommands: () => ({}),
+    }, 'dev')).toBe(true)
     expect(supportsCommand({}, 'dev')).toBe(true)
     expect(supportsCommand(undefined, 'dev')).toBe(true)
   })

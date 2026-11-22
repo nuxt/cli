@@ -64,8 +64,12 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
   function buildOptions(search: string): Option<string>[] {
     const room = (process.stdout.columns || 80) - ROW_PREFIX_WIDTH
     return sortedModules.map((m) => {
-      const match = search ? fuzzysort.single(search, m.npm) : undefined
-      const name = match ? match.highlight(part => styleText('underline', part)).join('') : m.npm
+      const match = search
+        ? fuzzysort.single(search, m.npm)
+        : undefined
+      const name = match
+        ? match.highlight(part => styleText('underline', part)).join('')
+        : m.npm
       const description = m.description.replace(TRAILING_DOT_RE, '')
       const available = room - m.npm.length
       if (!description || available < MIN_DESCRIPTION_WIDTH) {
@@ -85,7 +89,9 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
    */
   function currentSearch(prompt: unknown): string {
     const input = (prompt as { userInput?: unknown }).userInput
-    return typeof input === 'string' ? input : ''
+    return typeof input === 'string'
+      ? input
+      : ''
   }
 
   const matches = new Map<string, Set<string>>()
@@ -94,7 +100,11 @@ export async function selectModulesAutocomplete(options: AutocompleteOptions): P
       return true
     let results = matches.get(search)
     if (!results) {
-      results = new Set(fuzzysort.go(search, targets, { keys: ['npm', 'name', 'category'], threshold: 0, limit: 0 }).map(r => r.obj.value))
+      results = new Set(fuzzysort.go(search, targets, {
+        keys: ['npm', 'name', 'category'],
+        threshold: 0,
+        limit: 0,
+      }).map(r => r.obj.value))
       matches.set(search, results)
     }
     return results.has(option.value)

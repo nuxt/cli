@@ -14,7 +14,9 @@ const { closeListener, closeNuxt, devServers, releaseLock, shutdown, startCpuPro
 }))
 
 vi.mock('../../../src/utils/profile.ts', () => ({ startCpuProfile, stopCpuProfile }))
-vi.mock('../../../src/utils/env.ts', () => ({ overrideEnv: vi.fn() }))
+vi.mock('../../../src/utils/env.ts', () => ({
+  overrideEnv: vi.fn(),
+}))
 
 vi.mock('../../../src/dev/utils', () => ({
   NuxtDevServer: class extends EventEmitter {
@@ -23,7 +25,10 @@ vi.mock('../../../src/dev/utils', () => ({
     close = closeNuxt
     releaseLock = releaseLock
     load = vi.fn(() => Promise.resolve())
-    progress = { onUpdate: vi.fn(() => () => {}), close: vi.fn() }
+    progress = {
+      onUpdate: vi.fn(() => () => {}),
+      close: vi.fn(),
+    }
 
     options: Record<string, any>
 
@@ -42,7 +47,10 @@ vi.mock('../../../src/dev/utils', () => ({
 const { initialize } = await import('../../../src/dev/index')
 
 function context(args: Record<string, unknown> = {}) {
-  return { cwd: process.cwd(), args: { ...args } } as never
+  return {
+    cwd: process.cwd(),
+    args: { ...args },
+  } as never
 }
 
 beforeEach(() => {
@@ -83,7 +91,10 @@ describe('initialize', () => {
   it('should close only once however often it is asked', async () => {
     const { close } = await initialize(context())
 
-    await Promise.all([close(), close()])
+    await Promise.all([
+      close(),
+      close(),
+    ])
     await close()
 
     expect(releaseLock).toHaveBeenCalledTimes(1)
@@ -108,9 +119,13 @@ describe('initialize', () => {
   })
 
   it('should pass `extends` through to the dev server overrides', async () => {
-    await initialize(context({ extends: ['../layer'] }))
+    await initialize(context({
+      extends: ['../layer'],
+    }))
 
-    expect(devServers[0].options.overrides).toMatchObject({ extends: ['../layer'] })
+    expect(devServers[0].options.overrides).toMatchObject({
+      extends: ['../layer'],
+    })
   })
 
   it('should leave `extends` from nuxt.config alone when none is passed', async () => {
@@ -130,13 +145,17 @@ describe('initialize', () => {
     await initialize(context({ profile: '' }))
 
     expect(startCpuProfile).toHaveBeenCalledTimes(1)
-    expect(devServers[0].options.overrides).toMatchObject({ debug: { perf: 'quiet' } })
+    expect(devServers[0].options.overrides).toMatchObject({
+      debug: { perf: 'quiet' },
+    })
   })
 
   it('should profile verbosely for `--profile=verbose`', async () => {
     await initialize(context({ profile: 'verbose' }))
 
-    expect(devServers[0].options.overrides).toMatchObject({ debug: { perf: true } })
+    expect(devServers[0].options.overrides).toMatchObject({
+      debug: { perf: true },
+    })
   })
 
   it('should hand the file change and restart hooks to the caller', async () => {

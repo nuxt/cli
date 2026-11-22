@@ -21,14 +21,28 @@ describe('dev server hint', () => {
 
   it('should round-trip the resolved address', () => {
     mkdirSync(join(cwd, 'node_modules'))
-    saveDevServerHint(cwd, { port: 4000, hostname: '127.0.0.1', https: false, baseURL: '/app/' })
-    expect(loadDevServerHint(cwd)).toEqual({ port: 4000, hostname: '127.0.0.1', https: false, baseURL: '/app/' })
+    saveDevServerHint(cwd, {
+      port: 4000,
+      hostname: '127.0.0.1',
+      https: false,
+      baseURL: '/app/',
+    })
+    expect(loadDevServerHint(cwd)).toEqual({
+      port: 4000,
+      hostname: '127.0.0.1',
+      https: false,
+      baseURL: '/app/',
+    })
   })
 
   it('should round-trip `allowedHosts`', () => {
     mkdirSync(join(cwd, 'node_modules'))
-    saveDevServerHint(cwd, { allowedHosts: ['alias.test'] })
-    expect(loadDevServerHint(cwd)).toEqual({ allowedHosts: ['alias.test'] })
+    saveDevServerHint(cwd, {
+      allowedHosts: ['alias.test'],
+    })
+    expect(loadDevServerHint(cwd)).toEqual({
+      allowedHosts: ['alias.test'],
+    })
 
     saveDevServerHint(cwd, { allowedHosts: true })
     expect(loadDevServerHint(cwd)).toEqual({ allowedHosts: true })
@@ -52,7 +66,12 @@ describe('dev server hint', () => {
   it('should keep only fields of the expected type', () => {
     mkdirSync(join(cwd, 'node_modules/.cache/nuxt'), { recursive: true })
     const path = join(cwd, 'node_modules/.cache/nuxt/dev-server.json')
-    writeFileSync(path, JSON.stringify({ hostname: {}, port: '3000', https: 'true', baseURL: 42 }))
+    writeFileSync(path, JSON.stringify({
+      hostname: {},
+      port: '3000',
+      https: 'true',
+      baseURL: 42,
+    }))
 
     expect(loadDevServerHint(cwd)).toEqual({})
   })

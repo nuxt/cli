@@ -12,18 +12,32 @@ function respondAfter(delay: number) {
     // Only the template listing is slowed down; the per-template fetches that
     // follow it answer immediately so the test pays the delay once. Matched on
     // the host rather than a substring, which any URL could contain anywhere.
-    const isListing = new URL(url instanceof Request ? url.url : String(url)).host === 'api.github.com'
+    const isListing = new URL(url instanceof Request
+      ? url.url
+      : String(url)).host === 'api.github.com'
     const body = isListing
-      ? [{ name: 'minimal.json', type: 'file', download_url: 'https://raw.githubusercontent.com/nuxt/starter/templates/templates/minimal.json' }]
-      : { name: 'minimal', description: 'Minimal starter', defaultDir: 'nuxt-app', url: '', tar: '' }
+      ? [
+          { name: 'minimal.json', type: 'file', download_url: 'https://raw.githubusercontent.com/nuxt/starter/templates/templates/minimal.json' },
+        ]
+      : {
+          name: 'minimal',
+          description: 'Minimal starter',
+          defaultDir: 'nuxt-app',
+          url: '',
+          tar: '',
+        }
 
     return new Promise<Response>((resolve, reject) => {
       if (!isListing) {
-        resolve(new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }))
+        resolve(new Response(JSON.stringify(body), {
+          headers: { 'content-type': 'application/json' },
+        }))
         return
       }
 
-      const timer = setTimeout(() => resolve(new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })), delay)
+      const timer = setTimeout(() => resolve(new Response(JSON.stringify(body), {
+        headers: { 'content-type': 'application/json' },
+      })), delay)
       timer.unref()
       signal?.addEventListener('abort', () => {
         clearTimeout(timer)
@@ -86,12 +100,24 @@ describe('github token handling', () => {
     process.env.GITHUB_TOKEN = 'secret-token'
     const requested: string[] = []
     vi.stubGlobal('fetch', vi.fn((url: string | URL | Request) => {
-      const href = url instanceof Request ? url.url : String(url)
+      const href = url instanceof Request
+        ? url.url
+        : String(url)
       requested.push(href)
       const body = href === TEMPLATES_API_URL
-        ? [{ name: 'evil.json', type: 'file', download_url: 'https://evil.example.com/evil.json' }]
-        : { name: 'evil', description: '', defaultDir: 'nuxt-app', url: '', tar: '' }
-      return Promise.resolve(new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }))
+        ? [
+            { name: 'evil.json', type: 'file', download_url: 'https://evil.example.com/evil.json' },
+          ]
+        : {
+            name: 'evil',
+            description: '',
+            defaultDir: 'nuxt-app',
+            url: '',
+            tar: '',
+          }
+      return Promise.resolve(new Response(JSON.stringify(body), {
+        headers: { 'content-type': 'application/json' },
+      }))
     }))
 
     await expect(fetchTemplates()).resolves.toEqual({})
@@ -100,11 +126,17 @@ describe('github token handling', () => {
 
   it('should not let a template name reach the prototype', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string | URL | Request) => {
-      const href = url instanceof Request ? url.url : String(url)
+      const href = url instanceof Request
+        ? url.url
+        : String(url)
       const body = href === TEMPLATES_API_URL
-        ? [{ name: '__proto__.json', type: 'file', download_url: 'https://raw.githubusercontent.com/nuxt/starter/templates/templates/__proto__.json' }]
+        ? [
+            { name: '__proto__.json', type: 'file', download_url: 'https://raw.githubusercontent.com/nuxt/starter/templates/templates/__proto__.json' },
+          ]
         : { polluted: true }
-      return Promise.resolve(new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } }))
+      return Promise.resolve(new Response(JSON.stringify(body), {
+        headers: { 'content-type': 'application/json' },
+      }))
     }))
 
     const templates = await fetchTemplates()

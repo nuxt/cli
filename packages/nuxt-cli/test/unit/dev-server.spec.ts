@@ -138,26 +138,40 @@ describe('findNitroDevWorker', () => {
   })
 
   it('reads the socket a Nitro 2 dev worker recorded', async () => {
-    await writeBuildInfo('.nuxt/nitro.json', { pid: 424242, workerAddress: { socketPath: '\u0000nitro-worker-1.sock' } })
+    await writeBuildInfo('.nuxt/nitro.json', {
+      pid: 424242,
+      workerAddress: { socketPath: '\u0000nitro-worker-1.sock' },
+    })
 
     await expect(findNitroDevWorker(cwd)).resolves.toEqual({ pid: 424242, socketPath: '\u0000nitro-worker-1.sock' })
   })
 
   it('reads the port a dev worker recorded when it has no socket', async () => {
-    await writeBuildInfo('.nuxt/nitro.json', { pid: 424242, workerAddress: { host: 'localhost', port: 4321 } })
+    await writeBuildInfo('.nuxt/nitro.json', {
+      pid: 424242,
+      workerAddress: { host: 'localhost', port: 4321 },
+    })
 
     await expect(findNitroDevWorker(cwd)).resolves.toEqual({ pid: 424242, url: 'http://localhost:4321' })
   })
 
   it('reads the file Nitro 3 writes', async () => {
-    await writeBuildInfo('node_modules/.nitro/nitro.dev.json', { pid: 424242, workerAddress: { socketPath: '/tmp/worker.sock' } })
+    await writeBuildInfo('node_modules/.nitro/nitro.dev.json', {
+      pid: 424242,
+      workerAddress: { socketPath: '/tmp/worker.sock' },
+    })
 
     await expect(findNitroDevWorker(cwd)).resolves.toMatchObject({ socketPath: '/tmp/worker.sock' })
   })
 
   it('ignores build info whose process is gone', async () => {
     await mkdir(join(cwd, '.nuxt'), { recursive: true })
-    await writeFile(join(cwd, '.nuxt/nitro.json'), JSON.stringify({ dev: { pid: 999999999, workerAddress: { socketPath: '/tmp/worker.sock' } } }))
+    await writeFile(join(cwd, '.nuxt/nitro.json'), JSON.stringify({
+      dev: {
+        pid: 999999999,
+        workerAddress: { socketPath: '/tmp/worker.sock' },
+      },
+    }))
 
     await expect(findNitroDevWorker(cwd)).resolves.toBeUndefined()
   })

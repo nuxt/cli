@@ -50,11 +50,15 @@ export async function stopCpuProfile(outDir: string, command: string): Promise<s
   const s = session
   session = undefined
   const count = profileCount++
-  const outPath = join(outDir, `nuxt-${command}${count ? `-${count}` : ''}.cpuprofile`)
+  const outPath = join(outDir, `nuxt-${command}${count
+    ? `-${count}`
+    : ''}.cpuprofile`)
   const relativeOutPath = relative(process.cwd(), outPath).replace(RELATIVE_PATH_RE, './')
   try {
     const profile = await new Promise<any>((resolve, reject) => {
-      s.post('Profiler.stop', (err, params) => err ? reject(err) : resolve(params?.profile))
+      s.post('Profiler.stop', (err, params) => err
+        ? reject(err)
+        : resolve(params?.profile))
     })
     if (!profile) {
       return

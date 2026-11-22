@@ -27,14 +27,21 @@ vi.mock('../../../src/utils/logger', () => ({
 const { classifyNetworkError, describeNetworkError, formatRetryCommand, getProxyHint, hasProxyEnv, isEnvProxyActive, logNetworkError, probeNetworkError, setupProxySupport } = await import('../../../src/utils/network')
 const { fetchJson } = await import('../../../src/utils/fetch')
 
-const NUXI_ARGV = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', 'my app']
+const NUXI_ARGV = [
+  '/usr/bin/node',
+  '/project/node_modules/.bin/nuxi.mjs',
+  'init',
+  'my app',
+]
 
 function clean(message: string) {
   return stripVTControlCharacters(message)
 }
 
 function withCode(code: string, message = 'fetch failed') {
-  return Object.assign(new Error(message), { cause: Object.assign(new Error(code), { code }) })
+  return Object.assign(new Error(message), {
+    cause: Object.assign(new Error(code), { code }),
+  })
 }
 
 async function captureError(fn: () => Promise<unknown>): Promise<unknown> {
@@ -118,7 +125,9 @@ describe('describeNetworkError with real failures', () => {
       setTimeout(() => res.end('{}'), 500).unref()
       return
     }
-    res.writeHead(req.url?.includes('teapot') ? 418 : 404, { 'content-type': 'application/json' })
+    res.writeHead(req.url?.includes('teapot')
+      ? 418
+      : 404, { 'content-type': 'application/json' })
     res.end('{}')
   })
 
@@ -238,7 +247,9 @@ describe.skipIf(!hasOpenSSL)('describeNetworkError with an untrusted certificate
   })
 
   afterAll(async () => {
-    await new Promise<void>(resolve => server ? server.close(() => resolve()) : resolve())
+    await new Promise<void>(resolve => server
+      ? server.close(() => resolve())
+      : resolve())
     await rm(dir, { recursive: true, force: true })
   })
 
@@ -271,7 +282,10 @@ describe('describeNetworkError', () => {
   })
 
   it('reports non-2xx responses', () => {
-    const err = Object.assign(new Error('404 Not Found'), { response: { status: 404 }, statusCode: 404 })
+    const err = Object.assign(new Error('404 Not Found'), {
+      response: { status: 404 },
+      statusCode: 404,
+    })
     expect(clean(describeNetworkError(err, 'https://api.nuxt.com/modules')))
       .toBe('Request to api.nuxt.com failed with status 404.')
   })
@@ -313,15 +327,33 @@ describe('formatRetryCommand', () => {
   })
 
   it('quotes arguments so the shell does not expand them', () => {
-    const argv = ['/usr/bin/node', '/project/node_modules/.bin/nuxi.mjs', 'init', '$HOME', '`id`', 'it\'s']
+    const argv = [
+      '/usr/bin/node',
+      '/project/node_modules/.bin/nuxi.mjs',
+      'init',
+      '$HOME',
+      '`id`',
+      'it\'s',
+    ]
     expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv, env: {}, windows: false }))
       .toBe(`NODE_USE_ENV_PROXY=1 nuxt init '$HOME' '\`id\`' 'it'\\''s'`)
-    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv: [...argv.slice(0, 3), 'C:\\my app\\'], env: {}, windows: true }))
+    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, {
+      argv: [
+        ...argv.slice(0, 3),
+        'C:\\my app\\',
+      ],
+      env: {},
+      windows: true,
+    }))
       .toBe('set NODE_USE_ENV_PROXY=1 && nuxt init "C:\\my app\\\\"')
   })
 
   it('uses PowerShell or cmd syntax on Windows', () => {
-    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv: NUXI_ARGV, env: { PSModulePath: 'C:\\ps' }, windows: true }))
+    expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, {
+      argv: NUXI_ARGV,
+      env: { PSModulePath: 'C:\\ps' },
+      windows: true,
+    }))
       .toBe('$env:NODE_USE_ENV_PROXY="1"; nuxt init "my app"')
     expect(formatRetryCommand({ NODE_USE_ENV_PROXY: '1' }, { argv: NUXI_ARGV, env: {}, windows: true }))
       .toBe('set NODE_USE_ENV_PROXY=1 && nuxt init "my app"')
@@ -432,7 +464,10 @@ describe('logNetworkError', () => {
     logNetworkError(withCode('ENOTFOUND'), { url: 'https://api.nuxt.com/modules' })
     logs.length = 0
 
-    logNetworkError(withCode('ENOTFOUND'), { url: 'https://api.nuxt.com/modules', hints: ['Retry with --offline.'] })
+    logNetworkError(withCode('ENOTFOUND'), {
+      url: 'https://api.nuxt.com/modules',
+      hints: ['Retry with --offline.'],
+    })
     expect(clean(logs[1]![1])).toBe('Retry with --offline.')
   })
 })

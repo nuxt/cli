@@ -13,18 +13,54 @@ export interface HelpEntry {
 }
 
 const VIEW_ENTRIES: HelpEntry[] = [
-  { keys: ['↑ / k', '↓ / j'], description: 'select an entry' },
-  { keys: ['Page Up', 'Page Down'], description: 'scroll a screenful' },
-  { keys: ['Home', 'g'], description: 'go to the beginning' },
-  { keys: ['End', 'G'], description: 'follow the latest entries' },
-  { keys: ['y'], description: 'copy the selected entry' },
-  { keys: ['enter'], description: 'open details, otherwise copy' },
-  { keys: ['Y'], description: 'copy the whole view' },
-  { keys: ['/'], description: 'search (enter applies, esc cancels)' },
-  { keys: ['esc', 'q'], description: 'close or go back; opening key also closes' },
-  { keys: ['tab', 'shift-tab'], description: 'next or previous view' },
-  { keys: ['wheel'], description: 'move the selection' },
-  { keys: ['click'], description: 'select an entry (again to open it), open a tab or press a hint' },
+  {
+    keys: ['↑ / k', '↓ / j'],
+    description: 'select an entry',
+  },
+  {
+    keys: ['Page Up', 'Page Down'],
+    description: 'scroll a screenful',
+  },
+  {
+    keys: ['Home', 'g'],
+    description: 'go to the beginning',
+  },
+  {
+    keys: ['End', 'G'],
+    description: 'follow the latest entries',
+  },
+  {
+    keys: ['y'],
+    description: 'copy the selected entry',
+  },
+  {
+    keys: ['enter'],
+    description: 'open details, otherwise copy',
+  },
+  {
+    keys: ['Y'],
+    description: 'copy the whole view',
+  },
+  {
+    keys: ['/'],
+    description: 'search (enter applies, esc cancels)',
+  },
+  {
+    keys: ['esc', 'q'],
+    description: 'close or go back; opening key also closes',
+  },
+  {
+    keys: ['tab', 'shift-tab'],
+    description: 'next or previous view',
+  },
+  {
+    keys: ['wheel'],
+    description: 'move the selection',
+  },
+  {
+    keys: ['click'],
+    description: 'select an entry (again to open it), open a tab or press a hint',
+  },
 ]
 
 /** Keyboard shortcut reference. */
@@ -55,26 +91,54 @@ export class HelpOverlay extends ScreenOverlay {
 
   protected renderEntries(): OverlayEntry[] {
     const entries = this.#entries()
-    const width = Math.max(...[...entries, ...VIEW_ENTRIES].map(entry => formatKeys(entry).length))
+    const width = Math.max(...[
+      ...entries,
+      ...VIEW_ENTRIES,
+    ].map(entry => formatKeys(entry).length))
     const row = (entry: HelpEntry): OverlayEntry => ({
       lines: [`${styleText('bold', formatKeys(entry).padEnd(width))}   ${styleText(MUTED, entry.description)}`],
     })
     return [
-      { lines: [styleText('bold', 'global')] },
+      {
+        lines: [
+          styleText('bold', 'global'),
+        ],
+      },
       ...entries.filter(entry => entry.ctrl).map(row),
-      { lines: ['', styleText('bold', 'main panel')] },
+      {
+        lines: [
+          '',
+          styleText('bold', 'main panel'),
+        ],
+      },
       ...entries.filter(entry => !entry.ctrl).map(row),
-      { lines: ['', styleText('bold', 'in a view')] },
+      {
+        lines: [
+          '',
+          styleText('bold', 'in a view'),
+        ],
+      },
       ...VIEW_ENTRIES.map(row),
     ]
   }
 
   protected hints(): OverlayHint[] {
-    return [['↑/↓', 'select'], ['PgUp/PgDn', 'scroll'], ['esc/q', 'close']]
+    return [
+      ['↑/↓', 'select'],
+      ['PgUp/PgDn', 'scroll'],
+      ['esc/q', 'close'],
+    ]
   }
 }
 
 function formatKeys({ keys, ctrl }: HelpEntry): string {
-  const named = keys.map(key => /^[A-Z]$/.test(key) ? `shift-${key.toLowerCase()}` : key)
-  return [...named, ...ctrl ? [`ctrl-${ctrl}`] : []].join(' / ')
+  const named = keys.map(key => /^[A-Z]$/.test(key)
+    ? `shift-${key.toLowerCase()}`
+    : key)
+  return [
+    ...named,
+    ...ctrl
+      ? [`ctrl-${ctrl}`]
+      : [],
+  ].join(' / ')
 }

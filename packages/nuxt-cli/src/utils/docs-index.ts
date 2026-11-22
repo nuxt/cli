@@ -89,7 +89,9 @@ export async function resolveDocsIndex(cwd: string, options: DocsIndexProgress =
     writeCache(nuxtVersion, source.registry, index)
     return index
   }
-  return local ? indexLocal(local, options) : undefined
+  return local
+    ? indexLocal(local, options)
+    : undefined
 }
 
 export interface DocsIndexProgress {
@@ -106,13 +108,21 @@ function indexLocal(local: { root: string, version: string }, options: DocsIndex
 
 /** A copy of `@nuxt/docs` installed in the project, ignoring `NODE_PATH`. */
 function localDocs(cwd: string): { root: string, version: string } | undefined {
-  const manifest = resolveModulePath(`${DOCS_PACKAGE}/package.json`, { from: join(cwd, '/'), try: true })
+  const manifest = resolveModulePath(`${DOCS_PACKAGE}/package.json`, {
+    from: join(cwd, '/'),
+    try: true,
+  })
   if (!manifest) {
     return undefined
   }
   try {
     const version = (JSON.parse(readFileSync(manifest, 'utf8')) as { version?: string }).version
-    return version ? { root: dirname(manifest), version } : undefined
+    return version
+      ? {
+          root: dirname(manifest),
+          version,
+        }
+      : undefined
   }
   catch (error) {
     debug('Could not read the installed documentation:', error)
@@ -149,7 +159,12 @@ async function* candidateVersions(nuxtVersion: string | undefined): AsyncGenerat
   if (nuxtVersion && EXACT_VERSION_RE.test(nuxtVersion)) {
     yield nuxtVersion
   }
-  for (const range of [major && MAJOR_VERSION_RE.test(major) ? `^${major}` : undefined, 'latest']) {
+  for (const range of [
+    major && MAJOR_VERSION_RE.test(major)
+      ? `^${major}`
+      : undefined,
+    'latest',
+  ]) {
     const resolved = range && await resolveRegistryVersion(DOCS_PACKAGE, range)
     if (resolved) {
       yield resolved
@@ -170,7 +185,13 @@ async function downloadIndex(source: RegistryMeta, version: string, options: Doc
     assertSafeArchiveMembers(archive)
     // `tar` ships with macOS, Linux and Windows 10 onwards. The archive's
     // `package/` wrapper is stripped so paths match an installed copy.
-    execFileSync('tar', ['-xzf', archive, '-C', staging, '--strip-components=1'], { stdio: 'ignore' })
+    execFileSync('tar', [
+      '-xzf',
+      archive,
+      '-C',
+      staging,
+      '--strip-components=1',
+    ], { stdio: 'ignore' })
     options.onIndex?.(version)
     return buildIndex(staging, version)
   }
@@ -190,7 +211,11 @@ async function downloadIndex(source: RegistryMeta, version: string, options: Doc
  * the system implementations this relies on.
  */
 function assertSafeArchiveMembers(archive: string): void {
-  const listing = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 })
+  const listing = execFileSync('tar', ['-tzf', archive], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    maxBuffer: 16 * 1024 * 1024,
+  })
   for (const member of listing.split('\n')) {
     if (!member) {
       continue
@@ -207,7 +232,9 @@ function assertSafeArchiveMembers(archive: string): void {
  * no reason to give up on them.
  */
 async function downloadTarball({ registry, authorization }: RegistryMeta, version: string): Promise<Buffer | undefined> {
-  const sources: [registry: string, authorization: string | null][] = [[registry, authorization]]
+  const sources: [registry: string, authorization: string | null][] = [
+    [registry, authorization],
+  ]
   if (registry !== PUBLIC_REGISTRY) {
     sources.push([PUBLIC_REGISTRY, null])
   }
@@ -215,7 +242,9 @@ async function downloadTarball({ registry, authorization }: RegistryMeta, versio
   for (const [source, credentials] of sources) {
     try {
       const response = await fetch(`${source}/${DOCS_PACKAGE}/-/docs-${version}.tgz`, {
-        headers: credentials ? { Authorization: credentials } : undefined,
+        headers: credentials
+          ? { Authorization: credentials }
+          : undefined,
         signal: AbortSignal.timeout(FETCH_TIMEOUT),
       })
       if (!response.ok) {
@@ -265,7 +294,13 @@ function buildIndex(root: string, version: string): DocsIndex | undefined {
       return undefined
     }
     const major = version.split('.')[0]
-    return { version, base: MAJOR_VERSION_RE.test(major || '') ? `${DOCS_PATH}/${major}.x` : DOCS_PATH, entries }
+    return {
+      version,
+      base: MAJOR_VERSION_RE.test(major || '')
+        ? `${DOCS_PATH}/${major}.x`
+        : DOCS_PATH,
+      entries,
+    }
   }
   catch (error) {
     debug('Could not read the documentation:', error)
@@ -284,14 +319,18 @@ function cacheFile(nuxtVersion: string | undefined, registry: string): string {
   // A version can be anything a `package.json` or a dependency specifier holds, so
   // it is reduced to a file name rather than trusted as one.
   const key = (nuxtVersion || 'latest').replace(UNSAFE_KEY_RE, '_')
-  const suffix = registry === PUBLIC_REGISTRY ? '' : `-${createHash('sha256').update(registry).digest('hex').slice(0, 12)}`
+  const suffix = registry === PUBLIC_REGISTRY
+    ? ''
+    : `-${createHash('sha256').update(registry).digest('hex').slice(0, 12)}`
   return join(getCacheDir(CACHE_DIR), `index-${key}${suffix}.json`)
 }
 
 function readCache(nuxtVersion: string | undefined, registry: string): DocsIndex | undefined {
   try {
     const cached = JSON.parse(readFileSync(cacheFile(nuxtVersion, registry), 'utf8')) as DocsIndex
-    return cached.entries?.length > 0 ? cached : undefined
+    return cached.entries?.length > 0
+      ? cached
+      : undefined
   }
   catch {
     return undefined
@@ -326,7 +365,9 @@ function* markdownFiles(dir: string): Generator<string> {
 function readEntry(root: string, file: string): DocsEntry | undefined {
   const source = readFileSync(file, 'utf8')
   const matter = FRONTMATTER_RE.exec(source)
-  const data = matter ? parseFrontmatter(matter[1]!) : {}
+  const data = matter
+    ? parseFrontmatter(matter[1]!)
+    : {}
 
   // A page that only redirects elsewhere, or is hidden from navigation, is not a
   // destination worth offering.
@@ -341,7 +382,9 @@ function readEntry(root: string, file: string): DocsEntry | undefined {
     title,
     description: data.description?.replace(CONTROL_CHARS_RE, '').trim(),
     path,
-    headings: [...source.matchAll(HEADING_RE)].map(match => clean(match[1]!)),
+    headings: [
+      ...source.matchAll(HEADING_RE),
+    ].map(match => clean(match[1]!)),
   }
 }
 
@@ -364,7 +407,9 @@ function toSitePath(file: string): string {
   if (segments.at(-1) === 'index') {
     segments.pop()
   }
-  return segments.length > 0 ? `/${segments.join('/')}` : ''
+  return segments.length > 0
+    ? `/${segments.join('/')}`
+    : ''
 }
 
 function clean(heading: string): string {

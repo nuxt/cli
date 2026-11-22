@@ -197,7 +197,9 @@ describe('getLocalLayerDirs', () => {
     const layers = [
       { cwd: '/project' }, // the project itself
       { cwd: '/project/layers/common' },
-      { config: { rootDir: '/project/layers/ui' } }, // fallback to config.rootDir
+      {
+        config: { rootDir: '/project/layers/ui' },
+      }, // fallback to config.rootDir
     ]
 
     expect(getLocalLayerDirs(layers, cwd)).toEqual([

@@ -16,9 +16,18 @@ const LINK_CLOSE = '\u001B]8;;\u0007'
 /** Text made of visible characters and the escape sequences the TUI emits. */
 const styledText = fc.array(
   fc.oneof(
-    { weight: 8, arbitrary: fc.stringMatching(/^[\w !@./:-]{1,6}$/) },
-    { weight: 2, arbitrary: fc.constantFrom(SGR, RESET, LINK_OPEN, LINK_CLOSE) },
-    { weight: 1, arbitrary: fc.constantFrom('\u2026', '\u00B7', '\u280B') },
+    {
+      weight: 8,
+      arbitrary: fc.stringMatching(/^[\w !@./:-]{1,6}$/),
+    },
+    {
+      weight: 2,
+      arbitrary: fc.constantFrom(SGR, RESET, LINK_OPEN, LINK_CLOSE),
+    },
+    {
+      weight: 1,
+      arbitrary: fc.constantFrom('\u2026', '\u00B7', '\u280B'),
+    },
   ),
   { maxLength: 12 },
 ).map(parts => parts.join(''))
@@ -137,16 +146,25 @@ const panelState: fc.Arbitrary<PanelState> = fc.record({
   frame: fc.option(fc.integer({ min: 0, max: 50 }), { nil: undefined }),
   active: fc.option(fc.boolean(), { nil: undefined }),
   note: fc.option(fc.constantFrom('nuxt.config.ts changed', 'a'.repeat(120)), { nil: undefined }),
-  rendering: fc.option(fc.record({ label: fc.constantFrom('/', '/blog/'.repeat(20)), startedAt: fc.constant(0) }), { nil: undefined }),
+  rendering: fc.option(fc.record({
+    label: fc.constantFrom('/', '/blog/'.repeat(20)),
+    startedAt: fc.constant(0),
+  }), { nil: undefined }),
   renderingMs: fc.option(fc.integer({ min: 0, max: 100_000 }), { nil: undefined }),
   notice: fc.option(fc.record({
     text: fc.constantFrom('copied', 'x'.repeat(140)),
     tone: fc.constantFrom<'info' | 'warn' | 'success'>('info', 'warn', 'success'),
     label: fc.option(fc.constantFrom('press y', 'y'.repeat(40)), { nil: undefined }),
   }), { nil: undefined }),
-  task: fc.option(fc.record({ label: fc.constantFrom('Installing dependencies', 'z'.repeat(100)), startedAt: fc.constant(Date.now()) }), { nil: undefined }),
+  task: fc.option(fc.record({
+    label: fc.constantFrom('Installing dependencies', 'z'.repeat(100)),
+    startedAt: fc.constant(Date.now()),
+  }), { nil: undefined }),
   confirmQuit: fc.option(fc.boolean(), { nil: undefined }),
-  hints: fc.option(fc.uniqueArray(hint, { maxLength: 8, selector: value => value.key }), { nil: undefined }),
+  hints: fc.option(fc.uniqueArray(hint, {
+    maxLength: 8,
+    selector: value => value.key,
+  }), { nil: undefined }),
   hintsDimmed: fc.option(fc.boolean(), { nil: undefined }),
   ascii: fc.option(fc.boolean(), { nil: undefined }),
   background: fc.constantFrom<'light' | 'dark' | undefined>('light', 'dark', undefined),

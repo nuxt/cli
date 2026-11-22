@@ -61,7 +61,10 @@ describe('restart hook', () => {
     expect(callback).not.toHaveBeenCalled()
 
     onError!(new Error('boom'))
-    expect(callback).toHaveBeenCalledWith({ type: 'error', message: expect.stringContaining('boom') })
+    expect(callback).toHaveBeenCalledWith({
+      type: 'error',
+      message: expect.stringContaining('boom'),
+    })
   })
 
   it('should restart without the message when the diagnostic was already reported', () => {

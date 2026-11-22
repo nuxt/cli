@@ -23,7 +23,9 @@ export function resolvePortlessURLs(env: NodeJS.ProcessEnv = process.env): Portl
   return {
     url,
     shareURL,
-    all: [...new Set([url, shareURL].filter(Boolean) as string[])],
+    all: [
+      ...new Set([url, shareURL].filter(Boolean) as string[]),
+    ],
   }
 }
 
