@@ -27,7 +27,7 @@ async function requestHttp2(session: ClientHttp2Session, path: string, timeout =
   let failure: unknown
   do {
     try {
-      return await new Promise((resolve, reject) => {
+      return JSON.parse(await new Promise<string>((resolve, reject) => {
         const stream = session.request({ ':path': path })
         let status: number | undefined
         let body = ''
@@ -37,8 +37,8 @@ async function requestHttp2(session: ClientHttp2Session, path: string, timeout =
         })
         stream.on('data', chunk => body += chunk)
         stream.once('error', reject)
-        stream.once('end', () => status === 200 ? resolve(JSON.parse(body)) : reject(new Error(`${path} responded with ${status}: ${body}`)))
-      })
+        stream.once('end', () => status === 200 ? resolve(body) : reject(new Error(`${path} responded with ${status}: ${body}`)))
+      }))
     }
     catch (error) {
       failure = error
