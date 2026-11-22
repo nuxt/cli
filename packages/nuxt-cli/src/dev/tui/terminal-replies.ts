@@ -71,6 +71,7 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
   let replying = false
   let pending = ''
   let timer: NodeJS.Timeout | undefined
+  let stopped = false
 
   function stopReplying(): void {
     replying = false
@@ -84,9 +85,10 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
    *
    * The whole chunk is suppressed, since `readline` has not turned it into keys
    * yet and there is no way to drop only part of it. Anything the reply did not
-   * account for was typed, so it is put back to be read as keys of its own.
+   * account for was typed, so it is put back to be read as keys of its own,
+   * ahead of the mouse reports that came `after` it.
    */
-  function endReply(buffered: string, length: number): void {
+  function endReply(buffered: string, length: number, after: MouseReport[] = []): void {
     const typed = buffered.slice(length)
     clearTimeout(timer)
     timer = undefined
@@ -97,6 +99,9 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
       stopReplying()
       if (typed) {
         stdin.unshift(Buffer.from(typed, 'latin1'))
+      }
+      for (const report of stopped ? [] : after) {
+        onMouse?.(report)
       }
     })
   }
@@ -117,13 +122,26 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
     // matched together with what follows it.
     const buffered = pending + chunk.toString('latin1')
 
-    const typed = buffered.replace(MOUSE_REPORT_RE, (_report, button, column, row, state) => {
-      onMouse?.({ button: Number(button), pressed: state === 'M', column: Number(column) - 1, row: Number(row) - 1 })
-      return ''
-    })
-    if (typed.length < buffered.length) {
+    const after: MouseReport[] = []
+    let typed = ''
+    let end = 0
+    for (const match of buffered.matchAll(MOUSE_REPORT_RE)) {
+      const [, button, column, row, state] = match
+      const report = { button: Number(button), pressed: state === 'M', column: Number(column) - 1, row: Number(row) - 1 }
+      typed += buffered.slice(end, match.index)
+      end = match.index + match[0].length
+      // Typing is only read once this chunk is done, and may move what a later click lands on.
+      if (typed) {
+        after.push(report)
+      }
+      else {
+        onMouse?.(report)
+      }
+    }
+    if (end) {
+      typed += buffered.slice(end)
       replying = true
-      return PARTIAL_CSI_RE.test(typed) ? awaitRest(typed) : endReply(typed, 0)
+      return PARTIAL_CSI_RE.test(typed) && !after.length ? awaitRest(typed) : endReply(typed, 0, after)
     }
     const csi = CSI_REPLY_RE.exec(buffered)
     if (csi) {
@@ -148,6 +166,7 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
   return {
     isReplying: () => replying,
     stop: () => {
+      stopped = true
       stopReplying()
       stdin.off('data', onData)
     },

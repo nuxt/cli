@@ -28,12 +28,24 @@ describe('panel keys', () => {
 
     const keys: Array<string | undefined> = []
     const mouse: MouseReport[] = []
-    const detach = attachKeys(key => keys.push(key.name), { ...options, onMouse: report => mouse.push(report) })
+    const order: Array<string | undefined> = []
+    const detach = attachKeys((key) => {
+      keys.push(key.name)
+      order.push(key.name)
+    }, {
+      ...options,
+      onMouse: (report) => {
+        mouse.push(report)
+        order.push('mouse')
+      },
+    })
     restores.push(detach)
 
     return {
       keys,
       mouse,
+      order,
+      detach,
       type: async (text: string) => {
         stdin.write(text)
         await new Promise(resolve => setImmediate(resolve))
@@ -169,6 +181,25 @@ describe('panel keys', () => {
       { button: 0, pressed: true, row: 4, column: 11 },
       { button: 0, pressed: false, row: 4, column: 11 },
     ])
+  })
+
+  it('should read keys and mouse reports in the order they arrived', async () => {
+    const { order, type } = attach()
+
+    await type('\u001B[<64;1;1Mo\u001B[<0;12;5M')
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(order).toEqual(['mouse', 'o', 'mouse'])
+  })
+
+  it('should drop mouse reports still queued behind a key once detached', async () => {
+    const { mouse, detach } = attach()
+
+    process.stdin.emit('data', Buffer.from('o\u001B[<0;12;5M'))
+    detach()
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(mouse).toEqual([])
   })
 
   it('should read a report cut short behind others once the rest arrives', async () => {
