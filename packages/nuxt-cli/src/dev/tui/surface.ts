@@ -57,6 +57,9 @@ export class PanelSurface {
   #externalOutput: ExternalOutput = 'passthrough'
   #sink?: (chunk: string) => void
   #pending: PendingOutput[] = []
+  /** Output kept off the screen during the current turn of the event loop. */
+  #unseen = ''
+  #unseenTimer?: NodeJS.Immediate
   #rowsWritten = 0
   #rows = process.stdout.rows || 24
   #columns = process.stdout.columns || 80
@@ -157,6 +160,13 @@ export class PanelSurface {
   /** Receive output instead of the terminal while capturing. */
   onExternalOutput(sink: (chunk: string) => void): void {
     this.#sink = sink
+  }
+
+  /** Take the output diverted during the current turn of the event loop. A second call returns nothing. */
+  takeUnseenOutput(): string {
+    const unseen = this.#unseen
+    this.#unseen = ''
+    return unseen
   }
 
   /**
@@ -290,6 +300,8 @@ export class PanelSurface {
     this.#sink = undefined
     this.#reseat = false
     clearTimeout(this.#recoverTimer)
+    clearImmediate(this.#unseenTimer)
+    this.#unseen = ''
     this.#erase()
     // Whatever a view was holding is the session's last word on what happened,
     // and there is no longer anywhere to fold it away to.
@@ -350,6 +362,14 @@ export class PanelSurface {
 
   /** Output the panel intercepted, held for a view or handed to the sink. */
   #divert(text: string): void {
+    this.#unseen += text
+    if (!this.#unseenTimer) {
+      this.#unseenTimer = setImmediate(() => {
+        this.#unseenTimer = undefined
+        this.#unseen = ''
+      })
+      this.#unseenTimer.unref?.()
+    }
     if (this.#screen === 'alternate-screen') {
       this.#queue({ text, scrollback: false })
       return

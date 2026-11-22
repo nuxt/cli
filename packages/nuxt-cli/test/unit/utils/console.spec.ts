@@ -11,7 +11,7 @@ import { resolveModulePath } from 'exsolve'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { askQuestion, configureProjectConsola, interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
-import { holdScreen, onScreenHeld } from '../../../src/utils/screen'
+import { holdScreen, onScreenHeld, registerUnseenOutput } from '../../../src/utils/screen'
 import { registerTerminalHost } from '../../../src/utils/terminal-host'
 
 type PromptFn = NonNullable<ConsolaOptions['prompt']>
@@ -309,6 +309,55 @@ describe('interceptPrompts', () => {
     resolvers.pop()!(true)
 
     await expect(Promise.all(answers)).resolves.toEqual([false, true])
+  })
+
+  it('should show what was held back ahead of a question before asking it', async () => {
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      written.push(String(chunk))
+      return true
+    })
+    const withdraw = registerUnseenOutput(() => '\n\u2139 Nuxt collects anonymous data.\n  Read more online.\n\n')
+    try {
+      const { prompt, answer } = ask({ type: 'confirm' })
+      vi.mocked(prompt).mockImplementationOnce(async () => written.join(''))
+
+      await expect(answer()).resolves.toBe('\n\u2139 Nuxt collects anonymous data.\n  Read more online.\n')
+    }
+    finally {
+      withdraw()
+    }
+  })
+
+  it('should show what was held back when a question was raised, however long it waits to be asked', async () => {
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: unknown) => {
+      written.push(String(chunk))
+      return true
+    })
+    let unseen = ''
+    const withdraw = registerUnseenOutput(() => unseen)
+    try {
+      const first = ask({ type: 'confirm' })
+      const second = ask({ type: 'confirm' })
+
+      const answers = [first.answer()]
+      unseen = 'What the second question is about.\n'
+      answers.push(second.answer())
+      unseen = ''
+
+      await vi.waitFor(() => expect(first.prompt).toHaveBeenCalled())
+      expect(written.join('')).toBe('')
+      resolvers.pop()!(false)
+      await vi.waitFor(() => expect(second.prompt).toHaveBeenCalled())
+      expect(written.join('')).toBe('\nWhat the second question is about.\n')
+      resolvers.pop()!(true)
+
+      await Promise.all(answers)
+    }
+    finally {
+      withdraw()
+    }
   })
 
   it('should leave an already intercepted prompt alone', () => {
