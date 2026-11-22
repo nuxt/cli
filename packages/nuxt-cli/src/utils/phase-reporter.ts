@@ -422,6 +422,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
       if (!summarised) {
         restore()
         summarised = true
+        missed = undefined
         narrated = !next.serving && next.message !== READY_MESSAGE
         logger.success(formatSummary(next, url))
       }

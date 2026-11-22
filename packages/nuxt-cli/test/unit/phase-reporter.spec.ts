@@ -150,6 +150,31 @@ describe('phase reporter', () => {
     }
   })
 
+  it('should not give a startup line after the summary it was overtaken by', () => {
+    const written: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      written.push(stripVTControlCharacters(String(chunk)))
+      return true
+    })
+    let release = () => {}
+    try {
+      const startup = createPhaseReporter({ animated: false, heartbeat: 20 })
+      reporters.push(startup)
+      startup.update(snapshot({ phase: 'types', message: 'Generating types', index: 3 }))
+
+      release = holdScreen()
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      startup.update(snapshot({ status: 'ready', phase: 'ready', message: 'Ready', index: 6, elapsed: 2400 }))
+      written.length = 0
+
+      release()
+      expect(written.join('')).not.toContain('Building server')
+    }
+    finally {
+      release()
+    }
+  })
+
   it('should leave an idle line down once a question is answered', () => {
     vi.useFakeTimers()
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
