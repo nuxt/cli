@@ -5,6 +5,7 @@
  * than how long a question sat on screen.
  */
 
+import { whenStdinReleased } from '../dev/tui/background'
 import { useTerminalHost } from './terminal-host'
 
 /** Closed pauses, as `[start, end]`. Only a handful happen in a session. */
@@ -43,8 +44,13 @@ export async function withStartupClockPaused<T>(work: () => Promise<T>): Promise
  * which borrows the terminal itself.
  */
 export function withUserAttention<T>(work: () => Promise<T>): Promise<T> {
-  const host = useTerminalHost()
-  return withStartupClockPaused(host ? () => host.withTerminal(work) : work)
+  return withStartupClockPaused(async () => {
+    // A terminal background query still holding stdin would restore cooked
+    // mode underneath a prompt that has just switched to raw mode.
+    await whenStdinReleased()
+    const host = useTerminalHost()
+    return host ? host.withTerminal(work) : work()
+  })
 }
 
 /**
