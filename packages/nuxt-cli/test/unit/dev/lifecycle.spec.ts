@@ -276,6 +276,27 @@ describe('dev server request feed', () => {
   })
 })
 
+describe('dev server response listeners', () => {
+  it.each([true, false])('should hand the app a response with one `close` listener (captureUIEvents: %s)', async (captureUIEvents) => {
+    const counts: number[] = []
+    const nuxt = createNuxt()
+    nuxt.server.handler = (_req, res) => {
+      counts.push(res.listenerCount('close'))
+      res.end('app')
+    }
+    loadNuxt.mockImplementation(() => Promise.resolve(nuxt))
+    const server = createServer({ captureUIEvents })
+    await server.init()
+    const { port } = server.listener.address as AddressInfo
+
+    for (const accept of ['text/html', 'text/html', '*/*']) {
+      await fetch(`http://127.0.0.1:${port}/`, { headers: { accept } }).then(response => response.text())
+    }
+
+    expect(counts).toEqual([1, 1, 1])
+  })
+})
+
 describe('dev server stack', () => {
   it('should report the server builder on load and again once it has built', async () => {
     const nuxt = createNuxt({ builder: 'vite', server: { builder: { bundle: () => {} } } }) as FakeNuxt & { serverBuild?: unknown }

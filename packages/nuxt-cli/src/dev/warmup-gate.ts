@@ -1,5 +1,7 @@
 import type { ServerResponse } from 'node:http'
 
+import { onResponseClose } from './response-close'
+
 /**
  * A safety valve rather than a tuning knob: longer than any first render
  * measured on a large project, so a leader that never answers cannot hold a
@@ -92,6 +94,6 @@ export class WarmupGate {
     }
     expiry = setTimeout(finish, this.#timeout, false)
     expiry.unref?.()
-    res.once('close', () => finish(res.writableEnded && res.statusCode < 500))
+    onResponseClose(res, () => finish(res.writableEnded && res.statusCode < 500))
   }
 }

@@ -50,6 +50,7 @@ import { resolvePortlessURLs } from './portless'
 import { DEV_INTERNAL_PREFIX, DevProgress } from './progress'
 import { formatChangedKeys, formatRestartReason, formatSkippedReload, mergeRestartReasons, withConfigKeys } from './reason'
 import { isBundlerRequest, isDocumentRequest } from './request-kind'
+import { onResponseClose } from './response-close'
 import { registerDevPlugins } from './runtime-plugins'
 import { attachRequest, currentRequest, runWithRequest } from './serving-state'
 import { WarmupGate } from './warmup-gate'
@@ -360,7 +361,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
       const fetchDest = String(req.headers['sec-fetch-dest'] || '') || undefined
       this.#inflight.set(request.id, { id: request.id, internal: isBundlerRequest(url, fetchDest) })
       return runWithRequest(request, () => {
-        res.once('close', () => {
+        onResponseClose(res, () => {
           this.#inflight.delete(request.id)
           if (this.#internalResponses.delete(res)) {
             return
@@ -477,7 +478,7 @@ export class NuxtDevServer extends EventEmitter<DevServerEventMap> {
     // can take longer than the whole build did, so the request is reported for
     // as long as it is in flight.
     const pending = document ? this.#progress.startRequest(`${req.method || 'GET'} ${req.url || '/'}`) : undefined
-    res.once('close', () => {
+    onResponseClose(res, () => {
       this.#inflightResponses.delete(res)
       if (pending !== undefined) {
         this.#progress.finishRequest(pending)
