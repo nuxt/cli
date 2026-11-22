@@ -1,19 +1,43 @@
-import type { ConsolaInstance, ConsolaOptions, ConsolaReporter } from 'consola'
+import type { ConsolaInstance, ConsolaOptions, ConsolaReporter, FormatOptions, LogObject } from 'consola'
 
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
+import { format, styleText } from 'node:util'
 
 import { consola } from 'consola'
 import { resolveModulePath } from 'exsolve'
+import { isCI } from 'std-env'
 
 import { isRemotePeerError } from './errors'
-import { debug } from './logger'
+import { debug, isEmittingCliLog, logger } from './logger'
 import { tryResolveNuxt } from './resolve-nuxt'
 import { holdScreen, isScreenHeld, takeUnseenOutput } from './screen'
 import { withUserAttention } from './startup-clock'
 import { isInteractiveSession, trackOutputSpacing, writeDirect } from './stdout'
+import { MUTED } from './terminal-theme'
 
-function wrapReporter(reporter: ConsolaReporter) {
+type FormattingReporter = ConsolaReporter & {
+  formatArgs?: (args: unknown[], opts: FormatOptions) => string
+}
+
+let clackReporting = false
+
+/**
+ * Render consola logs as clack log lines, so the project's logs share the
+ * gutter the CLI draws down the side of a command's output. Only takes effect
+ * where that gutter is drawn. Returns a function that switches it off again.
+ */
+export function reportThroughClack(): () => void {
+  if (!process.stdout.isTTY || isCI) {
+    return () => {}
+  }
+  clackReporting = true
+  return () => {
+    clackReporting = false
+  }
+}
+
+export function wrapReporter(reporter: FormattingReporter): ConsolaReporter {
   return ({
     log(logObj, ctx) {
       if (!logObj.args || !logObj.args.length) {
@@ -26,9 +50,43 @@ function wrapReporter(reporter: ConsolaReporter) {
           return
         }
       }
+      if (clackReporting && !isEmittingCliLog() && logObj.type !== 'box' && logObj.type !== 'trace') {
+        const opts = { columns: process.stdout.columns || 0, ...ctx.options.formatOptions }
+        const message = reporter.formatArgs
+          ? reporter.formatArgs(logObj.args, opts)
+          : format(...logObj.args)
+        return logThroughClack(logObj, message)
+      }
       return reporter.log(logObj, ctx)
     },
   }) satisfies ConsolaReporter
+}
+
+/** Bypasses `consola.wrapStd()`, which would hand each line back to consola. */
+const directOutput = { write: writeDirect } as unknown as NodeJS.WriteStream
+
+function logThroughClack(logObj: LogObject, message: string): void {
+  message = message.replace(/`([^`\n]+)`/g, (_, code) => styleText('cyan', code))
+  if (logObj.tag) {
+    message = `${styleText(MUTED, `[${logObj.tag}]`)} ${message}`
+  }
+  const options = { output: directOutput }
+  switch (logObj.type) {
+    case 'fatal':
+    case 'error':
+    case 'fail':
+      return logger.error(message, options)
+    case 'warn':
+      return logger.warn(message, options)
+    case 'success':
+    case 'ready':
+      return logger.success(message, options)
+    case 'info':
+    case 'start':
+      return logger.info(message, options)
+    default:
+      return logger.message(message, options)
+  }
 }
 
 /** How Node opens a process warning, such as `(node:1234) DeprecationWarning: …`. */
@@ -62,7 +120,7 @@ export async function configureProjectConsola(rootDir: string): Promise<void> {
       projectConsola.options.formatOptions.date = false
       routeProcessWarnings(projectConsola)
       interceptPrompts(projectConsola)
-      // Logs from a separate instance would otherwise bypass the dev UI's reporters.
+      // Logs from a separate instance would otherwise bypass the CLI's reporters.
       if (projectConsola !== consola) {
         projectConsola.setReporters([
           {

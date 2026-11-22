@@ -8,6 +8,7 @@ import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
 import { createBuildReport } from '../utils/build-report'
+import { configureProjectConsola, reportThroughClack } from '../utils/console'
 import { overrideEnv } from '../utils/env'
 
 import { ActionableError } from '../utils/errors'
@@ -63,8 +64,10 @@ export default defineCommand({
     const releaseLocks: Array<() => void> = []
     const progress = new BuildProgress()
     let stopReporting = () => {}
+    let stopClackReporting = () => {}
     try {
       intro(styleText('cyan', 'Building Nuxt for production...'))
+      stopClackReporting = reportThroughClack()
 
       // The phase line owns a row of the terminal, which a silent build has no
       // business drawing on. Subscribed after the intro so the first phase is
@@ -83,6 +86,7 @@ export default defineCommand({
       }
 
       const kit = await loadKit(cwd)
+      await configureProjectConsola(cwd)
       const nuxt = await kit.loadNuxt({
         cwd,
         ready: false,
@@ -190,6 +194,7 @@ export default defineCommand({
     }
     finally {
       stopReporting()
+      stopClackReporting()
       for (const release of releaseLocks.reverse()) {
         release()
       }

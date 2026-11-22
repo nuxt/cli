@@ -69,11 +69,11 @@ export function setLoggerImpl(next?: LoggerImpl): void {
 }
 
 export const logger: LoggerImpl = {
-  info: message => emit(() => (impl ?? defaultImpl()).info(message)),
-  warn: message => emit(() => (impl ?? defaultImpl()).warn(message)),
-  error: message => emit(() => (impl ?? defaultImpl()).error(message)),
-  success: message => emit(() => (impl ?? defaultImpl()).success(message)),
-  step: message => emit(() => (impl ?? defaultImpl()).step(message)),
+  info: (message, options) => emit(() => (impl ?? defaultImpl()).info(message, options)),
+  warn: (message, options) => emit(() => (impl ?? defaultImpl()).warn(message, options)),
+  error: (message, options) => emit(() => (impl ?? defaultImpl()).error(message, options)),
+  success: (message, options) => emit(() => (impl ?? defaultImpl()).success(message, options)),
+  step: (message, options) => emit(() => (impl ?? defaultImpl()).step(message, options)),
   message: (message, options) => emit(() => (impl ?? defaultImpl()).message(message, options)),
 }
 
