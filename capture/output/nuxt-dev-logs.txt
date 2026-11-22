@@ -1,4 +1,4 @@
-styles: 9b9e87c47014c335
+styles: a4d3b4f12bc4b880
              ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
            GET /api/checkout?cart=c_19be07
            GET /api/checkout?cart=c_8f3a21
@@ -58,11 +58,11 @@ styles: 9b9e87c47014c335
   STARTING   preparing your app
   STARTING   setting up modules
   STARTING   starting Nuxt...
-  Vite server built in 42 ms
   [nitro] Nuxt Nitro server built in 42 ms
   service responded
   ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing
  e last error · r restart · o open · i info · l logs · n network · p routes · ? help · q quit
+ i info · l logs · n network · p routes · ? help
  logs · cli+build+runtime · all levels
  logs · follow paused · cli+build+runtime · all levels
  logs › 12 of 12 · error · runtime · 12:00:00
@@ -71,8 +71,8 @@ styles: 9b9e87c47014c335
  ⣠⣦⣠⡀  Nuxt x.y.z
  ⣠⣦⣠⡀  Nuxt x.y.z                                                                ready in 42 ms
 ↑/↓ scroll · ←/→ previous/next · y copy · esc back
-↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · q close
-↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · q close ⣠⣦⣠⡀  Nuxt x.y.z
+↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · a all · q close
+↑/↓ select · enter details · Home/End top/live · PgUp/PgDn scroll · e errors · a all · q close ⣠⣦⣠⡀  Nuxt x.y.z
 ────────────────────────────────────────────────────────────────────────────────────────────────
 ▎
 ▎                │ ^

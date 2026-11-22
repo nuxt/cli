@@ -1,7 +1,7 @@
 import type { DevRoute, DevRoutes } from '../utils'
 import type { Key } from './keys'
 
-import type { OverlayEntry } from './screen'
+import type { OverlayEntry, OverlayHint } from './screen'
 import { relative } from 'node:path'
 
 import { styleText } from 'node:util'
@@ -11,7 +11,7 @@ import { link } from 'clickable-path'
 import { truncate } from '../../utils/formatting'
 
 import { MUTED } from '../../utils/terminal-theme'
-import { formatHints, ScreenOverlay } from './screen'
+import { ScreenOverlay } from './screen'
 
 type RouteFilter = 'all' | 'page' | 'server'
 
@@ -96,22 +96,24 @@ export class RouteOverlay extends ScreenOverlay {
     }
     const width = Math.min(50, Math.max(...matching.map(route => route.route.length)) + 2)
     return matching.map(route => ({
+      // Routes are reported afresh on every reload, so the objects do not last.
+      key: `${route.kind} ${route.method ?? ''} ${route.route} ${route.file ?? ''}`,
       lines: [this.#formatRoute(route, width, columns)],
       copy: route.file ? relative(this.#cwd, route.file) : route.route,
     }))
   }
 
-  protected renderHints(columns: number): string {
-    return formatHints([
+  protected hints(): OverlayHint[] {
+    return [
       ['↑/↓', 'select'],
-      ['w', 'pages'],
-      ['s', 'server'],
-      ['a', 'all'],
+      ['w', 'pages', { active: this.#filter === 'page' }],
+      ['s', 'server', { active: this.#filter === 'server' }],
+      ['a', 'all', { active: this.#filter === 'all' }],
       ['/', 'search'],
       ['y', 'copy'],
       ['Y', 'copy all'],
       ['q', 'close'],
-    ], columns)
+    ]
   }
 
   #formatRoute(route: DevRoute, width: number, columns: number): string {

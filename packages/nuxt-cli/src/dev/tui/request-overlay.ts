@@ -3,7 +3,7 @@ import type { DevEventLog, DevLogEvent } from './events'
 import type { Key } from './keys'
 import type { DevRequest, RequestLog } from './requests'
 
-import type { OverlayEntry } from './screen'
+import type { OverlayEntry, OverlayHint } from './screen'
 
 import process from 'node:process'
 
@@ -16,7 +16,7 @@ import { formatDuration, truncate } from '../../utils/formatting'
 import { MUTED, paint } from '../../utils/terminal-theme'
 import { formatEvent, formatTime } from './overlay'
 import { paintStatus } from './panel'
-import { formatHints, ScreenOverlay } from './screen'
+import { ScreenOverlay } from './screen'
 
 type TrafficFilter = 'all' | 'errors' | 'slow'
 
@@ -125,34 +125,35 @@ export class RequestOverlay extends ScreenOverlay {
     }
     const errors = this.#errorCounts()
     return matching.map(request => ({
+      key: request,
       lines: [this.#format(request, columns, request.id === undefined ? 0 : errors.get(request.id) ?? 0)],
       copy: describeRequest(request),
     }))
   }
 
-  protected renderHints(columns: number): string {
+  protected hints(): OverlayHint[] {
     if (this.#detail) {
-      return formatHints([
+      return [
         ['↑/↓', 'select'],
         ['y', 'copy'],
         ['Y', 'copy all'],
         ['esc', 'back'],
-      ], columns)
+      ]
     }
-    return formatHints([
+    return [
       ['↑/↓', 'select'],
       ['enter', 'trace'],
       ['Home/End', 'top/live'],
       ['PgUp/PgDn', 'scroll'],
-      ['e', 'errors'],
-      ['s', `slow >${SLOW_MS}ms`],
-      ['a', 'all'],
-      ['b', 'bundler'],
+      ['e', 'errors', { active: this.#filter === 'errors' }],
+      ['s', `slow >${SLOW_MS}ms`, { active: this.#filter === 'slow' }],
+      ['a', 'all', { active: this.#filter === 'all' }],
+      ['b', 'bundler', { active: this.#showInternal }],
       ['/', 'search'],
       ['y', 'copy'],
       ['Y', 'copy all'],
       ['q', 'close'],
-    ], columns)
+    ]
   }
 
   /** The request as a heading, then every log the server attributed to it. */
