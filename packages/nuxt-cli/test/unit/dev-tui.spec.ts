@@ -23,7 +23,7 @@ import { DEFAULT_HINTS, renderPanel, renderPanelText } from '../../src/dev/tui/p
 import { RequestOverlay } from '../../src/dev/tui/request-overlay'
 import { RequestLog } from '../../src/dev/tui/requests'
 import { RouteOverlay } from '../../src/dev/tui/route-overlay'
-import { formatHints } from '../../src/dev/tui/screen'
+import { layoutHints } from '../../src/dev/tui/screen'
 import { resolveDevUISupport, supportsUnicode } from '../../src/dev/tui/support'
 import { PanelSurface } from '../../src/dev/tui/surface'
 import { KEEPS_PROCESS_ALIVE } from '../../src/utils/errors'
@@ -1285,27 +1285,20 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
-  it('leaves claiming the mouse to the panel', () => {
+  it('claims the mouse for as long as it has the screen', () => {
     const { overlay, output } = create()
     overlay.open()
+    expect(output()).toContain('\u001B[?1049h\u001B[?25l\u001B[?1000h\u001B[?1006h')
     overlay.close()
-    expect(output()).not.toContain('\u001B[?1000')
+    expect(output().endsWith('\u001B[?1006l\u001B[?1000l\u001B[?25h\u001B[?1049l')).toBe(true)
   })
 
   describe('wheel', () => {
-    beforeEach(() => {
-      vi.useFakeTimers({ toFake: ['Date'] })
-    })
-
-    afterEach(() => {
-      vi.useRealTimers()
-    })
-
-    function spin(overlay: LogOverlay, directions: Array<'up' | 'down'>, gapMs: number) {
+    async function spin(overlay: LogOverlay, directions: Array<'up' | 'down'>) {
       for (const direction of directions) {
-        vi.setSystemTime(Date.now() + gapMs)
         overlay.handleMouse({ button: direction === 'up' ? 64 : 65, pressed: true, row: 5, column: 5 })
       }
+      await new Promise(resolve => setImmediate(resolve))
     }
 
     function forty() {
@@ -1316,7 +1309,7 @@ describe('log overlay', () => {
       return events
     }
 
-    it('moves the selection as the arrow keys do when turned slowly', () => {
+    it('moves the selection as the arrow keys do', async () => {
       const events = forty()
       const keys = create(events)
       const wheel = create(events)
@@ -1326,7 +1319,7 @@ describe('log overlay', () => {
       for (const name of ['up', 'up', 'up', 'down']) {
         keys.overlay.handleKey({ name })
       }
-      spin(wheel.overlay, ['up', 'up', 'up', 'down'], 200)
+      await spin(wheel.overlay, ['up', 'up', 'up', 'down'])
 
       expect(wheel.lastFrame()).toContain('\u258E')
       expect(wheel.lastFrame()).toBe(keys.lastFrame())
@@ -1334,18 +1327,54 @@ describe('log overlay', () => {
       wheel.overlay.close()
     })
 
-    it('moves further per tick when spun fast, and starts slow again on turning back', () => {
-      const { overlay, lastFrame } = create(forty())
-      const selected = () => strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))
+    it('scrolls a log shown in full by row, where a click selects nothing', async () => {
+      const events = new DevEventLog()
+      events.push(event({ message: Array.from({ length: 80 }, (_, i) => `row ${i}`).join('\n') }))
+      const keys = create(events)
+      const wheel = create(events)
+      for (const { overlay } of [keys, wheel]) {
+        overlay.open()
+        overlay.handleKey({ name: 'up' })
+        overlay.handleKey({ name: 'return' })
+      }
+      const top = wheel.lastFrame()
+
+      keys.overlay.handleKey({ name: 'down' })
+      keys.overlay.handleKey({ name: 'down' })
+      await spin(wheel.overlay, ['down', 'down'])
+      expect(wheel.lastFrame()).not.toBe(top)
+      expect(wheel.lastFrame()).toBe(keys.lastFrame())
+
+      wheel.overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
+      expect(wheel.lastFrame()).toBe(keys.lastFrame())
+      keys.overlay.close()
+      wheel.overlay.close()
+    })
+
+    it('repaints once for reports that arrive together', async () => {
+      const { overlay, output, lastFrame } = create(forty())
+      const frames = () => output().split('\u001B[H\u001B[2J').length
       overlay.open()
       overlay.handleKey({ name: 'home' })
+      const before = frames()
 
-      spin(overlay, ['down', 'down', 'down'], 10)
-      expect(selected()).toContain('entry 7')
+      await spin(overlay, ['down', 'down', 'down'])
 
-      spin(overlay, ['up'], 10)
-      expect(selected()).toContain('entry 6')
+      expect(frames()).toBe(before + 1)
+      expect(strip(lastFrame()).split('\n').find(line => line.includes('\u258E'))).toContain('entry 3')
       overlay.close()
+    })
+
+    it('does not repaint a view closed before the wheel settled', async () => {
+      const { overlay, output } = create(forty())
+      overlay.open()
+      overlay.handleMouse({ button: 65, pressed: true, row: 5, column: 5 })
+      overlay.close()
+      const closed = output()
+
+      await new Promise(resolve => setImmediate(resolve))
+
+      expect(output()).toBe(closed)
     })
   })
 
@@ -1409,6 +1438,52 @@ describe('log overlay', () => {
     expect(closed()).toBe(1)
   })
 
+  it('deletes the logs only on a second click', () => {
+    const events = new DevEventLog()
+    events.push(event({ message: 'kept for now' }))
+    const { overlay, lastFrame } = create(events)
+    const hintRow = (process.stdout.rows || 24) - 1
+    const hints = () => strip(lastFrame()).split('\n').at(-1)!
+    const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
+    Object.defineProperty(process.stdout, 'columns', { value: 200, configurable: true })
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      overlay.open()
+      const column = hints().indexOf('x delete logs')
+      expect(column).toBeGreaterThanOrEqual(0)
+      const click = (row = hintRow) => overlay.handleMouse({ button: 0, pressed: true, row, column })
+
+      click()
+      expect(hints()).toContain('click again to delete logs')
+      click(2)
+      expect(hints()).toContain('x delete logs')
+      click()
+      overlay.handleKey({ name: 'down' })
+      click()
+      expect(events.recent(10)).toHaveLength(1)
+
+      vi.setSystemTime(Date.now() + 5000)
+      overlay.repaint()
+      click()
+      expect(hints()).toContain('click again to delete logs')
+      expect(events.recent(10)).toHaveLength(1)
+
+      click()
+      expect(events.recent(10)).toHaveLength(0)
+      expect(hints()).toContain('x delete logs')
+    }
+    finally {
+      vi.useRealTimers()
+      overlay.close()
+      if (columns) {
+        Object.defineProperty(process.stdout, 'columns', columns)
+      }
+      else {
+        Reflect.deleteProperty(process.stdout, 'columns')
+      }
+    }
+  })
+
   it('keeps the active level filter visible in the hints', () => {
     const columns = Object.getOwnPropertyDescriptor(process.stdout, 'columns')
     Object.defineProperty(process.stdout, 'columns', { value: 80, configurable: true })
@@ -1441,7 +1516,6 @@ describe('log overlay', () => {
     const { overlay, lastFrame } = create(events)
     const selected = () => strip(lastFrame()).split('\n').filter(line => line.includes('\u258E'))
     overlay.open()
-    // Drops `entry 0` from the front before the view repaints.
     events.push(event({ message: 'entry 5' }))
 
     overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
@@ -1463,7 +1537,6 @@ describe('log overlay', () => {
     overlay.open()
     overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
     expect(selected()[0]).toContain('entry 1')
-    // Drops `entry 0`, so `entry 2` now sits where `entry 1` was in the list.
     events.push(event({ message: 'entry 5' }))
 
     overlay.handleMouse({ button: 0, pressed: true, row: 4, column: 10 })
@@ -2096,12 +2169,15 @@ describe('log overlay', () => {
 
 describe('overlay hints', () => {
   it('highlights an active hint and keeps it when the line is too narrow', () => {
-    const hints: Array<[string, string, boolean?]> = [['a', 'first'], ['b', 'dropped'], ['c', 'active', true], ['d', 'dropped too'], ['e', 'last']]
+    const { text, spans } = layoutHints([['a', 'first'], ['b', 'dropped'], ['c', 'active', { active: true }], ['d', 'dropped too'], ['e', 'last']], 27)
 
-    const line = formatHints(hints, 24)
-
-    expect(strip(line)).toBe('a first · c active · e last')
-    expect(line).toContain(styleText(['green', 'bold'], 'c active'))
+    expect(strip(text)).toBe('a first · c active · e last')
+    expect(text).toContain(styleText(['green', 'bold'], 'c active'))
+    expect(spans.map(({ hint, start, end }) => [strip(text).slice(start, end), hint[0]])).toEqual([
+      ['a first', 'a'],
+      ['c active', 'c'],
+      ['e last', 'e'],
+    ])
   })
 })
 
@@ -2305,6 +2381,42 @@ describe('request overlay', () => {
     expect(title()).toContain('traffic')
     click()
     expect(title()).toContain('trace')
+    overlay.close()
+  })
+
+  it('clicks the request that was seen, even when the log moved since', () => {
+    const log = new RequestLog(3)
+    let output = ''
+    const overlay = new RequestOverlay(log, (chunk) => {
+      output += chunk
+    }, () => {})
+    const selected = () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? '').split('\n').filter(line => line.includes('\u258E'))
+    log.push(['/a', '/b', '/c'].map(url => ({ time: 0, method: 'GET', url, status: 200, duration: 2 })))
+    overlay.open()
+    log.push([{ time: 0, method: 'GET', url: '/d', status: 200, duration: 2 }])
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+
+    expect(selected()).toHaveLength(1)
+    expect(selected()[0]).toContain('/b')
+    overlay.close()
+  })
+
+  it('only selects on the first click after the filter changed', () => {
+    const { log, overlay, lastFrame } = create()
+    log.push([
+      { time: 0, method: 'GET', url: '/fine', status: 200, duration: 2 },
+      { time: 0, method: 'GET', url: '/broken', status: 500, duration: 2 },
+      { time: 0, method: 'GET', url: '/also-broken', status: 500, duration: 2 },
+    ])
+    overlay.open()
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+    overlay.handleKey({ name: 'e', sequence: 'e' })
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 2, column: 10 })
+
+    expect(lastFrame().split('\n')[0]).toContain('traffic')
+    expect(lastFrame().split('\n').find(line => line.includes('\u258E'))).toContain('/broken')
     overlay.close()
   })
 
@@ -2602,6 +2714,20 @@ describe('route overlay', () => {
     const { overlay, lastFrame } = create()
     overlay.open()
     expect(lastFrame()).toContain('waiting for routes')
+  })
+
+  it('clicks the route that was seen, even when the routes were reported again since', () => {
+    const { overlay, lastFrame } = create()
+    overlay.setRoutes({ routes })
+    overlay.open()
+    overlay.setRoutes({ routes: [{ kind: 'page', route: '/a', file: '/project/app/pages/a.vue' }, ...routes.map(route => ({ ...route }))] })
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+
+    const selected = lastFrame().split('\n').filter(line => line.includes('\u258E'))
+    expect(selected).toHaveLength(1)
+    expect(selected[0]).toContain('/about')
+    overlay.close()
   })
 
   it('lists routes with their files relative to the project', () => {
@@ -3546,6 +3672,108 @@ async function withPanel(run: (ui: ReturnType<typeof setupDevUI>, settle: () => 
   }
 }
 
+describe('panel views', () => {
+  const mouseOn = '\u001B[?1000h\u001B[?1006h'
+  const mouseOff = '\u001B[?1006l\u001B[?1000l'
+  const tabs = ' i info · l logs · n network · p routes · ? help'
+
+  function watch(session: NonNullable<ReturnType<typeof beginDevUI>>) {
+    const writes = vi.spyOn(session.surface, 'writeRaw')
+    const written = () => writes.mock.calls.map(([chunk]) => chunk).join('')
+    return {
+      written,
+      frame: () => strip(written().split('\u001B[H\u001B[2J').at(-1) ?? '').split('\n'),
+    }
+  }
+
+  const press = (name: string, key: Record<string, unknown> = {}) => process.stdin.emit('keypress', name, { name, sequence: name, ...key })
+
+  async function click(row: number, column: number): Promise<void> {
+    process.stdin.emit('data', Buffer.from(`\u001B[<0;${column + 1};${row + 1}M`, 'latin1'))
+    await new Promise(resolve => setImmediate(resolve))
+  }
+
+  it('leaves the mouse to the terminal until a view is open', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      const { written } = watch(session)
+      await click(29, 20)
+      expect(session.surface.screenMode).toBe('split-footer')
+      expect(written()).not.toContain('\u001B[?1000')
+
+      press('l')
+      expect(written()).toContain(mouseOn)
+      expect(written()).not.toContain(mouseOff)
+
+      press('escape')
+      expect(session.surface.screenMode).toBe('split-footer')
+      expect(written()).toContain(mouseOff)
+    })
+  })
+
+  it('gives the mouse back on teardown', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      const { written } = watch(session)
+      press('l')
+      session.teardown()
+      expect(written().lastIndexOf(mouseOff)).toBeGreaterThan(written().lastIndexOf(mouseOn))
+    })
+  })
+
+  it('opens the view of a clicked tab without leaving the alternate screen', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      const { written, frame } = watch(session)
+      press('l')
+      expect(frame()[0]).toBe(tabs)
+      expect(frame()[1]).toContain('logs')
+
+      await click(0, tabs.indexOf('n network') + 2)
+      expect(frame()[1]).toContain('traffic')
+      expect(session.surface.screenMode).toBe('alternate-screen')
+      expect(written().split('\u001B[?1049h')).toHaveLength(2)
+      expect(written()).not.toContain('\u001B[?1049l')
+
+      await click(0, tabs.indexOf('n network') + 2)
+      expect(frame()[1]).toContain('traffic')
+
+      press('escape')
+      expect(session.surface.screenMode).toBe('split-footer')
+      expect(written().split('\u001B[?1049l')).toHaveLength(2)
+    })
+  })
+
+  it('opens a view from another with its key, or the next with tab', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      const { frame } = watch(session)
+      press('l')
+      press('p')
+      expect(frame()[1]).toContain('routes')
+
+      press('tab')
+      expect(frame()[1]).toContain('keyboard shortcuts')
+      press('tab')
+      expect(frame()[1]).toContain('info')
+      press('tab', { shift: true })
+      press('tab', { shift: true })
+      expect(frame()[1]).toContain('routes')
+
+      press('p')
+      expect(session.surface.screenMode).toBe('split-footer')
+    })
+  })
+
+  it('counts the logs as read when another tab takes their place', async () => {
+    await withPanel(async (_ui, _settle, session) => {
+      session.events.push({ time: Date.now(), level: 1, type: 'warn', message: 'careful', source: 'build' }, { route: 'report' })
+      expect(session.state.warnings).toBe(1)
+
+      press('l')
+      press('n')
+      expect(session.state.warnings).toBe(0)
+      expect(session.surface.screenMode).toBe('alternate-screen')
+    })
+  })
+})
+
 describe('panel info view', () => {
   it('lists Nitro until the app names another server builder', async () => {
     await withPanel(async (_ui, settle) => {
@@ -3566,103 +3794,6 @@ describe('panel info view', () => {
       ui.setStack({ builder: 'vite', server: 'nitro', nitroMajor: 3 })
       process.stdin.emit('keypress', 'i', { name: 'i', sequence: 'i' })
       expect(await settle()).toMatch(/Server builder\s+Nitro 3\.0\.0/)
-    })
-  })
-})
-
-describe('panel mouse', () => {
-  const mouseOn = '\u001B[?1000h\u001B[?1006h'
-  const mouseOff = '\u001B[?1006l\u001B[?1000l'
-
-  /** Click the panel hint labelled `label`, on the last row, and let the report settle. */
-  async function clickHint(session: NonNullable<ReturnType<typeof beginDevUI>>, label: string): Promise<void> {
-    const column = strip(session.surface.lines.at(-1) ?? '').indexOf(label)
-    expect(column).toBeGreaterThanOrEqual(0)
-    process.stdin.emit('data', Buffer.from(`\u001B[<0;${column + 1};30M`, 'latin1'))
-    await new Promise(resolve => setImmediate(resolve))
-  }
-
-  it('claims the mouse only while switched on with m, and shows it on', async () => {
-    await withPanel(async (_ui, settle, session) => {
-      const writes = vi.spyOn(session.surface, 'writeRaw')
-      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-      expect(writes).toHaveBeenLastCalledWith(mouseOn)
-      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(true)
-
-      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-      expect(writes).toHaveBeenLastCalledWith(mouseOff)
-      expect(session.state.hints?.find(hint => hint.key === 'm')?.active).toBe(false)
-      await settle()
-    })
-  })
-
-  it('presses the key of a clicked hint, and keeps the mouse through a view', async () => {
-    await withPanel(async (_ui, settle, session) => {
-      await clickHint(session, 'l logs')
-      expect(session.surface.screenMode).toBe('split-footer')
-
-      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-      await settle()
-      const writes = vi.spyOn(session.surface, 'writeRaw')
-      await clickHint(session, 'l logs')
-      expect(session.surface.screenMode).toBe('alternate-screen')
-
-      process.stdin.emit('keypress', '', { name: 'escape' })
-      expect(session.surface.screenMode).toBe('split-footer')
-      expect(writes.mock.calls.some(([chunk]) => chunk.includes('\u001B[?1000'))).toBe(false)
-    })
-  })
-
-  it('quits only on a second click', async () => {
-    adoptShutdown()
-    const interrupt = vi.fn()
-    process.on('SIGINT', interrupt)
-    try {
-      await withPanel(async (_ui, settle, session) => {
-        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-        await settle()
-        await clickHint(session, 'q quit')
-        expect(interrupt).not.toHaveBeenCalled()
-        expect(session.state.notice?.text).toContain('click quit again')
-
-        await clickHint(session, 'q quit')
-        expect(interrupt).toHaveBeenCalledOnce()
-      })
-    }
-    finally {
-      process.off('SIGINT', interrupt)
-    }
-  })
-
-  it('asks again when something else is clicked between the two', async () => {
-    adoptShutdown()
-    const interrupt = vi.fn()
-    process.on('SIGINT', interrupt)
-    try {
-      await withPanel(async (_ui, settle, session) => {
-        process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-        await settle()
-        await clickHint(session, 'q quit')
-        await clickHint(session, 'l logs')
-        process.stdin.emit('keypress', '', { name: 'escape' })
-        await settle()
-
-        await clickHint(session, 'q quit')
-        expect(interrupt).not.toHaveBeenCalled()
-        expect(session.state.notice?.text).toContain('click quit again')
-      })
-    }
-    finally {
-      process.off('SIGINT', interrupt)
-    }
-  })
-
-  it('gives the mouse back on teardown', async () => {
-    await withPanel(async (_ui, _settle, session) => {
-      process.stdin.emit('keypress', 'm', { name: 'm', sequence: 'm' })
-      const writes = vi.spyOn(session.surface, 'writeRaw')
-      session.teardown()
-      expect(writes.mock.calls.map(([chunk]) => chunk).filter(chunk => chunk.includes('?1000')).at(-1)).toBe(mouseOff)
     })
   })
 })

@@ -1,10 +1,10 @@
-import type { OverlayEntry } from './screen'
+import type { OverlayEntry, OverlayHint } from './screen'
 
 import { styleText } from 'node:util'
 
 import { MUTED } from '../../utils/terminal-theme'
 
-import { formatHints, ScreenOverlay } from './screen'
+import { ScreenOverlay } from './screen'
 
 export interface HelpEntry {
   keys: string[]
@@ -22,6 +22,9 @@ const VIEW_ENTRIES: HelpEntry[] = [
   { keys: ['Y'], description: 'copy the whole view' },
   { keys: ['/'], description: 'search (enter applies, esc cancels)' },
   { keys: ['esc', 'q'], description: 'close or go back; opening key also closes' },
+  { keys: ['tab', 'shift-tab'], description: 'next or previous view' },
+  { keys: ['wheel'], description: 'move the selection' },
+  { keys: ['click'], description: 'select an entry (again to open it), open a tab or press a hint' },
 ]
 
 /** Keyboard shortcut reference. */
@@ -43,7 +46,7 @@ export class HelpOverlay extends ScreenOverlay {
   }
 
   protected get closeKeys(): readonly string[] {
-    return ['h', '?']
+    return ['?', 'h']
   }
 
   protected renderTitle(): string {
@@ -66,8 +69,8 @@ export class HelpOverlay extends ScreenOverlay {
     ]
   }
 
-  protected renderHints(columns: number): string {
-    return formatHints([['↑/↓', 'select'], ['PgUp/PgDn', 'scroll'], ['esc/q', 'close']], columns)
+  protected hints(): OverlayHint[] {
+    return [['↑/↓', 'select'], ['PgUp/PgDn', 'scroll'], ['esc/q', 'close']]
   }
 }
 

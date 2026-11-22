@@ -1,14 +1,14 @@
 import type { DevEventLog, DevLogEvent, DevLogSource } from './events'
 import type { Key } from './keys'
 
-import type { OverlayEntry } from './screen'
+import type { OverlayEntry, OverlayHint } from './screen'
 
 import { styleText } from 'node:util'
 
 import { stripAnsi, truncate, visibleWidth, wrapText } from '../../utils/formatting'
 
 import { MUTED, paint } from '../../utils/terminal-theme'
-import { formatHints, ScreenOverlay } from './screen'
+import { ScreenOverlay } from './screen'
 
 type LevelFilter = 'all' | 'warn' | 'error'
 
@@ -186,31 +186,31 @@ export class LogOverlay extends ScreenOverlay {
     })
   }
 
-  protected renderHints(columns: number): string {
+  protected hints(): OverlayHint[] {
     if (this.#detail) {
-      return formatHints([
+      return [
         ['↑/↓', 'scroll'],
         ['←/→', 'previous/next'],
         ['y', 'copy'],
         ['esc', 'back'],
-      ], columns)
+      ]
     }
-    return formatHints([
+    return [
       ['↑/↓', 'select'],
       ['enter', 'details'],
       ['Home/End', 'top/live'],
       ['PgUp/PgDn', 'scroll'],
-      ['e', 'errors', this.#level === 'error'],
-      ['w', 'warnings', this.#level === 'warn'],
-      ['a', 'all', this.#level === 'all'],
+      ['e', 'errors', { active: this.#level === 'error' }],
+      ['w', 'warnings', { active: this.#level === 'warn' }],
+      ['a', 'all', { active: this.#level === 'all' }],
       ['t/b/r', 'cli/build/runtime'],
       ['T', 'timestamps'],
       ['/', 'search'],
-      ['x', 'delete logs'],
+      ['x', 'delete logs', { confirm: true }],
       ['y', 'copy'],
       ['Y', 'copy all'],
       ['q', 'close'],
-    ], columns)
+    ]
   }
 
   #renderDetailTitle(event: DevLogEvent): string {

@@ -1,11 +1,11 @@
-import type { OverlayEntry } from './screen'
+import type { OverlayEntry, OverlayHint } from './screen'
 
 import { styleText } from 'node:util'
 
 import { stripAnsi, visibleWidth } from '../../utils/formatting'
 
 import { MUTED } from '../../utils/terminal-theme'
-import { formatHints, ScreenOverlay } from './screen'
+import { ScreenOverlay } from './screen'
 
 export interface InfoSection {
   heading: string
@@ -84,13 +84,13 @@ export class InfoOverlay extends ScreenOverlay {
     }))
   }
 
-  protected renderHints(columns: number): string {
-    return formatHints([
+  protected hints(): OverlayHint[] {
+    return [
       ['↑/↓', 'select'],
       ['y', 'copy'],
-      ...this.#report ? [['Y', 'copy for an issue'] as [string, string]] : [],
+      ...this.#report ? [['Y', 'copy for an issue'] satisfies OverlayHint] : [],
       ['q', 'close'],
-    ], columns)
+    ]
   }
 }
 
