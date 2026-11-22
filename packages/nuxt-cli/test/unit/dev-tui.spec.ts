@@ -2730,6 +2730,22 @@ describe('route overlay', () => {
     overlay.close()
   })
 
+  it('tells apart two pages served at the same path', () => {
+    const { overlay, lastFrame } = create()
+    overlay.setRoutes({ routes: [
+      { kind: 'page', route: '/', file: '/project/app/pages/index.vue' },
+      { kind: 'page', route: '/', file: '/project/app/pages/index/index.vue' },
+    ] })
+    overlay.open()
+
+    overlay.handleMouse({ button: 0, pressed: true, row: 3, column: 10 })
+
+    const selected = lastFrame().split('\n').filter(line => line.includes('\u258E'))
+    expect(selected).toHaveLength(1)
+    expect(selected[0]).toContain('pages/index/index.vue')
+    overlay.close()
+  })
+
   it('lists routes with their files relative to the project', () => {
     const { overlay, lastFrame } = create()
     overlay.setRoutes({ routes })

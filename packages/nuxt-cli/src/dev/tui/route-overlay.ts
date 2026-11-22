@@ -97,7 +97,7 @@ export class RouteOverlay extends ScreenOverlay {
     const width = Math.min(50, Math.max(...matching.map(route => route.route.length)) + 2)
     return matching.map(route => ({
       // Routes are reported afresh on every reload, so the objects do not last.
-      key: `${route.kind} ${route.method ?? ''} ${route.route}`,
+      key: `${route.kind} ${route.method ?? ''} ${route.route} ${route.file ?? ''}`,
       lines: [this.#formatRoute(route, width, columns)],
       copy: route.file ? relative(this.#cwd, route.file) : route.route,
     }))
