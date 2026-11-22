@@ -10,7 +10,8 @@ import { consola } from 'consola'
 import { resolveModulePath } from 'exsolve'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { configureProjectConsola, interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
+import { askQuestion, configureProjectConsola, interceptPrompts, restoreRawMode, withDirectStdout } from '../../../src/utils/console'
+import { holdScreen, onScreenHeld } from '../../../src/utils/screen'
 import { registerTerminalHost } from '../../../src/utils/terminal-host'
 
 type PromptFn = NonNullable<ConsolaOptions['prompt']>
@@ -78,6 +79,19 @@ describe('restoreRawMode', () => {
 
     expect(setRawMode).not.toHaveBeenCalled()
   })
+
+  it('should leave the keyboard to a question that is on screen', () => {
+    stubStdin({ isTTY: true, isRaw: true })
+    vi.spyOn(stdin, 'isPaused').mockReturnValue(false)
+
+    const release = holdScreen()
+    restoreRawMode()
+    expect(setRawMode).not.toHaveBeenCalled()
+
+    release()
+    restoreRawMode()
+    expect(setRawMode).toHaveBeenCalledWith(false)
+  })
 })
 
 describe('withDirectStdout', () => {
@@ -121,6 +135,85 @@ describe('withDirectStdout', () => {
     finally {
       wrapped.__write = original
     }
+  })
+})
+
+describe('askQuestion', () => {
+  function watchScreen() {
+    const seen: boolean[] = []
+    const off = onScreenHeld(held => seen.push(held))
+    return { seen, off }
+  }
+
+  it('should take the screen for the question and give it back', async () => {
+    const { seen, off } = watchScreen()
+    try {
+      await expect(askQuestion(async () => {
+        expect(seen).toEqual([true])
+        return 'answer'
+      })).resolves.toBe('answer')
+      expect(seen).toEqual([true, false])
+    }
+    finally {
+      off()
+    }
+  })
+
+  it('should give the screen back when the question throws', async () => {
+    const { seen, off } = watchScreen()
+    try {
+      await expect(askQuestion(async () => {
+        throw new Error('declined')
+      })).rejects.toThrow('declined')
+      expect(seen).toEqual([true, false])
+    }
+    finally {
+      off()
+    }
+  })
+
+  it('should hand raw mode back once the question is answered', async () => {
+    stubStdin({ isTTY: true, isRaw: true })
+    vi.spyOn(stdin, 'isPaused').mockReturnValue(false)
+
+    await askQuestion(async () => 'answer')
+
+    expect(setRawMode).toHaveBeenCalledWith(false)
+  })
+
+  it('should hand the keyboard back before the host resumes its own reader', async () => {
+    stubStdin({ isTTY: true, isRaw: false })
+    vi.spyOn(stdin, 'isPaused').mockReturnValue(false)
+    const order: string[] = []
+    setRawMode.mockImplementation(() => {
+      order.push('raw')
+      return stdin
+    })
+    const release = registerTerminalHost({
+      version: 1,
+      startTask: () => ({ update: () => {}, stop: () => {} }),
+      withTerminal: async (work) => {
+        try {
+          return await work()
+        }
+        finally {
+          Object.defineProperty(stdin, 'isRaw', { value: true, configurable: true, writable: true })
+          order.push('resume')
+        }
+      },
+    })
+
+    try {
+      await askQuestion(async () => {
+        Object.defineProperty(stdin, 'isRaw', { value: true, configurable: true, writable: true })
+        order.push('ask')
+      })
+    }
+    finally {
+      release()
+    }
+
+    expect(order).toEqual(['ask', 'raw', 'resume'])
   })
 })
 

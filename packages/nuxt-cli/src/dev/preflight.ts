@@ -6,7 +6,7 @@ import { styleText } from 'node:util'
 import { confirm, isCancel } from '@clack/prompts'
 import { dirname, join } from 'pathe'
 
-import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { askQuestion, withDirectStdout } from '../utils/console'
 import { ActionableError } from '../utils/errors'
 import { debug, logger } from '../utils/logger'
 import { CONFIG_EXTENSIONS } from '../utils/nuxt-config'
@@ -143,8 +143,7 @@ async function resolveProjectDirectory(cwd: string, interactive: boolean): Promi
 
     if (interactive) {
       logger.warn(`${styleText('cyan', cwd)} is not a Nuxt project, but ${styleText('cyan', location.ancestor)} is.`)
-      const answer = await withUserAttention(() => confirm({ message: `Run there instead?`, initialValue: true }))
-      restoreRawMode()
+      const answer = await askQuestion(() => confirm({ message: `Run there instead?`, initialValue: true }))
 
       if (!isCancel(answer) && answer) {
         return location.ancestor
@@ -236,8 +235,7 @@ async function offerInstall(cwd: string, interactive: boolean): Promise<void> {
   }
 
   logger.warn(reason)
-  const answer = await confirm({ message: `Run ${styleText('cyan', command)} now?`, initialValue: true })
-  restoreRawMode()
+  const answer = await askQuestion(() => confirm({ message: `Run ${styleText('cyan', command)} now?`, initialValue: true }))
 
   if (isCancel(answer) || !answer) {
     throw new ActionableError(`${styleText('red', 'Cannot start the dev server without dependencies.')}\nRun ${styleText('cyan', command)} and try again.`)

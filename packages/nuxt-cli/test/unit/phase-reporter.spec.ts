@@ -16,6 +16,7 @@ vi.mock('std-env', async importOriginal => ({
 process.env.FORCE_COLOR = '3'
 
 const { createPhaseReporter, formatMeter, formatPhaseTable, formatSummary, isAnimationSupported } = await import('../../src/utils/phase-reporter')
+const { holdScreen } = await import('../../src/utils/screen')
 
 function stubUnicode(supported: boolean): void {
   vi.stubEnv('LC_ALL', supported ? 'en_GB.UTF-8' : 'C')
@@ -83,6 +84,40 @@ describe('phase reporter', () => {
     })
 
     expect(screen(renderer)).toMatch(/^. Generating types 33\.0s \u00B7 total 41\.0s$/)
+  })
+
+  it('should take its line down while a question is on screen, and put it back after', () => {
+    vi.useFakeTimers()
+    freezeClock()
+    let release = () => {}
+    try {
+      const chunks: string[] = []
+      const stream = { isTTY: true, columns: 100, write: (chunk: string) => {
+        chunks.push(chunk)
+        return true
+      } } as unknown as NodeJS.WriteStream
+      const startup = createPhaseReporter({ animated: true, stream })
+      reporters.push(startup)
+      startup.update(snapshot())
+      startup.update(snapshot({ phase: 'bundle', message: 'Bundling app', index: 4 }))
+
+      const painted = chunks.length
+      release = holdScreen()
+      expect(chunks.slice(painted)).toEqual(['\r\u001B[2K', '\u001B[?25h'])
+
+      startup.update(snapshot({ phase: 'server', message: 'Building server', index: 5 }))
+      vi.advanceTimersByTime(240)
+      expect(chunks.length).toBe(painted + 2)
+
+      release()
+      expect(chunks.slice(painted + 2)).toEqual(['\u001B[?25l', expect.stringContaining('Building server')])
+      vi.advanceTimersByTime(80)
+      expect(chunks.length).toBe(painted + 5)
+    }
+    finally {
+      release()
+      vi.useRealTimers()
+    }
   })
 
   describe('with a meter', () => {

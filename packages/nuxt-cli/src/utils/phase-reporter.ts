@@ -9,6 +9,7 @@ import { supportsUnicode } from '../dev/tui/support'
 import { decapitalise, formatDuration, terminalLink, visibleWidth } from './formatting'
 import { logger } from './logger'
 import { READY_MESSAGE } from './progress-snapshot'
+import { onScreenHeld } from './screen'
 import { tapOutput } from './stdout'
 import { MUTED } from './terminal-theme'
 
@@ -179,6 +180,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   let hidden = false
   let timer: NodeJS.Timeout | undefined
   let stopped = false
+  let withheld = false
   let receivedAt = Date.now()
   let pulse: NodeJS.Timeout | undefined
   let url: string | undefined
@@ -235,7 +237,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   }
 
   function render() {
-    if (!snapshot || stopped) {
+    if (!snapshot || stopped || withheld) {
       return
     }
     const glyph = styleText('cyan', FRAMES[frame = (frame + 1) % FRAMES.length]!)
@@ -253,7 +255,7 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   }
 
   function animate() {
-    if (!animated || timer) {
+    if (!animated || timer || withheld) {
       return
     }
     hidden = true
@@ -263,6 +265,15 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
   }
 
   animate()
+
+  const offScreen = onScreenHeld((held) => {
+    if (held) {
+      withhold()
+    }
+    else {
+      resumePainting()
+    }
+  })
 
   /**
    * Repeat whatever is in flight, with the time it has taken so far, so a long
@@ -311,8 +322,30 @@ export function createPhaseReporter(options: PhaseReporterOptions = {}): PhaseRe
 
   function finish() {
     stopped = true
+    offScreen()
     restore()
     tap?.dispose()
+  }
+
+  function withhold(): void {
+    if (stopped || withheld) {
+      return
+    }
+    withheld = true
+    restore()
+  }
+
+  function resumePainting(): void {
+    if (stopped || !withheld) {
+      return
+    }
+    withheld = false
+    if (!animated) {
+      schedulePulse()
+      return
+    }
+    animate()
+    render()
   }
 
   return {

@@ -10,7 +10,7 @@ import { basename, dirname, join } from 'pathe'
 import { readUser, updateUser } from 'rc9'
 
 import { getCacheDir } from '../utils/cache'
-import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { askQuestion, restoreRawMode, withDirectStdout } from '../utils/console'
 import { debug, logger } from '../utils/logger'
 import { logNetworkError } from '../utils/network'
 import { findInPath } from '../utils/path-env'
@@ -89,8 +89,7 @@ async function confirmToolInstall(options: ConsentOptions): Promise<boolean> {
   }
 
   logger.message(options.notice.join('\n'))
-  const agreed = await confirm({ message: options.message })
-  restoreRawMode()
+  const agreed = await askQuestion(() => confirm({ message: options.message }))
   if (isCancel(agreed) || agreed !== true) {
     return false
   }

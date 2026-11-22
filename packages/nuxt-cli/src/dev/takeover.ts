@@ -7,7 +7,7 @@ import { cancel, isCancel, select, spinner } from '@clack/prompts'
 import { checkPort } from 'get-port-please'
 import { isCI } from 'std-env'
 
-import { restoreRawMode, withDirectStdout } from '../utils/console'
+import { askQuestion, restoreRawMode, withDirectStdout } from '../utils/console'
 import { lockAppURL } from '../utils/dev-server'
 import { clearStaleLock, clearTakeover, isLockEnabled, isProcessAlive, markTakenOver, readLock } from '../utils/lockfile'
 import { logger } from '../utils/logger'
@@ -157,7 +157,7 @@ async function resolveTakeover(lockDir: string, options: TakeoverOptions): Promi
       // Nothing ends an interactive session on a bare enter, so the default
       // depends on whether a person is watching the other server.
       const defaultChoice = !existing.interactive ? 'takeover' : openURL ? 'open' : 'abort'
-      const choice = await withUserAttention(() => prompt(existing, defaultChoice, openURL))
+      const choice = await askQuestion(() => prompt(existing, defaultChoice, openURL))
       if (choice === 'abort') {
         return { action: 'refused', existing, reason: 'declined' }
       }
@@ -346,7 +346,6 @@ async function promptForTakeover(existing: LockInfo, defaultChoice: TakeoverChoi
       { value: 'start-anyway', label: `Start anyway${andOpen}`, hint: serverKind(existing).startAnywayHint },
     ],
   })
-  restoreRawMode()
   // Ctrl-C must never be the thing that stops the other server.
   if (isCancel(choice)) {
     cancel(`Not starting a second ${describeServer(existing)}.`)
