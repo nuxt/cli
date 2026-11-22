@@ -277,6 +277,15 @@ describe('package manager selection', () => {
     expect(output).toContain('.yarnrc.yml')
   })
 
+  it('should opt a conflicting yarn template out of plug and play', async () => {
+    stubTemplate({ 'yarn.lock': '' })
+
+    const { output } = await runInit(['my-app', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
+
+    expect(await readFile(join(cwd, 'my-app', '.yarnrc.yml'), 'utf8')).toContain('nodeLinker: node-modules')
+    expect(output).toContain('› yarn install')
+  })
+
   it('should reject a package manager that does not exist', async () => {
     const { exitCode, output } = await runInit(['my-app', '--template=minimal', '--packageManager=nope'])
 

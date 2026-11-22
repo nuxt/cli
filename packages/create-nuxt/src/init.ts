@@ -518,7 +518,13 @@ export default defineCommand({
       prompted = true
     }
 
-    if (selectedPackageManager === 'yarn' && await useYarnNodeModulesLinker(template.dir)) {
+    // The manager shown in the closing steps. After a conflict it is the
+    // template's, because the requested one would run against its lockfile.
+    const nextStepsPackageManager = skipInstallOnConflict
+      ? (templatePackageManager?.name ?? selectedPackageManager)
+      : selectedPackageManager
+
+    if (nextStepsPackageManager === 'yarn' && await useYarnNodeModulesLinker(template.dir)) {
       logger.info(`Created ${styleText('cyan', '.yarnrc.yml')} with ${styleText('cyan', 'nodeLinker: node-modules')}, as Nuxt cannot resolve its modules under Yarn's Plug'n'Play linker.`)
     }
 
@@ -750,10 +756,7 @@ export default defineCommand({
       installFailure,
       installSkipped: !installRequested || skipInstallOnConflict,
       recoveryCommands,
-      // the requested package manager would run against the template's lockfile and config
-      packageManager: skipInstallOnConflict
-        ? (templatePackageManager?.name ?? selectedPackageManager)
-        : selectedPackageManager,
+      packageManager: nextStepsPackageManager,
     })
 
     logger.message([
