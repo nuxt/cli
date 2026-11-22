@@ -6,6 +6,7 @@ import type { TemplateData } from '../../nuxt-cli/src/utils/starter-templates'
 
 import { existsSync } from 'node:fs'
 import { readdir, writeFile } from 'node:fs/promises'
+import { join as pathJoin, resolve as pathResolve } from 'node:path'
 import process from 'node:process'
 import { styleText } from 'node:util'
 
@@ -123,21 +124,28 @@ const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies'
 
 async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string) {
   const packageJsonFiles: string[] = []
-  const queue = [rootDir]
+  const rootPackageResolved = pathResolve(rootPackageJsonPath)
+  const visited = new Set<string>()
+  const queue = [pathResolve(rootDir)]
 
   while (queue.length > 0) {
     const dir = queue.pop()!
+    if (visited.has(dir)) {
+      continue
+    }
+    visited.add(dir)
+
     const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
 
     for (const entry of entries) {
       if (entry.name === 'node_modules') {
         continue
       }
-      const entryPath = join(dir, entry.name)
+      const entryPath = pathJoin(dir, entry.name)
       if (entry.isDirectory()) {
         queue.push(entryPath)
       }
-      else if (entry.isFile() && entry.name === 'package.json' && resolve(entryPath) !== resolve(rootPackageJsonPath)) {
+      else if (entry.isFile() && entry.name === 'package.json' && pathResolve(entryPath) !== rootPackageResolved) {
         packageJsonFiles.push(entryPath)
       }
     }

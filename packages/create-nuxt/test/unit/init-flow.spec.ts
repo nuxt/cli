@@ -1,5 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join as pathJoin } from 'node:path'
 import process from 'node:process'
 
 import { join } from 'pathe'
@@ -385,6 +386,22 @@ describe('renaming when a workspace depends on the package name', () => {
     })
 
     const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
+
+  it('should rename the package when a template has a backslash-named directory', async () => {
+    downloadTemplate.mockImplementation(async (_template, options: { dir: string }) => {
+      await mkdir(options.dir, { recursive: true })
+      await writeFile(join(options.dir, 'package.json'), JSON.stringify({ name: 'template', dependencies: { nuxt: '^4.0.0' } }, null, 2))
+      await mkdir(pathJoin(options.dir, '..\\'), { recursive: true })
+      return { dir: options.dir, name: 'minimal', source: 'github' }
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=npm', '--gitInit=false', '--no-modules'])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
     expect(exitCode).toBeUndefined()
