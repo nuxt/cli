@@ -48,6 +48,18 @@ async function requestHttp2(session: ClientHttp2Session, path: string, timeout =
   throw failure
 }
 
+/** Request `path` over `session` for `authority`, resolving with the response status. */
+function requestHttp2Status(session: ClientHttp2Session, path: string, authority: string): Promise<number | undefined> {
+  return new Promise((resolve, reject) => {
+    const stream = session.request({ ':path': path, ':authority': authority })
+    stream.once('response', (headers) => {
+      resolve(headers[':status'])
+      stream.close()
+    })
+    stream.once('error', reject)
+  })
+}
+
 describe('dev server', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
@@ -381,6 +393,29 @@ describe('dev server', () => {
       try {
         await expect(requestHttp2(session, '/__test/host')).resolves.toEqual({ host: `${host}:${port}` })
         await expect(requestHttp2(session, '/api/test-cookies')).resolves.toEqual({ ok: true, cookies: 3 })
+      }
+      finally {
+        session.destroy()
+        await close()
+      }
+    })
+
+    it('should reject internal endpoints for an unknown `:authority`', { timeout: 50_000 }, async () => {
+      const host = '127.0.0.1'
+      const port = await getPort({ host, port: 3606 })
+      const { result: { close } } = await runCommand('dev', [
+        `--https`,
+        `--https.cert=${httpsCert}`,
+        `--https.key=${httpsKey}`,
+        `--host=${host}`,
+        `--port=${port}`,
+        `--cwd=${fixtureDir}`,
+      ]) as any
+
+      const session = connectHttp2(`https://${host}:${port}`, { rejectUnauthorized: false })
+      try {
+        await expect(requestHttp2Status(session, '/__nuxt_dev__/progress', 'rebinding-attacker.com')).resolves.toBe(403)
+        await expect(requestHttp2Status(session, '/__nuxt_dev__/progress', `${host}:${port}`)).resolves.toBe(200)
       }
       finally {
         session.destroy()

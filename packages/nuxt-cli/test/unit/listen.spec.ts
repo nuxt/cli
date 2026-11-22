@@ -588,6 +588,25 @@ describe('listen over https', () => {
     await closed
   })
 
+  it('should pass HTTP/1.1 upgrade requests to `upgrade` listeners', async () => {
+    const listener = await start((_req, res) => res.end('ok'))
+    listener.server.on('upgrade', (_req, socket) => {
+      socket.end('HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n')
+    })
+
+    const status = new Promise((resolve, reject) => {
+      const req = requestHttps(listener.url, { rejectUnauthorized: false, agent: false, headers: { connection: 'Upgrade', upgrade: 'websocket' } })
+      req.once('upgrade', (res, socket) => {
+        socket.destroy()
+        resolve(res.statusCode)
+      })
+      req.once('error', reject)
+      req.end()
+    })
+
+    await expect(status).resolves.toBe(101)
+  })
+
   it('should not wait for idle HTTP/2 sessions', async () => {
     const listener = await start((_req, res) => res.end('ok'))
     const session = await openSession(listener)
