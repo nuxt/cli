@@ -10,10 +10,13 @@ const mocks = vi.hoisted(() => ({
   acquireOutputLock: vi.fn(),
   buildNuxt: vi.fn(),
   clearBuildDir: vi.fn(),
+  configureProjectConsola: vi.fn(),
   loadNuxt: vi.fn(),
   releaseBuildDir: vi.fn(),
   releaseOutputDir: vi.fn(),
+  reportThroughClack: vi.fn(),
   startCpuProfile: vi.fn(),
+  stopClackReporting: vi.fn(),
   stopCpuProfile: vi.fn(),
   useNitro: vi.fn(),
   writeTypes: vi.fn(),
@@ -25,6 +28,10 @@ vi.mock('@clack/prompts', () => ({
 }))
 vi.mock('../../../src/utils/banner', () => ({
   showBanner: vi.fn(),
+}))
+vi.mock('../../../src/utils/console', () => ({
+  configureProjectConsola: mocks.configureProjectConsola,
+  reportThroughClack: mocks.reportThroughClack,
 }))
 vi.mock('../../../src/utils/env', () => ({
   overrideEnv: vi.fn(),
@@ -86,6 +93,32 @@ describe('build', () => {
     })
     mocks.acquireLock.mockReturnValue({ release: mocks.releaseBuildDir })
     mocks.acquireOutputLock.mockReturnValue({ release: mocks.releaseOutputDir })
+    mocks.reportThroughClack.mockReturnValue(mocks.stopClackReporting)
+  })
+
+  it.each([
+    ['succeeds', undefined],
+    [
+      'fails',
+      new Error('build failed'),
+    ],
+  ])('renders project logs through clack while the build runs, and stops when it %s', async (_, error) => {
+    mocks.buildNuxt.mockImplementationOnce(async () => {
+      expect(mocks.reportThroughClack).toHaveBeenCalledOnce()
+      expect(mocks.configureProjectConsola).toHaveBeenCalledWith(cwd)
+      expect(mocks.reportThroughClack.mock.invocationCallOrder[0]).toBeLessThan(mocks.loadNuxt.mock.invocationCallOrder[0]!)
+      expect(mocks.configureProjectConsola.mock.invocationCallOrder[0]).toBeLessThan(mocks.loadNuxt.mock.invocationCallOrder[0]!)
+      expect(mocks.stopClackReporting).not.toHaveBeenCalled()
+      if (error) {
+        throw error
+      }
+    })
+
+    await (error
+      ? expect(run()).rejects.toBe(error)
+      : run())
+
+    expect(mocks.stopClackReporting).toHaveBeenCalledOnce()
   })
 
   it('loads Nuxt with build arguments and runs the build in order', async () => {

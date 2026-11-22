@@ -10,7 +10,9 @@ import { consola, createConsola } from 'consola'
 import { resolveModulePath } from 'exsolve'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { askQuestion, configureProjectConsola, interceptPrompts, restoreRawMode, routeProcessWarnings, withDirectStdout } from '../../../src/utils/console'
+import { askQuestion, configureProjectConsola, interceptPrompts, reportThroughClack, restoreRawMode, routeProcessWarnings, withDirectStdout, wrapReporter } from '../../../src/utils/console'
+import { stripAnsi } from '../../../src/utils/formatting'
+import { logger } from '../../../src/utils/logger'
 import { holdScreen, onScreenHeld, registerUnseenOutput } from '../../../src/utils/screen'
 import { registerTerminalHost } from '../../../src/utils/terminal-host'
 
@@ -18,6 +20,17 @@ type PromptFn = NonNullable<ConsolaOptions['prompt']>
 
 /** Whether the session has a terminal a question could be answered on. */
 let interactive = true
+
+const stdEnv = vi.hoisted(() => ({
+  isCI: false,
+}))
+
+vi.mock('std-env', async importOriginal => ({
+  ...await importOriginal<typeof import('std-env')>(),
+  get isCI() {
+    return stdEnv.isCI
+  },
+}))
 
 vi.mock('../../../src/utils/resolve-nuxt', () => ({
   tryResolveNuxt: () => null,
@@ -431,6 +444,204 @@ describe('routeProcessWarnings', () => {
         args: ['boom'],
       },
     ])
+  })
+})
+
+describe('reportThroughClack', () => {
+  const stdout = process.stdout as Omit<NodeJS.WriteStream, 'isTTY'> & { isTTY?: boolean }
+  const isTTY = Object.getOwnPropertyDescriptor(stdout, 'isTTY')
+  let stop = () => {}
+
+  afterEach(() => {
+    stop()
+    stdEnv.isCI = false
+    if (isTTY) {
+      Object.defineProperty(stdout, 'isTTY', isTTY)
+    }
+    else {
+      delete stdout.isTTY
+    }
+  })
+
+  function setup(options: { tty?: boolean } = {}) {
+    Object.defineProperty(stdout, 'isTTY', { value: options.tty ?? true, configurable: true, writable: true })
+    const original = {
+      log: vi.fn(),
+    }
+    const instance = createConsola({
+      reporters: [
+        wrapReporter(original),
+      ],
+      level: 5,
+    })
+    const calls: Array<[method: string, message: string]> = []
+    for (const method of [
+      'error',
+      'warn',
+      'success',
+      'info',
+      'message',
+    ] as const) {
+      vi.spyOn(logger, method).mockImplementation((message?: string) => void calls.push([
+        method,
+        stripAnsi(String(message)),
+      ]))
+    }
+    return { original, instance, calls }
+  }
+
+  it('renders each consola type with the matching clack log method', () => {
+    const { original, instance, calls } = setup()
+    stop = reportThroughClack()
+
+    instance.error('boom')
+    instance.fail('broken')
+    instance.warn('slow')
+    instance.success('done')
+    instance.ready('ready')
+    instance.info('Building', 'app')
+    instance.start('starting')
+    instance.log('plain')
+    instance.debug('detail')
+
+    expect(original.log).not.toHaveBeenCalled()
+    expect(calls).toEqual([
+      ['error', 'boom'],
+      ['error', 'broken'],
+      ['warn', 'slow'],
+      ['success', 'done'],
+      ['success', 'ready'],
+      ['info', 'Building app'],
+      ['info', 'starting'],
+      ['message', 'plain'],
+      ['message', 'detail'],
+    ])
+  })
+
+  it('prefixes the tag and formats the message with the wrapped reporter', () => {
+    const { instance, calls } = setup()
+    const fancy = {
+      log: vi.fn(),
+      formatArgs: (args: unknown[]) => `formatted ${args.join(' ')}`,
+    }
+    instance.setReporters([
+      wrapReporter(fancy),
+    ])
+    stop = reportThroughClack()
+
+    instance.withTag('site-data').info('Using `cached` data')
+
+    expect(calls).toEqual([
+      ['info', '[site-data] formatted Using cached data'],
+    ])
+  })
+
+  it('writes past consola\'s stdout wrapper', () => {
+    Object.defineProperty(stdout, 'isTTY', { value: true, configurable: true, writable: true })
+    const written: string[] = []
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      written.push(stripAnsi(String(chunk)))
+      return true
+    })
+    const original = {
+      log: vi.fn(),
+    }
+    const instance = createConsola({
+      reporters: [
+        wrapReporter(original),
+      ],
+      level: 5,
+    })
+    instance.wrapStd()
+    stop = reportThroughClack()
+    try {
+      instance.error('boom')
+      instance.warn('slow')
+      instance.success('done')
+      instance.info('Building app')
+      instance.log('plain')
+    }
+    finally {
+      instance.restoreStd()
+      write.mockRestore()
+    }
+
+    expect(original.log).not.toHaveBeenCalled()
+    const output = written.join('')
+    expect(output).toContain('■  boom')
+    expect(output).toContain('▲  slow')
+    expect(output).toContain('◆  done')
+    expect(output).toContain('●  Building app')
+    expect(output).toContain('│  plain')
+  })
+
+  it('leaves the CLI\'s own logs, handed back by consola\'s stdout wrapper, to the wrapped reporter', () => {
+    Object.defineProperty(stdout, 'isTTY', { value: true, configurable: true, writable: true })
+    const write = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const original = {
+      log: vi.fn(),
+    }
+    const instance = createConsola({
+      reporters: [
+        wrapReporter(original),
+      ],
+      level: 5,
+    })
+    instance.wrapStd()
+    stop = reportThroughClack()
+    try {
+      logger.info('Deploy target: static')
+    }
+    finally {
+      instance.restoreStd()
+      write.mockRestore()
+    }
+
+    expect(original.log).toHaveBeenCalledWith(expect.objectContaining({
+      args: [
+        expect.stringContaining('Deploy target: static'),
+      ],
+    }), expect.anything())
+  })
+
+  it('leaves boxes to the wrapped reporter', () => {
+    const { original, instance, calls } = setup()
+    stop = reportThroughClack()
+
+    instance.box('Hello')
+
+    expect(calls).toEqual([])
+    expect(original.log).toHaveBeenCalledWith(expect.objectContaining({ type: 'box' }), expect.anything())
+  })
+
+  it('stops once switched off', () => {
+    const { original, instance, calls } = setup()
+    reportThroughClack()()
+
+    instance.info('after')
+
+    expect(calls).toEqual([])
+    expect(original.log).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    [
+      'stdout is not a terminal',
+      { tty: false, ci: false },
+    ],
+    [
+      'running in CI',
+      { tty: true, ci: true },
+    ],
+  ])('does nothing when %s', (_, { tty, ci }) => {
+    const { original, instance, calls } = setup({ tty })
+    stdEnv.isCI = ci
+    stop = reportThroughClack()
+
+    instance.warn('slow')
+
+    expect(calls).toEqual([])
+    expect(original.log).toHaveBeenCalledOnce()
   })
 })
 
