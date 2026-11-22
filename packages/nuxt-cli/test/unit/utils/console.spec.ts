@@ -614,6 +614,30 @@ describe('reportThroughClack', () => {
     expect(original.log).toHaveBeenCalledWith(expect.objectContaining({ type: 'box' }), expect.anything())
   })
 
+  it('leaves traces to the wrapped reporter, which prints their stack', () => {
+    const { calls } = setup()
+    const fancyOptions = { fancy: true, level: 5 }
+    const fancy = createConsola(fancyOptions).options.reporters[0]!
+    const written: string[] = []
+    const stdout = {
+      write: (chunk: string) => void written.push(stripAnsi(chunk)),
+    }
+    const instance = createConsola({
+      reporters: [
+        wrapReporter(fancy),
+      ],
+      level: 5,
+      stdout: stdout as unknown as NodeJS.WriteStream,
+    })
+    stop = reportThroughClack()
+
+    instance.trace('checkpoint')
+
+    expect(calls).toEqual([])
+    expect(written.join('')).toContain('checkpoint')
+    expect(written.join('')).toMatch(/^ +at /m)
+  })
+
   it('stops once switched off', () => {
     const { original, instance, calls } = setup()
     reportThroughClack()()

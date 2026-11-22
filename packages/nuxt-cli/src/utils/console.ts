@@ -50,7 +50,7 @@ export function wrapReporter(reporter: FormattingReporter): ConsolaReporter {
           return
         }
       }
-      if (clackReporting && !isEmittingCliLog() && logObj.type !== 'box') {
+      if (clackReporting && !isEmittingCliLog() && logObj.type !== 'box' && logObj.type !== 'trace') {
         const opts = { columns: process.stdout.columns || 0, ...ctx.options.formatOptions }
         const message = reporter.formatArgs
           ? reporter.formatArgs(logObj.args, opts)
