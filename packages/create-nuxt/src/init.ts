@@ -175,7 +175,7 @@ async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath:
         return true
       }
       for (const value of Object.values(dependencies)) {
-        if (workspaceTargetName(value) === name) {
+        if (typeof value === 'string' && workspaceTargetName(value) === name) {
           return true
         }
       }

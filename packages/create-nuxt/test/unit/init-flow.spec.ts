@@ -374,6 +374,23 @@ describe('renaming when a workspace depends on the package name', () => {
     expect(runInstall).toHaveBeenCalled()
     expect(rootPackageJson.name).toBe('cool-thing')
   })
+
+  it('should rename the package when a nested manifest has non-string dependency values', async () => {
+    stubTemplate({
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\n',
+      'packages/example/package.json': JSON.stringify({
+        name: 'example',
+        dependencies: { example: null },
+      }),
+    })
+
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+
+    const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
+    expect(rootPackageJson.name).toBe('cool-thing')
+  })
 })
 
 describe('recovery advice', () => {
