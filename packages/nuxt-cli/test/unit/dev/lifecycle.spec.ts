@@ -1281,4 +1281,38 @@ describe('dev server websocket upgrades', () => {
     await expectClosedPromptly(closed)
     expect(response()).toBe('')
   })
+
+  it('should route upgrades to the new instance when a `close` hook settles after a reload', async () => {
+    let release: (() => void) | undefined
+    let closing: Promise<void> | undefined
+    const first = createNuxt()
+    first.hook('close', () => new Promise<void>((resolve) => {
+      release = resolve
+    }))
+    first.close = () => closing = first.callHook('close')
+    const server = await startServer(first)
+    const second = createNuxt()
+    const nitroUpgrade = vi.fn(accept)
+    Object.assign(second.server, { upgrade: nitroUpgrade })
+    loadNuxt.mockImplementation(() => Promise.resolve(second))
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const reload = server.load(true, { type: 'shortcut' })
+      await vi.advanceTimersByTimeAsync(10_000)
+      await reload
+    }
+    finally {
+      vi.useRealTimers()
+    }
+    release?.()
+    await closing
+
+    const { client, response } = upgrade(server, '/_ws', null)
+    await vi.waitFor(() => expect(response()).toContain('101 Switching Protocols'))
+    expect(nitroUpgrade).toHaveBeenCalledTimes(1)
+    client.destroy()
+    warn.mockRestore()
+  })
 })
