@@ -152,8 +152,31 @@ describe('panel keys', () => {
     const { keys, mouse, type } = attach()
 
     await type('\u001B[<64;1;1M\u001B[<64;1;1Mo')
-    // Each report hands the rest back a tick later.
     await new Promise(resolve => setImmediate(resolve))
+
+    expect(keys).toEqual(['o'])
+    expect(mouse).toHaveLength(2)
+  })
+
+  it('should read mouse reports queued behind a typed key', async () => {
+    const { keys, mouse, type } = attach()
+
+    await type('o\u001B[<0;12;5M\u001B[<0;12;5mp')
+    await new Promise(resolve => setImmediate(resolve))
+
+    expect(keys).toEqual(['o', 'p'])
+    expect(mouse).toEqual([
+      { button: 0, pressed: true, row: 4, column: 11 },
+      { button: 0, pressed: false, row: 4, column: 11 },
+    ])
+  })
+
+  it('should read a report cut short behind others once the rest arrives', async () => {
+    const { keys, mouse, type } = attach()
+
+    process.stdin.emit('data', Buffer.from('\u001B[<65;1;1M\u001B[<65;1'))
+    process.stdin.emit('data', Buffer.from(';1M'))
+    await type('o')
 
     expect(keys).toEqual(['o'])
     expect(mouse).toHaveLength(2)

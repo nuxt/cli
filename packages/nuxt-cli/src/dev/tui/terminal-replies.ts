@@ -15,9 +15,13 @@ const STRING_TERMINATOR_RE = /\u0007|\u001B\\/
 // eslint-disable-next-line no-control-regex
 const CSI_REPLY_RE = /^\u001B\[[\d;?]*[Rcnty]/
 
-/** A mouse report in SGR encoding: button, column, row, then `M` pressed or `m` released. */
+/**
+ * A mouse report in SGR encoding: button, column, row, then `M` pressed or `m`
+ * released. Matched anywhere, since reports queue up behind typing and behind
+ * each other.
+ */
 // eslint-disable-next-line no-control-regex
-const MOUSE_REPORT_RE = /^\u001B\[<(\d+);(\d+);(\d+)(M)/i
+const MOUSE_REPORT_RE = /\u001B\[<(\d+);(\d+);(\d+)(M)/gi
 
 /**
  * A CSI report whose final byte has not arrived yet. A lone `ESC` is
@@ -113,11 +117,13 @@ export function filterTerminalReplies(stdin: NodeJS.ReadableStream, onMouse?: (r
     // matched together with what follows it.
     const buffered = pending + chunk.toString('latin1')
 
-    const mouse = MOUSE_REPORT_RE.exec(buffered)
-    if (mouse) {
+    const typed = buffered.replace(MOUSE_REPORT_RE, (_report, button, column, row, state) => {
+      onMouse?.({ button: Number(button), pressed: state === 'M', column: Number(column) - 1, row: Number(row) - 1 })
+      return ''
+    })
+    if (typed.length < buffered.length) {
       replying = true
-      onMouse?.({ button: Number(mouse[1]), pressed: mouse[4] === 'M', column: Number(mouse[2]) - 1, row: Number(mouse[3]) - 1 })
-      return endReply(buffered, mouse[0].length)
+      return PARTIAL_CSI_RE.test(typed) ? awaitRest(typed) : endReply(typed, 0)
     }
     const csi = CSI_REPLY_RE.exec(buffered)
     if (csi) {
