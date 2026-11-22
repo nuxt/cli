@@ -146,6 +146,18 @@ async function findPackageJsonFiles(rootDir: string, rootPackageJsonPath: string
   return packageJsonFiles
 }
 
+function workspaceTargetName(specifier: string): string | undefined {
+  if (!specifier.startsWith('workspace:')) {
+    return
+  }
+  const rest = specifier.slice('workspace:'.length)
+  if (rest.startsWith('.')) {
+    return
+  }
+  const at = rest.lastIndexOf('@')
+  return at === -1 ? undefined : rest.slice(0, at)
+}
+
 async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath: string, name: string) {
   for (const packageJsonPath of await findPackageJsonFiles(rootDir, rootPackageJsonPath)) {
     const pkg = await readPackageJSON(packageJsonPath, { try: true }).catch(() => null)
@@ -154,9 +166,18 @@ async function hasWorkspaceDependentOnName(rootDir: string, rootPackageJsonPath:
     }
 
     for (const field of DEPENDENCY_FIELDS) {
-      const specifier = pkg[field]?.[name]
+      const dependencies = pkg[field]
+      if (!dependencies) {
+        continue
+      }
+      const specifier = dependencies[name]
       if (typeof specifier === 'string' && specifier.startsWith('workspace:')) {
         return true
+      }
+      for (const value of Object.values(dependencies)) {
+        if (workspaceTargetName(value) === name) {
+          return true
+        }
       }
     }
   }
