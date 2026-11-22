@@ -10,6 +10,7 @@ import { isRemotePeerError } from './errors'
 import { debug } from './logger'
 import { tryResolveNuxt } from './resolve-nuxt'
 import { withStartupClockPaused } from './startup-clock'
+import { whenStdinReleased } from './stdin'
 import { isInteractiveSession, trackOutputSpacing } from './stdout'
 import { useTerminalHost } from './terminal-host'
 
@@ -193,7 +194,10 @@ export function interceptPrompts(instance: { options: { prompt?: PromptFn } }): 
       return Promise.resolve(declinedAnswer(opts))
     }
     const answer = promptQueue.then(() => withStartupClockPaused(() => {
-      const ask = () => withDirectStdout(() => prompt(message, opts))
+      const ask = async () => {
+        await whenStdinReleased()
+        return withDirectStdout(() => prompt(message, opts))
+      }
       const host = useTerminalHost()
       return host ? host.withTerminal(ask) : ask()
     }))

@@ -112,4 +112,41 @@ describe('startup clock', () => {
     expect(seen).toEqual([true, false])
     await expect(answer).resolves.toBe('unknown')
   })
+
+  it('should only let the question run once a stdin query has been answered', async () => {
+    const { holdStdin } = await import('../../src/utils/stdin')
+    const { registerTerminalHost } = await import('../../src/utils/terminal-host')
+    const borrowed: string[] = []
+    const release = holdStdin()
+    const removeHost = registerTerminalHost({
+      version: 1,
+      startTask: () => ({ update: () => {}, stop: () => {} }),
+      withTerminal: async (work) => {
+        borrowed.push('suspend')
+        try {
+          return await work()
+        }
+        finally {
+          borrowed.push('restore')
+        }
+      },
+    })
+    const work = vi.fn(async () => {})
+
+    try {
+      const asked = clock.withUserAttention(work)
+      await Promise.resolve()
+      expect(borrowed).toEqual(['suspend'])
+      expect(work).not.toHaveBeenCalled()
+
+      release()
+      await asked
+      expect(borrowed).toEqual(['suspend', 'restore'])
+      expect(work).toHaveBeenCalledOnce()
+    }
+    finally {
+      release()
+      removeHost()
+    }
+  })
 })

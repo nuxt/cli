@@ -183,6 +183,26 @@ describe('interceptPrompts', () => {
     }
   })
 
+  it('should wait for a stdin query to be answered before asking', async () => {
+    const { holdStdin } = await import('../../../src/utils/stdin')
+    const release = holdStdin()
+    try {
+      const { prompt, answer } = ask({ type: 'confirm' })
+
+      const answered = answer()
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(prompt).not.toHaveBeenCalled()
+
+      release()
+      await vi.waitFor(() => expect(prompt).toHaveBeenCalledOnce())
+      resolvers.pop()!(true)
+      await expect(answered).resolves.toBe(true)
+    }
+    finally {
+      release()
+    }
+  })
+
   it('should ask one question at a time', async () => {
     const first = ask({ type: 'confirm' })
     const second = ask({ type: 'confirm' })

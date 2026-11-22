@@ -2,7 +2,7 @@ import process from 'node:process'
 import { emitKeypressEvents } from 'node:readline'
 
 import { guardReplayedInput } from '../../utils/console'
-import { whenStdinReleased } from './background'
+import { whenStdinReleased } from '../../utils/stdin'
 import { filterTerminalReplies } from './terminal-replies'
 
 export interface Key {

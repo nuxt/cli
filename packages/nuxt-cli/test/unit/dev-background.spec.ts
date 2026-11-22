@@ -5,6 +5,7 @@ import { PassThrough } from 'node:stream'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type Background = typeof import('../../src/dev/tui/background')
+type Stdin = typeof import('../../src/utils/stdin')
 type Theme = typeof import('../../src/utils/terminal-theme')
 
 /** A tty that answers with `reply`, or stays silent when given nothing. */
@@ -40,12 +41,13 @@ function stubStdin(reply?: string) {
 
 describe('terminal background query', () => {
   let queryBackground: Background['queryBackground']
-  let whenStdinReleased: Background['whenStdinReleased']
+  let whenStdinReleased: Stdin['whenStdinReleased']
   let resolveBackground: Theme['resolveBackground']
 
   beforeEach(async () => {
     vi.resetModules()
-    ;({ queryBackground, whenStdinReleased } = await import('../../src/dev/tui/background'))
+    ;({ queryBackground } = await import('../../src/dev/tui/background'))
+    ;({ whenStdinReleased } = await import('../../src/utils/stdin'))
     ;({ resolveBackground } = await import('../../src/utils/terminal-theme'))
   })
 
