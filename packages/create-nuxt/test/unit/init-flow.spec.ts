@@ -287,9 +287,11 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
     expect(rootPackageJson.name).toBe('template')
   })
 
@@ -302,9 +304,11 @@ describe('renaming when a workspace depends on the package name', () => {
       }),
     })
 
-    await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
+    const { exitCode } = await runInit(['cool-thing', '--template=minimal', '--packageManager=pnpm', '--gitInit=false', '--no-modules'])
 
     const rootPackageJson = JSON.parse(await readFile(join(cwd, 'cool-thing', 'package.json'), 'utf8'))
+    expect(exitCode).toBeUndefined()
+    expect(runInstall).toHaveBeenCalled()
     expect(rootPackageJson.name).toBe('template')
   })
 
