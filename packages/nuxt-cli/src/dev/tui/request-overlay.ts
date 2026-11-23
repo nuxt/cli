@@ -293,7 +293,7 @@ export class RequestOverlay extends ScreenOverlay {
   }
 }
 
-type SpanColor = 'white' | 'red' | 'cyan' | 'green' | 'magenta' | 'blue' | 'yellow' | 'gray'
+type SpanColor = 'default' | 'red' | 'cyan' | 'green' | 'magenta' | 'blue' | 'yellow' | 'gray'
 
 const SPAN_COLORS: Record<DevRequestSpan['kind'], SpanColor> = {
   route: 'green',
@@ -302,8 +302,8 @@ const SPAN_COLORS: Record<DevRequestSpan['kind'], SpanColor> = {
   hook: 'cyan',
   plugin: 'blue',
   data: 'yellow',
-  render: 'white',
-  island: 'white',
+  render: 'default',
+  island: 'default',
   compile: 'gray',
 }
 
@@ -348,7 +348,7 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
         [requestStart, requestStart + request.duration],
       ],
       duration: request.duration,
-      color: 'white',
+      color: 'default',
     },
   ]
   if (compiled.length) {
@@ -386,7 +386,7 @@ function renderTimeline(request: DevRequest, spans: DevRequestSpan[], columns: n
       duration: span.duration,
       color: span.error || (span.status ?? 0) >= 400
         ? 'red'
-        : SPAN_COLORS[span.kind] ?? 'white',
+        : SPAN_COLORS[span.kind] ?? 'default',
     })
     open.push(span)
   }
@@ -426,7 +426,9 @@ function drawBar(row: TimelineRow, origin: number, total: number, width: number)
   return cells
     .map(filled => filled ? '█' : ' ')
     .join('')
-    .replace(/█+/g, run => styleText(row.color, run))
+    .replace(/█+/g, run => row.color === 'default'
+      ? run
+      : styleText(row.color, run))
 }
 
 function mergeIntervals(intervals: Array<[number, number]>): Array<[number, number]> {

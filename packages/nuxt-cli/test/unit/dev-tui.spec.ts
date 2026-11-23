@@ -3055,6 +3055,7 @@ describe('request overlay', () => {
       log,
       overlay,
       lastFrame: () => strip(output.split('\u001B[H\u001B[2J').at(-1) ?? ''),
+      rawFrame: () => output.split('\u001B[H\u001B[2J').at(-1) ?? '',
     }
   }
 
@@ -3512,6 +3513,45 @@ describe('request overlay', () => {
     expect(frame).toMatch(/hook\s+ {2}render:html\s+█\s+0\.4ms/)
     expect(frame).not.toContain('unrelated')
     expect(frame.indexOf('GET /api/data')).toBeLessThan(frame.indexOf('a.dev'))
+  })
+
+  it('draws request and render bars in the terminal foreground', () => {
+    vi.stubEnv('FORCE_COLOR', '3')
+    try {
+      const { log, overlay, rawFrame } = create({
+        events: new DevEventLog(),
+      })
+      log.push([
+        {
+          id: 'r1',
+          time: 0,
+          start: 1000,
+          method: 'GET',
+          url: '/',
+          status: 200,
+          duration: 100,
+        },
+      ])
+      log.pushSpans([
+        {
+          requestId: 'r1',
+          kind: 'render',
+          name: 'app.vue',
+          start: 1010,
+          duration: 50,
+        },
+      ])
+      overlay.open()
+      overlay.handleKey({ name: 'down' })
+      overlay.handleKey({ name: 'return' })
+      const lines = rawFrame().split('\n')
+      for (const kind of ['request', 'render']) {
+        expect(lines.find(line => line.includes(kind.padEnd(10)))).toMatch(/ █+ /)
+      }
+    }
+    finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('draws compiled modules as one row and breaks their time down by plugin', () => {
