@@ -1,4 +1,4 @@
-styles: fbab2c28f31b67f2
+styles: fc5605aa63aa2f1b
              ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
            GET /api/checkout?cart=c_19be07
            GET /api/checkout?cart=c_8f3a21
@@ -11,8 +11,8 @@ styles: fbab2c28f31b67f2
            [checkout] prices for cart c_19be07 were cached more than 10 minutes ago, … +2 lines
            [checkout] prices for cart c_8f3a21 were cached more than 10 minutes ago, … +2 lines
            [nitro] Nuxt Nitro server built in 42 ms
-           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07… +13 lines
-           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21… +13 lines
+           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07… +12 lines
+           ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21… +12 lines
         │ ^
       1 │ function applyDiscount(cart: string, code: string) {
       3 │ }
@@ -23,11 +23,11 @@ styles: fbab2c28f31b67f2
     [checkout] prices for cart c_8f3a21 were cached more than 10 minutes ago, recalcu… +2 lines
     at Object.handler server/api/checkout.ts:19:1
     at applyDiscount server/api/checkout.ts:2:1
-    items already on sale)
-    with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with
+    be combined with items already on sale)
+    service responded with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot
     … 5 framework frames
     › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: the pricin…
-    ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21: the p… +13 lines
+    ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_8f3a21: the p… +12 lines
    Local   http://localhost:3000/
    Local   http://localhost:3000/ ⠋
    ━━━━━━━━━━━━━━━━━━━━ 0% · 42 ms
@@ -58,8 +58,8 @@ styles: fbab2c28f31b67f2
   STARTING   preparing your app
   STARTING   setting up modules
   STARTING   starting Nuxt...
+  Vite server built in 42 ms
   [nitro] Nuxt Nitro server built in 42 ms
-  service responded
   ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing
  e last error · r restart · o open · i info · l logs · n network · p routes · ? help · q quit
  i info · l logs · n network · p routes · ? help
@@ -79,10 +79,10 @@ styles: fbab2c28f31b67f2
 ▎              1 │ function applyDiscount(cart: string, code: string) {
 ▎              3 │ }
 ▎              4 │
+▎            2026-01-01 and cannot be combined with items already on sale)
 ▎            at Object.handler server/api/checkout.ts:19:1
 ▎            at applyDiscount server/api/checkout.ts:2:1
-▎            be combined with items already on sale)
-▎            responded with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot
+▎            pricing service responded with 422 Unprocessable Entity (the code expired on
 ▎            … 5 framework frames
 ▎            › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: t…
 ▎          "expand":true}
@@ -90,7 +90,6 @@ styles: fbab2c28f31b67f2
 ▎          [checkout] loading cart c_19be07 with options
 ▎          [checkout] prices for cart c_19be07 were cached more than 10 minutes ago,
 ▎          https://pricing.example.com/v2/carts/c_19be07/recalculate?currency=EUR&include=tax
-▎          pricing service
 ▎          recalculating totals against
 ▎          {"currency":"EUR","locale":"en-GB","include":["items","discounts","shipping","tax"],
 ▎          ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the
@@ -100,9 +99,8 @@ styles: fbab2c28f31b67f2
 ▎       4 │
 ▎     at Object.handler server/api/checkout.ts:19:1
 ▎     at applyDiscount server/api/checkout.ts:2:1
-▎     items already on sale)
-▎     with 422 Unprocessable Entity (the code expired on 2026-01-01 and cannot be combined with
+▎     cannot be combined with items already on sale)
+▎     service responded with 422 Unprocessable Entity (the code expired on 2026-01-01 and
 ▎     … 5 framework frames
 ▎     › 2 │   throw new Error(`Failed to apply discount code ${code} to cart ${cart}: the pric…
-▎   service responded
 ▎   ✖ Error (500): Failed to apply discount code SUMMER-2026 to cart c_19be07: the pricing
