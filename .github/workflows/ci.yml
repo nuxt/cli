@@ -24,7 +24,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           cache: true
         env:
@@ -53,9 +53,9 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
-          runtime: node@24.22.2
+          runtime: node@24.22.3
           cache: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -103,7 +103,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node@latest
           cache: true
@@ -127,7 +127,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+      - uses: pnpm/setup@731dfb6463bbd11c11fd0ee11fe00ed0e36d48a1 # v3.2.0
         with:
           runtime: node@latest
           cache: true
@@ -139,7 +139,7 @@ jobs:
 
       - name: 📦 Pack nightly
         id: pack
-        uses: danielroe/uppt/pack@6c1a9b480b0f02a3f535dedaf1a113f590aa56f2 # v0.6.12
+        uses: danielroe/uppt/pack@2c9a289359311b9661cc99886a71121209b89d17 # v0.6.14
         with:
           checkout: false
           install: false
@@ -160,7 +160,7 @@ jobs:
       id-token: write
     environment: nightly
     steps:
-      - uses: danielroe/uppt/publish@6c1a9b480b0f02a3f535dedaf1a113f590aa56f2 # v0.6.12
+      - uses: danielroe/uppt/publish@2c9a289359311b9661cc99886a71121209b89d17 # v0.6.14
         with:
           nightly: true
           files: ${{ needs.pack-nightly.outputs.files }}
