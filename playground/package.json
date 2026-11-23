@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "nuxt": "^4.6.2",
-    "vue-router": "^5.4.0"
+    "vue-router": "^5.5.1"
   },
   "devDependencies": {
-    "@nuxt/test-utils": "^4.3.4",
+    "@nuxt/test-utils": "^4.4.0",
     "typescript": "^6.0.3",
     "vue-tsc": "^3.3.14"
   }
