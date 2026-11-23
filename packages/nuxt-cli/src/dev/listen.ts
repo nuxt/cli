@@ -429,9 +429,10 @@ export async function createListener(bound: BoundServer, options: ListenOptions 
       }
       if (isLoopbackAddress(address.address) && !tunnel && !portless.url && !stackblitzURL) {
         const isolated = detectIsolatedEnvironment()
+        const flag = styleText('cyan', '--host')
         const hint = isolated
-          ? `use ${styleText('white', '--host')} to reach this server from outside ${isolated}`
-          : `use ${styleText('white', '--host')} to expose`
+          ? `use ${flag} to reach this server from outside ${isolated}`
+          : `use ${flag} to expose`
         lines.push(line(text => styleText('magenta', text), 'Network:', styleText('gray', hint), false))
       }
       if (publicURL && publicURL !== url && !urls.some(entry => entry.url === publicURL)) {

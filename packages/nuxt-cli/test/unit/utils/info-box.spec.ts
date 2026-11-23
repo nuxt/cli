@@ -1,6 +1,6 @@
 import { stripVTControlCharacters } from 'node:util'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { formatInfoBox } from '../../../src/utils/formatting'
 
@@ -29,6 +29,16 @@ describe('formatInfoBox', () => {
       expect.stringMatching(/^Modules +@nuxt\/image$/),
       '',
     ])
+  })
+
+  it('should leave labels in the terminal foreground', () => {
+    vi.stubEnv('FORCE_COLOR', '3')
+    try {
+      expect(formatInfoBox({ Nuxt: '4.0.0' })).toBe('\u001B[1mNuxt\u001B[22m      \u001B[36m4.0.0\u001B[39m\n')
+    }
+    finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('should align values to the widest label', () => {

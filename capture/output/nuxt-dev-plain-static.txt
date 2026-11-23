@@ -1,4 +1,4 @@
-styles: 8bea158737c949fe
+styles: bf1a342acf0a9381
   press h + enter to see available shortcuts
   ➜ DevTools: press Shift + Alt + D in the browser (x.y.z)
   ➜ Local:    http://localhost:3000/

@@ -164,6 +164,12 @@ describe('dev server terminal output', () => {
       expect(colourOf(renderer, 'http://localhost')).toBe(CYAN)
     })
 
+    it('should keep the `--host` hint legible on a light background', async () => {
+      const renderer = await render(() => start())
+
+      expect(colourOf(renderer, '--host')).toBe(CYAN)
+    })
+
     it('should flag which url the qr code points at', async () => {
       const renderer = await render(() => start({ qr: true, publicURL: 'https://example.com/' }))
 
