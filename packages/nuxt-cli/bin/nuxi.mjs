@@ -2,7 +2,7 @@
 
 import nodeModule from 'node:module'
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -12,31 +12,47 @@ process.env.MIMALLOC_ARENA_EAGER_COMMIT ||= '0'
 
 // https://nodejs.org/api/module.html#moduleenablecompilecachecachedir
 // https://github.com/nodejs/node/pull/54501
-//
-// handle `<tmpdir>/node-compile-cache` if owned by another user
+const entry = fileURLToPath(import.meta.url)
 if (nodeModule.enableCompileCache && !process.env.NODE_DISABLE_COMPILE_CACHE) {
-  for (const candidate of [
-    undefined,
-    join(homedir(), '.cache', 'nuxt', 'compile-cache'),
-  ]) {
+  // handle `<tmpdir>/node-compile-cache` if owned by another user
+  const candidates = [
+    [undefined],
+    [
+      join(homedir(), '.cache', 'nuxt', 'compile-cache'),
+    ],
+  ]
+  // prefer the outermost `node_modules` holding this file, which CI build caches commonly persist
+  const modulesDirEnd = entry.indexOf(`${sep}node_modules${sep}`)
+  if (modulesDirEnd !== -1 && !process.env.NODE_COMPILE_CACHE) {
+    candidates.unshift([
+      join(entry.slice(0, modulesDirEnd + 1), 'node_modules', '.cache', 'nuxt', 'compile-cache'),
+      // keys entries relative to the cache, so a checkout at another path still hits (Node 24.12+)
+      !process.env.NODE_COMPILE_CACHE_PORTABLE,
+    ])
+  }
+  for (const [candidate, portable] of candidates) {
+    if (portable) {
+      process.env.NODE_COMPILE_CACHE_PORTABLE = '1'
+    }
     let directory
     try {
       ({ directory } = nodeModule.enableCompileCache(candidate))
     }
-    catch {
-      continue
-    }
+    catch {}
     if (directory) {
       // allow child processes to share the same cache directory
       process.env.NODE_COMPILE_CACHE ||= directory
       break
+    }
+    if (portable) {
+      delete process.env.NODE_COMPILE_CACHE_PORTABLE
     }
   }
 }
 
 globalThis.__nuxt_cli__ = {
   startTime: Date.now(),
-  entry: fileURLToPath(import.meta.url),
+  entry,
   devEntry: fileURLToPath(new URL('../dist/dev/index.mjs', import.meta.url)),
 }
 
