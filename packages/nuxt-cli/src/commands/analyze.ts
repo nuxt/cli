@@ -193,12 +193,15 @@ export default defineCommand({
     }
     analyzeOptions.filename = resolveReportFilename(analyzeOptions.filename, join(baseAnalyzeDir, '{name}.html'), analyzeDir, ctx.args.json)
 
-    const webpackAnalyze = (nuxt.options as { webpack?: { analyze?: boolean | WebpackAnalyzeOptions } }).webpack?.analyze
-    if (webpackAnalyze && typeof webpackAnalyze === 'object' && webpackAnalyze.enabled !== false) {
-      webpackAnalyze.openAnalyzer = false
-      if (ctx.args.json) {
-        webpackAnalyze.analyzerMode = 'disabled'
-        webpackAnalyze.generateStatsFile = true
+    const webpack = (nuxt.options as { webpack?: { analyze?: boolean | WebpackAnalyzeOptions } }).webpack
+    const webpackAnalyze = typeof webpack?.analyze === 'boolean'
+      ? { enabled: webpack.analyze }
+      : webpack?.analyze
+    if (webpack && webpackAnalyze?.enabled !== false) {
+      webpack.analyze = {
+        ...webpackAnalyze,
+        openAnalyzer: false,
+        ...(ctx.args.json && { analyzerMode: 'disabled', generateStatsFile: true }),
       }
     }
 
