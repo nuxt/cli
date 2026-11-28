@@ -82,12 +82,13 @@ interface AnalyzeOptions {
   devServer?: Record<string, any>
   buildAnalyze?: Record<string, any>
   webpackAnalyze?: Record<string, any>
+  webpack?: Record<string, any> | null
   nitroAnalyze?: false | Record<string, any>
   devtools?: boolean | Record<string, any>
   nitro?: 'v2' | 'v3'
 }
 
-async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, webpackAnalyze = {}, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: AnalyzeOptions = {}) {
+async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devServer = {}, buildAnalyze = {}, webpackAnalyze = {}, webpack, nitroAnalyze = {}, devtools = {}, nitro = 'v2' }: AnalyzeOptions = {}) {
   const nuxtHooks = createHooks()
   const prerenderRoutes = new Set(routes)
   let overrides: Record<string, any> = {}
@@ -107,14 +108,16 @@ async function runAnalyze({ args = ['--no-serve'], routes = [], vite = {}, devSe
         ...buildAnalyze,
       },
     },
-    webpack: {
-      analyze: {
-        enabled: true,
-        template: 'treemap',
-        filename: join(cwd, 'analyze', '{name}.html'),
-        ...webpackAnalyze,
-      } as Record<string, any>,
-    },
+    webpack: (webpack === null
+      ? undefined
+      : webpack ?? {
+        analyze: {
+          enabled: true,
+          template: 'treemap',
+          filename: join(cwd, 'analyze', '{name}.html'),
+          ...webpackAnalyze,
+        },
+      }) as Record<string, any>,
     devServer,
     devtools,
     vite,
@@ -215,6 +218,45 @@ describe('nuxt analyze command', () => {
       expect(nuxtOptions.webpack.analyze).not.toHaveProperty('openAnalyzer')
       expect(nuxtOptions.webpack.analyze).not.toHaveProperty('analyzerMode')
       expect(nuxtOptions.webpack.analyze).not.toHaveProperty('generateStatsFile')
+    })
+
+    it('should set webpack analyze options when they are not resolved yet', async () => {
+      const { nuxtOptions } = await runAnalyze({
+        args: ['--json'],
+        webpack: {},
+      })
+      expect(nuxtOptions.webpack.analyze).toEqual({ openAnalyzer: false, analyzerMode: 'disabled', generateStatsFile: true })
+    })
+
+    it('should keep partial webpack analyze options', async () => {
+      const { nuxtOptions } = await runAnalyze({
+        webpack: {
+          analyze: { reportFilename: 'report.html' },
+        },
+      })
+      expect(nuxtOptions.webpack.analyze).toEqual({ reportFilename: 'report.html', openAnalyzer: false })
+    })
+
+    it('should keep webpack analysis enabled for `webpack.analyze: true`', async () => {
+      const { nuxtOptions } = await runAnalyze({
+        webpack: { analyze: true },
+      })
+      expect(nuxtOptions.webpack.analyze).toEqual({ enabled: true, openAnalyzer: false })
+    })
+
+    it('should leave webpack analysis off for `webpack.analyze: false`', async () => {
+      const { nuxtOptions } = await runAnalyze({
+        args: ['--json'],
+        webpack: { analyze: false },
+      })
+      expect(nuxtOptions.webpack.analyze).toBe(false)
+    })
+
+    it('should not add webpack options when there are none', async () => {
+      const { nuxtOptions } = await runAnalyze({
+        webpack: null,
+      })
+      expect(nuxtOptions.webpack).toBeUndefined()
     })
   })
 
