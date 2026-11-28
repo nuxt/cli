@@ -7,7 +7,7 @@ import { cancel, isCancel, select } from '@clack/prompts'
 import { defineCommand } from 'citty'
 
 import { openBrowser } from '../dev/listen'
-import { releaseStdin, withDirectStdout } from '../utils/console'
+import { withDirectStdout } from '../utils/console'
 import { logger } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { withSpinner } from '../utils/spinner'
@@ -77,7 +77,6 @@ export default defineCommand({
           hint: description || path,
         })),
       }))
-      releaseStdin()
       if (isCancel(choice)) {
         cancel(`Nuxt documentation: ${DOCS_BASE_URL}${index.base}${results[0]!.path}`)
         return
