@@ -8,6 +8,7 @@ import { resolveDotenvFileNames } from '../utils/args'
 import { showBanner } from '../utils/banner'
 import { BuildProgress } from '../utils/build-progress'
 import { createBuildReport } from '../utils/build-report'
+import { collectClientBundle, formatClientBundle } from '../utils/client-bundle'
 import { configureProjectConsola, reportThroughClack } from '../utils/console'
 import { overrideEnv } from '../utils/env'
 
@@ -16,7 +17,7 @@ import { formatDuration } from '../utils/formatting'
 import { clearBuildDir } from '../utils/fs'
 import { loadKit } from '../utils/kit'
 import { acquireLock, acquireOutputLock, formatLockError } from '../utils/lockfile'
-import { intro, logger, outro } from '../utils/logger'
+import { intro, logBlock, logger, outro } from '../utils/logger'
 import { resolveRootDir } from '../utils/paths'
 import { createPhaseReporter, formatPhaseBreakdown, formatPhaseTable } from '../utils/phase-reporter'
 import { startCpuProfile, stopCpuProfile } from '../utils/profile'
@@ -118,6 +119,9 @@ export default defineCommand({
         progress,
         command: ctx.args.prerender ? 'generate' : 'build',
       })
+      const clientBundle = ctx.args.logLevel === 'silent'
+        ? undefined
+        : collectClientBundle(nuxt)
 
       showBanner(nuxt)
       await nuxt.ready()
@@ -158,6 +162,11 @@ export default defineCommand({
       stopReporting()
       progress.finish()
       const elapsed = Date.now() - start
+
+      const bundle = clientBundle?.()
+      if (bundle) {
+        logBlock(formatClientBundle(bundle, process.stdout.columns || 80, relative(process.cwd(), nuxt.options.rootDir)))
+      }
 
       const verbose = nuxt.options.logLevel === 'verbose'
       const summary = nuxt.options.logLevel === 'silent'
