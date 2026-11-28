@@ -55,8 +55,6 @@ export async function runMain(): Promise<void> {
   }
 
   if (!currentCommand || !LONG_RUNNING_COMMANDS.has(currentCommand)) {
-    // A question leaves stdin resumed (`askQuestion` restores it for `nuxt dev`'s
-    // shortcuts), and a resumed TTY would keep a finished command alive.
     releaseStdin()
     warnOnHang({
       action: currentCommand
