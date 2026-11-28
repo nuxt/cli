@@ -9,6 +9,7 @@ import { runCommand as _runCommand, runMain as _runMain, renderUsage } from 'cit
 import { commands } from './commands'
 import { globalCwdArgs } from './commands/_shared'
 import { main } from './main'
+import { releaseStdin } from './utils/console'
 import { warnOnHang } from './utils/hang'
 import { setRunningMain } from './utils/running-main'
 
@@ -54,6 +55,9 @@ export async function runMain(): Promise<void> {
   }
 
   if (!currentCommand || !LONG_RUNNING_COMMANDS.has(currentCommand)) {
+    // A question leaves stdin resumed (`askQuestion` restores it for `nuxt dev`'s
+    // shortcuts), and a resumed TTY would keep a finished command alive.
+    releaseStdin()
     warnOnHang({
       action: currentCommand
         ? `\`nuxt ${currentCommand}\``
